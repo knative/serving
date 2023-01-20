@@ -38,12 +38,11 @@ import (
 type configOption func(*config.Config) *config.Config
 
 type containerValidationTestCase struct {
-	name     string
-	c        corev1.Container
-	want     *apis.FieldError
-	volumes  map[string]corev1.Volume
-	cfgOpts  []configOption
-	errLevel apis.DiagnosticLevel
+	name    string
+	c       corev1.Container
+	want    *apis.FieldError
+	volumes map[string]corev1.Volume
+	cfgOpts []configOption
 }
 
 func withMultiContainerDisabled() configOption {
@@ -637,10 +636,10 @@ func TestPodSpecValidation(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Kubernetes default value is insecure, Knative may default this to secure in a future release",
 			Paths: []string{
-				"securityContext.containers[1].allowPrivilegeEscalation",
-				"securityContext.containers[1].capabilities",
-				"securityContext.containers[1].runAsNonRoot",
-				"securityContext.containers[1].seccompProfile",
+				"containers[0].securityContext.allowPrivilegeEscalation",
+				"containers[0].securityContext.capabilities",
+				"containers[0].securityContext.runAsNonRoot",
+				"containers[0].securityContext.seccompProfile",
 			},
 			Level: apis.WarningLevel,
 		},
@@ -661,10 +660,10 @@ func TestPodSpecValidation(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Kubernetes default value is insecure, Knative may default this to secure in a future release",
 			Paths: []string{
-				"securityContext.containers[1].allowPrivilegeEscalation",
-				"securityContext.containers[1].capabilities.drop",
-				"securityContext.containers[1].runAsNonRoot",
-				"securityContext.containers[1].seccompProfile.type",
+				"containers[0].securityContext.allowPrivilegeEscalation",
+				"containers[0].securityContext.capabilities.drop",
+				"containers[0].securityContext.runAsNonRoot",
+				"containers[0].securityContext.seccompProfile.type",
 			},
 			Level: apis.WarningLevel,
 		},
@@ -705,11 +704,32 @@ func TestPodSpecValidation(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Kubernetes default value is insecure, Knative may default this to secure in a future release",
 			Paths: []string{
-				"securityContext.containers[1].allowPrivilegeEscalation",
-				"securityContext.containers[1].capabilities",
+				"containers[0].securityContext.allowPrivilegeEscalation",
+				"containers[0].securityContext.capabilities",
 			},
 			Level: apis.WarningLevel,
 		},
+		errLevel: apis.WarningLevel,
+	}, {
+		name: "misspelled drop all doesn't drop ALL",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				SecurityContext: &corev1.SecurityContext{
+					AllowPrivilegeEscalation: ptr.Bool(false),
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{"all"},
+					},
+				},
+			}},
+			SecurityContext: &corev1.PodSecurityContext{
+				RunAsNonRoot: ptr.Bool(true),
+				SeccompProfile: &corev1.SeccompProfile{
+					Type: corev1.SeccompProfileTypeRuntimeDefault,
+				},
+			},
+		},
+		want:     apis.ErrInvalidValue("all", "containers[0].securityContext.capabilities.drop", "Must be spelled as 'ALL'").At(apis.WarningLevel),
 		errLevel: apis.WarningLevel,
 	}}
 
@@ -734,11 +754,10 @@ func TestPodSpecValidation(t *testing.T) {
 
 func TestPodSpecMultiContainerValidation(t *testing.T) {
 	tests := []struct {
-		name     string
-		ps       corev1.PodSpec
-		cfgOpts  []configOption
-		want     *apis.FieldError
-		errLevel apis.DiagnosticLevel
+		name    string
+		ps      corev1.PodSpec
+		cfgOpts []configOption
+		want    *apis.FieldError
 	}{{
 		name: "flag disabled: more than one container",
 		ps: corev1.PodSpec{
@@ -1106,7 +1125,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				ctx = config.ToContext(ctx, cfg)
 			}
 			got := ValidatePodSpec(ctx, test.ps)
-			got = got.Filter(test.errLevel)
+			got = got.Filter(apis.ErrorLevel)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("ValidatePodSpec (-want, +got): \n%s", diff)
 			}
@@ -1885,7 +1904,7 @@ func TestContainerValidation(t *testing.T) {
 			port, err := validateContainersPorts([]corev1.Container{test.c})
 
 			got := err.Also(ValidateContainer(ctx, test.c, test.volumes, port))
-			got = got.Filter(test.errLevel)
+			got = got.Filter(apis.ErrorLevel)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("ValidateContainer (-want, +got): \n%s", diff)
 			}
@@ -1979,7 +1998,7 @@ func TestInitContainerValidation(t *testing.T) {
 				ctx = config.ToContext(ctx, cfg)
 			}
 			got := validateInitContainer(ctx, test.c, test.volumes)
-			got = got.Filter(test.errLevel)
+			got = got.Filter(apis.ErrorLevel)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("ValidateInitContainer (-want, +got): \n%s", diff)
 			}

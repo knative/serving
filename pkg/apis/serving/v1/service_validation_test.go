@@ -50,10 +50,9 @@ func TestServiceValidation(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		r        *Service
-		wantErr  *apis.FieldError
-		errLevel apis.DiagnosticLevel
+		name    string
+		r       *Service
+		wantErr *apis.FieldError
 	}{{
 		name: "valid run latest",
 		r: &Service{
@@ -281,7 +280,7 @@ func TestServiceValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.r.Validate(context.Background())
-			got = got.Filter(test.errLevel)
+			got = got.Filter(apis.ErrorLevel)
 			if !cmp.Equal(test.wantErr.Error(), got.Error()) {
 				t.Errorf("Validate (-want, +got) = %v",
 					cmp.Diff(test.wantErr.Error(), got.Error()))
@@ -292,11 +291,10 @@ func TestServiceValidation(t *testing.T) {
 
 func TestImmutableServiceFields(t *testing.T) {
 	tests := []struct {
-		name     string
-		new      *Service
-		old      *Service
-		want     *apis.FieldError
-		errLevel apis.DiagnosticLevel
+		name string
+		new  *Service
+		old  *Service
+		want *apis.FieldError
 	}{{
 		name: "without byo-name",
 		new: &Service{
@@ -530,7 +528,7 @@ func TestImmutableServiceFields(t *testing.T) {
 			ctx := context.Background()
 			ctx = apis.WithinUpdate(ctx, test.old)
 			got := test.new.Validate(ctx)
-			got = got.Filter(test.errLevel)
+			got = got.Filter(apis.ErrorLevel)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v\nwant: %v\ngot: %v",
 					diff, test.want, got)
@@ -545,7 +543,6 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 		service     *Service
 		subresource string
 		want        *apis.FieldError
-		errLevel    apis.DiagnosticLevel
 	}{{
 		name: "status update with valid revision template",
 		service: &Service{
@@ -671,7 +668,7 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 			ctx := context.Background()
 			ctx = apis.WithinUpdate(ctx, test.service)
 			ctx = apis.WithinSubResourceUpdate(ctx, test.service, test.subresource)
-			if diff := cmp.Diff(test.want.Error(), test.service.Validate(ctx).Filter(test.errLevel).Error()); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), test.service.Validate(ctx).Filter(apis.ErrorLevel).Error()); diff != "" {
 				t.Error("Validate (-want, +got) =", diff)
 			}
 		})
@@ -708,11 +705,10 @@ func TestServiceAnnotationUpdate(t *testing.T) {
 		u3 = "vaca@knative.dev"
 	)
 	tests := []struct {
-		name     string
-		prev     *Service
-		this     *Service
-		want     *apis.FieldError
-		errLevel apis.DiagnosticLevel
+		name string
+		prev *Service
+		this *Service
+		want *apis.FieldError
 	}{{
 		name: "update creator annotation",
 		this: &Service{
@@ -788,7 +784,7 @@ func TestServiceAnnotationUpdate(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			ctx = apis.WithinUpdate(ctx, test.prev)
-			if diff := cmp.Diff(test.want.Error(), test.this.Validate(ctx).Filter(test.errLevel).Error()); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), test.this.Validate(ctx).Filter(apis.ErrorLevel).Error()); diff != "" {
 				t.Error("Validate (-want, +got) =", diff)
 			}
 		})

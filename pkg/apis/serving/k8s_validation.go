@@ -344,12 +344,12 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 	for i := range ps.Containers {
 		errs = errs.Also(
 			warnDefaultContainerSecurityContext(ctx, ps.SecurityContext, ps.Containers[i].SecurityContext).
-				ViaFieldIndex("containers", i).ViaField("securityContext"))
+				ViaField("securityContext").ViaFieldIndex("containers", i))
 	}
 	for i := range ps.InitContainers {
 		errs = errs.Also(
 			warnDefaultContainerSecurityContext(ctx, ps.SecurityContext, ps.InitContainers[i].SecurityContext).
-				ViaFieldIndex("initContainers", i).ViaField("securityContext"))
+				ViaField("securityContext").ViaFieldIndex("initContainers", i))
 	}
 
 	volumes, err := ValidateVolumes(ctx, ps.Volumes, AllMountedVolumes(append(ps.InitContainers, ps.Containers...)))
@@ -928,7 +928,7 @@ func warnDefaultContainerSecurityContext(_ context.Context, psc *corev1.PodSecur
 	} else {
 		if sc.Capabilities.Drop == nil {
 			errs = errs.Also(insecureDefault("capabilities.drop"))
-		} else if sc.Capabilities.Drop[0] == "all" {
+		} else if len(sc.Capabilities.Drop) > 0 && sc.Capabilities.Drop[0] == "all" {
 			// Sometimes, people mis-spell "ALL" as "all", which does nothing.
 			errs = errs.Also(apis.ErrInvalidValue("all", "capabilities.drop", "Must be spelled as 'ALL'").At(apis.WarningLevel))
 		}
