@@ -175,7 +175,7 @@ if [[ -z "${INGRESS_CLASS}" \
   alpha="--enable-alpha"
 fi
 
-AUTO_TLS_TEST_OPTIONS="${AUTO_TLS_TEST_OPTIONS:-${alpha} --enable-beta}"
+AUTO_TLS_TEST_OPTIONS="${AUTO_TLS_TEST_OPTIONS:-${alpha} --enable-beta -skip-cleanup-on-fail}"
 
 # Auto TLS E2E tests mutate the cluster and must be ran separately
 # because they need auto-tls and cert-manager specific configurations
