@@ -46,7 +46,13 @@ func AutoscaleSustainingTest() pkgupgrade.BackgroundOperation {
 	return pkgupgrade.NewBackgroundVerification("AutoscaleSustainingTest",
 		// Setup
 		func(c pkgupgrade.Context) {
-			ctx = e2e.SetupSvc(c.T, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
+			ctx = e2e.SetupSvc(c.T,
+				&e2e.AutoscalerOptions{
+					Class:             autoscaling.KPA,
+					Metric:            autoscaling.Concurrency,
+					Target:            containerConcurrency,
+					TargetUtilization: targetUtilization,
+				},
 				test.Options{DisableLogStream: true},
 				rtesting.WithServiceName("autoscale-sustaining"),
 				rtesting.WithConfigAnnotations(map[string]string{
@@ -84,7 +90,13 @@ func AutoscaleSustainingWithTBCTest() pkgupgrade.BackgroundOperation {
 	return pkgupgrade.NewBackgroundVerification("AutoscaleSustainingWithTBCTest",
 		// Setup
 		func(c pkgupgrade.Context) {
-			ctx = e2e.SetupSvc(c.T, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
+			ctx = e2e.SetupSvc(c.T,
+				&e2e.AutoscalerOptions{
+					Class:             autoscaling.KPA,
+					Metric:            autoscaling.Concurrency,
+					Target:            containerConcurrency,
+					TargetUtilization: targetUtilization,
+				},
 				test.Options{DisableLogStream: true},
 				rtesting.WithServiceName("autoscale-sus-tbc"),
 				rtesting.WithConfigAnnotations(map[string]string{
