@@ -23,7 +23,6 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
-	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/apis/config"
 )
 
@@ -598,9 +597,12 @@ func PodSecurityContextMask(ctx context.Context, in *corev1.PodSecurityContext) 
 	if config.FromContextOrDefaults(ctx).Features.SecurePodDefaults == config.Enabled {
 		// Allow to opt out of more-secure defaults if SecurePodDefaults is enabled.
 		// This aligns with defaultSecurityContext in revision_defaults.go.
-		if in.SeccompProfile != nil && in.SeccompProfile.Type == corev1.SeccompProfileTypeUnconfined {
-			out.SeccompProfile = &corev1.SeccompProfile{
-				Type: corev1.SeccompProfileTypeUnconfined,
+		if in.SeccompProfile != nil {
+			seccomp := in.SeccompProfile.Type
+			if seccomp == corev1.SeccompProfileTypeRuntimeDefault || seccomp == corev1.SeccompProfileTypeUnconfined {
+				out.SeccompProfile = &corev1.SeccompProfile{
+					Type: seccomp,
+				}
 			}
 		}
 	}
@@ -608,8 +610,6 @@ func PodSecurityContextMask(ctx context.Context, in *corev1.PodSecurityContext) 
 	if config.FromContextOrDefaults(ctx).Features.PodSpecSecurityContext == config.Disabled {
 		return out
 	}
-
-	logging.FromContext(ctx).Info("PodSecurityContextMask: PodSpecSecurityContext feature is enabled")
 
 	out.RunAsUser = in.RunAsUser
 	out.RunAsGroup = in.RunAsGroup
