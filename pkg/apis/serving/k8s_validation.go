@@ -344,12 +344,12 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 	for i := range ps.Containers {
 		errs = errs.Also(
 			warnDefaultContainerSecurityContext(ctx, ps.SecurityContext, ps.Containers[i].SecurityContext).
-				ViaFieldIndex("containers", 1).ViaField("securityContext"))
+				ViaFieldIndex("containers", i).ViaField("securityContext"))
 	}
 	for i := range ps.InitContainers {
 		errs = errs.Also(
 			warnDefaultContainerSecurityContext(ctx, ps.SecurityContext, ps.InitContainers[i].SecurityContext).
-				ViaFieldIndex("initContainers", 1).ViaField("securityContext"))
+				ViaFieldIndex("initContainers", i).ViaField("securityContext"))
 	}
 
 	volumes, err := ValidateVolumes(ctx, ps.Volumes, AllMountedVolumes(append(ps.InitContainers, ps.Containers...)))
@@ -884,10 +884,10 @@ func ValidatePodSecurityContext(ctx context.Context, sc *corev1.PodSecurityConte
 }
 
 // warnDefaultContainerSecurityContext warns about Kubernetes default
-// SecurityContext values which are insecure (i.e. the "restricted" profile
-// forbids these values). Because securityContext values may also be set at
-// the Pod level, the container-level settings need to be considered alongside
-// the Pod-level settings.
+// SecurityContext values which are unset and thus insecure (i.e. the
+// "restricted" profile forbids these values). Because securityContext values
+// may also be set at the Pod level, the container-level settings need to be
+// considered alongside the Pod-level settings.
 //
 // Note that this **explicitly** does not warn on dangerous SecurityContext
 // settings, the purpose is to avoid accidentally-insecure settings, not to
@@ -928,6 +928,9 @@ func warnDefaultContainerSecurityContext(_ context.Context, psc *corev1.PodSecur
 	} else {
 		if sc.Capabilities.Drop == nil {
 			errs = errs.Also(insecureDefault("capabilities.drop"))
+		} else if sc.Capabilities.Drop[0] == "all" {
+			// Sometimes, people mis-spell "ALL" as "all", which does nothing.
+			errs = errs.Also(apis.ErrInvalidValue("all", "capabilities.drop", "Must be spelled as 'ALL'").At(apis.WarningLevel))
 		}
 	}
 	return errs
