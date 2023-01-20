@@ -72,12 +72,13 @@ function setup_auto_tls_common() {
 }
 
 function cleanup_auto_tls_common() {
-  cleanup_custom_domain
+  true
+  # cleanup_custom_domain
 
-  toggle_feature autoTLS Disabled config-network
-  toggle_feature autocreateClusterDomainClaims false config-network
-  toggle_feature namespace-wildcard-cert-selector "" config-network
-  kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
+  # toggle_feature autoTLS Disabled config-network
+  # toggle_feature autocreateClusterDomainClaims false config-network
+  # toggle_feature namespace-wildcard-cert-selector "" config-network
+  # kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
 }
 
 function setup_http01_auto_tls() {
@@ -158,6 +159,9 @@ function delete_dns_record() {
   fi
 }
 
+
+export ENABLE_GKE_TELEMETRY=true
+
 # Script entry point.
 initialize "$@" --skip-istio-addon --min-nodes=4 --max-nodes=4 --enable-ha --cluster-version=1.24
 
@@ -199,7 +203,6 @@ add_trap "cleanup_auto_tls_common" EXIT SIGKILL SIGTERM SIGQUIT
   setup_http01_auto_tls
   add_trap "delete_dns_record" SIGKILL SIGTERM SIGQUIT
   go_test_e2e -timeout=10m ./test/e2e/autotls/ ${AUTO_TLS_TEST_OPTIONS} || failed=1
-  kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/http01/
   delete_dns_record
 # fi
 
