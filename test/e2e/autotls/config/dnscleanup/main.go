@@ -34,7 +34,7 @@ func main() {
 		IP:     env.IngressIP,
 		Domain: env.FullHostName,
 	}
-	if err := config.DeleteDNSRecord(record, env.CloudDNSServiceAccountKeyFile, env.CloudDNSProject, env.DNSZone); err != nil {
+	if err := config.DeleteDNSRecord(record, env.CloudDNSProject, env.DNSZone); err != nil {
 		log.Fatal("Failed to setup DNS record: ", err)
 	}
 }
