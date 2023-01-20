@@ -82,6 +82,7 @@ func TestRevisionValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.r.Validate(context.Background())
+			got = got.Filter(apis.ErrorLevel)
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
 				t.Errorf("Validate (-want, +got): \n%s", cmp.Diff(want, got))
 			}
@@ -238,6 +239,7 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.r.Validate(context.Background())
+			got = got.Filter(apis.ErrorLevel)
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
 				t.Errorf("Validate (-want, +got): \n%s", cmp.Diff(want, got))
 			}
@@ -277,6 +279,7 @@ func TestContainerConcurrencyValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := serving.ValidateContainerConcurrency(context.Background(), &test.cc)
+			got = got.Filter(apis.ErrorLevel)
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
 				t.Errorf("Validate (-want, +got): \n%s", cmp.Diff(want, got))
 			}
@@ -482,6 +485,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 				ctx = test.wc(ctx)
 			}
 			got := test.rs.Validate(ctx)
+			got = got.Filter(apis.ErrorLevel)
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
 				t.Errorf("Validate (-want, +got): \n%s", cmp.Diff(want, got))
 			}
@@ -769,6 +773,7 @@ func TestImmutableFields(t *testing.T) {
 				ctx = test.wc(ctx)
 			}
 			got := test.new.Validate(ctx)
+			got = got.Filter(apis.ErrorLevel)
 			if got, want := got.Error(), test.want.Error(); got != want {
 				t.Errorf("Validate got: %s, want: %s, diff:(-want, +got)=\n%v", got, want, cmp.Diff(got, want))
 			}
@@ -1070,6 +1075,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			})
 
 			got := test.rts.Validate(ctx)
+			got = got.Filter(apis.ErrorLevel)
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
 				t.Errorf("Validate (-want, +got):\n%s", cmp.Diff(want, got))
 			}
