@@ -592,10 +592,10 @@ function overlay_system_namespace() {
 }
 
 function run_ytt() {
-  go_run github.com/vmware-tanzu/carvel-ytt/cmd/ytt@v0.44.1 ytt "$@"
+  go_run github.com/vmware-tanzu/carvel-ytt/cmd/ytt@v0.44.1 "$@"
 }
 
 
 function run_kapp() {
-  go_run github.com/vmware-tanzu/carvel-kapp/cmd/kapp@v0.54.1 kapp "$@"
+  go_run github.com/vmware-tanzu/carvel-kapp/cmd/kapp@v0.54.1 "$@"
 }

@@ -35,7 +35,7 @@ initialize --skip-istio-addon --min-nodes=4 --max-nodes=4 --perf --cluster-versi
 header "Running tests"
 
 function run_kperf() {
-  go_run knative.dev/kperf/cmd/kperf@latest kperf "$@"
+  go_run knative.dev/kperf/cmd/kperf@latest "$@"
 }
 
 mkdir -p "${ARTIFACTS}/kperf"
