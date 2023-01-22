@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -853,7 +854,7 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 
 // One active target.
 func TestMakeIngressRuleVanilla(t *testing.T) {
-	domains := []string{"a.com", "b.org"}
+	domains := sets.NewString("a.com", "b.org")
 	targets := traffic.RevisionTargets{{
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "config",
@@ -913,7 +914,7 @@ func TestMakeIngressRuleZeroPercentTarget(t *testing.T) {
 			Percent:           ptr.Int64(0),
 		},
 	}}
-	domains := []string{"test.org"}
+	domains := sets.NewString("test.org")
 	tc := &traffic.Config{
 		Targets: map[string]traffic.RevisionTargets{
 			traffic.DefaultTarget: targets,
@@ -969,7 +970,7 @@ func TestMakeIngressRuleTwoTargets(t *testing.T) {
 		},
 	}
 	ro := tc.BuildRollout()
-	domains := []string{"test.org"}
+	domains := sets.NewString("test.org")
 	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP,
 		targets, ro.RolloutsByTag("a-tag"), false /* internal encryption */)
 	expected := netv1alpha1.IngressRule{

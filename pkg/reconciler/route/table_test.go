@@ -2758,6 +2758,15 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 						ServiceName:      "cm-solver",
 						ServicePort:      intstr.FromInt(8090),
 						ServiceNamespace: "default",
+					}, {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "k.example.com",
+							Path:   "/.well-known/acme-challenge/challengeToken2",
+						},
+						ServiceName:      "cm-solver",
+						ServicePort:      intstr.FromInt(8090),
+						ServiceNamespace: "default",
 					}},
 				},
 			},
@@ -2784,6 +2793,15 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 						Scheme: "http",
 						Host:   "becomes-ready.default.example.com",
 						Path:   "/.well-known/acme-challenge/challengeToken",
+					},
+					ServiceName:      "cm-solver",
+					ServicePort:      intstr.FromInt(8090),
+					ServiceNamespace: "default",
+				}, {
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   "k.example.com",
+						Path:   "/.well-known/acme-challenge/challengeToken2",
 					},
 					ServiceName:      "cm-solver",
 					ServicePort:      intstr.FromInt(8090),
