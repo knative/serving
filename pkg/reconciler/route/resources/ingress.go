@@ -185,8 +185,9 @@ func makeIngressSpec(
 			}
 			// If this is a public rule, we need to configure ACME challenge paths.
 			if visibility == netv1alpha1.IngressVisibilityExternalIP {
-				rule.HTTP.Paths = append(
-					MakeACMEIngressPaths(acmeChallenges, domains...), rule.HTTP.Paths...)
+				paths, hosts := MakeACMEIngressPaths(acmeChallenges, domains)
+				rule.Hosts = append(hosts, rule.Hosts...)
+				rule.HTTP.Paths = append(paths, rule.HTTP.Paths...)
 			}
 			rules = append(rules, rule)
 		}
@@ -214,7 +215,7 @@ func getChallengeHosts(challenges []netv1alpha1.HTTP01Challenge) map[string]netv
 	return c
 }
 
-func routeDomain(ctx context.Context, targetName string, r *servingv1.Route, visibility netv1alpha1.IngressVisibility) ([]string, error) {
+func routeDomain(ctx context.Context, targetName string, r *servingv1.Route, visibility netv1alpha1.IngressVisibility) (sets.String, error) {
 	hostname, err := domains.HostnameFromTemplate(ctx, r.Name, targetName)
 	if err != nil {
 		return nil, err
@@ -232,18 +233,20 @@ func routeDomain(ctx context.Context, targetName string, r *servingv1.Route, vis
 	if isClusterLocal {
 		domains = ingress.ExpandedHosts(sets.NewString(domains...)).List()
 	}
-	return domains, err
+	return sets.NewString(domains...), err
 }
 
 // MakeACMEIngressPaths returns a set of netv1alpha1.HTTPIngressPath
 // that can be used to perform ACME challenges.
-func MakeACMEIngressPaths(acmeChallenges []netv1alpha1.HTTP01Challenge, domains ...string) []netv1alpha1.HTTPIngressPath {
+func MakeACMEIngressPaths(acmeChallenges []netv1alpha1.HTTP01Challenge, domains sets.String) ([]netv1alpha1.HTTPIngressPath, []string) {
 	challenges := getChallengeHosts(acmeChallenges)
+
 	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(challenges))
-	for _, domain := range domains {
-		challenge, ok := challenges[domain]
-		if !ok {
-			continue
+	var extraHosts []string
+
+	for _, challenge := range challenges {
+		if !domains.Has(challenge.URL.Host) {
+			extraHosts = append(extraHosts, challenge.URL.Host)
 		}
 
 		paths = append(paths, netv1alpha1.HTTPIngressPath{
@@ -258,16 +261,16 @@ func MakeACMEIngressPaths(acmeChallenges []netv1alpha1.HTTP01Challenge, domains 
 			Path: challenge.URL.Path,
 		})
 	}
-	return paths
+	return paths, extraHosts
 }
 
-func makeIngressRule(domains []string, ns string,
+func makeIngressRule(domains sets.String, ns string,
 	visibility netv1alpha1.IngressVisibility,
 	targets traffic.RevisionTargets,
 	roCfgs []*traffic.ConfigurationRollout,
 	encryption bool) netv1alpha1.IngressRule {
 	return netv1alpha1.IngressRule{
-		Hosts:      domains,
+		Hosts:      domains.List(),
 		Visibility: visibility,
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{
