@@ -126,7 +126,7 @@ toggle_feature kubernetes.podspec-securitycontext Disabled
 toggle_feature kubernetes.podspec-persistent-volume-write Disabled
 toggle_feature kubernetes.podspec-persistent-volume-claim Disabled
 
-# RUN 
+# RUN secure pod defaults test in a separate install.
 toggle_feature secure-pod-defaults Enabled
 go_test_e2e -timeout=3m ./test/e2e/securedefaults ${TEST_OPTIONS} || failed=1
 toggle_feature secure-pod-defaults Disabled
