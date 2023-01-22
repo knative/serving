@@ -194,8 +194,6 @@ func (rs *RevisionSpec) defaultSecurityContext(psc *corev1.PodSecurityContext, c
 	}
 	if updatedSC.Capabilities == nil {
 		updatedSC.Capabilities = &corev1.Capabilities{}
-	}
-	if updatedSC.Capabilities.Drop == nil {
 		updatedSC.Capabilities.Drop = []corev1.Capability{"ALL"}
 		// Default in NET_BIND_SERVICE to allow binding to low-numbered ports.
 		needsLowPort := false

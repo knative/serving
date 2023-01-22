@@ -944,8 +944,7 @@ func TestRevisionDefaulting(t *testing.T) {
 								LocalhostProfile: ptr.String("special"),
 							},
 							Capabilities: &corev1.Capabilities{
-								Add:  []corev1.Capability{"NET_ADMIN"},
-								Drop: []corev1.Capability{"ALL"},
+								Add: []corev1.Capability{"NET_ADMIN"},
 							},
 						},
 					}},
