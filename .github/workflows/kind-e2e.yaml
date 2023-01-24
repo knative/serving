@@ -2,7 +2,7 @@ name: e2e
 
 on:
   pull_request:
-    branches: [ 'main', 'release-*' ]
+    branches: [ 'main', 'release-*', 'ck-internal-encryption-e2e-test' ]
 
 defaults:
   run:
@@ -97,6 +97,7 @@ jobs:
         - kourier-tls
         - istio
         - contour
+        - contour-tls
         # Disabled due to consistent failures
         # - gateway_istio
 
@@ -130,6 +131,11 @@ jobs:
 
         - ingress: contour
           namespace-resources: httpproxy
+
+        - ingress: contour-tls
+          namespace-resources: httpproxy
+          ingress-class: contour
+          enable-tls: 1
 
         - ingress: istio
           namespace-resources: virtualservices
