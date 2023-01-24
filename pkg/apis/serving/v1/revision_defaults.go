@@ -72,6 +72,10 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 	applyDefaultContainerNames(rs.PodSpec.InitContainers, containerNames, defaultInitContainerName)
 	for idx := range rs.PodSpec.Containers {
 		rs.applyDefault(ctx, &rs.PodSpec.Containers[idx], cfg)
+		rs.defaultSecurityContext(rs.PodSpec.SecurityContext, &rs.PodSpec.Containers[idx], cfg)
+	}
+	for idx := range rs.PodSpec.InitContainers {
+		rs.defaultSecurityContext(rs.PodSpec.SecurityContext, &rs.PodSpec.InitContainers[idx], cfg)
 	}
 }
 
@@ -155,6 +159,57 @@ func (*RevisionSpec) applyProbes(container *corev1.Container) {
 		if container.ReadinessProbe.TimeoutSeconds == 0 {
 			container.ReadinessProbe.TimeoutSeconds = 1
 		}
+	}
+}
+
+// Upgrade SecurityContext for this container and the Pod definition to use settings
+// for the `restricted` profile when the feature flag is enabled.
+// This does not currently set `runAsNonRoot` for the restricted profile, because
+// that feels harder to default safely.
+func (rs *RevisionSpec) defaultSecurityContext(psc *corev1.PodSecurityContext, container *corev1.Container, cfg *config.Config) {
+	if cfg.Features.SecurePodDefaults != config.Enabled {
+		return
+	}
+
+	if psc == nil {
+		psc = &corev1.PodSecurityContext{}
+	}
+
+	updatedSC := container.SecurityContext
+
+	if updatedSC == nil {
+		updatedSC = &corev1.SecurityContext{}
+	}
+
+	if updatedSC.AllowPrivilegeEscalation == nil {
+		updatedSC.AllowPrivilegeEscalation = ptr.Bool(false)
+	}
+	if psc.SeccompProfile == nil || psc.SeccompProfile.Type == "" {
+		if updatedSC.SeccompProfile == nil {
+			updatedSC.SeccompProfile = &corev1.SeccompProfile{}
+		}
+		if updatedSC.SeccompProfile.Type == "" {
+			updatedSC.SeccompProfile.Type = corev1.SeccompProfileTypeRuntimeDefault
+		}
+	}
+	if updatedSC.Capabilities == nil {
+		updatedSC.Capabilities = &corev1.Capabilities{}
+		updatedSC.Capabilities.Drop = []corev1.Capability{"ALL"}
+		// Default in NET_BIND_SERVICE to allow binding to low-numbered ports.
+		needsLowPort := false
+		for _, p := range container.Ports {
+			if p.ContainerPort < 1024 {
+				needsLowPort = true
+				break
+			}
+		}
+		if updatedSC.Capabilities.Add == nil && needsLowPort {
+			updatedSC.Capabilities.Add = []corev1.Capability{"NET_BIND_SERVICE"}
+		}
+	}
+
+	if *updatedSC != (corev1.SecurityContext{}) {
+		container.SecurityContext = updatedSC
 	}
 }
 

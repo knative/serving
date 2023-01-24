@@ -208,6 +208,9 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	}
 	if cfg.Features.PodSpecSecurityContext != config.Disabled {
 		out.SecurityContext = in.SecurityContext
+	} else if cfg.Features.SecurePodDefaults != config.Disabled {
+		// This is further validated in ValidatePodSecurityContext.
+		out.SecurityContext = in.SecurityContext
 	}
 	if cfg.Features.PodSpecPriorityClassName != config.Disabled {
 		out.PriorityClassName = in.PriorityClassName
@@ -590,6 +593,19 @@ func PodSecurityContextMask(ctx context.Context, in *corev1.PodSecurityContext) 
 	}
 
 	out := new(corev1.PodSecurityContext)
+
+	if config.FromContextOrDefaults(ctx).Features.SecurePodDefaults == config.Enabled {
+		// Allow to opt out of more-secure defaults if SecurePodDefaults is enabled.
+		// This aligns with defaultSecurityContext in revision_defaults.go.
+		if in.SeccompProfile != nil {
+			seccomp := in.SeccompProfile.Type
+			if seccomp == corev1.SeccompProfileTypeRuntimeDefault || seccomp == corev1.SeccompProfileTypeUnconfined {
+				out.SeccompProfile = &corev1.SeccompProfile{
+					Type: seccomp,
+				}
+			}
+		}
+	}
 
 	if config.FromContextOrDefaults(ctx).Features.PodSpecSecurityContext == config.Disabled {
 		return out

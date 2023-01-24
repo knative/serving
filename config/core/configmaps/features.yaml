@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "691a192e"
+    knative.dev/example-checksum: "d3565159"
 data:
   _example: |-
     ################################
@@ -39,6 +39,13 @@ data:
     # These sample configuration options may be copied out of
     # this example block and unindented to be in the data block
     # to actually change the configuration.
+
+    # Default SecurityContext settings to secure-by-default values
+    # if unset.
+    #
+    # This value will default to "enabled" in a future release,
+    # probably Knative 1.10
+    secure-pod-defaults: "disabled"
 
     # Indicates whether multi container support is enabled
     #
