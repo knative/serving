@@ -29,10 +29,12 @@ import (
 
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	netcfg "knative.dev/networking/pkg/config"
 	netheader "knative.dev/networking/pkg/http/header"
 	ingress "knative.dev/networking/pkg/ingress"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/activator"
 	apicfg "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
@@ -182,6 +184,18 @@ func makeIngressSpec(
 					// the tag header is appended with the tag corresponding to the tag-attached hostname
 					rule.HTTP.Paths[0].AppendHeaders[netheader.RouteTagKey] = name
 				}
+			}
+
+			// if this is a private rule, and internal encryption is on, we need to stick the certs in the tls seciton
+			if visibility == netv1alpha1.IngressVisibilityClusterLocal && networkConfig.InternalEncryption {
+				for domain := range domains {
+					tls = append(tls, netv1alpha1.IngressTLS{
+						Hosts:           []string{domain},
+						SecretName:      netcfg.ServingInternalCertName,
+						SecretNamespace: system.Namespace(),
+					})
+				}
+
 			}
 			// If this is a public rule, we need to configure ACME challenge paths.
 			if visibility == netv1alpha1.IngressVisibilityExternalIP {
