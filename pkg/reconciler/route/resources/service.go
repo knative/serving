@@ -29,6 +29,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 )
 
@@ -53,17 +54,15 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1.Route, tagName str
 		return nil, err
 	}
 
+	netcfg := config.FromContextOrDefaults(ctx).Network
+
 	return &corev1.Service{
 		ObjectMeta: makeServiceObjectMeta(hostname, route),
 		Spec: corev1.ServiceSpec{
 			Type:            corev1.ServiceTypeExternalName,
 			ExternalName:    domainName,
 			SessionAffinity: corev1.ServiceAffinityNone,
-			Ports: []corev1.ServicePort{{
-				Name:       netapi.ServicePortNameH2C,
-				Port:       int32(80),
-				TargetPort: intstr.FromInt(80),
-			}},
+			Ports:           []corev1.ServicePort{makeServicePort(netcfg.InternalEncryption)},
 		},
 	}, nil
 }
@@ -96,15 +95,13 @@ func MakeK8sService(ctx context.Context, route *v1.Route, tagName string, ingres
 		return nil, err
 	}
 
+	netcfg := config.FromContextOrDefaults(ctx).Network
+
 	pair := &ServicePair{
 		Service: &corev1.Service{
 			ObjectMeta: makeServiceObjectMeta(hostname, route),
 			Spec: corev1.ServiceSpec{
-				Ports: []corev1.ServicePort{{
-					Name:       netapi.ServicePortNameH2C,
-					Port:       int32(80),
-					TargetPort: intstr.FromInt(80),
-				}},
+				Ports: []corev1.ServicePort{makeServicePort(netcfg.InternalEncryption)},
 			},
 		},
 		Endpoints: nil,
@@ -127,10 +124,7 @@ func MakeK8sService(ctx context.Context, route *v1.Route, tagName string, ingres
 				Addresses: []corev1.EndpointAddress{{
 					IP: balancer.IP,
 				}},
-				Ports: []corev1.EndpointPort{{
-					Name: netapi.ServicePortNameH2C,
-					Port: int32(80),
-				}},
+				Ports: []corev1.EndpointPort{makeEndpointPort(netcfg.InternalEncryption)},
 			}},
 		}
 	case balancer.DomainInternal != "":
@@ -176,4 +170,30 @@ func makeServiceObjectMeta(hostname string, route *v1.Route) metav1.ObjectMeta {
 		}), svcLabels),
 		Annotations: route.GetAnnotations(),
 	}
+}
+
+func makeServicePort(internalEncryption bool) (sp corev1.ServicePort) {
+	if internalEncryption {
+		sp.Port = int32(netapi.ServiceHTTPSPort)
+		sp.TargetPort = intstr.FromInt(netapi.ServiceHTTPSPort)
+		sp.Name = netapi.ServicePortNameHTTPS
+	} else {
+		sp.Port = int32(80)
+		sp.TargetPort = intstr.FromInt(80)
+		sp.Name = netapi.ServicePortNameH2C
+	}
+
+	return
+}
+
+func makeEndpointPort(internalEncryption bool) (ep corev1.EndpointPort) {
+	if internalEncryption {
+		ep.Port = int32(netapi.ServiceHTTPSPort)
+		ep.Name = netapi.ServicePortNameHTTPS
+	} else {
+		ep.Port = int32(80)
+		ep.Name = netapi.ServicePortNameH2C
+	}
+
+	return
 }
