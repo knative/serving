@@ -62,7 +62,7 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1.Route, tagName str
 			Type:            corev1.ServiceTypeExternalName,
 			ExternalName:    domainName,
 			SessionAffinity: corev1.ServiceAffinityNone,
-			Ports:           []corev1.ServicePort{makeServicePort(netcfg.InternalEncryption)},
+			Ports:           makeServicePorts(netcfg.InternalEncryption),
 		},
 	}, nil
 }
@@ -101,7 +101,7 @@ func MakeK8sService(ctx context.Context, route *v1.Route, tagName string, ingres
 		Service: &corev1.Service{
 			ObjectMeta: makeServiceObjectMeta(hostname, route),
 			Spec: corev1.ServiceSpec{
-				Ports: []corev1.ServicePort{makeServicePort(netcfg.InternalEncryption)},
+				Ports: makeServicePorts(netcfg.InternalEncryption),
 			},
 		},
 		Endpoints: nil,
@@ -124,7 +124,7 @@ func MakeK8sService(ctx context.Context, route *v1.Route, tagName string, ingres
 				Addresses: []corev1.EndpointAddress{{
 					IP: balancer.IP,
 				}},
-				Ports: []corev1.EndpointPort{makeEndpointPort(netcfg.InternalEncryption)},
+				Ports: makeEndpointPorts(netcfg.InternalEncryption),
 			}},
 		}
 	case balancer.DomainInternal != "":
@@ -172,27 +172,34 @@ func makeServiceObjectMeta(hostname string, route *v1.Route) metav1.ObjectMeta {
 	}
 }
 
-func makeServicePort(internalEncryption bool) (sp corev1.ServicePort) {
+func makeServicePorts(internalEncryption bool) (sps []corev1.ServicePort) {
+	sps = append(sps, corev1.ServicePort{
+		Port:       int32(80),
+		TargetPort: intstr.FromInt(80),
+		Name:       netapi.ServicePortNameH2C,
+	})
+
 	if internalEncryption {
-		sp.Port = int32(netapi.ServiceHTTPSPort)
-		sp.TargetPort = intstr.FromInt(netapi.ServiceHTTPSPort)
-		sp.Name = netapi.ServicePortNameHTTPS
-	} else {
-		sp.Port = int32(80)
-		sp.TargetPort = intstr.FromInt(80)
-		sp.Name = netapi.ServicePortNameH2C
+		sps = append(sps, corev1.ServicePort{
+			Port:       int32(netapi.ServiceHTTPSPort),
+			TargetPort: intstr.FromInt(netapi.ServiceHTTPSPort),
+			Name:       netapi.ServicePortNameHTTPS,
+		})
 	}
 
 	return
 }
 
-func makeEndpointPort(internalEncryption bool) (ep corev1.EndpointPort) {
+func makeEndpointPorts(internalEncryption bool) (eps []corev1.EndpointPort) {
+	eps = append(eps, corev1.EndpointPort{
+		Port: int32(80),
+		Name: netapi.ServicePortNameH2C,
+	})
 	if internalEncryption {
-		ep.Port = int32(netapi.ServiceHTTPSPort)
-		ep.Name = netapi.ServicePortNameHTTPS
-	} else {
-		ep.Port = int32(80)
-		ep.Name = netapi.ServicePortNameH2C
+		eps = append(eps, corev1.EndpointPort{
+			Port: int32(netapi.ServiceHTTPSPort),
+			Name: netapi.ServicePortNameHTTPS,
+		})
 	}
 
 	return
