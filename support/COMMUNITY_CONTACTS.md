@@ -41,7 +41,7 @@ community contact's duty (subject to change) is as followed:
   user to
   [open an usablity issue](https://github.com/knative/ux/issues/new?assignees=&labels=kind%2Ffriction-point&template=friction-point-template.md&title=)
   and to join the channel
-  [#user-experience](https://cloud-native.slack.com/archives/C04LY5G9ED7) to capture
+  [#knative-documentation](https://cloud-native.slack.com/archives/C04LY5G9ED7) to capture
   user feedback.
 - [Triage issues in the serving repo](./TRIAGE.md). Quick links:
   - [Untriaged issues](https://github.com/knative/serving/issues?q=is%3Aissue+is%3Aopen+-label%3Atriage%2Faccepted+-label%3Atriage%2Fneeds-user-input)
