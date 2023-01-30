@@ -127,9 +127,11 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 		return err
 	}
 
+	networkConfig := config.FromContext(ctx).Network
+
 	// Reconcile the Ingress resource corresponding to the requested Mapping.
 	logger.Debugf("Mapping %s to ref %s/%s (host: %q, svc: %q)", url, dm.Spec.Ref.Namespace, dm.Spec.Ref.Name, targetHost, targetBackendSvc)
-	desired := resources.MakeIngress(dm, targetBackendSvc, targetHost, ingressClass, httpOption, tls, acmeChallenges...)
+	desired := resources.MakeIngress(dm, targetBackendSvc, targetHost, ingressClass, httpOption, tls, networkConfig.InternalEncryption, acmeChallenges...)
 	ingress, err := r.reconcileIngress(ctx, dm, desired)
 	if err != nil {
 		return err
