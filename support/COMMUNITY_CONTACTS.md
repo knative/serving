@@ -36,12 +36,12 @@ community contact's duty (subject to change) is as followed:
   mailing list.
 - Add your self as a member of Slack user group `@serving-help`
 - Check Slack channel
-  [#serving-questions](https://knative.slack.com/archives/C0186KU7STW) for
+  [#knative-serving](https://cloud-native.slack.com/archives/C04LMU0AX60) for
   unanswered questions. Any questions that relates to usability please instruct
   user to
   [open an usablity issue](https://github.com/knative/ux/issues/new?assignees=&labels=kind%2Ffriction-point&template=friction-point-template.md&title=)
   and to join the channel
-  [#user-experience](https://knative.slack.com/archives/C01JBD1LSF3) to capture
+  [#knative-documentation](https://cloud-native.slack.com/archives/C04LY5G9ED7) to capture
   user feedback.
 - [Triage issues in the serving repo](./TRIAGE.md). Quick links:
   - [Untriaged issues](https://github.com/knative/serving/issues?q=is%3Aissue+is%3Aopen+-label%3Atriage%2Faccepted+-label%3Atriage%2Fneeds-user-input)
