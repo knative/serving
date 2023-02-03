@@ -1,13 +1,5 @@
 # The OWNERS file is used by prow to automatically merge approved PRs.
 
-approvers:
-- serving-writers
-- networking-writers
-
-reviewers:
-- serving-reviewers
-- networking-reviewers
-
 labels:
 - area/autoscale
 - area/networking
