@@ -52,7 +52,7 @@ data:
     #
     # Specify the Gateway API configuration.
     # gateway:
-    #   controllerName: projectcontour.io/projectcontour/contour
+    #   controllerName: projectcontour.io/gateway-controller
     #
     # should contour expect to be running inside a k8s cluster
     # incluster: true
@@ -135,6 +135,7 @@ data:
     #   - "user_agent"
     #   - "x_forwarded_for"
     #   - "grpc_status"
+    #   - "grpc_status_number"
     #
     # default-http-versions:
     # - "HTTP/2"
@@ -183,6 +184,9 @@ data:
     #   Limit Service is consulted for a request.
     #   ref. https://tools.ietf.org/id/draft-polli-ratelimit-headers-03.html
     #   enableXRateLimitHeaders: false
+    #   Defines whether to translate status code 429 to grpc code RESOURCE_EXHAUSTED
+    #   instead of the default UNAVAILABLE
+    #   enableResourceExhaustedCode: false
     #
     # Global Policy settings.
     # policy:
@@ -217,7 +221,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.7.0
+    controller-gen.kubebuilder.io/version: v0.11.2
   creationTimestamp: null
   name: contourconfigurations.projectcontour.io
   labels:
@@ -281,7 +285,7 @@ spec:
                       description: Cluster holds various configurable Envoy cluster values that can be set in the config file.
                       properties:
                         dnsLookupFamily:
-                          description: "DNSLookupFamily defines how external names are looked up When configured as V4, the DNS resolver will only perform a lookup for addresses in the IPv4 family. If V6 is configured, the DNS resolver will only perform a lookup for addresses in the IPv6 family. If AUTO is configured, the DNS resolver will first perform a lookup for addresses in the IPv6 family and fallback to a lookup for addresses in the IPv4 family. Note: This only applies to externalName clusters. \n See https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/cluster/v3/cluster.proto.html#envoy-v3-api-enum-config-cluster-v3-cluster-dnslookupfamily for more information. \n Values: `auto` (default), `v4`, `v6`. \n Other values will produce an error."
+                          description: "DNSLookupFamily defines how external names are looked up When configured as V4, the DNS resolver will only perform a lookup for addresses in the IPv4 family. If V6 is configured, the DNS resolver will only perform a lookup for addresses in the IPv6 family. If AUTO is configured, the DNS resolver will first perform a lookup for addresses in the IPv6 family and fallback to a lookup for addresses in the IPv4 family. If ALL is specified, the DNS resolver will perform a lookup for both IPv4 and IPv6 families, and return all resolved addresses. When this is used, Happy Eyeballs will be enabled for upstream connections. Refer to Happy Eyeballs Support for more information. Note: This only applies to externalName clusters. \n See https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/cluster/v3/cluster.proto.html#envoy-v3-api-enum-config-cluster-v3-cluster-dnslookupfamily for more information. \n Values: `auto` (default), `v4`, `v6`, `all`. \n Other values will produce an error."
                           type: string
                       type: object
                     defaultHTTPVersions:
@@ -341,11 +345,14 @@ spec:
                         disableMergeSlashes:
                           description: "DisableMergeSlashes disables Envoy's non-standard merge_slashes path transformation option which strips duplicate slashes from request URL paths. \n Contour's default is false."
                           type: boolean
+                        serverHeaderTransformation:
+                          description: "Defines the action to be applied to the Server header on the response path. When configured as overwrite, overwrites any Server header with \"envoy\". When configured as append_if_absent, if a Server header is present, pass it through, otherwise set it to \"envoy\". When configured as pass_through, pass through the value of the Server header, and do not append a header if none is present. \n Values: `overwrite` (default), `append_if_absent`, `pass_through` \n Other values will produce an error. Contour's default is overwrite."
+                          type: string
                         tls:
                           description: TLS holds various configurable Envoy TLS listener values.
                           properties:
                             cipherSuites:
-                              description: "CipherSuites defines the TLS ciphers to be supported by Envoy TLS listeners when negotiating TLS 1.2. Ciphers are validated against the set that Envoy supports by default. This parameter should only be used by advanced users. Note that these will be ignored when TLS 1.3 is in use. \n This field is optional; when it is undefined, a Contour-managed ciphersuite list will be used, which may be updated to keep it secure. \n Contour's default list is:   - \"[ECDHE-ECDSA-AES128-GCM-SHA256|ECDHE-ECDSA-CHACHA20-POLY1305]\"   - \"[ECDHE-RSA-AES128-GCM-SHA256|ECDHE-RSA-CHACHA20-POLY1305]\"   - \"ECDHE-ECDSA-AES256-GCM-SHA384\"   - \"ECDHE-RSA-AES256-GCM-SHA384\" \n Ciphers provided are validated against the following list:   - \"[ECDHE-ECDSA-AES128-GCM-SHA256|ECDHE-ECDSA-CHACHA20-POLY1305]\"   - \"[ECDHE-RSA-AES128-GCM-SHA256|ECDHE-RSA-CHACHA20-POLY1305]\"   - \"ECDHE-ECDSA-AES128-GCM-SHA256\"   - \"ECDHE-RSA-AES128-GCM-SHA256\"   - \"ECDHE-ECDSA-AES128-SHA\"   - \"ECDHE-RSA-AES128-SHA\"   - \"AES128-GCM-SHA256\"   - \"AES128-SHA\"   - \"ECDHE-ECDSA-AES256-GCM-SHA384\"   - \"ECDHE-RSA-AES256-GCM-SHA384\"   - \"ECDHE-ECDSA-AES256-SHA\"   - \"ECDHE-RSA-AES256-SHA\"   - \"AES256-GCM-SHA384\"   - \"AES256-SHA\" \n Contour recommends leaving this undefined unless you are sure you must. \n See: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters Note: This list is a superset of what is valid for stock Envoy builds and those using BoringSSL FIPS."
+                              description: "CipherSuites defines the TLS ciphers to be supported by Envoy TLS listeners when negotiating TLS 1.2. Ciphers are validated against the set that Envoy supports by default. This parameter should only be used by advanced users. Note that these will be ignored when TLS 1.3 is in use. \n This field is optional; when it is undefined, a Contour-managed ciphersuite list will be used, which may be updated to keep it secure. \n Contour's default list is: - \"[ECDHE-ECDSA-AES128-GCM-SHA256|ECDHE-ECDSA-CHACHA20-POLY1305]\" - \"[ECDHE-RSA-AES128-GCM-SHA256|ECDHE-RSA-CHACHA20-POLY1305]\" - \"ECDHE-ECDSA-AES256-GCM-SHA384\" - \"ECDHE-RSA-AES256-GCM-SHA384\" \n Ciphers provided are validated against the following list: - \"[ECDHE-ECDSA-AES128-GCM-SHA256|ECDHE-ECDSA-CHACHA20-POLY1305]\" - \"[ECDHE-RSA-AES128-GCM-SHA256|ECDHE-RSA-CHACHA20-POLY1305]\" - \"ECDHE-ECDSA-AES128-GCM-SHA256\" - \"ECDHE-RSA-AES128-GCM-SHA256\" - \"ECDHE-ECDSA-AES128-SHA\" - \"ECDHE-RSA-AES128-SHA\" - \"AES128-GCM-SHA256\" - \"AES128-SHA\" - \"ECDHE-ECDSA-AES256-GCM-SHA384\" - \"ECDHE-RSA-AES256-GCM-SHA384\" - \"ECDHE-ECDSA-AES256-SHA\" - \"ECDHE-RSA-AES256-SHA\" - \"AES256-GCM-SHA384\" - \"AES256-SHA\" \n Contour recommends leaving this undefined unless you are sure you must. \n See: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters Note: This list is a superset of what is valid for stock Envoy builds and those using BoringSSL FIPS."
                               items:
                                 type: string
                               type: array
@@ -574,6 +581,9 @@ spec:
                     domain:
                       description: Domain is passed to the Rate Limit Service.
                       type: string
+                    enableResourceExhaustedCode:
+                      description: EnableResourceExhaustedCode enables translating error code 429 to grpc code RESOURCE_EXHAUSTED. When disabled it's translated to UNAVAILABLE
+                      type: boolean
                     enableXRateLimitHeaders:
                       description: "EnableXRateLimitHeaders defines whether to include the X-RateLimit headers X-RateLimit-Limit, X-RateLimit-Remaining, and X-RateLimit-Reset (as defined by the IETF Internet-Draft linked below), on responses to clients when the Rate Limit Service is consulted for a request. \n ref. https://tools.ietf.org/id/draft-polli-ratelimit-headers-03.html"
                       type: boolean
@@ -751,18 +761,12 @@ spec:
       storage: true
       subresources:
         status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.7.0
+    controller-gen.kubebuilder.io/version: v0.11.2
   creationTimestamp: null
   name: contourdeployments.projectcontour.io
   labels:
@@ -798,6 +802,38 @@ spec:
                 contour:
                   description: Contour specifies deployment-time settings for the Contour part of the installation, i.e. the xDS server/control plane and associated resources, including things like replica count for the Deployment, and node placement constraints for the pods.
                   properties:
+                    deployment:
+                      description: Deployment describes the settings for running contour as a `Deployment`.
+                      properties:
+                        replicas:
+                          description: Replicas is the desired number of replicas.
+                          format: int32
+                          minimum: 0
+                          type: integer
+                        strategy:
+                          description: Strategy describes the deployment strategy to use to replace existing pods with new pods.
+                          properties:
+                            rollingUpdate:
+                              description: 'Rolling update config params. Present only if DeploymentStrategyType = RollingUpdate. --- TODO: Update this to follow our convention for oneOf, whatever we decide it to be.'
+                              properties:
+                                maxSurge:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  description: 'The maximum number of pods that can be scheduled above the desired number of pods. Value can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%). This can not be 0 if MaxUnavailable is 0. Absolute number is calculated from percentage by rounding up. Defaults to 25%. Example: when this is set to 30%, the new ReplicaSet can be scaled up immediately when the rolling update starts, such that the total number of old and new pods do not exceed 130% of desired pods. Once old pods have been killed, new ReplicaSet can be scaled up further, ensuring that total number of pods running at any time during the update is at most 130% of desired pods.'
+                                  x-kubernetes-int-or-string: true
+                                maxUnavailable:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  description: 'The maximum number of pods that can be unavailable during the update. Value can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%). Absolute number is calculated from percentage by rounding down. This can not be 0 if MaxSurge is 0. Defaults to 25%. Example: when this is set to 30%, the old ReplicaSet can be scaled down to 70% of desired pods immediately when the rolling update starts. Once new pods are ready, old ReplicaSet can be scaled down further, followed by scaling up the new ReplicaSet, ensuring that the total number of pods available at all times during the update is at least 70% of desired pods.'
+                                  x-kubernetes-int-or-string: true
+                              type: object
+                            type:
+                              description: Type of deployment. Can be "Recreate" or "RollingUpdate". Default is RollingUpdate.
+                              type: string
+                          type: object
+                      type: object
                     kubernetesLogLevel:
                       description: KubernetesLogLevel Enable Kubernetes client debug logging with log level. If unset, defaults to 0.
                       maximum: 9
@@ -839,13 +875,28 @@ spec:
                           type: array
                       type: object
                     replicas:
-                      description: Replicas is the desired number of Contour replicas. If unset, defaults to 2.
+                      description: "Deprecated: Use `DeploymentSettings.Replicas` instead. \n Replicas is the desired number of Contour replicas. If if unset, defaults to 2. \n if both `DeploymentSettings.Replicas` and this one is set, use `DeploymentSettings.Replicas`."
                       format: int32
                       minimum: 0
                       type: integer
                     resources:
                       description: 'Compute Resources required by contour container. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                       properties:
+                        claims:
+                          description: "Claims lists the names of resources, defined in spec.resourceClaims, that are used by this container. \n This is an alpha field and requires enabling the DynamicResourceAllocation feature gate. \n This field is immutable."
+                          items:
+                            description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                            properties:
+                              name:
+                                description: Name must match the name of one entry in pod.spec.resourceClaims of the Pod where this field is used. It makes that resource available inside a container.
+                                type: string
+                            required:
+                              - name
+                            type: object
+                          type: array
+                          x-kubernetes-list-map-keys:
+                            - name
+                          x-kubernetes-list-type: map
                         limits:
                           additionalProperties:
                             anyOf:
@@ -869,6 +920,65 @@ spec:
                 envoy:
                   description: Envoy specifies deployment-time settings for the Envoy part of the installation, i.e. the xDS client/data plane and associated resources, including things like the workload type to use (DaemonSet or Deployment), node placement constraints for the pods, and various options for the Envoy service.
                   properties:
+                    daemonSet:
+                      description: DaemonSet describes the settings for running envoy as a `DaemonSet`. if `WorkloadType` is `Deployment`,it's must be nil
+                      properties:
+                        updateStrategy:
+                          description: Strategy describes the deployment strategy to use to replace existing DaemonSet pods with new pods.
+                          properties:
+                            rollingUpdate:
+                              description: 'Rolling update config params. Present only if type = "RollingUpdate". --- TODO: Update this to follow our convention for oneOf, whatever we decide it to be. Same as Deployment `strategy.rollingUpdate`. See https://github.com/kubernetes/kubernetes/issues/35345'
+                              properties:
+                                maxSurge:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  description: 'The maximum number of nodes with an existing available DaemonSet pod that can have an updated DaemonSet pod during during an update. Value can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%). This can not be 0 if MaxUnavailable is 0. Absolute number is calculated from percentage by rounding up to a minimum of 1. Default value is 0. Example: when this is set to 30%, at most 30% of the total number of nodes that should be running the daemon pod (i.e. status.desiredNumberScheduled) can have their a new pod created before the old pod is marked as deleted. The update starts by launching new pods on 30% of nodes. Once an updated pod is available (Ready for at least minReadySeconds) the old DaemonSet pod on that node is marked deleted. If the old pod becomes unavailable for any reason (Ready transitions to false, is evicted, or is drained) an updated pod is immediatedly created on that node without considering surge limits. Allowing surge implies the possibility that the resources consumed by the daemonset on any given node can double if the readiness check fails, and so resource intensive daemonsets should take into account that they may cause evictions during disruption.'
+                                  x-kubernetes-int-or-string: true
+                                maxUnavailable:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  description: 'The maximum number of DaemonSet pods that can be unavailable during the update. Value can be an absolute number (ex: 5) or a percentage of total number of DaemonSet pods at the start of the update (ex: 10%). Absolute number is calculated from percentage by rounding up. This cannot be 0 if MaxSurge is 0 Default value is 1. Example: when this is set to 30%, at most 30% of the total number of nodes that should be running the daemon pod (i.e. status.desiredNumberScheduled) can have their pods stopped for an update at any given time. The update starts by stopping at most 30% of those DaemonSet pods and then brings up new DaemonSet pods in their place. Once the new pods are available, it then proceeds onto other DaemonSet pods, thus ensuring that at least 70% of original number of DaemonSet pods are available at all times during the update.'
+                                  x-kubernetes-int-or-string: true
+                              type: object
+                            type:
+                              description: Type of daemon set update. Can be "RollingUpdate" or "OnDelete". Default is RollingUpdate.
+                              type: string
+                          type: object
+                      type: object
+                    deployment:
+                      description: Deployment describes the settings for running envoy as a `Deployment`. if `WorkloadType` is `DaemonSet`,it's must be nil
+                      properties:
+                        replicas:
+                          description: Replicas is the desired number of replicas.
+                          format: int32
+                          minimum: 0
+                          type: integer
+                        strategy:
+                          description: Strategy describes the deployment strategy to use to replace existing pods with new pods.
+                          properties:
+                            rollingUpdate:
+                              description: 'Rolling update config params. Present only if DeploymentStrategyType = RollingUpdate. --- TODO: Update this to follow our convention for oneOf, whatever we decide it to be.'
+                              properties:
+                                maxSurge:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  description: 'The maximum number of pods that can be scheduled above the desired number of pods. Value can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%). This can not be 0 if MaxUnavailable is 0. Absolute number is calculated from percentage by rounding up. Defaults to 25%. Example: when this is set to 30%, the new ReplicaSet can be scaled up immediately when the rolling update starts, such that the total number of old and new pods do not exceed 130% of desired pods. Once old pods have been killed, new ReplicaSet can be scaled up further, ensuring that total number of pods running at any time during the update is at most 130% of desired pods.'
+                                  x-kubernetes-int-or-string: true
+                                maxUnavailable:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  description: 'The maximum number of pods that can be unavailable during the update. Value can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%). Absolute number is calculated from percentage by rounding down. This can not be 0 if MaxSurge is 0. Defaults to 25%. Example: when this is set to 30%, the old ReplicaSet can be scaled down to 70% of desired pods immediately when the rolling update starts. Once new pods are ready, old ReplicaSet can be scaled down further, followed by scaling up the new ReplicaSet, ensuring that the total number of pods available at all times during the update is at least 70% of desired pods.'
+                                  x-kubernetes-int-or-string: true
+                              type: object
+                            type:
+                              description: Type of deployment. Can be "Recreate" or "RollingUpdate". Default is RollingUpdate.
+                              type: string
+                          type: object
+                      type: object
                     extraVolumeMounts:
                       description: ExtraVolumeMounts holds the extra volume mounts to add (normally used with extraVolumes).
                       items:
@@ -986,6 +1096,7 @@ spec:
                                     description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
                                     type: string
                                 type: object
+                                x-kubernetes-map-type: atomic
                               user:
                                 description: 'user is optional: User is the rados user name, default is admin More info: https://examples.k8s.io/volumes/cephfs/README.md#how-to-use-it'
                                 type: string
@@ -1008,6 +1119,7 @@ spec:
                                     description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
                                     type: string
                                 type: object
+                                x-kubernetes-map-type: atomic
                               volumeID:
                                 description: 'volumeID used to identify the volume in cinder. More info: https://examples.k8s.io/mysql-cinder-pd/README.md'
                                 type: string
@@ -1048,6 +1160,7 @@ spec:
                                 description: optional specify whether the ConfigMap or its keys must be defined
                                 type: boolean
                             type: object
+                            x-kubernetes-map-type: atomic
                           csi:
                             description: csi (Container Storage Interface) represents ephemeral storage that is handled by certain external CSI drivers (Beta feature).
                             properties:
@@ -1064,6 +1177,7 @@ spec:
                                     description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
                                     type: string
                                 type: object
+                                x-kubernetes-map-type: atomic
                               readOnly:
                                 description: readOnly specifies a read-only configuration for the volume. Defaults to false (read/write).
                                 type: boolean
@@ -1099,6 +1213,7 @@ spec:
                                       required:
                                         - fieldPath
                                       type: object
+                                      x-kubernetes-map-type: atomic
                                     mode:
                                       description: 'Optional: mode bits used to set permissions on this file, must be an octal value between 0000 and 0777 or a decimal value between 0 and 511. YAML accepts both octal and decimal values, JSON requires decimal values for mode bits. If not specified, the volume defaultMode will be used. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.'
                                       format: int32
@@ -1125,6 +1240,7 @@ spec:
                                       required:
                                         - resource
                                       type: object
+                                      x-kubernetes-map-type: atomic
                                   required:
                                     - path
                                   type: object
@@ -1145,7 +1261,7 @@ spec:
                                 x-kubernetes-int-or-string: true
                             type: object
                           ephemeral:
-                            description: "ephemeral represents a volume that is handled by a cluster storage driver. The volume's lifecycle is tied to the pod that defines it - it will be created before the pod starts, and deleted when the pod is removed. \n Use this if: a) the volume is only needed while the pod runs, b) features of normal volumes like restoring from snapshot or capacity    tracking are needed, c) the storage driver is specified through a storage class, and d) the storage driver supports dynamic volume provisioning through    a PersistentVolumeClaim (see EphemeralVolumeSource for more    information on the connection between this volume type    and PersistentVolumeClaim). \n Use PersistentVolumeClaim or one of the vendor-specific APIs for volumes that persist for longer than the lifecycle of an individual pod. \n Use CSI for light-weight local ephemeral volumes if the CSI driver is meant to be used that way - see the documentation of the driver for more information. \n A pod can use both types of ephemeral volumes and persistent volumes at the same time."
+                            description: "ephemeral represents a volume that is handled by a cluster storage driver. The volume's lifecycle is tied to the pod that defines it - it will be created before the pod starts, and deleted when the pod is removed. \n Use this if: a) the volume is only needed while the pod runs, b) features of normal volumes like restoring from snapshot or capacity tracking are needed, c) the storage driver is specified through a storage class, and d) the storage driver supports dynamic volume provisioning through a PersistentVolumeClaim (see EphemeralVolumeSource for more information on the connection between this volume type and PersistentVolumeClaim). \n Use PersistentVolumeClaim or one of the vendor-specific APIs for volumes that persist for longer than the lifecycle of an individual pod. \n Use CSI for light-weight local ephemeral volumes if the CSI driver is meant to be used that way - see the documentation of the driver for more information. \n A pod can use both types of ephemeral volumes and persistent volumes at the same time."
                             properties:
                               volumeClaimTemplate:
                                 description: "Will be used to create a stand-alone PVC to provision the volume. The pod in which this EphemeralVolumeSource is embedded will be the owner of the PVC, i.e. the PVC will be deleted together with the pod.  The name of the PVC will be `<pod name>-<volume name>` where `<volume name>` is the name from the `PodSpec.Volumes` array entry. Pod validation will reject the pod if the concatenated name is not valid for a PVC (for example, too long). \n An existing PVC with that name that is not owned by the pod will *not* be used for the pod to avoid using an unrelated volume by mistake. Starting the pod is then blocked until the unrelated PVC is removed. If such a pre-created PVC is meant to be used by the pod, the PVC has to updated with an owner reference to the pod once the pod exists. Normally this should not be necessary, but it may be useful when manually reconstructing a broken cluster. \n This field is read-only and no changes will be made by Kubernetes to the PVC after it has been created. \n Required, must not be nil."
@@ -1162,7 +1278,7 @@ spec:
                                           type: string
                                         type: array
                                       dataSource:
-                                        description: 'dataSource field can be used to specify either: * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot) * An existing PVC (PersistentVolumeClaim) If the provisioner or an external controller can support the specified data source, it will create a new volume based on the contents of the specified data source. If the AnyVolumeDataSource feature gate is enabled, this field will always have the same contents as the DataSourceRef field.'
+                                        description: 'dataSource field can be used to specify either: * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot) * An existing PVC (PersistentVolumeClaim) If the provisioner or an external controller can support the specified data source, it will create a new volume based on the contents of the specified data source. When the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef, and dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified. If the namespace is specified, then dataSourceRef will not be copied to dataSource.'
                                         properties:
                                           apiGroup:
                                             description: APIGroup is the group for the resource being referenced. If APIGroup is not specified, the specified Kind must be in the core API group. For any other third-party types, APIGroup is required.
@@ -1177,8 +1293,9 @@ spec:
                                           - kind
                                           - name
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                       dataSourceRef:
-                                        description: 'dataSourceRef specifies the object from which to populate the volume with data, if a non-empty volume is desired. This may be any local object from a non-empty API group (non core object) or a PersistentVolumeClaim object. When this field is specified, volume binding will only succeed if the type of the specified object matches some installed volume populator or dynamic provisioner. This field will replace the functionality of the DataSource field and as such if both fields are non-empty, they must have the same value. For backwards compatibility, both fields (DataSource and DataSourceRef) will be set to the same value automatically if one of them is empty and the other is non-empty. There are two important differences between DataSource and DataSourceRef: * While DataSource only allows two specific types of objects, DataSourceRef   allows any non-core object, as well as PersistentVolumeClaim objects. * While DataSource ignores disallowed values (dropping them), DataSourceRef   preserves all values, and generates an error if a disallowed value is   specified. (Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.'
+                                        description: 'dataSourceRef specifies the object from which to populate the volume with data, if a non-empty volume is desired. This may be any object from a non-empty API group (non core object) or a PersistentVolumeClaim object. When this field is specified, volume binding will only succeed if the type of the specified object matches some installed volume populator or dynamic provisioner. This field will replace the functionality of the dataSource field and as such if both fields are non-empty, they must have the same value. For backwards compatibility, when namespace isn''t specified in dataSourceRef, both fields (dataSource and dataSourceRef) will be set to the same value automatically if one of them is empty and the other is non-empty. When namespace is specified in dataSourceRef, dataSource isn''t set to the same value and must be empty. There are three important differences between dataSource and dataSourceRef: * While dataSource only allows two specific types of objects, dataSourceRef allows any non-core object, as well as PersistentVolumeClaim objects. * While dataSource ignores disallowed values (dropping them), dataSourceRef preserves all values, and generates an error if a disallowed value is specified. * While dataSource only allows local objects, dataSourceRef allows objects in any namespaces. (Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled. (Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.'
                                         properties:
                                           apiGroup:
                                             description: APIGroup is the group for the resource being referenced. If APIGroup is not specified, the specified Kind must be in the core API group. For any other third-party types, APIGroup is required.
@@ -1188,6 +1305,9 @@ spec:
                                             type: string
                                           name:
                                             description: Name is the name of resource being referenced
+                                            type: string
+                                          namespace:
+                                            description: Namespace is the namespace of resource being referenced Note that when a namespace is specified, a gateway.networking.k8s.io/ReferenceGrant object is required in the referent namespace to allow that namespace's owner to accept the reference. See the ReferenceGrant documentation for details. (Alpha) This field requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
                                             type: string
                                         required:
                                           - kind
@@ -1196,6 +1316,21 @@ spec:
                                       resources:
                                         description: 'resources represents the minimum resources the volume should have. If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements that are lower than previous value but must still be higher than capacity recorded in the status field of the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
                                         properties:
+                                          claims:
+                                            description: "Claims lists the names of resources, defined in spec.resourceClaims, that are used by this container. \n This is an alpha field and requires enabling the DynamicResourceAllocation feature gate. \n This field is immutable."
+                                            items:
+                                              description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                                              properties:
+                                                name:
+                                                  description: Name must match the name of one entry in pod.spec.resourceClaims of the Pod where this field is used. It makes that resource available inside a container.
+                                                  type: string
+                                              required:
+                                                - name
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-map-keys:
+                                              - name
+                                            x-kubernetes-list-type: map
                                           limits:
                                             additionalProperties:
                                               anyOf:
@@ -1245,6 +1380,7 @@ spec:
                                             description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                             type: object
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                       storageClassName:
                                         description: 'storageClassName is the name of the StorageClass required by the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1'
                                         type: string
@@ -1307,6 +1443,7 @@ spec:
                                     description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
                                     type: string
                                 type: object
+                                x-kubernetes-map-type: atomic
                             required:
                               - driver
                             type: object
@@ -1422,6 +1559,7 @@ spec:
                                     description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
                                     type: string
                                 type: object
+                                x-kubernetes-map-type: atomic
                               targetPortal:
                                 description: targetPortal is iSCSI Target Portal. The Portal is either an IP or ip_addr:port if the port is other than default (typically TCP ports 860 and 3260).
                                 type: string
@@ -1530,6 +1668,7 @@ spec:
                                           description: optional specify whether the ConfigMap or its keys must be defined
                                           type: boolean
                                       type: object
+                                      x-kubernetes-map-type: atomic
                                     downwardAPI:
                                       description: downwardAPI information about the downwardAPI data to project
                                       properties:
@@ -1550,6 +1689,7 @@ spec:
                                                 required:
                                                   - fieldPath
                                                 type: object
+                                                x-kubernetes-map-type: atomic
                                               mode:
                                                 description: 'Optional: mode bits used to set permissions on this file, must be an octal value between 0000 and 0777 or a decimal value between 0 and 511. YAML accepts both octal and decimal values, JSON requires decimal values for mode bits. If not specified, the volume defaultMode will be used. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.'
                                                 format: int32
@@ -1576,6 +1716,7 @@ spec:
                                                 required:
                                                   - resource
                                                 type: object
+                                                x-kubernetes-map-type: atomic
                                             required:
                                               - path
                                             type: object
@@ -1611,6 +1752,7 @@ spec:
                                           description: optional field specify whether the Secret or its key must be defined
                                           type: boolean
                                       type: object
+                                      x-kubernetes-map-type: atomic
                                     serviceAccountToken:
                                       description: serviceAccountToken is information about the serviceAccountToken data to project
                                       properties:
@@ -1685,6 +1827,7 @@ spec:
                                     description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
                                     type: string
                                 type: object
+                                x-kubernetes-map-type: atomic
                               user:
                                 description: 'user is the rados user name. Default is admin. More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it'
                                 type: string
@@ -1714,6 +1857,7 @@ spec:
                                     description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
                                     type: string
                                 type: object
+                                x-kubernetes-map-type: atomic
                               sslEnabled:
                                 description: sslEnabled Flag enable/disable SSL communication with Gateway, default false
                                 type: boolean
@@ -1784,6 +1928,7 @@ spec:
                                     description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
                                     type: string
                                 type: object
+                                x-kubernetes-map-type: atomic
                               volumeName:
                                 description: volumeName is the human-readable name of the StorageOS volume.  Volume names are only unique within a namespace.
                                 type: string
@@ -1813,16 +1958,22 @@ spec:
                           - name
                         type: object
                       type: array
+                    logLevel:
+                      description: LogLevel sets the log level for Envoy. Allowed values are "trace", "debug", "info", "warn", "error", "critical", "off".
+                      type: string
                     networkPublishing:
                       description: NetworkPublishing defines how to expose Envoy to a network.
                       properties:
+                        externalTrafficPolicy:
+                          description: "ExternalTrafficPolicy describes how nodes distribute service traffic they receive on one of the Service's \"externally-facing\" addresses (NodePorts, ExternalIPs, and LoadBalancer IPs). \n If unset, defaults to \"Local\"."
+                          type: string
                         serviceAnnotations:
                           additionalProperties:
                             type: string
                           description: ServiceAnnotations is the annotations to add to the provisioned Envoy service.
                           type: object
                         type:
-                          description: "NetworkPublishingType is the type of publishing strategy to use. Valid values are: \n * LoadBalancerService \n In this configuration, network endpoints for Envoy use container networking. A Kubernetes LoadBalancer Service is created to publish Envoy network endpoints. \n See: https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer \n * NodePortService \n Publishes Envoy network endpoints using a Kubernetes NodePort Service. \n In this configuration, Envoy network endpoints use container networking. A Kubernetes NodePort Service is created to publish the network endpoints. \n See: https://kubernetes.io/docs/concepts/services-networking/service/#nodeport \n * ClusterIPService \n Publishes Envoy network endpoints using a Kubernetes ClusterIP Service. \n In this configuration, Envoy network endpoints use container networking. A Kubernetes ClusterIP Service is created to publish the network endpoints. \n See: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types \n If unset, defaults to LoadBalancerService."
+                          description: "NetworkPublishingType is the type of publishing strategy to use. Valid values are: \n * LoadBalancerService \n In this configuration, network endpoints for Envoy use container networking. A Kubernetes LoadBalancer Service is created to publish Envoy network endpoints. \n See: https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer \n * NodePortService \n Publishes Envoy network endpoints using a Kubernetes NodePort Service. \n In this configuration, Envoy network endpoints use container networking. A Kubernetes NodePort Service is created to publish the network endpoints. \n See: https://kubernetes.io/docs/concepts/services-networking/service/#nodeport \n NOTE: When provisioning an Envoy `NodePortService`, use Gateway Listeners' port numbers to populate the Service's node port values, there's no way to auto-allocate them. \n See: https://github.com/projectcontour/contour/issues/4499 \n * ClusterIPService \n Publishes Envoy network endpoints using a Kubernetes ClusterIP Service. \n In this configuration, Envoy network endpoints use container networking. A Kubernetes ClusterIP Service is created to publish the network endpoints. \n See: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types \n If unset, defaults to LoadBalancerService."
                           type: string
                       type: object
                     nodePlacement:
@@ -1863,13 +2014,28 @@ spec:
                       description: PodAnnotations defines annotations to add to the Envoy pods.
                       type: object
                     replicas:
-                      description: Replicas is the desired number of Envoy replicas. If WorkloadType is not "Deployment", this field is ignored. Otherwise, if unset, defaults to 2.
+                      description: "Deprecated: Use `DeploymentSettings.Replicas` instead. \n Replicas is the desired number of Envoy replicas. If WorkloadType is not \"Deployment\", this field is ignored. Otherwise, if unset, defaults to 2. \n if both `DeploymentSettings.Replicas` and this one is set, use `DeploymentSettings.Replicas`."
                       format: int32
                       minimum: 0
                       type: integer
                     resources:
                       description: 'Compute Resources required by envoy container. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                       properties:
+                        claims:
+                          description: "Claims lists the names of resources, defined in spec.resourceClaims, that are used by this container. \n This is an alpha field and requires enabling the DynamicResourceAllocation feature gate. \n This field is immutable."
+                          items:
+                            description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                            properties:
+                              name:
+                                description: Name must match the name of one entry in pod.spec.resourceClaims of the Pod where this field is used. It makes that resource available inside a container.
+                                type: string
+                            required:
+                              - name
+                            type: object
+                          type: array
+                          x-kubernetes-list-map-keys:
+                            - name
+                          x-kubernetes-list-type: map
                         limits:
                           additionalProperties:
                             anyOf:
@@ -1932,7 +2098,7 @@ spec:
                           description: Cluster holds various configurable Envoy cluster values that can be set in the config file.
                           properties:
                             dnsLookupFamily:
-                              description: "DNSLookupFamily defines how external names are looked up When configured as V4, the DNS resolver will only perform a lookup for addresses in the IPv4 family. If V6 is configured, the DNS resolver will only perform a lookup for addresses in the IPv6 family. If AUTO is configured, the DNS resolver will first perform a lookup for addresses in the IPv6 family and fallback to a lookup for addresses in the IPv4 family. Note: This only applies to externalName clusters. \n See https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/cluster/v3/cluster.proto.html#envoy-v3-api-enum-config-cluster-v3-cluster-dnslookupfamily for more information. \n Values: `auto` (default), `v4`, `v6`. \n Other values will produce an error."
+                              description: "DNSLookupFamily defines how external names are looked up When configured as V4, the DNS resolver will only perform a lookup for addresses in the IPv4 family. If V6 is configured, the DNS resolver will only perform a lookup for addresses in the IPv6 family. If AUTO is configured, the DNS resolver will first perform a lookup for addresses in the IPv6 family and fallback to a lookup for addresses in the IPv4 family. If ALL is specified, the DNS resolver will perform a lookup for both IPv4 and IPv6 families, and return all resolved addresses. When this is used, Happy Eyeballs will be enabled for upstream connections. Refer to Happy Eyeballs Support for more information. Note: This only applies to externalName clusters. \n See https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/cluster/v3/cluster.proto.html#envoy-v3-api-enum-config-cluster-v3-cluster-dnslookupfamily for more information. \n Values: `auto` (default), `v4`, `v6`, `all`. \n Other values will produce an error."
                               type: string
                           type: object
                         defaultHTTPVersions:
@@ -1992,11 +2158,14 @@ spec:
                             disableMergeSlashes:
                               description: "DisableMergeSlashes disables Envoy's non-standard merge_slashes path transformation option which strips duplicate slashes from request URL paths. \n Contour's default is false."
                               type: boolean
+                            serverHeaderTransformation:
+                              description: "Defines the action to be applied to the Server header on the response path. When configured as overwrite, overwrites any Server header with \"envoy\". When configured as append_if_absent, if a Server header is present, pass it through, otherwise set it to \"envoy\". When configured as pass_through, pass through the value of the Server header, and do not append a header if none is present. \n Values: `overwrite` (default), `append_if_absent`, `pass_through` \n Other values will produce an error. Contour's default is overwrite."
+                              type: string
                             tls:
                               description: TLS holds various configurable Envoy TLS listener values.
                               properties:
                                 cipherSuites:
-                                  description: "CipherSuites defines the TLS ciphers to be supported by Envoy TLS listeners when negotiating TLS 1.2. Ciphers are validated against the set that Envoy supports by default. This parameter should only be used by advanced users. Note that these will be ignored when TLS 1.3 is in use. \n This field is optional; when it is undefined, a Contour-managed ciphersuite list will be used, which may be updated to keep it secure. \n Contour's default list is:   - \"[ECDHE-ECDSA-AES128-GCM-SHA256|ECDHE-ECDSA-CHACHA20-POLY1305]\"   - \"[ECDHE-RSA-AES128-GCM-SHA256|ECDHE-RSA-CHACHA20-POLY1305]\"   - \"ECDHE-ECDSA-AES256-GCM-SHA384\"   - \"ECDHE-RSA-AES256-GCM-SHA384\" \n Ciphers provided are validated against the following list:   - \"[ECDHE-ECDSA-AES128-GCM-SHA256|ECDHE-ECDSA-CHACHA20-POLY1305]\"   - \"[ECDHE-RSA-AES128-GCM-SHA256|ECDHE-RSA-CHACHA20-POLY1305]\"   - \"ECDHE-ECDSA-AES128-GCM-SHA256\"   - \"ECDHE-RSA-AES128-GCM-SHA256\"   - \"ECDHE-ECDSA-AES128-SHA\"   - \"ECDHE-RSA-AES128-SHA\"   - \"AES128-GCM-SHA256\"   - \"AES128-SHA\"   - \"ECDHE-ECDSA-AES256-GCM-SHA384\"   - \"ECDHE-RSA-AES256-GCM-SHA384\"   - \"ECDHE-ECDSA-AES256-SHA\"   - \"ECDHE-RSA-AES256-SHA\"   - \"AES256-GCM-SHA384\"   - \"AES256-SHA\" \n Contour recommends leaving this undefined unless you are sure you must. \n See: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters Note: This list is a superset of what is valid for stock Envoy builds and those using BoringSSL FIPS."
+                                  description: "CipherSuites defines the TLS ciphers to be supported by Envoy TLS listeners when negotiating TLS 1.2. Ciphers are validated against the set that Envoy supports by default. This parameter should only be used by advanced users. Note that these will be ignored when TLS 1.3 is in use. \n This field is optional; when it is undefined, a Contour-managed ciphersuite list will be used, which may be updated to keep it secure. \n Contour's default list is: - \"[ECDHE-ECDSA-AES128-GCM-SHA256|ECDHE-ECDSA-CHACHA20-POLY1305]\" - \"[ECDHE-RSA-AES128-GCM-SHA256|ECDHE-RSA-CHACHA20-POLY1305]\" - \"ECDHE-ECDSA-AES256-GCM-SHA384\" - \"ECDHE-RSA-AES256-GCM-SHA384\" \n Ciphers provided are validated against the following list: - \"[ECDHE-ECDSA-AES128-GCM-SHA256|ECDHE-ECDSA-CHACHA20-POLY1305]\" - \"[ECDHE-RSA-AES128-GCM-SHA256|ECDHE-RSA-CHACHA20-POLY1305]\" - \"ECDHE-ECDSA-AES128-GCM-SHA256\" - \"ECDHE-RSA-AES128-GCM-SHA256\" - \"ECDHE-ECDSA-AES128-SHA\" - \"ECDHE-RSA-AES128-SHA\" - \"AES128-GCM-SHA256\" - \"AES128-SHA\" - \"ECDHE-ECDSA-AES256-GCM-SHA384\" - \"ECDHE-RSA-AES256-GCM-SHA384\" - \"ECDHE-ECDSA-AES256-SHA\" - \"ECDHE-RSA-AES256-SHA\" - \"AES256-GCM-SHA384\" - \"AES256-SHA\" \n Contour recommends leaving this undefined unless you are sure you must. \n See: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto#extensions-transport-sockets-tls-v3-tlsparameters Note: This list is a superset of what is valid for stock Envoy builds and those using BoringSSL FIPS."
                                   items:
                                     type: string
                                   type: array
@@ -2225,6 +2394,9 @@ spec:
                         domain:
                           description: Domain is passed to the Rate Limit Service.
                           type: string
+                        enableResourceExhaustedCode:
+                          description: EnableResourceExhaustedCode enables translating error code 429 to grpc code RESOURCE_EXHAUSTED. When disabled it's translated to UNAVAILABLE
+                          type: boolean
                         enableXRateLimitHeaders:
                           description: "EnableXRateLimitHeaders defines whether to include the X-RateLimit headers X-RateLimit-Limit, X-RateLimit-Remaining, and X-RateLimit-Reset (as defined by the IETF Internet-Draft linked below), on responses to clients when the Rate Limit Service is consulted for a request. \n ref. https://tools.ietf.org/id/draft-polli-ratelimit-headers-03.html"
                           type: boolean
@@ -2283,7 +2455,7 @@ spec:
                 conditions:
                   description: Conditions describe the current conditions of the ContourDeployment resource.
                   items:
-                    description: "Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, \n \ttype FooStatus struct{ \t    // Represents the observations of a foo's current state. \t    // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\" \t    // +patchMergeKey=type \t    // +patchStrategy=merge \t    // +listType=map \t    // +listMapKey=type \t    Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` \n \t    // other fields \t}"
+                    description: "Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, \n type FooStatus struct{ // Represents the observations of a foo's current state. // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge // +listType=map // +listMapKey=type Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
                     properties:
                       lastTransitionTime:
                         description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -2333,18 +2505,12 @@ spec:
       storage: true
       subresources:
         status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.7.0
+    controller-gen.kubebuilder.io/version: v0.11.2
   creationTimestamp: null
   name: extensionservices.projectcontour.io
   labels:
@@ -2605,18 +2771,12 @@ spec:
       storage: true
       subresources:
         status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.7.0
+    controller-gen.kubebuilder.io/version: v0.11.2
   creationTimestamp: null
   name: httpproxies.projectcontour.io
   labels:
@@ -3265,6 +3425,11 @@ spec:
                                   - name
                                 type: object
                               type: array
+                            healthPort:
+                              description: HealthPort is the port for this service healthcheck. If not specified, Port is used for service healthchecks.
+                              maximum: 65535
+                              minimum: 1
+                              type: integer
                             mirror:
                               description: If Mirror is true the Service will receive a read only mirror of the traffic for this route.
                               type: boolean
@@ -3537,6 +3702,11 @@ spec:
                                 - name
                               type: object
                             type: array
+                          healthPort:
+                            description: HealthPort is the port for this service healthcheck. If not specified, Port is used for service healthchecks.
+                            maximum: 65535
+                            minimum: 1
+                            type: integer
                           mirror:
                             description: If Mirror is true the Service will receive a read only mirror of the traffic for this route.
                             type: boolean
@@ -3795,7 +3965,7 @@ spec:
                                 pattern: ^(((\d*(\.\d*)?h)|(\d*(\.\d*)?m)|(\d*(\.\d*)?s)|(\d*(\.\d*)?ms)|(\d*(\.\d*)?us)|(\d*(\.\d*)?µs)|(\d*(\.\d*)?ns))+)$
                                 type: string
                               dnsLookupFamily:
-                                description: "The DNS IP address resolution policy for the JWKS URI. When configured as \"v4\", the DNS resolver will only perform a lookup for addresses in the IPv4 family. If \"v6\" is configured, the DNS resolver will only perform a lookup for addresses in the IPv6 family. If \"auto\" is configured, the DNS resolver will first perform a lookup for addresses in the IPv6 family and fallback to a lookup for addresses in the IPv4 family. If not specified, the Contour-wide setting defined in the config file or ContourConfiguration applies (defaults to \"auto\"). \n See https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/cluster/v3/cluster.proto.html#envoy-v3-api-enum-config-cluster-v3-cluster-dnslookupfamily for more information."
+                                description: "The DNS IP address resolution policy for the JWKS URI. When configured as \"v4\", the DNS resolver will only perform a lookup for addresses in the IPv4 family. If \"v6\" is configured, the DNS resolver will only perform a lookup for addresses in the IPv6 family. If \"all\" is configured, the DNS resolver will perform a lookup for addresses in both the IPv4 and IPv6 family. If \"auto\" is configured, the DNS resolver will first perform a lookup for addresses in the IPv6 family and fallback to a lookup for addresses in the IPv4 family. If not specified, the Contour-wide setting defined in the config file or ContourConfiguration applies (defaults to \"auto\"). \n See https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/cluster/v3/cluster.proto.html#envoy-v3-api-enum-config-cluster-v3-cluster-dnslookupfamily for more information."
                                 enum:
                                   - auto
                                   - v4
@@ -3974,7 +4144,7 @@ spec:
                       description: If present the fields describes TLS properties of the virtual host. The SNI names that will be matched on are described in fqdn, the tls.secretName secret must contain a certificate that itself contains a name that matches the FQDN.
                       properties:
                         clientValidation:
-                          description: "ClientValidation defines how to verify the client certificate when an external client establishes a TLS connection to Envoy. \n This setting: \n 1. Enables TLS client certificate validation. 2. Specifies how the client certificate will be validated (i.e.    validation required or skipped). \n Note: Setting client certificate validation to be skipped should be only used in conjunction with an external authorization server that performs client validation as Contour will ensure client certificates are passed along."
+                          description: "ClientValidation defines how to verify the client certificate when an external client establishes a TLS connection to Envoy. \n This setting: \n 1. Enables TLS client certificate validation. 2. Specifies how the client certificate will be validated (i.e. validation required or skipped). \n Note: Setting client certificate validation to be skipped should be only used in conjunction with an external authorization server that performs client validation as Contour will ensure client certificates are passed along."
                           properties:
                             caSecret:
                               description: Name of a Kubernetes secret that contains a CA certificate bundle. The secret must contain key named ca.crt. The client certificate must validate against the certificates in the bundle. If specified and SkipClientCertValidation is true, client certificates will be required on requests.
@@ -3987,6 +4157,28 @@ spec:
                               description: Name of a Kubernetes opaque secret that contains a concatenated list of PEM encoded CRLs. The secret must contain key named crl.pem. This field will be used to verify that a client certificate has not been revoked. CRLs must be available from all CAs, unless crlOnlyVerifyLeafCert is true. Large CRL lists are not supported since individual secrets are limited to 1MiB in size.
                               minLength: 1
                               type: string
+                            forwardClientCertificate:
+                              description: ForwardClientCertificate adds the selected data from the passed client TLS certificate to the x-forwarded-client-cert header.
+                              properties:
+                                cert:
+                                  description: Client cert in URL encoded PEM format.
+                                  type: boolean
+                                chain:
+                                  description: Client cert chain (including the leaf cert) in URL encoded PEM format.
+                                  type: boolean
+                                dns:
+                                  description: DNS type Subject Alternative Names of the client cert.
+                                  type: boolean
+                                subject:
+                                  description: Subject of the client cert.
+                                  type: boolean
+                                uri:
+                                  description: URI type Subject Alternative Name of the client cert.
+                                  type: boolean
+                              type: object
+                            optionalClientCertificate:
+                              description: OptionalClientCertificate when set to true will request a client certificate but allow the connection to continue if the client does not provide one. If a client certificate is sent, it will be verified according to the other properties, which includes disabling validation if SkipClientCertValidation is set. Defaults to false.
+                              type: boolean
                             skipClientCertValidation:
                               description: SkipClientCertValidation disables downstream client certificate validation. Defaults to false. This field is intended to be used in conjunction with external authorization in order to enable the external authorization server to validate client certificates. When this field is set to true, client certificates are requested but not verified by Envoy. If CACertificate is specified, client certificates are required on requests, but not verified. If external authorization is in use, they are presented to the external authorization server.
                               type: boolean
@@ -4152,7 +4344,7 @@ spec:
                             items:
                               properties:
                                 error:
-                                  description: 'Error is to record the problem with the service port The format of the error shall comply with the following rules: - built-in error values shall be specified in this file and those shall use   CamelCase names - cloud provider specific error values must have names that comply with the   format foo.example.com/CamelCase. --- The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)'
+                                  description: 'Error is to record the problem with the service port The format of the error shall comply with the following rules: - built-in error values shall be specified in this file and those shall use CamelCase names - cloud provider specific error values must have names that comply with the format foo.example.com/CamelCase. --- The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)'
                                   maxLength: 316
                                   pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                                   type: string
@@ -4182,18 +4374,12 @@ spec:
       storage: true
       subresources:
         status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.7.0
+    controller-gen.kubebuilder.io/version: v0.11.2
   creationTimestamp: null
   name: tlscertificatedelegations.projectcontour.io
   labels:
@@ -4373,12 +4559,6 @@ spec:
       storage: true
       subresources:
         status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -4423,7 +4603,7 @@ rules:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: contour-certgen-v1.23.2
+  name: contour-certgen-v1.24.0
   namespace: contour-external
   labels:
     networking.knative.dev/ingress-provider: contour
@@ -4435,7 +4615,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: ghcr.io/projectcontour/contour:v1.23.2
+          image: ghcr.io/projectcontour/contour:v1.24.0
           imagePullPolicy: IfNotPresent
           command:
             - contour
@@ -4502,7 +4682,6 @@ rules:
       - gateways
       - httproutes
       - referencegrants
-      - referencepolicies
       - tlsroutes
     verbs:
       - get
@@ -4669,7 +4848,7 @@ spec:
             - --config-path=/config/contour.yaml
           command:
             - contour
-          image: ghcr.io/projectcontour/contour:v1.23.2
+          image: ghcr.io/projectcontour/contour:v1.24.0
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -4758,7 +4937,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: ghcr.io/projectcontour/contour:v1.23.2
+          image: ghcr.io/projectcontour/contour:v1.24.0
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -4767,12 +4946,6 @@ spec:
                   - contour
                   - envoy
                   - shutdown
-          livenessProbe:
-            httpGet:
-              path: /healthz
-              port: 8090
-            initialDelaySeconds: 3
-            periodSeconds: 10
           name: shutdown-manager
           volumeMounts:
             - name: envoy-admin
@@ -4792,7 +4965,7 @@ spec:
             - --log-level info
           command:
             - envoy
-          image: docker.io/envoyproxy/envoy:v1.24.1
+          image: docker.io/envoyproxy/envoy:v1.25.0
           imagePullPolicy: IfNotPresent
           name: envoy
           env:
@@ -4854,7 +5027,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: ghcr.io/projectcontour/contour:v1.23.2
+          image: ghcr.io/projectcontour/contour:v1.24.0
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
@@ -4939,7 +5112,7 @@ data:
     #
     # Specify the Gateway API configuration.
     # gateway:
-    #   controllerName: projectcontour.io/projectcontour/contour
+    #   controllerName: projectcontour.io/gateway-controller
     #
     # should contour expect to be running inside a k8s cluster
     # incluster: true
@@ -5022,6 +5195,7 @@ data:
     #   - "user_agent"
     #   - "x_forwarded_for"
     #   - "grpc_status"
+    #   - "grpc_status_number"
     #
     # default-http-versions:
     # - "HTTP/2"
@@ -5070,6 +5244,9 @@ data:
     #   Limit Service is consulted for a request.
     #   ref. https://tools.ietf.org/id/draft-polli-ratelimit-headers-03.html
     #   enableXRateLimitHeaders: false
+    #   Defines whether to translate status code 429 to grpc code RESOURCE_EXHAUSTED
+    #   instead of the default UNAVAILABLE
+    #   enableResourceExhaustedCode: false
     #
     # Global Policy settings.
     # policy:
@@ -5143,7 +5320,7 @@ rules:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: contour-certgen-v1.23.2
+  name: contour-certgen-v1.24.0
   namespace: contour-internal
   labels:
     networking.knative.dev/ingress-provider: contour
@@ -5155,7 +5332,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: ghcr.io/projectcontour/contour:v1.23.2
+          image: ghcr.io/projectcontour/contour:v1.24.0
           imagePullPolicy: IfNotPresent
           command:
             - contour
@@ -5309,7 +5486,7 @@ spec:
             - --config-path=/config/contour.yaml
           command:
             - contour
-          image: ghcr.io/projectcontour/contour:v1.23.2
+          image: ghcr.io/projectcontour/contour:v1.24.0
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -5398,7 +5575,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: ghcr.io/projectcontour/contour:v1.23.2
+          image: ghcr.io/projectcontour/contour:v1.24.0
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -5407,12 +5584,6 @@ spec:
                   - contour
                   - envoy
                   - shutdown
-          livenessProbe:
-            httpGet:
-              path: /healthz
-              port: 8090
-            initialDelaySeconds: 3
-            periodSeconds: 10
           name: shutdown-manager
           volumeMounts:
             - name: envoy-admin
@@ -5432,7 +5603,7 @@ spec:
             - --log-level info
           command:
             - envoy
-          image: docker.io/envoyproxy/envoy:v1.24.1
+          image: docker.io/envoyproxy/envoy:v1.25.0
           imagePullPolicy: IfNotPresent
           name: envoy
           env:
@@ -5494,7 +5665,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: ghcr.io/projectcontour/contour:v1.23.2
+          image: ghcr.io/projectcontour/contour:v1.24.0
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
