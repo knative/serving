@@ -2,8 +2,6 @@
 # Do not modify this file, instead modify peribolos/knative.yaml
 
 aliases:
-  api-core-wg-leads:
-  - dprotaso
   client-reviewers:
   - itsmurugappan
   client-wg-leads:
@@ -17,14 +15,11 @@ aliases:
   - rhuss
   - vyasgun
   conformance-task-force-leads:
-  - omerbensaadon
   - salaboy
   conformance-writers:
-  - omerbensaadon
   - salaboy
   docs-reviewers:
   - nainaz
-  - omerbensaadon
   - pmbanugo
   - snneji
   docs-wg-leads:
@@ -89,67 +84,29 @@ aliases:
   - knative-prow-robot
   - knative-prow-updater-robot
   - knative-test-reporter-robot
-  networking-reviewers:
-  - JRBANCEL
-  - ZhiminXiang
-  - andrew-su
-  - carlisia
-  - nak3
-  - tcnghia
-  - vagababov
-  - yanweiguo
-  networking-wg-leads: []
-  networking-writers:
-  - JRBANCEL
-  - vagababov
   operations-reviewers:
-  - Cynocracy
   - aliok
   - houshengbo
-  - jcrossley3
   - matzew
   - maximilien
   operations-wg-leads:
   - houshengbo
   operations-writers:
-  - Cynocracy
   - aliok
   - houshengbo
-  - jcrossley3
   - matzew
   - maximilien
-  pkg-configmap-reviewers:
-  - dprotaso
-  - mattmoor
-  - vagababov
-  pkg-configmap-writers:
-  - dprotaso
-  - mattmoor
-  - vagababov
-  pkg-controller-reviewers:
-  - dprotaso
-  - mattmoor
-  - tcnghia
-  - vagababov
-  pkg-controller-writers:
-  - dprotaso
-  - mattmoor
-  - tcnghia
-  - vagababov
   productivity-leads:
   - kvmware
   - upodroid
   productivity-reviewers:
   - evankanderson
   - mgencur
-  - shinigambit
   productivity-wg-leads:
   - kvmware
   - upodroid
   productivity-writers:
   - cardil
-  - chaodaiG
-  - coryrc
   - kvmware
   - psschwei
   - upodroid
@@ -157,26 +114,23 @@ aliases:
   - evankanderson
   security-writers:
   - evankanderson
-  serving-observability-reviewers:
-  - skonto
-  - yanweiguo
-  serving-observability-writers:
-  - yanweiguo
+  serving-approvers:
+  - nak3
   serving-reviewers:
+  - KauzClay
   - carlisia
-  - julz
-  - nader-ziada
-  - psschwei
+  - izabelacg
+  - jsanin-vmw
+  - kauana
+  - retocode
   - skonto
   serving-wg-leads:
   - dprotaso
   - psschwei
   serving-writers:
   - dprotaso
-  - julz
+  - nak3
   - psschwei
-  - tcnghia
-  - vagababov
   steering-committee:
   - csantanapr
   - itsmurugappan
