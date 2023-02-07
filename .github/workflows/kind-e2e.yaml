@@ -97,8 +97,7 @@ jobs:
         - kourier-tls
         - istio
         - contour
-        # Disabled due to consistent failures
-        # - gateway_istio
+        - gateway_istio
 
         test-suite:
         - runtime
@@ -122,11 +121,10 @@ jobs:
           kind-version: v0.17.0
           kind-image-sha: sha256:691e24bd2417609db7e589e1a479b902d2e209892a10ce375fab60a8407c7352
 
-        # Disabled due to consistent failures
-        # - ingress: gateway_istio
-        #   ingress-class: gateway-api
-        #   test-flags: -enable-alpha
-        #   namespace-resources: httproute
+        - ingress: gateway_istio
+          ingress-class: gateway-api
+          test-flags: -enable-alpha
+          namespace-resources: httproute
 
         - ingress: contour
           namespace-resources: httpproxy

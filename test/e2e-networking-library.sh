@@ -25,20 +25,14 @@ function stage_gateway_api_resources() {
   local gateway_dir="${E2E_YAML_DIR}/gateway-api/install"
   mkdir -p "${gateway_dir}"
 
-  # TODO: if we switch to istio 1.12 we can reuse stage_istio_head
-  curl -sL https://istio.io/downloadIstioctl | ISTIO_VERSION=1.12.2 sh -
+  # Re-use istio manifests from net-istio repo.
+  # FIXME: Is there any better way?
+  net_istio_yaml="${REPO_ROOT_DIR}/third_party/istio-latest/net-istio.yaml"
+  local sha=$(head -n 1 ${net_istio_yaml} | grep "# Generated when HEAD was" | sed 's/^.* //')
+  local istio_yaml="$(net_istio_file_url "$sha" istio.yaml)"
 
-  local params="--set values.global.proxy.clusterDomain=${CLUSTER_DOMAIN}"
-
-  cat <<EOF > "${gateway_dir}/istio.yaml"
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: istio-system
----
-EOF
-
-  $HOME/.istioctl/bin/istioctl manifest generate $params >> "${gateway_dir}/istio.yaml"
+  wget -P "${gateway_dir}" "${istio_yaml}" \
+    || fail_test "Unable to get istio install file ${istio_yaml}"
 }
 
 function stage_istio_head() {
