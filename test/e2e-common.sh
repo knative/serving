@@ -68,7 +68,7 @@ function latest_net_istio_version() {
 
   local auth=''
 
-  if [ -n "$GITHUB_TOKEN" ]; then
+  if [ -n "${GITHUB_TOKEN-}" ]; then
    auth="-H 'Authorization: Bearer $GITHUB_TOKEN'"
   fi
 
