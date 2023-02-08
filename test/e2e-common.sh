@@ -66,7 +66,13 @@ function latest_net_istio_version() {
   local major_minor
   major_minor=$(echo "$serving_version" | cut -d '.' -f 1,2)
 
-  curl -L --show-error --silent "https://api.github.com/repos/knative/net-istio/releases" | jq --arg major_minor "$major_minor" -r '[.[].tag_name] | map(select(. | startswith($major_minor))) | sort_by( sub("knative-";"") | sub("v";"") | split(".") | map(tonumber) ) | reverse[0]'
+  local auth=''
+
+  if [ -n "${GITHUB_TOKEN-}" ]; then
+   auth="-H 'Authorization: Bearer $GITHUB_TOKEN'"
+  fi
+
+  curl -L --show-error --silent $auth "https://api.github.com/repos/knative/net-istio/releases" | jq --arg major_minor "$major_minor" -r '[.[].tag_name] | map(select(. | startswith($major_minor))) | sort_by( sub("knative-";"") | sub("v";"") | split(".") | map(tonumber) ) | reverse[0]'
 }
 
 # Latest serving release. If user does not supply this as a flag, the latest
