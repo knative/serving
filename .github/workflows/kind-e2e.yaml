@@ -89,6 +89,7 @@ jobs:
         k8s-version:
         - v1.24.7
         - v1.25.3
+        - v1.26.0
 
         ingress:
         - kourier
@@ -115,6 +116,10 @@ jobs:
         - k8s-version: v1.25.3
           kind-version: v0.17.0
           kind-image-sha: sha256:f52781bc0d7a19fb6c405c2af83abfeb311f130707a0e219175677e366cc45d1
+
+        - k8s-version: v1.26.0
+          kind-version: v0.17.0
+          kind-image-sha: sha256:691e24bd2417609db7e589e1a479b902d2e209892a10ce375fab60a8407c7352
 
         # Disabled due to consistent failures
         # - ingress: gateway_istio
