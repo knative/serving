@@ -205,16 +205,6 @@ func makeIngressSpec(
 	}, nil
 }
 
-func getChallengeHosts(challenges []netv1alpha1.HTTP01Challenge) map[string]netv1alpha1.HTTP01Challenge {
-	c := make(map[string]netv1alpha1.HTTP01Challenge, len(challenges))
-
-	for _, challenge := range challenges {
-		c[challenge.URL.Host] = challenge
-	}
-
-	return c
-}
-
 func routeDomain(ctx context.Context, targetName string, r *servingv1.Route, visibility netv1alpha1.IngressVisibility) (sets.String, error) {
 	hostname, err := domains.HostnameFromTemplate(ctx, r.Name, targetName)
 	if err != nil {
@@ -239,12 +229,10 @@ func routeDomain(ctx context.Context, targetName string, r *servingv1.Route, vis
 // MakeACMEIngressPaths returns a set of netv1alpha1.HTTPIngressPath
 // that can be used to perform ACME challenges.
 func MakeACMEIngressPaths(acmeChallenges []netv1alpha1.HTTP01Challenge, domains sets.String) ([]netv1alpha1.HTTPIngressPath, []string) {
-	challenges := getChallengeHosts(acmeChallenges)
-
-	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(challenges))
+	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(acmeChallenges))
 	var extraHosts []string
 
-	for _, challenge := range challenges {
+	for _, challenge := range acmeChallenges {
 		if !domains.Has(challenge.URL.Host) {
 			extraHosts = append(extraHosts, challenge.URL.Host)
 		}
