@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/system"
-	pkgTest "knative.dev/pkg/test"
 	pkgtest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/networking"
@@ -405,7 +404,7 @@ func TestActivationScale(t *testing.T) {
 	t.Log("DEBUGGING: ", resources.Route.Status.URL.URL().Hostname())
 
 	target, err := getVegetaTarget(
-		ctx.clients.KubeClient, ctx.resources.Route.Status.URL.URL().Hostname(), pkgTest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain, "sleep", autoscaleSleep)
+		ctx.clients.KubeClient, ctx.resources.Route.Status.URL.URL().Hostname(), pkgtest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain, "sleep", autoscaleSleep)
 	if err != nil {
 		t.Errorf("error creating vegeta target: %v", err)
 	}
