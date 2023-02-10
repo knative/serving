@@ -394,14 +394,15 @@ func TestActivationScale(t *testing.T) {
 	}
 
 	target, err := getVegetaTarget(
-		ctx.clients.KubeClient, ctx.resources.Route.Status.URL.URL().Hostname(), pkgtest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain, "sleep", autoscaleSleep)
+		ctx.clients.KubeClient, ctx.resources.Route.Status.URL.URL().Hostname(),
+		pkgtest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain, "sleep", autoscaleSleep)
 	if err != nil {
 		t.Errorf("error creating vegeta target: %v", err)
 	}
 
 	// send request, should scale up to activation scale
 	client := http.Client{}
-	req, err := http.NewRequest("GET", "http://"+resources.Route.Status.URL.URL().Host, nil)
+	req, err := http.NewRequest("GET", target.URL, nil)
 	if err != nil {
 		t.Errorf("unable to create request: %v", err)
 	}
