@@ -372,15 +372,11 @@ func TestActivationScale(t *testing.T) {
 		}))
 	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
 
-	t.Log("DEBUGGING: completed setup")
-
 	clients := ctx.Clients()
 	resources, err := testv1.GetResourceObjects(clients, *ctx.names)
 	if err != nil {
 		t.Errorf("error: unable to update resource: %s", err)
 	}
-
-	t.Log("DEBUGGING: resouce gotten")
 
 	// initial scale of revision
 	if err := wait.Poll(1*time.Second, 5*time.Minute, func() (bool, error) {
@@ -389,8 +385,6 @@ func TestActivationScale(t *testing.T) {
 		t.Errorf("error: revision never had active pods")
 	}
 
-	t.Log("DEBUGGING: initial scale complete")
-
 	// scale to zero
 	if err := wait.Poll(1*time.Second, 5*time.Minute, func() (bool, error) {
 		resources, _ = testv1.GetResourceObjects(clients, *ctx.names)
@@ -398,10 +392,6 @@ func TestActivationScale(t *testing.T) {
 	}); err != nil {
 		t.Errorf("error: revision never scaled to zero")
 	}
-
-	t.Log("DEBUGGING: we've scaled to zero")
-
-	t.Log("DEBUGGING: ", resources.Route.Status.URL.URL().Hostname())
 
 	target, err := getVegetaTarget(
 		ctx.clients.KubeClient, ctx.resources.Route.Status.URL.URL().Hostname(), pkgtest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain, "sleep", autoscaleSleep)
@@ -421,12 +411,6 @@ func TestActivationScale(t *testing.T) {
 		t.Errorf("unable to send request to service: %v", err)
 	}
 
-	t.Log("DEBUGGING: request sent, we should be activation scaling")
-
-	//defer resp.Body.Close()
-
-	//t.Log("DEBUGGING: response close deferred")
-
 	// wait for revision desired replicas to equal activation scale
 	if err := wait.Poll(1*time.Second, 5*time.Minute, func() (bool, error) {
 		resources, _ = testv1.GetResourceObjects(clients, *ctx.names)
@@ -434,6 +418,4 @@ func TestActivationScale(t *testing.T) {
 	}); err != nil {
 		t.Errorf("error: desired pods never equal to activation scale")
 	}
-
-	t.Log("DEBUGGING: we're done waiting for revision to activation scale")
 }
