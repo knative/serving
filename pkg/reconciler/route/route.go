@@ -253,18 +253,24 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 				logger.Infof("Renewing Condition detected on Cert (%s), will attempt creating new challenges.", cert.Name)
 			}
 		}
-		if cert.IsReady() && !isRenewing {
+		if len(cert.Status.HTTP01Challenges) == 0 {
+			//Not sure log level this should be at.
+			//It is possible for certs to be renewed without getting
+			//validated again, for example, LetsEncrypt will cache
+			//validation results. See
+			//[here](https://letsencrypt.org/docs/faq/#i-successfully-renewed-a-certificate-but-validation-didn-t-happen-this-time-how-is-that-possible)
+			logger.Infof("No HTTP01Challenges found on Cert (%s).", cert.Name)
+		}
+
+		if cert.IsReady() {
+			if isRenewing {
+				logger.Infof("Cert (%s) is renewing.", cert.Name)
+				acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
+			}
 			r.Status.MarkCertificateReady(cert.Name)
 			tls = append(tls, resources.MakeIngressTLS(cert, dnsNames.List()))
+
 		} else {
-			if len(cert.Status.HTTP01Challenges) == 0 {
-				//Not sure log level this should be at.
-				//It is possible for certs to be renewed without getting
-				//validated again, for example, LetsEncrypt will cache
-				//validation results. See
-				//[here](https://letsencrypt.org/docs/faq/#i-successfully-renewed-a-certificate-but-validation-didn-t-happen-this-time-how-is-that-possible)
-				logger.Infof("No HTTP01Challenges found on Cert (%s).", cert.Name)
-			}
 			acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
 			r.Status.MarkCertificateNotReady(cert.Name)
 			// When httpProtocol is enabled, downgrade http scheme.
