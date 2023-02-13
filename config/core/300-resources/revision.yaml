@@ -469,6 +469,87 @@ spec:
                               type:
                                 description: "type indicates which kind of seccomp profile will be applied. Valid options are: \n Localhost - a profile defined in a file on the node should be used. RuntimeDefault - the container runtime default profile should be used. Unconfined - no profile should be applied."
                                 type: string
+                      startupProbe:
+                        description: 'StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod''s lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
+                        type: object
+                        properties:
+                          exec:
+                            description: Exec specifies the action to take.
+                            type: object
+                            properties:
+                              command:
+                                description: Command is the command line to execute inside the container, the working directory for the command  is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                                type: array
+                                items:
+                                  type: string
+                          failureThreshold:
+                            description: Minimum consecutive failures for the probe to be considered failed after having succeeded. Defaults to 3. Minimum value is 1.
+                            type: integer
+                            format: int32
+                          httpGet:
+                            description: HTTPGet specifies the http request to perform.
+                            type: object
+                            properties:
+                              host:
+                                description: Host name to connect to, defaults to the pod IP. You probably want to set "Host" in httpHeaders instead.
+                                type: string
+                              httpHeaders:
+                                description: Custom headers to set in the request. HTTP allows repeated headers.
+                                type: array
+                                items:
+                                  description: HTTPHeader describes a custom header to be used in HTTP probes
+                                  type: object
+                                  required:
+                                    - name
+                                    - value
+                                  properties:
+                                    name:
+                                      description: The header field name
+                                      type: string
+                                    value:
+                                      description: The header field value
+                                      type: string
+                              path:
+                                description: Path to access on the HTTP server.
+                                type: string
+                              port:
+                                description: Name or number of the port to access on the container. Number must be in the range 1 to 65535. Name must be an IANA_SVC_NAME.
+                                anyOf:
+                                  - type: integer
+                                  - type: string
+                                x-kubernetes-int-or-string: true
+                              scheme:
+                                description: Scheme to use for connecting to the host. Defaults to HTTP.
+                                type: string
+                          initialDelaySeconds:
+                            description: 'Number of seconds after the container has started before liveness probes are initiated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
+                            type: integer
+                            format: int32
+                          periodSeconds:
+                            description: How often (in seconds) to perform the probe.
+                            type: integer
+                            format: int32
+                          successThreshold:
+                            description: Minimum consecutive successes for the probe to be considered successful after having failed. Defaults to 1. Must be 1 for liveness and startup. Minimum value is 1.
+                            type: integer
+                            format: int32
+                          tcpSocket:
+                            description: TCPSocket specifies an action involving a TCP port.
+                            type: object
+                            properties:
+                              host:
+                                description: 'Optional: Host name to connect to, defaults to the pod IP.'
+                                type: string
+                              port:
+                                description: Number or name of the port to access on the container. Number must be in the range 1 to 65535. Name must be an IANA_SVC_NAME.
+                                anyOf:
+                                  - type: integer
+                                  - type: string
+                                x-kubernetes-int-or-string: true
+                          timeoutSeconds:
+                            description: 'Number of seconds after which the probe times out. Defaults to 1 second. Minimum value is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
+                            type: integer
+                            format: int32
                       terminationMessagePath:
                         description: 'Optional: Path at which the file to which the container''s termination message will be written is mounted into the container''s filesystem. Message written is intended to be brief final status, such as an assertion failure message. Will be truncated by the node if greater than 4096 bytes. The total message length across all containers will be limited to 12kb. Defaults to /dev/termination-log. Cannot be updated.'
                         type: string
@@ -633,6 +714,18 @@ spec:
                         description: This is accessible behind a feature flag - kubernetes.podspec-emptydir
                         type: object
                         x-kubernetes-preserve-unknown-fields: true
+                      hostPath:
+                        description: 'hostPath represents a pre-existing file or directory on the host machine that is directly exposed to the container. This is generally used for system agents or other privileged things that are allowed to see the host machine. Most containers will NOT need this. More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath --- TODO(jonesdl) We need to restrict who can use host directory mounts and who can/can not mount host directories as read/write.'
+                        type: object
+                        required:
+                          - path
+                        properties:
+                          path:
+                            description: 'path of the directory on the host. If the path is a symlink, it will follow the link to the real path. More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath'
+                            type: string
+                          type:
+                            description: 'type for HostPath Volume Defaults to "" More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath'
+                            type: string
                       name:
                         description: 'name of the volume. Must be a DNS_LABEL and unique within the pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                         type: string

@@ -64,6 +64,7 @@ func defaultFeaturesConfig() *Features {
 		ContainerSpecAddCapabilities:     Disabled,
 		PodSpecTolerations:               Disabled,
 		PodSpecVolumesEmptyDir:           Enabled,
+		PodSpecVolumesHostPath:           Disabled,
 		PodSpecPersistentVolumeClaim:     Disabled,
 		PodSpecPersistentVolumeWrite:     Disabled,
 		QueueProxyMountPodInfo:           Disabled,
@@ -95,6 +96,7 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag("kubernetes.containerspec-addcapabilities", &nc.ContainerSpecAddCapabilities),
 		asFlag("kubernetes.podspec-tolerations", &nc.PodSpecTolerations),
 		asFlag("kubernetes.podspec-volumes-emptydir", &nc.PodSpecVolumesEmptyDir),
+		asFlag("kubernetes.podspec-volumes-hostpath", &nc.PodSpecVolumesHostPath),
 		asFlag("kubernetes.podspec-init-containers", &nc.PodSpecInitContainers),
 		asFlag("kubernetes.podspec-persistent-volume-claim", &nc.PodSpecPersistentVolumeClaim),
 		asFlag("kubernetes.podspec-persistent-volume-write", &nc.PodSpecPersistentVolumeWrite),
@@ -130,6 +132,7 @@ type Features struct {
 	ContainerSpecAddCapabilities     Flag
 	PodSpecTolerations               Flag
 	PodSpecVolumesEmptyDir           Flag
+	PodSpecVolumesHostPath           Flag
 	PodSpecInitContainers            Flag
 	PodSpecPersistentVolumeClaim     Flag
 	PodSpecPersistentVolumeWrite     Flag

@@ -429,6 +429,7 @@ func testConfig() *config.Config {
 			PodSpecNodeSelector:          apiConfig.Disabled,
 			PodSpecTolerations:           apiConfig.Disabled,
 			PodSpecVolumesEmptyDir:       apiConfig.Disabled,
+			PodSpecVolumesHostPath:       apiConfig.Disabled,
 			PodSpecPersistentVolumeClaim: apiConfig.Disabled,
 			PodSpecPersistentVolumeWrite: apiConfig.Disabled,
 			PodSpecInitContainers:        apiConfig.Disabled,

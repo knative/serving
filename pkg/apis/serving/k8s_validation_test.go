@@ -171,6 +171,13 @@ func withPodSpecDNSConfigEnabled() configOption {
 	}
 }
 
+func withPodSpecVolumesHostPathEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecVolumesHostPath = config.Enabled
+		return cfg
+	}
+}
+
 func TestPodSpecValidation(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -2464,6 +2471,17 @@ func TestVolumeValidation(t *testing.T) {
 			},
 		},
 		cfgOpts: []configOption{withPodSpecVolumesEmptyDirEnabled()},
+	}, {
+		name: "hostPath volume",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: "bar/baz",
+				},
+			},
+		},
+		cfgOpts: []configOption{withPodSpecVolumesHostPathEnabled()},
 	}, {
 		name: "invalid emptyDir volume",
 		v: corev1.Volume{

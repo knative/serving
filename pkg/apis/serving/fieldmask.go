@@ -57,6 +57,11 @@ func VolumeSourceMask(ctx context.Context, in *corev1.VolumeSource) *corev1.Volu
 	out.Secret = in.Secret
 	out.ConfigMap = in.ConfigMap
 	out.Projected = in.Projected
+	out.HostPath = in.HostPath
+
+	if cfg.Features.PodSpecVolumesHostPath != config.Disabled {
+		out.HostPath = in.HostPath
+	}
 
 	if cfg.Features.PodSpecVolumesEmptyDir != config.Disabled {
 		out.EmptyDir = in.EmptyDir

@@ -10,6 +10,7 @@ k8s.io/api/core/v1.VolumeSource:
     - ConfigMap
     - Projected
     # Following are behind feature flags
+    - HostPath
     - EmptyDir
     - PersistentVolumeClaim
 k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource:
@@ -160,6 +161,7 @@ k8s.io/api/core/v1.Container:
     - EnvFrom
     - Image
     - ImagePullPolicy
+    - StartupProbe
     - LivenessProbe
     - Ports
     - ReadinessProbe
