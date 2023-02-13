@@ -111,8 +111,9 @@ func ExpandedHosts(hosts sets.String) sets.String {
 
 // Validate that the Top Level Domain of a given hostname is valid.
 // Current checks:
-//  - not all digits
-//  - len < 64
+//   - not all digits
+//   - len < 64
+//
 // Example: '1234' is an invalid TLD
 func isValidTopLevelDomain(domain string) bool {
 	parts := strings.Split(domain, ".")
