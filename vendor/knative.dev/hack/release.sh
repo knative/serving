@@ -111,6 +111,7 @@ export KO_DOCKER_REPO="gcr.io/knative-nightly"
 # Build stripped binary to reduce size
 export GOFLAGS="-ldflags=-s -ldflags=-w"
 export GITHUB_TOKEN=""
+readonly IMAGES_REFS_FILE="${IMAGES_REFS_FILE:-$(mktemp -d)/images_refs.txt}"
 
 # Convenience function to run the hub tool.
 # Parameters: $1..$n - arguments to hub.
@@ -313,40 +314,83 @@ function build_from_source() {
 }
 
 function get_images_in_yamls() {
-  rm -rf imagerefs.txt
+  rm -rf "$IMAGES_REFS_FILE"
   echo "Assembling a list of image refences to sign"
-  for file in $@; do
+  for file in "$@"; do
     [[ "${file##*.}" != "yaml" ]] && continue
     echo "Inspecting ${file}"
-    for image in $(grep -oh "\S*${KO_DOCKER_REPO}\S*" "${file}"); do
-      echo $image >> imagerefs.txt
-    done
+    while read -r image; do
+      echo "$image" >> "$IMAGES_REFS_FILE"
+    done < <(grep -oh "\S*${KO_DOCKER_REPO}\S*" "${file}")
   done
-  sort -uo imagerefs.txt imagerefs.txt # Remove duplicate entries
+  if [[ -f "$IMAGES_REFS_FILE" ]]; then
+    sort -uo "$IMAGES_REFS_FILE" "$IMAGES_REFS_FILE" # Remove duplicate entries
+  fi
+}
+
+function find_checksums_file() {
+  for file in "$@"; do
+    if [[ "${file}" == *"checksums.txt" ]]; then
+      echo "${file}"
+      return 0
+    fi
+  done
+  warning "cannot find checksums file"
 }
 
 # Build a release from source.
 function sign_release() {
-  get_images_in_yamls "${ARTIFACTS_TO_PUBLISH}"
   if (( ! IS_PROW )); then # This function can't be run by devs on their laptops
     return 0
+  fi
+  get_images_in_yamls "${ARTIFACTS_TO_PUBLISH}"
+  local checksums_file
+  checksums_file="$(find_checksums_file "${ARTIFACTS_TO_PUBLISH}")"
+
+  if ! [[ -f "${checksums_file}" ]]; then
+    echo '>> No checksums file found, generating one'
+    checksums_file="$(mktemp -d)/checksums.txt"
+    for file in ${ARTIFACTS_TO_PUBLISH}; do
+      pushd "$(dirname "$file")" >/dev/null
+      sha256sum "$(basename "$file")" >> "${checksums_file}"
+      popd >/dev/null
+    done
+    ARTIFACTS_TO_PUBLISH="${ARTIFACTS_TO_PUBLISH} ${checksums_file}"
   fi
 
   # Notarizing mac binaries needs to be done before cosign as it changes the checksum values
   # of the darwin binaries
  if [ -n "${APPLE_CODESIGN_KEY}" ] && [ -n "${APPLE_CODESIGN_PASSWORD_FILE}" ] && [ -n "${APPLE_NOTARY_API_KEY}" ]; then
     banner "Notarizing macOS Binaries for the release"
-    FILES=$(find -- * -type f -name "*darwin*")
-    for file in $FILES; do
-      rcodesign sign "${file}" --p12-file="${APPLE_CODESIGN_KEY}" \
-        --code-signature-flags=runtime \
-        --p12-password-file="${APPLE_CODESIGN_PASSWORD_FILE}"
-    done
-    zip files.zip ${FILES}
-    rcodesign notary-submit files.zip --api-key-path="${APPLE_NOTARY_API_KEY}" --wait
-    sha256sum ${ARTIFACTS_TO_PUBLISH//checksums.txt/} > checksums.txt
-    echo "🧮     Post Notarization Checksum:"
-    cat checksums.txt
+    local macos_artifacts
+    declare -a macos_artifacts=()
+    while read -r file; do
+      if echo "$file" | grep -q "darwin"; then
+        macos_artifacts+=("${file}")
+        rcodesign sign "${file}" --p12-file="${APPLE_CODESIGN_KEY}" \
+          --code-signature-flags=runtime \
+          --p12-password-file="${APPLE_CODESIGN_PASSWORD_FILE}"
+      fi
+    done < <(echo "${ARTIFACTS_TO_PUBLISH}" | tr ' ' '\n')
+    if [[ -z "${macos_artifacts[*]}" ]]; then
+      warning "No macOS binaries found, skipping notarization"
+    else
+      local zip_file
+      zip_file="$(mktemp -d)/files.zip"
+      zip "$zip_file" -@ < <(printf "%s\n"  "${macos_artifacts[@]}")
+      rcodesign notary-submit "$zip_file" --api-key-path="${APPLE_NOTARY_API_KEY}" --wait
+      true > "${checksums_file}" # Clear the checksums file
+      for file in ${ARTIFACTS_TO_PUBLISH}; do
+        if echo "$file" | grep -q "checksums.txt"; then
+          continue # Don't checksum the checksums file
+        fi
+        pushd "$(dirname "$file")" >/dev/null
+        sha256sum "$(basename "$file")" >> "${checksums_file}"
+        popd >/dev/null
+      done
+      echo "🧮     Post Notarization Checksum:"
+      cat "$checksums_file"
+    fi
   fi
 
   ID_TOKEN=$(gcloud auth print-identity-token --audiences=sigstore \
@@ -354,23 +398,25 @@ function sign_release() {
     --impersonate-service-account="${SIGNING_IDENTITY}")
   echo "Signing Images with the identity ${SIGNING_IDENTITY}"
   ## Sign the images with cosign
-  if [[ -f "imagerefs.txt" ]]; then
-      COSIGN_EXPERIMENTAL=1 cosign sign $(cat imagerefs.txt) --recursive --identity-token="${ID_TOKEN}"
-      if  [ -n "${ATTEST_IMAGES:-}" ]; then # Temporary Feature Gate
-        provenance-generator --clone-log=/logs/clone.json \
-          --image-refs=imagerefs.txt --output=attestation.json
-        mkdir -p "${ARTIFACTS}"/attestation && cp attestation.json "${ARTIFACTS}"/attestation
-        COSIGN_EXPERIMENTAL=1 cosign attest $(cat imagerefs.txt) --recursive --identity-token="${ID_TOKEN}" \
-          --predicate=attestation.json --type=slsaprovenance
-      fi
+  if [[ -f "$IMAGES_REFS_FILE" ]]; then
+    COSIGN_EXPERIMENTAL=1 cosign sign $(cat "$IMAGES_REFS_FILE") \
+      --recursive --identity-token="${ID_TOKEN}"
+    if  [ -n "${ATTEST_IMAGES:-}" ]; then # Temporary Feature Gate
+      provenance-generator --clone-log=/logs/clone.json \
+        --image-refs="$IMAGES_REFS_FILE" --output=attestation.json
+      mkdir -p "${ARTIFACTS}"/attestation && cp attestation.json "${ARTIFACTS}"/attestation
+      COSIGN_EXPERIMENTAL=1 cosign attest $(cat "$IMAGES_REFS_FILE") \
+        --recursive --identity-token="${ID_TOKEN}" \
+        --predicate=attestation.json --type=slsaprovenance
+    fi
   fi
 
-  ## Check if there is checksums.txt file. If so, sign the checksum file
-  if [[ -f "checksums.txt" ]]; then
-      echo "Signing Images with the identity ${SIGNING_IDENTITY}"
-      COSIGN_EXPERIMENTAL=1 cosign sign-blob checksums.txt --output-signature=checksums.txt.sig --output-certificate=checksums.txt.pem --identity-token="${ID_TOKEN}"
-      ARTIFACTS_TO_PUBLISH="${ARTIFACTS_TO_PUBLISH} checksums.txt.sig checksums.txt.pem"
-  fi
+  echo "Signing checksums with the identity ${SIGNING_IDENTITY}"
+  COSIGN_EXPERIMENTAL=1 cosign sign-blob "$checksums_file" \
+    --output-signature="${checksums_file}.sig" \
+    --output-certificate="${checksums_file}.pem" \
+    --identity-token="${ID_TOKEN}"
+  ARTIFACTS_TO_PUBLISH="${ARTIFACTS_TO_PUBLISH} ${checksums_file}.sig ${checksums_file}.pem"
 }
 
 # Copy tagged images from the nightly GCR to the release GCR, tagging them 'latest'.
