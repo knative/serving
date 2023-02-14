@@ -560,7 +560,35 @@ func TestFeaturesConfiguration(t *testing.T) {
 		data: map[string]string{
 			"kubernetes.podspec-dnsconfig": "Disabled",
 		},
-	}}
+	},
+		{
+			name:    "kubernetes.podspec-volumes-hostpath Allowed",
+			wantErr: false,
+			wantFeatures: defaultWith(&Features{
+				PodSpecVolumesHostPath: Allowed,
+			}),
+			data: map[string]string{
+				"kubernetes.podspec-volumes-hostpath": "Allowed",
+			},
+		}, {
+			name:    "kubernetes.podspec-volumes-hostpath Enabled",
+			wantErr: false,
+			wantFeatures: defaultWith(&Features{
+				PodSpecVolumesHostPath: Enabled,
+			}),
+			data: map[string]string{
+				"kubernetes.podspec-volumes-hostpath": "Enabled",
+			},
+		}, {
+			name:    "kubernetes.podspec-volumes-hostpath Disabled",
+			wantErr: false,
+			wantFeatures: defaultWith(&Features{
+				PodSpecVolumesHostPath: Disabled,
+			}),
+			data: map[string]string{
+				"kubernetes.podspec-volumes-hostpath": "Disabled",
+			}},
+	}
 
 	for _, tt := range configTests {
 		t.Run(tt.name, func(t *testing.T) {
