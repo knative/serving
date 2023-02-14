@@ -268,6 +268,7 @@ func ContainerMask(in *corev1.Container) *corev1.Container {
 	out.LivenessProbe = in.LivenessProbe
 	out.Ports = in.Ports
 	out.ReadinessProbe = in.ReadinessProbe
+	out.StartupProbe = in.StartupProbe
 	out.Resources = in.Resources
 	out.SecurityContext = in.SecurityContext
 	out.TerminationMessagePath = in.TerminationMessagePath
