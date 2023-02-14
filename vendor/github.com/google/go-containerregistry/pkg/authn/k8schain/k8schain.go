@@ -16,7 +16,7 @@ package k8schain
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 
 	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
 	"github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	amazonKeychain authn.Keychain = authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard)))
+	amazonKeychain authn.Keychain = authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard)))
 	azureKeychain  authn.Keychain = authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper())
 )
 
@@ -96,10 +96,10 @@ func NewFromPullSecrets(ctx context.Context, pullSecrets []corev1.Secret) (authn
 	}
 
 	return authn.NewMultiKeychain(
+		k8s,
 		authn.DefaultKeychain,
 		google.Keychain,
 		amazonKeychain,
 		azureKeychain,
-		k8s,
 	), nil
 }

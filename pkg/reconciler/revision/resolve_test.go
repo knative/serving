@@ -348,23 +348,6 @@ func TestResolveWithManifestFailure(t *testing.T) {
 	}
 }
 
-func TestResolveNoAccess(t *testing.T) {
-	const (
-		ns      = "foo"
-		svcacct = "default"
-	)
-	client := fakeclient.NewSimpleClientset()
-	dr := &digestResolver{client: client, transport: http.DefaultTransport}
-	opt := k8schain.Options{
-		Namespace:          ns,
-		ServiceAccountName: svcacct,
-	}
-	// If there is a failure accessing the ServiceAccount for this Pod, then we should see an error.
-	if resolvedDigest, err := dr.Resolve(context.Background(), "ubuntu:latest", opt, emptyRegistrySet); err == nil {
-		t.Fatalf("Resolve() = %v, want error", resolvedDigest)
-	}
-}
-
 func TestResolveTimeout(t *testing.T) {
 	// Stand up a fake registry which blocks until cancelled.
 	server, cancel := fakeRegistryBlocking(t)
