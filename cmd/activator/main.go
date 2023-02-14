@@ -165,6 +165,7 @@ func main() {
 	// Enable TLS client when queue-proxy-ca is specified.
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
+	// Also, the current activator must be restarted when updating the secret of CA.
 	if tlsEnabled {
 		logger.Info("Internal Encryption is enabled")
 		caSecret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, netcfg.ServingInternalCertName, metav1.GetOptions{})
@@ -300,20 +301,22 @@ func main() {
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
 	if tlsEnabled {
-		secret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, netcfg.ServingInternalCertName, metav1.GetOptions{})
-		if err != nil {
-			logger.Fatalw("failed to get secret", zap.Error(err))
-		}
-		cert, err := tls.X509KeyPair(secret.Data[certificates.CertName], secret.Data[certificates.PrivateKeyName])
-		if err != nil {
-			logger.Fatalw("failed to load certs", zap.Error(err))
-		}
-
-		// TODO: Implement the secret (certificate) rotation like knative.dev/pkg/webhook/certificates/.
-		// Also, the current activator must be restarted when updating the secret.
 		name, server := "https", pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTPSPort), ah)
 		go func(name string, s *http.Server) {
-			s.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
+			s.TLSConfig = &tls.Config{
+				MinVersion: tls.VersionTLS12,
+				GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+					secret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, netcfg.ServingInternalCertName, metav1.GetOptions{})
+					if err != nil {
+						errCh <- fmt.Errorf("failed to get secret: %w", err)
+					}
+					cert, err := tls.X509KeyPair(secret.Data[certificates.CertName], secret.Data[certificates.PrivateKeyName])
+					if err != nil {
+						errCh <- fmt.Errorf("failed to load certs: %w", err)
+					}
+					return &cert, nil
+				},
+			}
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
 			if err := s.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errCh <- fmt.Errorf("%s server failed: %w", name, err)
