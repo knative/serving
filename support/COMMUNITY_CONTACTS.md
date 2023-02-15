@@ -27,7 +27,7 @@ community contact's duty (subject to change) is as followed:
 - Check the
   [knative-users@](https://groups.google.com/forum/#!forum/knative-users)
   mailing list.
-- Check Slack channel [#knative](native.slack.com/archives/C04LGHDR9K7) and
+- Check Slack channel [#knative](https://cloud-native.slack.com/archives/C04LGHDR9K7) and
   [#knative-serving](https://cloud-native.slack.com/archives/C04LMU0AX60) for
   unanswered questions. Any questions that relates to usability please instruct
   user to

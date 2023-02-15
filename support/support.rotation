@@ -2,8 +2,8 @@
 #
 # Begin metadata
 #@ title: Serving
-#@ slack: #knative, #knative-serving
-#@ slacklink: https://cloud-native.slack.com/archives/C04LGHDR9K7, https://cloud-native.slack.com/archives/C04LMU0AX60
+#@ slack: #knative-serving
+#@ slacklink: https://cloud-native.slack.com/archives/C04LMU0AX60
 #
 2023-02-27T01:00:00Z | dprotaso
 2023-03-06T01:00:00Z | KauzClay
