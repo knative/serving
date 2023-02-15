@@ -58,7 +58,7 @@ contributing on personal capacity and do not have time to contribute in the
 rotation, feel free to send a PR to remove yourself.
 
 - [dprotaso](https://github.com/dprotaso)
-- [KauzClay](https://github.com/KauzClay) 
+- [KauzClay](https://github.com/KauzClay)
 - [ReToCode](https://github.com/ReToCode)
 - [skonto](https://github.com/skonto)
 
