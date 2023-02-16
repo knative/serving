@@ -490,10 +490,10 @@ func buildAdminServer(ctx context.Context, logger *zap.SugaredLogger, drainer *p
 		w.WriteHeader(http.StatusOK)
 	})
 
-	//nolint:gosec // https://github.com/knative/serving/issues/13439
 	return &http.Server{
-		Addr:    ":" + strconv.Itoa(networking.QueueAdminPort),
-		Handler: adminMux,
+		Addr:              ":" + strconv.Itoa(networking.QueueAdminPort),
+		Handler:           adminMux,
+		ReadHeaderTimeout: time.Minute, //https://medium.com/a-journey-with-go/go-understand-and-mitigate-slowloris-attack-711c1b1403f6
 	}
 }
 
@@ -501,10 +501,10 @@ func buildMetricsServer(protobufStatReporter *queue.ProtobufStatsReporter) *http
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("/metrics", queue.NewStatsHandler(protobufStatReporter))
 
-	//nolint:gosec // https://github.com/knative/serving/issues/13439
 	return &http.Server{
-		Addr:    ":" + strconv.Itoa(networking.AutoscalingQueueMetricsPort),
-		Handler: metricsMux,
+		Addr:              ":" + strconv.Itoa(networking.AutoscalingQueueMetricsPort),
+		Handler:           metricsMux,
+		ReadHeaderTimeout: time.Minute, //https://medium.com/a-journey-with-go/go-understand-and-mitigate-slowloris-attack-711c1b1403f6
 	}
 }
 
