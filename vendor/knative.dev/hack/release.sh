@@ -328,12 +328,18 @@ function get_images_in_yamls() {
   fi
 }
 
+# Finds a checksums file within the given list of artifacts (space delimited)
+# Parameters: $n - artifact files
 function find_checksums_file() {
-  for file in "$@"; do
-    if [[ "${file}" == *"checksums.txt" ]]; then
-      echo "${file}"
-      return 0
-    fi
+  for arg in "$@"; do
+    # kinda dirty hack needed as we pass $ARTIFACTS_TO_PUBLISH in space
+    # delimiter variable, which is vulnerable to all sorts of argument quoting
+    while read -r file; do
+      if [[ "${file}" == *"checksums.txt" ]]; then
+        echo "${file}"
+        return 0
+      fi
+    done < <(echo "$arg" | tr ' ' '\n')
   done
   warning "cannot find checksums file"
 }
