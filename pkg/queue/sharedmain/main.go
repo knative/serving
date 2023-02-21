@@ -263,8 +263,8 @@ func Main(opts ...Option) error {
 	} else {
 		mainServer, drainer = buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
 		srvs = append(srvs, service{name: "main", srv: mainServer, tls: false})
-		srvs = append(srvs, service{name: "admin", srv: buildAdminServer(d.Ctx, logger, drainer), tls: false})
 	}
+	srvs = append(srvs, service{name: "admin", srv: buildAdminServer(d.Ctx, logger, drainer), tls: false})
 	srvs = append(srvs, service{name: "metrics", srv: buildMetricsServer(protoStatReporter), tls: false})
 	if env.EnableProfiling {
 		srvs = append(srvs, service{name: "profile", srv: profiling.NewServer(profiling.NewHandler(logger, true)), tls: false})
