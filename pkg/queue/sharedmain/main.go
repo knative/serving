@@ -305,14 +305,16 @@ func Main(opts ...Option) error {
 		logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
 		drainer.Drain()
 
-		shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
-		defer shutdownRelease()
-		for _, s := range srvs {
-			logger.Info("Shutting down server: ", s.name)
-			if err := s.srv.Shutdown(shutdownCtx); err != nil {
-				logger.Errorw("Failed to shutdown server", zap.String("server", s.name), zap.Error(err))
+		/*
+			shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
+			defer shutdownRelease()
+			for _, s := range srvs {
+				logger.Info("Shutting down server: ", s.name)
+				if err := s.srv.Shutdown(shutdownCtx); err != nil {
+					logger.Errorw("Failed to shutdown server", zap.String("server", s.name), zap.Error(err))
+				}
 			}
-		}
+		*/
 		logger.Info("Shutdown complete, exiting...")
 	}
 	return nil
