@@ -45,7 +45,10 @@ function stage_istio_head() {
   header "Staging Istio YAML (HEAD)"
   local istio_head_dir="${E2E_YAML_DIR}/istio/HEAD/install"
   mkdir -p "${istio_head_dir}"
-  download_net_istio_yamls "${REPO_ROOT_DIR}/third_party/istio-latest/net-istio.yaml" "${istio_head_dir}"
+
+    download_net_istio_yamls \
+      "https://github.com/ReToCode/net-istio/releases/download/internal-encryption/net-istio.yaml" \
+      "${istio_head_dir}"
 }
 
 function stage_istio_latest() {
@@ -54,7 +57,7 @@ function stage_istio_latest() {
   mkdir -p "${istio_latest_dir}"
 
   download_net_istio_yamls \
-    "https://github.com/knative-sandbox/net-istio/releases/download/${LATEST_NET_ISTIO_RELEASE_VERSION}/net-istio.yaml" \
+    "https://github.com/ReToCode/net-istio/releases/download/internal-encryption/net-istio.yaml" \
     "${istio_latest_dir}"
 }
 
