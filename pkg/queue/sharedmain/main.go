@@ -256,12 +256,13 @@ func Main(opts ...Option) error {
 	// Enable TLS when certificate is mounted.
 	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
+	mainServer, drainer = buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
 	if tlsEnabled {
-		mainServer, drainer = buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, true)
+		var drainerTls *pkghandler.Drainer
+		mainServer, drainerTls = buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, true)
 		srvs = append(srvs, service{name: "tlsMain", srv: mainServer, tls: true})
-		srvs = append(srvs, service{name: "tlsAdmin", srv: buildAdminServer(d.Ctx, logger, drainer), tls: true})
+		srvs = append(srvs, service{name: "tlsAdmin", srv: buildAdminServer(d.Ctx, logger, drainerTls), tls: true})
 	} else {
-		mainServer, drainer = buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
 		srvs = append(srvs, service{name: "main", srv: mainServer, tls: false})
 	}
 	srvs = append(srvs, service{name: "admin", srv: buildAdminServer(d.Ctx, logger, drainer), tls: false})
@@ -305,16 +306,15 @@ func Main(opts ...Option) error {
 		logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
 		drainer.Drain()
 
-		/*
-			shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
-			defer shutdownRelease()
-			for _, s := range srvs {
-				logger.Info("Shutting down server: ", s.name)
-				if err := s.srv.Shutdown(shutdownCtx); err != nil {
-					logger.Errorw("Failed to shutdown server", zap.String("server", s.name), zap.Error(err))
-				}
+		shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
+		defer shutdownRelease()
+		for _, s := range srvs {
+			logger.Info("Shutting down server: ", s.name)
+			if err := s.srv.Shutdown(shutdownCtx); err != nil {
+				logger.Errorw("Failed to shutdown server", zap.String("server", s.name), zap.Error(err))
 			}
-		*/
+		}
+
 		logger.Info("Shutdown complete, exiting...")
 	}
 	return nil
