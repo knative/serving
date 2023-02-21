@@ -34,7 +34,7 @@ export RUN_HTTP01_AUTO_TLS_TESTS=0
 export HTTPS=0
 export SHORT=0
 export ENABLE_HA=0
-export ENABLE_TLS=${ENABLE_TLS:-0}
+export ENABLE_INTERNAL_ENCRYPTION=${ENABLE_INTERNAL_ENCRYPTION:-0}
 export MESH=0
 export PERF=0
 export KIND=${KIND:-0}
@@ -323,7 +323,7 @@ function install() {
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/resource-quota/resource-quota.yaml")
   fi
 
-  if (( ENABLE_TLS )); then
+  if (( ENABLE_INTERNAL_ENCRYPTION )); then
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/tls/cert-secret.yaml")
   fi
 
@@ -378,7 +378,7 @@ function install() {
     wait_for_leader_controller || return 1
   fi
 
-  if (( ENABLE_TLS )); then
+  if (( ENABLE_INTERNAL_ENCRYPTION )); then
     echo "Patch to config-network to enable internal encryption"
     toggle_feature internal-encryption true config-network
     if [[ "$INGRESS_CLASS" == "kourier.ingress.networking.knative.dev" ]]; then
