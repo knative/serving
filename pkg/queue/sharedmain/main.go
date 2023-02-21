@@ -243,52 +243,51 @@ func Main(opts ...Option) error {
 		concurrencyendpoint = queue.NewConcurrencyEndpoint(env.ConcurrencyStateEndpoint, env.ConcurrencyStateTokenPath)
 	}
 
+	type service struct {
+		name string
+		srv  *http.Server
+		tls  bool
+	}
+
+	var srvs []service
+	var drainer *pkghandler.Drainer
+	var mainServer *http.Server
+
 	// Enable TLS when certificate is mounted.
 	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
-	mainServer, drainer := buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
-	httpServers := map[string]*http.Server{
-		"main":    mainServer,
-		"metrics": buildMetricsServer(protoStatReporter),
-		"admin":   buildAdminServer(d.Ctx, logger, drainer),
-	}
-	if env.EnableProfiling {
-		httpServers["profile"] = profiling.NewServer(profiling.NewHandler(logger, true))
-	}
-
-	// Enable TLS server when activator server certs are mounted.
-	// At this moment activator with TLS does not disable HTTP.
-	// See also https://github.com/knative/serving/issues/12808.
-	var tlsServers map[string]*http.Server
 	if tlsEnabled {
-		mainTLSServer, drainer := buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, true /* enable TLS */)
-		tlsServers = map[string]*http.Server{
-			"tlsMain":  mainTLSServer,
-			"tlsAdmin": buildAdminServer(d.Ctx, logger, drainer),
-		}
-		// Drop admin http server as we Use TLS for the admin server.
-		// TODO: The drain created with mainServer above is lost. Unify the two drain.
-		delete(httpServers, "admin")
+		mainServer, drainer = buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, true)
+		srvs = append(srvs, service{name: "tlsMain", srv: mainServer, tls: true})
+		srvs = append(srvs, service{name: "tlsAdmin", srv: buildAdminServer(d.Ctx, logger, drainer), tls: true})
+	} else {
+		mainServer, drainer = buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
+		srvs = append(srvs, service{name: "main", srv: mainServer, tls: false})
+		srvs = append(srvs, service{name: "admin", srv: buildAdminServer(d.Ctx, logger, drainer), tls: false})
+	}
+	srvs = append(srvs, service{name: "metrics", srv: buildMetricsServer(protoStatReporter), tls: false})
+	if env.EnableProfiling {
+		srvs = append(srvs, service{name: "profile", srv: profiling.NewServer(profiling.NewHandler(logger, true)), tls: false})
 	}
 
 	logger.Info("Starting queue-proxy")
 
 	errCh := make(chan error)
-	for name, server := range httpServers {
-		go func(name string, s *http.Server) {
+	for _, s := range srvs {
+		go func(s service) {
+			logger.Debugf("Starting service %s on port %s with tls %t", s.name, s.srv.Addr, s.tls)
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
-			if err := s.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				errCh <- fmt.Errorf("%s server failed to serve: %w", name, err)
+			var err error
+			if s.tls {
+				err = s.srv.ListenAndServeTLS(certPath, keyPath)
+			} else {
+				err = s.srv.ListenAndServe()
 			}
-		}(name, server)
-	}
-	for name, server := range tlsServers {
-		go func(name string, s *http.Server) {
-			// Don't forward ErrServerClosed as that indicates we're already shutting down.
-			if err := s.ListenAndServeTLS(certPath, keyPath); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				errCh <- fmt.Errorf("%s server failed to serve: %w", name, err)
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				errCh <- fmt.Errorf("%s server failed to serve: %w", s.name, err)
 			}
-		}(name, server)
+			logger.Debugf("Ended service %s on port %s with tls %t", s.name, s.srv.Addr, s.tls)
+		}(s)
 	}
 
 	// Blocks until we actually receive a TERM signal or one of the servers
@@ -306,13 +305,12 @@ func Main(opts ...Option) error {
 		logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
 		drainer.Drain()
 
-		// Removing the main server from the shutdown logic as we've already shut it down.
-		delete(httpServers, "main")
-
-		for serverName, srv := range httpServers {
-			logger.Info("Shutting down server: ", serverName)
-			if err := srv.Shutdown(context.Background()); err != nil {
-				logger.Errorw("Failed to shutdown server", zap.String("server", serverName), zap.Error(err))
+		shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
+		defer shutdownRelease()
+		for _, s := range srvs {
+			logger.Info("Shutting down server: ", s.name)
+			if err := s.srv.Shutdown(shutdownCtx); err != nil {
+				logger.Errorw("Failed to shutdown server", zap.String("server", s.name), zap.Error(err))
 			}
 		}
 		logger.Info("Shutdown complete, exiting...")
