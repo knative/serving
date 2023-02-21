@@ -256,17 +256,18 @@ func Main(opts ...Option) error {
 	// Enable TLS when certificate is mounted.
 	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
-	mainServer, drainer = buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
 	if tlsEnabled {
-		var drainerTls *pkghandler.Drainer
-		mainServer, drainerTls = buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, true)
+		mainServer, drainer = buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, true)
 		srvs = append(srvs, service{name: "tlsMain", srv: mainServer, tls: true})
-		srvs = append(srvs, service{name: "tlsAdmin", srv: buildAdminServer(d.Ctx, logger, drainerTls), tls: true})
+		srvs = append(srvs, service{name: "tlsAdmin", srv: buildAdminServer(d.Ctx, logger, drainer), tls: true})
 	} else {
+		mainServer, drainer = buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
 		srvs = append(srvs, service{name: "main", srv: mainServer, tls: false})
+		srvs = append(srvs, service{name: "admin", srv: buildAdminServer(d.Ctx, logger, drainer), tls: false})
 	}
-	srvs = append(srvs, service{name: "admin", srv: buildAdminServer(d.Ctx, logger, drainer), tls: false})
+
 	srvs = append(srvs, service{name: "metrics", srv: buildMetricsServer(protoStatReporter), tls: false})
+
 	if env.EnableProfiling {
 		srvs = append(srvs, service{name: "profile", srv: profiling.NewServer(profiling.NewHandler(logger, true)), tls: false})
 	}
@@ -306,7 +307,8 @@ func Main(opts ...Option) error {
 		logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
 		drainer.Drain()
 
-		shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
+		// Shutdown() to all services, wait no more than 600 sec for graceful termination
+		shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 600*time.Second)
 		defer shutdownRelease()
 		for _, s := range srvs {
 			logger.Info("Shutting down server: ", s.name)
