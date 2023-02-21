@@ -32,8 +32,6 @@ import (
 	fakerouteinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
 
 	_ "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
-	"knative.dev/pkg/apis"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 
@@ -67,7 +65,6 @@ import (
 	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/domains"
-	"knative.dev/serving/pkg/reconciler/route/resources"
 
 	_ "knative.dev/pkg/metrics/testing"
 	. "knative.dev/pkg/reconciler/testing"
@@ -78,65 +75,6 @@ const (
 	testNamespace       = "test"
 	defaultDomainSuffix = "test-domain.dev"
 	prodDomainSuffix    = "prod-domain.com"
-)
-
-var (
-	defaultConfigMaps = []*corev1.ConfigMap{{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      config.DomainConfigName,
-			Namespace: system.Namespace(),
-		},
-		Data: map[string]string{
-			defaultDomainSuffix: "",
-			prodDomainSuffix:    "selector:\n  app: prod",
-		},
-	}, {
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      netcfg.ConfigMapName,
-			Namespace: system.Namespace(),
-		},
-	}, {
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      gc.ConfigName,
-			Namespace: system.Namespace(),
-		},
-	}, {
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cfgmap.FeaturesConfigName,
-			Namespace: system.Namespace(),
-		},
-	}}
-
-	autoTLSConfigMaps = []*corev1.ConfigMap{{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      config.DomainConfigName,
-			Namespace: system.Namespace(),
-		},
-		Data: map[string]string{
-			defaultDomainSuffix: "",
-			prodDomainSuffix:    "selector:\n  app: prod",
-		},
-	}, {
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      netcfg.ConfigMapName,
-			Namespace: system.Namespace(),
-		},
-		Data: map[string]string{
-			netcfg.AutoTLSKey:                 "enabled",
-			netcfg.HTTPProtocolKey:            string(netcfg.HTTPRedirected),
-			netcfg.DefaultCertificateClassKey: netcfg.CertManagerCertificateClassName,
-		},
-	}, {
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      gc.ConfigName,
-			Namespace: system.Namespace(),
-		},
-	}, {
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cfgmap.FeaturesConfigName,
-			Namespace: system.Namespace(),
-		},
-	}}
 )
 
 func testConfiguration() *v1.Configuration {
@@ -161,21 +99,36 @@ func newTestSetup(t *testing.T, opts ...reconcilerOption) (
 	ctrl *controller.Impl,
 	configMapWatcher *configmap.ManualWatcher,
 	cf context.CancelFunc) {
-	return newTestSetupWithConfigMaps(t, defaultConfigMaps, opts...)
-}
-
-func newTestSetupWithConfigMaps(t *testing.T, configmaps []*corev1.ConfigMap, opts ...reconcilerOption) (
-	ctx context.Context,
-	informers []controller.Informer,
-	ctrl *controller.Impl,
-	configMapWatcher *configmap.ManualWatcher,
-	cf context.CancelFunc) {
 
 	ctx, cf, informers = SetupFakeContextWithCancel(t)
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 	ctrl = newController(ctx, configMapWatcher, &clock.RealClock{}, opts...)
 
-	for _, cfg := range configmaps {
+	for _, cfg := range []*corev1.ConfigMap{{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      config.DomainConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{
+			defaultDomainSuffix: "",
+			prodDomainSuffix:    "selector:\n  app: prod",
+		},
+	}, {
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      netcfg.ConfigMapName,
+			Namespace: system.Namespace(),
+		},
+	}, {
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gc.ConfigName,
+			Namespace: system.Namespace(),
+		},
+	}, {
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cfgmap.FeaturesConfigName,
+			Namespace: system.Namespace(),
+		},
+	}} {
 		configMapWatcher.OnChange(cfg)
 	}
 
@@ -1690,244 +1643,4 @@ func TestAutoTLSEnabled(t *testing.T) {
 			}
 		})
 	}
-}
-
-// TestAutoTLSCertRenewel tests that HTTP01 challenges get added to the KIngress when the cert is renewing.
-// The starting state is a route and ingress is ready with AutoTLS enabled, and
-// a kcert that is ready, and has the renewing = true condition.
-func TestAutoTLSCertRenewel(t *testing.T) {
-	ctx, informers, ctl, _, cf := newTestSetupWithConfigMaps(t, autoTLSConfigMaps)
-	wicb, err := RunAndSyncInformers(ctx, informers...)
-	if err != nil {
-		t.Fatal("Error starting informers:", err)
-	}
-	defer func() {
-		cf()
-		wicb()
-	}()
-
-	routeName := "renew-test-route"
-	routeID := "12-34"
-	certName := "route-" + routeID
-	dnsName := strings.Join([]string{routeName, testNamespace, defaultDomainSuffix}, ".")
-	internalHosts := []string{
-		fmt.Sprintf("%s.%s", routeName, testNamespace),
-		fmt.Sprintf("%s.%s.svc", routeName, testNamespace),
-		pkgnet.GetServiceHostname(routeName, testNamespace),
-	}
-
-	// A configuration and associated revision. Normally the revision would be
-	// created by the configuration reconciler.
-	config := testConfiguration()
-	cfgrev := testRevision()
-	config.Status.SetLatestCreatedRevisionName(cfgrev.Name)
-	config.Status.SetLatestReadyRevisionName(cfgrev.Name)
-
-	// A route targeting the configuration
-	route := Route(testNamespace, routeName, WithSpecTraffic(
-		v1.TrafficTarget{
-			ConfigurationName: config.Name,
-			Percent:           ptr.Int64(100),
-			LatestRevision:    ptr.Bool(true),
-		}), WithRouteUID(types.UID(routeID)))
-
-	route.Status.InitializeConditions()
-	route.Status.MarkTrafficAssigned()
-	route.Status.URL = &apis.URL{
-		Scheme: "https",
-		Host:   dnsName,
-	}
-	route.Status.Address = &duckv1.Addressable{
-		URL: &apis.URL{
-			Scheme: "http",
-			Host:   fmt.Sprintf("%s.%s.svc.cluster.local", route.Name, route.Namespace),
-		},
-	}
-	route.Status.Traffic = []v1.TrafficTarget{{
-		RevisionName:   cfgrev.Name,
-		Percent:        ptr.Int64(100),
-		LatestRevision: ptr.Bool(true),
-	}}
-
-	// A cert associated with the route
-	cert := resources.MakeCertificate(route, serving.RouteLabelKey, dnsName, certName, netcfg.CertManagerCertificateClassName, defaultDomainSuffix)
-	cert.Status.Conditions = append(cert.Status.Conditions, apis.Condition{
-		Type:   apis.ConditionReady,
-		Status: corev1.ConditionTrue,
-	})
-	cert.Status.Conditions = append(cert.Status.Conditions, apis.Condition{
-		Type:   "Renewing",
-		Status: corev1.ConditionTrue,
-	})
-	cert.Status.HTTP01Challenges = append(cert.Status.HTTP01Challenges, v1alpha1.HTTP01Challenge{
-		ServiceName:      "acme-challenge-service",
-		ServicePort:      intstr.FromInt(8089),
-		ServiceNamespace: testNamespace,
-		URL: &apis.URL{
-			Scheme: "http",
-			Path:   fmt.Sprintf("%s/%s", "/.well-known/acme-challenge", "some-challenge-token"),
-			Host:   dnsName,
-		}})
-
-	//update the route with the cert we just made
-	route.Status.MarkCertificateReady(certName)
-
-	//And an ingress corresponding to the route
-	readyIngress := &v1alpha1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      route.Name,
-			Namespace: testNamespace,
-		},
-		Spec: v1alpha1.IngressSpec{
-			HTTPOption: v1alpha1.HTTPOptionRedirected,
-			TLS: []v1alpha1.IngressTLS{{
-				Hosts:           []string{dnsName},
-				SecretName:      certName,
-				SecretNamespace: testNamespace,
-			}},
-			Rules: []v1alpha1.IngressRule{{
-				Hosts: internalHosts,
-				HTTP: &v1alpha1.HTTPIngressRuleValue{
-					Paths: []v1alpha1.HTTPIngressPath{{
-						Splits: []v1alpha1.IngressBackendSplit{{
-							IngressBackend: v1alpha1.IngressBackend{
-								ServiceNamespace: testNamespace,
-								ServiceName:      cfgrev.Name,
-								ServicePort:      intstr.FromInt(80),
-							},
-							Percent: 100,
-							AppendHeaders: map[string]string{
-								"Knative-Serving-Revision":  cfgrev.Name,
-								"Knative-Serving-Namespace": testNamespace,
-							},
-						}},
-					}},
-				},
-				Visibility: v1alpha1.IngressVisibilityClusterLocal,
-			}, {
-				Hosts: []string{
-					dnsName,
-				},
-				HTTP: &v1alpha1.HTTPIngressRuleValue{
-					Paths: []v1alpha1.HTTPIngressPath{{
-						Splits: []v1alpha1.IngressBackendSplit{{
-							IngressBackend: v1alpha1.IngressBackend{
-								ServiceNamespace: testNamespace,
-								ServiceName:      cfgrev.Name,
-								ServicePort:      intstr.FromInt(80),
-							},
-							Percent: 100,
-							AppendHeaders: map[string]string{
-								"Knative-Serving-Revision":  cfgrev.Name,
-								"Knative-Serving-Namespace": testNamespace,
-							},
-						}},
-					}},
-				},
-				Visibility: v1alpha1.IngressVisibilityExternalIP,
-			}},
-		},
-	}
-	readyIngress.Status.InitializeConditions()
-	readyIngress.Status.MarkNetworkConfigured()
-	readyIngress.Status.MarkLoadBalancerReady(
-		[]v1alpha1.LoadBalancerIngressStatus{{
-			DomainInternal: pkgnet.GetServiceHostname("ingressgateway", "ingress-system"),
-		}},
-		[]v1alpha1.LoadBalancerIngressStatus{{
-			DomainInternal: pkgnet.GetServiceHostname("private-ingressgateway", "ingress-system"),
-		}},
-	)
-
-	//update the route with data from the ingress we just made
-	route.Status.PropagateIngressStatus(readyIngress.Status)
-
-	//Create and populate the listers and informers for...
-	// the configuration
-	fakeservingclient.Get(ctx).ServingV1().Configurations(testNamespace).Create(ctx, config, metav1.CreateOptions{})
-	fakecfginformer.Get(ctx).Informer().GetIndexer().Add(config)
-
-	// the revision
-	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(ctx, cfgrev, metav1.CreateOptions{})
-	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(cfgrev)
-
-	// the route
-	fakeservingclient.Get(ctx).ServingV1().Routes(testNamespace).Create(ctx, route, metav1.CreateOptions{})
-	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
-
-	// the cert
-	fakenetworkingclient.Get(ctx).NetworkingV1alpha1().Certificates(testNamespace).Create(ctx, cert, metav1.CreateOptions{})
-
-	// and the ingress
-	fakenetworkingclient.Get(ctx).NetworkingV1alpha1().Ingresses(testNamespace).Create(ctx, readyIngress, metav1.CreateOptions{})
-	fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(readyIngress)
-
-	//now reconcile everything
-	ctl.Reconciler.Reconcile(ctx, KeyOrDie(route))
-
-	ci := getRouteIngressFromClient(ctx, t, route)
-	expectedSpec := v1alpha1.IngressSpec{
-		HTTPOption: v1alpha1.HTTPOptionRedirected,
-		TLS: []v1alpha1.IngressTLS{{
-			Hosts:           []string{dnsName},
-			SecretName:      certName,
-			SecretNamespace: testNamespace,
-		}},
-		Rules: []v1alpha1.IngressRule{{
-			Hosts: internalHosts,
-			HTTP: &v1alpha1.HTTPIngressRuleValue{
-				Paths: []v1alpha1.HTTPIngressPath{{
-					Splits: []v1alpha1.IngressBackendSplit{{
-						IngressBackend: v1alpha1.IngressBackend{
-							ServiceNamespace: testNamespace,
-							ServiceName:      cfgrev.Name,
-							ServicePort:      intstr.FromInt(80),
-						},
-						Percent: 100,
-						AppendHeaders: map[string]string{
-							"Knative-Serving-Revision":  cfgrev.Name,
-							"Knative-Serving-Namespace": testNamespace,
-						},
-					}},
-				}},
-			},
-			Visibility: v1alpha1.IngressVisibilityClusterLocal,
-		}, {
-			Hosts: []string{
-				dnsName,
-			},
-			HTTP: &v1alpha1.HTTPIngressRuleValue{
-				Paths: []v1alpha1.HTTPIngressPath{{
-					Path: "/.well-known/acme-challenge/some-challenge-token",
-					Splits: []v1alpha1.IngressBackendSplit{{
-						IngressBackend: v1alpha1.IngressBackend{
-							ServiceName:      "acme-challenge-service",
-							ServiceNamespace: testNamespace,
-							ServicePort:      intstr.FromInt(8089),
-						},
-						Percent: 100,
-					}},
-				}, {
-					Splits: []v1alpha1.IngressBackendSplit{{
-						IngressBackend: v1alpha1.IngressBackend{
-							ServiceNamespace: testNamespace,
-							ServiceName:      cfgrev.Name,
-							ServicePort:      intstr.FromInt(80),
-						},
-						Percent: 100,
-						AppendHeaders: map[string]string{
-							"Knative-Serving-Revision":  cfgrev.Name,
-							"Knative-Serving-Namespace": testNamespace,
-						},
-					}},
-				}},
-			},
-			Visibility: v1alpha1.IngressVisibilityExternalIP,
-		}},
-	}
-
-	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
-		t.Error("Unexpected rule spec diff (-want +got):", diff)
-	}
-
 }
