@@ -181,6 +181,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 }
 
 func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic *traffic.Config) ([]netv1alpha1.IngressTLS, []netv1alpha1.HTTP01Challenge, error) {
+	logger := logging.FromContext(ctx)
+
 	tls := []netv1alpha1.IngressTLS{}
 	if !autoTLSEnabled(ctx, r) {
 		r.Status.MarkTLSNotEnabled(v1.AutoTLSNotEnabledMessage)
@@ -243,7 +245,22 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 		// TODO: we should only mark https for the public visible targets when
 		// we are able to configure visibility per target.
 		setTargetsScheme(&r.Status, dnsNames.List(), "https")
+
 		if cert.IsReady() {
+			if renewingCondition := cert.Status.GetCondition("Renewing"); renewingCondition != nil {
+				if renewingCondition.Status == corev1.ConditionTrue {
+					logger.Infof("Renewing Condition detected on Cert (%s), will attempt creating new challenges.", cert.Name)
+					if len(cert.Status.HTTP01Challenges) == 0 {
+						//Not sure log level this should be at.
+						//It is possible for certs to be renewed without getting
+						//validated again, for example, LetsEncrypt will cache
+						//validation results. See
+						//[here](https://letsencrypt.org/docs/faq/#i-successfully-renewed-a-certificate-but-validation-didn-t-happen-this-time-how-is-that-possible)
+						logger.Infof("No HTTP01Challenges found on Cert (%s).", cert.Name)
+					}
+					acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
+				}
+			}
 			r.Status.MarkCertificateReady(cert.Name)
 			tls = append(tls, resources.MakeIngressTLS(cert, dnsNames.List()))
 		} else {
