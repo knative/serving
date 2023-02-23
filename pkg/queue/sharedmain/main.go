@@ -265,7 +265,6 @@ func Main(opts ...Option) error {
 	srvs = append(srvs, mainServer)
 
 	if tlsEnabled {
-		// TODO: Unify the two drainers. Alternativly, Drain both (asynchrniously).
 		var mainServerTLS service
 		mainServerTLS, drainerTLS = buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, true)
 		srvs = append(srvs, mainServerTLS)
@@ -419,15 +418,17 @@ func buildServer(ctx context.Context, env config, transport http.RoundTripper, p
 		composedHandler = requestLogHandler(logger, composedHandler, env)
 	}
 
-	mainService.tls = enableTLS
+	var port string
 	if enableTLS {
 		mainService.name = `mainTls`
-		mainService.srv = pkgnet.NewServer(":"+env.QueueServingTLSPort, composedHandler)
+		port = env.QueueServingTLSPort
 
 	} else {
 		mainService.name = `main`
-		mainService.srv = pkgnet.NewServer(":"+env.QueueServingPort, composedHandler)
+		port = env.QueueServingPort
 	}
+	mainService.srv = pkgnet.NewServer(":"+port, composedHandler)
+	mainService.tls = enableTLS
 	return mainService, drainer
 }
 
