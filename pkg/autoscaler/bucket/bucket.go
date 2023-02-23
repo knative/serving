@@ -22,6 +22,8 @@ import (
 	"os"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/hash"
 )
@@ -63,6 +65,51 @@ func PodIP() (string, error) {
 		return "", errors.New("POD_IP environment variable is empty")
 	}
 	return selfIP, nil
+}
+
+// NodeName returns the NodeName of the current pod, or an error
+// if it wasn't properly projected.
+func NodeName() (string, error) {
+	selfNodeName, existing := os.LookupEnv("NODE_NAME")
+	if !existing {
+		return "", errors.New("NODE_NAME environment variable not set")
+	}
+	if selfNodeName == "" {
+		return "", errors.New("NODE_NAME environment variable is empty")
+	}
+	return selfNodeName, nil
+}
+
+// TargetRef returns the TargetRef of the current pod, or an error
+// if it wasn't properly projected.
+func TargetRef() (*corev1.ObjectReference, error) {
+	selfPodName, existing := os.LookupEnv("POD_NAME")
+	if !existing {
+		return nil, errors.New("POD_NAME environment variable not set")
+	}
+	if selfPodName == "" {
+		return nil, errors.New("POD_NAME environment variable is empty")
+	}
+	selfPodNamespace, existing := os.LookupEnv("POD_NAMESPACE")
+	if !existing {
+		return nil, errors.New("POD_NAMESPACE environment variable not set")
+	}
+	if selfPodNamespace == "" {
+		return nil, errors.New("POD_NAMESPACE environment variable is empty")
+	}
+	selfPodUid, existing := os.LookupEnv("POD_UID")
+	if !existing {
+		return nil, errors.New("POD_UID environment variable not set")
+	}
+	if selfPodUid == "" {
+		return nil, errors.New("POD_UID environment variable is empty")
+	}
+	return &corev1.ObjectReference{
+		Kind:      "Pod",
+		Name:      selfPodName,
+		Namespace: selfPodNamespace,
+		UID:       selfPodUid,
+	}, nil
 }
 
 // Identity returns an identity for this Autoscaler pod used as the Lease holder

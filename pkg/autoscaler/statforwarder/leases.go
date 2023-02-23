@@ -48,10 +48,20 @@ func LeaseBasedProcessor(ctx context.Context, f *Forwarder, accept statProcessor
 	if err != nil {
 		return err
 	}
+	selfNodeName, err := bucket.NodeName()
+	if err != nil {
+		return err
+	}
+	selfTargetRef, err := bucket.TargetRef()
+	if err != nil {
+		return err
+	}
 	endpointsInformer := endpointsinformer.Get(ctx)
 	lt := &leaseTracker{
 		logger:          logging.FromContext(ctx),
 		selfIP:          selfIP,
+		selfNodeName:    selfNodeName,
+		selfTargetRef:   selfTargetRef,
 		bs:              f.bs,
 		kc:              kubeclient.Get(ctx),
 		endpointsLister: endpointsInformer.Lister(),
@@ -78,8 +88,10 @@ func LeaseBasedProcessor(ctx context.Context, f *Forwarder, accept statProcessor
 // used, and when someone else owns the lease a remoteProcessor is used with their stats
 // endpoint.
 type leaseTracker struct {
-	logger *zap.SugaredLogger
-	selfIP string
+	logger        *zap.SugaredLogger
+	selfIP        string
+	selfNodeName  string
+	selfTargetRef *corev1.ObjectReference
 	// bs is the BucketSet including all Autoscaler buckets.
 	bs *hash.BucketSet
 
@@ -236,7 +248,9 @@ func (f *leaseTracker) createService(ctx context.Context, ns, n string) error {
 func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n string) error {
 	wantSubsets := []corev1.EndpointSubset{{
 		Addresses: []corev1.EndpointAddress{{
-			IP: f.selfIP,
+			IP:        f.selfIP,
+			NodeName:  &f.selfNodeName,
+			TargetRef: f.selfTargetRef,
 		}},
 		Ports: []corev1.EndpointPort{{
 			Name:     autoscalerPortName,
