@@ -166,7 +166,7 @@ func durationMax(d1, d2 time.Duration) time.Duration {
 }
 
 func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler,
-	sks *netv1alpha1.ServerlessService, desiredScale int32) (int32, bool) {
+	sks *netv1alpha1.ServerlessService, desiredScale int32, routesToRevision bool) (int32, bool) {
 	if desiredScale != 0 {
 		return desiredScale, true
 	}
@@ -177,7 +177,8 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1
 	//			gets marked inactive, and
 	//   c) the PA has been backed by the Activator for at least the grace period
 	//      of time.
-	//  Alternatively, if (a) and the revision did not succeed to activate in
+	//   d) if (a) and the revision did not succeed to activate in `activationTimeout` time -- also scale it to 0.
+	//   e) if (a) and there is no traffic to the revision and did not succeed to activate in
 	//  `activationTimeout` time -- also scale it to 0.
 	cfgs := config.FromContext(ctx)
 	cfgAS := cfgs.Autoscaler
@@ -198,8 +199,12 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1
 	switch {
 	case pa.Status.IsActivating(): // Active=Unknown
 		// If we are stuck activating for longer than our progress deadline, presume we cannot succeed and scale to 0.
-		if pa.Status.CanFailActivation(now, activationTimeout) {
-			logger.Info("Activation has timed out after ", activationTimeout)
+		// Alternatively, if there is no traffic routed to the revision, and we are stuck activating for longer than the
+		// activationTimeoutBuffer, then scale to 0
+		if pa.Status.CanFailActivation(now, activationTimeout) ||
+			(!routesToRevision && pa.Status.CanFailActivation(now, activationTimeoutBuffer)) {
+			logger.Warnf("Activation has timed out after %s. Routes to revision? %t, activationTimeoutBuffer %s",
+				activationTimeout, routesToRevision, activationTimeoutBuffer)
 			return desiredScale, true
 		}
 		ks.enqueueCB(pa, activationTimeout)
@@ -322,10 +327,9 @@ func (ks *scaler) applyScale(ctx context.Context, pa *autoscalingv1alpha1.PodAut
 }
 
 // scale attempts to scale the given PA's target reference to the desired scale.
-func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, sks *netv1alpha1.ServerlessService, desiredScale int32) (int32, error) {
+func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, sks *netv1alpha1.ServerlessService, desiredScale int32, routesToRevision bool) (int32, error) {
 	asConfig := config.FromContext(ctx).Autoscaler
 	logger := logging.FromContext(ctx)
-
 	if desiredScale < 0 && !pa.Status.IsActivating() {
 		logger.Debug("Metrics are not yet being collected.")
 		return desiredScale, nil
@@ -349,7 +353,7 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 		desiredScale = newScale
 	}
 
-	desiredScale, shouldApplyScale := ks.handleScaleToZero(ctx, pa, sks, desiredScale)
+	desiredScale, shouldApplyScale := ks.handleScaleToZero(ctx, pa, sks, desiredScale, routesToRevision)
 	if !shouldApplyScale {
 		return desiredScale, nil
 	}
