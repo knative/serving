@@ -169,7 +169,13 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 		} else {
 			logger.Errorw("Failed to obtain metrics", zap.Error(err))
 		}
-		return invalidSR
+		if errors.Is(err, metrics.ErrNoData) && !a.panicTime.IsZero() && a.panicTime.Add(spec.StableWindow).Before(now) {
+			// We are not receiving data, but we panicked before, and the panic stable window has gone, we want to continue.
+			// We want to un-panic and scale down to 0 if the rest of the conditions allow it
+			logger.Debug("No data to scale on yet, and panicked before, but the stable window has gone, we want to continue")
+		} else {
+			return invalidSR
+		}
 	}
 
 	// Make sure we don't get stuck with the same number of pods, if the scale up rate

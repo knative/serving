@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"time"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	"knative.dev/pkg/logging"
@@ -187,7 +189,9 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1
 	}
 	cfgD := cfgs.Deployment
 	var activationTimeout time.Duration
-	if progressDeadline, ok := pa.ProgressDeadline(); ok {
+	if revTimeout, err := ks.revisionTimeout(ctx, pa); err == nil && revTimeout > 0 {
+		activationTimeout = time.Duration(revTimeout) * time.Second
+	} else if progressDeadline, ok := pa.ProgressDeadline(); ok {
 		activationTimeout = progressDeadline + activationTimeoutBuffer
 	} else {
 		activationTimeout = cfgD.ProgressDeadline + activationTimeoutBuffer
@@ -325,7 +329,6 @@ func (ks *scaler) applyScale(ctx context.Context, pa *autoscalingv1alpha1.PodAut
 func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, sks *netv1alpha1.ServerlessService, desiredScale int32) (int32, error) {
 	asConfig := config.FromContext(ctx).Autoscaler
 	logger := logging.FromContext(ctx)
-
 	if desiredScale < 0 && !pa.Status.IsActivating() {
 		logger.Debug("Metrics are not yet being collected.")
 		return desiredScale, nil
@@ -369,4 +372,21 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
 	return desiredScale, ks.applyScale(ctx, pa, desiredScale, ps)
+}
+func (ks *scaler) revisionTimeout(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler) (int64, error) {
+	gvr := schema.GroupVersionResource{
+		Group:    "serving.knative.dev",
+		Version:  "v1",
+		Resource: "revisions",
+	}
+	uRevision, err := ks.dynamicClient.Resource(gvr).Namespace(pa.Namespace).Get(ctx, pa.Name, metav1.GetOptions{})
+	if err == nil {
+		var timeoutSeconds interface{}
+		var found bool
+		timeoutSeconds, found, err = unstructured.NestedFieldNoCopy(uRevision.Object, "spec", "timeoutSeconds")
+		if err == nil && found {
+			return timeoutSeconds.(int64), nil
+		}
+	}
+	return -1, err
 }
