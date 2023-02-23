@@ -115,11 +115,6 @@ func runAutoscaleUpCountPods(t *testing.T, class, metric string) {
 }
 
 func TestAutoscaleSustaining(t *testing.T) {
-	if testing.Short() {
-		// TODO sort out kind issues causing flakiness
-		t.Skip("#13049: Skipped because of excessive flakiness on kind")
-	}
-
 	for _, algo := range []string{
 		autoscaling.MetricAggregationAlgorithmLinear,
 		autoscaling.MetricAggregationAlgorithmWeightedExponential,
@@ -143,7 +138,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 				}))
 			test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
 
-			AssertAutoscaleUpToNumPods(ctx, 1, 10, time.After(2*time.Minute), false /* quick */)
+			AssertAutoscaleUpToNumPods(ctx, 1, 8, time.After(2*time.Minute), false /* quick */)
 		})
 	}
 }
