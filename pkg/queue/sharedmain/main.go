@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
@@ -164,6 +165,12 @@ type Defaults struct {
 	Transport http.RoundTripper
 }
 
+type service struct {
+	name string
+	srv  *http.Server
+	tls  bool
+}
+
 type Option func(*Defaults)
 
 func init() {
@@ -243,33 +250,33 @@ func Main(opts ...Option) error {
 		concurrencyendpoint = queue.NewConcurrencyEndpoint(env.ConcurrencyStateEndpoint, env.ConcurrencyStateTokenPath)
 	}
 
-	type service struct {
-		name string
-		srv  *http.Server
-		tls  bool
-	}
-
 	var srvs []service
 	var drainer *pkghandler.Drainer
-	var mainServer *http.Server
+	var drainerTLS *pkghandler.Drainer
+	var mainServer service
 
 	// Enable TLS when certificate is mounted.
 	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
+	// At this moment activator with TLS does not disable HTTP.
+	// Start main service regardless if tlsEnabled is true
+	// See also https://github.com/knative/serving/issues/12808.
+	mainServer, drainer = buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
+	srvs = append(srvs, mainServer)
+
 	if tlsEnabled {
-		mainServer, drainer = buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, true)
-		srvs = append(srvs, service{name: "tlsMain", srv: mainServer, tls: true})
-		srvs = append(srvs, service{name: "tlsAdmin", srv: buildAdminServer(d.Ctx, logger, drainer), tls: true})
-	} else {
-		mainServer, drainer = buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
-		srvs = append(srvs, service{name: "main", srv: mainServer, tls: false})
-		srvs = append(srvs, service{name: "admin", srv: buildAdminServer(d.Ctx, logger, drainer), tls: false})
+		// TODO: Unify the two drainers. Alternativly, Drain both (asynchrniously).
+		var mainServerTLS service
+		mainServerTLS, drainerTLS = buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, true)
+		srvs = append(srvs, mainServerTLS)
 	}
 
-	srvs = append(srvs, service{name: "metrics", srv: buildMetricsServer(protoStatReporter), tls: false})
+	srvs = append(srvs, buildAdminServer(d.Ctx, logger, drainer, drainerTLS))
+
+	srvs = append(srvs, buildMetricsServer(protoStatReporter))
 
 	if env.EnableProfiling {
-		srvs = append(srvs, service{name: "profile", srv: profiling.NewServer(profiling.NewHandler(logger, true)), tls: false})
+		srvs = append(srvs, buildProfilingServer(logger))
 	}
 
 	logger.Info("Starting queue-proxy")
@@ -305,7 +312,7 @@ func Main(opts ...Option) error {
 		}
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 		logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
-		drainer.Drain()
+		drain(drainer, drainerTLS)
 
 		// Shutdown() to all services, wait no more than 600 sec for graceful termination
 		shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 600*time.Second)
@@ -342,7 +349,7 @@ func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 
 }
 
 func buildServer(ctx context.Context, env config, transport http.RoundTripper, probeContainer func() bool, stats *netstats.RequestStats, logger *zap.SugaredLogger,
-	ce *queue.ConcurrencyEndpoint, enableTLS bool) (*http.Server, *pkghandler.Drainer) {
+	ce *queue.ConcurrencyEndpoint, enableTLS bool) (mainService service, drainer *pkghandler.Drainer) {
 	// TODO: If TLS is enabled, execute probes twice and tracking two different sets of container health.
 
 	target := net.JoinHostPort("127.0.0.1", env.UserPort)
@@ -397,7 +404,7 @@ func buildServer(ctx context.Context, env config, transport http.RoundTripper, p
 		composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
 	}
 
-	drainer := &pkghandler.Drainer{
+	drainer = &pkghandler.Drainer{
 		QuietPeriod: drainSleepDuration,
 		// Add Activator probe header to the drainer so it can handle probes directly from activator
 		HealthCheckUAPrefixes: []string{netheader.ActivatorUserAgent, netheader.AutoscalingUserAgent},
@@ -412,11 +419,16 @@ func buildServer(ctx context.Context, env config, transport http.RoundTripper, p
 		composedHandler = requestLogHandler(logger, composedHandler, env)
 	}
 
+	mainService.tls = enableTLS
 	if enableTLS {
-		return pkgnet.NewServer(":"+env.QueueServingTLSPort, composedHandler), drainer
-	}
+		mainService.name = `mainTls`
+		mainService.srv = pkgnet.NewServer(":"+env.QueueServingTLSPort, composedHandler)
 
-	return pkgnet.NewServer(":"+env.QueueServingPort, composedHandler), drainer
+	} else {
+		mainService.name = `main`
+		mainService.srv = pkgnet.NewServer(":"+env.QueueServingPort, composedHandler)
+	}
+	return mainService, drainer
 }
 
 func buildTransport(env config) http.RoundTripper {
@@ -471,7 +483,27 @@ func supportsMetrics(ctx context.Context, logger *zap.SugaredLogger, env config,
 	return true
 }
 
-func buildAdminServer(ctx context.Context, logger *zap.SugaredLogger, drainer *pkghandler.Drainer) *http.Server {
+// drain the two drainers
+func drain(drainer *pkghandler.Drainer, drainerTLS *pkghandler.Drainer) {
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		if drainer != nil {
+			drainer.Drain()
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		if drainerTLS != nil {
+			drainerTLS.Drain()
+		}
+	}()
+	wg.Wait()
+}
+
+func buildAdminServer(ctx context.Context, logger *zap.SugaredLogger, drainer *pkghandler.Drainer, drainerTLS *pkghandler.Drainer) (adminService service) {
 	adminMux := http.NewServeMux()
 	adminMux.HandleFunc(queue.RequestQueueDrainPath, func(w http.ResponseWriter, r *http.Request) {
 		logger.Info("Attached drain handler from user-container", r)
@@ -488,26 +520,38 @@ func buildAdminServer(ctx context.Context, logger *zap.SugaredLogger, drainer *p
 			}
 		}()
 
-		drainer.Drain()
+		drain(drainer, drainerTLS)
 		w.WriteHeader(http.StatusOK)
 	})
-
-	return &http.Server{
+	adminService.tls = false
+	adminService.name = "admin"
+	adminService.srv = &http.Server{
 		Addr:              ":" + strconv.Itoa(networking.QueueAdminPort),
 		Handler:           adminMux,
 		ReadHeaderTimeout: time.Minute, //https://medium.com/a-journey-with-go/go-understand-and-mitigate-slowloris-attack-711c1b1403f6
 	}
+	return
 }
 
-func buildMetricsServer(protobufStatReporter *queue.ProtobufStatsReporter) *http.Server {
+func buildMetricsServer(protobufStatReporter *queue.ProtobufStatsReporter) (metrixService service) {
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("/metrics", queue.NewStatsHandler(protobufStatReporter))
 
-	return &http.Server{
+	metrixService.name = "metrics"
+	metrixService.tls = false
+	metrixService.srv = &http.Server{
 		Addr:              ":" + strconv.Itoa(networking.AutoscalingQueueMetricsPort),
 		Handler:           metricsMux,
 		ReadHeaderTimeout: time.Minute, //https://medium.com/a-journey-with-go/go-understand-and-mitigate-slowloris-attack-711c1b1403f6
 	}
+	return
+}
+
+func buildProfilingServer(logger *zap.SugaredLogger) (profileingService service) {
+	profileingService.name = "profile"
+	profileingService.tls = false
+	profileingService.srv = profiling.NewServer(profiling.NewHandler(logger, true))
+	return
 }
 
 func requestLogHandler(logger *zap.SugaredLogger, currentHandler http.Handler, env config) http.Handler {
