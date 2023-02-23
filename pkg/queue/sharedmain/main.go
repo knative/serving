@@ -263,27 +263,22 @@ func Main(opts ...Option) error {
 	// See also https://github.com/knative/serving/issues/12808.
 	mainServer, drainer = buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
 	srvs = append(srvs, mainServer)
-
 	if tlsEnabled {
 		var mainServerTLS service
 		mainServerTLS, drainerTLS = buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, true)
 		srvs = append(srvs, mainServerTLS)
 	}
-
 	srvs = append(srvs, buildAdminServer(d.Ctx, logger, drainer, drainerTLS))
-
 	srvs = append(srvs, buildMetricsServer(protoStatReporter))
-
 	if env.EnableProfiling {
 		srvs = append(srvs, buildProfilingServer(logger))
 	}
-
 	logger.Info("Starting queue-proxy")
 
 	errCh := make(chan error)
 	for _, s := range srvs {
 		go func(s service) {
-			logger.Debugf("Starting service %s on port %s with tls %t", s.name, s.srv.Addr, s.tls)
+			logger.Debugf("Starting sever service %s on port %s with tls %t", s.name, s.srv.Addr, s.tls)
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
 			var err error
 			if s.tls {
@@ -294,7 +289,7 @@ func Main(opts ...Option) error {
 			if err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errCh <- fmt.Errorf("%s server failed to serve: %w", s.name, err)
 			}
-			logger.Debugf("Ended service %s on port %s with tls %t", s.name, s.srv.Addr, s.tls)
+			logger.Debugf("Ended sever service %s on port %s with tls %t", s.name, s.srv.Addr, s.tls)
 		}(s)
 	}
 
@@ -323,7 +318,7 @@ func Main(opts ...Option) error {
 			}
 		}
 
-		logger.Info("Shutdown complete, exiting...")
+		logger.Info("Shutdown of all servers is now complete")
 	}
 	return nil
 }
@@ -422,7 +417,6 @@ func buildServer(ctx context.Context, env config, transport http.RoundTripper, p
 	if enableTLS {
 		mainService.name = `mainTls`
 		port = env.QueueServingTLSPort
-
 	} else {
 		mainService.name = `main`
 		port = env.QueueServingPort
