@@ -22,6 +22,7 @@ import (
 
 	certificate "knative.dev/control-protocol/pkg/certificates/reconciler"
 	"knative.dev/pkg/reconciler"
+	"knative.dev/pkg/signals"
 	"knative.dev/serving/pkg/reconciler/configuration"
 	"knative.dev/serving/pkg/reconciler/gc"
 	"knative.dev/serving/pkg/reconciler/labeler"
@@ -32,9 +33,14 @@ import (
 	"knative.dev/serving/pkg/reconciler/service"
 
 	// This defines the shared main for injected controllers.
+	filteredFactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/serving/pkg/networking"
+)
+
+const (
+	secretLabelNamePostfix = "-ctrl"
 )
 
 var ctors = []injection.ControllerConstructor{
@@ -54,5 +60,7 @@ func main() {
 		"reconciliation-timeout", reconciler.DefaultTimeout,
 		"The amount of time to give each reconciliation of a resource to complete before its context is canceled.")
 
-	sharedmain.Main("controller", ctors...)
+	labelName := networking.ServingCertName + secretLabelNamePostfix
+	ctx := filteredFactory.WithSelectors(signals.NewContext(), labelName)
+	sharedmain.MainWithContext(ctx, "controller", ctors...)
 }
