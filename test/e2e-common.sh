@@ -63,10 +63,26 @@ export QUOTA=${QUOTA:-1}
 # Receives the latest serving version and searches for the same version with major and minor and searches for the latest patch
 function latest_net_istio_version() {
   local serving_version=$1
-  local major_minor
-  major_minor=$(echo "$serving_version" | cut -d '.' -f 1,2)
+  local major_minor=$(echo "$serving_version" | cut -d '.' -f 1,2)
 
-  curl -L --show-error --silent "https://api.github.com/repos/knative/net-istio/releases" | jq --arg major_minor "$major_minor" -r '[.[].tag_name] | map(select(. | startswith($major_minor))) | sort_by( sub("knative-";"") | sub("v";"") | split(".") | map(tonumber) ) | reverse[0]'
+  local url="https://api.github.com/repos/knative/net-istio/releases"
+  local curl_output=$(mktemp)
+  local curl_flags='-L --show-error --silent'
+
+  if [ -n "${GITHUB_TOKEN-}" ]; then
+    curl $curl_flags -H "Authorization: Bearer $GITHUB_TOKEN" $url > $curl_output
+  else
+    curl $curl_flags $url > $curl_output
+  fi
+
+  jq --arg major_minor "$major_minor" -r \
+    '[.[].tag_name] |
+    map(select(. | startswith($major_minor))) |
+    sort_by( sub("knative-";"") |
+    sub("v";"") |
+    split(".") |
+    map(tonumber) ) |
+    reverse[0]' $curl_output
 }
 
 # Latest serving release. If user does not supply this as a flag, the latest

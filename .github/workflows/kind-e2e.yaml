@@ -21,6 +21,7 @@ env:
   KAPP_VERSION: 0.46.0
   YTT_VERSION: 0.40.1
   KO_FLAGS: --platform=linux/amd64
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   build:
