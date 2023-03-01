@@ -730,7 +730,7 @@ function main() {
 # Parameters: $1..$n - files to add to the release.
 function publish_to_github() {
   (( PUBLISH_TO_GITHUB )) || return 0
-  local title="${REPO_NAME_FORMATTED} release ${TAG}"
+  local title="${TAG}"
   local attachments=()
   local description="$(mktemp)"
   local attachments_dir="$(mktemp -d)"
