@@ -416,10 +416,10 @@ func buildServer(ctx context.Context, env config, transport http.RoundTripper, p
 
 	var port string
 	if enableTLS {
-		server.name = `mainTls`
+		server.name = "mainTls"
 		port = env.QueueServingTLSPort
 	} else {
-		server.name = `main`
+		server.name = "main"
 		port = env.QueueServingPort
 	}
 	server.srv = pkgnet.NewServer(":"+port, composedHandler)
