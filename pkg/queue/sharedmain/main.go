@@ -80,6 +80,9 @@ const (
 	// QPOptionTokenDirPath is a directory for per audience tokens
 	// This path is used by QP Options (Extensions) as <QPOptionTokenDirPath>/<Audience>
 	QPOptionTokenDirPath = queue.TokenDirectory
+
+	// ShutdownLimit is the maximum time we wait for a server to shutdown after a Kill
+	ShutdownLimit = 600 * time.Second
 )
 
 type config struct {
@@ -251,9 +254,7 @@ func Main(opts ...Option) error {
 	}
 
 	var srvs []service
-	var drainer *pkghandler.Drainer
 	var drainerTLS *pkghandler.Drainer
-	var mainServer service
 
 	// Enable TLS when certificate is mounted.
 	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
@@ -261,7 +262,7 @@ func Main(opts ...Option) error {
 	// At this moment activator with TLS does not disable HTTP.
 	// Start main service regardless if tlsEnabled is true
 	// See also https://github.com/knative/serving/issues/12808.
-	mainServer, drainer = buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
+	mainServer, drainer := buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
 	srvs = append(srvs, mainServer)
 	if tlsEnabled {
 		var mainServerTLS service
@@ -308,8 +309,8 @@ func Main(opts ...Option) error {
 		logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
 		drain(drainer, drainerTLS)
 
-		// Shutdown() to all services, wait no more than 600 sec for graceful termination
-		shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 600*time.Second)
+		// Shutdown() to all services, wait no more than ShutdownLimit for graceful termination
+		shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), ShutdownLimit)
 		defer shutdownRelease()
 		for _, s := range srvs {
 			logger.Info("Shutting down server: ", s.name)
@@ -343,7 +344,7 @@ func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 
 }
 
 func buildServer(ctx context.Context, env config, transport http.RoundTripper, probeContainer func() bool, stats *netstats.RequestStats, logger *zap.SugaredLogger,
-	ce *queue.ConcurrencyEndpoint, enableTLS bool) (mainService service, drainer *pkghandler.Drainer) {
+	ce *queue.ConcurrencyEndpoint, enableTLS bool) (server service, drainer *pkghandler.Drainer) {
 	// TODO: If TLS is enabled, execute probes twice and tracking two different sets of container health.
 
 	target := net.JoinHostPort("127.0.0.1", env.UserPort)
@@ -415,15 +416,15 @@ func buildServer(ctx context.Context, env config, transport http.RoundTripper, p
 
 	var port string
 	if enableTLS {
-		mainService.name = `mainTls`
+		server.name = `mainTls`
 		port = env.QueueServingTLSPort
 	} else {
-		mainService.name = `main`
+		server.name = `main`
 		port = env.QueueServingPort
 	}
-	mainService.srv = pkgnet.NewServer(":"+port, composedHandler)
-	mainService.tls = enableTLS
-	return mainService, drainer
+	server.srv = pkgnet.NewServer(":"+port, composedHandler)
+	server.tls = enableTLS
+	return server, drainer
 }
 
 func buildTransport(env config) http.RoundTripper {
@@ -542,10 +543,10 @@ func buildMetricsServer(protobufStatReporter *queue.ProtobufStatsReporter) (metr
 	return
 }
 
-func buildProfilingServer(logger *zap.SugaredLogger) (profileingService service) {
-	profileingService.name = "profile"
-	profileingService.tls = false
-	profileingService.srv = profiling.NewServer(profiling.NewHandler(logger, true))
+func buildProfilingServer(logger *zap.SugaredLogger) (profilingService service) {
+	profilingService.name = "profile"
+	profilingService.tls = false
+	profilingService.srv = profiling.NewServer(profiling.NewHandler(logger, true))
 	return
 }
 
