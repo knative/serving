@@ -165,7 +165,7 @@ func main() {
 	// Enable TLS client when queue-proxy-ca is specified.
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
-	if encryptionEnabled {
+	if encryptionEnabled { // #nosec G402
 		logger.Info("Internal Encryption is enabled")
 		caSecret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, netcfg.ServingInternalCertName, metav1.GetOptions{})
 		if err != nil {
@@ -183,7 +183,7 @@ func main() {
 
 		tlsConf := &tls.Config{
 			RootCAs:            pool,
-			InsecureSkipVerify: true, // #nosec G402
+			InsecureSkipVerify: true,
 			MinVersion:         tls.VersionTLS12,
 		}
 		transport = pkgnet.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, tlsConf)
