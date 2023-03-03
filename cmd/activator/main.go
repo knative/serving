@@ -160,12 +160,12 @@ func main() {
 	}
 
 	// Enable TLS against queue-proxy when internal-encryption is enabled.
-	tlsEnabled := networkConfig.InternalEncryption
+	encryptionEnabled := networkConfig.InternalEncryption
 
 	// Enable TLS client when queue-proxy-ca is specified.
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
-	if tlsEnabled {
+	if encryptionEnabled {
 		logger.Info("Internal Encryption is enabled")
 		caSecret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, netcfg.ServingInternalCertName, metav1.GetOptions{})
 		if err != nil {
@@ -183,8 +183,7 @@ func main() {
 
 		tlsConf := &tls.Config{
 			RootCAs:            pool,
-			InsecureSkipVerify: false,
-			ServerName:         certificates.FakeDnsName,
+			InsecureSkipVerify: true,
 			MinVersion:         tls.VersionTLS12,
 		}
 		transport = pkgnet.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, tlsConf)
@@ -226,7 +225,7 @@ func main() {
 
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
-	ah := activatorhandler.New(ctx, throttler, transport, networkConfig.EnableMeshPodAddressability, logger, tlsEnabled)
+	ah := activatorhandler.New(ctx, throttler, transport, networkConfig.EnableMeshPodAddressability, logger, encryptionEnabled)
 	ah = handler.NewTimeoutHandler(ah, "activator request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
 		if rev := activatorhandler.RevisionFrom(r.Context()); rev != nil {
 			var responseStartTimeout = 0 * time.Second
@@ -299,7 +298,7 @@ func main() {
 	// Enable TLS server when internal-encryption is specified.
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
-	if tlsEnabled {
+	if encryptionEnabled {
 		secret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, netcfg.ServingInternalCertName, metav1.GetOptions{})
 		if err != nil {
 			logger.Fatalw("failed to get secret", zap.Error(err))
