@@ -82,7 +82,7 @@ const (
 	QPOptionTokenDirPath = queue.TokenDirectory
 
 	// ShutdownLimit is the maximum time we wait for a server to shutdown after a Kill
-	ShutdownLimit = 600 * time.Second
+	ShutdownLimit = 5 * time.Second
 )
 
 type config struct {
@@ -257,14 +257,14 @@ func Main(opts ...Option) error {
 	var drainerTLS *pkghandler.Drainer
 
 	// Enable TLS when certificate is mounted.
-	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
+	encryptionEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
 	// At this moment activator with TLS does not disable HTTP.
 	// Start main service regardless if tlsEnabled is true
 	// See also https://github.com/knative/serving/issues/12808.
 	mainServer, drainer := buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
 	srvs = append(srvs, mainServer)
-	if tlsEnabled {
+	if encryptionEnabled {
 		var mainServerTLS service
 		mainServerTLS, drainerTLS = buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, true)
 		srvs = append(srvs, mainServerTLS)
