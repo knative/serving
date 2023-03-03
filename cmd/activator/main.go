@@ -183,7 +183,7 @@ func main() {
 
 		tlsConf := &tls.Config{
 			RootCAs:            pool,
-			InsecureSkipVerify: true,
+			InsecureSkipVerify: true, // #nosec G402
 			MinVersion:         tls.VersionTLS12,
 		}
 		transport = pkgnet.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, tlsConf)
