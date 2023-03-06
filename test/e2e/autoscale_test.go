@@ -21,6 +21,8 @@ package e2e
 
 import (
 	"context"
+	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -39,6 +41,7 @@ import (
 	"knative.dev/serving/pkg/resources"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
+	testv1 "knative.dev/serving/test/v1"
 )
 
 func TestAutoscaleUpDownUp(t *testing.T) {
@@ -345,4 +348,70 @@ func TestFastScaleToZero(t *testing.T) {
 	}
 
 	t.Log("Total time to scale down:", time.Since(st))
+}
+
+const activationScale = 5
+
+func TestActivationScale(t *testing.T) {
+	t.Parallel()
+
+	ctx := SetupSvc(t,
+		&AutoscalerOptions{
+			Class:             autoscaling.KPA,
+			Metric:            autoscaling.Concurrency,
+			Target:            6,
+			TargetUtilization: 0.7},
+		test.Options{},
+		rtesting.WithConfigAnnotations(map[string]string{
+			autoscaling.ActivationScaleKey: strconv.Itoa(activationScale),
+		}))
+	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
+
+	clients := ctx.Clients()
+	resources, err := testv1.GetResourceObjects(clients, *ctx.names)
+	if err != nil {
+		t.Errorf("error: unable to update resource: %s", err)
+	}
+
+	// initial scale of revision
+	if err := wait.Poll(1*time.Second, 5*time.Minute, func() (bool, error) {
+		return *resources.Revision.Status.ActualReplicas > 0, nil
+	}); err != nil {
+		t.Errorf("error: revision never had active pods")
+	}
+
+	// scale to zero
+	if err := wait.Poll(1*time.Second, 5*time.Minute, func() (bool, error) {
+		resources, _ = testv1.GetResourceObjects(clients, *ctx.names)
+		return *resources.Revision.Status.ActualReplicas == 0, nil
+	}); err != nil {
+		t.Errorf("error: revision never scaled to zero")
+	}
+
+	target, err := getVegetaTarget(
+		ctx.clients.KubeClient, ctx.resources.Route.Status.URL.URL().Hostname(),
+		pkgtest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain, "sleep", autoscaleSleep)
+	if err != nil {
+		t.Errorf("error creating vegeta target: %v", err)
+	}
+
+	// send request, should scale up to activation scale
+	client := http.Client{}
+	req, err := http.NewRequest("GET", target.URL, nil)
+	if err != nil {
+		t.Errorf("unable to create request: %v", err)
+	}
+	req.Host = target.Header["Host"][0]
+	_, err = client.Do(req)
+	if err != nil {
+		t.Errorf("unable to send request to service: %v", err)
+	}
+
+	// wait for revision desired replicas to equal activation scale
+	if err := wait.Poll(1*time.Second, 5*time.Minute, func() (bool, error) {
+		resources, _ = testv1.GetResourceObjects(clients, *ctx.names)
+		return *resources.Revision.Status.DesiredReplicas == activationScale, nil
+	}); err != nil {
+		t.Errorf("error: desired pods never equal to activation scale")
+	}
 }
