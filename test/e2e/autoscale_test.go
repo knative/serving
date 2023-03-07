@@ -21,7 +21,6 @@ package e2e
 
 import (
 	"context"
-	"net/http"
 	"strconv"
 	"strings"
 	"testing"
@@ -34,6 +33,7 @@ import (
 	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/system"
 	pkgtest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/networking"
 	revnames "knative.dev/serving/pkg/reconciler/revision/resources/names"
@@ -388,25 +388,20 @@ func TestActivationScale(t *testing.T) {
 		t.Errorf("error: revision never scaled to zero")
 	}
 
-	target, err := getVegetaTarget(
-		ctx.clients.KubeClient, ctx.resources.Route.Status.URL.URL().Hostname(),
-		pkgtest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain, "sleep", autoscaleSleep)
-	if err != nil {
-		t.Errorf("error creating vegeta target: %v", err)
-	}
+	url := ctx.resources.Route.Status.URL.URL()
 
 	// send request, should scale up to activation scale
-	client := http.Client{}
-	req, err := http.NewRequest("GET", target.URL, nil)
-	if err != nil {
-		t.Errorf("unable to create request: %v", err)
-	}
-	if !test.ServingFlags.ResolvableDomain {
-		req.Host = target.Header["Host"][0]
-	}
-	_, err = client.Do(req)
-	if err != nil {
-		t.Errorf("unable to send request to service: %v", err)
+	if _, err = pkgtest.CheckEndpointState(
+		context.Background(),
+		clients.KubeClient,
+		t.Logf,
+		url,
+		spoof.MatchesAllOf(spoof.IsStatusOK),
+		"ScalingFromZero",
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+	); err != nil {
+		t.Fatalf("Failed to scale up from zero %s: %v", url, err)
 	}
 
 	// wait for revision desired replicas to equal activation scale
