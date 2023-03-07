@@ -401,7 +401,9 @@ func TestActivationScale(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to create request: %v", err)
 	}
-	req.Host = target.Header["Host"][0]
+	if !test.ServingFlags.ResolvableDomain {
+		req.Host = target.Header["Host"][0]
+	}
 	_, err = client.Do(req)
 	if err != nil {
 		t.Errorf("unable to send request to service: %v", err)
