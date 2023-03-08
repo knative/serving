@@ -262,17 +262,17 @@ func Main(opts ...Option) error {
 	// At this moment activator with TLS does not disable HTTP.
 	// Start main service regardless if tlsEnabled is true
 	// See also https://github.com/knative/serving/issues/12808.
-	mainServer, drainer := buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
-	srvs = append(srvs, mainServer)
+	mainService, drainer := buildMainService(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
+	srvs = append(srvs, mainService)
 	if encryptionEnabled {
-		var mainServerTLS service
-		mainServerTLS, drainerTLS = buildServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, true)
-		srvs = append(srvs, mainServerTLS)
+		var mainServiceTLS service
+		mainServiceTLS, drainerTLS = buildMainService(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, true)
+		srvs = append(srvs, mainServiceTLS)
 	}
-	srvs = append(srvs, buildAdminServer(d.Ctx, logger, drainer, drainerTLS))
-	srvs = append(srvs, buildMetricsServer(protoStatReporter))
+	srvs = append(srvs, buildAdminService(d.Ctx, logger, drainer, drainerTLS))
+	srvs = append(srvs, buildMetricsService(protoStatReporter))
 	if env.EnableProfiling {
-		srvs = append(srvs, buildProfilingServer(logger))
+		srvs = append(srvs, buildProfilingService(logger))
 	}
 	logger.Info("Starting queue-proxy")
 
@@ -343,8 +343,8 @@ func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 
 	return readiness.NewProbe(coreProbe)
 }
 
-func buildServer(ctx context.Context, env config, transport http.RoundTripper, probeContainer func() bool, stats *netstats.RequestStats, logger *zap.SugaredLogger,
-	ce *queue.ConcurrencyEndpoint, enableTLS bool) (server service, drainer *pkghandler.Drainer) {
+func buildMainService(ctx context.Context, env config, transport http.RoundTripper, probeContainer func() bool, stats *netstats.RequestStats, logger *zap.SugaredLogger,
+	ce *queue.ConcurrencyEndpoint, enableTLS bool) (mainService service, drainer *pkghandler.Drainer) {
 	// TODO: If TLS is enabled, execute probes twice and tracking two different sets of container health.
 
 	target := net.JoinHostPort("127.0.0.1", env.UserPort)
@@ -416,15 +416,15 @@ func buildServer(ctx context.Context, env config, transport http.RoundTripper, p
 
 	var port string
 	if enableTLS {
-		server.name = "mainTls"
+		mainService.name = "mainTls"
 		port = env.QueueServingTLSPort
 	} else {
-		server.name = "main"
+		mainService.name = "main"
 		port = env.QueueServingPort
 	}
-	server.srv = pkgnet.NewServer(":"+port, composedHandler)
-	server.tls = enableTLS
-	return server, drainer
+	mainService.srv = pkgnet.NewServer(":"+port, composedHandler)
+	mainService.tls = enableTLS
+	return mainService, drainer
 }
 
 func buildTransport(env config) http.RoundTripper {
@@ -499,7 +499,7 @@ func drain(drainer *pkghandler.Drainer, drainerTLS *pkghandler.Drainer) {
 	wg.Wait()
 }
 
-func buildAdminServer(ctx context.Context, logger *zap.SugaredLogger, drainer *pkghandler.Drainer, drainerTLS *pkghandler.Drainer) (adminService service) {
+func buildAdminService(ctx context.Context, logger *zap.SugaredLogger, drainer *pkghandler.Drainer, drainerTLS *pkghandler.Drainer) (adminService service) {
 	adminMux := http.NewServeMux()
 	adminMux.HandleFunc(queue.RequestQueueDrainPath, func(w http.ResponseWriter, r *http.Request) {
 		logger.Info("Attached drain handler from user-container", r)
@@ -529,7 +529,7 @@ func buildAdminServer(ctx context.Context, logger *zap.SugaredLogger, drainer *p
 	return
 }
 
-func buildMetricsServer(protobufStatReporter *queue.ProtobufStatsReporter) (metrixService service) {
+func buildMetricsService(protobufStatReporter *queue.ProtobufStatsReporter) (metrixService service) {
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("/metrics", queue.NewStatsHandler(protobufStatReporter))
 
@@ -543,7 +543,7 @@ func buildMetricsServer(protobufStatReporter *queue.ProtobufStatsReporter) (metr
 	return
 }
 
-func buildProfilingServer(logger *zap.SugaredLogger) (profilingService service) {
+func buildProfilingService(logger *zap.SugaredLogger) (profilingService service) {
 	profilingService.name = "profile"
 	profilingService.tls = false
 	profilingService.srv = profiling.NewServer(profiling.NewHandler(logger, true))
