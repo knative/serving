@@ -411,9 +411,8 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 		zap.String("ClusterIP", update.ClusterIPDest), zap.Object("dests", logging.StringSet(update.Dests)))
 
 	// ClusterIP is not yet ready, so we want to send requests directly to the pods.
-	// NB: this will not be called in parallel, thus we can build a new podTrackers
-	// array before taking out a lock.
 	if update.ClusterIPDest == "" {
+		rt.mux.Lock()
 		// Create a map for fast lookup of existing trackers.
 		trackersMap := make(map[string]*podTracker, len(rt.podTrackers))
 		for _, tracker := range rt.podTrackers {
@@ -439,6 +438,7 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 			}
 			trackers = append(trackers, tracker)
 		}
+		rt.mux.Unlock()
 
 		rt.updateThrottlerState(len(update.Dests), trackers, nil /*clusterIP*/)
 		return
