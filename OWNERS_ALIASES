@@ -32,6 +32,7 @@ aliases:
   - snneji
   eventing-reviewers:
   - aslom
+  - creydr
   eventing-triage:
   - lberk
   eventing-wg-leads:
