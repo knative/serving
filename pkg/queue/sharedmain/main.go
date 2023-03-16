@@ -260,27 +260,27 @@ func Main(opts ...Option) error {
 	encryptionEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
 	// At this moment activator with TLS does not disable HTTP.
-	// Start main HttpServer regardless if tlsEnabled is true
+	// Start main httpServer regardless if tlsEnabled is true
 	// See also https://github.com/knative/serving/issues/12808.
-	mainHttpServer, drainer := buildMainHttpServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
-	srvs = append(srvs, mainHttpServer)
+	mainHTTPServer, drainer := buildMainHTTPServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
+	srvs = append(srvs, mainHTTPServer)
 	if encryptionEnabled {
 		// add mainTls on top of the main httpServer
-		var mainHttpServerTLS httpServer
-		mainHttpServerTLS, drainerTLS = buildMainHttpServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, true)
-		srvs = append(srvs, mainHttpServerTLS)
+		var mainHTTPServerTLS httpServer
+		mainHTTPServerTLS, drainerTLS = buildMainHTTPServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, true)
+		srvs = append(srvs, mainHTTPServerTLS)
 	}
-	srvs = append(srvs, buildAdminHttpServer(d.Ctx, logger, drainer, drainerTLS, encryptionEnabled))
-	srvs = append(srvs, buildMetricsHttpServer(protoStatReporter))
+	srvs = append(srvs, buildAdminHTTPServer(d.Ctx, logger, drainer, drainerTLS, encryptionEnabled))
+	srvs = append(srvs, buildMetricsHTTPServer(protoStatReporter))
 	if env.EnableProfiling {
-		srvs = append(srvs, buildProfilingHttpServer(logger))
+		srvs = append(srvs, buildProfilingHTTPServer(logger))
 	}
 	logger.Info("Starting queue-proxy")
 
 	errCh := make(chan error)
 	for _, s := range srvs {
 		go func(s httpServer) {
-			logger.Debugf("Starting HttpServer %s on port %s with tls %t", s.name, s.srv.Addr, s.tls)
+			logger.Debugf("Starting httpServer %s on port %s with tls %t", s.name, s.srv.Addr, s.tls)
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
 			var err error
 			if s.tls {
@@ -291,7 +291,7 @@ func Main(opts ...Option) error {
 			if err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errCh <- fmt.Errorf("%s server failed to serve: %w", s.name, err)
 			}
-			logger.Debugf("Ended HttpServer %s on port %s with tls %t", s.name, s.srv.Addr, s.tls)
+			logger.Debugf("Ended httpServer %s on port %s with tls %t", s.name, s.srv.Addr, s.tls)
 		}(s)
 	}
 
@@ -310,7 +310,7 @@ func Main(opts ...Option) error {
 		logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
 		drain(drainer, drainerTLS)
 
-		// Shutdown() to all HttpServers, wait no more than shutdownLimit for graceful termination
+		// Shutdown() to all httpServers, wait no more than shutdownLimit for graceful termination
 		shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), shutdownLimit)
 		defer shutdownRelease()
 		for _, s := range srvs {
@@ -344,7 +344,7 @@ func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 
 	return readiness.NewProbe(coreProbe)
 }
 
-func buildMainHttpServer(ctx context.Context, env config, transport http.RoundTripper, probeContainer func() bool, stats *netstats.RequestStats, logger *zap.SugaredLogger,
+func buildMainHTTPServer(ctx context.Context, env config, transport http.RoundTripper, probeContainer func() bool, stats *netstats.RequestStats, logger *zap.SugaredLogger,
 	ce *queue.ConcurrencyEndpoint, enableTLS bool) (httpServer, *pkghandler.Drainer) {
 	// TODO: If TLS is enabled, execute probes twice and tracking two different sets of container health.
 
@@ -503,7 +503,7 @@ func drain(drainer *pkghandler.Drainer, drainerTLS *pkghandler.Drainer) {
 	wg.Wait()
 }
 
-func buildAdminHttpServer(ctx context.Context, logger *zap.SugaredLogger, drainer *pkghandler.Drainer, drainerTLS *pkghandler.Drainer, enableTLS bool) httpServer {
+func buildAdminHTTPServer(ctx context.Context, logger *zap.SugaredLogger, drainer *pkghandler.Drainer, drainerTLS *pkghandler.Drainer, enableTLS bool) httpServer {
 	adminMux := http.NewServeMux()
 	adminMux.HandleFunc(queue.RequestQueueDrainPath, func(w http.ResponseWriter, r *http.Request) {
 		logger.Info("Attached drain handler from user-container", r)
@@ -535,7 +535,7 @@ func buildAdminHttpServer(ctx context.Context, logger *zap.SugaredLogger, draine
 	}
 }
 
-func buildMetricsHttpServer(protobufStatReporter *queue.ProtobufStatsReporter) httpServer {
+func buildMetricsHTTPServer(protobufStatReporter *queue.ProtobufStatsReporter) httpServer {
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("/metrics", queue.NewStatsHandler(protobufStatReporter))
 
@@ -550,7 +550,7 @@ func buildMetricsHttpServer(protobufStatReporter *queue.ProtobufStatsReporter) h
 	}
 }
 
-func buildProfilingHttpServer(logger *zap.SugaredLogger) httpServer {
+func buildProfilingHTTPServer(logger *zap.SugaredLogger) httpServer {
 	return httpServer{
 		name: "profile",
 		tls:  false,
