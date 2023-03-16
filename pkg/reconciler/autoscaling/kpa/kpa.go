@@ -19,8 +19,6 @@ package kpa
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/labels"
-	v1 "knative.dev/serving/pkg/client/listers/serving/v1"
 	"math"
 
 	"go.opencensus.io/stats"
@@ -69,10 +67,9 @@ type podCounts struct {
 type Reconciler struct {
 	*areconciler.Base
 
-	podsLister  corev1listers.PodLister
-	deciders    resources.Deciders
-	routeLister v1.RouteLister
-	scaler      *scaler
+	podsLister corev1listers.PodLister
+	deciders   resources.Deciders
+	scaler     *scaler
 }
 
 // Check that our Reconciler implements the necessary interfaces.
@@ -118,14 +115,9 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 		return fmt.Errorf("error reconciling Metric: %w", err)
 	}
 
-	// If there is no traffic being routed to this pa's revision we want to scale to 0
-	routesToRevision, err := c.routesToRevision(pa)
-	if !routesToRevision {
-		decider.Status.DesiredScale = 0
-	}
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
-	want, err := c.scaler.scale(ctx, pa, sks, decider.Status.DesiredScale, routesToRevision)
+	want, err := c.scaler.scale(ctx, pa, sks, decider.Status.DesiredScale)
 	if err != nil {
 		return fmt.Errorf("error scaling target: %w", err)
 	}
@@ -195,31 +187,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	logger.Infof("Observed pod counts=%#v", pc)
 	computeStatus(ctx, pa, pc, logger)
 	return nil
-}
-
-// routesToRevision returns true if there is traffic being routed to this PodAutoscaler revision
-func (c *Reconciler) routesToRevision(pa *autoscalingv1alpha1.PodAutoscaler) (bool, error) {
-	routeLabelSelector := labels.SelectorFromSet(labels.Set{serving.ServiceLabelKey: pa.GetLabels()[serving.ServiceLabelKey]})
-	routes, err := c.routeLister.Routes(pa.Namespace).List(routeLabelSelector)
-	if err != nil {
-		return true, fmt.Errorf("failed to fetch existing services: %w", err)
-	}
-
-	revisionName := pa.OwnerReferences[0].Name
-	routesToRevision := false
-	for _, route := range routes {
-		for _, traffic := range route.Status.Traffic {
-			if *traffic.Percent > int64(0) && traffic.RevisionName == revisionName {
-				routesToRevision = true
-				break
-			}
-		}
-		if routesToRevision {
-			break
-		}
-	}
-
-	return routesToRevision, nil
 }
 
 // ObserveDeletion implements OnDeletionInterface.ObserveDeletion.

@@ -18,8 +18,6 @@ package kpa
 
 import (
 	"context"
-	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route"
-
 	"k8s.io/client-go/tools/cache"
 
 	networkingclient "knative.dev/networking/pkg/client/injection/client"
@@ -69,9 +67,8 @@ func NewController(
 			SKSLister:        sksInformer.Lister(),
 			MetricLister:     metricInformer.Lister(),
 		},
-		podsLister:  podsInformer.Lister(),
-		routeLister: routeinformer.Get(ctx).Lister(),
-		deciders:    deciders,
+		podsLister: podsInformer.Lister(),
+		deciders:   deciders,
 	}
 	impl := pareconciler.NewImpl(ctx, c, autoscaling.KPA, func(impl *controller.Impl) controller.Options {
 		logger.Info("Setting up ConfigMap receivers")
