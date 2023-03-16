@@ -265,6 +265,7 @@ func Main(opts ...Option) error {
 	mainHttpServer, drainer := buildMainHttpServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
 	srvs = append(srvs, mainHttpServer)
 	if encryptionEnabled {
+		// add mainTls on top of the main httpServer
 		var mainHttpServerTLS httpServer
 		mainHttpServerTLS, drainerTLS = buildMainHttpServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, true)
 		srvs = append(srvs, mainHttpServerTLS)
@@ -525,7 +526,7 @@ func buildAdminHttpServer(ctx context.Context, logger *zap.SugaredLogger, draine
 
 	return httpServer{
 		name: "admin",
-		tls:  enableTls,
+		tls:  enableTLS,
 		srv: &http.Server{
 			Addr:              ":" + strconv.Itoa(networking.QueueAdminPort),
 			Handler:           adminMux,
