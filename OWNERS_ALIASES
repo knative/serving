@@ -62,7 +62,6 @@ aliases:
   - dprotaso
   - dsimansk
   - evankanderson
-  - itsmurugappan
   - knative-automation
   - knative-prow-releaser-robot
   - knative-prow-robot
@@ -73,6 +72,7 @@ aliases:
   - mchmarny
   - nainaz
   - psschwei
+  - puerco
   - salaboy
   - smoser-ibm
   - upodroid
@@ -140,9 +140,9 @@ aliases:
   - psschwei
   steering-committee:
   - csantanapr
-  - itsmurugappan
   - lance
   - nainaz
+  - puerco
   - salaboy
   technical-oversight-committee:
   - dprotaso
