@@ -23,4 +23,4 @@ on:
 
 jobs:
   verify:
-    uses: knative/actions/.github/workflows/verify-codegen.yaml@main
+    uses: knative/actions/.github/workflows/reusable-verify-codegen.yaml@main
