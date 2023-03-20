@@ -18,7 +18,7 @@ on:
         description: 'Module Release? (vX.Y)'
         required: false
       slackChannel:
-        description: 'Slack Channel? (release-#)'
+        description: 'Slack Channel'
         required: false
 
 jobs:
@@ -27,6 +27,6 @@ jobs:
     with:
       releaseFamily: ${{ github.event.inputs.releaseFamily || 'v1.9' }}
       moduleReleaseFamily: ${{ github.event.inputs.moduleReleaseFamily || 'v0.36' }}
-      slackChannel: ${{ github.event.inputs.slackChannel || 'release' }}
+      slackChannel: ${{ github.event.inputs.slackChannel }}
     secrets:
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
