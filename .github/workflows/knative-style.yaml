@@ -12,4 +12,4 @@ on:
 jobs:
 
   style:
-    uses: knative/actions/.github/workflows/style.yaml@main
+    uses: knative/actions/.github/workflows/reusable-style.yaml@main

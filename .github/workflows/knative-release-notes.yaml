@@ -21,7 +21,7 @@ on:
 
 jobs:
   release-notes:
-    uses: knative/actions/.github/workflows/release-notes.yaml@main
+    uses: knative/actions/.github/workflows/reusable-release-notes.yaml@main
     with:
       branch: ${{ github.event.inputs.branch }}
       start-rev: ${{ github.event.inputs.start-rev }}
