@@ -11,4 +11,4 @@ on:
 jobs:
 
   stale:
-    uses: knative/actions/.github/workflows/stale.yaml@main
+    uses: knative/actions/.github/workflows/reusable-stale.yaml@main
