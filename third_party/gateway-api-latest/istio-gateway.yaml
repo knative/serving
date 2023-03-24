@@ -22,7 +22,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20230313-d0410c03"
+    app.kubernetes.io/version: "20230324-eb80b0fb"
     experimental.istio.io/disable-gateway-port-translation: "true"
 spec:
   type: ClusterIP
