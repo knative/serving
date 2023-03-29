@@ -328,7 +328,6 @@ jobs:
         gotestsum --format testname -- \
           -race -count=1 -parallel=1 -tags=e2e \
           -timeout=30m \
-          -short \
           ${{ matrix.test-path }} \
           -skip-cleanup-on-fail \
           ${{ matrix.test-flags || '-enable-alpha -enable-beta' }} \
@@ -338,5 +337,5 @@ jobs:
       if: ${{ failure() }}
       with:
         cluster-resources: nodes,namespaces,crds,${{ matrix.cluster-resources || '' }}
-        namespace-resources: pods,svc,ksvc,route,configuration,revision,king,${{ matrix.namespace-resources || '' }}
+        namespace-resources: configmaps,pods,svc,ksvc,route,configuration,revision,king,${{ matrix.namespace-resources || '' }}
         artifact-name: logs-${{ matrix.k8s-version}}-${{ matrix.ingress }}-${{ matrix.test-suite }}

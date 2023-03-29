@@ -14,4 +14,4 @@ on:
 
 jobs:
   analyze:
-    uses: knative/actions/.github/workflows/security.yaml@main
+    uses: knative/actions/.github/workflows/reusable-security.yaml@main

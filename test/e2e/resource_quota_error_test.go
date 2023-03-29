@@ -75,8 +75,6 @@ func TestResourceQuotaError(t *testing.T) {
 		t.Fatalf("Failed to create Service %s: %v", names.Service, err)
 	}
 
-	t.Log("Service created")
-
 	names.Config = serviceresourcenames.Configuration(svc)
 	var cond *apis.Condition
 	err = v1test.WaitForServiceState(clients.ServingClient, names.Service, func(r *v1.Service) (bool, error) {

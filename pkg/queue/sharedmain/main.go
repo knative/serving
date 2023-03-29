@@ -20,11 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
-	"strconv"
-	"sync"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
@@ -35,26 +32,19 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"knative.dev/control-protocol/pkg/certificates"
-	netheader "knative.dev/networking/pkg/http/header"
-	netproxy "knative.dev/networking/pkg/http/proxy"
 	netstats "knative.dev/networking/pkg/http/stats"
 	pkglogging "knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/metrics"
 	pkgnet "knative.dev/pkg/network"
-	pkghandler "knative.dev/pkg/network/handlers"
-	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/tracing"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/pkg/tracing/propagation/tracecontextb3"
-	"knative.dev/serving/pkg/activator"
 	pkghttp "knative.dev/serving/pkg/http"
-	"knative.dev/serving/pkg/http/handler"
 	"knative.dev/serving/pkg/logging"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
-	"knative.dev/serving/pkg/queue/health"
 	"knative.dev/serving/pkg/queue/readiness"
 )
 
@@ -254,23 +244,23 @@ func Main(opts ...Option) error {
 	}
 
 	var srvs []httpServer
-	var drainerTLS *pkghandler.Drainer
 
 	// Enable TLS when certificate is mounted.
 	encryptionEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
+	mainHandler, drainer := mainHandler(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint)
+	adminHandler := adminHandler(d.Ctx, logger, drainer)
+
+	// Enable TLS server when activator server certs are mounted.
 	// At this moment activator with TLS does not disable HTTP.
 	// Start main httpServer regardless if tlsEnabled is true
 	// See also https://github.com/knative/serving/issues/12808.
-	mainHTTPServer, drainer := buildMainHTTPServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, false)
-	srvs = append(srvs, mainHTTPServer)
+	srvs = append(srvs, buildMainHTTPServer(mainHandler, env, false))
 	if encryptionEnabled {
 		// add mainTls on top of the main httpServer
-		var mainHTTPServerTLS httpServer
-		mainHTTPServerTLS, drainerTLS = buildMainHTTPServer(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint, true)
-		srvs = append(srvs, mainHTTPServerTLS)
+		srvs = append(srvs, buildMainHTTPServer(mainHandler, env, true))
 	}
-	srvs = append(srvs, buildAdminHTTPServer(d.Ctx, logger, drainer, drainerTLS, encryptionEnabled))
+	srvs = append(srvs, buildAdminHTTPServer(adminHandler, encryptionEnabled))
 	srvs = append(srvs, buildMetricsHTTPServer(protoStatReporter))
 	if env.EnableProfiling {
 		srvs = append(srvs, buildProfilingHTTPServer(logger))
@@ -308,7 +298,7 @@ func Main(opts ...Option) error {
 		}
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 		logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
-		drain(drainer, drainerTLS)
+		drainer.Drain()
 
 		// Shutdown() to all httpServers, wait no more than shutdownLimit for graceful termination
 		shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), shutdownLimit)
@@ -342,93 +332,6 @@ func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 
 		return readiness.NewProbeWithHTTP2AutoDetection(coreProbe)
 	}
 	return readiness.NewProbe(coreProbe)
-}
-
-func buildMainHTTPServer(ctx context.Context, env config, transport http.RoundTripper, probeContainer func() bool, stats *netstats.RequestStats, logger *zap.SugaredLogger,
-	ce *queue.ConcurrencyEndpoint, enableTLS bool) (httpServer, *pkghandler.Drainer) {
-	// TODO: If TLS is enabled, execute probes twice and tracking two different sets of container health.
-
-	target := net.JoinHostPort("127.0.0.1", env.UserPort)
-
-	httpProxy := pkghttp.NewHeaderPruningReverseProxy(target, pkghttp.NoHostOverride, activator.RevisionHeaders, false /* use HTTP */)
-	httpProxy.Transport = transport
-	httpProxy.ErrorHandler = pkghandler.Error(logger)
-	httpProxy.BufferPool = netproxy.NewBufferPool()
-	httpProxy.FlushInterval = netproxy.FlushInterval
-
-	// TODO: During HTTP and HTTPS transition, counting concurrency could not be accurate. Count accurately.
-	breaker := buildBreaker(logger, env)
-	metricsSupported := supportsMetrics(ctx, logger, env, enableTLS)
-	tracingEnabled := env.TracingConfigBackend != tracingconfig.None
-	concurrencyStateEnabled := env.ConcurrencyStateEndpoint != ""
-	timeout := time.Duration(env.RevisionTimeoutSeconds) * time.Second
-	var responseStartTimeout = 0 * time.Second
-	if env.RevisionResponseStartTimeoutSeconds != 0 {
-		responseStartTimeout = time.Duration(env.RevisionResponseStartTimeoutSeconds) * time.Second
-	}
-	var idleTimeout = 0 * time.Second
-	if env.RevisionIdleTimeoutSeconds != 0 {
-		idleTimeout = time.Duration(env.RevisionIdleTimeoutSeconds) * time.Second
-	}
-	// Create queue handler chain.
-	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
-	var composedHandler http.Handler = httpProxy
-	if concurrencyStateEnabled {
-		logger.Info("Concurrency state endpoint set, tracking request counts, using endpoint: ", ce.Endpoint())
-		go func() {
-			for range time.NewTicker(1 * time.Minute).C {
-				ce.RefreshToken()
-			}
-		}()
-		composedHandler = queue.ConcurrencyStateHandler(logger, composedHandler, ce.Pause, ce.Resume)
-		// start paused
-		ce.Pause(logger)
-	}
-	if metricsSupported {
-		composedHandler = requestAppMetricsHandler(logger, composedHandler, breaker, env)
-	}
-	composedHandler = queue.ProxyHandler(breaker, stats, tracingEnabled, composedHandler)
-	composedHandler = queue.ForwardedShimHandler(composedHandler)
-	composedHandler = handler.NewTimeoutHandler(composedHandler, "request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
-		return timeout, responseStartTimeout, idleTimeout
-	})
-
-	if metricsSupported {
-		composedHandler = requestMetricsHandler(logger, composedHandler, env)
-	}
-	if tracingEnabled {
-		composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
-	}
-
-	drainer := &pkghandler.Drainer{
-		QuietPeriod: drainSleepDuration,
-		// Add Activator probe header to the drainer so it can handle probes directly from activator
-		HealthCheckUAPrefixes: []string{netheader.ActivatorUserAgent, netheader.AutoscalingUserAgent},
-		Inner:                 composedHandler,
-		HealthCheck:           health.ProbeHandler(probeContainer, tracingEnabled),
-	}
-	composedHandler = drainer
-
-	if env.ServingEnableRequestLog {
-		// We want to capture the probes/healthchecks in the request logs.
-		// Hence we need to have RequestLogHandler be the first one.
-		composedHandler = requestLogHandler(logger, composedHandler, env)
-	}
-
-	var port, name string
-	if enableTLS {
-		name = "mainTls"
-		port = env.QueueServingTLSPort
-	} else {
-		name = "main"
-		port = env.QueueServingPort
-	}
-
-	return httpServer{
-		name: name,
-		tls:  enableTLS,
-		srv:  pkgnet.NewServer(":"+port, composedHandler),
-	}, drainer
 }
 
 func buildTransport(env config) http.RoundTripper {
@@ -466,11 +369,7 @@ func buildBreaker(logger *zap.SugaredLogger, env config) *queue.Breaker {
 	return queue.NewBreaker(params)
 }
 
-func supportsMetrics(ctx context.Context, logger *zap.SugaredLogger, env config, enableTLS bool) bool {
-	// Keep it on HTTP because Metrics needs to be registered on either TLS server or non-TLS server.
-	if enableTLS {
-		return false
-	}
+func supportsMetrics(ctx context.Context, logger *zap.SugaredLogger, env config) bool {
 	// Setup request metrics reporting for end-user metrics.
 	if env.ServingRequestMetricsBackend == "" {
 		return false
@@ -481,81 +380,6 @@ func supportsMetrics(ctx context.Context, logger *zap.SugaredLogger, env config,
 	}
 
 	return true
-}
-
-// drain the two drainers
-func drain(drainer *pkghandler.Drainer, drainerTLS *pkghandler.Drainer) {
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	go func() {
-		defer wg.Done()
-		if drainer != nil {
-			drainer.Drain()
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		if drainerTLS != nil {
-			drainerTLS.Drain()
-		}
-	}()
-	wg.Wait()
-}
-
-func buildAdminHTTPServer(ctx context.Context, logger *zap.SugaredLogger, drainer *pkghandler.Drainer, drainerTLS *pkghandler.Drainer, enableTLS bool) httpServer {
-	adminMux := http.NewServeMux()
-	adminMux.HandleFunc(queue.RequestQueueDrainPath, func(w http.ResponseWriter, r *http.Request) {
-		logger.Info("Attached drain handler from user-container", r)
-
-		go func() {
-			select {
-			case <-ctx.Done():
-			case <-time.After(time.Second):
-				// If the context isn't done then the queue proxy didn't
-				// receive a TERM signal. Thus the user-container's
-				// liveness probes are triggering the container to restart
-				// and we shouldn't block that
-				drainer.Reset()
-			}
-		}()
-
-		drain(drainer, drainerTLS)
-		w.WriteHeader(http.StatusOK)
-	})
-
-	return httpServer{
-		name: "admin",
-		tls:  enableTLS,
-		srv: &http.Server{
-			Addr:              ":" + strconv.Itoa(networking.QueueAdminPort),
-			Handler:           adminMux,
-			ReadHeaderTimeout: time.Minute, //https://medium.com/a-journey-with-go/go-understand-and-mitigate-slowloris-attack-711c1b1403f6
-		},
-	}
-}
-
-func buildMetricsHTTPServer(protobufStatReporter *queue.ProtobufStatsReporter) httpServer {
-	metricsMux := http.NewServeMux()
-	metricsMux.Handle("/metrics", queue.NewStatsHandler(protobufStatReporter))
-
-	return httpServer{
-		name: "metrics",
-		tls:  false,
-		srv: &http.Server{
-			Addr:              ":" + strconv.Itoa(networking.AutoscalingQueueMetricsPort),
-			Handler:           metricsMux,
-			ReadHeaderTimeout: time.Minute, //https://medium.com/a-journey-with-go/go-understand-and-mitigate-slowloris-attack-711c1b1403f6
-		},
-	}
-}
-
-func buildProfilingHTTPServer(logger *zap.SugaredLogger) httpServer {
-	return httpServer{
-		name: "profile",
-		tls:  false,
-		srv:  profiling.NewServer(profiling.NewHandler(logger, true)),
-	}
 }
 
 func requestLogHandler(logger *zap.SugaredLogger, currentHandler http.Handler, env config) http.Handler {
