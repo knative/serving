@@ -19,7 +19,6 @@ package resources
 import (
 	"fmt"
 	"math"
-	"path"
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
@@ -359,12 +358,6 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		}, {
 			Name:  "METRICS_COLLECTOR_ADDRESS",
 			Value: cfg.Observability.MetricsCollectorAddress,
-		}, {
-			Name:  "CONCURRENCY_STATE_ENDPOINT",
-			Value: cfg.Deployment.ConcurrencyStateEndpoint,
-		}, {
-			Name:  "CONCURRENCY_STATE_TOKEN_PATH",
-			Value: path.Join(queue.TokenDirectory, queue.ConcurrencyStateTokenFilename),
 		}, {
 			Name: "HOST_IP",
 			ValueFrom: &corev1.EnvVarSource{

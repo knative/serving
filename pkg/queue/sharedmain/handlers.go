@@ -43,7 +43,6 @@ func mainHandler(
 	prober func() bool,
 	stats *netstats.RequestStats,
 	logger *zap.SugaredLogger,
-	ce *queue.ConcurrencyEndpoint,
 ) (http.Handler, *pkghandler.Drainer) {
 	target := net.JoinHostPort("127.0.0.1", env.UserPort)
 
@@ -55,7 +54,6 @@ func mainHandler(
 
 	breaker := buildBreaker(logger, env)
 	tracingEnabled := env.TracingConfigBackend != tracingconfig.None
-	concurrencyStateEnabled := env.ConcurrencyStateEndpoint != ""
 	timeout := time.Duration(env.RevisionTimeoutSeconds) * time.Second
 	var responseStartTimeout = 0 * time.Second
 	if env.RevisionResponseStartTimeoutSeconds != 0 {
@@ -68,17 +66,6 @@ func mainHandler(
 	// Create queue handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
 	var composedHandler http.Handler = httpProxy
-	if concurrencyStateEnabled {
-		logger.Info("Concurrency state endpoint set, tracking request counts, using endpoint: ", ce.Endpoint())
-		go func() {
-			for range time.NewTicker(1 * time.Minute).C {
-				ce.RefreshToken()
-			}
-		}()
-		composedHandler = queue.ConcurrencyStateHandler(logger, composedHandler, ce.Pause, ce.Resume)
-		// start paused
-		ce.Pause(logger)
-	}
 
 	metricsSupported := supportsMetrics(ctx, logger, env)
 	if metricsSupported {

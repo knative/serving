@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "ac007ed2"
+    knative.dev/example-checksum: "410041a0"
 data:
   # This is the Go import path for the binary that is containerized
   # and substituted here.
@@ -88,26 +88,3 @@ data:
     # Sets rootCA for the queue proxy - used by QPOptions
     # If omitted, or empty, no rootCA is added to the golang rootCAs
     queue-sidecar-rootca: ""
-
-    # The freezer service endpoint that queue-proxy calls when its traffic drops to zero or
-    # scales up from zero.
-    #
-    # Freezer service is available at: https://github.com/knative-sandbox/container-freezer
-    # or users may write their own service.
-    #
-    # The value will need to include both the host and the port that will be accessed.
-    # For the host, $HOST_IP can be passed, and the appropriate host IP value will be swapped
-    # in at runtime, which will enable the freezer daemonset to be reachable via the node IP.
-    #
-    # As an example:
-    #     concurrency-state-endpoint: "http://$HOST_IP:9696"
-    #
-    # If not set, queue proxy takes no action (this is the default behavior).
-    #
-    # When enabled, a serviceAccountToken will be mounted to queue-proxy using
-    # a projected volume. This requires the Service Account Token Volume Projection feature
-    # to be enabled. For details, see this link:
-    # https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#service-account-token-volume-projection
-    #
-    # NOTE THAT THIS IS AN EXPERIMENTAL / ALPHA FEATURE
-    concurrency-state-endpoint: ""
