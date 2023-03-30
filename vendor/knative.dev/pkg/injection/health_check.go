@@ -40,7 +40,7 @@ func ServeHealthProbes(ctx context.Context, port int) error {
 	}()
 
 	// start the web server on port and accept requests
-	logger.Infof("Probes server listening on port %s", port)
+	logger.Infof("Probes server listening on port %d", port)
 	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
