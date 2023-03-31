@@ -9,7 +9,19 @@
     },
 
     "privileged": true,
-    "postStartCommand": "service docker start",
+
+    // Creates a local container registry, a Kind cluster, and deploys Knative Serving and Knative Ingress
+    // To explore the setup logs, use the "Codespaces: View Creation Log" command in the Command Palette (Cmd/Ctrl + Shift + P or F1)
+    "postCreateCommand": "bash .devcontainer/setup.sh",
+    "postStartCommand": "bash .devcontainer/docker-start.sh",
+
+    "forwardPorts": [
+        5001
+    ],
+    "containerEnv": {
+        "KO_DOCKER_REPO": "kind.local"
+    },
+
     "mounts": [
         {
             "source": "dind-var-lib-docker",
