@@ -16,6 +16,16 @@ meet these requirements, you can make changes and
 
 Before submitting a PR, see also [CONTRIBUTING.md](./CONTRIBUTING.md).
 
+## Getting started with GitHub Codespaces
+
+To get started, create a codespace for this repository by clicking this 👇
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new?hide_repo_select=true&ref=main&repo=118828329)
+
+A codespace will open in a web-based version of Visual Studio Code. The [dev container](.devcontainer/devcontainer.json) is fully configured with software needed for this project.
+
+**Note**: Dev containers is an open spec which is supported by [GitHub Codespaces](https://github.com/codespaces) and [other tools](https://containers.dev/supporting).
+
 ### Sign up for GitHub
 
 Start by creating [a GitHub account](https://github.com/join), then set up
