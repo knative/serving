@@ -371,19 +371,6 @@ func TestMakeQueueContainer(t *testing.T) {
 			})
 		}),
 	}, {
-		name: "set concurrency state endpoint",
-		rev: revision("bar", "foo",
-			withContainers(containers)),
-		dc: deployment.Config{
-			ConcurrencyStateEndpoint: "freeze-proxy",
-		},
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{
-				"CONCURRENCY_STATE_ENDPOINT":   "freeze-proxy",
-				"CONCURRENCY_STATE_TOKEN_PATH": "/var/run/secrets/tokens/state-token",
-			})
-		}),
-	}, {
 		name: "set root ca",
 		rev: revision("bar", "foo",
 			withContainers(containers)),
@@ -916,8 +903,6 @@ func TestTCPProbeGeneration(t *testing.T) {
 }
 
 var defaultEnv = map[string]string{
-	"CONCURRENCY_STATE_ENDPOINT":              "",
-	"CONCURRENCY_STATE_TOKEN_PATH":            "/var/run/secrets/tokens/state-token",
 	"CONTAINER_CONCURRENCY":                   "0",
 	"ENABLE_HTTP2_AUTO_DETECTION":             "false",
 	"ENABLE_PROFILING":                        "false",

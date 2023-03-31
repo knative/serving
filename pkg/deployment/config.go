@@ -68,9 +68,6 @@ const (
 	// qpoptions
 	queueSidecarTokenAudiencesKey = "queue-sidecar-token-audiences"
 	queueSidecarRooCAKey          = "queue-sidecar-rootca"
-
-	// concurrencyStateEndpointKey is the key to configure the endpoint Queue Proxy will call when traffic drops to / increases from zero.
-	concurrencyStateEndpointKey = "concurrency-state-endpoint"
 )
 
 var (
@@ -86,7 +83,6 @@ func defaultConfig() *Config {
 		DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 		RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
 		QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
-		ConcurrencyStateEndpoint:       "",
 	}
 	// The following code is needed for ConfigMap testing.
 	// defaultConfig must match the example in deployment.yaml which includes: `queue-sidecar-token-audiences: ""`
@@ -113,7 +109,6 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 		cm.AsQuantity("queueSidecarCPULimit", &nc.QueueSidecarCPULimit),
 		cm.AsQuantity("queueSidecarMemoryLimit", &nc.QueueSidecarMemoryLimit),
 		cm.AsQuantity("queueSidecarEphemeralStorageLimit", &nc.QueueSidecarEphemeralStorageLimit),
-		cm.AsString("concurrencyStateEndpoint", &nc.ConcurrencyStateEndpoint),
 
 		cm.AsString(QueueSidecarImageKey, &nc.QueueSidecarImage),
 		cm.AsDuration(ProgressDeadlineKey, &nc.ProgressDeadline),
@@ -129,8 +124,6 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 
 		cm.AsStringSet(queueSidecarTokenAudiencesKey, &nc.QueueSidecarTokenAudiences),
 		cm.AsString(queueSidecarRooCAKey, &nc.QueueSidecarRootCA),
-
-		cm.AsString(concurrencyStateEndpointKey, &nc.ConcurrencyStateEndpoint),
 	); err != nil {
 		return nil, err
 	}
@@ -201,7 +194,4 @@ type Config struct {
 
 	// QueueSidecarRootCA is a root certificate to be trusted by the queue proxy sidecar  qpoptions.
 	QueueSidecarRootCA string
-
-	// ConcurrencyStateEndpoint is the endpoint Queue Proxy will call when traffic drops to / increases from zero.
-	ConcurrencyStateEndpoint string
 }

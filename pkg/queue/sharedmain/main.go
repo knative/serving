@@ -103,10 +103,6 @@ type config struct {
 	TracingConfigSampleRate     float64                   `split_words:"true"` // optional
 	TracingConfigZipkinEndpoint string                    `split_words:"true"` // optional
 
-	// Concurrency State Endpoint configuration
-	ConcurrencyStateEndpoint  string `split_words:"true"` // optional
-	ConcurrencyStateTokenPath string `split_words:"true"` // optional
-
 	Env
 }
 
@@ -224,22 +220,15 @@ func Main(opts ...Option) error {
 	}()
 
 	// Setup probe to run for checking user-application healthiness.
-	// Do not set up probe if concurrency state endpoint is set, as
-	// paused containers don't play well with k8s readiness probes.
 	probe := func() bool { return true }
-	if env.ServingReadinessProbe != "" && env.ConcurrencyStateEndpoint == "" {
+	if env.ServingReadinessProbe != "" {
 		probe = buildProbe(logger, env.ServingReadinessProbe, env.EnableHTTP2AutoDetection).ProbeContainer
-	}
-
-	var concurrencyendpoint *queue.ConcurrencyEndpoint
-	if env.ConcurrencyStateEndpoint != "" {
-		concurrencyendpoint = queue.NewConcurrencyEndpoint(env.ConcurrencyStateEndpoint, env.ConcurrencyStateTokenPath)
 	}
 
 	// Enable TLS when certificate is mounted.
 	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
-	mainHandler, drainer := mainHandler(d.Ctx, env, d.Transport, probe, stats, logger, concurrencyendpoint)
+	mainHandler, drainer := mainHandler(d.Ctx, env, d.Transport, probe, stats, logger)
 	adminHandler := adminHandler(d.Ctx, logger, drainer)
 
 	// Enable TLS server when activator server certs are mounted.
@@ -297,9 +286,6 @@ func Main(opts ...Option) error {
 		logger.Errorw("Failed to bring up queue-proxy, shutting down.", zap.Error(err))
 		return err
 	case <-d.Ctx.Done():
-		if env.ConcurrencyStateEndpoint != "" {
-			concurrencyendpoint.Terminating(logger)
-		}
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 		logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
 		drainer.Drain()

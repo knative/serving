@@ -178,12 +178,6 @@ var (
 			Name:  "METRICS_COLLECTOR_ADDRESS",
 			Value: "",
 		}, {
-			Name:  "CONCURRENCY_STATE_ENDPOINT",
-			Value: "",
-		}, {
-			Name:  "CONCURRENCY_STATE_TOKEN_PATH",
-			Value: "/var/run/secrets/tokens/state-token",
-		}, {
 			Name: "HOST_IP",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{APIVersion: "v1", FieldPath: "status.hostIP"},
@@ -1342,41 +1336,6 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("ROOT_CA", `myCertificate`),
 				),
 			},
-		),
-	}, {
-		name: "concurrency state projected volume",
-		dc: deployment.Config{
-			ConcurrencyStateEndpoint: "freeze-proxy",
-		},
-		rev: revision("bar", "foo",
-			withContainers([]corev1.Container{{
-				Name:           servingContainerName,
-				Image:          "busybox",
-				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
-				Ports:          buildContainerPorts(v1.DefaultUserPort),
-			}}),
-			WithContainerStatuses([]v1.ContainerStatus{{
-				ImageDigest: "busybox@sha256:deadbeef",
-			}, {
-				ImageDigest: "ubuntu@sha256:deadbeef",
-			}}),
-		),
-		want: podSpec(
-			[]corev1.Container{
-				servingContainer(func(container *corev1.Container) {
-					container.Image = "busybox@sha256:deadbeef"
-				}),
-				queueContainer(func(container *corev1.Container) {
-					container.VolumeMounts = []corev1.VolumeMount{{
-						Name:      varTokenVolume.Name,
-						MountPath: "/var/run/secrets/tokens",
-					}}
-				},
-					withEnvVar("CONCURRENCY_STATE_ENDPOINT", `freeze-proxy`),
-					withEnvVar("CONCURRENCY_STATE_TOKEN_PATH", `/var/run/secrets/tokens/state-token`),
-				),
-			},
-			withAppendedTokenVolumes([]appendTokenVolume{{filename: queue.ConcurrencyStateTokenFilename, audience: concurrencyStateHook, expires: 600}}),
 		),
 	}}
 
