@@ -1,4 +1,19 @@
-#!/bin/sh
+#!/usr/bin/env bash
+
+# Copyright 2023 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 set -eux
 
 .devcontainer/docker-start.sh
@@ -16,6 +31,11 @@ if [ "$(docker inspect -f '{{.State.Running}}' "${REGISTRY_NAME}" 2>/dev/null ||
   docker run \
     -d --restart=always -p "127.0.0.1:${REGISTRY_PORT}:5000" --name "${REGISTRY_NAME}" \
     registry:2
+fi
+
+if kind get clusters | grep kind ; then
+  echo "KinD cluster already exists, skipping..."
+  exit 0
 fi
 
 echo "Creating KinD cluster..."
@@ -48,6 +68,33 @@ data:
     help: "https://kind.sigs.k8s.io/docs/user/local-registry/"
 EOF
 
+echo "Installs metal-lb..."
+curl https://raw.githubusercontent.com/metallb/metallb/v0.13.5/config/manifests/metallb-native.yaml -k |
+  sed '0,/args:/s//args:\n        - --webhook-mode=disabled/' |
+  sed '/apiVersion: admissionregistration/,$d' |
+  kubectl apply -f -
+
+# Add Layer 2 config
+network=$(docker network inspect kind -f "{{(index .IPAM.Config 0).Subnet}}" | cut -d '.' -f1,2)
+echo $network
+
+cat <<EOF | kubectl apply -f -
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: first-pool
+  namespace: metallb-system
+spec:
+  addresses:
+  - $network.255.1-$network.255.250
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: example
+  namespace: metallb-system
+EOF
+
 echo "Deploying cert-manager..."
 kubectl apply -f ./third_party/cert-manager-latest/cert-manager.yaml
 kubectl wait --for=condition=Established --all crd
@@ -57,6 +104,10 @@ echo "Deploying Knative Serving..."
 ko apply --selector knative.dev/crd-install=true -Rf config/core/
 kubectl wait --for=condition=Established --all crd
 ko apply -Rf config/core/
+
+echo "Setting up sslip.io domain name"
+ko delete -f config/post-install/default-domain.yaml --ignore-not-found
+ko apply -f config/post-install/default-domain.yaml
 
 echo "Deploying Knative ingress with Kourier..."
 kubectl apply -f ./third_party/kourier-latest/kourier.yaml
