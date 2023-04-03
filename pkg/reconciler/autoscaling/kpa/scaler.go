@@ -19,11 +19,6 @@ package kpa
 import (
 	"context"
 	"fmt"
-	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"knative.dev/pkg/apis"
-	"knative.dev/serving/pkg/apis/serving"
-	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"net/http"
 	"time"
 
@@ -184,7 +179,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1
 	//      of time.
 	//   d) if (a) and the revision did not succeed to activate in `activationTimeout` time -- also scale it to 0.
 	//   e) if (a) and there is no traffic to the revision and did not succeed to activate in
-	//  `activationTimeout` time -- also scale it to 0.
+	//  `activationTimeoutBuffer` time -- also scale it to 0.
 	cfgs := config.FromContext(ctx)
 	cfgAS := cfgs.Autoscaler
 
@@ -204,12 +199,13 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1
 	switch {
 	case pa.Status.IsActivating(): // Active=Unknown
 		// If we are stuck activating for longer than our progress deadline, presume we cannot succeed and scale to 0.
-		// Alternatively, if there is no traffic routed to the revision, and we are stuck activating for longer than the
-		// activationTimeoutBuffer, then scale to 0
-		if pa.Status.CanFailActivation(now, activationTimeout) ||
-			(!isRevisionReachable && pa.Status.CanFailActivation(now, activationTimeoutBuffer)) {
-			logger.Warnf("Activation has timed out after %s. Routes to revision? %t, activationTimeoutBuffer %s",
-				activationTimeout, isRevisionReachable, activationTimeoutBuffer)
+		if pa.Status.CanFailActivation(now, activationTimeout) {
+			logger.Info("Activation has timed out after ", activationTimeout)
+			return desiredScale, true
+		} else if !isRevisionReachable && pa.Status.CanFailActivation(now, activationTimeoutBuffer) {
+			// Alternatively, if there is no traffic routed to the revision, and we are stuck activating for longer than the
+			// activationTimeoutBuffer, then scale to 0
+			logger.Info("There is no routes to revision, activation has timed out after ", activationTimeoutBuffer)
 			return desiredScale, true
 		}
 		ks.enqueueCB(pa, activationTimeout)
@@ -358,7 +354,7 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 		desiredScale = newScale
 	}
 	// If there is no traffic being routed to this pa's revision then scale to 0
-	isRevisionReachable, _ := ks.isRevisionReachable(ctx, pa)
+	isRevisionReachable := pa.Spec.Reachability == autoscalingv1alpha1.ReachabilityReachable
 	if !isRevisionReachable {
 		desiredScale = 0
 	}
@@ -383,31 +379,4 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
 	return desiredScale, ks.applyScale(ctx, pa, desiredScale, ps)
-}
-
-func (ks *scaler) isRevisionReachable(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler) (bool, error) {
-	logger := logging.FromContext(ctx)
-	var ur *unstructured.Unstructured
-	var err error
-	gvk := (&servingv1.Revision{}).GetGroupVersionKind()
-	ownerReferences := pa.GetOwnerReferences()
-	if len(ownerReferences) > 0 && ownerReferences[0].Kind == gvk.Kind {
-		ur, err = ks.dynamicClient.Resource(apis.KindToResource(gvk)).Namespace(pa.Namespace).Get(ctx, ownerReferences[0].Name, metav1.GetOptions{})
-		if err != nil {
-			logger.Warnw("Error retrieving Revision for PodAutoscaler", zap.Error(err))
-		} else {
-			var labels map[string]string
-			var found bool
-			labels, found, err = unstructured.NestedStringMap(ur.Object, "metadata", "labels")
-			if err != nil {
-				logger.Warnw("Error retrieving labels from Revision", zap.Error(err))
-			} else {
-				revisionReachable := found && servingv1.RoutingState(labels[serving.RoutingStateLabelKey]) == servingv1.RoutingStateActive
-				logger.Debugf("****** Revision %s is reachable %v", ownerReferences[0].Name, revisionReachable)
-				return revisionReachable, nil
-			}
-		}
-	}
-	return false, err
-
 }
