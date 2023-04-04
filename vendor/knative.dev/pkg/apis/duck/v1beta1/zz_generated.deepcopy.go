@@ -281,6 +281,11 @@ func (in *Destination) DeepCopyInto(out *Destination) {
 		*out = new(apis.URL)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.CACerts != nil {
+		in, out := &in.CACerts, &out.CACerts
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 
