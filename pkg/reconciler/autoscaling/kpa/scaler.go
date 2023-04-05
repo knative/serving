@@ -166,7 +166,7 @@ func durationMax(d1, d2 time.Duration) time.Duration {
 }
 
 func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler,
-	sks *netv1alpha1.ServerlessService, desiredScale int32, isRevisionReachable bool) (int32, bool) {
+	sks *netv1alpha1.ServerlessService, desiredScale int32) (int32, bool) {
 	if desiredScale != 0 {
 		return desiredScale, true
 	}
@@ -202,7 +202,8 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1
 		if pa.Status.CanFailActivation(now, activationTimeout) {
 			logger.Info("Activation has timed out after ", activationTimeout)
 			return desiredScale, true
-		} else if !isRevisionReachable && pa.Status.CanFailActivation(now, activationTimeoutBuffer) {
+		} else if pa.Spec.Reachability == autoscalingv1alpha1.ReachabilityUnreachable &&
+			pa.Status.CanFailActivation(now, activationTimeoutBuffer) {
 			// Alternatively, if there is no traffic routed to the revision, and we are stuck activating for longer than the
 			// activationTimeoutBuffer, then scale to 0
 			logger.Info("There is no routes to revision, activation has timed out after ", activationTimeoutBuffer)
@@ -352,14 +353,11 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 	if newScale := applyBounds(min, max, desiredScale); newScale != desiredScale {
 		logger.Debugf("Adjusting desiredScale to meet the min and max bounds before applying: %d -> %d", desiredScale, newScale)
 		desiredScale = newScale
-	}
-	// If there is no traffic being routed to this pa's revision then scale to 0
-	isRevisionReachable := pa.Spec.Reachability == autoscalingv1alpha1.ReachabilityReachable
-	if !isRevisionReachable {
+	} else if pa.Spec.Reachability == autoscalingv1alpha1.ReachabilityUnreachable {
 		desiredScale = 0
 	}
 
-	desiredScale, shouldApplyScale := ks.handleScaleToZero(ctx, pa, sks, desiredScale, isRevisionReachable)
+	desiredScale, shouldApplyScale := ks.handleScaleToZero(ctx, pa, sks, desiredScale)
 	if !shouldApplyScale {
 		return desiredScale, nil
 	}

@@ -336,6 +336,16 @@ func TestScaler(t *testing.T) {
 			paMarkActivating(k, time.Now().Add(-(customActivationTimeout + +activationTimeoutBuffer + time.Second)))
 		},
 	}, {
+		label:         "scale to zero while activating after activationTimeoutBuffer exceeded if unreachable",
+		startReplicas: 1,
+		scaleTo:       1,
+		wantReplicas:  0,
+		wantScaling:   true,
+		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
+			paMarkActivating(k, time.Now().Add(-(activationTimeoutBuffer + time.Second)))
+			WithReachabilityUnreachable(k)
+		},
+	}, {
 		label:         "scale down to minScale before grace period",
 		startReplicas: 10,
 		scaleTo:       0,
