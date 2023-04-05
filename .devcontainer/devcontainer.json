@@ -2,13 +2,8 @@
 {
     "name": "Knative Serving",
     "image": "gcr.io/knative-tests/test-infra/prow-tests:latest",
-
-    // Features to add to the dev container. More info: https://containers.dev/features.
-    "features": {
-        "ghcr.io/devcontainers/features/go:1": {}
-    },
-
     "privileged": true,
+    "onCreateCommand": "echo 'source ${HOME}/.gvm/scripts/gvm' >> ~/.bashrc",
 
     // Creates a local container registry, a Kind cluster, and deploys Knative Serving and Knative Ingress
     // To explore the setup logs, use the "Codespaces: View Creation Log" command in the Command Palette (Cmd/Ctrl + Shift + P or F1)
