@@ -42,7 +42,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"knative.dev/control-protocol/pkg/certificates"
-	network "knative.dev/networking/pkg"
 	netcfg "knative.dev/networking/pkg/config"
 	netprobe "knative.dev/networking/pkg/http/probe"
 	"knative.dev/pkg/configmap"
@@ -154,7 +153,7 @@ func main() {
 	if err != nil {
 		logger.Fatalw("Failed to fetch network config", zap.Error(err))
 	}
-	networkConfig, err := network.NewConfigFromConfigMap(networkCM)
+	networkConfig, err := netcfg.NewConfigFromMap(networkCM.Data)
 	if err != nil {
 		logger.Fatalw("Failed to construct network config", zap.Error(err))
 	}
