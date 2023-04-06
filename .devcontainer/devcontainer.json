@@ -1,0 +1,27 @@
+// For format details, see https://aka.ms/devcontainer.json.
+{
+    "name": "Knative Serving",
+    "image": "gcr.io/knative-tests/test-infra/prow-tests:latest",
+    "privileged": true,
+    "onCreateCommand": "echo 'source ${HOME}/.gvm/scripts/gvm' >> ~/.bashrc",
+
+    // Creates a local container registry, a Kind cluster, and deploys Knative Serving and Knative Ingress
+    // To explore the setup logs, use the "Codespaces: View Creation Log" command in the Command Palette (Cmd/Ctrl + Shift + P or F1)
+    "postCreateCommand": "bash .devcontainer/setup.sh",
+    "postStartCommand": "bash .devcontainer/docker-start.sh",
+
+    "forwardPorts": [
+        5001
+    ],
+    "containerEnv": {
+        "KO_DOCKER_REPO": "kind.local"
+    },
+
+    "mounts": [
+        {
+            "source": "dind-var-lib-docker",
+            "target": "/docker-graph",
+            "type": "volume"
+        }
+    ]
+}
