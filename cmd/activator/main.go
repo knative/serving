@@ -162,15 +162,14 @@ func main() {
 	tlsEnabled := networkConfig.InternalEncryption
 
 	var certCache *certificate.CertCache
-	if tlsEnabled {
-		logger.Info("Internal Encryption is enabled")
-		certCache = certificate.NewCertCache(ctx)
-	}
 
 	// Enable TLS client when queue-proxy-ca is specified.
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
 	if tlsEnabled {
+		logger.Info("Internal Encryption is enabled")
+		certCache = certificate.NewCertCache(ctx)
+
 		tlsConf := &tls.Config{
 			VerifyPeerCertificate: certCache.ValidateCert,
 			// nolint:gosec
