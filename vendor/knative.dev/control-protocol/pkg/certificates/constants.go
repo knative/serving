@@ -16,11 +16,15 @@ limitations under the License.
 
 package certificates
 
+import "strings"
+
 const (
-	Organization        = "knative.dev"
-	LegacyFakeDnsName   = "data-plane." + Organization
-	FakeDnsName         = LegacyFakeDnsName
-	DataPlaneNamePrefix = "knative-"
+	Organization           = "knative.dev"
+	LegacyFakeDnsName      = "data-plane." + Organization
+	FakeDnsName            = LegacyFakeDnsName // Deprecated
+	dataPlaneUserPrefix    = "kn-user-"
+	dataPlaneRoutingPrefix = "kn-routing-"
+	ControlPlaneName       = "kn-control"
 
 	//These keys are meant to line up with cert-manager, see
 	//https://cert-manager.io/docs/usage/certificate/#additional-certificate-output-formats
@@ -33,3 +37,18 @@ const (
 	SecretCertKey   = "public-cert.pem"
 	SecretPKKey     = "private-key.pem"
 )
+
+// DataPlaneRoutingName constructs a san for a data-plane-routing certificate
+// Accepts a routingId  - a unique identifier used as part of the san (default is "0" used when an empty routingId is provided)
+func DataPlaneRoutingName(routingId string) string {
+	if routingId == "" {
+		routingId = "0"
+	}
+	return dataPlaneRoutingPrefix + strings.ToLower(routingId)
+}
+
+// DataPlaneUserName constructs a san for a data-plane-user certificate
+// Accepts a namespace  - the namespace for which the certificate was created
+func DataPlaneUserName(namespace string) string {
+	return dataPlaneUserPrefix + strings.ToLower(namespace)
+}
