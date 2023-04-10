@@ -42,7 +42,7 @@ type CertCache struct {
 	logger         *zap.SugaredLogger
 
 	certificates *tls.Certificate
-	tlsConf      tls.Config
+	TLSConf      tls.Config
 
 	certificatesMux sync.RWMutex
 }
@@ -54,7 +54,7 @@ func NewCertCache(ctx context.Context) *CertCache {
 	cr := &CertCache{
 		secretInformer: secretInformer,
 		certificates:   nil,
-		tlsConf: tls.Config{
+		TLSConf: tls.Config{
 			ServerName: certificates.LegacyFakeDnsName,
 			MinVersion: tls.VersionTLS12,
 		},
@@ -66,7 +66,6 @@ func NewCertCache(ctx context.Context) *CertCache {
 		Handler: cache.ResourceEventHandlerFuncs{
 			UpdateFunc: cr.handleCertificateUpdate,
 			AddFunc:    cr.handleCertificateAdd,
-			DeleteFunc: cr.handleCertificateDelete,
 		},
 	})
 
@@ -94,9 +93,9 @@ func (cr *CertCache) handleCertificateAdd(added interface{}) {
 		}
 		pool.AddCert(ca)
 
-		cr.tlsConf.RootCAs = pool
-		cr.tlsConf.ServerName = certificates.LegacyFakeDnsName
-		cr.tlsConf.MinVersion = tls.VersionTLS12
+		cr.TLSConf.RootCAs = pool
+		cr.TLSConf.ServerName = certificates.LegacyFakeDnsName
+		cr.TLSConf.MinVersion = tls.VersionTLS12
 	}
 }
 
@@ -104,23 +103,7 @@ func (cr *CertCache) handleCertificateUpdate(_, new interface{}) {
 	cr.handleCertificateAdd(new)
 }
 
-func (cr *CertCache) handleCertificateDelete(_ interface{}) {
-	cr.certificatesMux.Lock()
-	defer cr.certificatesMux.Unlock()
-	cr.certificates = nil
-	cr.tlsConf.RootCAs = nil
-}
-
 // GetCertificate returns the cached certificates.
 func (cr *CertCache) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
-	cr.certificatesMux.RLock()
-	defer cr.certificatesMux.RUnlock()
 	return cr.certificates, nil
-}
-
-// GetTLSConfig returns the cached tls.Config.
-func (cr *CertCache) GetTLSConfig() *tls.Config {
-	cr.certificatesMux.RLock()
-	defer cr.certificatesMux.RUnlock()
-	return &cr.tlsConf
 }

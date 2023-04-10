@@ -47,7 +47,7 @@ func fakeCertCache(ctx context.Context) *CertCache {
 	cr := &CertCache{
 		secretInformer: secretInformer,
 		certificates:   nil,
-		tlsConf:        tls.Config{},
+		TLSConf:        tls.Config{},
 		logger:         logging.FromContext(ctx),
 	}
 
@@ -56,7 +56,6 @@ func fakeCertCache(ctx context.Context) *CertCache {
 		Handler: cache.ResourceEventHandlerFuncs{
 			UpdateFunc: cr.handleCertificateUpdate,
 			AddFunc:    cr.handleCertificateAdd,
-			DeleteFunc: cr.handleCertificateDelete,
 		},
 	})
 
@@ -94,6 +93,9 @@ func TestReconcile(t *testing.T) {
 
 	// Wait for the resources to be created and the handler is called.
 	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+		// To access cert.Certificate, take a lock.
+		cr.certificatesMux.RLock()
+		defer cr.certificatesMux.RUnlock()
 		cert, _ := cr.GetCertificate(nil)
 		return cert != nil, nil
 	}); err != nil {
@@ -107,6 +109,9 @@ func TestReconcile(t *testing.T) {
 
 	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
 	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		// To access cert.Certificate, take a lock.
+		cr.certificatesMux.RLock()
+		defer cr.certificatesMux.RUnlock()
 		cert, err := cr.GetCertificate(nil)
 		return err == nil && reflect.DeepEqual(newCert.Certificate, cert.Certificate), nil
 	}); err != nil {
@@ -128,21 +133,12 @@ func TestReconcile(t *testing.T) {
 
 	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
 	if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (bool, error) {
-		updateConf := cr.GetTLSConfig()
+		// To access cr.TLSConf.RootCAs, take a lock.
 		cr.certificatesMux.RLock()
 		defer cr.certificatesMux.RUnlock()
-		return err == nil && pool.Equal(updateConf.RootCAs), nil
+		return err == nil && pool.Equal(cr.TLSConf.RootCAs), nil
 	}); err != nil {
 		t.Fatalf("timeout to update the cert: %v", err)
-	}
-
-	// Delete the secret and clear the cache.
-	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Delete(ctx, secret.Name, metav1.DeleteOptions{})
-	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		cert, _ := cr.GetCertificate(nil)
-		return cert == nil, nil
-	}); err != nil {
-		t.Fatalf("timeout to delete the secret: %v", err)
 	}
 }
 
