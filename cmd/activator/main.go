@@ -171,7 +171,7 @@ func main() {
 		certCache = certificate.NewCertCache(ctx)
 
 		tlsConf := certCache.GetTLSConfig()
-		transport = pkgnet.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, &tlsConf)
+		transport = pkgnet.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, tlsConf)
 	}
 
 	// Start throttler.

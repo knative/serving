@@ -54,8 +54,11 @@ func NewCertCache(ctx context.Context) *CertCache {
 	cr := &CertCache{
 		secretInformer: secretInformer,
 		certificates:   nil,
-		tlsConf:        tls.Config{},
-		logger:         logging.FromContext(ctx),
+		tlsConf: tls.Config{
+			ServerName: certificates.LegacyFakeDnsName,
+			MinVersion: tls.VersionTLS12,
+		},
+		logger: logging.FromContext(ctx),
 	}
 
 	secretInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -105,7 +108,7 @@ func (cr *CertCache) handleCertificateDelete(_ interface{}) {
 	cr.certificatesMux.Lock()
 	defer cr.certificatesMux.Unlock()
 	cr.certificates = nil
-	cr.tlsConf = tls.Config{}
+	cr.tlsConf.RootCAs = nil
 }
 
 // GetCertificate returns the cached certificates.
@@ -116,8 +119,8 @@ func (cr *CertCache) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, e
 }
 
 // GetTLSConfig returns the cached tls.Config.
-func (cr *CertCache) GetTLSConfig() tls.Config {
+func (cr *CertCache) GetTLSConfig() *tls.Config {
 	cr.certificatesMux.RLock()
 	defer cr.certificatesMux.RUnlock()
-	return cr.tlsConf
+	return &cr.tlsConf
 }

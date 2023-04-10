@@ -69,7 +69,7 @@ func TestReconcile(t *testing.T) {
 	waitInformers, err := rtesting.RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		cancel()
-		t.Fatal("Failed to start informers:", err)
+		t.Fatal("failed to start informers:", err)
 	}
 	t.Cleanup(func() {
 		cancel()
@@ -96,7 +96,7 @@ func TestReconcile(t *testing.T) {
 		cert, _ := cr.GetCertificate(nil)
 		return cert != nil, nil
 	}); err != nil {
-		t.Fatal("Timeout to get the secret:", err)
+		t.Fatal("timeout to get the secret:", err)
 	}
 
 	// Verify CA.
@@ -114,7 +114,7 @@ func TestReconcile(t *testing.T) {
 		err := validate(block.Bytes, cr.GetTLSConfig())
 		return err != nil, nil // Expect error becaues of invalid CA.
 	}); err != nil {
-		t.Fatalf("Timeout to update the cert: %v", err)
+		t.Fatalf("timeout to update the cert: %v", err)
 	}
 
 	// Update CA, now the error is gone.
@@ -124,7 +124,7 @@ func TestReconcile(t *testing.T) {
 		err := validate(block.Bytes, cr.GetTLSConfig())
 		return err == nil, nil
 	}); err != nil {
-		t.Fatalf("Timeout to update the cert: %v", err)
+		t.Fatalf("timeout to update the cert: %v", err)
 	}
 
 	// Delete the secret and clear the cache.
@@ -133,11 +133,11 @@ func TestReconcile(t *testing.T) {
 		cert, _ := cr.GetCertificate(nil)
 		return cert == nil && cr.GetTLSConfig().RootCAs == nil, nil
 	}); err != nil {
-		t.Fatalf("Timeout to delete the secret: %v", err)
+		t.Fatalf("timeout to delete the secret: %v", err)
 	}
 }
 
-func validate(rawCert []byte, tlsConf tls.Config) error {
+func validate(rawCert []byte, tlsConf *tls.Config) error {
 	cert, err := x509.ParseCertificate(rawCert)
 	if err != nil {
 		return err
@@ -150,7 +150,7 @@ func validate(rawCert []byte, tlsConf tls.Config) error {
 	}
 
 	if _, err := cert.Verify(opts); err != nil {
-		return fmt.Errorf("Timeout to delete the secret: %v", err)
+		return fmt.Errorf("failed to verify the certificates: %v", err)
 	} else {
 		return nil
 	}
