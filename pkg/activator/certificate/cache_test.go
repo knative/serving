@@ -18,7 +18,10 @@ package certificate
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"testing"
 	"time"
 
@@ -43,7 +46,7 @@ func fakeCertCache(ctx context.Context) *CertCache {
 	cr := &CertCache{
 		secretInformer: secretInformer,
 		certificates:   nil,
-		pool:           nil,
+		tlsConf:        tls.Config{},
 		logger:         logging.FromContext(ctx),
 	}
 
@@ -88,8 +91,6 @@ func TestReconcile(t *testing.T) {
 	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Create(ctx, secret, metav1.CreateOptions{})
 	fakesecretinformer.Get(ctx).Informer().GetIndexer().Add(secret)
 
-	block, _ := pem.Decode(tlsCrt)
-
 	// Wait for the resources to be created and the handler is called.
 	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		cert, _ := cr.GetCertificate(nil)
@@ -98,12 +99,9 @@ func TestReconcile(t *testing.T) {
 		t.Fatal("Timeout to get the secret:", err)
 	}
 
-	cert, err := cr.GetCertificate(nil)
-	if err != nil || cert == nil {
-		t.Fatalf("failed to get cert: %v", err)
-	}
-
-	if err := cr.ValidateCert([][]byte{block.Bytes}, nil); err != nil {
+	// Verify CA.
+	block, _ := pem.Decode(tlsCrt)
+	if err := validate(block.Bytes, cr.GetTLSConfig()); err != nil {
 		t.Fatalf("failed to validate cert: %v", err)
 	}
 
@@ -113,7 +111,7 @@ func TestReconcile(t *testing.T) {
 	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
 	block, _ = pem.Decode(newTLSCrt)
 	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		err := cr.ValidateCert([][]byte{block.Bytes}, nil)
+		err := validate(block.Bytes, cr.GetTLSConfig())
 		return err != nil, nil // Expect error becaues of invalid CA.
 	}); err != nil {
 		t.Fatalf("Timeout to update the cert: %v", err)
@@ -123,7 +121,7 @@ func TestReconcile(t *testing.T) {
 	secret.Data[certificates.CaCertName] = newCA
 	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
 	if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (bool, error) {
-		err := cr.ValidateCert([][]byte{block.Bytes}, nil)
+		err := validate(block.Bytes, cr.GetTLSConfig())
 		return err == nil, nil
 	}); err != nil {
 		t.Fatalf("Timeout to update the cert: %v", err)
@@ -133,9 +131,28 @@ func TestReconcile(t *testing.T) {
 	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Delete(ctx, secret.Name, metav1.DeleteOptions{})
 	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		cert, _ := cr.GetCertificate(nil)
-		return cert == nil, nil
+		return cert == nil && cr.GetTLSConfig().RootCAs == nil, nil
 	}); err != nil {
 		t.Fatalf("Timeout to delete the secret: %v", err)
+	}
+}
+
+func validate(rawCert []byte, tlsConf tls.Config) error {
+	cert, err := x509.ParseCertificate(rawCert)
+	if err != nil {
+		return err
+	}
+
+	opts := x509.VerifyOptions{
+		Roots:         tlsConf.RootCAs,
+		DNSName:       tlsConf.ServerName,
+		Intermediates: x509.NewCertPool(),
+	}
+
+	if _, err := cert.Verify(opts); err != nil {
+		return fmt.Errorf("Timeout to delete the secret: %v", err)
+	} else {
+		return nil
 	}
 }
 

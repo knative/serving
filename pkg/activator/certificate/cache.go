@@ -21,7 +21,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
-	"errors"
 	"sync"
 
 	"go.uber.org/zap"
@@ -43,7 +42,7 @@ type CertCache struct {
 	logger         *zap.SugaredLogger
 
 	certificates *tls.Certificate
-	pool         *x509.CertPool
+	tlsConf      tls.Config
 
 	certificatesMux sync.RWMutex
 }
@@ -55,7 +54,7 @@ func NewCertCache(ctx context.Context) *CertCache {
 	cr := &CertCache{
 		secretInformer: secretInformer,
 		certificates:   nil,
-		pool:           nil,
+		tlsConf:        tls.Config{},
 		logger:         logging.FromContext(ctx),
 	}
 
@@ -92,7 +91,7 @@ func (cr *CertCache) handleCertificateAdd(added interface{}) {
 		}
 		pool.AddCert(ca)
 
-		cr.pool = pool
+		cr.tlsConf.RootCAs = pool
 	}
 }
 
@@ -104,7 +103,7 @@ func (cr *CertCache) handleCertificateDelete(_ interface{}) {
 	cr.certificatesMux.Lock()
 	defer cr.certificatesMux.Unlock()
 	cr.certificates = nil
-	cr.pool = nil
+	cr.tlsConf = tls.Config{}
 }
 
 // GetCertificate returns the cached certificates.
@@ -114,28 +113,9 @@ func (cr *CertCache) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, e
 	return cr.certificates, nil
 }
 
-// ValidateCert validates the certificate with the CA pool and DNS name.
-func (cr *CertCache) ValidateCert(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+// GetTLSConfig returns the cached tls.Config.
+func (cr *CertCache) GetTLSConfig() tls.Config {
 	cr.certificatesMux.RLock()
 	defer cr.certificatesMux.RUnlock()
-
-	for _, rawCert := range rawCerts {
-		cert, err := x509.ParseCertificate(rawCert)
-		if err != nil {
-			return err
-		}
-
-		opts := x509.VerifyOptions{
-			Roots:         cr.pool,
-			DNSName:       certificates.FakeDnsName,
-			Intermediates: x509.NewCertPool(),
-		}
-
-		if _, err := cert.Verify(opts); err != nil {
-			cr.logger.Warnw("invalid cert found", zap.Error(err))
-		} else {
-			return nil
-		}
-	}
-	return errors.New("failed to validate certificate")
+	return cr.tlsConf
 }

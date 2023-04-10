@@ -170,14 +170,8 @@ func main() {
 		logger.Info("Internal Encryption is enabled")
 		certCache = certificate.NewCertCache(ctx)
 
-		tlsConf := &tls.Config{
-			VerifyPeerCertificate: certCache.ValidateCert,
-			// nolint:gosec
-			// Validate certificates by a custom function via VerifyPeerCertificate.
-			InsecureSkipVerify: true,
-			MinVersion:         tls.VersionTLS12,
-		}
-		transport = pkgnet.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, tlsConf)
+		tlsConf := certCache.GetTLSConfig()
+		transport = pkgnet.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, &tlsConf)
 	}
 
 	// Start throttler.
