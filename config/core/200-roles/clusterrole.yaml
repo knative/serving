@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/name: knative-serving
 rules:
   - apiGroups: [""]
-    resources: ["pods", "namespaces", "configmaps", "endpoints", "services", "events", "serviceaccounts"]
+    resources: ["pods", "namespaces","secrets", "configmaps", "endpoints", "services", "events", "serviceaccounts"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
   - apiGroups: [""]
     resources: ["secrets"]
