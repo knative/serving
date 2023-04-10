@@ -92,6 +92,8 @@ func (cr *CertCache) handleCertificateAdd(added interface{}) {
 		pool.AddCert(ca)
 
 		cr.tlsConf.RootCAs = pool
+		cr.tlsConf.ServerName = certificates.LegacyFakeDnsName
+		cr.tlsConf.MinVersion = tls.VersionTLS12
 	}
 }
 
