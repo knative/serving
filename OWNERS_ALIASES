@@ -71,6 +71,8 @@ aliases:
   - lance
   - mchmarny
   - nainaz
+  - pierDipi
+  - pradnyavmw
   - psschwei
   - puerco
   - salaboy
@@ -78,8 +80,10 @@ aliases:
   - upodroid
   - zroubalik
   knative-release-leads:
-  - evankanderson
-  - psschwei
+  - dsimansk
+  - kvmware
+  - pierDipi
+  - pradnyavmw
   knative-robots:
   - knative-automation
   - knative-prow-releaser-robot
