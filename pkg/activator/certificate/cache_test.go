@@ -46,7 +46,7 @@ func fakeCertCache(ctx context.Context) *CertCache {
 
 	cr := &CertCache{
 		secretInformer: secretInformer,
-		certificates:   nil,
+		certificate:    nil,
 		TLSConf:        tls.Config{},
 		logger:         logging.FromContext(ctx),
 	}

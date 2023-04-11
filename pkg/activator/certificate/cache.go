@@ -41,8 +41,8 @@ type CertCache struct {
 	secretInformer v1.SecretInformer
 	logger         *zap.SugaredLogger
 
-	certificates *tls.Certificate
-	TLSConf      tls.Config
+	certificate *tls.Certificate
+	TLSConf     tls.Config
 
 	certificatesMux sync.RWMutex
 }
@@ -53,7 +53,7 @@ func NewCertCache(ctx context.Context) *CertCache {
 
 	cr := &CertCache{
 		secretInformer: secretInformer,
-		certificates:   nil,
+		certificate:    nil,
 		logger:         logging.FromContext(ctx),
 	}
 
@@ -80,7 +80,7 @@ func (cr *CertCache) handleCertificateAdd(added interface{}) {
 			cr.logger.Warnw("failed to parse secret", zap.Error(err))
 			return
 		}
-		cr.certificates = &cert
+		cr.certificate = &cert
 		cr.updateTLSConf()
 	}
 }
@@ -112,5 +112,5 @@ func (cr *CertCache) handleCertificateUpdate(_, new interface{}) {
 
 // GetCertificate returns the cached certificates.
 func (cr *CertCache) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
-	return cr.certificates, nil
+	return cr.certificate, nil
 }
