@@ -54,12 +54,10 @@ func NewCertCache(ctx context.Context) *CertCache {
 	cr := &CertCache{
 		secretInformer: secretInformer,
 		certificates:   nil,
-		TLSConf: tls.Config{
-			ServerName: certificates.LegacyFakeDnsName,
-			MinVersion: tls.VersionTLS12,
-		},
-		logger: logging.FromContext(ctx),
+		logger:         logging.FromContext(ctx),
 	}
+
+	cr.updateTLSConf()
 
 	secretInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.FilterWithNameAndNamespace(system.Namespace(), netcfg.ServingInternalCertName),
@@ -83,20 +81,29 @@ func (cr *CertCache) handleCertificateAdd(added interface{}) {
 			return
 		}
 		cr.certificates = &cert
-
-		pool := x509.NewCertPool()
-		block, _ := pem.Decode(secret.Data[certificates.CaCertName])
-		ca, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			cr.logger.Warnw("Failed to parse CA: %v", zap.Error(err))
-			return
-		}
-		pool.AddCert(ca)
-
-		cr.TLSConf.RootCAs = pool
-		cr.TLSConf.ServerName = certificates.LegacyFakeDnsName
-		cr.TLSConf.MinVersion = tls.VersionTLS12
+		cr.updateTLSConf()
 	}
+}
+
+func (cr *CertCache) updateTLSConf() {
+	secret, err := cr.secretInformer.Lister().Secrets(system.Namespace()).Get(netcfg.ServingInternalCertName)
+	if err != nil {
+		cr.logger.Warnw("failed to get secret", zap.Error(err))
+		return
+	}
+
+	pool := x509.NewCertPool()
+	block, _ := pem.Decode(secret.Data[certificates.CaCertName])
+	ca, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		cr.logger.Warnw("failed to parse CA", zap.Error(err))
+		return
+	}
+	pool.AddCert(ca)
+
+	cr.TLSConf.RootCAs = pool
+	cr.TLSConf.ServerName = certificates.LegacyFakeDnsName
+	cr.TLSConf.MinVersion = tls.VersionTLS12
 }
 
 func (cr *CertCache) handleCertificateUpdate(_, new interface{}) {
