@@ -62,7 +62,7 @@ func NewCertCache(ctx context.Context) *CertCache {
 		return nil
 	}
 
-	cr.updateTLSConf(secret)
+	cr.updateCache(secret)
 
 	secretInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.FilterWithNameAndNamespace(system.Namespace(), netcfg.ServingInternalCertName),
@@ -77,11 +77,11 @@ func NewCertCache(ctx context.Context) *CertCache {
 
 func (cr *CertCache) handleCertificateAdd(added interface{}) {
 	if secret, ok := added.(*corev1.Secret); ok {
-		cr.updateTLSConf(secret)
+		cr.updateCache(secret)
 	}
 }
 
-func (cr *CertCache) updateTLSConf(secret *corev1.Secret) {
+func (cr *CertCache) updateCache(secret *corev1.Secret) {
 	cr.certificatesMux.Lock()
 	defer cr.certificatesMux.Unlock()
 
