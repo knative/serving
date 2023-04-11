@@ -53,11 +53,16 @@ func NewCertCache(ctx context.Context) *CertCache {
 
 	cr := &CertCache{
 		secretInformer: secretInformer,
-		certificate:    nil,
 		logger:         logging.FromContext(ctx),
 	}
 
-	cr.updateTLSConf()
+	secret, err := cr.secretInformer.Lister().Secrets(system.Namespace()).Get(netcfg.ServingInternalCertName)
+	if err != nil {
+		cr.logger.Warnw("failed to get secret", zap.Error(err))
+		return nil
+	}
+
+	cr.updateTLSConf(secret)
 
 	secretInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.FilterWithNameAndNamespace(system.Namespace(), netcfg.ServingInternalCertName),
@@ -72,25 +77,20 @@ func NewCertCache(ctx context.Context) *CertCache {
 
 func (cr *CertCache) handleCertificateAdd(added interface{}) {
 	if secret, ok := added.(*corev1.Secret); ok {
-		cr.certificatesMux.Lock()
-		defer cr.certificatesMux.Unlock()
-
-		cert, err := tls.X509KeyPair(secret.Data[certificates.CertName], secret.Data[certificates.PrivateKeyName])
-		if err != nil {
-			cr.logger.Warnw("failed to parse secret", zap.Error(err))
-			return
-		}
-		cr.certificate = &cert
-		cr.updateTLSConf()
+		cr.updateTLSConf(secret)
 	}
 }
 
-func (cr *CertCache) updateTLSConf() {
-	secret, err := cr.secretInformer.Lister().Secrets(system.Namespace()).Get(netcfg.ServingInternalCertName)
+func (cr *CertCache) updateTLSConf(secret *corev1.Secret) {
+	cr.certificatesMux.Lock()
+	defer cr.certificatesMux.Unlock()
+
+	cert, err := tls.X509KeyPair(secret.Data[certificates.CertName], secret.Data[certificates.PrivateKeyName])
 	if err != nil {
-		cr.logger.Warnw("failed to get secret", zap.Error(err))
+		cr.logger.Warnw("failed to parse secret", zap.Error(err))
 		return
 	}
+	cr.certificate = &cert
 
 	pool := x509.NewCertPool()
 	block, _ := pem.Decode(secret.Data[certificates.CaCertName])
