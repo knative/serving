@@ -19,7 +19,6 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"log"
@@ -41,7 +40,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"knative.dev/control-protocol/pkg/certificates"
 	network "knative.dev/networking/pkg"
 	netcfg "knative.dev/networking/pkg/config"
 	netprobe "knative.dev/networking/pkg/http/probe"
@@ -60,6 +58,7 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/pkg/version"
 	"knative.dev/pkg/websocket"
+	"knative.dev/serving/pkg/activator/certificate"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	activatorhandler "knative.dev/serving/pkg/activator/handler"
 	activatornet "knative.dev/serving/pkg/activator/net"
@@ -162,32 +161,15 @@ func main() {
 	// Enable TLS against queue-proxy when internal-encryption is enabled.
 	tlsEnabled := networkConfig.InternalEncryption
 
+	var certCache *certificate.CertCache
+
 	// Enable TLS client when queue-proxy-ca is specified.
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
 	if tlsEnabled {
 		logger.Info("Internal Encryption is enabled")
-		caSecret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, netcfg.ServingInternalCertName, metav1.GetOptions{})
-		if err != nil {
-			logger.Fatalw("Failed to get secret", zap.Error(err))
-		}
-
-		pool, err := x509.SystemCertPool()
-		if err != nil {
-			pool = x509.NewCertPool()
-		}
-
-		if ok := pool.AppendCertsFromPEM(caSecret.Data[certificates.CaCertName]); !ok {
-			logger.Fatalw("Failed to append ca cert to the RootCAs")
-		}
-
-		tlsConf := &tls.Config{
-			RootCAs:            pool,
-			InsecureSkipVerify: false,
-			ServerName:         certificates.FakeDnsName,
-			MinVersion:         tls.VersionTLS12,
-		}
-		transport = pkgnet.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, tlsConf)
+		certCache = certificate.NewCertCache(ctx)
+		transport = pkgnet.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, &certCache.TLSConf)
 	}
 
 	// Start throttler.
@@ -300,20 +282,12 @@ func main() {
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
 	if tlsEnabled {
-		secret, err := kubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, netcfg.ServingInternalCertName, metav1.GetOptions{})
-		if err != nil {
-			logger.Fatalw("failed to get secret", zap.Error(err))
-		}
-		cert, err := tls.X509KeyPair(secret.Data[certificates.CertName], secret.Data[certificates.PrivateKeyName])
-		if err != nil {
-			logger.Fatalw("failed to load certs", zap.Error(err))
-		}
-
-		// TODO: Implement the secret (certificate) rotation like knative.dev/pkg/webhook/certificates/.
-		// Also, the current activator must be restarted when updating the secret.
 		name, server := "https", pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTPSPort), ah)
 		go func(name string, s *http.Server) {
-			s.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
+			s.TLSConfig = &tls.Config{
+				MinVersion:     tls.VersionTLS12,
+				GetCertificate: certCache.GetCertificate,
+			}
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
 			if err := s.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errCh <- fmt.Errorf("%s server failed: %w", name, err)
