@@ -40,7 +40,7 @@ import (
 const (
 	caExpirationInterval = time.Hour * 24 * 365 * 10 // 10 years
 	expirationInterval   = time.Hour * 24 * 30       // 30 days
-	rotationThreshold    = 10 * time.Minute
+	rotationThreshold    = 24 * time.Hour
 
 	// certificates used by control elements such as autoscaler, ingress controller
 	controlPlaneSecretType = "control-plane"
