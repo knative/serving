@@ -209,14 +209,14 @@ func (c *Reconciler) reconcileSecret(ctx context.Context, rev *v1.Revision) erro
 	if apierrs.IsNotFound(err) {
 		namespace, err := c.kubeclient.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
 		if err != nil {
-			return fmt.Errorf("failed to get Namespace %q: %w", ns, err)
+			return fmt.Errorf("failed to get Namespace %s: %w", ns, err)
 		}
 		if secret, err = c.createSecret(ctx, namespace); err != nil {
-			return fmt.Errorf("failed to create Secret %q at namespace %q: %w", networking.ServingCertName, ns, err)
+			return fmt.Errorf("failed to create Secret %s/%s:: %w", networking.ServingCertName, ns, err)
 		}
 		logger.Info("Created Secret: ", networking.ServingCertName, "at namespace: ", ns)
 	} else if err != nil {
-		return fmt.Errorf("failed to get secret %q at namespace %q: %w", networking.ServingCertName, ns, err)
+		return fmt.Errorf("failed to get secret %s/%s: %w", networking.ServingCertName, ns, err)
 	}
 
 	// Verify if secret has been added the data.
