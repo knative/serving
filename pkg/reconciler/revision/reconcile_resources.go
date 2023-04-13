@@ -212,7 +212,7 @@ func (c *Reconciler) reconcileSecret(ctx context.Context, rev *v1.Revision) erro
 			return fmt.Errorf("failed to get Namespace %s: %w", ns, err)
 		}
 		if secret, err = c.createSecret(ctx, namespace); err != nil {
-			return fmt.Errorf("failed to create Secret %s/%s:: %w", networking.ServingCertName, ns, err)
+			return fmt.Errorf("failed to create Secret %s/%s: %w", networking.ServingCertName, ns, err)
 		}
 		logger.Info("Created Secret: ", networking.ServingCertName, "at namespace: ", ns)
 	} else if err != nil {
