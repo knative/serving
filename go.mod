@@ -2,6 +2,8 @@ module knative.dev/serving
 
 go 1.18
 
+replace knative.dev/pkg => ../pkg
+
 require (
 	github.com/ahmetb/gen-crd-api-reference-docs v0.3.1-0.20210609063737-0067dc6dcea2
 	github.com/davecgh/go-spew v1.1.1
@@ -32,11 +34,11 @@ require (
 	k8s.io/code-generator v0.25.4
 	k8s.io/kube-openapi v0.0.0-20221012153701-172d655c2280
 	k8s.io/utils v0.0.0-20221108210102-8e77b1f39fe2
-	knative.dev/caching v0.0.0-20230412014054-0641348656b1
-	knative.dev/control-protocol v0.0.0-20230412130249-787989300801
+	knative.dev/caching v0.0.0-20230413132053-055e0b076609
+	knative.dev/control-protocol v0.0.0-20230413132455-dcf76d170c2e
 	knative.dev/hack v0.0.0-20230412013450-4b3f2300c1ad
 	knative.dev/networking v0.0.0-20230412014752-750a9e4f13f1
-	knative.dev/pkg v0.0.0-20230412013349-d3d7625d8e1e
+	knative.dev/pkg v0.0.0-20230414154551-53f04b373cc9
 	sigs.k8s.io/yaml v1.3.0
 )
 
