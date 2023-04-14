@@ -64,7 +64,7 @@ func newResolverTransport(path string, maxIdleConns, maxIdleConnsPerHost int) (*
 	transport.MaxIdleConns = maxIdleConns
 	transport.MaxIdleConnsPerHost = maxIdleConnsPerHost
 	transport.TLSClientConfig = &tls.Config{
-		MinVersion: tls.VersionTLS12,
+		MinVersion: tls.VersionTLS13,
 		RootCAs:    pool,
 	}
 
