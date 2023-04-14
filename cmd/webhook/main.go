@@ -163,7 +163,7 @@ func main() {
 		SecretName:  "webhook-certs",
 	})
 
-	sharedmain.WebhookMainWithContext(ctx, "webhook",
+	sharedmain.WebhookMainWithContext(sharedmain.WithHealthProbesDisabled(ctx), "webhook",
 		certificates.NewController,
 		newDefaultingAdmissionController,
 		newValidationAdmissionController,
