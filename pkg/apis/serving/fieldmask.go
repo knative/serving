@@ -86,9 +86,8 @@ func VolumeProjectionMask(in *corev1.VolumeProjection) *corev1.VolumeProjection 
 	out.ConfigMap = in.ConfigMap
 	out.ServiceAccountToken = in.ServiceAccountToken
 
-	// Disallowed fields
-	// This list is unnecessary, but added here for clarity
-	out.DownwardAPI = nil
+	// TODO(KauzClay): Should this be behind a feature flag like EmptyDir?
+	out.DownwardAPI = in.DownwardAPI
 
 	return out
 }
@@ -143,6 +142,40 @@ func ServiceAccountTokenProjectionMask(in *corev1.ServiceAccountTokenProjection)
 		ExpirationSeconds: in.ExpirationSeconds,
 		Path:              in.Path,
 	}
+
+	return out
+}
+
+// DownwardAPIProjectionMask performs a _shallow_ copy of the Kubernetes DownwardAPIProjection
+// object to a new Kubernetes DownwardAPIProjection object bringing over only the fields allowed
+// in the Knative API. This does not validate the contents or the bounds of the provided fields.
+func DownwardAPIProjectionMask(in *corev1.DownwardAPIProjection) *corev1.DownwardAPIProjection {
+	if in == nil {
+		return nil
+	}
+
+	out := new(corev1.DownwardAPIProjection)
+
+	out.Items = append(out.Items, in.Items...)
+
+	return out
+}
+
+// DownwardAPIVolumeFileMask performs a _shallow_ copy of the Kubernetes DownwardAPIVolumeFileMask
+// object to a new Kubernetes DownwardAPIVolumeFileMask object bringing over only the fields allowed
+// in the Knative API. This does not validate the contents or the bounds of the provided fields.
+func DownwardAPIVolumeFileMask(in *corev1.DownwardAPIVolumeFile) *corev1.DownwardAPIVolumeFile {
+	if in == nil {
+		return nil
+	}
+
+	out := new(corev1.DownwardAPIVolumeFile)
+
+	// Allowed fields
+	out.FieldRef = in.FieldRef
+	out.ResourceFieldRef = in.ResourceFieldRef
+	out.Path = in.Path
+	out.Mode = in.Mode
 
 	return out
 }

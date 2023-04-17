@@ -2609,7 +2609,7 @@ func TestVolumeValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrMissingOneOf("projected[0].configMap", "projected[0].secret", "projected[0].serviceAccountToken"),
+		want: apis.ErrMissingOneOf("projected[0].configMap", "projected[0].downwardAPI", "projected[0].secret", "projected[0].serviceAccountToken"),
 	}, {
 		name: "no name",
 		v: corev1.Volume{
@@ -2717,7 +2717,53 @@ func TestVolumeValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrMissingField("projected[0].serviceAccountToken.path"),
-	}}
+	}, {
+		name: "projection with DownwardAPI no values",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{{
+						DownwardAPI: &corev1.DownwardAPIProjection{
+							Items: []corev1.DownwardAPIVolumeFile{
+								{
+									Path: "labels",
+								},
+							},
+						},
+					}},
+				},
+			},
+		},
+		want: apis.ErrMissingOneOf("projected[0].downwardAPI.items[0].fieldRef", "projected[0].downwardAPI.items[0].resourceFieldRef"),
+	}, {
+		name: "projection with DownwardAPI with both fieldRef and resourceFieldRef",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{{
+						DownwardAPI: &corev1.DownwardAPIProjection{
+							Items: []corev1.DownwardAPIVolumeFile{
+								{
+									FieldRef: &corev1.ObjectFieldSelector{
+										FieldPath: "metadata.labels",
+									},
+									Path: "labels",
+									ResourceFieldRef: &corev1.ResourceFieldSelector{
+										ContainerName: "user-container",
+										Resource:      "limits.cpu",
+									},
+								},
+							},
+						},
+					}},
+				},
+			},
+		},
+		want: apis.ErrGeneric("Within a single item, cannot set both", "projected[0].downwardAPI.items[0].fieldRef", "projected[0].downwardAPI.items[0].resourceFieldRef"),
+	},
+	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
