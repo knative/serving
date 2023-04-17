@@ -51,6 +51,7 @@ function tag_images_in_yamls() {
   local DOCKER_BASE="${KO_DOCKER_REPO}/${REPO_ROOT_DIR/$SRC_DIR}"
   local GEO_REGIONS="${GEO_REPLICATION[@]} "
   echo "Tagging any images under '${DOCKER_BASE}' with ${TAG}"
+  # shellcheck disable=SC2068
   for file in $@; do
     [[ "${file##*.}" != "yaml" ]] && continue
     echo "Inspecting ${file}"
@@ -316,7 +317,8 @@ function build_from_source() {
 function get_images_in_yamls() {
   rm -rf "$IMAGES_REFS_FILE"
   echo "Assembling a list of image refences to sign"
-  for file in "$@"; do
+  # shellcheck disable=SC2068
+  for file in $@; do
     [[ "${file##*.}" != "yaml" ]] && continue
     echo "Inspecting ${file}"
     while read -r image; do
@@ -407,10 +409,11 @@ function sign_release() {
   if [[ -f "$IMAGES_REFS_FILE" ]]; then
     COSIGN_EXPERIMENTAL=1 cosign sign $(cat "$IMAGES_REFS_FILE") \
       --recursive --identity-token="${ID_TOKEN}"
+    cp "${IMAGES_REFS_FILE}" "${ARTIFACTS}"
     if  [ -n "${ATTEST_IMAGES:-}" ]; then # Temporary Feature Gate
       provenance-generator --clone-log=/logs/clone.json \
         --image-refs="$IMAGES_REFS_FILE" --output=attestation.json
-      mkdir -p "${ARTIFACTS}"/attestation && cp attestation.json "${ARTIFACTS}"/attestation
+      mkdir -p "${ARTIFACTS}" && cp attestation.json "${ARTIFACTS}"
       COSIGN_EXPERIMENTAL=1 cosign attest $(cat "$IMAGES_REFS_FILE") \
         --recursive --identity-token="${ID_TOKEN}" \
         --predicate=attestation.json --type=slsaprovenance
