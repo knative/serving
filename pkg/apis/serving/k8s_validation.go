@@ -245,8 +245,8 @@ func validateServiceAccountTokenProjection(sp *corev1.ServiceAccountTokenProject
 
 func validateDownwardAPIProjection(dapi *corev1.DownwardAPIProjection) *apis.FieldError {
 	errs := apis.CheckDisallowedFields(*dapi, *DownwardAPIProjectionMask(dapi))
-	for i, item := range dapi.Items {
-		errs = errs.Also(validateDownwardAPIVolumeFile(&item).ViaFieldIndex("items", i))
+	for i := range dapi.Items {
+		errs = errs.Also(validateDownwardAPIVolumeFile(&dapi.Items[i]).ViaFieldIndex("items", i))
 	}
 	return errs
 }
