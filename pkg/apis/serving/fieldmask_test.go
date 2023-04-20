@@ -129,11 +129,11 @@ func TestVolumeProjectionMask(t *testing.T) {
 	if diff, err := kmp.SafeDiff(want, got); err != nil {
 		t.Error("Got error comparing output, err =", err)
 	} else if diff != "" {
-		t.Error("VolumeSourceMask (-want, +got):", diff)
+		t.Error("VolumeProjectionMask (-want, +got):", diff)
 	}
 
 	if got = VolumeProjectionMask(nil); got != nil {
-		t.Errorf("VolumeSourceMask(nil) = %v, want: nil", got)
+		t.Errorf("VolumeProjectionMask(nil) = %v, want: nil", got)
 	}
 }
 
