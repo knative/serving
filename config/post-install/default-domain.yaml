@@ -46,7 +46,6 @@ spec:
         readinessProbe:
           httpGet:
             port: 8080
-          failureThreshold: 3
         livenessProbe:
           httpGet:
             port: 8080
