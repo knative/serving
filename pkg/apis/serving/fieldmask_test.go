@@ -79,6 +79,64 @@ func TestVolumeSourceMask(t *testing.T) {
 	}
 }
 
+func TestVolumeProjectionMask(t *testing.T) {
+	want := &corev1.VolumeProjection{
+		DownwardAPI: &corev1.DownwardAPIProjection{
+			Items: []corev1.DownwardAPIVolumeFile{
+				{
+					Path: "labels",
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.labels",
+					},
+				},
+				{
+					Path: "cpu_limit",
+					ResourceFieldRef: &corev1.ResourceFieldSelector{
+						ContainerName: "bar",
+						Resource:      "limits.cpu",
+					},
+				},
+			},
+		},
+	}
+
+	in := &corev1.VolumeProjection{
+		DownwardAPI: &corev1.DownwardAPIProjection{
+			Items: []corev1.DownwardAPIVolumeFile{
+				{
+					Path: "labels",
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.labels",
+					},
+				},
+				{
+					Path: "cpu_limit",
+					ResourceFieldRef: &corev1.ResourceFieldSelector{
+						ContainerName: "bar",
+						Resource:      "limits.cpu",
+					},
+				},
+			},
+		},
+	}
+
+	got := VolumeProjectionMask(in)
+
+	if &want == &got {
+		t.Error("Input and output share addresses. Want different addresses")
+	}
+
+	if diff, err := kmp.SafeDiff(want, got); err != nil {
+		t.Error("Got error comparing output, err =", err)
+	} else if diff != "" {
+		t.Error("VolumeProjectionMask (-want, +got):", diff)
+	}
+
+	if got = VolumeProjectionMask(nil); got != nil {
+		t.Errorf("VolumeProjectionMask(nil) = %v, want: nil", got)
+	}
+}
+
 func TestPodSpecMask(t *testing.T) {
 	want := &corev1.PodSpec{
 		ServiceAccountName: "default",

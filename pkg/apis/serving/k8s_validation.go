@@ -196,8 +196,12 @@ func validateProjectedVolumeSource(vp corev1.VolumeProjection) *apis.FieldError 
 		specified = append(specified, "serviceAccountToken")
 		errs = errs.Also(validateServiceAccountTokenProjection(vp.ServiceAccountToken).ViaField("serviceAccountToken"))
 	}
+	if vp.DownwardAPI != nil {
+		specified = append(specified, "downwardAPI")
+		errs = errs.Also(validateDownwardAPIProjection(vp.DownwardAPI).ViaField("downwardAPI"))
+	}
 	if len(specified) == 0 {
-		errs = errs.Also(apis.ErrMissingOneOf("secret", "configMap", "serviceAccountToken"))
+		errs = errs.Also(apis.ErrMissingOneOf("secret", "configMap", "serviceAccountToken", "downwardAPI"))
 	} else if len(specified) > 1 {
 		errs = errs.Also(apis.ErrMultipleOneOf(specified...))
 	}
@@ -234,6 +238,28 @@ func validateServiceAccountTokenProjection(sp *corev1.ServiceAccountTokenProject
 	errs := apis.CheckDisallowedFields(*sp, *ServiceAccountTokenProjectionMask(sp))
 	// Audience & ExpirationSeconds are optional
 	if sp.Path == "" {
+		errs = errs.Also(apis.ErrMissingField("path"))
+	}
+	return errs
+}
+
+func validateDownwardAPIProjection(dapi *corev1.DownwardAPIProjection) *apis.FieldError {
+	errs := apis.CheckDisallowedFields(*dapi, *DownwardAPIProjectionMask(dapi))
+	for i := range dapi.Items {
+		errs = errs.Also(validateDownwardAPIVolumeFile(&dapi.Items[i]).ViaFieldIndex("items", i))
+	}
+	return errs
+}
+
+func validateDownwardAPIVolumeFile(vf *corev1.DownwardAPIVolumeFile) *apis.FieldError {
+	errs := apis.CheckDisallowedFields(*vf, *DownwardAPIVolumeFileMask(vf))
+	if vf.FieldRef == nil && vf.ResourceFieldRef == nil {
+		errs = errs.Also(apis.ErrMissingOneOf("fieldRef", "resourceFieldRef"))
+	}
+	if vf.FieldRef != nil && vf.ResourceFieldRef != nil {
+		errs = errs.Also(apis.ErrGeneric("Within a single item, cannot set both", "resourceFieldRef", "fieldRef"))
+	}
+	if vf.Path == "" {
 		errs = errs.Also(apis.ErrMissingField("path"))
 	}
 	return errs
