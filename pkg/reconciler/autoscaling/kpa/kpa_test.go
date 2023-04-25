@@ -553,10 +553,13 @@ func TestReconcile(t *testing.T) {
 			defaultSKS,
 			metric(testNamespace, testRevision),
 			defaultDeployment, defaultReady},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: defaultProxySKS,
+		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, WithPASKSReady,
 				WithTraffic, markScaleTargetInitialized, withMinScale(2), WithPAMetricsService(privateSvc),
-				withScales(1, defaultScale), WithPAStatusService(testRevision), WithReachabilityUnreachable,
+				withScales(1, unknownScale), WithPAStatusService(testRevision), WithReachabilityUnreachable,
 				WithObservedGeneration(1)),
 		}},
 	}, {
