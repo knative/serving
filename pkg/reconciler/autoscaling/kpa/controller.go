@@ -18,6 +18,7 @@ package kpa
 
 import (
 	"context"
+
 	"k8s.io/client-go/tools/cache"
 
 	networkingclient "knative.dev/networking/pkg/client/injection/client"
