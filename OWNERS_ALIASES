@@ -115,8 +115,10 @@ aliases:
   - psschwei
   - upodroid
   security-wg-leads:
+  - davidhadas
   - evankanderson
   security-writers:
+  - davidhadas
   - evankanderson
   serving-approvers:
   - nak3
