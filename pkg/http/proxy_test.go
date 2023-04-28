@@ -130,7 +130,7 @@ func TestNewHeaderPruningProxyHTTPS(t *testing.T) {
 	rootCAs := x509.NewCertPool()
 	rootCAs.AddCert(server.Certificate())
 	tlsConf := &tls.Config{
-		MinVersion: tls.VersionTLS13,
+		MinVersion: tls.VersionTLS12,
 		RootCAs:    rootCAs,
 	}
 
