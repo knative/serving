@@ -17,14 +17,17 @@ limitations under the License.
 package main
 
 import (
+	"errors"
 	"flag"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
 
-	"github.com/gorilla/websocket"
+	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
 	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/serving/test"
 )
@@ -42,12 +45,7 @@ func messageSuffix() string {
 	return value
 }
 
-var upgrader = websocket.Upgrader{
-	// Allow any origin, since we are spoofing requests anyway.
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
+var upgrader = ws.HTTPUpgrader{}
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
@@ -62,7 +60,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, _, _, err := upgrader.Upgrade(r, w)
 	if err != nil {
 		log.Println("Error upgrading websocket:", err)
 		return
@@ -70,32 +68,37 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 	log.Println("Connection upgraded to WebSocket. Entering receive loop.")
 	for {
-		messageType, message, err := conn.ReadMessage()
+		var messages []wsutil.Message
+		messages, err = wsutil.ReadMessage(conn, ws.StateServerSide, messages)
 		if err != nil {
 			// We close abnormally, because we're just closing the connection in the client,
 			// which is okay. There's no value delaying closure of the connection unnecessarily.
-			if websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
+			if errors.Is(err, io.ErrUnexpectedEOF) {
 				log.Println("Client disconnected.")
 			} else {
 				log.Println("Handler exiting on error:", err)
 			}
 			return
 		}
-		if suffix := messageSuffix(); suffix != "" {
-			respMes := string(message) + " " + suffix
-			message = []byte(respMes)
-		}
+		for _, m := range messages {
+			messageType := m.OpCode
+			message := m.Payload
+			if suffix := messageSuffix(); suffix != "" {
+				respMes := string(message) + " " + suffix
+				message = []byte(respMes)
+			}
 
-		log.Printf("Successfully received: %q", message)
-		if delay > 0 {
-			time.Sleep(delay)
-		}
+			log.Printf("Successfully received: %q", message)
+			if delay > 0 {
+				time.Sleep(delay)
+			}
 
-		if err = conn.WriteMessage(messageType, message); err != nil {
-			log.Println("Failed to write message:", err)
-			return
+			if err = wsutil.WriteMessage(conn, ws.StateServerSide, messageType, message); err != nil {
+				log.Println("Failed to write message:", err)
+				return
+			}
+			log.Printf("Successfully wrote: %q", message)
 		}
-		log.Printf("Successfully wrote: %q", message)
 	}
 }
 

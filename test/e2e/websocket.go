@@ -17,17 +17,20 @@ limitations under the License.
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/gorilla/websocket"
+	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	pkgTest "knative.dev/pkg/test"
@@ -44,7 +47,7 @@ const message = "Hello, websocket"
 
 // connect attempts to establish WebSocket connection with the Service.
 // It will retry until reaching `connectTimeout` duration.
-func connect(t *testing.T, clients *test.Clients, domain, timeout string) (*websocket.Conn, error) {
+func connect(t *testing.T, clients *test.Clients, domain, timeout string) (net.Conn, error) {
 	var (
 		err     error
 		address string
@@ -65,36 +68,56 @@ func connect(t *testing.T, clients *test.Clients, domain, timeout string) (*webs
 		u = url.URL{Scheme: "wss", Host: net.JoinHostPort(address, mapper("443")), Path: "/", RawQuery: rawQuery}
 	}
 
-	var conn *websocket.Conn
+	var conn net.Conn
 	waitErr := wait.PollImmediate(connectRetryInterval, connectTimeout, func() (bool, error) {
 		t.Logf("Connecting using websocket: url=%s, host=%s", u.String(), domain)
-		dialer := &websocket.Dialer{
-			Proxy:            http.ProxyFromEnvironment,
-			HandshakeTimeout: 45 * time.Second,
+		dialer := &ws.Dialer{
+			Timeout: 45 * time.Second,
+			Header:  ws.HandshakeHeaderHTTP(http.Header{"Host": {domain}}),
+			//debug TODO: delete later
+			OnStatusError: func(status int, reason []byte, resp io.Reader) {
+				var b bytes.Buffer
+				io.Copy(&b, resp)
+				t.Logf("HTTP Status Error: %d %s\nBody: %s", status, reason, b.String())
+			},
 		}
 		if test.ServingFlags.HTTPS {
-			dialer.TLSClientConfig = test.TLSClientConfig(context.Background(), t.Logf, clients)
-			dialer.TLSClientConfig.ServerName = domain // Set ServerName for pseudo hostname with TLS.
+			dialer.TLSConfig = test.TLSClientConfig(context.Background(), t.Logf, clients)
+			dialer.TLSConfig.ServerName = domain // Set ServerName for pseudo hostname with TLS.
 		}
 
-		c, resp, err := dialer.Dial(u.String(), http.Header{"Host": {domain}})
-		if err == nil {
-			t.Log("WebSocket connection established.")
-			conn = c
-			return true, nil
+		ctx := context.TODO()
+
+		// TODO: delete later
+		httpURL := replaceWebSocketSchemeWithHTTP(u.String())
+		t.Logf("HTTP URL %s", httpURL)
+		req, err := http.NewRequest(http.MethodGet, httpURL, nil)
+		if err != nil {
+			t.Logf("HTTP New Request error: %s", err)
 		}
-		if resp == nil {
+		proxyURL, err := http.ProxyFromEnvironment(req)
+		if err != nil {
+			t.Logf("ProxyFromEnvironment error: %s", err)
+		}
+		t.Logf("proxyURL: %#v", proxyURL)
+		httpProxy := os.Getenv("http_proxy")
+		t.Logf("http_proxy: %s", httpProxy)
+		httpsProxy := os.Getenv("https_proxy")
+		t.Logf("https_proxy: %s", httpsProxy)
+		noProxy := os.Getenv("no_proxy")
+		t.Logf("no_proxy: %s", noProxy)
+
+		c, _, _, err := dialer.Dial(ctx, u.String())
+		if err != nil {
 			// We don't have an HTTP response, probably TCP errors.
 			t.Log("Connection failed:", err)
 			return false, nil
 		}
-
-		body, readErr := io.ReadAll(resp.Body)
-		if readErr != nil {
-			t.Logf("Connection failed: %v. Failed to read HTTP response: %v", err, readErr)
-			return false, nil
+		if c != nil {
+			t.Log("WebSocket connection established.")
+			conn = c
+			return true, nil
 		}
-		t.Logf("HTTP connection failed: %v. Response=%+v. ResponseBody=%q", err, resp, body)
 		return false, nil
 	})
 	return conn, waitErr
@@ -111,13 +134,15 @@ func ValidateWebSocketConnection(t *testing.T, clients *test.Clients, names test
 
 	// Send a message.
 	t.Logf("Sending message %q to server.", message)
-	if err = conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
+	if err = wsutil.WriteMessage(conn, ws.StateClientSide, ws.OpText, []byte(message)); err != nil {
 		return err
 	}
 	t.Log("Message sent.")
 
 	// Read back the echoed message and compared with sent.
-	_, recv, err := conn.ReadMessage()
+	var messages []wsutil.Message
+	messages, err = wsutil.ReadMessage(conn, ws.StateClientSide, messages)
+	recv := messages[0].Payload
 	if err != nil {
 		return err
 	} else if strings.HasPrefix(string(recv), message) {
@@ -125,4 +150,13 @@ func ValidateWebSocketConnection(t *testing.T, clients *test.Clients, names test
 		return nil
 	}
 	return fmt.Errorf("expected to receive back the message: %q but received %q", message, string(recv))
+}
+
+func replaceWebSocketSchemeWithHTTP(url string) string {
+	if strings.HasPrefix(url, "ws://") {
+		return "http://" + url[5:]
+	} else if strings.HasPrefix(url, "wss://") {
+		return "https://" + url[6:]
+	}
+	return url
 }

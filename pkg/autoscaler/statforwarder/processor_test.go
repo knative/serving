@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
-	gorillawebsocket "github.com/gorilla/websocket"
-
+	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
 	. "knative.dev/pkg/logging/testing"
 )
 
@@ -98,16 +98,16 @@ func TestProcessorForwardingViaSvcRetry(t *testing.T) {
 
 func testService(t *testing.T, received chan struct{}) *httptest.Server {
 	var httpHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
-		var upgrader gorillawebsocket.Upgrader
+		upgrader := ws.HTTPUpgrader{}
 
-		conn, err := upgrader.Upgrade(w, r, nil)
+		conn, _, _, err := upgrader.Upgrade(r, w)
 		if err != nil {
 			t.Fatal("error upgrading websocket:", err)
 		}
-
 		defer conn.Close()
 		for {
-			t, b, err := conn.ReadMessage()
+			var messages []wsutil.Message
+			messages, err = wsutil.ReadMessage(conn, ws.StateServerSide, messages)
 			if err != nil {
 				// This is probably caused by connection closed by client side.
 				return
@@ -116,7 +116,12 @@ func testService(t *testing.T, received chan struct{}) *httptest.Server {
 
 			// Answer messages to keep the connection's keepalive function moving and the
 			// connection closed quicker than 10s.
-			conn.WriteMessage(t, b)
+			for _, m := range messages {
+				op := m.OpCode
+				p := m.Payload
+				wsutil.WriteMessage(conn, ws.StateServerSide, op, p)
+			}
+
 		}
 	}
 

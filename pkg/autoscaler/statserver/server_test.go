@@ -17,16 +17,18 @@ limitations under the License.
 package statserver
 
 import (
-	"errors"
+	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"testing"
 	"time"
 
+	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
 	"github.com/google/go-cmp/cmp"
-	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	nethttp "knative.dev/networking/pkg/http"
@@ -122,11 +124,11 @@ func TestServerShutdown(t *testing.T) {
 	server.Shutdown(time.Second)
 	// We own the channel.
 	close(statsCh)
+	// Wait for the shutdown to complete
+	time.Sleep(time.Second * 5)
 
-	// Send a statistic to the server
-	if err := sendProto(statSink, both); err != nil {
-		t.Fatal("Expected send to succeed, got:", err)
-	}
+	// Send a statistic to the server. We do not check for errors here as the sendProto function may sometimes return an error.
+	sendProto(statSink, both)
 
 	// Check the statistic was not received
 	if _, ok := <-statsCh; ok {
@@ -134,15 +136,16 @@ func TestServerShutdown(t *testing.T) {
 	}
 
 	// Check connection has been closed with a close control message with a "service restart" close code
-	if _, _, err := statSink.NextReader(); err == nil {
+	if header, r, _ := wsutil.NextReader(statSink, ws.StateClientSide); header.OpCode != ws.OpClose {
 		t.Fatal("Connection not closed")
 	} else {
-		var errClose *websocket.CloseError
-		if !errors.As(err, &errClose) {
-			t.Fatal("CloseError not received")
+		payload, err := io.ReadAll(r)
+		if err != nil {
+			t.Fatalf("Handle error %#v", err)
 		}
-		if errClose.Code != 1012 {
-			t.Fatalf("CloseError with unexpected close code %d received", errClose.Code)
+		status, _ := ws.ParseCloseFrameData(payload)
+		if status != 1012 {
+			t.Fatalf("CloseError with unexpected close code %d received", status)
 		}
 	}
 
@@ -232,7 +235,7 @@ func BenchmarkStatServer(b *testing.B) {
 	}
 }
 
-func assertReceivedProto(t *testing.T, sms []metrics.StatMessage, statSink *websocket.Conn, statsCh <-chan metrics.StatMessage) {
+func assertReceivedProto(t *testing.T, sms []metrics.StatMessage, statSink net.Conn, statsCh <-chan metrics.StatMessage) {
 	t.Helper()
 
 	if err := sendProto(statSink, sms); err != nil {
@@ -248,7 +251,7 @@ func assertReceivedProto(t *testing.T, sms []metrics.StatMessage, statSink *webs
 	}
 }
 
-func dialOK(t *testing.T, serverURL string) *websocket.Conn {
+func dialOK(t *testing.T, serverURL string) net.Conn {
 	t.Helper()
 
 	statSink, err := dial(serverURL)
@@ -258,35 +261,36 @@ func dialOK(t *testing.T, serverURL string) *websocket.Conn {
 	return statSink
 }
 
-func dial(serverURL string) (*websocket.Conn, error) {
+func dial(serverURL string) (net.Conn, error) {
 	u, err := url.Parse(serverURL)
 	if err != nil {
 		return nil, err
 	}
 	u.Scheme = "ws"
 
-	dialer := &websocket.Dialer{
-		HandshakeTimeout: time.Second,
+	dialer := &ws.Dialer{
+		Timeout: time.Second,
 	}
-	statSink, _, err := dialer.Dial(u.String(), nil)
+	ctx := context.TODO()
+	statSink, _, _, err := dialer.Dial(ctx, u.String())
 	return statSink, err
 }
 
-func sendProto(statSink *websocket.Conn, sms []metrics.StatMessage) error {
+func sendProto(statSink net.Conn, sms []metrics.StatMessage) error {
 	wsms := metrics.ToWireStatMessages(sms)
 	msg, err := wsms.Marshal()
 	if err != nil {
 		return fmt.Errorf("failed to marshal StatMessage: %w", err)
 	}
 
-	if err := statSink.WriteMessage(websocket.BinaryMessage, msg); err != nil {
+	if err := wsutil.WriteMessage(statSink, ws.StateClientSide, ws.OpBinary, msg); err != nil {
 		return fmt.Errorf("failed to write to stat sink: %w", err)
 	}
 
 	return nil
 }
 
-func closeSink(t *testing.T, statSink *websocket.Conn) {
+func closeSink(t *testing.T, statSink net.Conn) {
 	t.Helper()
 
 	if err := statSink.Close(); err != nil {

@@ -23,7 +23,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/gorilla/websocket"
+	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
 	"golang.org/x/sync/errgroup"
 
 	corev1 "k8s.io/api/core/v1"
@@ -62,17 +63,21 @@ func webSocketResponseFreqs(t *testing.T, clients *test.Clients, url string, num
 
 			// Send a message.
 			t.Logf("Sending message %q to server.", message)
-			if err = conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
+			if err = wsutil.WriteMessage(conn, ws.StateClientSide, ws.OpText, []byte(message)); err != nil {
 				return err
 			}
 			t.Log("Message sent.")
 
 			// Read back the echoed message and put it into the channel.
-			_, recv, err := conn.ReadMessage()
+			var messages []wsutil.Message
+			messages, err = wsutil.ReadMessage(conn, ws.StateClientSide, messages)
 			if err != nil {
 				return err
 			}
-			respCh <- string(recv)
+			for _, ms := range messages {
+				recv := ms.Payload
+				respCh <- string(recv)
+			}
 			return nil
 		})
 	}

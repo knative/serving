@@ -20,8 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gobwas/ws"
 	"github.com/google/go-cmp/cmp"
-	gorillawebsocket "github.com/gorilla/websocket"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -33,9 +33,9 @@ func TestReportStats(t *testing.T) {
 	ch := make(chan []metrics.StatMessage)
 
 	results := make(chan []byte)
-	sink := sendRawFunc(func(msgType int, msg []byte) error {
-		if msgType != gorillawebsocket.BinaryMessage {
-			t.Errorf("Expected metrics to be sent as Binary (%d), was %d", gorillawebsocket.BinaryMessage, msgType)
+	sink := sendRawFunc(func(msgType ws.OpCode, msg []byte) error {
+		if msgType != ws.OpBinary {
+			t.Errorf("Expected metrics to be sent as Binary (%d), was %d", ws.OpBinary, msgType)
 		}
 
 		results <- msg
@@ -90,8 +90,8 @@ func TestReportStats(t *testing.T) {
 	}
 }
 
-type sendRawFunc func(msgType int, msg []byte) error
+type sendRawFunc func(msgType ws.OpCode, msg []byte) error
 
-func (fn sendRawFunc) SendRaw(msgType int, msg []byte) error {
+func (fn sendRawFunc) SendRaw(msgType ws.OpCode, msg []byte) error {
 	return fn(msgType, msg)
 }

@@ -19,13 +19,15 @@ package statserver
 import (
 	"context"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/gorilla/websocket"
+	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
 	"go.uber.org/zap"
 	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/serving/pkg/autoscaler/bucket"
@@ -133,8 +135,8 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var upgrader websocket.Upgrader
-	conn, err := upgrader.Upgrade(w, r, nil)
+	upgrader := ws.HTTPUpgrader{}
+	conn, _, _, err := upgrader.Upgrade(r, w)
 	if err != nil {
 		s.logger.Errorw("error upgrading websocket", zap.Error(err))
 		return
@@ -149,7 +151,7 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		case <-s.stopCh:
 			// Send a close message to tell the client to immediately reconnect
 			s.logger.Debug("Sending close message to client")
-			err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(closeCodeServiceRestart, "Restarting"))
+			err := wsutil.WriteMessage(conn, ws.StateServerSide, ws.OpClose, ws.NewCloseFrameBody(closeCodeServiceRestart, "Restarting"))
 			if err != nil {
 				s.logger.Warnw("Failed to send close message to client", zap.Error(err))
 			}
@@ -162,11 +164,12 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 	s.logger.Debug("Connection upgraded to WebSocket. Entering receive loop.")
 
 	for {
-		messageType, msg, err := conn.ReadMessage()
+		var messages []wsutil.Message
+		messages, err = wsutil.ReadMessage(conn, ws.StateServerSide, messages)
 		if err != nil {
 			// We close abnormally, because we're just closing the connection in the client,
 			// which is okay. There's no value delaying closure of the connection unnecessarily.
-			if websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
+			if errors.Is(err, io.ErrUnexpectedEOF) {
 				s.logger.Debug("Handler disconnected")
 			} else {
 				s.logger.Errorf("Handler exiting on error: %#v", err)
@@ -175,28 +178,33 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		switch messageType {
-		case websocket.BinaryMessage:
-			var wsms metrics.WireStatMessages
-			if err := wsms.Unmarshal(msg); err != nil {
-				s.logger.Errorw("Failed to unmarshal the object", zap.Error(err))
-				continue
-			}
-
-			for _, wsm := range wsms.Messages {
-				if wsm.Stat == nil {
-					// To allow for future protobuf schema changes.
+		for _, m := range messages {
+			messageType := m.OpCode
+			msg := m.Payload
+			switch messageType {
+			case ws.OpBinary:
+				var wsms metrics.WireStatMessages
+				if err := wsms.Unmarshal(msg); err != nil {
+					s.logger.Errorw("Failed to unmarshal the object", zap.Error(err))
 					continue
 				}
 
-				sm := wsm.ToStatMessage()
-				s.logger.Debugf("Received stat message: %+v", sm)
-				s.statsCh <- sm
+				for _, wsm := range wsms.Messages {
+					if wsm.Stat == nil {
+						// To allow for future protobuf schema changes.
+						continue
+					}
+
+					sm := wsm.ToStatMessage()
+					s.logger.Debugf("Received stat message: %+v", sm)
+					s.statsCh <- sm
+				}
+			default:
+				s.logger.Error("Dropping unknown message type.")
+				continue
 			}
-		default:
-			s.logger.Error("Dropping unknown message type.")
-			continue
 		}
+
 	}
 }
 

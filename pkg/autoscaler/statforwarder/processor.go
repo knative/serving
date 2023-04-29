@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	gorillawebsocket "github.com/gorilla/websocket"
+	"github.com/gobwas/ws"
 	"go.uber.org/zap"
 
 	"knative.dev/pkg/logging/logkey"
@@ -138,7 +138,7 @@ func (p *remoteProcessor) process(sm asmetrics.StatMessage) error {
 		}
 	}
 
-	return c.SendRaw(gorillawebsocket.BinaryMessage, b)
+	return c.SendRaw(ws.OpBinary, b)
 }
 
 func (p *remoteProcessor) shutdown() {

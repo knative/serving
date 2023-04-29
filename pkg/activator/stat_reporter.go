@@ -17,15 +17,15 @@ limitations under the License.
 package activator
 
 import (
-	"github.com/gorilla/websocket"
+	"github.com/gobwas/ws"
 	"go.uber.org/zap"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 )
 
 // RawSender sends raw byte array messages with a message type
-// (implemented by gorilla/websocket.Socket).
+// (implemented by gobwas/ws).
 type RawSender interface {
-	SendRaw(msgType int, msg []byte) error
+	SendRaw(msgType ws.OpCode, msg []byte) error
 }
 
 // ReportStats sends any messages received on the source channel to the sink.
@@ -41,7 +41,7 @@ func ReportStats(logger *zap.SugaredLogger, sink RawSender, source <-chan []metr
 				return
 			}
 
-			if err := sink.SendRaw(websocket.BinaryMessage, b); err != nil {
+			if err := sink.SendRaw(ws.OpBinary, b); err != nil {
 				logger.Errorw("Error while sending stats", zap.Error(err))
 			}
 		}(sms)
