@@ -83,12 +83,12 @@ func createTransportCertTemplate(expirationInterval time.Duration, sans []string
 	return cert, err
 }
 
-func createCert(template, parent *x509.Certificate, pub, parentPriv interface{}) (cert *x509.Certificate, certPEM *pem.Block, err error) {
+func createCert(template, parent *x509.Certificate, pub, parentPriv interface{}) (certPEM *pem.Block, err error) {
 	certDER, err := x509.CreateCertificate(rand.Reader, template, parent, pub, parentPriv)
 	if err != nil {
 		return
 	}
-	cert, err = x509.ParseCertificate(certDER)
+	_, err = x509.ParseCertificate(certDER)
 	if err != nil {
 		return
 	}
@@ -111,7 +111,7 @@ func CreateCACerts(ctx context.Context, expirationInterval time.Duration) (*KeyP
 		return nil, err
 	}
 
-	_, caCertPem, err := createCert(rootCertTmpl, rootCertTmpl, &caKeyPair.PublicKey, caKeyPair)
+	caCertPem, err := createCert(rootCertTmpl, rootCertTmpl, &caKeyPair.PublicKey, caKeyPair)
 	if err != nil {
 		logger.Errorw("error signing the CA cert", zap.Error(err))
 		return nil, err
@@ -150,7 +150,7 @@ func CreateCert(ctx context.Context, caKey *rsa.PrivateKey, caCertificate *x509.
 	}
 
 	// create a certificate which wraps the public key, sign it with the CA private key
-	_, certPEM, err := createCert(certTemplate, caCertificate, &keyPair.PublicKey, caKey)
+	certPEM, err := createCert(certTemplate, caCertificate, &keyPair.PublicKey, caKey)
 	if err != nil {
 		logger.Errorw("error signing certificate template", zap.Error(err))
 		return nil, err

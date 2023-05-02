@@ -50,7 +50,7 @@ func (ds *DomainSpec) Validate(ctx context.Context) *apis.FieldError {
 	return all
 }
 
-func (lb *LoadBalancerIngressSpec) Validate(ctx context.Context) *apis.FieldError {
+func (lb *LoadBalancerIngressSpec) Validate(_ context.Context) *apis.FieldError {
 	var all *apis.FieldError
 	if lb.Domain == "" && lb.DomainInternal == "" && lb.IP == "" && !lb.MeshOnly {
 		return all.Also(apis.ErrMissingOneOf("domain", "domainInternal", "ip", "meshOnly"))
@@ -58,7 +58,7 @@ func (lb *LoadBalancerIngressSpec) Validate(ctx context.Context) *apis.FieldErro
 	return all
 }
 
-func (cfg *IngressConfig) Validate(ctx context.Context) *apis.FieldError {
+func (cfg *IngressConfig) Validate(_ context.Context) *apis.FieldError {
 	var all *apis.FieldError
 	if cfg.Name == "" {
 		all = all.Also(apis.ErrMissingField("name"))

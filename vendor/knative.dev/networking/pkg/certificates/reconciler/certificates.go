@@ -96,7 +96,7 @@ func (r *reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) p
 		// We need to generate a new CA cert, then shortcircuit the reconciler
 		keyPair, err := certificates.CreateCACerts(ctx, caExpirationInterval)
 		if err != nil {
-			return fmt.Errorf("cannot generate the CA cert: %v", err)
+			return fmt.Errorf("cannot generate the CA cert: %w", err)
 		}
 		return r.commitUpdatedSecret(ctx, caSecret, keyPair, nil)
 	}
@@ -107,8 +107,8 @@ func (r *reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) p
 	case controlPlaneSecretType:
 		sans = []string{certificates.ControlPlaneName, certificates.LegacyFakeDnsName}
 	case dataPlaneRoutingSecretType:
-		routingId := secret.Labels[secretRoutingId]
-		san := certificates.DataPlaneRoutingName(routingId)
+		routingID := secret.Labels[secretRoutingID]
+		san := certificates.DataPlaneRoutingName(routingID)
 		sans = []string{san, certificates.LegacyFakeDnsName}
 	case dataPlaneUserSecretType:
 		sans = []string{certificates.DataPlaneUserName(secret.Namespace), certificates.LegacyFakeDnsName}
@@ -126,7 +126,7 @@ func (r *reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) p
 		var keyPair *certificates.KeyPair
 		keyPair, err = certificates.CreateCert(ctx, caPk, caCert, expirationInterval, sans...)
 		if err != nil {
-			return fmt.Errorf("cannot generate the cert: %v", err)
+			return fmt.Errorf("cannot generate the cert: %w", err)
 		}
 		err = r.commitUpdatedSecret(ctx, secret, keyPair, caSecret.Data[certificates.SecretCertKey])
 		if err != nil {

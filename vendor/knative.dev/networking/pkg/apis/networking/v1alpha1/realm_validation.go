@@ -28,7 +28,7 @@ func (r *Realm) Validate(ctx context.Context) *apis.FieldError {
 }
 
 // Validate inspects and validates RealmSpec object.
-func (rs *RealmSpec) Validate(ctx context.Context) *apis.FieldError {
+func (rs *RealmSpec) Validate(_ context.Context) *apis.FieldError {
 	var all *apis.FieldError
 	if rs.External == "" && rs.Internal == "" {
 		all = all.Also(apis.ErrMissingOneOf("external", "internal"))

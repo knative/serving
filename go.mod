@@ -154,4 +154,4 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )
 
-replace knative.dev/networking => /Users/rlehmann/code/knative/networking
+replace knative.dev/networking => github.com/retocode/networking v0.0.0-20230504055924-227d0eed5d2b

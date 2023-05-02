@@ -38,7 +38,7 @@ import (
 const (
 	caSecretNamePostfix    = "-ctrl-ca"
 	secretLabelNamePostfix = "-ctrl"
-	secretRoutingId        = "routing-id"
+	secretRoutingID        = "routing-id"
 )
 
 // NewControllerFactory generates a ControllerConstructor for the control certificates reconciler.
