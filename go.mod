@@ -33,7 +33,6 @@ require (
 	k8s.io/kube-openapi v0.0.0-20221012153701-172d655c2280
 	k8s.io/utils v0.0.0-20221108210102-8e77b1f39fe2
 	knative.dev/caching v0.0.0-20230524171624-ae49e7c31ba6
-	knative.dev/control-protocol v0.0.0-20230524014614-331eec37077d
 	knative.dev/hack v0.0.0-20230524013611-5812c57cc1ac
 	knative.dev/networking v0.0.0-20230524170920-2a2f7d2d7c60
 	knative.dev/pkg v0.0.0-20230524013411-ec20442c6ead
@@ -154,3 +153,5 @@ require (
 	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )
+
+replace knative.dev/networking => /Users/rlehmann/code/knative/networking

@@ -28,7 +28,7 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"knative.dev/control-protocol/pkg/certificates"
+	"knative.dev/networking/pkg/certificates"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"

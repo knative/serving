@@ -34,7 +34,7 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 
-	"knative.dev/control-protocol/pkg/certificates"
+	"knative.dev/networking/pkg/certificates"
 )
 
 const (
