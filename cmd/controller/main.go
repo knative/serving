@@ -20,6 +20,8 @@ import (
 	// The set of controllers this controller process runs.
 	"flag"
 
+	"knative.dev/networking/pkg/certificates"
+	kncertificate "knative.dev/networking/pkg/certificates/kncertreconciler"
 	certificate "knative.dev/networking/pkg/certificates/reconciler"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/signals"
@@ -40,10 +42,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/domainmapping"
 )
 
-const (
-	secretLabelNamePostfix = "-ctrl"
-)
-
 var ctors = []injection.ControllerConstructor{
 	configuration.NewController,
 	labeler.NewController,
@@ -54,6 +52,7 @@ var ctors = []injection.ControllerConstructor{
 	gc.NewController,
 	nscert.NewController,
 	certificate.NewControllerFactory(networking.ServingCertName),
+	kncertificate.NewControllerFactory(networking.ServingCertName),
 	domainmapping.NewController,
 }
 
@@ -62,7 +61,10 @@ func main() {
 		"reconciliation-timeout", reconciler.DefaultTimeout,
 		"The amount of time to give each reconciliation of a resource to complete before its context is canceled.")
 
-	labelName := networking.ServingCertName + secretLabelNamePostfix
-	ctx := filteredFactory.WithSelectors(signals.NewContext(), labelName)
+	labels := []string{
+		networking.ServingCertName + certificates.SystemInternalTLSSecretLabelPostfix,
+		networking.ServingCertName + certificates.KnativeCertIssuerSecretLabelPostfix,
+	}
+	ctx := filteredFactory.WithSelectors(signals.NewContext(), labels...)
 	sharedmain.MainWithContext(ctx, "controller", ctors...)
 }

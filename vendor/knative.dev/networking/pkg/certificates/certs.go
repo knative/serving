@@ -17,6 +17,7 @@ limitations under the License.
 package certificates
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -26,6 +27,9 @@ import (
 	"fmt"
 	"math/big"
 	"time"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 var randReader = rand.Reader
@@ -181,4 +185,45 @@ func CheckExpiry(cert *x509.Certificate, rotationThreshold time.Duration) error 
 		return fmt.Errorf("certificate is going to expire %v", cert.NotAfter)
 	}
 	return nil
+}
+
+// ParseAndValidateCertFromSecret parses a certificate from a secret and validates it against
+// the provided caCert and sans. The certificate is also checked for its expiry based on the
+// rotationThreshold input.
+func ParseAndValidateCertFromSecret(secret *corev1.Secret, expectedCACert []byte,
+	rotationThreshold time.Duration, expectedSANs ...string) (*x509.Certificate, *rsa.PrivateKey, error) {
+
+	certBytes, ok := secret.Data[CertName]
+	if !ok {
+		return nil, nil, fmt.Errorf("missing certificate bytes in field %q", CertName)
+	}
+	pkBytes, ok := secret.Data[PrivateKeyName]
+	if !ok {
+		return nil, nil, fmt.Errorf("missing private key bytes in field %q", PrivateKeyName)
+	}
+	if expectedCACert != nil {
+		ca, ok := secret.Data[CaCertName]
+		if !ok {
+			return nil, nil, fmt.Errorf("expected CA bytes are missing in field %q", CaCertName)
+		}
+		if !bytes.Equal(ca, expectedCACert) {
+			return nil, nil, fmt.Errorf("CA bytes in secret are not equal to the expected CA in field %q", CaCertName)
+		}
+	}
+
+	cert, caPk, err := ParseCert(certBytes, pkBytes)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := CheckExpiry(cert, rotationThreshold); err != nil {
+		return nil, nil, err
+	}
+
+	sanSet := sets.NewString(expectedSANs...)
+	certSet := sets.NewString(cert.DNSNames...)
+	if !sanSet.Equal(certSet) {
+		return nil, nil, fmt.Errorf("SANs in certificate do not match the expected SANs")
+	}
+
+	return cert, caPk, nil
 }

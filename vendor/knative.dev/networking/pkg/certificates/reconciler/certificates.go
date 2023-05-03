@@ -17,9 +17,7 @@ limitations under the License.
 package reconciler
 
 import (
-	"bytes"
 	"context"
-	"crypto/rsa"
 	"crypto/x509"
 	"fmt"
 	"time"
@@ -29,7 +27,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	pkgreconciler "knative.dev/pkg/reconciler"
@@ -87,7 +84,7 @@ func (r *reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) p
 		r.logger.Errorf("Error accessing CA certificate secret %s/%s: %v", system.Namespace(), r.caSecretName, err)
 		return err
 	}
-	caCert, caPk, err := parseAndValidateSecret(caSecret, nil)
+	caCert, caPk, err := certificates.ParseAndValidateCertFromSecret(caSecret, nil, rotationThreshold)
 	if err != nil {
 		r.logger.Infof("CA cert invalid: %v", err)
 
@@ -112,7 +109,7 @@ func (r *reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) p
 		return fmt.Errorf("unknown cert type: %v", r.secretTypeLabelName)
 	}
 
-	cert, _, err := parseAndValidateSecret(secret, caSecret.Data[certificates.CertName], sans...)
+	cert, _, err := certificates.ParseAndValidateCertFromSecret(secret, caSecret.Data[certificates.CertName], rotationThreshold, sans...)
 	if err != nil {
 		r.logger.Infof("Secret %s/%s invalid: %v", secret.Namespace, secret.Name, err)
 		// Check the secret to reconcile type
@@ -135,43 +132,6 @@ func (r *reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) p
 	r.enqueueBeforeExpiration(secret, cert)
 
 	return nil
-}
-
-// All sans provided are required to be lower case
-func parseAndValidateSecret(secret *corev1.Secret, caCert []byte, sans ...string) (*x509.Certificate, *rsa.PrivateKey, error) {
-	certBytes, ok := secret.Data[certificates.CertName]
-	if !ok {
-		return nil, nil, fmt.Errorf("missing cert bytes in %q", certificates.CertName)
-	}
-	pkBytes, ok := secret.Data[certificates.PrivateKeyName]
-	if !ok {
-		return nil, nil, fmt.Errorf("missing pk bytes in %q", certificates.PrivateKeyName)
-	}
-	if caCert != nil {
-		ca, ok := secret.Data[certificates.CaCertName]
-		if !ok {
-			return nil, nil, fmt.Errorf("missing ca cert bytes in %q", certificates.CaCertName)
-		}
-		if !bytes.Equal(ca, caCert) {
-			return nil, nil, fmt.Errorf("ca cert bytes changed in %q", certificates.CaCertName)
-		}
-	}
-
-	cert, caPk, err := certificates.ParseCert(certBytes, pkBytes)
-	if err != nil {
-		return nil, nil, err
-	}
-	if err := certificates.CheckExpiry(cert, rotationThreshold); err != nil {
-		return nil, nil, err
-	}
-
-	sanSet := sets.NewString(sans...)
-	certSet := sets.NewString(cert.DNSNames...)
-	if !sanSet.Equal(certSet) {
-		return nil, nil, fmt.Errorf("unexpected SANs")
-	}
-
-	return cert, caPk, nil
 }
 
 func (r *reconciler) enqueueBeforeExpiration(secret *corev1.Secret, cert *x509.Certificate) {

@@ -63,10 +63,11 @@ func ReconcileCertificate(ctx context.Context, owner kmeta.Accessor, desired *v1
 		return nil, kaccessor.NewAccessorError(
 			fmt.Errorf("owner: %s with Type %T does not own Certificate: %q", owner.GetName(), owner, cert.Name),
 			kaccessor.NotOwnResource)
-	} else if !equality.Semantic.DeepEqual(cert.Spec, desired.Spec) {
+	} else if !equality.Semantic.DeepEqual(cert.Spec, desired.Spec) || !equality.Semantic.DeepEqual(cert.Annotations, desired.Annotations) {
 		// Don't modify the informers copy
 		existing := cert.DeepCopy()
 		existing.Spec = desired.Spec
+		existing.Annotations = desired.Annotations
 		cert, err = certAccessor.GetNetworkingClient().NetworkingV1alpha1().Certificates(existing.Namespace).Update(ctx, existing, metav1.UpdateOptions{})
 		if err != nil {
 			recorder.Eventf(owner, corev1.EventTypeWarning, "UpdateFailed",

@@ -49,8 +49,8 @@ func ValidateImageDigest(t *testing.T, imageName string, imageDigest string) (bo
 	}
 	if DigestResolutionExceptions.Has(ref.Context().RegistryStr()) {
 		t.Run("digest validation", func(t *testing.T) {
-			t.Skipf("Skipping digest verification due to use of registry domain %s (one of %v)",
-				ref.Context().RegistryStr(), DigestResolutionExceptions)
+			//t.Skipf("Skipping digest verification due to use of registry domain %s (one of %v)",
+			//	ref.Context().RegistryStr(), DigestResolutionExceptions)
 		})
 		return true, nil
 	}

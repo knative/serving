@@ -26,11 +26,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"knative.dev/serving/pkg/reconciler/route/domains"
 
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	netheader "knative.dev/networking/pkg/http/header"
-	ingress "knative.dev/networking/pkg/ingress"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/activator"
@@ -39,16 +39,15 @@ import (
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingnetworking "knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/reconciler/route/config"
-	"knative.dev/serving/pkg/reconciler/route/domains"
-	"knative.dev/serving/pkg/reconciler/route/resources/labels"
 	"knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 )
 
 // MakeIngressTLS creates IngressTLS to configure the ingress TLS.
-func MakeIngressTLS(cert *netv1alpha1.Certificate, hostNames []string) netv1alpha1.IngressTLS {
+func MakeIngressTLS(cert *netv1alpha1.Certificate, hostNames []string, visibility netv1alpha1.IngressVisibility) netv1alpha1.IngressTLS {
 	return netv1alpha1.IngressTLS{
 		Hosts:           hostNames,
+		Visibility:      visibility,
 		SecretName:      cert.Spec.SecretName,
 		SecretNamespace: cert.Namespace,
 	}
@@ -144,7 +143,7 @@ func makeIngressSpec(
 			visibilities = append(visibilities, netv1alpha1.IngressVisibilityExternalIP)
 		}
 		for _, visibility := range visibilities {
-			domains, err := routeDomain(ctx, name, r, visibility)
+			domains, err := domains.GetAllClusterLocalDomains(ctx, name, r, visibility)
 			if err != nil {
 				return netv1alpha1.IngressSpec{}, err
 			}
@@ -203,27 +202,6 @@ func makeIngressSpec(
 		TLS:        tls,
 		HTTPOption: httpOption,
 	}, nil
-}
-
-func routeDomain(ctx context.Context, targetName string, r *servingv1.Route, visibility netv1alpha1.IngressVisibility) (sets.String, error) {
-	hostname, err := domains.HostnameFromTemplate(ctx, r.Name, targetName)
-	if err != nil {
-		return nil, err
-	}
-
-	meta := r.ObjectMeta.DeepCopy()
-	isClusterLocal := visibility == netv1alpha1.IngressVisibilityClusterLocal
-	labels.SetVisibility(meta, isClusterLocal)
-
-	domain, err := domains.DomainNameFromTemplate(ctx, *meta, hostname)
-	if err != nil {
-		return nil, err
-	}
-	domains := []string{domain}
-	if isClusterLocal {
-		domains = ingress.ExpandedHosts(sets.NewString(domains...)).List()
-	}
-	return sets.NewString(domains...), err
 }
 
 // MakeACMEIngressPaths returns a set of netv1alpha1.HTTPIngressPath

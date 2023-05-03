@@ -1301,13 +1301,16 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 # knative.dev/hack v0.0.0-20231016131700-2c938d4918da
 ## explicit; go 1.18
 knative.dev/hack
-# knative.dev/networking v0.0.0-20231017124814-2a7676e912b7
+# knative.dev/networking v0.0.0-20231017124814-2a7676e912b7 => /Users/rlehmann/code/knative/networking
 ## explicit; go 1.18
 knative.dev/networking/config
 knative.dev/networking/pkg
+knative.dev/networking/pkg/apis/config
 knative.dev/networking/pkg/apis/networking
 knative.dev/networking/pkg/apis/networking/v1alpha1
 knative.dev/networking/pkg/certificates
+knative.dev/networking/pkg/certificates/kncertreconciler
+knative.dev/networking/pkg/certificates/kncertreconciler/resources
 knative.dev/networking/pkg/certificates/reconciler
 knative.dev/networking/pkg/client/clientset/versioned
 knative.dev/networking/pkg/client/clientset/versioned/fake
@@ -1329,6 +1332,7 @@ knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingres
 knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress/fake
 knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice
 knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake
+knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/certificate
 knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice
 knative.dev/networking/pkg/client/listers/networking/v1alpha1
 knative.dev/networking/pkg/config
@@ -1470,3 +1474,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
+# knative.dev/networking => /Users/rlehmann/code/knative/networking

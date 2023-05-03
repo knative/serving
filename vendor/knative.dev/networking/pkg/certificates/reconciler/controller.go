@@ -21,6 +21,7 @@ import (
 
 	v1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"knative.dev/networking/pkg/certificates"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/system"
@@ -35,10 +36,7 @@ import (
 	filteredFactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
 )
 
-const (
-	caSecretNamePostfix    = "-ctrl-ca"
-	secretLabelNamePostfix = "-ctrl"
-)
+const ()
 
 // NewControllerFactory generates a ControllerConstructor for the control certificates reconciler.
 func NewControllerFactory(componentName string) injection.ControllerConstructor {
@@ -47,8 +45,8 @@ func NewControllerFactory(componentName string) injection.ControllerConstructor 
 		cmw configmap.Watcher,
 	) *controller.Impl {
 
-		caSecretName := componentName + caSecretNamePostfix
-		labelName := componentName + secretLabelNamePostfix
+		caSecretName := componentName + certificates.SystemInternalTLSCASecretNamePostfix
+		labelName := componentName + certificates.SystemInternalTLSSecretLabelPostfix
 
 		ctx = filteredFactory.WithSelectors(ctx, labelName)
 		secretInformer := getSecretInformer(ctx)

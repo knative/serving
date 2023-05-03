@@ -93,6 +93,10 @@ toggle_feature request-log-template '' config-observability || fail_test
 # with the current implementation, Activator is always in the request path, and needs to be restarted after configuring system-internal-tls
 restart_pod ${SYSTEM_NAMESPACE} "app=activator"
 
+toggle_feature cluster-local-domain-tls enabled config-network || fail_test
+go_test_e2e -timeout=2m ./test/e2e/clusterlocaldomaintls ${E2E_TEST_FLAGS} || failed=1
+toggle_feature cluster-local-domain-tls disabled config-network || fail_test
+
 kubectl get cm "config-gc" -n "${SYSTEM_NAMESPACE}" -o yaml > "${TMP_DIR}"/config-gc.yaml
 add_trap "kubectl replace cm 'config-gc' -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.yaml" SIGKILL SIGTERM SIGQUIT
 immediate_gc
