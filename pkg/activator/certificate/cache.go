@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"sync"
 
 	"go.uber.org/zap"
@@ -41,6 +42,7 @@ type CertCache struct {
 	secretInformer v1.SecretInformer
 	logger         *zap.SugaredLogger
 
+	trust       netcfg.Trust
 	certificate *tls.Certificate
 	TLSConf     tls.Config
 
@@ -48,12 +50,13 @@ type CertCache struct {
 }
 
 // NewCertCache starts secretInformer.
-func NewCertCache(ctx context.Context) *CertCache {
+func NewCertCache(ctx context.Context, trust netcfg.Trust) *CertCache {
 	secretInformer := secretinformer.Get(ctx)
 
 	cr := &CertCache{
 		secretInformer: secretInformer,
 		logger:         logging.FromContext(ctx),
+		trust:          trust,
 	}
 
 	secret, err := cr.secretInformer.Lister().Secrets(system.Namespace()).Get(netcfg.ServingInternalCertName)
@@ -104,6 +107,8 @@ func (cr *CertCache) updateCache(secret *corev1.Secret) {
 	cr.TLSConf.RootCAs = pool
 	cr.TLSConf.ServerName = certificates.LegacyFakeDnsName
 	cr.TLSConf.MinVersion = tls.VersionTLS12
+	cr.TLSConf.Certificates = []tls.Certificate{cert}
+	cr.TLSConf.VerifyPeerCertificate = cr.VerifyPeerCertificate
 }
 
 func (cr *CertCache) handleCertificateUpdate(_, new interface{}) {
@@ -113,4 +118,12 @@ func (cr *CertCache) handleCertificateUpdate(_, new interface{}) {
 // GetCertificate returns the cached certificates.
 func (cr *CertCache) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	return cr.certificate, nil
+}
+
+func (cr *CertCache) VerifyPeerCertificate(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+	if verifiedChains == nil {
+		return errors.New("server certificate not verified during VerifyPeerCertificate")
+	}
+
+	return nil
 }

@@ -158,8 +158,8 @@ func main() {
 		logger.Fatalw("Failed to construct network config", zap.Error(err))
 	}
 
-	// Enable TLS against queue-proxy when internal-encryption is enabled.
-	tlsEnabled := networkConfig.InternalEncryption
+	// Enable TLS against queue-proxy when DataPlaneTrust is not disabled.
+	tlsEnabled := networkConfig.DataplaneTrust != netcfg.TrustDisabled
 
 	var certCache *certificate.CertCache
 
@@ -168,7 +168,7 @@ func main() {
 	// See also https://github.com/knative/serving/issues/12808.
 	if tlsEnabled {
 		logger.Info("Internal Encryption is enabled")
-		certCache = certificate.NewCertCache(ctx)
+		certCache = certificate.NewCertCache(ctx, networkConfig.DataplaneTrust)
 		transport = pkgnet.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, &certCache.TLSConf)
 	}
 
@@ -278,16 +278,33 @@ func main() {
 		}(name, server)
 	}
 
-	// Enable TLS server when internal-encryption is specified.
+	// Enable TLS server when DataPlaneTrust is not netcfg.TrustDisabled.
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
 	if tlsEnabled {
 		name, server := "https", pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTPSPort), ah)
 		go func(name string, s *http.Server) {
+			// Use networkConfig.DataplaneTrust to decide TLSConfig
 			s.TLSConfig = &tls.Config{
 				MinVersion:     tls.VersionTLS12,
 				GetCertificate: certCache.GetCertificate,
 			}
+			switch networkConfig.DataplaneTrust {
+			case netcfg.TrustIdentity, netcfg.TrustMutual:
+				s.TLSConfig.ClientAuth = tls.RequireAndVerifyClientCert
+				s.TLSConfig.ClientCAs = certCache.TLSConf.RootCAs // reload when it gets updated not yet supported
+				s.TLSConfig.VerifyConnection = func(cs tls.ConnectionState) error {
+					for _, match := range cs.PeerCertificates[0].DNSNames {
+						if match != "kn-routing-0" { // routingId not yet supported
+							continue
+						}
+						return nil
+					}
+					logger.Info("TLS: Failed Client with DNSNames: %v\n", cs.PeerCertificates[0].DNSNames)
+					return fmt.Errorf("TLS Failed to approve %v", cs.PeerCertificates[0].DNSNames)
+				}
+			}
+
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
 			if err := s.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errCh <- fmt.Errorf("%s server failed: %w", name, err)

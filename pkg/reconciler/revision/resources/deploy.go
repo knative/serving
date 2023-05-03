@@ -23,6 +23,11 @@ import (
 	"strings"
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	netcfg "knative.dev/networking/pkg/config"
 	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
@@ -33,11 +38,6 @@ import (
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
-
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	apiconfig "knative.dev/serving/pkg/apis/config"
 )
@@ -193,7 +193,7 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 		extraVolumes = append(extraVolumes, *tokenVolume)
 	}
 
-	if cfg.Network.InternalEncryption {
+	if cfg.Network.DataplaneTrust != netcfg.TrustDisabled {
 		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varCertVolumeMount)
 		extraVolumes = append(extraVolumes, certVolume(networking.ServingCertName))
 	}
