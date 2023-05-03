@@ -149,6 +149,10 @@ type IngressTLS struct {
 	//
 	// +optional
 	SecretNamespace string `json:"secretNamespace,omitempty"`
+
+	// Visibility signifies whether the tls hosts should be considered `ClusterLocal`.
+	// If it's not specified then it defaults to `ExternalIP`.
+	Visibility IngressVisibility `json:"visibility,omitempty"`
 }
 
 // IngressRule represents the rules mapping the paths under a specified host to

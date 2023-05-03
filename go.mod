@@ -154,3 +154,5 @@ require (
 	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )
+
+replace knative.dev/networking => github.com/retocode/networking v0.0.0-20230503060951-d9e153cbac71

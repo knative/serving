@@ -194,11 +194,6 @@ const (
 	// RouteConditionCertificateProvisioned condition when it is set to True
 	// because AutoTLS was not enabled.
 	AutoTLSNotEnabledMessage = "autoTLS is not enabled"
-
-	// TLSNotEnabledForClusterLocalMessage is the message which is set on the
-	// RouteConditionCertificateProvisioned condition when it is set to True
-	// because the domain is cluster-local.
-	TLSNotEnabledForClusterLocalMessage = "TLS is not enabled for cluster-local"
 )
 
 // MarkTLSNotEnabled sets RouteConditionCertificateProvisioned to true when

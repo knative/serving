@@ -19,6 +19,7 @@ package labels
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	network "knative.dev/networking/pkg/apis/networking"
+	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
@@ -34,6 +35,19 @@ func SetVisibility(meta *metav1.ObjectMeta, isClusterLocal bool) {
 	} else {
 		DeleteLabel(meta, network.VisibilityLabelKey)
 	}
+}
+
+// GetVisibility maps the label value for VisibilityLabelKey to the networking constants.
+// Uses the comma-ok idom, it will return true as second return value of the annotation was found
+// and false if it was missing.
+func GetVisibility(meta *metav1.ObjectMeta) (v1alpha1.IngressVisibility, bool) {
+	switch meta.Labels[network.VisibilityLabelKey] {
+	case serving.VisibilityExternalIP:
+		return v1alpha1.IngressVisibilityExternalIP, true
+	case serving.VisibilityClusterLocal:
+		return v1alpha1.IngressVisibilityClusterLocal, true
+	}
+	return "", false
 }
 
 // SetLabel sets/update the label of the an ObjectMeta

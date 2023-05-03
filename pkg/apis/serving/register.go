@@ -119,9 +119,14 @@ const (
 	QueueSidecarResourcePercentageAnnotationKey = "queue.sidecar." + GroupName + "/resource-percentage"
 
 	// VisibilityClusterLocal is the label value for VisibilityLabelKey
-	// that will result to the Route/KService getting a cluster local
+	// that will result to the Route/KService/KCert getting a cluster local
 	// domain suffix.
 	VisibilityClusterLocal = "cluster-local"
+
+	// VisibilityExternalIP is the label value for VisibilityLabelKey
+	// that will result to the Route/KService/KCert getting an external
+	// domain suffix.
+	VisibilityExternalIP = "external-ip"
 
 	// ProgressDeadlineAnnotationKey is the label key for the per revision progress deadline to set for the deployment
 	ProgressDeadlineAnnotationKey = GroupName + "/progress-deadline"

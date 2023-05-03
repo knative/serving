@@ -24,11 +24,13 @@ import (
 	"text/template"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	netapi "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	netcfg "knative.dev/networking/pkg/config"
+	"knative.dev/networking/pkg/ingress"
 	"knative.dev/pkg/apis"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/serving/pkg/apis/serving"
@@ -61,6 +63,28 @@ func GetAllDomainsAndTags(ctx context.Context, r *v1.Route, names []string, visi
 		domainTagMap[subDomain] = name
 	}
 	return domainTagMap, nil
+}
+
+// GetAllClusterLocalDomains return all cluster local domains associated with a Route
+func GetAllClusterLocalDomains(ctx context.Context, targetName string, r *v1.Route, visibility netv1alpha1.IngressVisibility) (sets.String, error) {
+	hostname, err := HostnameFromTemplate(ctx, r.Name, targetName)
+	if err != nil {
+		return nil, err
+	}
+
+	meta := r.ObjectMeta.DeepCopy()
+	isClusterLocal := visibility == netv1alpha1.IngressVisibilityClusterLocal
+	labels.SetVisibility(meta, isClusterLocal)
+
+	domain, err := DomainNameFromTemplate(ctx, *meta, hostname)
+	if err != nil {
+		return nil, err
+	}
+	domains := []string{domain}
+	if isClusterLocal {
+		domains = ingress.ExpandedHosts(sets.NewString(domains...)).List()
+	}
+	return sets.NewString(domains...), err
 }
 
 // DomainNameFromTemplate generates domain name base on the template specified in the `config-network` ConfigMap.

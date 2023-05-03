@@ -1230,7 +1230,7 @@ func TestMakeIngressTLS(t *testing.T) {
 		SecretNamespace: system.Namespace(),
 	}
 	hostNames := []string{"test.default.example.com", "v1.test.default.example.com"}
-	got := MakeIngressTLS(cert, hostNames)
+	got := MakeIngressTLS(cert, hostNames, netv1alpha1.IngressVisibilityExternalIP)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Error("Unexpected IngressTLS (-want, +got):", diff)
 	}

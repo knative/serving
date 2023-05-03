@@ -228,7 +228,7 @@ func (r *Reconciler) tls(ctx context.Context, dm *v1alpha1.DomainMapping) ([]net
 	}
 	if cert.IsReady() {
 		dm.Status.MarkCertificateReady(cert.Name)
-		return []netv1alpha1.IngressTLS{routeresources.MakeIngressTLS(cert, desiredCert.Spec.DNSNames)}, nil, nil
+		return []netv1alpha1.IngressTLS{routeresources.MakeIngressTLS(cert, desiredCert.Spec.DNSNames, netv1alpha1.IngressVisibilityExternalIP)}, nil, nil
 	}
 	if config.FromContext(ctx).Network.HTTPProtocol == netcfg.HTTPEnabled {
 		// When httpProtocol is enabled, downgrade http scheme.

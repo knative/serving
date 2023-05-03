@@ -21,7 +21,10 @@ import (
 	"hash/adler32"
 	"sort"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/networking/pkg/apis/networking"
+	"knative.dev/pkg/kmap"
+	"knative.dev/pkg/network"
 	"knative.dev/serving/pkg/apis/serving"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +32,10 @@ import (
 	"knative.dev/pkg/kmeta"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/resources/names"
+)
+
+const (
+	internalCertificateSuffix = "-internal"
 )
 
 // MakeCertificate creates a Certificate, inheriting the certClass
@@ -85,4 +92,34 @@ func MakeCertificates(route *v1.Route, domainTagMap map[string]string, certClass
 		certs = append(certs, MakeCertificate(route, serving.RouteLabelKey, dnsName, certName, certClass, domain))
 	}
 	return certs
+}
+
+func MakeInternalCertificate(route *v1.Route, domains sets.String, certClass string) *networkingv1alpha1.Certificate {
+	domainsOrdered := make(sort.StringSlice, 0, len(domains))
+	for dnsName := range domains {
+		domainsOrdered = append(domainsOrdered, dnsName)
+	}
+	domainsOrdered.Sort()
+
+	certName := names.Certificate(route) + internalCertificateSuffix
+
+	return &networkingv1alpha1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            certName,
+			Namespace:       route.GetNamespace(),
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
+			Annotations: kmap.Filter(kmap.Union(map[string]string{
+				networking.CertificateClassAnnotationKey: certClass,
+			}, route.GetAnnotations()), ExcludedAnnotations.Has),
+			Labels: map[string]string{
+				serving.RouteLabelKey:         route.GetName(),
+				networking.VisibilityLabelKey: serving.VisibilityClusterLocal,
+			},
+		},
+		Spec: networkingv1alpha1.CertificateSpec{
+			DNSNames:   domainsOrdered,
+			Domain:     "svc." + network.GetClusterDomainName(),
+			SecretName: certName,
+		},
+	}
 }
