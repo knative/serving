@@ -35,18 +35,14 @@ import (
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
 
-	"github.com/gorilla/websocket"
-)
-
-const (
-	wsServerTestImageName = "wsserver"
-	NoDelay               = ""
+	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
 )
 
 // Connects to a WebSocket target and executes `numReqs` requests.
 // Collects the answer frequences and returns them.
 // Returns nil map and error if any of the requests fails.
-func webSocketResponseFreqs(t *testing.T, clients *test.Clients, url string, numReqs int) (map[string]int, error) {
+func webSocketResponseFreqsWS(t *testing.T, clients *test.Clients, url string, numReqs int) (map[string]int, error) {
 	t.Helper()
 	var g errgroup.Group
 	respCh := make(chan string, numReqs)
@@ -55,7 +51,7 @@ func webSocketResponseFreqs(t *testing.T, clients *test.Clients, url string, num
 		g.Go(func() error {
 			// Establish the websocket connection. Since they are persistent
 			// we can't reuse.
-			conn, err := connect(t, clients, url, NoDelay)
+			conn, err := connectWS(t, clients, url, NoDelay)
 			if err != nil {
 				return err
 			}
@@ -63,17 +59,21 @@ func webSocketResponseFreqs(t *testing.T, clients *test.Clients, url string, num
 
 			// Send a message.
 			t.Logf("Sending message %q to server.", message)
-			if err = conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
+			if err = wsutil.WriteMessage(conn, ws.StateClientSide, ws.OpText, []byte(message)); err != nil {
 				return err
 			}
 			t.Log("Message sent.")
 
 			// Read back the echoed message and put it into the channel.
-			_, recv, err := conn.ReadMessage()
+			var messages []wsutil.Message
+			messages, err = wsutil.ReadMessage(conn, ws.StateClientSide, messages)
 			if err != nil {
 				return err
 			}
-			respCh <- string(recv)
+			for _, ms := range messages {
+				recv := ms.Payload
+				respCh <- string(recv)
+			}
 			return nil
 		})
 	}
@@ -93,7 +93,7 @@ func webSocketResponseFreqs(t *testing.T, clients *test.Clients, url string, num
 // (2) connects to the service using websocket,
 // (3) sends a message, and
 // (4) verifies that we receive back the same message.
-func TestWebSocket(t *testing.T) {
+func TestWebSocketWS(t *testing.T) {
 	// TODO: https option with parallel leads to flakes.
 	// https://github.com/knative/serving/issues/11387
 	if !test.ServingFlags.HTTPS {
@@ -115,13 +115,13 @@ func TestWebSocket(t *testing.T) {
 	}
 
 	// Validate the websocket connection.
-	if err := ValidateWebSocketConnection(t, clients, names, NoDelay); err != nil {
+	if err := ValidateWebSocketConnectionWS(t, clients, names, NoDelay); err != nil {
 		t.Error(err)
 	}
 }
 
 // and with -1 as target burst capacity and then validates that we can still serve.
-func TestWebSocketViaActivator(t *testing.T) {
+func TestWebSocketViaActivatorWS(t *testing.T) {
 	// TODO: https option with parallel leads to flakes.
 	// https://github.com/knative/serving/issues/11387
 	if !test.ServingFlags.HTTPS {
@@ -155,12 +155,12 @@ func TestWebSocketViaActivator(t *testing.T) {
 	}); err != nil {
 		t.Fatal("Never got Activator endpoints in the service:", err)
 	}
-	if err := ValidateWebSocketConnection(t, clients, names, NoDelay); err != nil {
+	if err := ValidateWebSocketConnectionWS(t, clients, names, NoDelay); err != nil {
 		t.Error(err)
 	}
 }
 
-func TestWebSocketBlueGreenRoute(t *testing.T) {
+func TestWebSocketBlueGreenRouteWS(t *testing.T) {
 	// TODO: https option with parallel leads to flakes.
 	// https://github.com/knative/serving/issues/11387
 	if !test.ServingFlags.HTTPS {
@@ -253,7 +253,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 
 	// But since network programming takes some time to take effect
 	// and it doesn't have a Status, we'll probe `green` until it's ready first.
-	if err := ValidateWebSocketConnection(t, clients, green, NoDelay); err != nil {
+	if err := ValidateWebSocketConnectionWS(t, clients, green, NoDelay); err != nil {
 		t.Fatal("Error initializing WS connection:", err)
 	}
 
@@ -263,7 +263,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 		// Quite high, but makes sure we didn't get a one-off successful response from either target.
 		tolerance = 25
 	)
-	resps, err := webSocketResponseFreqs(t, clients, tealURL, numReqs)
+	resps, err := webSocketResponseFreqsWS(t, clients, tealURL, numReqs)
 	if err != nil {
 		t.Error("Failed to send and receive websocket messages:", err)
 	}
@@ -275,7 +275,6 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 			t.Errorf("Target %s got %d responses, expect in [%d, %d] interval", k, f, numReqs/2-tolerance, numReqs/2+tolerance)
 		}
 	}
-	t.Fatal("debug")
 }
 
 // TestWebSocketWithTimeout
@@ -284,7 +283,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 // (3) and sets a delay using a request param, then
 // (4) sends a message, and verifies that we receive back
 // (5) the same message within the timeout or get an error.
-func TestWebSocketWithTimeout(t *testing.T) {
+func TestWebSocketWithTimeoutWS(t *testing.T) {
 	clients := Setup(t)
 
 	testCases := []struct {
@@ -346,17 +345,10 @@ func TestWebSocketWithTimeout(t *testing.T) {
 				t.Fatal("Failed to create WebSocket server:", err)
 			}
 			// Validate the websocket connection.
-			err = ValidateWebSocketConnection(t, clients, names, tc.delay)
+			err = ValidateWebSocketConnectionWS(t, clients, names, tc.delay)
 			if (err == nil && tc.expectError) || (err != nil && !tc.expectError) {
 				t.Error(err)
 			}
 		})
 	}
-}
-
-func abs(a int) int {
-	if a < 0 {
-		return -a
-	}
-	return a
 }
