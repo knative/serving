@@ -104,6 +104,13 @@ func (in *Defaults) DeepCopyInto(out *Defaults) {
 		x := (*in).DeepCopy()
 		*out = &x
 	}
+	if in.QpoptionsAnnotations != nil {
+		in, out := &in.QpoptionsAnnotations, &out.QpoptionsAnnotations
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 
