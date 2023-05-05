@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "e7973912"
+    knative.dev/example-checksum: "9024128d"
 data:
   _example: |
     ################################
@@ -151,3 +151,10 @@ data:
     # to set this value to `false`.
     # See https://github.com/knative/serving/issues/8498.
     enable-service-links: "false"
+
+    # qpoptions-annotations specifies a cluster default list of annotations used for qpoptions
+    # for example:
+    #      qpoptions-annotations: "guard-activate: enable, guard-config-pod-monitor-interval: 2s"
+    #
+    # per service annotations may be used to change the cluster defaults defined here
+    qpoptions-annotations: ""

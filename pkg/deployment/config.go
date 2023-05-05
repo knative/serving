@@ -192,6 +192,6 @@ type Config struct {
 	// used by the queue proxy sidecar container to create tokens for qpoptions.
 	QueueSidecarTokenAudiences sets.String
 
-	// QueueSidecarRootCA is a root certificate to be trusted by the queue proxy sidecar  qpoptions.
+	// QueueSidecarRootCA is a root certificate to be trusted by the queue proxy sidecar qpoptions.
 	QueueSidecarRootCA string
 }

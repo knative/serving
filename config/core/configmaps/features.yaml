@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "d3565159"
+    knative.dev/example-checksum: "b47bbe42"
 data:
   _example: |-
     ################################
@@ -199,5 +199,5 @@ data:
     #   However, a client may mount the podInfo volume on an individual Service by attaching
     #   the following metadata annotation to the Service: "features.knative.dev/queueproxy-podinfo":"enabled".
     #
-    # NOTE THAT THIS IS AN EXPERIMENTAL / ALPHA FEATURE
-    queueproxy.mount-podinfo: "disabled"
+    # NOTE THAT THIS IS A BETA FEATURE
+    queueproxy.mount-podinfo: "allowed"

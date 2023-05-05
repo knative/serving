@@ -66,7 +66,7 @@ func defaultFeaturesConfig() *Features {
 		PodSpecVolumesEmptyDir:           Enabled,
 		PodSpecPersistentVolumeClaim:     Disabled,
 		PodSpecPersistentVolumeWrite:     Disabled,
-		QueueProxyMountPodInfo:           Disabled,
+		QueueProxyMountPodInfo:           Allowed,
 		PodSpecInitContainers:            Disabled,
 		PodSpecDNSPolicy:                 Disabled,
 		PodSpecDNSConfig:                 Disabled,

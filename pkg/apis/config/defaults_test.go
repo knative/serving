@@ -82,6 +82,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			UserContainerNameTemplate:          mustParseTemplate("{{.Name}}"),
 			InitContainerNameTemplate:          mustParseTemplate("{{.Name}}"),
 			EnableServiceLinks:                 ptr.Bool(true),
+			QpoptionsAnnotations:               map[string]string{},
 		},
 		data: map[string]string{
 			"revision-timeout-seconds":                "123",
@@ -107,6 +108,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			ContainerConcurrencyMaxLimit:       DefaultMaxRevisionContainerConcurrency,
 			AllowContainerConcurrencyZero:      true,
 			EnableServiceLinks:                 ptr.Bool(false),
+			QpoptionsAnnotations:               map[string]string{},
 		},
 		data: map[string]string{
 			"enable-service-links": "false",
@@ -123,6 +125,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			ContainerConcurrencyMaxLimit:       DefaultMaxRevisionContainerConcurrency,
 			AllowContainerConcurrencyZero:      true,
 			EnableServiceLinks:                 nil,
+			QpoptionsAnnotations:               map[string]string{},
 		},
 		data: map[string]string{
 			"enable-service-links": "default",
@@ -216,6 +219,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			EnableServiceLinks:                 ptr.Bool(false),
 			UserContainerNameTemplate:          mustParseTemplate("{{.Name}}"),
 			InitContainerNameTemplate:          mustParseTemplate("my-template"),
+			QpoptionsAnnotations:               map[string]string{},
 		},
 		data: map[string]string{
 			"container-name-template":      "{{.Name}}",
@@ -236,6 +240,36 @@ func TestDefaultsConfiguration(t *testing.T) {
 			EnableServiceLinks:                 ptr.Bool(false),
 			InitContainerNameTemplate:          DefaultInitContainerNameTemplate,
 			UserContainerNameTemplate:          DefaultUserContainerNameTemplate,
+			QpoptionsAnnotations:               map[string]string{},
+		},
+	}, {
+		name:    "qpotions annotations ok",
+		wantErr: false,
+		data: map[string]string{
+			"qpoptions-annotations": "A:1, BBB-BBB:2-2-2,,,c:   35642-434",
+		},
+		wantDefaults: &Defaults{
+			RevisionTimeoutSeconds:             DefaultRevisionTimeoutSeconds,
+			MaxRevisionTimeoutSeconds:          DefaultMaxRevisionTimeoutSeconds,
+			RevisionRequestStartTimeoutSeconds: DefaultRevisionResponseStartTimeoutSeconds,
+			ContainerConcurrencyMaxLimit:       DefaultMaxRevisionContainerConcurrency,
+			AllowContainerConcurrencyZero:      DefaultAllowContainerConcurrencyZero,
+			EnableServiceLinks:                 ptr.Bool(false),
+			InitContainerNameTemplate:          DefaultInitContainerNameTemplate,
+			UserContainerNameTemplate:          DefaultUserContainerNameTemplate,
+			QpoptionsAnnotations:               map[string]string{"qpoption.knative.dev/A": "1", "qpoption.knative.dev/BBB-BBB": "2-2-2", "qpoption.knative.dev/c": "35642-434"},
+		},
+	}, {
+		name:    "qpotions annotations invalid: key but no val",
+		wantErr: true,
+		data: map[string]string{
+			"qpoptions-annotations": "0",
+		},
+	}, {
+		name:    "qpotions annotations invalid:  key val and extra",
+		wantErr: true,
+		data: map[string]string{
+			"qpoptions-annotations": "0:0:0",
 		},
 	}}
 

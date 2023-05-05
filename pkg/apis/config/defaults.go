@@ -28,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/pkg/apis"
 	cm "knative.dev/pkg/configmap"
@@ -89,6 +90,7 @@ func defaultDefaultsConfig() *Defaults {
 		ContainerConcurrencyMaxLimit:       DefaultMaxRevisionContainerConcurrency,
 		AllowContainerConcurrencyZero:      DefaultAllowContainerConcurrencyZero,
 		EnableServiceLinks:                 ptr.Bool(false),
+		QpoptionsAnnotations:               map[string]string{},
 	}
 }
 
@@ -110,6 +112,7 @@ func asTriState(key string, target **bool, defValue *bool) cm.ParseFunc {
 
 // NewDefaultsConfigFromMap creates a Defaults from the supplied Map.
 func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
+	var QpoptionsAnnotationsSet sets.String
 	nc := defaultDefaultsConfig()
 
 	if err := cm.Parse(data,
@@ -132,8 +135,23 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		cm.AsQuantity("revision-cpu-limit", &nc.RevisionCPULimit),
 		cm.AsQuantity("revision-memory-limit", &nc.RevisionMemoryLimit),
 		cm.AsQuantity("revision-ephemeral-storage-limit", &nc.RevisionEphemeralStorageLimit),
+
+		cm.AsStringSet("qpoptions-annotations", &QpoptionsAnnotationsSet),
 	); err != nil {
 		return nil, err
+	}
+
+	nc.QpoptionsAnnotations = make(map[string]string, 0)
+	for str := range QpoptionsAnnotationsSet {
+		str = strings.ReplaceAll(str, " ", "")
+		if len(str) == 0 {
+			continue
+		}
+		splits := strings.Split(str, ":")
+		if len(splits) != 2 {
+			return nil, fmt.Errorf("qpoptions-annotations has illegal string (%s) - each string must be of the form Key:value", str)
+		}
+		nc.QpoptionsAnnotations["qpoption.knative.dev/"+splits[0]] = splits[1]
 	}
 
 	// We default this to what the user has specified
@@ -216,6 +234,8 @@ type Defaults struct {
 	RevisionMemoryLimit             *resource.Quantity
 	RevisionEphemeralStorageRequest *resource.Quantity
 	RevisionEphemeralStorageLimit   *resource.Quantity
+
+	QpoptionsAnnotations map[string]string
 }
 
 func containerNameFromTemplate(ctx context.Context, tmpl *ObjectMetaTemplate) string {

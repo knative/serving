@@ -39,6 +39,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"knative.dev/pkg/kmap"
 	apiconfig "knative.dev/serving/pkg/apis/config"
 )
 
@@ -357,6 +358,7 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 
 	labels := makeLabels(rev)
 	anns := makeAnnotations(rev)
+	anns = kmap.Union(cfg.Defaults.QpoptionsAnnotations, anns)
 
 	// Slowly but steadily roll the deployment out, to have the least possible impact.
 	maxUnavailable := intstr.FromInt(0)
