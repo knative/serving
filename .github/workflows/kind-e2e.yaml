@@ -49,10 +49,9 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
 
-    - name: Setup ko
-      uses: imjasonh/setup-ko@v0.6
-      with:
-        version: latest-release
+    # Install the latest release of ko
+    - name: Install ko
+      uses: ko-build/setup-ko@v0.6
 
     - name: Setup Registry
       run: |
