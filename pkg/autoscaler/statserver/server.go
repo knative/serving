@@ -169,7 +169,7 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			// We close abnormally, because we're just closing the connection in the client,
 			// which is okay. There's no value delaying closure of the connection unnecessarily.
-			if errors.Is(err, io.ErrUnexpectedEOF) {
+			if errors.Is(err, io.EOF) {
 				s.logger.Debug("Handler disconnected")
 			} else {
 				s.logger.Errorf("Handler exiting on error: %#v", err)

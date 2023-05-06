@@ -19,6 +19,7 @@ package main
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -50,6 +51,7 @@ var upgrader = ws.HTTPUpgrader{}
 func handler(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	d := params.Get("delay")
+	fmt.Println("debug: handler is called")
 	if d != "" {
 		log.Println("Found delay header")
 		parsed, _ := strconv.Atoi(d)
@@ -73,7 +75,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			// We close abnormally, because we're just closing the connection in the client,
 			// which is okay. There's no value delaying closure of the connection unnecessarily.
-			if errors.Is(err, io.ErrUnexpectedEOF) {
+			if errors.Is(err, io.EOF) {
 				log.Println("Client disconnected.")
 			} else {
 				log.Println("Handler exiting on error:", err)

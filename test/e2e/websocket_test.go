@@ -118,6 +118,7 @@ func TestWebSocket(t *testing.T) {
 	if err := ValidateWebSocketConnection(t, clients, names, NoDelay); err != nil {
 		t.Error(err)
 	}
+	t.Fatal("debug")
 }
 
 // and with -1 as target burst capacity and then validates that we can still serve.

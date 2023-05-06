@@ -187,7 +187,7 @@ func (d Dialer) Dial(ctx context.Context, urlstr string) (conn net.Conn, br *buf
 			done(&err)
 		}()
 	}
-
+	fmt.Printf("debug: gobwas: conn: %+v", conn)
 	br, hs, err = d.Upgrade(conn, u)
 
 	return conn, br, hs, err
@@ -311,13 +311,16 @@ func (d Dialer) Upgrade(conn io.ReadWriter, u *url.URL) (br *bufio.Reader, hs Ha
 	initNonce(nonce)
 
 	httpWriteUpgradeRequest(bw, u, nonce, d.Protocols, d.Extensions, d.Header)
+
 	if err := bw.Flush(); err != nil {
+		fmt.Printf("debug: gobwas: Flush %+v/n", err)
 		return br, hs, err
 	}
 
 	// Read HTTP status line like "HTTP/1.1 101 Switching Protocols".
 	sl, err := readLine(br)
 	if err != nil {
+		fmt.Printf("debug: gobwas: readLine %+v/n", err)
 		return br, hs, err
 	}
 	// Begin validation of the response.
@@ -325,15 +328,18 @@ func (d Dialer) Upgrade(conn io.ReadWriter, u *url.URL) (br *bufio.Reader, hs Ha
 	// Parse request line data like HTTP version, uri and method.
 	resp, err := httpParseResponseLine(sl)
 	if err != nil {
+		fmt.Printf("debug: gobwas: resp %+v/n", err)
 		return br, hs, err
 	}
 	// Even if RFC says "1.1 or higher" without mentioning the part of the
 	// version, we apply it only to minor part.
 	if resp.major != 1 || resp.minor < 1 {
+		fmt.Printf("debug: gobwas: ma/mi %+v/n", err)
 		err = ErrHandshakeBadProtocol
 		return br, hs, err
 	}
 	if resp.status != http.StatusSwitchingProtocols {
+		fmt.Println("debug: gobwas: switching protocol")
 		err = StatusError(resp.status)
 		if onStatusError := d.OnStatusError; onStatusError != nil {
 			// Invoke callback with multireader of status-line bytes br.
@@ -345,6 +351,7 @@ func (d Dialer) Upgrade(conn io.ReadWriter, u *url.URL) (br *bufio.Reader, hs Ha
 				),
 			)
 		}
+		fmt.Printf("debug: gobwas: L354 %+v/n", err)
 		return br, hs, err
 	}
 	// If response status is 101 then we expect all technical headers to be

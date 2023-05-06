@@ -22,10 +22,10 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/http"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
@@ -62,12 +62,11 @@ func connectWS(t *testing.T, clients *test.Clients, domain, timeout string) (net
 	waitErr := wait.PollImmediate(connectRetryInterval, connectTimeout, func() (bool, error) {
 		t.Logf("Connecting using websocket: url=%s, host=%s", u.String(), domain)
 		dialer := &ws.Dialer{
-			//	Timeout: 45 * time.Second,
-			Header: ws.HandshakeHeaderHTTP(http.Header{"Host": {domain}}),
+			Timeout: 45 * time.Second,
 			OnStatusError: func(status int, reason []byte, resp io.Reader) {
 				var b bytes.Buffer
 				io.Copy(&b, resp)
-				t.Logf("HTTP connection failed: %v Response=%+v. ResponseBody=%q", reason, status, b.String())
+				t.Logf("HTTP connection failed: %v Response=%+v. ResponseBody=%q", string(reason), status, b.String())
 			},
 		}
 		if test.ServingFlags.HTTPS {
@@ -76,15 +75,15 @@ func connectWS(t *testing.T, clients *test.Clients, domain, timeout string) (net
 		}
 
 		c, _, _, err := dialer.Dial(context.TODO(), u.String())
-		if c != nil {
-			t.Log("WebSocket connection established.")
-			conn = c
-			return true, nil
-		}
 		if err != nil {
 			// We don't have an HTTP response, probably TCP errors.
 			t.Log("Connection failed:", err)
 			return false, nil
+		}
+		if c != nil {
+			t.Log("WebSocket connection established.")
+			conn = c
+			return true, nil
 		}
 		return false, nil
 	})
