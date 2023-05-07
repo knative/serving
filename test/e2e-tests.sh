@@ -28,7 +28,7 @@
 source $(dirname $0)/e2e-common.sh
 
 # Script entry point.
-initialize --skip-istio-addon --num-nodes=4 --enable-ha --cluster-version=1.24 "$@"
+initialize --num-nodes=4 --enable-ha --cluster-version=1.24 "$@"
 
 # Run the tests
 header "Running tests"
