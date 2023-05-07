@@ -135,7 +135,7 @@ function create_gke_test_cluster() {
     _extra_gcloud_flags="${_extra_gcloud_flags} --preemptible"
   fi
 
-  _extra_gcloud_flags="${_extra_gcloud_flags[*]} --quiet"
+  _extra_gcloud_flags+=("--quiet")
   if ! command -v kubetest2 >/dev/null; then
     tmpbin="$(mktemp -d)"
     echo "kubetest2 not found, installing in temp path: ${tmpbin}"
@@ -143,7 +143,7 @@ function create_gke_test_cluster() {
     export PATH="${tmpbin}:${PATH}"
   fi
   if [[ ! " ${_custom_flags[*]} " =~ "--machine-type=" ]]; then
-      _custom_flags="${_custom_flags[*]} --machine-type=e2-standard-4"
+      _custom_flags+=("--machine-type=e2-standard-4")
   fi
   kubetest2 gke "${_custom_flags[@]}" --rundir-in-artifacts --up --down \
     --boskos-heartbeat-interval-seconds=20 --v=1 \
