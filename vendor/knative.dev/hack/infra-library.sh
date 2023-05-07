@@ -142,10 +142,12 @@ function create_gke_test_cluster() {
     GOBIN="$tmpbin" go install sigs.k8s.io/kubetest2/...@latest
     export PATH="${tmpbin}:${PATH}"
   fi
-  kubetest2 gke "${_custom_flags[@]}" --up --down \
-    --ignore-gcp-ssh-key=true --boskos-heartbeat-interval-seconds=20 --v=1 \
-    --environment=prod --machine-type=e2-standard-4 \
-    --network=e2e-network --image-type=cos_containerd --boskos-acquire-timeout-seconds=1200 \
+  if [[ ! " ${_custom_flags[*]} " =~ " ${"--machine-type"} " ]]; then
+      _custom_flags="${_custom_flags[@]} --machine-type=e2-standard-4"
+  fi
+  kubetest2 gke "${_custom_flags[@]}" --rundir-in-artifacts --up --down \
+    --boskos-heartbeat-interval-seconds=20 --v=1 \
+    --network=e2e-network --boskos-acquire-timeout-seconds=1200 \
     --region="${E2E_CLUSTER_REGION},us-east1,us-west1" --gcloud-extra-flags="${_extra_gcloud_flags}" \
     --retryable-error-patterns='.*does not have enough resources available to fulfill.*,.*only \\d+ nodes out of \\d+ have registered; this is likely due to Nodes failing to start correctly.*,.*All cluster resources were brought up.+ but: component .+ from endpoint .+ is unhealthy.*' \
     --test=exec -- "${_test_command[@]}"
