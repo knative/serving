@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"regexp"
 	"text/template"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -64,7 +63,7 @@ func certClass(ctx context.Context, r *corev1.Namespace) string {
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (c *reconciler) ReconcileKind(ctx context.Context, ns *corev1.Namespace) pkgreconciler.Event {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
 	defer cancel()
 
 	cfg := config.FromContext(ctx)

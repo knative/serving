@@ -20,7 +20,7 @@ metadata:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220919-82d8b8c6"
+    app.kubernetes.io/version: "20230503-c256d0aa"
 
 ---
 # Copyright 2020 The Knative Authors
@@ -45,7 +45,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220919-82d8b8c6"
+    app.kubernetes.io/version: "20230503-c256d0aa"
     app.kubernetes.io/name: knative-serving
 data:
   envoy-bootstrap.yaml: |
@@ -80,6 +80,8 @@ data:
                     stat_prefix: stats_server
                     http_filters:
                       - name: envoy.filters.http.router
+                        typed_config:
+                          "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
                     route_config:
                       virtual_hosts:
                         - name: admin_interface
@@ -108,8 +110,17 @@ data:
                     pipe:
                       path: /tmp/envoy.admin
         - name: xds_cluster
+          # This keepalive is recommended by envoy docs.
+          # https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol
+          typed_extension_protocol_options:
+            envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+              "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+              explicit_http_config:
+                http2_protocol_options:
+                  connection_keepalive:
+                    interval: 30s
+                    timeout: 5s
           connect_timeout: 1s
-          type: strict_dns
           load_assignment:
             cluster_name: xds_cluster
             endpoints:
@@ -119,13 +130,20 @@ data:
                     socket_address:
                       address: "net-kourier-controller.knative-serving"
                       port_value: 18000
-          http2_protocol_options: {}
           type: STRICT_DNS
     admin:
-      access_log_path: "/dev/stdout"
+      access_log:
+      - name: envoy.access_loggers.stdout
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
       address:
         pipe:
           path: /tmp/envoy.admin
+    layered_runtime:
+      layers:
+        - name: static-layer
+          static_layer:
+            envoy.reloadable_features.override_request_timeout_by_gateway_timeout: false
 
 ---
 # Copyright 2021 The Knative Authors
@@ -150,7 +168,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220919-82d8b8c6"
+    app.kubernetes.io/version: "20230503-c256d0aa"
     app.kubernetes.io/name: knative-serving
 data:
   _example: |
@@ -204,6 +222,20 @@ data:
     # NOTE: This flag is in an alpha state.
     traffic-isolation: ""
 
+    # Specifies whether to use CryptoMB private key provider in order to
+    # acclerate the TLS handshake.
+    # NOTE THAT THIS IS AN EXPERIMENTAL / ALPHA FEATURE.
+    enable-cryptomb: "false"
+
+    # Configures the number of additional ingress proxy hops from the
+    # right side of the x-forwarded-for HTTP header to trust.
+    trusted-hops-count: "0"
+
+    # Specifies the cipher suites for TLS external listener.
+    # Use ',' separated values like "ECDHE-ECDSA-AES128-GCM-SHA256,ECDHE-ECDSA-CHACHA20-POLY1305"
+    # The default uses the default cipher suites of the envoy version.
+    cipher-suites: ""
+
 ---
 # Copyright 2020 The Knative Authors
 #
@@ -227,7 +259,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220919-82d8b8c6"
+    app.kubernetes.io/version: "20230503-c256d0aa"
     app.kubernetes.io/name: knative-serving
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -237,7 +269,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220919-82d8b8c6"
+    app.kubernetes.io/version: "20230503-c256d0aa"
     app.kubernetes.io/name: knative-serving
 rules:
   - apiGroups: [""]
@@ -269,7 +301,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220919-82d8b8c6"
+    app.kubernetes.io/version: "20230503-c256d0aa"
     app.kubernetes.io/name: knative-serving
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -303,20 +335,29 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220919-82d8b8c6"
+    app.kubernetes.io/version: "20230503-c256d0aa"
     app.kubernetes.io/name: knative-serving
 spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 100%
   replicas: 1
   selector:
     matchLabels:
       app: net-kourier-controller
   template:
     metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
       labels:
         app: net-kourier-controller
     spec:
       containers:
-        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:a2da6be43bf956b2d7c3b308a0d09c20afb8171ac1205accc76aba125dab24ff
+        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:cf5edf4974d4dd54f1bd61b3d8733400b702ffea575d3ae011a811309018c2b2
           name: controller
           env:
             - name: CERTS_SECRET_NAMESPACE
@@ -338,15 +379,31 @@ spec:
               containerPort: 18000
               protocol: TCP
           readinessProbe:
-            exec:
-              command: ["/ko-app/kourier", "-probe-addr=:18000"]
+            grpc:
+              port: 18000
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            grpc:
+              port: 18000
+            periodSeconds: 10
+            failureThreshold: 6
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             runAsNonRoot: true
             capabilities:
               drop:
-                - all
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: 200m
+              memory: 200Mi
+            limits:
+              cpu: 500m
+              memory: 500Mi
       restartPolicy: Always
       serviceAccountName: net-kourier
 ---
@@ -358,7 +415,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220919-82d8b8c6"
+    app.kubernetes.io/version: "20230503-c256d0aa"
     app.kubernetes.io/name: knative-serving
 spec:
   ports:
@@ -393,14 +450,14 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220919-82d8b8c6"
+    app.kubernetes.io/version: "20230503-c256d0aa"
     app.kubernetes.io/name: knative-serving
 spec:
   strategy:
     type: RollingUpdate
     rollingUpdate:
       maxUnavailable: 0
-      maxSurge: 1
+      maxSurge: 100%
   selector:
     matchLabels:
       app: 3scale-kourier-gateway
@@ -412,6 +469,9 @@ spec:
         # v0.26 supports envoy v3 API, so
         # adding this label to restart pod.
         networking.knative.dev/poke: "v0.26"
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9000"
+        prometheus.io/path: "/stats/prometheus"
     spec:
       containers:
         - args:
@@ -420,7 +480,7 @@ spec:
             - --log-level info
           command:
             - /usr/local/bin/envoy
-          image: docker.io/envoyproxy/envoy:v1.20-latest
+          image: docker.io/envoyproxy/envoy:v1.23-latest
           name: kourier-gateway
           ports:
             - name: http2-external
@@ -441,10 +501,14 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: false
-            runAsNonRoot: false
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
             capabilities:
               drop:
-                - all
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
           volumeMounts:
             - name: config-volume
               mountPath: /tmp/config
@@ -462,6 +526,25 @@ spec:
               scheme: HTTP
             initialDelaySeconds: 10
             periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              httpHeaders:
+                - name: Host
+                  value: internalkourier
+              path: /ready
+              port: 8081
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 200m
+              memory: 200Mi
+            limits:
+              cpu: 500m
+              memory: 500Mi
       volumes:
         - name: config-volume
           configMap:
@@ -476,7 +559,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220919-82d8b8c6"
+    app.kubernetes.io/version: "20230503-c256d0aa"
     app.kubernetes.io/name: knative-serving
 spec:
   ports:
@@ -500,7 +583,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20220919-82d8b8c6"
+    app.kubernetes.io/version: "20230503-c256d0aa"
     app.kubernetes.io/name: knative-serving
 spec:
   ports:
@@ -515,5 +598,47 @@ spec:
   selector:
     app: 3scale-kourier-gateway
   type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: 3scale-kourier-gateway
+  namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
+    app.kubernetes.io/component: net-kourier
+    app.kubernetes.io/version: "20230503-c256d0aa"
+    app.kubernetes.io/name: knative-serving
+spec:
+  minReplicas: 1
+  maxReplicas: 10
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: 3scale-kourier-gateway
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          # Percentage of the requested CPU
+          averageUtilization: 100
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: 3scale-kourier-gateway-pdb
+  namespace: kourier-system
+  labels:
+    networking.knative.dev/ingress-provider: kourier
+    app.kubernetes.io/component: net-kourier
+    app.kubernetes.io/version: "20230503-c256d0aa"
+    app.kubernetes.io/name: knative-serving
+spec:
+  minAvailable: 80%
+  selector:
+    matchLabels:
+      app: 3scale-kourier-gateway
 
 ---

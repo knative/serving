@@ -50,7 +50,6 @@ func TestServiceValidationWithInvalidPodSpec(t *testing.T) {
 	test.EnsureTearDown(t, clients, &names)
 
 	// Setup Service
-	t.Log("Creating a new Service", names.Service)
 	service, err := v1test.CreateService(t, clients, names,
 		WithServiceAnnotation(webhook.PodSpecDryRunAnnotation, string(webhook.DryRunStrict)))
 	if err != nil {

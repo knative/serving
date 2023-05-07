@@ -60,7 +60,7 @@ func setupDNSRecord() error {
 
 func createDNSRecord(dnsRecord *config.DNSRecord) error {
 	record := config.MakeRecordSet(dnsRecord)
-	svc, err := config.GetCloudDNSSvc(env.CloudDNSServiceAccountKeyFile)
+	svc, err := config.GetCloudDNSSvc()
 	if err != nil {
 		return err
 	}

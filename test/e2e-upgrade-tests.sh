@@ -42,7 +42,7 @@ function stage_test_resources() {
 # Skip installing istio as an add-on.
 # Skip installing a pvc as it is not used in upgrade tests
 # Skip installing a resource quota as it is not used in upgrade tests
-PVC=0 QUOTA=0 initialize "$@" --skip-istio-addon  --num-nodes=4 --cluster-version=1.23 \
+PVC=0 QUOTA=0 initialize "$@" --skip-istio-addon  --num-nodes=4 --cluster-version=1.24 \
   --install-latest-release
 
 # TODO(#2656): Reduce the timeout after we get this test to consistently passing.
@@ -52,6 +52,7 @@ header "Running upgrade tests"
 
 go_test_e2e -tags=upgrade -timeout=${TIMEOUT} \
   ./test/upgrade \
+  --disable-logstream \
   --resolvabledomain=$(use_resolvable_domain) || fail_test
 
 # Remove the kail log file if the test flow passes.

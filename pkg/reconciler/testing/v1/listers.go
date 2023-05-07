@@ -18,12 +18,12 @@ package v1
 
 import (
 	appsv1 "k8s.io/api/apps/v1"
-	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
-	autoscalingv2beta2listers "k8s.io/client-go/listers/autoscaling/v2beta2"
+	autoscalingv2listers "k8s.io/client-go/listers/autoscaling/v2"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	cachingv1alpha1 "knative.dev/caching/pkg/apis/caching/v1alpha1"
@@ -43,7 +43,7 @@ import (
 )
 
 var clientSetSchemes = []func(*runtime.Scheme) error{
-	autoscalingv2beta2.AddToScheme,
+	autoscalingv2.AddToScheme,
 	fakecachingclientset.AddToScheme,
 	fakekubeclientset.AddToScheme,
 	fakenetworkingclientset.AddToScheme,
@@ -149,8 +149,8 @@ func (l *Listers) GetMetricLister() palisters.MetricLister {
 }
 
 // GetHorizontalPodAutoscalerLister gets lister for HorizontalPodAutoscaler resources.
-func (l *Listers) GetHorizontalPodAutoscalerLister() autoscalingv2beta2listers.HorizontalPodAutoscalerLister {
-	return autoscalingv2beta2listers.NewHorizontalPodAutoscalerLister(l.IndexerFor(&autoscalingv2beta2.HorizontalPodAutoscaler{}))
+func (l *Listers) GetHorizontalPodAutoscalerLister() autoscalingv2listers.HorizontalPodAutoscalerLister {
+	return autoscalingv2listers.NewHorizontalPodAutoscalerLister(l.IndexerFor(&autoscalingv2.HorizontalPodAutoscaler{}))
 }
 
 // GetIngressLister get lister for Ingress resource.

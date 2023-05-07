@@ -30,12 +30,12 @@ source $(dirname $0)/../e2e-common.sh
 # Skip installing istio as an add-on.
 # Temporarily increasing the cluster size for serving tests to rule out
 # resource/eviction as causes of flakiness.
-initialize --skip-istio-addon --num-nodes=4 --perf --cluster-version=1.23 "$@"
+initialize --skip-istio-addon --num-nodes=4 --perf --cluster-version=1.24 "$@"
 
 header "Running tests"
 
 function run_kperf() {
-  run_go_tool knative.dev/kperf/cmd/kperf kperf "$@"
+  go_run knative.dev/kperf/cmd/kperf@latest "$@"
 }
 
 mkdir -p "${ARTIFACTS}/kperf"

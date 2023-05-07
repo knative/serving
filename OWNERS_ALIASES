@@ -2,8 +2,6 @@
 # Do not modify this file, instead modify peribolos/knative.yaml
 
 aliases:
-  api-core-wg-leads:
-  - dprotaso
   client-reviewers:
   - itsmurugappan
   client-wg-leads:
@@ -17,48 +15,51 @@ aliases:
   - rhuss
   - vyasgun
   conformance-task-force-leads:
-  - omerbensaadon
   - salaboy
   conformance-writers:
-  - omerbensaadon
   - salaboy
   docs-reviewers:
   - nainaz
-  - omerbensaadon
   - pmbanugo
   - snneji
   docs-wg-leads:
-  - abrennan89
   - snneji
   docs-writers:
-  - abrennan89
   - csantanapr
   - psschwei
   - snneji
   eventing-reviewers:
   - aslom
-  - tayarani
-  - tommyreddad
+  - creydr
   eventing-triage:
-  - akashrv
   - lberk
   eventing-wg-leads:
-  - lionelvillard
   - pierDipi
   eventing-writers:
-  - akashrv
   - aliok
   - lberk
   - lionelvillard
   - matzew
   - odacremolbap
   - pierDipi
+  func-reviewers:
+  - jrangelramos
+  - nainaz
+  func-writers:
+  - jrangelramos
+  - lance
+  - lkingland
+  - matejvasek
+  - salaboy
+  - zroubalik
+  functions-wg-leads:
+  - lance
+  - salaboy
   knative-admin:
   - csantanapr
   - dprotaso
   - dsimansk
   - evankanderson
-  - itsmurugappan
   - knative-automation
   - knative-prow-releaser-robot
   - knative-prow-robot
@@ -66,145 +67,100 @@ aliases:
   - knative-test-reporter-robot
   - kvmware
   - lance
-  - matzew
-  - n3wscott
-  - pmorie
+  - mchmarny
+  - nainaz
+  - pierDipi
+  - pradnyavmw
+  - psschwei
+  - puerco
+  - salaboy
   - smoser-ibm
-  - spencerdillard
-  - thisisnotapril
   - upodroid
-  - vaikas
   - zroubalik
   knative-release-leads:
-  - dprotaso
-  - matzew
+  - dsimansk
+  - kvmware
+  - pierDipi
+  - pradnyavmw
   knative-robots:
   - knative-automation
   - knative-prow-releaser-robot
   - knative-prow-robot
   - knative-prow-updater-robot
   - knative-test-reporter-robot
-  networking-reviewers:
-  - JRBANCEL
-  - ZhiminXiang
-  - andrew-su
-  - arturenault
-  - carlisia
-  - nak3
-  - shashwathi
-  - tcnghia
-  - vagababov
-  - yanweiguo
-  networking-wg-leads:
-  - nak3
-  networking-writers:
-  - JRBANCEL
-  - nak3
-  - vagababov
   operations-reviewers:
-  - Cynocracy
   - aliok
   - houshengbo
-  - jcrossley3
   - matzew
   - maximilien
-  - trshafer
   operations-wg-leads:
   - houshengbo
   operations-writers:
-  - Cynocracy
   - aliok
   - houshengbo
-  - jcrossley3
   - matzew
   - maximilien
-  - trshafer
-  pkg-configmap-reviewers:
-  - dprotaso
-  - mattmoor
-  - vagababov
-  pkg-configmap-writers:
-  - dprotaso
-  - mattmoor
-  - vagababov
-  pkg-controller-reviewers:
-  - dprotaso
-  - mattmoor
-  - tcnghia
-  - vagababov
-  - whaught
-  pkg-controller-writers:
-  - dprotaso
-  - mattmoor
-  - tcnghia
-  - vagababov
   productivity-leads:
   - kvmware
   - upodroid
   productivity-reviewers:
-  - albertomilan
   - evankanderson
-  - gerardo-lc
   - mgencur
-  - shinigambit
   productivity-wg-leads:
   - kvmware
   - upodroid
   productivity-writers:
   - cardil
-  - chaodaiG
-  - coryrc
   - kvmware
   - psschwei
   - upodroid
   security-wg-leads:
+  - davidhadas
   - evankanderson
-  - julz
   security-writers:
+  - davidhadas
   - evankanderson
-  - julz
-  serving-observability-reviewers:
+  serving-approvers:
+  - nak3
   - skonto
-  - yanweiguo
-  serving-observability-writers:
-  - yanweiguo
   serving-reviewers:
+  - KauzClay
   - carlisia
-  - julz
-  - nader-ziada
-  - nealhu
-  - psschwei
+  - izabelacg
+  - jsanin-vmw
+  - kauana
+  - pradnyavmw
+  - retocode
   - skonto
-  - whaught
+  serving-triage:
+  - KauzClay
+  - retocode
+  - skonto
   serving-wg-leads:
   - dprotaso
   - psschwei
   serving-writers:
   - dprotaso
-  - julz
+  - nak3
   - psschwei
-  - tcnghia
-  - vagababov
+  - skonto
   steering-committee:
   - csantanapr
-  - itsmurugappan
   - lance
-  - pmorie
-  - thisisnotapril
-  - vaikas
+  - nainaz
+  - puerco
+  - salaboy
   technical-oversight-committee:
   - dprotaso
   - dsimansk
   - evankanderson
-  - n3wscott
+  - psschwei
   - zroubalik
   trademark-committee:
   - evankanderson
+  - mchmarny
   - smoser-ibm
-  - spencerdillard
   ux-wg-leads:
-  - abrennan89
   - snneji
   ux-writers:
-  - abrennan89
   - snneji

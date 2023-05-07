@@ -128,13 +128,14 @@ func setupHPASvc(t *testing.T, metric string, target int) *TestContext {
 	}
 
 	return &TestContext{
-		t:           t,
-		logf:        t.Logf,
-		clients:     clients,
-		names:       names,
-		resources:   resources,
-		targetValue: target,
-		metric:      metric,
+		t:         t,
+		clients:   clients,
+		names:     names,
+		resources: resources,
+		autoscaler: &AutoscalerOptions{
+			Metric: metric,
+			Target: target,
+		},
 	}
 }
 
@@ -188,7 +189,7 @@ func generateTrafficAtFixedConcurrencyWithLoad(ctx *TestContext, concurrency int
 		return fmt.Errorf("error creating vegeta target: %w", err)
 	}
 
-	ctx.logf("Maintaining %d concurrent requests.", concurrency)
+	ctx.t.Logf("Maintaining %d concurrent requests.", concurrency)
 	return generateTraffic(ctx, attacker, pacer, stopChan, target)
 }
 
@@ -197,7 +198,7 @@ func assertScaleDownToOne(ctx *TestContext) {
 	if err := waitForScaleToOne(ctx.t, deploymentName, ctx.clients); err != nil {
 		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", deploymentName, err)
 	}
-	ctx.logf("Wait for all pods to terminate.")
+	ctx.t.Logf("Wait for all pods to terminate.")
 
 	if err := pkgTest.WaitForPodListState(
 		context.Background(),
@@ -212,12 +213,12 @@ func assertScaleDownToOne(ctx *TestContext) {
 		ctx.t.Fatalf("Waiting for Pod.List to have no non-Evicted pods of %q: %v", deploymentName, err)
 	}
 
-	ctx.logf("The Revision should remain ready after scaling to one.")
+	ctx.t.Logf("The Revision should remain ready after scaling to one.")
 	if err := v1test.CheckRevisionState(ctx.clients.ServingClient, ctx.names.Revision, v1test.IsRevisionReady); err != nil {
 		ctx.t.Fatalf("The Revision %s did not stay Ready after scaling down to one: %v", ctx.names.Revision, err)
 	}
 
-	ctx.logf("Scaled down.")
+	ctx.t.Logf("Scaled down.")
 }
 
 func getDepPods(nsPods []corev1.Pod, deploymentName string) []corev1.Pod {
@@ -249,7 +250,7 @@ func waitForScaleToOne(t *testing.T, deploymentName string, clients *test.Client
 
 func waitForHPAState(t *testing.T, name, namespace string, clients *test.Clients) error {
 	return wait.PollImmediate(time.Second, 15*time.Minute, func() (bool, error) {
-		hpa, err := clients.KubeClient.AutoscalingV2beta2().HorizontalPodAutoscalers(namespace).Get(context.Background(), name, metav1.GetOptions{})
+		hpa, err := clients.KubeClient.AutoscalingV2().HorizontalPodAutoscalers(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

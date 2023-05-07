@@ -28,12 +28,11 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
-
-	reconcilersecret "knative.dev/pkg/client/injection/kube/reconciler/core/v1/secret"
 
 	"knative.dev/control-protocol/pkg/certificates"
 )
@@ -41,10 +40,19 @@ import (
 const (
 	caExpirationInterval = time.Hour * 24 * 365 * 10 // 10 years
 	expirationInterval   = time.Hour * 24 * 30       // 30 days
-	rotationThreshold    = 10 * time.Minute
+	rotationThreshold    = 24 * time.Hour
 
+	// certificates used by control elements such as autoscaler, ingress controller
 	controlPlaneSecretType = "control-plane"
-	dataPlaneSecretType    = "data-plane"
+
+	// certificates used by trusted data routing elements such as activator, ingress gw
+	dataPlaneRoutingSecretType = "data-plane-routing"
+
+	// certificates used by entities acting as senders and receivers (users) of the data-plane such as queue
+	dataPlaneUserSecretType = "data-plane-user"
+
+	// Deprecated used by any data plane element
+	dataPlaneDeprecatedSecretType = "data-plane"
 )
 
 // Reconciler reconciles a SampleSource object
@@ -59,7 +67,7 @@ type reconciler struct {
 }
 
 // Check that our Reconciler implements Interface
-var _ reconcilersecret.Interface = (*reconciler)(nil)
+var _ Interface = (*reconciler)(nil)
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (r *reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) pkgreconciler.Event {
@@ -94,19 +102,29 @@ func (r *reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) p
 	}
 
 	// Reconcile the provided secret
-	cert, _, err := parseAndValidateSecret(secret, true)
+	var sans []string
+	switch secret.Labels[r.secretTypeLabelName] {
+	case controlPlaneSecretType:
+		sans = []string{certificates.ControlPlaneName, certificates.LegacyFakeDnsName}
+	case dataPlaneRoutingSecretType:
+		routingId := secret.Labels[secretRoutingId]
+		san := certificates.DataPlaneRoutingName(routingId)
+		sans = []string{san, certificates.LegacyFakeDnsName}
+	case dataPlaneUserSecretType:
+		sans = []string{certificates.DataPlaneUserName(secret.Namespace), certificates.LegacyFakeDnsName}
+	case dataPlaneDeprecatedSecretType:
+		sans = []string{certificates.LegacyFakeDnsName}
+	default:
+		return fmt.Errorf("unknown cert type: %v", r.secretTypeLabelName)
+	}
+
+	cert, _, err := parseAndValidateSecret(secret, true, sans...)
 	if err != nil {
 		r.logger.Infof("Secret invalid: %v", err)
-
 		// Check the secret to reconcile type
+
 		var keyPair *certificates.KeyPair
-		if secret.Labels[r.secretTypeLabelName] == dataPlaneSecretType {
-			keyPair, err = certificates.CreateDataPlaneCert(ctx, caPk, caCert, expirationInterval)
-		} else if secret.Labels[r.secretTypeLabelName] == controlPlaneSecretType {
-			keyPair, err = certificates.CreateControlPlaneCert(ctx, caPk, caCert, expirationInterval)
-		} else {
-			return fmt.Errorf("unknown cert type: %v", r.secretTypeLabelName)
-		}
+		keyPair, err = certificates.CreateCert(ctx, caPk, caCert, expirationInterval, sans...)
 		if err != nil {
 			return fmt.Errorf("cannot generate the cert: %v", err)
 		}
@@ -125,7 +143,8 @@ func (r *reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) p
 	return nil
 }
 
-func parseAndValidateSecret(secret *corev1.Secret, shouldContainCaCert bool) (*x509.Certificate, *rsa.PrivateKey, error) {
+// All sans provided are required to be lower case
+func parseAndValidateSecret(secret *corev1.Secret, shouldContainCaCert bool, sans ...string) (*x509.Certificate, *rsa.PrivateKey, error) {
 	certBytes, ok := secret.Data[certificates.SecretCertKey]
 	if !ok {
 		return nil, nil, fmt.Errorf("missing cert bytes")
@@ -140,14 +159,21 @@ func parseAndValidateSecret(secret *corev1.Secret, shouldContainCaCert bool) (*x
 		}
 	}
 
-	caCert, caPk, err := certificates.ParseCert(certBytes, pkBytes)
+	cert, caPk, err := certificates.ParseCert(certBytes, pkBytes)
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := certificates.ValidateCert(caCert, rotationThreshold); err != nil {
+	if err := certificates.ValidateCert(cert, rotationThreshold); err != nil {
 		return nil, nil, err
 	}
-	return caCert, caPk, nil
+
+	sanSet := sets.NewString(sans...)
+	certSet := sets.NewString(cert.DNSNames...)
+	if !sanSet.Equal(certSet) {
+		return nil, nil, fmt.Errorf("unexpected SANs")
+	}
+
+	return cert, caPk, nil
 }
 
 func (r *reconciler) enqueueBeforeExpiration(secret *corev1.Secret, cert *x509.Certificate) {
@@ -155,7 +181,7 @@ func (r *reconciler) enqueueBeforeExpiration(secret *corev1.Secret, cert *x509.C
 	r.enqueueAfter(types.NamespacedName{
 		Namespace: secret.Namespace,
 		Name:      secret.Name,
-	}, when.Sub(time.Now()))
+	}, time.Until(when))
 }
 
 func (r *reconciler) commitUpdatedSecret(ctx context.Context, secret *corev1.Secret, keyPair *certificates.KeyPair, caCert []byte) error {
@@ -163,10 +189,13 @@ func (r *reconciler) commitUpdatedSecret(ctx context.Context, secret *corev1.Sec
 	secret = secret.DeepCopy()
 
 	secret.Data = make(map[string][]byte, 3)
+	secret.Data[certificates.CertName] = keyPair.CertBytes()
+	secret.Data[certificates.PrivateKeyName] = keyPair.PrivateKeyBytes()
 	secret.Data[certificates.SecretCertKey] = keyPair.CertBytes()
 	secret.Data[certificates.SecretPKKey] = keyPair.PrivateKeyBytes()
 	if caCert != nil {
 		secret.Data[certificates.SecretCaCertKey] = caCert
+		secret.Data[certificates.CaCertName] = caCert
 	}
 
 	_, err := r.client.CoreV1().Secrets(secret.Namespace).Update(ctx, secret, metav1.UpdateOptions{})

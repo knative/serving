@@ -31,8 +31,8 @@ type ZipkinReporterFactory func(*config.Config) (zipkinreporter.Reporter, error)
 // WithZipkinExporter returns a config with zipkin enabled.
 //
 // Deprecated: This function is the legacy entrypoint and should be replaced with one of:
-//  - WithExporter() in production code
-//  - testing/FakeZipkinExporter() in test code.
+//   - WithExporter() in production code
+//   - testing/FakeZipkinExporter() in test code.
 func WithZipkinExporter(reporterFact ZipkinReporterFactory, endpoint *zipkinmodel.Endpoint) ConfigOption {
 	return func(cfg *config.Config) error {
 		var (

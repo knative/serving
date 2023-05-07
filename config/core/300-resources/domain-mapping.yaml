@@ -64,6 +64,9 @@ spec:
                     - kind
                     - name
                   properties:
+                    address:
+                      description: Address points to a specific Address Name.
+                      type: string
                     apiVersion:
                       description: API version of the referent.
                       type: string
@@ -96,6 +99,12 @@ spec:
                   description: Address holds the information needed for a DomainMapping to be the target of an event.
                   type: object
                   properties:
+                    CACerts:
+                      description: CACerts is the Certification Authority (CA) certificates in PEM format according to https://www.rfc-editor.org/rfc/rfc7468.
+                      type: string
+                    name:
+                      description: Name is the name of the address.
+                      type: string
                     url:
                       type: string
                 annotations:
@@ -169,6 +178,9 @@ spec:
                     - kind
                     - name
                   properties:
+                    address:
+                      description: Address points to a specific Address Name.
+                      type: string
                     apiVersion:
                       description: API version of the referent.
                       type: string
@@ -201,6 +213,12 @@ spec:
                   description: Address holds the information needed for a DomainMapping to be the target of an event.
                   type: object
                   properties:
+                    CACerts:
+                      description: CACerts is the Certification Authority (CA) certificates in PEM format according to https://www.rfc-editor.org/rfc/rfc7468.
+                      type: string
+                    name:
+                      description: Name is the name of the address.
+                      type: string
                     url:
                       type: string
                 annotations:

@@ -19,7 +19,6 @@ package resources
 import (
 	"fmt"
 	"math"
-	"path"
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
@@ -85,7 +84,7 @@ var (
 		ReadOnlyRootFilesystem:   ptr.Bool(true),
 		RunAsNonRoot:             ptr.Bool(true),
 		Capabilities: &corev1.Capabilities{
-			Drop: []corev1.Capability{"all"},
+			Drop: []corev1.Capability{"ALL"},
 		},
 	}
 )
@@ -360,12 +359,6 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			Name:  "METRICS_COLLECTOR_ADDRESS",
 			Value: cfg.Observability.MetricsCollectorAddress,
 		}, {
-			Name:  "CONCURRENCY_STATE_ENDPOINT",
-			Value: cfg.Deployment.ConcurrencyStateEndpoint,
-		}, {
-			Name:  "CONCURRENCY_STATE_TOKEN_PATH",
-			Value: path.Join(queue.TokenDirectory, queue.ConcurrencyStateTokenFilename),
-		}, {
 			Name: "HOST_IP",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
@@ -376,6 +369,9 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		}, {
 			Name:  "ENABLE_HTTP2_AUTO_DETECTION",
 			Value: strconv.FormatBool(cfg.Features.AutoDetectHTTP2 == apicfg.Enabled),
+		}, {
+			Name:  "ROOT_CA",
+			Value: cfg.Deployment.QueueSidecarRootCA,
 		}},
 	}
 

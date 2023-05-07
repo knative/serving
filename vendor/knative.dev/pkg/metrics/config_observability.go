@@ -17,8 +17,10 @@ limitations under the License.
 package metrics
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"strconv"
 	texttemplate "text/template"
 
 	corev1 "k8s.io/api/core/v1"
@@ -69,6 +71,10 @@ type ObservabilityConfig struct {
 	// OpenCensus. "None" disables all backends.
 	RequestMetricsBackend string
 
+	// RequestMetricsReportingPeriodSeconds specifies the request metrics reporting period in sec at queue proxy, eg 1.
+	// If a zero or negative value is passed the default reporting period is used (10 secs).
+	RequestMetricsReportingPeriodSeconds int
+
 	// EnableProfiling indicates whether it is allowed to retrieve runtime profiling data from
 	// the pods via an HTTP server in the format expected by the pprof visualization tool.
 	EnableProfiling bool
@@ -79,6 +85,22 @@ type ObservabilityConfig struct {
 	// MetricsCollectorAddress specifies the metrics collector address. This is only used
 	// when the metrics backend is opencensus.
 	MetricsCollectorAddress string
+}
+
+type ocfg struct{}
+
+// WithConfig associates a observability configuration with the context.
+func WithConfig(ctx context.Context, cfg *ObservabilityConfig) context.Context {
+	return context.WithValue(ctx, ocfg{}, cfg)
+}
+
+// GetObservability gets the observability config from the provided context.
+func GetObservabilityConfig(ctx context.Context) *ObservabilityConfig {
+	untyped := ctx.Value(ocfg{})
+	if untyped == nil {
+		return nil
+	}
+	return untyped.(*ObservabilityConfig)
 }
 
 func defaultConfig() *ObservabilityConfig {
@@ -92,6 +114,15 @@ func defaultConfig() *ObservabilityConfig {
 // NewObservabilityConfigFromConfigMap creates a ObservabilityConfig from the supplied ConfigMap
 func NewObservabilityConfigFromConfigMap(configMap *corev1.ConfigMap) (*ObservabilityConfig, error) {
 	oc := defaultConfig()
+	if configMap == nil {
+		return oc, nil
+	}
+
+	defaultRequestMetricsReportingPeriod, err := getDefaultRequestMetricsReportingPeriod(configMap.Data)
+	if err != nil {
+		return nil, err
+	}
+	oc.RequestMetricsReportingPeriodSeconds = defaultRequestMetricsReportingPeriod
 
 	if err := cm.Parse(configMap.Data,
 		cm.AsBool("logging.enable-var-log-collection", &oc.EnableVarLogCollection),
@@ -100,6 +131,7 @@ func NewObservabilityConfigFromConfigMap(configMap *corev1.ConfigMap) (*Observab
 		cm.AsBool(EnableReqLogKey, &oc.EnableRequestLog),
 		cm.AsBool(EnableProbeReqLogKey, &oc.EnableProbeRequestLog),
 		cm.AsString("metrics.request-metrics-backend-destination", &oc.RequestMetricsBackend),
+		cm.AsInt("metrics.request-metrics-reporting-period-seconds", &oc.RequestMetricsReportingPeriodSeconds),
 		cm.AsBool("profiling.enable", &oc.EnableProfiling),
 		cm.AsString("metrics.opencensus-address", &oc.MetricsCollectorAddress),
 	); err != nil {
@@ -120,10 +152,49 @@ func NewObservabilityConfigFromConfigMap(configMap *corev1.ConfigMap) (*Observab
 	return oc, nil
 }
 
+func (oc *ObservabilityConfig) GetConfigMap() corev1.ConfigMap {
+	return corev1.ConfigMap{
+		Data: map[string]string{
+			"logging.enable-var-log-collection":           strconv.FormatBool(oc.EnableVarLogCollection),
+			"logging.revision-url-template":               oc.LoggingURLTemplate,
+			ReqLogTemplateKey:                             oc.RequestLogTemplate,
+			EnableReqLogKey:                               strconv.FormatBool(oc.EnableRequestLog),
+			EnableProbeReqLogKey:                          strconv.FormatBool(oc.EnableProbeRequestLog),
+			"metrics.request-metrics-backend-destination": oc.RequestMetricsBackend,
+			"profiling.enable":                            strconv.FormatBool(oc.EnableProfiling),
+			"metrics.opencensus-address":                  oc.MetricsCollectorAddress,
+		},
+	}
+}
+
 // ConfigMapName gets the name of the metrics ConfigMap
 func ConfigMapName() string {
 	if cm := os.Getenv(configMapNameEnv); cm != "" {
 		return cm
 	}
 	return "config-observability"
+}
+
+// Use the same as `metrics.reporting-period-seconds` for the default
+// of `metrics.request-metrics-reporting-period-seconds`
+func getDefaultRequestMetricsReportingPeriod(data map[string]string) (int, error) {
+	// Default backend is prometheus
+	period := defaultPrometheusReportingPeriod
+	if repStr := data[reportingPeriodKey]; repStr != "" {
+		repInt, err := strconv.Atoi(repStr)
+		if err != nil {
+			return -1, fmt.Errorf("invalid %s value %q", reportingPeriodKey, repStr)
+		}
+		period = repInt
+	} else {
+		if raw, ok := data["metrics.request-metrics-backend-destination"]; ok {
+			switch metricsBackend(raw) {
+			case prometheus:
+				period = defaultPrometheusReportingPeriod
+			case openCensus:
+				period = defaultOpenCensusReportingPeriod
+			}
+		}
+	}
+	return period, nil
 }

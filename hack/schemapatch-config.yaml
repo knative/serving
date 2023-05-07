@@ -29,6 +29,7 @@ k8s.io/api/core/v1.VolumeProjection:
     - Secret
     - ConfigMap
     - ServiceAccountToken
+    - DownwardAPI
 k8s.io/api/core/v1.ConfigMapProjection:
   fieldMask:
     - LocalObjectReference
@@ -280,11 +281,13 @@ k8s.io/api/core/v1.ResourceRequirementsMask:
     - Requests
 k8s.io/api/core/v1.SecurityContext:
   fieldMask:
+    - AllowPrivilegeEscalation
     - Capabilities
     - ReadOnlyRootFilesystem
     - RunAsGroup
     - RunAsNonRoot
     - RunAsUser
+    - SeccompProfile
 k8s.io/api/core/v1.Capabilities:
   fieldMask:
     - Add

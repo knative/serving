@@ -26,6 +26,7 @@ import (
 
 	"knative.dev/pkg/client/injection/ducks/duck/v1/addressable"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/network"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -35,7 +36,6 @@ import (
 	pkgapisduck "knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
-	"knative.dev/pkg/network"
 	"knative.dev/pkg/tracker"
 )
 
@@ -74,9 +74,9 @@ func NewURIResolverFromTracker(ctx context.Context, t tracker.Interface, resolve
 
 // URIFromDestination resolves a v1beta1.Destination into a URI string.
 func (r *URIResolver) URIFromDestination(ctx context.Context, dest duckv1beta1.Destination, parent interface{}) (string, error) {
-	var deprecatedObjectReference *corev1.ObjectReference
+	var deprecatedObjectReference *duckv1.KReference
 	if !(dest.DeprecatedAPIVersion == "" && dest.DeprecatedKind == "" && dest.DeprecatedName == "" && dest.DeprecatedNamespace == "") {
-		deprecatedObjectReference = &corev1.ObjectReference{
+		deprecatedObjectReference = &duckv1.KReference{
 			Kind:       dest.DeprecatedKind,
 			APIVersion: dest.DeprecatedAPIVersion,
 			Name:       dest.DeprecatedName,
@@ -86,66 +86,44 @@ func (r *URIResolver) URIFromDestination(ctx context.Context, dest duckv1beta1.D
 	if dest.Ref != nil && deprecatedObjectReference != nil {
 		return "", errors.New("ref and [apiVersion, kind, name] can't be both present")
 	}
-	var ref *corev1.ObjectReference
+
+	var ref *duckv1.KReference
 	if dest.Ref != nil {
-		ref = dest.Ref
+		ref = &duckv1.KReference{
+			Kind:       dest.Ref.Kind,
+			Namespace:  dest.Ref.Namespace,
+			Name:       dest.Ref.Name,
+			APIVersion: dest.Ref.APIVersion,
+		}
 	} else {
 		ref = deprecatedObjectReference
 	}
-	if ref != nil {
-		url, err := r.URIFromObjectReference(ctx, ref, parent)
-		if err != nil {
-			return "", err
-		}
-		if dest.URI != nil {
-			if dest.URI.URL().IsAbs() {
-				return "", errors.New("absolute URI is not allowed when Ref or [apiVersion, kind, name] exists")
-			}
-			return url.ResolveReference(dest.URI).String(), nil
-		}
-		return url.URL().String(), nil
-	}
 
-	if dest.URI != nil {
-		// IsAbs check whether the URL has a non-empty scheme. Besides the non non-empty scheme, we also require dest.URI has a non-empty host
-		if !dest.URI.URL().IsAbs() || dest.URI.Host == "" {
-			return "", fmt.Errorf("URI is not absolute (both scheme and host should be non-empty): %q", dest.URI.String())
-		}
-		return dest.URI.String(), nil
+	u, err := r.URIFromDestinationV1(ctx, duckv1.Destination{Ref: ref, URI: dest.URI, CACerts: dest.CACerts}, parent)
+	if err != nil {
+		return "", err
 	}
-
-	return "", errors.New("destination missing Ref, [apiVersion, kind, name] and URI, expected at least one")
+	return u.String(), nil
 }
 
 // URIFromDestinationV1 resolves a v1.Destination into a URL.
 func (r *URIResolver) URIFromDestinationV1(ctx context.Context, dest duckv1.Destination, parent interface{}) (*apis.URL, error) {
-	if dest.Ref != nil {
-		url, err := r.URIFromKReference(ctx, dest.Ref, parent)
-		if err != nil {
-			return nil, err
-		}
-		if dest.URI != nil {
-			if dest.URI.URL().IsAbs() {
-				return nil, errors.New("absolute URI is not allowed when Ref or [apiVersion, kind, name] exists")
-			}
-			return url.ResolveReference(dest.URI), nil
-		}
-		return url, nil
+	addr, err := r.AddressableFromDestinationV1(ctx, dest, parent)
+	if err != nil {
+		return nil, err
 	}
-
-	if dest.URI != nil {
-		// IsAbs check whether the URL has a non-empty scheme. Besides the non non-empty scheme, we also require dest.URI has a non-empty host
-		if !dest.URI.URL().IsAbs() || dest.URI.Host == "" {
-			return nil, fmt.Errorf("URI is not absolute(both scheme and host should be non-empty): %q", dest.URI.String())
-		}
-		return dest.URI, nil
-	}
-
-	return nil, errors.New("destination missing Ref and URI, expected at least one")
+	return addr.URL, nil
 }
 
 func (r *URIResolver) URIFromKReference(ctx context.Context, ref *duckv1.KReference, parent interface{}) (*apis.URL, error) {
-	return r.URIFromObjectReference(ctx, &corev1.ObjectReference{Name: ref.Name, Namespace: ref.Namespace, APIVersion: ref.APIVersion, Kind: ref.Kind}, parent)
+	dest := duckv1.Destination{
+		Ref: ref,
+	}
+	addr, err := r.AddressableFromDestinationV1(ctx, dest, parent)
+	if err != nil {
+		return nil, err
+	}
+	return addr.URL, nil
 }
 
 // URIFromObjectReference resolves an ObjectReference to a URI string.
@@ -153,25 +131,80 @@ func (r *URIResolver) URIFromObjectReference(ctx context.Context, ref *corev1.Ob
 	if ref == nil {
 		return nil, apierrs.NewBadRequest("ref is nil")
 	}
+	dest := duckv1.KReference{
+		Kind:       ref.Kind,
+		Namespace:  ref.Namespace,
+		Name:       ref.Name,
+		APIVersion: ref.APIVersion,
+	}
+	return r.URIFromKReference(ctx, &dest, parent)
+}
+
+// AddressableFromDestinationV1 resolves a v1.Destination into a duckv1.Addressable.
+func (r *URIResolver) AddressableFromDestinationV1(ctx context.Context, dest duckv1.Destination, parent interface{}) (*duckv1.Addressable, error) {
+	if dest.Ref != nil {
+		addr, err := r.addressableFromDestinationRef(ctx, dest, parent)
+		if err != nil {
+			return nil, err
+		}
+		if dest.URI != nil {
+			if dest.URI.URL().IsAbs() {
+				return nil, errors.New("absolute URI is not allowed when Ref or [apiVersion, kind, name] exists")
+			}
+			addr.URL = addr.URL.ResolveReference(dest.URI)
+			return addr, nil
+		}
+		return addr, nil
+	}
+
+	if dest.URI != nil {
+		// IsAbs check whether the URL has a non-empty scheme. Besides the non non-empty scheme, we also require dest.URI has a non-empty host
+		if !dest.URI.URL().IsAbs() || dest.URI.Host == "" {
+			return nil, fmt.Errorf("URI is not absolute (both scheme and host should be non-empty): %q", dest.URI.String())
+		}
+		return &duckv1.Addressable{
+			URL:     dest.URI,
+			CACerts: dest.CACerts,
+		}, nil
+	}
+
+	return nil, errors.New("destination missing Ref and URI, expected at least one")
+}
+
+func (r *URIResolver) addressableFromDestinationRef(ctx context.Context, dest duckv1.Destination, parent interface{}) (*duckv1.Addressable, error) {
+	if dest.Ref == nil {
+		return nil, apierrs.NewBadRequest("ref is nil")
+	}
+
+	or := &corev1.ObjectReference{
+		Kind:       dest.Ref.Kind,
+		Namespace:  dest.Ref.Namespace,
+		Name:       dest.Ref.Name,
+		APIVersion: dest.Ref.APIVersion,
+	}
 
 	// try custom resolvers first
 	for _, resolver := range r.resolvers {
-		handled, url, err := resolver(ctx, ref)
+		handled, url, err := resolver(ctx, or)
 		if handled {
-			return url, err
+			return &duckv1.Addressable{
+				Name:    dest.Ref.Address,
+				URL:     url,
+				CACerts: dest.CACerts,
+			}, err
 		}
 
 		// when handled is false, both url and err are ignored.
 	}
 
-	gvr, _ := meta.UnsafeGuessKindToResource(ref.GroupVersionKind())
+	gvr, _ := meta.UnsafeGuessKindToResource(or.GroupVersionKind())
 	if err := r.tracker.TrackReference(tracker.Reference{
-		APIVersion: ref.APIVersion,
-		Kind:       ref.Kind,
-		Namespace:  ref.Namespace,
-		Name:       ref.Name,
+		APIVersion: dest.Ref.APIVersion,
+		Kind:       dest.Ref.Kind,
+		Namespace:  dest.Ref.Namespace,
+		Name:       dest.Ref.Name,
 	}, parent); err != nil {
-		return nil, fmt.Errorf("failed to track reference %s %s/%s: %w", gvr.String(), ref.Namespace, ref.Name, err)
+		return nil, fmt.Errorf("failed to track reference %s %s/%s: %w", gvr.String(), dest.Ref.Namespace, dest.Ref.Name, err)
 	}
 
 	lister, err := r.listerFactory(gvr)
@@ -179,35 +212,80 @@ func (r *URIResolver) URIFromObjectReference(ctx context.Context, ref *corev1.Ob
 		return nil, fmt.Errorf("failed to get lister for %s: %w", gvr.String(), err)
 	}
 
-	obj, err := lister.ByNamespace(ref.Namespace).Get(ref.Name)
+	obj, err := lister.ByNamespace(dest.Ref.Namespace).Get(dest.Ref.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get object %s/%s: %w", ref.Namespace, ref.Name, err)
+		return nil, fmt.Errorf("failed to get object %s/%s: %w", dest.Ref.Namespace, dest.Ref.Name, err)
 	}
 
 	// K8s Services are special cased. They can be called, even though they do not satisfy the
 	// Callable interface.
-	if ref.APIVersion == "v1" && ref.Kind == "Service" {
+	if dest.Ref.APIVersion == "v1" && dest.Ref.Kind == "Service" {
 		url := &apis.URL{
 			Scheme: "http",
-			Host:   network.GetServiceHostname(ref.Name, ref.Namespace),
+			Host:   network.GetServiceHostname(dest.Ref.Name, dest.Ref.Namespace),
 			Path:   "",
 		}
-		return url, nil
+		if dest.CACerts != nil && *dest.CACerts != "" {
+			url.Scheme = "https"
+		}
+		return &duckv1.Addressable{
+			Name:    dest.Ref.Address,
+			URL:     url,
+			CACerts: dest.CACerts,
+		}, nil
 	}
 
 	addressable, ok := obj.(*duckv1.AddressableType)
 	if !ok {
-		return nil, apierrs.NewBadRequest(fmt.Sprintf("%+v (%T) is not an AddressableType", ref, ref))
+		return nil, apierrs.NewBadRequest(fmt.Sprintf("%s(%T) is not an AddressableType", dest.Ref, dest.Ref))
 	}
-	if addressable.Status.Address == nil {
-		return nil, apierrs.NewBadRequest(fmt.Sprintf("address not set for %+v", ref))
+
+	addr, err := r.selectAddress(dest, addressable)
+	if err != nil {
+		return nil, err
 	}
-	url := addressable.Status.Address.URL
-	if url == nil {
-		return nil, apierrs.NewBadRequest(fmt.Sprintf("URL missing in address of %+v", ref))
+	// Do not modify informer copy.
+	addr = addr.DeepCopy()
+
+	if addr.URL == nil {
+		return nil, apierrs.NewBadRequest(fmt.Sprintf("URL missing in address of %s", dest.Ref))
 	}
-	if url.Host == "" {
-		return nil, apierrs.NewBadRequest(fmt.Sprintf("hostname missing in address of %+v", ref))
+	if addr.URL.Host == "" {
+		return nil, apierrs.NewBadRequest(fmt.Sprintf("hostname missing in address of %s", dest.Ref))
 	}
-	return url, nil
+
+	if addr.CACerts == nil {
+		addr.CACerts = dest.CACerts
+	}
+
+	return addr, nil
+}
+
+// selectAddress selects a single address from the given AddressableType
+func (r *URIResolver) selectAddress(dest duckv1.Destination, addressable *duckv1.AddressableType) (*duckv1.Addressable, error) {
+	if len(addressable.Status.Addresses) == 0 && addressable.Status.Address == nil {
+		return nil, apierrs.NewBadRequest(fmt.Sprintf("address not set for %s", dest.Ref))
+	}
+
+	// if dest.ref.address is specified:
+	// - select the first (in order) address from status.addresses with name == dest.ref.address
+	// - If no address is found return an error explaining that the address with name dest.ref.address
+	//   cannot be found/resolved
+	if dest.Ref.Address != nil && *dest.Ref.Address != "" {
+		for _, addr := range addressable.Status.Addresses {
+			if addr.Name != nil && *addr.Name == *dest.Ref.Address {
+				return &addr, nil
+			}
+		}
+		return nil, apierrs.NewBadRequest(fmt.Sprintf("address with name %q not found for %s", *dest.Ref.Address, dest.Ref))
+	}
+
+	// if dest.ref.address is not specified:
+	// - select the first (in order) address from status.addresses
+	// - If no address is found in addresses use status.address
+	if len(addressable.Status.Addresses) > 0 {
+		return &addressable.Status.Addresses[0], nil
+	}
+
+	return addressable.Status.Address, nil
 }

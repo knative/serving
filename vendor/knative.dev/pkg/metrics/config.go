@@ -41,19 +41,21 @@ const (
 	DomainEnv = "METRICS_DOMAIN"
 
 	// The following keys are used to configure metrics reporting.
-	// See https://github.com/knative/serving/blob/main/config/config-observability.yaml
+	// See https://github.com/knative/serving/blob/main/config/core/configmaps/observability.yaml
 	// for details.
 	collectorAddressKey = "metrics.opencensus-address"
 	collectorSecureKey  = "metrics.opencensus-require-tls"
 	reportingPeriodKey  = "metrics.reporting-period-seconds"
 
-	defaultBackendEnvName = "DEFAULT_METRICS_BACKEND"
-	defaultPrometheusPort = 9090
-	maxPrometheusPort     = 65535
-	minPrometheusPort     = 1024
-	defaultPrometheusHost = "0.0.0.0"
-	prometheusPortEnvName = "METRICS_PROMETHEUS_PORT"
-	prometheusHostEnvName = "METRICS_PROMETHEUS_HOST"
+	defaultBackendEnvName            = "DEFAULT_METRICS_BACKEND"
+	defaultPrometheusPort            = 9090
+	defaultPrometheusReportingPeriod = 5
+	defaultOpenCensusReportingPeriod = 60
+	maxPrometheusPort                = 65535
+	minPrometheusPort                = 1024
+	defaultPrometheusHost            = "0.0.0.0"
+	prometheusPortEnvName            = "METRICS_PROMETHEUS_PORT"
+	prometheusHostEnvName            = "METRICS_PROMETHEUS_HOST"
 )
 
 var (
@@ -124,12 +126,7 @@ func (mc *metricsConfig) record(ctx context.Context, mss []stats.Measurement, ro
 
 func createMetricsConfig(_ context.Context, ops ExporterOptions) (*metricsConfig, error) {
 	var mc metricsConfig
-
-	if ops.Domain == "" {
-		return nil, errors.New("metrics domain cannot be empty")
-	}
 	mc.domain = ops.Domain
-
 	if ops.Component == "" {
 		return nil, errors.New("metrics component name cannot be empty")
 	}
@@ -159,6 +156,9 @@ func createMetricsConfig(_ context.Context, ops ExporterOptions) (*metricsConfig
 
 	switch mc.backendDestination {
 	case openCensus:
+		if ops.Domain == "" {
+			return nil, errors.New("metrics domain cannot be empty")
+		}
 		mc.collectorAddress = ops.ConfigMap[collectorAddressKey]
 		if isSecure := ops.ConfigMap[collectorSecureKey]; isSecure != "" {
 			var err error
@@ -208,9 +208,9 @@ func createMetricsConfig(_ context.Context, ops ExporterOptions) (*metricsConfig
 	} else {
 		switch mc.backendDestination {
 		case openCensus:
-			mc.reportingPeriod = time.Minute
+			mc.reportingPeriod = defaultOpenCensusReportingPeriod * time.Second
 		case prometheus:
-			mc.reportingPeriod = 5 * time.Second
+			mc.reportingPeriod = defaultPrometheusReportingPeriod * time.Second
 		}
 	}
 	return &mc, nil
@@ -221,22 +221,7 @@ func Domain() string {
 	if domain := os.Getenv(DomainEnv); domain != "" {
 		return domain
 	}
-
-	panic(fmt.Sprintf(`The environment variable %q is not set
-
-If this is a process running on Kubernetes, then it should be specifying
-this via:
-
-  env:
-  - name: %s
-    value: knative.dev/some-repository
-
-If this is a Go unit test consuming metric.Domain() then it should add the
-following import:
-
-import (
-	_ "knative.dev/pkg/metrics/testing"
-)`, DomainEnv, DomainEnv))
+	return ""
 }
 
 // prometheusPort returns the TCP port number configured via the environment

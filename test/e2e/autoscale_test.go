@@ -21,22 +21,27 @@ package e2e
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"golang.org/x/sync/errgroup"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-
 	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/system"
+	pkgtest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/networking"
+	revnames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
 	"knative.dev/serving/pkg/resources"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
+	testv1 "knative.dev/serving/test/v1"
 )
 
 func TestAutoscaleUpDownUp(t *testing.T) {
@@ -48,7 +53,14 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		algo := algo
 		t.Run("aggregation-"+algo, func(t *testing.T) {
 			t.Parallel()
-			ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
+			ctx := SetupSvc(t,
+				&AutoscalerOptions{
+					Class:             autoscaling.KPA,
+					Metric:            autoscaling.Concurrency,
+					Target:            containerConcurrency,
+					TargetUtilization: targetUtilization,
+				},
+				test.Options{},
 				rtesting.WithConfigAnnotations(map[string]string{
 					autoscaling.MetricAggregationAlgorithmKey: algo,
 				}))
@@ -79,7 +91,15 @@ func runAutoscaleUpCountPods(t *testing.T, class, metric string) {
 		target = rpsTarget
 	}
 
-	ctx := SetupSvc(t, class, metric, target, targetUtilization)
+	ctx := SetupSvc(t,
+		&AutoscalerOptions{
+			Class:             class,
+			Metric:            metric,
+			Target:            target,
+			TargetUtilization: targetUtilization,
+		},
+		test.Options{})
+
 	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
 
 	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
@@ -98,11 +118,6 @@ func runAutoscaleUpCountPods(t *testing.T, class, metric string) {
 }
 
 func TestAutoscaleSustaining(t *testing.T) {
-	if testing.Short() {
-		// TODO sort out kind issues causing flakiness
-		t.Skip("#13049: Skipped because of excessive flakiness on kind")
-	}
-
 	for _, algo := range []string{
 		autoscaling.MetricAggregationAlgorithmLinear,
 		autoscaling.MetricAggregationAlgorithmWeightedExponential,
@@ -113,13 +128,20 @@ func TestAutoscaleSustaining(t *testing.T) {
 			// as long as the traffic sustains, despite whether it is switching modes between
 			// normal and panic.
 
-			ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
+			ctx := SetupSvc(t,
+				&AutoscalerOptions{
+					Class:             autoscaling.KPA,
+					Metric:            autoscaling.Concurrency,
+					Target:            containerConcurrency,
+					TargetUtilization: targetUtilization,
+				},
+				test.Options{},
 				rtesting.WithConfigAnnotations(map[string]string{
 					autoscaling.MetricAggregationAlgorithmKey: algo,
 				}))
 			test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
 
-			AssertAutoscaleUpToNumPods(ctx, 1, 10, time.After(2*time.Minute), false /* quick */)
+			AssertAutoscaleUpToNumPods(ctx, 1, 8, time.After(2*time.Minute), false /* quick */)
 		})
 	}
 }
@@ -132,7 +154,14 @@ func TestTargetBurstCapacity(t *testing.T) {
 	// Activator from the request path.
 	t.Parallel()
 
-	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
+	ctx := SetupSvc(t,
+		&AutoscalerOptions{
+			Class:             autoscaling.KPA,
+			Metric:            autoscaling.Concurrency,
+			Target:            10,
+			TargetUtilization: targetUtilization,
+		},
+		test.Options{},
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey:                "7",
 			autoscaling.PanicThresholdPercentageAnnotationKey: "200", // makes panicking rare
@@ -207,7 +236,14 @@ func TestTargetBurstCapacity(t *testing.T) {
 func TestTargetBurstCapacityMinusOne(t *testing.T) {
 	t.Parallel()
 
-	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
+	ctx := SetupSvc(t,
+		&AutoscalerOptions{
+			Class:             autoscaling.KPA,
+			Metric:            autoscaling.Concurrency,
+			Target:            10,
+			TargetUtilization: targetUtilization,
+		},
+		test.Options{},
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 		}))
@@ -230,10 +266,56 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 	}
 }
 
+// Explicitly setting this should cause the revision to scale down after ~10s
+func TestTargetBurstCapacityZero(t *testing.T) {
+	t.Parallel()
+
+	ctx := SetupSvc(t,
+		&AutoscalerOptions{
+			Class:             autoscaling.KPA,
+			Metric:            autoscaling.Concurrency,
+			Target:            10,
+			TargetUtilization: targetUtilization,
+		},
+		test.Options{},
+		rtesting.WithConfigAnnotations(map[string]string{
+			autoscaling.TargetBurstCapacityKey: "0",
+			autoscaling.WindowAnnotationKey:    "10s", // scale faster
+		}))
+
+	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
+
+	deploymentName := revnames.Deployment(ctx.resources.Revision)
+
+	t.Log("waiting for scale down")
+	err := pkgtest.WaitForDeploymentState(
+		context.Background(),
+		ctx.Clients().KubeClient,
+		deploymentName,
+		func(d *appsv1.Deployment) (bool, error) {
+			return d.Status.ReadyReplicas == 0, nil
+		},
+		"DeploymentIsScaledDown",
+		test.ServingFlags.TestNamespace,
+		time.Minute,
+	)
+
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestFastScaleToZero(t *testing.T) {
 	t.Parallel()
 
-	ctx := SetupSvc(t, autoscaling.KPA, autoscaling.Concurrency, containerConcurrency, targetUtilization,
+	ctx := SetupSvc(t,
+		&AutoscalerOptions{
+			Class:             autoscaling.KPA,
+			Metric:            autoscaling.Concurrency,
+			Target:            containerConcurrency,
+			TargetUtilization: targetUtilization,
+		},
+		test.Options{},
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 			autoscaling.WindowAnnotationKey:    autoscaling.WindowMin.String(),
@@ -266,4 +348,67 @@ func TestFastScaleToZero(t *testing.T) {
 	}
 
 	t.Log("Total time to scale down:", time.Since(st))
+}
+
+const activationScale = 5
+
+func TestActivationScale(t *testing.T) {
+	t.Parallel()
+
+	ctx := SetupSvc(t,
+		&AutoscalerOptions{
+			Class:             autoscaling.KPA,
+			Metric:            autoscaling.Concurrency,
+			Target:            6,
+			TargetUtilization: 0.7},
+		test.Options{},
+		rtesting.WithConfigAnnotations(map[string]string{
+			autoscaling.ActivationScaleKey: strconv.Itoa(activationScale),
+		}))
+	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
+
+	clients := ctx.Clients()
+	resources, err := testv1.GetResourceObjects(clients, *ctx.names)
+	if err != nil {
+		t.Errorf("error: unable to update resource: %s", err)
+	}
+
+	// initial scale of revision
+	if err := wait.Poll(1*time.Second, 5*time.Minute, func() (bool, error) {
+		return *resources.Revision.Status.ActualReplicas > 0, nil
+	}); err != nil {
+		t.Errorf("error: revision never had active pods")
+	}
+
+	// scale to zero
+	if err := wait.Poll(1*time.Second, 5*time.Minute, func() (bool, error) {
+		resources, _ = testv1.GetResourceObjects(clients, *ctx.names)
+		return *resources.Revision.Status.ActualReplicas == 0, nil
+	}); err != nil {
+		t.Errorf("error: revision never scaled to zero")
+	}
+
+	url := ctx.resources.Route.Status.URL.URL()
+
+	// send request, should scale up to activation scale
+	if _, err = pkgtest.CheckEndpointState(
+		context.Background(),
+		clients.KubeClient,
+		t.Logf,
+		url,
+		spoof.MatchesAllOf(spoof.IsStatusOK),
+		"ScalingFromZero",
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+	); err != nil {
+		t.Fatalf("Failed to scale up from zero %s: %v", url, err)
+	}
+
+	// wait for revision desired replicas to equal activation scale
+	if err := wait.Poll(1*time.Second, 5*time.Minute, func() (bool, error) {
+		resources, _ = testv1.GetResourceObjects(clients, *ctx.names)
+		return *resources.Revision.Status.DesiredReplicas == activationScale, nil
+	}); err != nil {
+		t.Errorf("error: desired pods never equal to activation scale")
+	}
 }

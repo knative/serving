@@ -110,7 +110,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			"example.com": "",
+			"svc.cluster.local": "",
 		},
 	}}
 	cms = append(cms, configs...)
@@ -161,7 +161,7 @@ func TestNewController(t *testing.T) {
 				Namespace: system.Namespace(),
 			},
 			Data: map[string]string{
-				"example.com": "",
+				"svc.cluster.local": "",
 			}},
 	)
 
@@ -430,7 +430,7 @@ func TestChangeDefaultDomain(t *testing.T) {
 
 	// The certificate should be created with the default domain.
 	cert := <-certEvents
-	if got, want := cert.Spec.DNSNames[0], "*.testns.example.com"; got != want {
+	if got, want := cert.Spec.DNSNames[0], "*.testns.svc.cluster.local"; got != want {
 		t.Errorf("DNSName[0] = %s, want %s", got, want)
 	}
 
@@ -483,8 +483,8 @@ func TestDomainConfigDomain(t *testing.T) {
 			"autoTLS":                          "Enabled",
 			"namespace-wildcard-cert-selector": "{}",
 		},
-		wantCertName: "testns.example.com",
-		wantDNSName:  "*.testns.example.com",
+		wantCertName: "testns.svc.cluster.local",
+		wantDNSName:  "*.testns.svc.cluster.local",
 	}, {
 		name: "default domain",
 		domainCfg: map[string]string{

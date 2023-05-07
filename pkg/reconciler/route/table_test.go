@@ -36,6 +36,7 @@ import (
 	networkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -2407,7 +2408,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 		},
 		WantCreates: []runtime.Object{
 			resources.MakeCertificates(Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
-				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName)[0],
+				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName, "example.com")[0],
 			ingressWithTLS(
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
 					WithRouteUID("12-34")),
@@ -2457,7 +2458,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
 			certificateWithStatus(resources.MakeCertificates(Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
-				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName)[0], readyCertStatus()),
+				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName, "example.com")[0], readyCertStatus()),
 		},
 		WantCreates: []runtime.Object{
 			ingressWithTLS(
@@ -2564,7 +2565,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: certificateWithStatus(resources.MakeCertificates(Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
-				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName)[0], readyCertStatus()),
+				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName, "example.com")[0], readyCertStatus()),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
@@ -2692,7 +2693,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: certificateWithStatus(resources.MakeCertificates(Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
-				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName)[0], readyCertStatus()),
+				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName, "example.com")[0], readyCertStatus()),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
@@ -2745,6 +2746,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 				},
 				Spec: netv1alpha1.CertificateSpec{
 					DNSNames:   []string{"becomes-ready.default.example.com"},
+					Domain:     "example.com", //Need this to pass, otherwise extra event updating the Cert with missing Domain will cause test to fail
 					SecretName: "route-12-34",
 				},
 				Status: netv1alpha1.CertificateStatus{
@@ -2753,6 +2755,15 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 							Scheme: "http",
 							Host:   "becomes-ready.default.example.com",
 							Path:   "/.well-known/acme-challenge/challengeToken",
+						},
+						ServiceName:      "cm-solver",
+						ServicePort:      intstr.FromInt(8090),
+						ServiceNamespace: "default",
+					}, {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "k.example.com",
+							Path:   "/.well-known/acme-challenge/challengeToken2",
 						},
 						ServiceName:      "cm-solver",
 						ServicePort:      intstr.FromInt(8090),
@@ -2787,6 +2798,15 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 					ServiceName:      "cm-solver",
 					ServicePort:      intstr.FromInt(8090),
 					ServiceNamespace: "default",
+				}, {
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   "k.example.com",
+						Path:   "/.well-known/acme-challenge/challengeToken2",
+					},
+					ServiceName:      "cm-solver",
+					ServicePort:      intstr.FromInt(8090),
+					ServiceNamespace: "default",
 				}},
 			),
 			simpleK8sService(
@@ -2815,6 +2835,160 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 				WithURL, WithRouteConditionsHTTPDowngrade,
 			),
 		}},
+		Key: "default/becomes-ready",
+	}, {
+		Name: "check that when kcert is renewing, Kingress gets updated with new http01 challenge paths",
+		Objects: []runtime.Object{
+			Route("default", "becomes-ready", WithConfigTarget("config"),
+				WithRouteUID("12-34"),
+				WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+					v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					}),
+				WithHTTPSDomain, MarkCertificateReady,
+			),
+			cfg("default", "config",
+				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
+			&netv1alpha1.Certificate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "route-12-34",
+					Namespace: "default",
+					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
+						Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")))},
+					Annotations: map[string]string{
+						netapi.CertificateClassAnnotationKey: netcfg.CertManagerCertificateClassName,
+					},
+					Labels: map[string]string{
+						serving.RouteLabelKey: "becomes-ready",
+					},
+				},
+				Spec: netv1alpha1.CertificateSpec{
+					DNSNames:   []string{"becomes-ready.default.example.com"},
+					Domain:     "example.com", //Need this to pass, otherwise extra event updating the Cert with missing Domain will cause test to fail
+					SecretName: "route-12-34",
+				},
+				Status: netv1alpha1.CertificateStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{
+							{Type: "Ready", Status: corev1.ConditionTrue},
+							{Type: "Renewing", Status: corev1.ConditionTrue},
+						},
+					},
+					HTTP01Challenges: []netv1alpha1.HTTP01Challenge{{
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "becomes-ready.default.example.com",
+							Path:   "/.well-known/acme-challenge/renewalChallengeToken",
+						},
+						ServiceName:      "cm-solver",
+						ServicePort:      intstr.FromInt(8090),
+						ServiceNamespace: "default",
+					}, {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "k.example.com",
+							Path:   "/.well-known/acme-challenge/renewalChallengeToken2",
+						},
+						ServiceName:      "cm-solver",
+						ServicePort:      intstr.FromInt(8090),
+						ServiceNamespace: "default",
+					}},
+				},
+			},
+			ingressWithTLS(
+				Route("default", "becomes-ready", WithConfigTarget("config"),
+					WithRouteUID("12-34"),
+					WithAddress, WithInitRouteConditions,
+					MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+						v1.TrafficTarget{
+							RevisionName:   "config-00001",
+							Percent:        ptr.Int64(100),
+							LatestRevision: ptr.Bool(true),
+						}),
+					WithHTTPSDomain, MarkCertificateReady,
+				),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
+							},
+						}},
+					},
+				},
+				[]netv1alpha1.IngressTLS{{
+					Hosts:           []string{"becomes-ready.default.example.com"},
+					SecretName:      "route-12-34",
+					SecretNamespace: "default",
+				}},
+				nil,
+				withReadyIngress,
+			), simpleK8sService(
+				Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
+				WithExternalName("private-istio-ingressgateway.istio-system.svc.cluster.local"),
+			),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{
+			{
+				Object: ingressWithTLS(
+					Route("default", "becomes-ready", WithConfigTarget("config"),
+						WithRouteUID("12-34"),
+						WithAddress, WithInitRouteConditions,
+						MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
+							v1.TrafficTarget{
+								RevisionName:   "config-00001",
+								Percent:        ptr.Int64(100),
+								LatestRevision: ptr.Bool(true),
+							}),
+						WithHTTPSDomain, MarkCertificateReady,
+					),
+					&traffic.Config{
+						Targets: map[string]traffic.RevisionTargets{
+							traffic.DefaultTarget: {{
+								TrafficTarget: v1.TrafficTarget{
+									ConfigurationName: "config",
+									LatestRevision:    ptr.Bool(true),
+									RevisionName:      "config-00001",
+									Percent:           ptr.Int64(100),
+								},
+							}},
+						},
+					},
+					[]netv1alpha1.IngressTLS{{
+						Hosts:           []string{"becomes-ready.default.example.com"},
+						SecretName:      "route-12-34",
+						SecretNamespace: "default",
+					}},
+					[]netv1alpha1.HTTP01Challenge{{
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "becomes-ready.default.example.com",
+							Path:   "/.well-known/acme-challenge/renewalChallengeToken",
+						},
+						ServiceName:      "cm-solver",
+						ServicePort:      intstr.FromInt(8090),
+						ServiceNamespace: "default",
+					}, {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "k.example.com",
+							Path:   "/.well-known/acme-challenge/renewalChallengeToken2",
+						},
+						ServiceName:      "cm-solver",
+						ServicePort:      intstr.FromInt(8090),
+						ServiceNamespace: "default",
+					}},
+					withReadyIngress,
+				),
+			},
+		},
 		Key: "default/becomes-ready",
 	}, {
 		Name:    "check that Route updates status and produces event log when valid name but not owned certificate",
@@ -2914,7 +3088,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: certificateWithStatus(resources.MakeCertificates(Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
-				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName)[0], notReadyCertStatus()),
+				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName, "example.com")[0], notReadyCertStatus()),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),

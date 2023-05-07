@@ -19,7 +19,6 @@ package shell
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -134,7 +133,7 @@ func defaultPrefixFunc(st StreamType, label string, cfg ExecutorConfig) string {
 }
 
 func withTempScript(contents string, fn func(bin string) error) error {
-	tmpfile, err := ioutil.TempFile("", "shellout-*.sh")
+	tmpfile, err := os.CreateTemp("", "shellout-*.sh")
 	if err != nil {
 		return err
 	}

@@ -2,7 +2,6 @@
 
 approvers:
 - knative-release-leads
-- networking-wg-leads
 - technical-oversight-committee
 - serving-wg-leads
 - serving-writers

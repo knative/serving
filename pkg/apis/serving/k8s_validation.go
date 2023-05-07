@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"path/filepath"
+	"path"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -196,8 +196,12 @@ func validateProjectedVolumeSource(vp corev1.VolumeProjection) *apis.FieldError 
 		specified = append(specified, "serviceAccountToken")
 		errs = errs.Also(validateServiceAccountTokenProjection(vp.ServiceAccountToken).ViaField("serviceAccountToken"))
 	}
+	if vp.DownwardAPI != nil {
+		specified = append(specified, "downwardAPI")
+		errs = errs.Also(validateDownwardAPIProjection(vp.DownwardAPI).ViaField("downwardAPI"))
+	}
 	if len(specified) == 0 {
-		errs = errs.Also(apis.ErrMissingOneOf("secret", "configMap", "serviceAccountToken"))
+		errs = errs.Also(apis.ErrMissingOneOf("secret", "configMap", "serviceAccountToken", "downwardAPI"))
 	} else if len(specified) > 1 {
 		errs = errs.Also(apis.ErrMultipleOneOf(specified...))
 	}
@@ -234,6 +238,28 @@ func validateServiceAccountTokenProjection(sp *corev1.ServiceAccountTokenProject
 	errs := apis.CheckDisallowedFields(*sp, *ServiceAccountTokenProjectionMask(sp))
 	// Audience & ExpirationSeconds are optional
 	if sp.Path == "" {
+		errs = errs.Also(apis.ErrMissingField("path"))
+	}
+	return errs
+}
+
+func validateDownwardAPIProjection(dapi *corev1.DownwardAPIProjection) *apis.FieldError {
+	errs := apis.CheckDisallowedFields(*dapi, *DownwardAPIProjectionMask(dapi))
+	for i := range dapi.Items {
+		errs = errs.Also(validateDownwardAPIVolumeFile(&dapi.Items[i]).ViaFieldIndex("items", i))
+	}
+	return errs
+}
+
+func validateDownwardAPIVolumeFile(vf *corev1.DownwardAPIVolumeFile) *apis.FieldError {
+	errs := apis.CheckDisallowedFields(*vf, *DownwardAPIVolumeFileMask(vf))
+	if vf.FieldRef == nil && vf.ResourceFieldRef == nil {
+		errs = errs.Also(apis.ErrMissingOneOf("fieldRef", "resourceFieldRef"))
+	}
+	if vf.FieldRef != nil && vf.ResourceFieldRef != nil {
+		errs = errs.Also(apis.ErrGeneric("Within a single item, cannot set both", "resourceFieldRef", "fieldRef"))
+	}
+	if vf.Path == "" {
 		errs = errs.Also(apis.ErrMissingField("path"))
 	}
 	return errs
@@ -340,6 +366,17 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 	errs := apis.CheckDisallowedFields(ps, *PodSpecMask(ctx, &ps))
 
 	errs = errs.Also(ValidatePodSecurityContext(ctx, ps.SecurityContext).ViaField("securityContext"))
+
+	for i := range ps.Containers {
+		errs = errs.Also(
+			warnDefaultContainerSecurityContext(ctx, ps.SecurityContext, ps.Containers[i].SecurityContext).
+				ViaField("securityContext").ViaFieldIndex("containers", i))
+	}
+	for i := range ps.InitContainers {
+		errs = errs.Also(
+			warnDefaultContainerSecurityContext(ctx, ps.SecurityContext, ps.InitContainers[i].SecurityContext).
+				ViaField("securityContext").ViaFieldIndex("initContainers", i))
+	}
 
 	volumes, err := ValidateVolumes(ctx, ps.Volumes, AllMountedVolumes(append(ps.InitContainers, ps.Containers...)))
 	errs = errs.Also(err.ViaField("volumes"))
@@ -628,18 +665,18 @@ func validateVolumeMounts(mounts []corev1.VolumeMount, volumes map[string]corev1
 
 		if vm.MountPath == "" {
 			errs = errs.Also(apis.ErrMissingField("mountPath").ViaIndex(i))
-		} else if reservedPaths.Has(filepath.Clean(vm.MountPath)) {
+		} else if reservedPaths.Has(path.Clean(vm.MountPath)) {
 			errs = errs.Also((&apis.FieldError{
-				Message: fmt.Sprintf("mountPath %q is a reserved path", filepath.Clean(vm.MountPath)),
+				Message: fmt.Sprintf("mountPath %q is a reserved path", path.Clean(vm.MountPath)),
 				Paths:   []string{"mountPath"},
 			}).ViaIndex(i))
-		} else if !filepath.IsAbs(vm.MountPath) {
+		} else if !path.IsAbs(vm.MountPath) {
 			errs = errs.Also(apis.ErrInvalidValue(vm.MountPath, "mountPath").ViaIndex(i))
-		} else if seenMountPath.Has(filepath.Clean(vm.MountPath)) {
+		} else if seenMountPath.Has(path.Clean(vm.MountPath)) {
 			errs = errs.Also(apis.ErrInvalidValue(
 				fmt.Sprintf("%q must be unique", vm.MountPath), "mountPath").ViaIndex(i))
 		}
-		seenMountPath.Insert(filepath.Clean(vm.MountPath))
+		seenMountPath.Insert(path.Clean(vm.MountPath))
 
 		shouldCheckReadOnlyVolume := volumes[vm.Name].EmptyDir == nil && volumes[vm.Name].PersistentVolumeClaim == nil
 		if shouldCheckReadOnlyVolume && !vm.ReadOnly {
@@ -869,6 +906,59 @@ func ValidatePodSecurityContext(ctx context.Context, sc *corev1.PodSecurityConte
 		}
 	}
 
+	return errs
+}
+
+// warnDefaultContainerSecurityContext warns about Kubernetes default
+// SecurityContext values which are unset and thus insecure (i.e. the
+// "restricted" profile forbids these values). Because securityContext values
+// may also be set at the Pod level, the container-level settings need to be
+// considered alongside the Pod-level settings.
+//
+// Note that this **explicitly** does not warn on dangerous SecurityContext
+// settings, the purpose is to avoid accidentally-insecure settings, not to
+// block deliberate use of dangerous settings.
+func warnDefaultContainerSecurityContext(_ context.Context, psc *corev1.PodSecurityContext, sc *corev1.SecurityContext) *apis.FieldError {
+	if sc == nil {
+		sc = &corev1.SecurityContext{}
+	}
+	if psc == nil {
+		psc = &corev1.PodSecurityContext{}
+	}
+
+	insecureDefault := func(fieldPath string) *apis.FieldError {
+		return apis.ErrGeneric("Kubernetes default value is insecure, Knative may default this to secure in a future release", fieldPath).At(apis.WarningLevel)
+	}
+
+	var errs *apis.FieldError
+	if psc.RunAsNonRoot == nil && sc.RunAsNonRoot == nil {
+		errs = errs.Also(insecureDefault("runAsNonRoot"))
+	}
+
+	if sc.AllowPrivilegeEscalation == nil {
+		errs = errs.Also(insecureDefault("allowPrivilegeEscalation"))
+	}
+
+	if sc.SeccompProfile == nil && psc.SeccompProfile == nil {
+		errs = errs.Also(insecureDefault("seccompProfile"))
+	} else {
+		pscIsDefault := psc.SeccompProfile == nil || psc.SeccompProfile.Type == ""
+		scIsDefault := sc.SeccompProfile == nil || sc.SeccompProfile.Type == ""
+		if pscIsDefault && scIsDefault {
+			errs = errs.Also(insecureDefault("seccompProfile.type"))
+		}
+	}
+
+	if sc.Capabilities == nil {
+		errs = errs.Also(insecureDefault("capabilities"))
+	} else {
+		if sc.Capabilities.Drop == nil {
+			errs = errs.Also(insecureDefault("capabilities.drop"))
+		} else if len(sc.Capabilities.Drop) > 0 && sc.Capabilities.Drop[0] == "all" {
+			// Sometimes, people mis-spell "ALL" as "all", which does nothing.
+			errs = errs.Also(apis.ErrInvalidValue("all", "capabilities.drop", "Must be spelled as 'ALL'").At(apis.WarningLevel))
+		}
+	}
 	return errs
 }
 

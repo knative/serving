@@ -6,13 +6,6 @@ community contact's duty (subject to change) is as followed:
 
 ## Weekly check list
 
-### Monday
-
-- Join the `@serving-help` user group if you haven't been invited by the
-  previous contact person using this
-  [link](https://app.slack.com/client/T93ELUK42/browse-user-groups/user_groups/S0186KPJYG4)
-- See [All days](#all-days)
-
 ### Friday
 
 - Remove yourself from `@serving-help` usergroup and add the next contact using
@@ -34,16 +27,15 @@ community contact's duty (subject to change) is as followed:
 - Check the
   [knative-users@](https://groups.google.com/forum/#!forum/knative-users)
   mailing list.
-- Add your self as a member of Slack user group `@serving-help`
-- Check Slack channel
-  [#serving-questions](https://knative.slack.com/archives/C0186KU7STW) for
+- Check Slack channel [#knative](https://cloud-native.slack.com/archives/C04LGHDR9K7) and
+  [#knative-serving](https://cloud-native.slack.com/archives/C04LMU0AX60) for
   unanswered questions. Any questions that relates to usability please instruct
   user to
   [open an usablity issue](https://github.com/knative/ux/issues/new?assignees=&labels=kind%2Ffriction-point&template=friction-point-template.md&title=)
   and to join the channel
-  [#user-experience](https://knative.slack.com/archives/C01JBD1LSF3) to capture
+  [#knative-documentation](https://cloud-native.slack.com/archives/C04LY5G9ED7) to capture
   user feedback.
-- [Triage issues in the serving repo](./TRIAGE.md). Quick links:
+- [Triage issues](./TRIAGE.md). Quick links:
   - [Untriaged issues](https://github.com/knative/serving/issues?q=is%3Aissue+is%3Aopen+-label%3Atriage%2Faccepted+-label%3Atriage%2Fneeds-user-input)
   - [User feedback issues updated more than 3 days ago](https://github.com/knative/serving/issues?q=is%3Aissue+is%3Aopen+label%3Atriage%2Fneeds-user-input+updated%3A%3C%3D2021-03-13)
     -- **YOU NEED TO UPDATE THE DATE IN THE QUERY**
@@ -65,12 +57,10 @@ excluding productivity. If you are no longer active in Knative, or if you are
 contributing on personal capacity and do not have time to contribute in the
 rotation, feel free to send a PR to remove yourself.
 
-- [carlisia](https://github.com/carlisia)
 - [dprotaso](https://github.com/dprotaso)
-- [nader-ziada](https://github.com/nader-ziada)
-- [nak3](https://github.com/nak3)
-- [psschwei](https://github.com/psschwei)
-
+- [KauzClay](https://github.com/KauzClay)
+- [ReToCode](https://github.com/ReToCode)
+- [skonto](https://github.com/skonto)
 
 # Schedule
 

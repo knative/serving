@@ -31,6 +31,7 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/atomic"
 	tracingconfig "knative.dev/pkg/tracing/config"
 
 	"github.com/openzipkin/zipkin-go/model"
@@ -60,8 +61,10 @@ const (
 var (
 	zipkinPortForwardPID int
 
-	// ZipkinTracingEnabled variable indicating if zipkin tracing is enabled.
+	// Deprecated: Use IsTracingEnabled for checking the current state.
 	ZipkinTracingEnabled = false
+
+	tracingEnabled atomic.Bool
 
 	// sync.Once variable to ensure we execute zipkin setup only once.
 	setupOnce sync.Once
@@ -69,6 +72,11 @@ var (
 	// sync.Once variable to ensure we execute zipkin cleanup only if zipkin is setup and it is executed only once.
 	teardownOnce sync.Once
 )
+
+// IsTracingEnabled indicates if zipkin tracing is enabled.
+func IsTracingEnabled() bool {
+	return tracingEnabled.Load()
+}
 
 // SetupZipkinTracingFromConfigTracing setups zipkin tracing like SetupZipkinTracing but retrieving the zipkin configuration
 // from config-tracing config map
@@ -110,9 +118,10 @@ func SetupZipkinTracingFromConfigTracingOrFail(ctx context.Context, t testing.TB
 }
 
 // SetupZipkinTracing sets up zipkin tracing which involves:
-// 1. Setting up port-forwarding from localhost to zipkin pod on the cluster
-//    (pid of the process doing Port-Forward is stored in a global variable).
-// 2. Enable AlwaysSample config for tracing for the SpoofingClient.
+//  1. Setting up port-forwarding from localhost to zipkin pod on the cluster
+//     (pid of the process doing Port-Forward is stored in a global variable).
+//  2. Enable AlwaysSample config for tracing for the SpoofingClient.
+//
 // The zipkin deployment must have the label app=zipkin
 func SetupZipkinTracing(ctx context.Context, kubeClientset kubernetes.Interface, logf logging.FormatLogger, zipkinRemotePort int, zipkinNamespace string) (err error) {
 	setupOnce.Do(func() {
@@ -137,6 +146,8 @@ func SetupZipkinTracing(ctx context.Context, kubeClientset kubernetes.Interface,
 
 		// Applying AlwaysSample config to ensure we propagate zipkin header for every request made by this client.
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+
+		tracingEnabled.Store(true)
 		logf("Successfully setup SpoofingClient for Zipkin Tracing")
 	})
 	return
@@ -152,20 +163,20 @@ func SetupZipkinTracingOrFail(ctx context.Context, t testing.TB, kubeClientset k
 // CleanupZipkinTracingSetup cleans up the Zipkin tracing setup on the machine. This involves killing the process performing port-forward.
 // This should be called exactly once in TestMain. Likely in the form:
 //
-// func TestMain(m *testing.M) {
-//     os.Exit(func() int {
-//       // Any setup required for the tests.
-//       defer zipkin.CleanupZipkinTracingSetup(logger)
-//       return m.Run()
-//     }())
-// }
+//	func TestMain(m *testing.M) {
+//	    os.Exit(func() int {
+//	      // Any setup required for the tests.
+//	      defer zipkin.CleanupZipkinTracingSetup(logger)
+//	      return m.Run()
+//	    }())
+//	}
 func CleanupZipkinTracingSetup(logf logging.FormatLogger) {
 	teardownOnce.Do(func() {
 		// Because CleanupZipkinTracingSetup only runs once, make sure that now that it has been
 		// run, SetupZipkinTracing will no longer setup any port forwarding.
 		setupOnce.Do(func() {})
 
-		if !ZipkinTracingEnabled {
+		if !IsTracingEnabled() {
 			return
 		}
 
@@ -174,7 +185,7 @@ func CleanupZipkinTracingSetup(logf logging.FormatLogger) {
 			return
 		}
 
-		ZipkinTracingEnabled = false
+		tracingEnabled.Store(false)
 	})
 }
 

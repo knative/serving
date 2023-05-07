@@ -280,6 +280,7 @@ func TestServiceValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.r.Validate(context.Background())
+			got = got.Filter(apis.ErrorLevel)
 			if !cmp.Equal(test.wantErr.Error(), got.Error()) {
 				t.Errorf("Validate (-want, +got) = %v",
 					cmp.Diff(test.wantErr.Error(), got.Error()))
@@ -527,6 +528,7 @@ func TestImmutableServiceFields(t *testing.T) {
 			ctx := context.Background()
 			ctx = apis.WithinUpdate(ctx, test.old)
 			got := test.new.Validate(ctx)
+			got = got.Filter(apis.ErrorLevel)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v\nwant: %v\ngot: %v",
 					diff, test.want, got)
@@ -666,7 +668,7 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 			ctx := context.Background()
 			ctx = apis.WithinUpdate(ctx, test.service)
 			ctx = apis.WithinSubResourceUpdate(ctx, test.service, test.subresource)
-			if diff := cmp.Diff(test.want.Error(), test.service.Validate(ctx).Error()); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), test.service.Validate(ctx).Filter(apis.ErrorLevel).Error()); diff != "" {
 				t.Error("Validate (-want, +got) =", diff)
 			}
 		})
@@ -782,7 +784,7 @@ func TestServiceAnnotationUpdate(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			ctx = apis.WithinUpdate(ctx, test.prev)
-			if diff := cmp.Diff(test.want.Error(), test.this.Validate(ctx).Error()); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), test.this.Validate(ctx).Filter(apis.ErrorLevel).Error()); diff != "" {
 				t.Error("Validate (-want, +got) =", diff)
 			}
 		})

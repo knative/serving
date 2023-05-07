@@ -86,9 +86,8 @@ func VolumeProjectionMask(in *corev1.VolumeProjection) *corev1.VolumeProjection 
 	out.ConfigMap = in.ConfigMap
 	out.ServiceAccountToken = in.ServiceAccountToken
 
-	// Disallowed fields
-	// This list is unnecessary, but added here for clarity
-	out.DownwardAPI = nil
+	// TODO(KauzClay): Should this be behind a feature flag like EmptyDir?
+	out.DownwardAPI = in.DownwardAPI
 
 	return out
 }
@@ -143,6 +142,40 @@ func ServiceAccountTokenProjectionMask(in *corev1.ServiceAccountTokenProjection)
 		ExpirationSeconds: in.ExpirationSeconds,
 		Path:              in.Path,
 	}
+
+	return out
+}
+
+// DownwardAPIProjectionMask performs a _shallow_ copy of the Kubernetes DownwardAPIProjection
+// object to a new Kubernetes DownwardAPIProjection object bringing over only the fields allowed
+// in the Knative API. This does not validate the contents or the bounds of the provided fields.
+func DownwardAPIProjectionMask(in *corev1.DownwardAPIProjection) *corev1.DownwardAPIProjection {
+	if in == nil {
+		return nil
+	}
+
+	out := new(corev1.DownwardAPIProjection)
+
+	out.Items = append(out.Items, in.Items...)
+
+	return out
+}
+
+// DownwardAPIVolumeFileMask performs a _shallow_ copy of the Kubernetes DownwardAPIVolumeFileMask
+// object to a new Kubernetes DownwardAPIVolumeFileMask object bringing over only the fields allowed
+// in the Knative API. This does not validate the contents or the bounds of the provided fields.
+func DownwardAPIVolumeFileMask(in *corev1.DownwardAPIVolumeFile) *corev1.DownwardAPIVolumeFile {
+	if in == nil {
+		return nil
+	}
+
+	out := new(corev1.DownwardAPIVolumeFile)
+
+	// Allowed fields
+	out.FieldRef = in.FieldRef
+	out.ResourceFieldRef = in.ResourceFieldRef
+	out.Path = in.Path
+	out.Mode = in.Mode
 
 	return out
 }
@@ -207,6 +240,9 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 		out.Tolerations = in.Tolerations
 	}
 	if cfg.Features.PodSpecSecurityContext != config.Disabled {
+		out.SecurityContext = in.SecurityContext
+	} else if cfg.Features.SecurePodDefaults != config.Disabled {
+		// This is further validated in ValidatePodSecurityContext.
 		out.SecurityContext = in.SecurityContext
 	}
 	if cfg.Features.PodSpecPriorityClassName != config.Disabled {
@@ -591,6 +627,19 @@ func PodSecurityContextMask(ctx context.Context, in *corev1.PodSecurityContext) 
 
 	out := new(corev1.PodSecurityContext)
 
+	if config.FromContextOrDefaults(ctx).Features.SecurePodDefaults == config.Enabled {
+		// Allow to opt out of more-secure defaults if SecurePodDefaults is enabled.
+		// This aligns with defaultSecurityContext in revision_defaults.go.
+		if in.SeccompProfile != nil {
+			seccomp := in.SeccompProfile.Type
+			if seccomp == corev1.SeccompProfileTypeRuntimeDefault || seccomp == corev1.SeccompProfileTypeUnconfined {
+				out.SeccompProfile = &corev1.SeccompProfile{
+					Type: seccomp,
+				}
+			}
+		}
+	}
+
 	if config.FromContextOrDefaults(ctx).Features.PodSpecSecurityContext == config.Disabled {
 		return out
 	}
@@ -600,12 +649,14 @@ func PodSecurityContextMask(ctx context.Context, in *corev1.PodSecurityContext) 
 	out.RunAsNonRoot = in.RunAsNonRoot
 	out.FSGroup = in.FSGroup
 	out.SupplementalGroups = in.SupplementalGroups
+	out.SeccompProfile = in.SeccompProfile
 
 	// Disallowed
 	// This list is unnecessary, but added here for clarity
 	out.SELinuxOptions = nil
 	out.WindowsOptions = nil
 	out.Sysctls = nil
+	out.FSGroupChangePolicy = nil
 
 	return out
 }
@@ -628,12 +679,17 @@ func SecurityContextMask(ctx context.Context, in *corev1.SecurityContext) *corev
 	// RunAsNonRoot when unset behaves the same way as false
 	// We do want the ability for folks to set this value to true
 	out.RunAsNonRoot = in.RunAsNonRoot
+	// AllowPrivilegeEscalation when unset can behave the same way as true
+	// We do want the ability for folks to set this value to false
+	out.AllowPrivilegeEscalation = in.AllowPrivilegeEscalation
+	// SeccompProfile defaults to "unconstrained", but the safe values are
+	// "RuntimeDefault" or "Localhost" (with localhost path set)
+	out.SeccompProfile = in.SeccompProfile
 
 	// Disallowed
 	// This list is unnecessary, but added here for clarity
 	out.Privileged = nil
 	out.SELinuxOptions = nil
-	out.AllowPrivilegeEscalation = nil
 	out.ProcMount = nil
 
 	return out

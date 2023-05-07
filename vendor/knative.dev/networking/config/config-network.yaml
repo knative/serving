@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: networking
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "73d96d1b"
+    knative.dev/example-checksum: "2b6d10ba"
 data:
   _example: |
     ################################
@@ -173,12 +173,34 @@ data:
     # Knative doesn't know about that otherwise.
     default-external-scheme: "http"
 
+    # internal-encryption is deprecated and replaced by internal-dataplane-trust and internal-controlplane-trust
     # internal-encryption indicates whether internal traffic is encrypted or not.
-    # If this is "true", the following traffic are encrypted:
-    #  - ingress to activator
-    #  - ingress to queue-proxy
-    #  - activator to queue-proxy
     #
     # NOTE: This flag is in an alpha state and is mostly here to enable internal testing
     #       for now. Use with caution.
     internal-encryption: "false"
+
+    # dataplane-trust indicates the level of trust established in the knative data-plane.
+    # dataplane-trust = "disabled" (the default) - uses no encryption for internal data plane traffic
+    # Using any other value ensures that the following traffic is encrypted using TLS:
+    #  - ingress to activator
+    #  - ingress to queue-proxy
+    #  - activator to queue-proxy
+    #
+    # dataplane-trust = "minimal" ensures data messages are encrypted, Kingress authenticate that the receiver is a Ksvc
+    # dataplane-trust = "enabled" same as "minimal" and in addition, Kingress authenticate that Ksvc is at the correct namespace
+    # dataplane-trust = "mutual" same as "enabled" and in addition, Ksvc authenticate that the messages come from the Kingress
+    # dataplane-trust = "identity" same as "mutual" with Kingress adding a trusted sender identity to the message
+    #
+    # NOTE: This flag is in an alpha state and is mostly here to enable internal testing for now. Use with caution.
+    dataplane-trust: "disabled"
+
+    # controlplane-trust indicates the level of trust established in the knative control-plane.
+    # controlplane-trust = "disabled" (the default) - uses no encryption for internal control plane traffic
+    # Using any other value ensures that control traffic is encrypted using TLS.
+    #
+    # controlplane-trust = "enabled" ensures control messages are encrypted using TLS (client authenticate the server)
+    # controlplane-trust = "mutual" ensures control messages are encrypted using mTLS (client and server authenticate each other)
+    #
+    # NOTE: This flag is in an alpha state and is mostly here to enable internal testing for now. Use with caution.
+    controlplane-trust: "disabled"

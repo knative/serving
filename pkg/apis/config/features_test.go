@@ -72,6 +72,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 			PodSpecSchedulerName:             Enabled,
 			PodSpecDNSPolicy:                 Enabled,
 			PodSpecDNSConfig:                 Enabled,
+			SecurePodDefaults:                Enabled,
 			TagHeaderBasedRouting:            Enabled,
 		}),
 		data: map[string]string{
@@ -88,6 +89,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"kubernetes.podspec-schedulername":             "Enabled",
 			"kubernetes.podspec-dnspolicy":                 "Enabled",
 			"kubernetes.podspec-dnsconfig":                 "Enabled",
+			"secure-pod-defaults":                          "Enabled",
 			"tag-header-based-routing":                     "Enabled",
 		},
 	}, {

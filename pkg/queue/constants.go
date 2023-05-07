@@ -37,9 +37,6 @@ const (
 	// TokenDirectory is the name of the directory path where tokens are stored.
 	TokenDirectory = "/var/run/secrets/tokens"
 
-	// ConcurrencyStateTokenFilename is the file name of the concurency state in TokenDirectory.
-	ConcurrencyStateTokenFilename = "state-token"
-
 	// PodInfoAnnotationsFilename is the file name of the annotations in PodInfoDirectory.
 	PodInfoAnnotationsFilename = "annotations"
 )

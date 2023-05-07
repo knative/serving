@@ -51,11 +51,12 @@ func (c *Reconciler) createDeployment(ctx context.Context, rev *v1.Revision) (*a
 func (c *Reconciler) createSecret(ctx context.Context, ns *corev1.Namespace) (*corev1.Secret, error) {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            ns.Name + "-" + networking.ServingCertName,
+			Name:            networking.ServingCertName,
 			Namespace:       ns.Name,
 			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(ns, corev1.SchemeGroupVersion.WithKind("Namespace"))},
 			Labels: map[string]string{
-				networking.ServingCertName + "-ctrl": "data-plane",
+				networking.ServingCertName + "-ctrl": "data-plane-user",
+				"routing-id":                         "0",
 			},
 		},
 	}

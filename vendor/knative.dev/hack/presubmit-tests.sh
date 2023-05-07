@@ -139,14 +139,7 @@ function __build_test_runner_for_module() {
   # Don't merge these two lines, or return code will always be 0.
   # Get all build tags in go code (ignore /vendor, /hack and /third_party)
   local tags
-  tags="$(grep -I -r '// +build' . | grep -v '/vendor/' | \
-    grep -v '/hack/' | \
-    grep -v '/third_party' | \
-    cut -f3 -d' ' | \
-    tr ',' '\n' | \
-    sort | uniq | \
-    grep -v '^!' | \
-    paste -s -d, /dev/stdin)"
+  tags="$(go run knative.dev/test-infra/tools/go-ls-tags@latest --joiner=,)"
   local go_pkg_dirs
   go_pkg_dirs="$(go list -tags "${tags}" ./...)" || return $?
   if [[ -z "${go_pkg_dirs}" ]]; then
@@ -295,6 +288,10 @@ function main() {
     if command -v mvn > /dev/null; then
       echo ">> maven version"
       mvn --version
+    fi
+    if command -v cosign > /dev/null; then
+      echo ">> cosign version"
+      cosign version
     fi
     echo ">> prow-tests image version"
     [[ -f /commit_hash ]] && echo "Prow test image was built from $(cat /commit_hash) commit which is viewable at https://github.com/knative/test-infra/tree/$(cat /commit_hash) " || echo "unknown"

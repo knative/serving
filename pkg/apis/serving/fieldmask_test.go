@@ -79,6 +79,64 @@ func TestVolumeSourceMask(t *testing.T) {
 	}
 }
 
+func TestVolumeProjectionMask(t *testing.T) {
+	want := &corev1.VolumeProjection{
+		DownwardAPI: &corev1.DownwardAPIProjection{
+			Items: []corev1.DownwardAPIVolumeFile{
+				{
+					Path: "labels",
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.labels",
+					},
+				},
+				{
+					Path: "cpu_limit",
+					ResourceFieldRef: &corev1.ResourceFieldSelector{
+						ContainerName: "bar",
+						Resource:      "limits.cpu",
+					},
+				},
+			},
+		},
+	}
+
+	in := &corev1.VolumeProjection{
+		DownwardAPI: &corev1.DownwardAPIProjection{
+			Items: []corev1.DownwardAPIVolumeFile{
+				{
+					Path: "labels",
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.labels",
+					},
+				},
+				{
+					Path: "cpu_limit",
+					ResourceFieldRef: &corev1.ResourceFieldSelector{
+						ContainerName: "bar",
+						Resource:      "limits.cpu",
+					},
+				},
+			},
+		},
+	}
+
+	got := VolumeProjectionMask(in)
+
+	if &want == &got {
+		t.Error("Input and output share addresses. Want different addresses")
+	}
+
+	if diff, err := kmp.SafeDiff(want, got); err != nil {
+		t.Error("Got error comparing output, err =", err)
+	} else if diff != "" {
+		t.Error("VolumeProjectionMask (-want, +got):", diff)
+	}
+
+	if got = VolumeProjectionMask(nil); got != nil {
+		t.Errorf("VolumeProjectionMask(nil) = %v, want: nil", got)
+	}
+}
+
 func TestPodSpecMask(t *testing.T) {
 	want := &corev1.PodSpec{
 		ServiceAccountName: "default",
@@ -656,6 +714,9 @@ func TestPodSecurityContextMask(t *testing.T) {
 		RunAsGroup:         ptr.Int64(1),
 		RunAsNonRoot:       ptr.Bool(true),
 		FSGroup:            ptr.Int64(1),
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
 	}
 
 	want := &corev1.PodSecurityContext{}
@@ -688,6 +749,9 @@ func TestPodSecurityContextMask_FeatureEnabled(t *testing.T) {
 		RunAsGroup:         ptr.Int64(1),
 		RunAsNonRoot:       ptr.Bool(true),
 		FSGroup:            ptr.Int64(1),
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
 	}
 
 	want := &corev1.PodSecurityContext{
@@ -696,6 +760,9 @@ func TestPodSecurityContextMask_FeatureEnabled(t *testing.T) {
 		RunAsNonRoot:       ptr.Bool(true),
 		FSGroup:            ptr.Int64(1),
 		SupplementalGroups: []int64{1},
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
 	}
 
 	ctx := config.ToContext(context.Background(),
@@ -719,14 +786,63 @@ func TestPodSecurityContextMask_FeatureEnabled(t *testing.T) {
 	}
 }
 
+func TestPodSecurityContextMask_SecureEnabled(t *testing.T) {
+	// Ensure that users can opt out of better security by explicitly
+	// requesting the Kubernetes default, which is "Unconfined".
+	want := &corev1.PodSecurityContext{
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeUnconfined,
+		},
+	}
+
+	in := &corev1.PodSecurityContext{
+		SELinuxOptions:     &corev1.SELinuxOptions{},
+		WindowsOptions:     &corev1.WindowsSecurityContextOptions{},
+		SupplementalGroups: []int64{1},
+		Sysctls:            []corev1.Sysctl{},
+		RunAsUser:          ptr.Int64(1),
+		RunAsGroup:         ptr.Int64(1),
+		RunAsNonRoot:       ptr.Bool(true),
+		FSGroup:            ptr.Int64(1),
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeUnconfined,
+		},
+	}
+
+	ctx := config.ToContext(context.Background(),
+		&config.Config{
+			Features: &config.Features{
+				SecurePodDefaults:      config.Enabled,
+				PodSpecSecurityContext: config.Disabled,
+			},
+		},
+	)
+
+	got := PodSecurityContextMask(ctx, in)
+
+	if &want == &got {
+		t.Error("Input and output share addresses. Want different addresses")
+	}
+
+	if diff, err := kmp.SafeDiff(want, got); err != nil {
+		t.Error("Got error comparing output, err =", err)
+	} else if diff != "" {
+		t.Error("PostSecurityContextMask (-want, +got):", diff)
+	}
+}
+
 func TestSecurityContextMask(t *testing.T) {
 	mtype := corev1.UnmaskedProcMount
 	want := &corev1.SecurityContext{
-		Capabilities:           &corev1.Capabilities{},
-		RunAsUser:              ptr.Int64(1),
-		RunAsGroup:             ptr.Int64(2),
-		RunAsNonRoot:           ptr.Bool(true),
-		ReadOnlyRootFilesystem: ptr.Bool(true),
+		Capabilities:             &corev1.Capabilities{},
+		RunAsUser:                ptr.Int64(1),
+		RunAsGroup:               ptr.Int64(2),
+		RunAsNonRoot:             ptr.Bool(true),
+		ReadOnlyRootFilesystem:   ptr.Bool(true),
+		AllowPrivilegeEscalation: ptr.Bool(false),
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
 	}
 	in := &corev1.SecurityContext{
 		RunAsUser:                ptr.Int64(1),
@@ -736,8 +852,12 @@ func TestSecurityContextMask(t *testing.T) {
 		RunAsGroup:               ptr.Int64(2),
 		RunAsNonRoot:             ptr.Bool(true),
 		ReadOnlyRootFilesystem:   ptr.Bool(true),
-		AllowPrivilegeEscalation: ptr.Bool(true),
+		AllowPrivilegeEscalation: ptr.Bool(false),
 		ProcMount:                &mtype,
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+		WindowsOptions: &corev1.WindowsSecurityContextOptions{},
 	}
 
 	got := SecurityContextMask(context.Background(), in)
@@ -760,14 +880,18 @@ func TestSecurityContextMask(t *testing.T) {
 func TestSecurityContextMask_FeatureEnabled(t *testing.T) {
 	mtype := corev1.UnmaskedProcMount
 	want := &corev1.SecurityContext{
-		Capabilities:           &corev1.Capabilities{},
-		RunAsGroup:             ptr.Int64(2),
-		RunAsNonRoot:           ptr.Bool(true),
-		RunAsUser:              ptr.Int64(1),
-		ReadOnlyRootFilesystem: ptr.Bool(true),
+		AllowPrivilegeEscalation: ptr.Bool(false),
+		Capabilities:             &corev1.Capabilities{},
+		RunAsGroup:               ptr.Int64(2),
+		RunAsNonRoot:             ptr.Bool(true),
+		RunAsUser:                ptr.Int64(1),
+		ReadOnlyRootFilesystem:   ptr.Bool(true),
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
 	}
 	in := &corev1.SecurityContext{
-		AllowPrivilegeEscalation: ptr.Bool(true),
+		AllowPrivilegeEscalation: ptr.Bool(false),
 		Capabilities:             &corev1.Capabilities{},
 		Privileged:               ptr.Bool(true),
 		ProcMount:                &mtype,
@@ -776,6 +900,10 @@ func TestSecurityContextMask_FeatureEnabled(t *testing.T) {
 		RunAsNonRoot:             ptr.Bool(true),
 		RunAsUser:                ptr.Int64(1),
 		SELinuxOptions:           &corev1.SELinuxOptions{},
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+		WindowsOptions: &corev1.WindowsSecurityContextOptions{},
 	}
 
 	ctx := config.ToContext(context.Background(),

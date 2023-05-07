@@ -26,13 +26,16 @@ import (
 // SetDefaults implements apis.Defaultable
 func (s *Service) SetDefaults(ctx context.Context) {
 	ctx = apis.WithinParent(ctx, s.ObjectMeta)
-	s.Spec.SetDefaults(apis.WithinSpec(ctx))
 
-	if apis.IsInUpdate(ctx) {
-		serving.SetUserInfo(ctx, apis.GetBaseline(ctx).(*Service).Spec, s.Spec, s)
-	} else {
-		serving.SetUserInfo(ctx, nil, s.Spec, s)
+	var prevSpec *ServiceSpec
+	if prev, ok := apis.GetBaseline(ctx).(*Service); ok && prev != nil {
+		prevSpec = &prev.Spec
+		ctx = WithPreviousConfigurationSpec(ctx, &prev.Spec.ConfigurationSpec)
 	}
+
+	s.Spec.SetDefaults(apis.WithinSpec(ctx))
+	serving.SetUserInfo(ctx, prevSpec, &s.Spec, s)
+
 }
 
 // SetDefaults implements apis.Defaultable

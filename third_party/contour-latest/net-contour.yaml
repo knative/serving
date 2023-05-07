@@ -8,7 +8,7 @@ metadata:
     networking.knative.dev/ingress-provider: contour
     app.kubernetes.io/component: net-contour
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220919-1a0ee5a8"
+    app.kubernetes.io/version: "20230503-97a51d0c"
     serving.knative.dev/controller: "true"
 rules:
   - apiGroups: ["projectcontour.io"]
@@ -38,7 +38,7 @@ metadata:
     networking.knative.dev/ingress-provider: contour
     app.kubernetes.io/component: net-contour
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20220919-1a0ee5a8"
+    app.kubernetes.io/version: "20230503-97a51d0c"
 data:
   _example: |
     ################################
@@ -93,6 +93,9 @@ metadata:
   namespace: knative-serving
   labels:
     networking.knative.dev/ingress-provider: contour
+    app.kubernetes.io/component: net-contour
+    app.kubernetes.io/name: knative-serving
+    app.kubernetes.io/version: "20230503-97a51d0c"
 spec:
   replicas: 1
   selector:
@@ -104,14 +107,14 @@ spec:
         app: net-contour-controller
         app.kubernetes.io/component: net-contour
         app.kubernetes.io/name: knative-serving
-        app.kubernetes.io/version: "20220919-1a0ee5a8"
+        app.kubernetes.io/version: "20230503-97a51d0c"
     spec:
       serviceAccountName: controller
       containers:
         - name: controller
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:684e435a931c3da44cda6df97e71d9fc1adf0b3d1b54d917b6a069a9d71cdd49
+          image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:6473a37da46053d33a2f1a0de2ecc6b2e0810813581a4204757ff2541bfcf93b
           resources:
             requests:
               cpu: 40m
@@ -141,6 +144,23 @@ spec:
             runAsNonRoot: true
             capabilities:
               drop:
-                - all
+                - ALL
+---
+#! Used when internal-encryption is set to "true"
+apiVersion: projectcontour.io/v1
+kind: TLSCertificateDelegation
+metadata:
+  name: knative-serving-certs
+  namespace: knative-serving
+  labels:
+    networking.knative.dev/ingress-provider: contour
+    app.kubernetes.io/component: net-contour
+    app.kubernetes.io/name: knative-serving
+    app.kubernetes.io/version: "20230503-97a51d0c"
+spec:
+  delegations:
+    - secretName: knative-serving-certs
+      targetNamespaces:
+        - "*"
 ---
 

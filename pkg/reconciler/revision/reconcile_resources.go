@@ -202,29 +202,28 @@ func hasDeploymentTimedOut(deployment *appsv1.Deployment) bool {
 
 func (c *Reconciler) reconcileSecret(ctx context.Context, rev *v1.Revision) error {
 	ns := rev.Namespace
-	secretName := ns + "-" + networking.ServingCertName
 	logger := logging.FromContext(ctx)
-	logger.Info("Reconciling Secret: ", secretName)
+	logger.Info("Reconciling Secret: ", networking.ServingCertName, " at namespace: ", ns)
 
-	secret, err := c.kubeclient.CoreV1().Secrets(ns).Get(ctx, secretName, metav1.GetOptions{})
+	secret, err := c.kubeclient.CoreV1().Secrets(ns).Get(ctx, networking.ServingCertName, metav1.GetOptions{})
 	if apierrs.IsNotFound(err) {
 		namespace, err := c.kubeclient.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
 		if err != nil {
-			return fmt.Errorf("failed to get Namespace %q: %w", secretName, err)
+			return fmt.Errorf("failed to get Namespace %s: %w", ns, err)
 		}
 		if secret, err = c.createSecret(ctx, namespace); err != nil {
-			return fmt.Errorf("failed to create Secret %q: %w", secretName, err)
+			return fmt.Errorf("failed to create Secret %s/%s: %w", networking.ServingCertName, ns, err)
 		}
-		logger.Info("Created Secret: ", secretName)
+		logger.Info("Created Secret: ", networking.ServingCertName, "at namespace: ", ns)
 	} else if err != nil {
-		return fmt.Errorf("failed to get secret %q: %w", secretName, err)
+		return fmt.Errorf("failed to get secret %s/%s: %w", networking.ServingCertName, ns, err)
 	}
 
 	// Verify if secret has been added the data.
-	if _, ok := secret.Data[certificates.SecretCertKey]; !ok {
+	if _, ok := secret.Data[certificates.CertName]; !ok {
 		return fmt.Errorf("public cert in the secret is not ready yet")
 	}
-	if _, ok := secret.Data[certificates.SecretPKKey]; !ok {
+	if _, ok := secret.Data[certificates.PrivateKeyName]; !ok {
 		return fmt.Errorf("private key in the secret is not ready yet")
 	}
 

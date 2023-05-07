@@ -35,61 +35,52 @@ import (
 var randReader = rand.Reader
 var serialNumberLimit = new(big.Int).Lsh(big.NewInt(1), 128)
 
-// Copy-pasted from https://github.com/knative/pkg/blob/975a1cf9e4470b26ce54d9cc628dbd50716b6b95/webhook/certificates/resources/certs.go
-func createCertTemplate(expirationInterval time.Duration) (*x509.Certificate, error) {
+// Create template common to all certificates
+func createCertTemplate(expirationInterval time.Duration, sans []string) (*x509.Certificate, error) {
 	serialNumber, err := rand.Int(randReader, serialNumberLimit)
 	if err != nil {
 		return nil, errors.New("failed to generate serial number: " + err.Error())
 	}
 
 	tmpl := x509.Certificate{
-		SerialNumber: serialNumber,
-		Subject: pkix.Name{
-			Organization: []string{Organization},
-			CommonName:   "control-plane",
-		},
+		SerialNumber:          serialNumber,
 		SignatureAlgorithm:    x509.SHA256WithRSA,
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().Add(expirationInterval),
 		BasicConstraintsValid: true,
-		DNSNames:              []string{FakeDnsName},
+		DNSNames:              sans,
 	}
 	return &tmpl, nil
 }
 
 // Create cert template suitable for CA and hence signing
 func createCACertTemplate(expirationInterval time.Duration) (*x509.Certificate, error) {
-	rootCert, err := createCertTemplate(expirationInterval)
+	rootCert, err := createCertTemplate(expirationInterval, []string{})
 	if err != nil {
 		return nil, err
 	}
 	// Make it into a CA cert and change it so we can use it to sign certs
 	rootCert.IsCA = true
-	rootCert.KeyUsage = x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature
-	rootCert.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}
+	rootCert.KeyUsage = x509.KeyUsageCertSign
+	rootCert.Subject = pkix.Name{
+		Organization: []string{Organization},
+	}
 	return rootCert, nil
 }
 
-// Create cert template that we can use on the server for TLS
-func createServerCertTemplate(expirationInterval time.Duration) (*x509.Certificate, error) {
-	serverCert, err := createCertTemplate(expirationInterval)
+// Create cert template that we can use on the client/server for TLS
+func createTransportCertTemplate(expirationInterval time.Duration, sans []string) (*x509.Certificate, error) {
+	cert, err := createCertTemplate(expirationInterval, sans)
 	if err != nil {
 		return nil, err
 	}
-	serverCert.KeyUsage = x509.KeyUsageDigitalSignature
-	serverCert.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
-	return serverCert, err
-}
-
-// Create cert template that we can use on the server for TLS
-func createClientCertTemplate(expirationInterval time.Duration) (*x509.Certificate, error) {
-	serverCert, err := createCertTemplate(expirationInterval)
-	if err != nil {
-		return nil, err
+	cert.KeyUsage = x509.KeyUsageDigitalSignature
+	cert.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}
+	cert.Subject = pkix.Name{
+		Organization: []string{Organization},
+		CommonName:   "control-protocol-certificate",
 	}
-	serverCert.KeyUsage = x509.KeyUsageDigitalSignature
-	serverCert.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
-	return serverCert, err
+	return cert, err
 }
 
 func createCert(template, parent *x509.Certificate, pub, parentPriv interface{}) (cert *x509.Certificate, certPEM *pem.Block, err error) {
@@ -131,60 +122,44 @@ func CreateCACerts(ctx context.Context, expirationInterval time.Duration) (*KeyP
 	return NewKeyPair(caPrivateKeyPem, caCertPem), nil
 }
 
-// CreateControlPlaneCert generates the certificate for the client
+// Deprecated: CreateControlPlaneCert generates the certificate for the client
 func CreateControlPlaneCert(ctx context.Context, caKey *rsa.PrivateKey, caCertificate *x509.Certificate, expirationInterval time.Duration) (*KeyPair, error) {
-	logger := logging.FromContext(ctx)
-
-	// Then create the private key for the serving cert
-	clientKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		logger.Errorw("error generating random key", zap.Error(err))
-		return nil, err
-	}
-	clientCertTemplate, err := createClientCertTemplate(expirationInterval)
-	if err != nil {
-		logger.Errorw("failed to create the server certificate template", zap.Error(err))
-		return nil, err
-	}
-
-	// create a certificate which wraps the server's public key, sign it with the CA private key
-	_, clientCertPEM, err := createCert(clientCertTemplate, caCertificate, &clientKey.PublicKey, caKey)
-	if err != nil {
-		logger.Errorw("error signing client certificate template", zap.Error(err))
-		return nil, err
-	}
-	privateClientKeyPEM := &pem.Block{
-		Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(clientKey),
-	}
-	return NewKeyPair(privateClientKeyPEM, clientCertPEM), nil
+	return CreateCert(ctx, caKey, caCertificate, expirationInterval, LegacyFakeDnsName)
 }
 
-// CreateDataPlaneCert generates the certificate for the server
+// Deprecated: CreateDataPlaneCert generates the certificate for the server
 func CreateDataPlaneCert(ctx context.Context, caKey *rsa.PrivateKey, caCertificate *x509.Certificate, expirationInterval time.Duration) (*KeyPair, error) {
+	return CreateCert(ctx, caKey, caCertificate, expirationInterval, LegacyFakeDnsName)
+}
+
+// CreateCert generates the certificate for use by client and server
+func CreateCert(ctx context.Context, caKey *rsa.PrivateKey, caCertificate *x509.Certificate, expirationInterval time.Duration, sans ...string) (*KeyPair, error) {
 	logger := logging.FromContext(ctx)
 
 	// Then create the private key for the serving cert
-	serverKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	keyPair, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		logger.Errorw("error generating random key", zap.Error(err))
 		return nil, err
 	}
-	serverCertTemplate, err := createServerCertTemplate(expirationInterval)
+
+	certTemplate, err := createTransportCertTemplate(expirationInterval, sans)
 	if err != nil {
-		logger.Errorw("failed to create the server certificate template", zap.Error(err))
+		logger.Errorw("failed to create the certificate template", zap.Error(err))
 		return nil, err
 	}
 
-	// create a certificate which wraps the server's public key, sign it with the CA private key
-	_, serverCertPEM, err := createCert(serverCertTemplate, caCertificate, &serverKey.PublicKey, caKey)
+	// create a certificate which wraps the public key, sign it with the CA private key
+	_, certPEM, err := createCert(certTemplate, caCertificate, &keyPair.PublicKey, caKey)
 	if err != nil {
-		logger.Errorw("error signing server certificate template", zap.Error(err))
+		logger.Errorw("error signing certificate template", zap.Error(err))
 		return nil, err
 	}
-	privateServerKeyPEM := &pem.Block{
-		Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(serverKey),
+
+	privateKeyPEM := &pem.Block{
+		Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(keyPair),
 	}
-	return NewKeyPair(privateServerKeyPEM, serverCertPEM), nil
+	return NewKeyPair(privateKeyPEM, certPEM), nil
 }
 
 // ParseCert parses a certificate/private key pair from serialized pem blocks

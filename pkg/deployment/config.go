@@ -65,8 +65,9 @@ const (
 	queueSidecarMemoryLimitKey           = "queue-sidecar-memory-limit"
 	queueSidecarEphemeralStorageLimitKey = "queue-sidecar-ephemeral-storage-limit"
 
-	// concurrencyStateEndpointKey is the key to configure the endpoint Queue Proxy will call when traffic drops to / increases from zero.
-	concurrencyStateEndpointKey = "concurrency-state-endpoint"
+	// qpoptions
+	queueSidecarTokenAudiencesKey = "queue-sidecar-token-audiences"
+	queueSidecarRooCAKey          = "queue-sidecar-rootca"
 )
 
 var (
@@ -77,13 +78,19 @@ var (
 )
 
 func defaultConfig() *Config {
-	return &Config{
+	cfg := &Config{
 		ProgressDeadline:               ProgressDeadlineDefault,
 		DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 		RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
 		QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
-		ConcurrencyStateEndpoint:       "",
 	}
+	// The following code is needed for ConfigMap testing.
+	// defaultConfig must match the example in deployment.yaml which includes: `queue-sidecar-token-audiences: ""`
+	if cfg.QueueSidecarTokenAudiences == nil {
+		cfg.QueueSidecarTokenAudiences = sets.NewString("")
+	}
+
+	return cfg
 }
 
 // NewConfigFromMap creates a DeploymentConfig from the supplied Map.
@@ -102,7 +109,6 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 		cm.AsQuantity("queueSidecarCPULimit", &nc.QueueSidecarCPULimit),
 		cm.AsQuantity("queueSidecarMemoryLimit", &nc.QueueSidecarMemoryLimit),
 		cm.AsQuantity("queueSidecarEphemeralStorageLimit", &nc.QueueSidecarEphemeralStorageLimit),
-		cm.AsString("concurrencyStateEndpoint", &nc.ConcurrencyStateEndpoint),
 
 		cm.AsString(QueueSidecarImageKey, &nc.QueueSidecarImage),
 		cm.AsDuration(ProgressDeadlineKey, &nc.ProgressDeadline),
@@ -116,7 +122,8 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 		cm.AsQuantity(queueSidecarMemoryLimitKey, &nc.QueueSidecarMemoryLimit),
 		cm.AsQuantity(queueSidecarEphemeralStorageLimitKey, &nc.QueueSidecarEphemeralStorageLimit),
 
-		cm.AsString(concurrencyStateEndpointKey, &nc.ConcurrencyStateEndpoint),
+		cm.AsStringSet(queueSidecarTokenAudiencesKey, &nc.QueueSidecarTokenAudiences),
+		cm.AsString(queueSidecarRooCAKey, &nc.QueueSidecarRootCA),
 	); err != nil {
 		return nil, err
 	}
@@ -181,6 +188,10 @@ type Config struct {
 	// for the queue proxy sidecar container.
 	QueueSidecarEphemeralStorageLimit *resource.Quantity
 
-	// ConcurrencyStateEndpoint is the endpoint Queue Proxy will call when traffic drops to / increases from zero.
-	ConcurrencyStateEndpoint string
+	// QueueSidecarTokenAudiences is a set of strings defining required tokens  - each string represent the token audience
+	// used by the queue proxy sidecar container to create tokens for qpoptions.
+	QueueSidecarTokenAudiences sets.String
+
+	// QueueSidecarRootCA is a root certificate to be trusted by the queue proxy sidecar  qpoptions.
+	QueueSidecarRootCA string
 }

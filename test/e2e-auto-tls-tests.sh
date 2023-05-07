@@ -86,7 +86,7 @@ function setup_http01_auto_tls() {
   # Rely on the built-in naming (for logstream)
   unset TLS_SERVICE_NAME
   # The full host name of the Knative Service. This is used to configure the DNS record.
-  export AUTO_TLS_TEST_FULL_HOST_NAME="*.${TLS_TEST_NAMESPACE}.${CUSTOM_DOMAIN_SUFFIX}"
+  export AUTO_TLS_TEST_FULL_HOST_NAME="*.${CUSTOM_DOMAIN_SUFFIX}"
 
   kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
 
@@ -159,7 +159,7 @@ function delete_dns_record() {
 }
 
 # Script entry point.
-initialize "$@" --skip-istio-addon --num-nodes=4 --enable-ha --cluster-version=1.23
+initialize "$@" --skip-istio-addon --num-nodes=4 --enable-ha --cluster-version=1.24
 
 # Run the tests
 header "Running tests"

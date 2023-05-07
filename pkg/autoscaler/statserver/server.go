@@ -65,10 +65,12 @@ func New(statsServerAddr string, statsCh chan<- metrics.StatMessage, logger *zap
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", svr.Handler)
+
 	svr.wsSrv = http.Server{
-		Addr:      statsServerAddr,
-		Handler:   mux,
-		ConnState: svr.onConnStateChange,
+		Addr:              statsServerAddr,
+		Handler:           mux,
+		ConnState:         svr.onConnStateChange,
+		ReadHeaderTimeout: time.Minute, //https://medium.com/a-journey-with-go/go-understand-and-mitigate-slowloris-attack-711c1b1403f6
 	}
 	return &svr
 }

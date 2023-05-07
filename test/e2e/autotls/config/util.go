@@ -18,23 +18,19 @@ package config
 
 import (
 	"context"
-	"os"
 	"time"
 
-	"golang.org/x/oauth2/google"
 	"google.golang.org/api/dns/v1"
-	"google.golang.org/api/option"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // EnvConfig is the config parsed from environment variables by envconfig.
 type EnvConfig struct {
-	FullHostName                  string `envconfig:"full_host_name" required:"true"`
-	DomainName                    string `envconfig:"domain_name" required:"true"`
-	DNSZone                       string `envconfig:"dns_zone" required:"true"`
-	CloudDNSServiceAccountKeyFile string `envconfig:"cloud_dns_service_account_key_file" required:"true"`
-	CloudDNSProject               string `envconfig:"cloud_dns_project" required:"true"`
-	IngressIP                     string `envconfig:"ingress_ip" required:"true"`
+	FullHostName    string `envconfig:"full_host_name" required:"true"`
+	DomainName      string `envconfig:"domain_name" required:"true"`
+	DNSZone         string `envconfig:"dns_zone" required:"true"`
+	CloudDNSProject string `envconfig:"cloud_dns_project" required:"true"`
+	IngressIP       string `envconfig:"ingress_ip" required:"true"`
 }
 
 // DNSRecord represents an IP and Domain.
@@ -56,9 +52,9 @@ func MakeRecordSet(record *DNSRecord) *dns.ResourceRecordSet {
 }
 
 // DeleteDNSRecord deletes the given DNS record.
-func DeleteDNSRecord(record *DNSRecord, svcAccountKeyFile, dnsProject, dnsZone string) error {
+func DeleteDNSRecord(record *DNSRecord, dnsProject, dnsZone string) error {
 	rec := MakeRecordSet(record)
-	svc, err := GetCloudDNSSvc(svcAccountKeyFile)
+	svc, err := GetCloudDNSSvc()
 	if err != nil {
 		return err
 	}
@@ -86,15 +82,7 @@ func ChangeDNSRecord(change *dns.Change, svc *dns.Service, dnsProject, dnsZone s
 
 // GetCloudDNSSvc returns the Cloud DNS Service stub.
 // reference: https://github.com/jetstack/cert-manager/blob/master/pkg/issuer/acme/dns/clouddns/clouddns.go
-func GetCloudDNSSvc(svcAccountKeyFile string) (*dns.Service, error) {
-	data, err := os.ReadFile(svcAccountKeyFile)
-	if err != nil {
-		return nil, err
-	}
-	conf, err := google.JWTConfigFromJSON(data, dns.NdevClouddnsReadwriteScope)
-	if err != nil {
-		return nil, err
-	}
+func GetCloudDNSSvc() (*dns.Service, error) {
 	ctx := context.Background()
-	return dns.NewService(ctx, option.WithHTTPClient(conf.Client(ctx)))
+	return dns.NewService(ctx)
 }
