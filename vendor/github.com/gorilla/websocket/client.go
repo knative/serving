@@ -9,7 +9,6 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -139,7 +138,7 @@ func hostPortNoPort(u *url.URL) (hostPort, hostNoPort string) {
 
 // DefaultDialer is a dialer with all fields set to the default values.
 var DefaultDialer = &Dialer{
-	//	Proxy:            http.ProxyFromEnvironment,
+	Proxy:            http.ProxyFromEnvironment,
 	HandshakeTimeout: 45 * time.Second,
 }
 
@@ -247,7 +246,7 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 
 	// Get network dial function.
 	var netDial func(network, add string) (net.Conn, error)
-	fmt.Printf("debug: gorilla:  d: %+v\n", d)
+
 	switch u.Scheme {
 	case "http":
 		if d.NetDialContext != nil {
@@ -298,27 +297,25 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 	}
 
 	// If needed, wrap the dial function to connect through a proxy.
-	/*	if d.Proxy != nil {
-			proxyURL, err := d.Proxy(req)
+	if d.Proxy != nil {
+		proxyURL, err := d.Proxy(req)
+		if err != nil {
+			return nil, nil, err
+		}
+		if proxyURL != nil {
+			dialer, err := proxy_FromURL(proxyURL, netDialerFunc(netDial))
 			if err != nil {
 				return nil, nil, err
 			}
-			if proxyURL != nil {
-				dialer, err := proxy_FromURL(proxyURL, netDialerFunc(netDial))
-				if err != nil {
-					return nil, nil, err
-				}
-				netDial = dialer.Dial
-			}
+			netDial = dialer.Dial
 		}
-	*/
+	}
 
 	hostPort, hostNoPort := hostPortNoPort(u)
 	trace := httptrace.ContextClientTrace(ctx)
 	if trace != nil && trace.GetConn != nil {
 		trace.GetConn(hostPort)
 	}
-	fmt.Printf("debug: gorilla:  hostPort: %+v\n", hostPort)
 
 	netConn, err := netDial("tcp", hostPort)
 	if trace != nil && trace.GotConn != nil {
@@ -326,7 +323,6 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 			Conn: netConn,
 		})
 	}
-	fmt.Printf("debug: gorilla:  netConn: %+v\n", netConn)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -361,9 +357,7 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 	}
 
 	conn := newConn(netConn, false, d.ReadBufferSize, d.WriteBufferSize, d.WriteBufferPool, nil, nil)
-	fmt.Printf("debug: gorilla:  conn: %+v\n", conn)
-	fmt.Printf("debug: gorilla:  req: %+v\n", req)
-	fmt.Printf("debug: gorilla:  req URL: %+v\n", req.URL)
+
 	if err := req.Write(netConn); err != nil {
 		return nil, nil, err
 	}
@@ -375,7 +369,6 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 	}
 
 	resp, err := http.ReadResponse(conn.br, req)
-	fmt.Printf("debug: gorilla:  resp: %+v\n", resp)
 	if err != nil {
 		return nil, nil, err
 	}

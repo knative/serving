@@ -3,7 +3,6 @@ package ws
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -266,24 +265,18 @@ func negotiateExtensions(
 func httpWriteHeader(bw *bufio.Writer, key, value string) {
 	httpWriteHeaderKey(bw, key)
 	bw.WriteString(value)
-	fmt.Print(value)
 	bw.WriteString(crlf)
-	fmt.Print(crlf)
 }
 
 func httpWriteHeaderBts(bw *bufio.Writer, key string, value []byte) {
 	httpWriteHeaderKey(bw, key)
 	bw.Write(value)
-	fmt.Print(value)
 	bw.WriteString(crlf)
-	fmt.Print(crlf)
 }
 
 func httpWriteHeaderKey(bw *bufio.Writer, key string) {
 	bw.WriteString(key)
-	fmt.Print(key)
 	bw.WriteString(colonAndSpace)
-	fmt.Print(colonAndSpace)
 }
 
 func httpWriteUpgradeRequest(
@@ -295,11 +288,8 @@ func httpWriteUpgradeRequest(
 	header HandshakeHeader,
 ) {
 	bw.WriteString("GET ")
-	fmt.Print("GET ")
 	bw.WriteString(u.RequestURI())
-	fmt.Print(u.RequestURI())
 	bw.WriteString(" HTTP/1.1\r\n")
-	fmt.Print(" HTTP/1.1\r\n")
 
 	httpWriteHeader(bw, headerHost, u.Host)
 
@@ -312,27 +302,22 @@ func httpWriteUpgradeRequest(
 	// which may write p directly to the underlying io.Writer – which in turn
 	// will lead to p escape.
 	httpWriteHeader(bw, headerSecKey, btsToString(nonce))
-	fmt.Printf("debug: gobwas nonce %+v\n", btsToString(nonce))
 
 	if len(protocols) > 0 {
 		httpWriteHeaderKey(bw, headerSecProtocol)
 		for i, p := range protocols {
 			if i > 0 {
 				bw.WriteString(commaAndSpace)
-				fmt.Print(commaAndSpace)
 			}
 			bw.WriteString(p)
-			fmt.Print(p)
 		}
 		bw.WriteString(crlf)
-		fmt.Print(crlf)
 	}
 
 	if len(extensions) > 0 {
 		httpWriteHeaderKey(bw, headerSecExtensions)
 		httphead.WriteOptions(bw, extensions)
 		bw.WriteString(crlf)
-		fmt.Print(crlf)
 	}
 
 	if header != nil {
@@ -340,17 +325,14 @@ func httpWriteUpgradeRequest(
 	}
 
 	bw.WriteString(crlf)
-	fmt.Print(crlf)
 }
 
 func httpWriteResponseUpgrade(bw *bufio.Writer, nonce []byte, hs Handshake, header HandshakeHeaderFunc) {
 	bw.WriteString(textHeadUpgrade)
-	fmt.Print(textHeadUpgrade)
 
 	httpWriteHeaderKey(bw, headerSecAccept)
 	writeAccept(bw, nonce)
 	bw.WriteString(crlf)
-	fmt.Print(crlf)
 
 	if hs.Protocol != "" {
 		httpWriteHeader(bw, headerSecProtocol, hs.Protocol)
@@ -359,14 +341,12 @@ func httpWriteResponseUpgrade(bw *bufio.Writer, nonce []byte, hs Handshake, head
 		httpWriteHeaderKey(bw, headerSecExtensions)
 		httphead.WriteOptions(bw, hs.Extensions)
 		bw.WriteString(crlf)
-		fmt.Print(crlf)
 	}
 	if header != nil {
 		header(bw)
 	}
 
 	bw.WriteString(crlf)
-	fmt.Print(crlf)
 }
 
 func httpWriteResponseError(bw *bufio.Writer, err error, code int, header HandshakeHeaderFunc) {
@@ -472,7 +452,6 @@ type HandshakeHeaderString string
 // WriteTo implements HandshakeHeader (and io.WriterTo) interface.
 func (s HandshakeHeaderString) WriteTo(w io.Writer) (int64, error) {
 	n, err := io.WriteString(w, string(s))
-	fmt.Print(s)
 	return int64(n), err
 }
 
@@ -483,7 +462,6 @@ type HandshakeHeaderBytes []byte
 // WriteTo implements HandshakeHeader (and io.WriterTo) interface.
 func (b HandshakeHeaderBytes) WriteTo(w io.Writer) (int64, error) {
 	n, err := w.Write(b)
-	fmt.Print(b)
 	return int64(n), err
 }
 
@@ -504,7 +482,6 @@ type HandshakeHeaderHTTP http.Header
 func (h HandshakeHeaderHTTP) WriteTo(w io.Writer) (int64, error) {
 	wr := writer{w: w}
 	err := http.Header(h).Write(&wr)
-	fmt.Print(h)
 	return wr.n, err
 }
 
@@ -515,14 +492,12 @@ type writer struct {
 
 func (w *writer) WriteString(s string) (int, error) {
 	n, err := io.WriteString(w.w, s)
-	fmt.Print(s)
 	w.n += int64(n)
 	return n, err
 }
 
 func (w *writer) Write(p []byte) (int, error) {
 	n, err := w.w.Write(p)
-	fmt.Print(p)
 	w.n += int64(n)
 	return n, err
 }
