@@ -42,6 +42,8 @@ const (
 	// Kubernetes CA certificate bundle is mounted into the pod here, see:
 	// https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/#trusting-tls-in-a-cluster
 	k8sCertPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+
+	tlsMinVersionEnvKey = "TAG_TO_DIGEST_TLS_MIN_VERSION"
 )
 
 // newResolverTransport returns an http.Transport that appends the certs bundle
@@ -64,11 +66,24 @@ func newResolverTransport(path string, maxIdleConns, maxIdleConnsPerHost int) (*
 	transport.MaxIdleConns = maxIdleConns
 	transport.MaxIdleConnsPerHost = maxIdleConnsPerHost
 	transport.TLSClientConfig = &tls.Config{
-		MinVersion: tls.VersionTLS13,
+		MinVersion: tlsMinVersionFromEnv(tls.VersionTLS12),
 		RootCAs:    pool,
 	}
 
 	return transport, nil
+}
+
+func tlsMinVersionFromEnv(defaultTLSMinVersion uint16) uint16 {
+	switch tlsMinVersion := os.Getenv(tlsMinVersionEnvKey); tlsMinVersion {
+	case "1.2":
+		return tls.VersionTLS12
+	case "1.3":
+		return tls.VersionTLS13
+	case "":
+		return defaultTLSMinVersion
+	default:
+		panic(fmt.Sprintf("the environment variable %q has to be either '1.2' or '1.3'", tlsMinVersionEnvKey))
+	}
 }
 
 // Resolve resolves the image references that use tags to digests.
