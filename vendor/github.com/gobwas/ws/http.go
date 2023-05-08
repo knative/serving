@@ -3,6 +3,7 @@ package ws
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -291,7 +292,16 @@ func httpWriteUpgradeRequest(
 	bw.WriteString(u.RequestURI())
 	bw.WriteString(" HTTP/1.1\r\n")
 
-	httpWriteHeader(bw, headerHost, u.Host)
+	host := u.Host
+	if headerHTTP, ok := header.(HandshakeHeaderHTTP); ok {
+		httpHeaderHTTP := http.Header(headerHTTP)
+		if v := httpHeaderHTTP.Get(headerHost); v != "" {
+			host = v
+		}
+	}
+
+	httpWriteHeader(bw, headerHost, host)
+	fmt.Println("debug: Host: ", host)
 
 	httpWriteHeaderBts(bw, headerUpgrade, specHeaderValueUpgrade)
 	httpWriteHeaderBts(bw, headerConnection, specHeaderValueConnection)
@@ -320,9 +330,11 @@ func httpWriteUpgradeRequest(
 		bw.WriteString(crlf)
 	}
 
-	if header != nil {
-		header.WriteTo(bw)
-	}
+	/*
+		if header != nil {
+			header.WriteTo(bw)
+		}
+	*/
 
 	bw.WriteString(crlf)
 }

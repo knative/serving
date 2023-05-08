@@ -118,7 +118,6 @@ func TestWebSocket(t *testing.T) {
 	if err := ValidateWebSocketConnection(t, clients, names, NoDelay); err != nil {
 		t.Error(err)
 	}
-	t.Fatal("debug")
 }
 
 // and with -1 as target burst capacity and then validates that we can still serve.
@@ -276,7 +275,6 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 			t.Errorf("Target %s got %d responses, expect in [%d, %d] interval", k, f, numReqs/2-tolerance, numReqs/2+tolerance)
 		}
 	}
-	t.Fatal("debug")
 }
 
 // TestWebSocketWithTimeout

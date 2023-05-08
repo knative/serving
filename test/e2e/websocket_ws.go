@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -59,10 +60,13 @@ func connectWS(t *testing.T, clients *test.Clients, domain, timeout string) (net
 	}
 
 	var conn net.Conn
+	header := http.Header{}
+	header.Set("Host", domain)
 	waitErr := wait.PollImmediate(connectRetryInterval, connectTimeout, func() (bool, error) {
 		t.Logf("Connecting using websocket: url=%s, host=%s", u.String(), domain)
 		dialer := &ws.Dialer{
 			Timeout: 45 * time.Second,
+			Header:  ws.HandshakeHeaderHTTP(header),
 			OnStatusError: func(status int, reason []byte, resp io.Reader) {
 				var b bytes.Buffer
 				io.Copy(&b, resp)
@@ -109,12 +113,15 @@ func ValidateWebSocketConnectionWS(t *testing.T, clients *test.Clients, names te
 	// Read back the echoed message and compared with sent.
 	var messages []wsutil.Message
 	messages, err = wsutil.ReadMessage(conn, ws.StateClientSide, messages)
-	recv := messages[0].Payload
-	if err != nil {
-		return err
-	} else if strings.HasPrefix(string(recv), message) {
-		t.Logf("Received message %q from echo server.", recv)
-		return nil
+	for _, m := range messages {
+		recv := m.Payload
+		if err != nil {
+			return err
+		} else if strings.HasPrefix(string(recv), message) {
+			t.Logf("Received message %q from echo server.", recv)
+			return nil
+		}
+		return fmt.Errorf("expected to receive back the message: %q but received %q", message, string(recv))
 	}
-	return fmt.Errorf("expected to receive back the message: %q but received %q", message, string(recv))
+	return fmt.Errorf("expected to receive back the message: %q but didn't receive any messages", message)
 }
