@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"strconv"
@@ -31,11 +32,11 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 
-	"knative.dev/control-protocol/pkg/certificates"
 	netcfg "knative.dev/networking/pkg/config"
 	netheader "knative.dev/networking/pkg/http/header"
 	netproxy "knative.dev/networking/pkg/http/proxy"
 	"knative.dev/pkg/logging/logkey"
+	pkgnet "knative.dev/pkg/network"
 	pkghandler "knative.dev/pkg/network/handlers"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/pkg/tracing/propagation/tracecontextb3"
@@ -63,21 +64,29 @@ type activationHandler struct {
 	trust            netcfg.Trust
 }
 
-type verifiedName string
+type dialer struct {
+	conf *tls.Config
+	name string
+}
 
-func (vn verifiedName) VerifyConnection(cs tls.ConnectionState) error {
+func (d *dialer) DialTLSContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	d.conf.VerifyConnection = d.VerifyConnection
+	return pkgnet.DialTLSWithBackOff(ctx, network, addr, d.conf)
+}
+
+func (d *dialer) VerifyConnection(cs tls.ConnectionState) error {
 	fmt.Println("\t VerifyConnection")
 	if cs.PeerCertificates == nil {
 		return errors.New("server certificate not verified during VerifyConnection")
 	}
 	for _, name := range cs.PeerCertificates[0].DNSNames {
-		if name == string(vn) {
-			fmt.Printf("\tFound QP for namespace %s\n", vn)
+		if name == d.name {
+			fmt.Printf("\tFound QP for namespace %s\n", d.name)
 			return nil
 		}
 	}
 
-	return fmt.Errorf("service in namespace %s does not have a matching name in certificate- names provided: %s", vn, cs.PeerCertificates[0].DNSNames)
+	return fmt.Errorf("service in namespace %s does not have a matching name in certificate- names provided: %s", d.name, cs.PeerCertificates[0].DNSNames)
 }
 
 // New constructs a new http.Handler that deals with revision activation.
@@ -145,9 +154,9 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 		proxy = pkghttp.NewHeaderPruningReverseProxy(useSecurePort(target), hostOverride, activator.RevisionHeaders, true /* uss HTTPS */)
 
 		if a.trust != netcfg.TrustMinimal {
-			vn := verifiedName(certificates.LegacyFakeDnsName)
+			d := dialer{conf: transport.TLSClientConfig, name: "kn-user-" + revID.Namespace}
 			transport = transport.Clone()
-			transport.TLSClientConfig.VerifyConnection = vn.VerifyConnection
+			transport.DialTLSContext = d.DialTLSContext
 		}
 	} else {
 		proxy = pkghttp.NewHeaderPruningReverseProxy(target, hostOverride, activator.RevisionHeaders, false /* use HTTPS */)

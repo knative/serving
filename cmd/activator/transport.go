@@ -17,14 +17,27 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
+	"net"
 	"net/http"
+
+	pkgnet "knative.dev/pkg/network"
 )
+
+type dialer struct {
+	conf *tls.Config
+}
+
+func (d *dialer) DialTLSContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	return pkgnet.DialTLSWithBackOff(ctx, network, addr, d.conf)
+}
 
 // NewProxyAutoTLSTransport is same with NewProxyAutoTransport but it has tls.Config to create HTTPS request.
 func NewProxyAutoTLSTransport(maxIdle, maxIdlePerHost int, tlsConf *tls.Config) *http.Transport {
+	tc := dialer{conf: tlsConf}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	//transport.DialContext = DialWithBackOff  // go documentation indicates that setting DialContext result in TLSClientConfig being ignored
+	transport.DialTLSContext = tc.DialTLSContext
 	transport.DisableKeepAlives = false
 	transport.MaxIdleConns = maxIdle
 	transport.MaxIdleConnsPerHost = maxIdlePerHost
