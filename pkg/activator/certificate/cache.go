@@ -22,6 +22,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"sync"
 
 	"go.uber.org/zap"
@@ -59,7 +60,7 @@ func NewCertCache(ctx context.Context, trust netcfg.Trust) *CertCache {
 		trust:          trust,
 	}
 
-	secret, err := cr.secretInformer.Lister().Secrets(system.Namespace()).Get(netcfg.ServingInternalCertName)
+	secret, err := cr.secretInformer.Lister().Secrets(system.Namespace()).Get(netcfg.ServingRoutingCertName)
 	if err != nil {
 		cr.logger.Warnw("failed to get secret", zap.Error(err))
 		return nil
@@ -68,7 +69,7 @@ func NewCertCache(ctx context.Context, trust netcfg.Trust) *CertCache {
 	cr.updateCache(secret)
 
 	secretInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterWithNameAndNamespace(system.Namespace(), netcfg.ServingInternalCertName),
+		FilterFunc: controller.FilterWithNameAndNamespace(system.Namespace(), netcfg.ServingRoutingCertName),
 		Handler: cache.ResourceEventHandlerFuncs{
 			UpdateFunc: cr.handleCertificateUpdate,
 			AddFunc:    cr.handleCertificateAdd,
@@ -108,7 +109,7 @@ func (cr *CertCache) updateCache(secret *corev1.Secret) {
 	cr.TLSConf.ServerName = certificates.LegacyFakeDnsName
 	cr.TLSConf.MinVersion = tls.VersionTLS12
 	cr.TLSConf.Certificates = []tls.Certificate{cert}
-	cr.TLSConf.VerifyPeerCertificate = cr.VerifyPeerCertificate
+	cr.TLSConf.VerifyConnection = cr.VerifyConnection
 }
 
 func (cr *CertCache) handleCertificateUpdate(_, new interface{}) {
@@ -120,10 +121,16 @@ func (cr *CertCache) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, e
 	return cr.certificate, nil
 }
 
-func (cr *CertCache) VerifyPeerCertificate(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-	if verifiedChains == nil {
-		return errors.New("server certificate not verified during VerifyPeerCertificate")
+func (cr *CertCache) VerifyConnection(cs tls.ConnectionState) error {
+	fmt.Println("\t VerifyConnection")
+	if cs.PeerCertificates == nil {
+		return errors.New("server certificate not verified during VerifyConnection")
 	}
-
-	return nil
+	for _, name := range cs.PeerCertificates[0].DNSNames {
+		if name == certificates.LegacyFakeDnsName {
+			fmt.Printf("\tFound QP\n")
+			return nil
+		}
+	}
+	return fmt.Errorf("service does not have a matching name in certificate - names provided: %s", cs.PeerCertificates[0].DNSNames)
 }

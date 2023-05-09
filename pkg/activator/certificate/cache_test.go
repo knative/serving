@@ -52,7 +52,7 @@ func fakeCertCache(ctx context.Context) *CertCache {
 	}
 
 	secretInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterWithNameAndNamespace(system.Namespace(), netcfg.ServingInternalCertName),
+		FilterFunc: controller.FilterWithNameAndNamespace(system.Namespace(), netcfg.ServingRoutingCertName),
 		Handler: cache.ResourceEventHandlerFuncs{
 			UpdateFunc: cr.handleCertificateUpdate,
 			AddFunc:    cr.handleCertificateAdd,
@@ -62,7 +62,28 @@ func fakeCertCache(ctx context.Context) *CertCache {
 	return cr
 }
 
-func TestReconcile(t *testing.T) {
+func routingCertCache(ctx context.Context) *CertCache {
+	secretInformer := fakesecretinformer.Get(ctx)
+
+	cr := &CertCache{
+		secretInformer: secretInformer,
+		certificate:    nil,
+		TLSConf:        tls.Config{},
+		logger:         logging.FromContext(ctx),
+	}
+
+	secretInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.FilterWithNameAndNamespace(system.Namespace(), netcfg.ServingRoutingCertName),
+		Handler: cache.ResourceEventHandlerFuncs{
+			UpdateFunc: cr.handleCertificateUpdate,
+			AddFunc:    cr.handleCertificateAdd,
+		},
+	})
+
+	return cr
+}
+
+func TestFakeReconcile(t *testing.T) {
 	ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
 	cr := fakeCertCache(ctx)
 
@@ -78,7 +99,87 @@ func TestReconcile(t *testing.T) {
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      netcfg.ServingInternalCertName,
+			Name:      netcfg.ServingRoutingCertName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string][]byte{
+			certificates.CaCertName:     ca,
+			certificates.PrivateKeyName: tlsKey,
+			certificates.CertName:       tlsCrt,
+		},
+	}
+
+	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Create(ctx, secret, metav1.CreateOptions{})
+	fakesecretinformer.Get(ctx).Informer().GetIndexer().Add(secret)
+
+	// Wait for the resources to be created and the handler is called.
+	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+		// To access cert.Certificate, take a lock.
+		cr.certificatesMux.RLock()
+		defer cr.certificatesMux.RUnlock()
+		cert, _ := cr.GetCertificate(nil)
+		return cert != nil, nil
+	}); err != nil {
+		t.Fatal("timeout to get the secret:", err)
+	}
+
+	// Update cert and key but keep using old CA, then the error is expected.
+	secret.Data[certificates.CertName] = newTLSCrt
+	secret.Data[certificates.PrivateKeyName] = newTLSKey
+	newCert, _ := tls.X509KeyPair(newTLSCrt, newTLSKey)
+
+	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
+	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		// To access cert.Certificate, take a lock.
+		cr.certificatesMux.RLock()
+		defer cr.certificatesMux.RUnlock()
+		cert, err := cr.GetCertificate(nil)
+		return err == nil && reflect.DeepEqual(newCert.Certificate, cert.Certificate), nil
+	}); err != nil {
+		t.Fatalf("timeout to update the cert: %v", err)
+	}
+
+	// Update CA, now the error is gone.
+	secret.Data[certificates.CaCertName] = newCA
+
+	pool := x509.NewCertPool()
+	block, _ := pem.Decode(secret.Data[certificates.CaCertName])
+	ca, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		cr.logger.Warnw("Failed to parse CA: %v", zap.Error(err))
+		return
+	}
+
+	pool.AddCert(ca)
+
+	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
+	if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (bool, error) {
+		// To access cr.TLSConf.RootCAs, take a lock.
+		cr.certificatesMux.RLock()
+		defer cr.certificatesMux.RUnlock()
+		return err == nil && pool.Equal(cr.TLSConf.RootCAs), nil
+	}); err != nil {
+		t.Fatalf("timeout to update the cert: %v", err)
+	}
+}
+
+func TestRoutingReconcile(t *testing.T) {
+	ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
+	cr := routingCertCache(ctx)
+
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, informers...)
+	if err != nil {
+		cancel()
+		t.Fatal("failed to start informers:", err)
+	}
+	t.Cleanup(func() {
+		cancel()
+		waitInformers()
+	})
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      netcfg.ServingRoutingCertName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string][]byte{

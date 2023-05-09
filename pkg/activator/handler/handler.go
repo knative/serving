@@ -18,7 +18,9 @@ package handler
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"strconv"
@@ -29,6 +31,8 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 
+	"knative.dev/control-protocol/pkg/certificates"
+	netcfg "knative.dev/networking/pkg/config"
 	netheader "knative.dev/networking/pkg/http/header"
 	netproxy "knative.dev/networking/pkg/http/proxy"
 	"knative.dev/pkg/logging/logkey"
@@ -51,28 +55,40 @@ type Throttler interface {
 // activationHandler will wait for an active endpoint for a revision
 // to be available before proxying the request
 type activationHandler struct {
-	transport        http.RoundTripper
-	tracingTransport http.RoundTripper
+	transport        *http.Transport
 	usePassthroughLb bool
 	throttler        Throttler
 	bufferPool       httputil.BufferPool
 	logger           *zap.SugaredLogger
-	tls              bool
+	trust            netcfg.Trust
+}
+
+type verifiedName string
+
+func (vn verifiedName) VerifyConnection(cs tls.ConnectionState) error {
+	fmt.Println("\t VerifyConnection")
+	if cs.PeerCertificates == nil {
+		return errors.New("server certificate not verified during VerifyConnection")
+	}
+	for _, name := range cs.PeerCertificates[0].DNSNames {
+		if name == string(vn) {
+			fmt.Printf("\tFound QP for namespace %s\n", vn)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("service in namespace %s does not have a matching name in certificate- names provided: %s", vn, cs.PeerCertificates[0].DNSNames)
 }
 
 // New constructs a new http.Handler that deals with revision activation.
-func New(_ context.Context, t Throttler, transport http.RoundTripper, usePassthroughLb bool, logger *zap.SugaredLogger, tlsEnabled bool) http.Handler {
+func New(_ context.Context, t Throttler, transport http.RoundTripper, usePassthroughLb bool, logger *zap.SugaredLogger, trust netcfg.Trust) http.Handler {
 	return &activationHandler{
-		transport: transport,
-		tracingTransport: &ochttp.Transport{
-			Base:        transport,
-			Propagation: tracecontextb3.TraceContextB3Egress,
-		},
+		transport:        transport.(*http.Transport), // WIP - replace function signature to `transport *http.Transport`
 		usePassthroughLb: usePassthroughLb,
 		throttler:        t,
 		bufferPool:       netproxy.NewBufferPool(),
 		logger:           logger,
-		tls:              tlsEnabled,
+		trust:            trust,
 	}
 }
 
@@ -124,17 +140,28 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 	}
 
 	var proxy *httputil.ReverseProxy
-	if a.tls {
+	transport := a.transport
+	if a.trust != netcfg.TrustDisabled {
 		proxy = pkghttp.NewHeaderPruningReverseProxy(useSecurePort(target), hostOverride, activator.RevisionHeaders, true /* uss HTTPS */)
+
+		if a.trust != netcfg.TrustMinimal {
+			vn := verifiedName(certificates.LegacyFakeDnsName)
+			transport = transport.Clone()
+			transport.TLSClientConfig.VerifyConnection = vn.VerifyConnection
+		}
 	} else {
 		proxy = pkghttp.NewHeaderPruningReverseProxy(target, hostOverride, activator.RevisionHeaders, false /* use HTTPS */)
 	}
 
 	proxy.BufferPool = a.bufferPool
-	proxy.Transport = a.transport
+	proxy.Transport = transport
 	if tracingEnabled {
-		proxy.Transport = a.tracingTransport
+		proxy.Transport = &ochttp.Transport{
+			Base:        proxy.Transport,
+			Propagation: tracecontextb3.TraceContextB3Egress,
+		}
 	}
+
 	proxy.FlushInterval = netproxy.FlushInterval
 	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
 		pkghandler.Error(a.logger.With(zap.String(logkey.Key, revID.String())))(w, req, err)

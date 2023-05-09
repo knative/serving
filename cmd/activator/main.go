@@ -145,7 +145,6 @@ func main() {
 	// (via keep-alive) to send real requests, avoiding needing an extra
 	// reconnect for the first request after the probe succeeds.
 	logger.Debugf("MaxIdleProxyConns: %d, MaxIdleProxyConnsPerHost: %d", env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
-	transport := pkgnet.NewProxyAutoTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
 
 	// Fetch networking configuration to determine whether EnableMeshPodAddressability
 	// is enabled or not.
@@ -158,18 +157,19 @@ func main() {
 		logger.Fatalw("Failed to construct network config", zap.Error(err))
 	}
 
-	// Enable TLS against queue-proxy when DataPlaneTrust is not disabled.
-	tlsEnabled := networkConfig.DataplaneTrust != netcfg.TrustDisabled
-
+	var transport http.RoundTripper
 	var certCache *certificate.CertCache
 
-	// Enable TLS client when queue-proxy-ca is specified.
+	// Enable TLS against queue-proxy when DataPlaneTrust is not disabled.
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
-	if tlsEnabled {
-		logger.Info("Internal Encryption is enabled")
+
+	if networkConfig.DataplaneTrust != netcfg.TrustDisabled {
+		logger.Info("Dataplane trust is used")
 		certCache = certificate.NewCertCache(ctx, networkConfig.DataplaneTrust)
-		transport = pkgnet.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, &certCache.TLSConf)
+		transport = NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, &certCache.TLSConf)
+	} else {
+		transport = pkgnet.NewProxyAutoTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
 	}
 
 	// Start throttler.
@@ -208,7 +208,7 @@ func main() {
 
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
-	ah := activatorhandler.New(ctx, throttler, transport, networkConfig.EnableMeshPodAddressability, logger, tlsEnabled)
+	ah := activatorhandler.New(ctx, throttler, transport, networkConfig.EnableMeshPodAddressability, logger, networkConfig.DataplaneTrust)
 	ah = handler.NewTimeoutHandler(ah, "activator request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
 		if rev := activatorhandler.RevisionFrom(r.Context()); rev != nil {
 			var responseStartTimeout = 0 * time.Second
@@ -281,7 +281,7 @@ func main() {
 	// Enable TLS server when DataPlaneTrust is not netcfg.TrustDisabled.
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
-	if tlsEnabled {
+	if networkConfig.DataplaneTrust != netcfg.TrustDisabled {
 		name, server := "https", pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTPSPort), ah)
 		go func(name string, s *http.Server) {
 			// Use networkConfig.DataplaneTrust to decide TLSConfig

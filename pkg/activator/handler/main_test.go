@@ -23,6 +23,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	netcfg "knative.dev/networking/pkg/config"
 	netprobe "knative.dev/networking/pkg/http/probe"
 	"knative.dev/pkg/logging"
 	pkgnet "knative.dev/pkg/network"
@@ -69,7 +70,7 @@ func BenchmarkHandlerChain(b *testing.B) {
 	})
 
 	// Make sure to update this if the activator's main file changes.
-	ah := New(ctx, fakeThrottler{}, rt, false, logger, false /* TLS */)
+	ah := New(ctx, fakeThrottler{}, rt, false, logger, netcfg.TrustDisabled /* TLS */)
 	ah = concurrencyReporter.Handler(ah)
 	ah = NewTracingHandler(ah)
 	ah, _ = pkghttp.NewRequestLogHandler(ah, io.Discard, "", nil, false)
