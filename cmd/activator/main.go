@@ -32,6 +32,7 @@ import (
 	"go.uber.org/zap"
 
 	// Injection related imports.
+	"knative.dev/control-protocol/pkg/certificates"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection"
 	"knative.dev/serving/pkg/activator"
@@ -296,6 +297,9 @@ func main() {
 				s.TLSConfig.VerifyConnection = func(cs tls.ConnectionState) error {
 					for _, match := range cs.PeerCertificates[0].DNSNames {
 						if match != "kn-routing-0" { // routingId not yet supported
+							continue
+						}
+						if match != certificates.LegacyFakeDnsName { // required until all ingresses work with updated dataplane certificates
 							continue
 						}
 						return nil
