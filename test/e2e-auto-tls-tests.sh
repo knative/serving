@@ -60,7 +60,7 @@ EOF
 }
 
 function cleanup_custom_domain() {
-  kubectl delete ConfigMap config-domain -n ${SYSTEM_NAMESPACE}
+  kubectl delete ConfigMap config-domain -n "${SYSTEM_NAMESPACE}"
 }
 
 function setup_auto_tls_common() {
@@ -93,12 +93,12 @@ function setup_http01_auto_tls() {
 
   if [[ -z "${MESH}" ]]; then
     echo "Install cert-manager no-mesh ClusterIssuer"
-    kubectl apply -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/http01/issuer.yaml
+    kubectl apply -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/http01/issuer.yaml
   else
     echo "Install cert-manager mesh ClusterIssuer"
-    kubectl apply -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/http01/mesh-issuer.yaml
+    kubectl apply -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/http01/mesh-issuer.yaml
   fi
-  kubectl apply -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/http01/config-certmanager.yaml
+  kubectl apply -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/http01/config-certmanager.yaml
   setup_dns_record
 }
 
@@ -109,7 +109,7 @@ function setup_selfsigned_per_ksvc_auto_tls() {
   export TLS_SERVICE_NAME="self-per-ksvc"
 
   kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
-  kubectl apply -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/selfsigned/
+  kubectl apply -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/selfsigned/
 }
 
 function setup_selfsigned_per_namespace_auto_tls() {
@@ -136,7 +136,7 @@ function cleanup_per_selfsigned_namespace_auto_tls() {
   # Disable namespace cert for all namespaces
   toggle_feature namespace-wildcard-cert-selector "" config-network
 
-  kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/selfsigned/ --ignore-not-found=true
+  kubectl delete -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/selfsigned/ --ignore-not-found=true
 }
 
 function setup_dns_record() {
@@ -186,21 +186,21 @@ add_trap "cleanup_auto_tls_common" EXIT SIGKILL SIGTERM SIGQUIT
 
 subheader "Auto TLS test for per-ksvc certificate provision using self-signed CA"
 setup_selfsigned_per_ksvc_auto_tls
-go_test_e2e -timeout=10m ./test/e2e/autotls/ ${AUTO_TLS_TEST_OPTIONS} || failed=1
-kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/selfsigned/
+go_test_e2e -timeout=10m ./test/e2e/autotls/ "${AUTO_TLS_TEST_OPTIONS}" || failed=1
+kubectl delete -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/selfsigned/
 
 subheader "Auto TLS test for per-namespace certificate provision using self-signed CA"
 setup_selfsigned_per_namespace_auto_tls
 add_trap "cleanup_per_selfsigned_namespace_auto_tls" SIGKILL SIGTERM SIGQUIT
-go_test_e2e -timeout=10m ./test/e2e/autotls/ ${AUTO_TLS_TEST_OPTIONS} || failed=1
+go_test_e2e -timeout=10m ./test/e2e/autotls/ "${AUTO_TLS_TEST_OPTIONS}" || failed=1
 cleanup_per_selfsigned_namespace_auto_tls
 
 if [[ ${RUN_HTTP01_AUTO_TLS_TESTS} -eq 1 ]]; then
   subheader "Auto TLS test for per-ksvc certificate provision using HTTP01 challenge"
   setup_http01_auto_tls
   add_trap "delete_dns_record" SIGKILL SIGTERM SIGQUIT
-  go_test_e2e -timeout=10m ./test/e2e/autotls/ ${AUTO_TLS_TEST_OPTIONS} || failed=1
-  kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/http01/
+  go_test_e2e -timeout=10m ./test/e2e/autotls/ "${AUTO_TLS_TEST_OPTIONS}" || failed=1
+  kubectl delete -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/http01/
   delete_dns_record
 fi
 

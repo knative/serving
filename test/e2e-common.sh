@@ -60,7 +60,7 @@ export QUOTA=${QUOTA:-1}
 function latest_net_istio_version() {
   local serving_version=$1
   local major_minor
-  major_minor=$(echo "$serving_version" | cut -d '.' -f 1,2)
+  major_minor=$(echo "${serving_version}" | cut -d '.' -f 1,2)
 
   local url="https://api.github.com/repos/knative/net-istio/releases"
   local curl_output
@@ -70,7 +70,7 @@ function latest_net_istio_version() {
   if [ -n "${GITHUB_TOKEN-}" ]; then
     curl "${curl_flags}" -H "Authorization: Bearer $GITHUB_TOKEN" "${url}" > "${curl_output}"
   else
-    curl "${curl_flags}" $url > "${curl_output}"
+    curl "${curl_flags}" "${url}" > "${curl_output}"
   fi
 
   jq --arg major_minor "$major_minor" -r \
