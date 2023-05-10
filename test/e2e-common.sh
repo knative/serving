@@ -569,6 +569,7 @@ function stage_test_resources() {
 
   mkdir -p "${target_dir}"
 
+  # shellcheck disable=SC2044
   for file in $(find -L "${source_dir}" -type f -name "*.yaml"); do
     if [[ "${file}" == *"test/config/ytt"* ]]; then
       continue
@@ -580,7 +581,8 @@ function stage_test_resources() {
       local ko_target
       ko_target="$(mktemp -d)/$(basename "${file}")"
       echo building "${file/$REPO_ROOT_DIR/}"
-      ko resolve "$(ko_flags)" -f "${file}" > "${ko_target}" || fail_test "failed to build test resource"
+      # shellcheck disable=SC2046
+      ko resolve $(ko_flags) -f "${file}" > "${ko_target}" || fail_test "failed to build test resource"
       file="${ko_target}"
     fi
 
