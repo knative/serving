@@ -42,6 +42,6 @@ function upload_test_images() {
   ko resolve --jobs=4 ${platform} ${tag_option} -RBf "${image_dir}" > /dev/null
 }
 
-: ${KO_DOCKER_REPO:?"You must set 'KO_DOCKER_REPO', see DEVELOPMENT.md"}
+: "${KO_DOCKER_REPO:?"You must set 'KO_DOCKER_REPO', see DEVELOPMENT.md"}"
 
-upload_test_images $@
+upload_test_images "$@"

@@ -53,7 +53,7 @@ header "Running upgrade tests"
 go_test_e2e -tags=upgrade -timeout=${TIMEOUT} \
   ./test/upgrade \
   --disable-logstream \
-  --resolvabledomain=$(use_resolvable_domain) || fail_test
+  --resolvabledomain="$(use_resolvable_domain)" || fail_test
 
 # Remove the kail log file if the test flow passes.
 # This is for preventing too many large log files to be uploaded to GCS in CI.

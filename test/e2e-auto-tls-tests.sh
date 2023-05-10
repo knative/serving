@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-source $(dirname $0)/e2e-common.sh
+source "$(dirname "$0")/e2e-common.sh"
 
 function setup_auto_tls_env_variables() {
   # DNS zone for the testing domain.
@@ -38,7 +38,8 @@ function setup_auto_tls_env_variables() {
   if [[ -z "${GATEWAY_OVERRIDE}" ]]; then
     INGRESS_SERVICE="istio-ingressgateway"
   fi
-  local IP=$(kubectl get svc -n ${INGRESS_NAMESPACE} ${INGRESS_SERVICE} -o jsonpath="{.status.loadBalancer.ingress[0].ip}")
+  local IP
+  IP=$(kubectl get svc -n "${INGRESS_NAMESPACE}" "${INGRESS_SERVICE}" -o jsonpath="{.status.loadBalancer.ingress[0].ip}")
   export AUTO_TLS_TEST_INGRESS_IP=${IP}
 }
 

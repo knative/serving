@@ -25,10 +25,10 @@
 # project $PROJECT_ID, start knative in it, run the tests and delete the
 # cluster.
 
-source $(dirname $0)/e2e-common.sh
+source "$(dirname "$0")/e2e-common.sh"
 
 # Script entry point.
-initialize --skip-istio-addon --min-nodes=4 --max-nodes=4 --enable-ha --cluster-version=1.24 "$@"
+initialize --min-nodes=4 --max-nodes=4 --enable-ha --cluster-version=1.24 "$@"
 
 # Run the tests
 header "Running tests"
@@ -45,7 +45,7 @@ fi
 if (( HTTPS )); then
   use_https="--https"
   toggle_feature autoTLS Enabled config-network
-  kubectl apply -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/
+  kubectl apply -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/caissuer/
   add_trap "kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 fi
 
@@ -69,9 +69,9 @@ if [[ -z "${INGRESS_CLASS}" \
   beta="--enable-beta"
 fi
 
-TEST_OPTIONS="${TEST_OPTIONS:-${alpha} ${beta} --resolvabledomain=$(use_resolvable_domain) ${use_https} --ingress-class=${INGRESS_CLASS}}"
+TEST_OPTIONS=("${TEST_OPTIONS:-${alpha} ${beta} --resolvabledomain=$(use_resolvable_domain) ${use_https} --ingress-class=${INGRESS_CLASS}}")
 if (( SHORT )); then
-  TEST_OPTIONS+=" -short"
+  TEST_OPTIONS+=(" -short")
 fi
 
 toggle_feature autocreateClusterDomainClaims true config-network || fail_test
@@ -79,70 +79,70 @@ go_test_e2e -timeout=30m \
   ./test/conformance/api/... \
   ./test/conformance/runtime/... \
   ./test/e2e \
-  ${parallelism} \
-  ${TEST_OPTIONS} || failed=1
+  "${parallelism}" \
+  "${TEST_OPTIONS[@]}" || failed=1
 toggle_feature autocreateClusterDomainClaims false config-network || fail_test
 
 toggle_feature tag-header-based-routing Enabled
-go_test_e2e -timeout=2m ./test/e2e/tagheader ${TEST_OPTIONS} || failed=1
+go_test_e2e -timeout=2m ./test/e2e/tagheader "${TEST_OPTIONS[@]}" || failed=1
 toggle_feature tag-header-based-routing Disabled
 
 toggle_feature allow-zero-initial-scale true config-autoscaler || fail_test
-go_test_e2e -timeout=2m ./test/e2e/initscale ${TEST_OPTIONS} || failed=1
+go_test_e2e -timeout=2m ./test/e2e/initscale "${TEST_OPTIONS[@]}" || failed=1
 toggle_feature allow-zero-initial-scale false config-autoscaler || fail_test
 
 toggle_feature autocreateClusterDomainClaims true config-network || fail_test
-go_test_e2e -timeout=2m ./test/e2e/domainmapping ${TEST_OPTIONS} || failed=1
+go_test_e2e -timeout=2m ./test/e2e/domainmapping "${TEST_OPTIONS[@]}" || failed=1
 toggle_feature autocreateClusterDomainClaims false config-network || fail_test
 
-kubectl get cm "config-gc" -n "${SYSTEM_NAMESPACE}" -o yaml > ${TMP_DIR}/config-gc.yaml
+kubectl get cm "config-gc" -n "${SYSTEM_NAMESPACE}" -o yaml > "${TMP_DIR}"/config-gc.yaml
 add_trap "kubectl replace cm 'config-gc' -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.yaml" SIGKILL SIGTERM SIGQUIT
 immediate_gc
-go_test_e2e -timeout=2m ./test/e2e/gc ${TEST_OPTIONS} || failed=1
-kubectl replace cm "config-gc" -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.yaml
+go_test_e2e -timeout=2m ./test/e2e/gc "${TEST_OPTIONS[@]}" || failed=1
+kubectl replace cm "config-gc" -n "${SYSTEM_NAMESPACE}" -f "${TMP_DIR}"/config-gc.yaml
 
 # Run scale tests.
 # Note that we use a very high -parallel because each ksvc is run as its own
 # sub-test. If this is not larger than the maximum scale tested then the test
 # simply cannot pass.
 # TODO - Renable once we get this reliably passing on GKE 1.21
-# go_test_e2e -timeout=20m -parallel=300 ./test/scale ${TEST_OPTIONS} || failed=1
+# go_test_e2e -timeout=20m -parallel=300 ./test/scale ${TEST_OPTIONS[@]} || failed=1
 
 # Run HPA tests
-go_test_e2e -timeout=30m -tags=hpa ./test/e2e ${TEST_OPTIONS} || failed=1
+go_test_e2e -timeout=30m -tags=hpa ./test/e2e "${TEST_OPTIONS[@]}" || failed=1
 
 # Run initContainers tests with alpha enabled avoiding any issues with the testing options guard above
 # InitContainers test uses emptyDir.
 toggle_feature kubernetes.podspec-init-containers Enabled
-go_test_e2e -timeout=2m ./test/e2e/initcontainers ${TEST_OPTIONS} || failed=1
+go_test_e2e -timeout=2m ./test/e2e/initcontainers "${TEST_OPTIONS[@]}" || failed=1
 toggle_feature kubernetes.podspec-init-containers Disabled
 
 # RUN PVC tests with default storage class.
 toggle_feature kubernetes.podspec-persistent-volume-claim Enabled
 toggle_feature kubernetes.podspec-persistent-volume-write Enabled
 toggle_feature kubernetes.podspec-securitycontext Enabled
-go_test_e2e -timeout=5m ./test/e2e/pvc ${TEST_OPTIONS} || failed=1
+go_test_e2e -timeout=5m ./test/e2e/pvc "${TEST_OPTIONS[@]}" || failed=1
 toggle_feature kubernetes.podspec-securitycontext Disabled
 toggle_feature kubernetes.podspec-persistent-volume-write Disabled
 toggle_feature kubernetes.podspec-persistent-volume-claim Disabled
 
 # RUN secure pod defaults test in a separate install.
 toggle_feature secure-pod-defaults Enabled
-go_test_e2e -timeout=3m ./test/e2e/securedefaults ${TEST_OPTIONS} || failed=1
+go_test_e2e -timeout=3m ./test/e2e/securedefaults "${TEST_OPTIONS[@]}" || failed=1
 toggle_feature secure-pod-defaults Disabled
 
 # Run HA tests separately as they're stopping core Knative Serving pods.
 # Define short -spoofinterval to ensure frequent probing while stopping pods.
 toggle_feature autocreateClusterDomainClaims true config-network || fail_test
 go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha \
-  ${TEST_OPTIONS} \
+  "${TEST_OPTIONS[@]}" \
   -replicas="${REPLICAS:-1}" \
   -buckets="${BUCKETS:-1}" \
   -spoofinterval="10ms" || failed=1
 toggle_feature autocreateClusterDomainClaims false config-network || fail_test
 
 if (( HTTPS )); then
-  kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
+  kubectl delete -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/caissuer/ --ignore-not-found
   toggle_feature autoTLS Disabled config-network
 fi
 

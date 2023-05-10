@@ -72,7 +72,8 @@ function download_net_istio_yamls() {
   # Point to our local copy
   net_istio_yaml="${target_dir}/$(basename "${net_istio_yaml}")"
 
-  local sha=$(head -n 1 ${net_istio_yaml} | grep "# Generated when HEAD was" | sed 's/^.* //')
+  local sha
+  sha=$(head -n 1 "${net_istio_yaml}" | grep "# Generated when HEAD was" | sed 's/^.* //')
   if [[ -z "${sha:-}" ]]; then
     sha="191bc5fe5a4b35b64f70577c3e44e44fb699cc5f"
     echo "Hard coded NET_ISTIO_COMMIT: ${sha}"
@@ -80,8 +81,10 @@ function download_net_istio_yamls() {
     echo "Got NET_ISTIO_COMMIT from ${1}: ${sha}"
   fi
 
-  local istio_yaml="$(net_istio_file_url "$sha" istio.yaml)"
-  local istio_config_yaml="$(net_istio_file_url "$sha" config-istio.yaml)"
+  local istio_yaml
+  istio_yaml="$(net_istio_file_url "${sha}" istio.yaml)"
+  local istio_config_yaml
+  istio_config_yaml="$(net_istio_file_url "${sha}" config-istio.yaml)"
 
   wget -P "${target_dir}" "${istio_yaml}" \
     || fail_test "Unable to get istio install file ${istio_yaml}"

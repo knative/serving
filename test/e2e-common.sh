@@ -46,16 +46,12 @@ export INSTALL_SERVING_VERSION="HEAD"
 export INSTALL_ISTIO_VERSION="HEAD"
 export YTT_FILES=()
 
-export TMP_DIR="${TMP_DIR:-$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)}"
+export TMP_DIR="${TMP_DIR:-$(mktemp -d -t ci-"$(date +%Y-%m-%d-%H-%M-%S)"-XXXXXXXXXX)}"
 
 readonly E2E_YAML_DIR="${TMP_DIR}/e2e-yaml"
 
 # This the namespace used to install Knative Serving. Use generated UUID as namespace.
-export SYSTEM_NAMESPACE="${SYSTEM_NAMESPACE:-$(uuidgen | tr 'A-Z' 'a-z')}"
-
-# Keep this in sync with test/ha/ha.go
-readonly REPLICAS=3
-readonly BUCKETS=10
+export SYSTEM_NAMESPACE="${SYSTEM_NAMESPACE:-$(uuidgen | tr '[:upper:]' '[:lower:]')}"
 
 export PVC=${PVC:-1}
 export QUOTA=${QUOTA:-1}
@@ -63,16 +59,18 @@ export QUOTA=${QUOTA:-1}
 # Receives the latest serving version and searches for the same version with major and minor and searches for the latest patch
 function latest_net_istio_version() {
   local serving_version=$1
-  local major_minor=$(echo "$serving_version" | cut -d '.' -f 1,2)
+  local major_minor
+  major_minor=$(echo "$serving_version" | cut -d '.' -f 1,2)
 
   local url="https://api.github.com/repos/knative/net-istio/releases"
-  local curl_output=$(mktemp)
+  local curl_output
+  curl_output=$(mktemp)
   local curl_flags='-L --show-error --silent'
 
   if [ -n "${GITHUB_TOKEN-}" ]; then
-    curl $curl_flags -H "Authorization: Bearer $GITHUB_TOKEN" $url > $curl_output
+    curl "${curl_flags}" -H "Authorization: Bearer $GITHUB_TOKEN" "${url}" > "${curl_output}"
   else
-    curl $curl_flags $url > $curl_output
+    curl "${curl_flags}" $url > "${curl_output}"
   fi
 
   jq --arg major_minor "$major_minor" -r \
@@ -90,6 +88,7 @@ function latest_net_istio_version() {
 LATEST_SERVING_RELEASE_VERSION=$(latest_version)
 
 # Latest net-istio release.
+# shellcheck disable=SC2034
 LATEST_NET_ISTIO_RELEASE_VERSION=$(latest_net_istio_version "$LATEST_SERVING_RELEASE_VERSION")
 
 
@@ -327,8 +326,10 @@ function install() {
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/tls/cert-secret.yaml")
   fi
 
-  local ytt_result=$(mktemp)
-  local ytt_post_install_result=$(mktemp)
+  local ytt_result
+  ytt_result=$(mktemp)
+  local ytt_post_install_result
+  ytt_post_install_result=$(mktemp)
   local ytt_flags=""
 
   for file in "${YTT_FILES[@]}"; do
@@ -443,8 +444,9 @@ function dump_extra_cluster_state() {
 
 function wait_for_leader_controller() {
   echo -n "Waiting for a leader Controller"
-  for i in {1..150}; do  # timeout after 5 minutes
-    local leader=$(kubectl get lease -n "${SYSTEM_NAMESPACE}" -ojsonpath='{range .items[*].spec}{"\n"}{.holderIdentity}' | cut -d"_" -f1 | grep "^controller-" | head -1)
+  for _ in {1..150}; do  # timeout after 5 minutes
+    local leader
+    leader=$(kubectl get lease -n "${SYSTEM_NAMESPACE}" -ojsonpath='{range .items[*].spec}{"\n"}{.holderIdentity}' | cut -d"_" -f1 | grep "^controller-" | head -1)
     # Make sure the leader pod exists.
     if [ -n "${leader}" ] && kubectl get pod "${leader}" -n "${SYSTEM_NAMESPACE}"  >/dev/null 2>&1; then
       echo -e "\nNew leader Controller has been elected"
@@ -470,7 +472,8 @@ function toggle_feature() {
 
 function immediate_gc() {
   echo -n "Setting config-gc to immediate garbage collection"
-  local DATA='{"data":{'`
+  local DATA
+  DATA='{"data":{'`
       `'"retain-since-create-time":"disabled",'`
       `'"retain-since-last-active-time":"disabled",'`
       `'"min-non-active-revisions":"0",'`
@@ -571,12 +574,13 @@ function stage_test_resources() {
       continue
     fi
     target="${file/${source_dir}/$target_dir}"
-    mkdir -p $(dirname $target)
+    mkdir -p "$(dirname "${target}")"
 
     if grep -Fq "ko://" "${file}"; then
-      local ko_target="$(mktemp -d)/$(basename $file)"
+      local ko_target
+      ko_target="$(mktemp -d)/$(basename "${file}")"
       echo building "${file/$REPO_ROOT_DIR/}"
-      ko resolve $(ko_flags) -f "${file}" > "${ko_target}" || fail_test "failed to build test resource"
+      ko resolve "$(ko_flags)" -f "${file}" > "${ko_target}" || fail_test "failed to build test resource"
       file="${ko_target}"
     fi
 
