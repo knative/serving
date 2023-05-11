@@ -1256,7 +1256,7 @@ knative.dev/control-protocol/pkg/certificates/reconciler
 ## explicit; go 1.18
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/networking v0.0.0-20230504184058-77975a12b2ee
+# knative.dev/networking v0.0.0-20230511122402-33636d99d870
 ## explicit; go 1.18
 knative.dev/networking/config
 knative.dev/networking/pkg
