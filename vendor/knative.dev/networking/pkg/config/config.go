@@ -405,6 +405,10 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	case "", string(TrustDisabled):
 		// If DataplaneTrus is not set in the config-network, default is already
 		// set to TrustDisabled.
+		if nc.InternalEncryption {
+			// Backward compatibility
+			nc.DataplaneTrust = TrustMinimal
+		}
 	case string(TrustMinimal):
 		nc.DataplaneTrust = TrustMinimal
 	case string(TrustEnabled):
