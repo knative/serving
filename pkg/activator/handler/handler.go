@@ -90,9 +90,9 @@ func (d *dialer) VerifyConnection(cs tls.ConnectionState) error {
 }
 
 // New constructs a new http.Handler that deals with revision activation.
-func New(_ context.Context, t Throttler, transport http.RoundTripper, usePassthroughLb bool, logger *zap.SugaredLogger, trust netcfg.Trust) http.Handler {
+func New(_ context.Context, t Throttler, transport *http.Transport, usePassthroughLb bool, logger *zap.SugaredLogger, trust netcfg.Trust) http.Handler {
 	return &activationHandler{
-		transport:        transport.(*http.Transport), // WIP - replace function signature to `transport *http.Transport`
+		transport:        transport, // WIP - replace function signature to `transport *http.Transport`
 		usePassthroughLb: usePassthroughLb,
 		throttler:        t,
 		bufferPool:       netproxy.NewBufferPool(),
@@ -109,6 +109,8 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if tracingEnabled {
 		tryContext, trySpan = trace.StartSpan(r.Context(), "throttler_try")
 	}
+
+	fmt.Printf("\tHTTP (%d) PROTO %s\n", r.ProtoMajor, r.Proto) // ignore  - used in wip for testing
 
 	revID := RevIDFrom(r.Context())
 	if err := a.throttler.Try(tryContext, revID, func(dest string) error {

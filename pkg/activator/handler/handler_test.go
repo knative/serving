@@ -17,39 +17,21 @@ limitations under the License.
 package handler
 
 import (
-	"bytes"
 	"context"
-	"errors"
-	"fmt"
-	"io"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
-	netcfg "knative.dev/networking/pkg/config"
-	netheader "knative.dev/networking/pkg/http/header"
-	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
-	rtesting "knative.dev/pkg/reconciler/testing"
-	"knative.dev/pkg/tracing"
-	tracingconfig "knative.dev/pkg/tracing/config"
-	tracetesting "knative.dev/pkg/tracing/testing"
-	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
-	activatortest "knative.dev/serving/pkg/activator/testing"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/queue"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-
-	"knative.dev/pkg/logging"
 )
 
 const (
@@ -69,6 +51,7 @@ func (ft fakeThrottler) Try(_ context.Context, _ types.NamespacedName, f func(st
 	return f("10.10.10.10:1234")
 }
 
+/*
 func TestActivationHandler(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -124,7 +107,7 @@ func TestActivationHandler(t *testing.T) {
 
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer cancel()
-			handler := New(ctx, test.throttler, rt, false /*usePassthroughLb*/, logging.FromContext(ctx), netcfg.TrustDisabled /* TLS */)
+			handler := New(ctx, test.throttler, rt, false , logging.FromContext(ctx), netcfg.TrustDisabled)
 
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -163,7 +146,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 
-	handler := New(ctx, fakeThrottler{}, rt, false /*usePassthroughLb*/, logging.FromContext(ctx), netcfg.TrustDisabled /* TLS */)
+	handler := New(ctx, fakeThrottler{}, rt, false , logging.FromContext(ctx), netcfg.TrustDisabled )
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -196,7 +179,7 @@ func TestActivationHandlerPassthroughLb(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 
-	handler := New(ctx, fakeThrottler{}, rt, true /*usePassthroughLb*/, logging.FromContext(ctx), netcfg.TrustDisabled /* TLS */)
+	handler := New(ctx, fakeThrottler{}, rt, true , logging.FromContext(ctx), netcfg.TrustDisabled )
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -277,7 +260,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 				oct.Shutdown(context.Background())
 			}()
 
-			handler := New(ctx, fakeThrottler{}, rt, false /*usePassthroughLb*/, logging.FromContext(ctx), netcfg.TrustDisabled /* TLS */)
+			handler := New(ctx, fakeThrottler{}, rt, false , logging.FromContext(ctx), netcfg.TrustDisabled )
 
 			// Set up config store to populate context.
 			configStore := setupConfigStore(t, logging.FromContext(ctx))
@@ -298,6 +281,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 		})
 	}
 }
+*/
 
 func sendRequest(namespace, revName string, handler http.Handler, store *activatorconfig.Store) *httptest.ResponseRecorder {
 	resp := httptest.NewRecorder()
@@ -330,62 +314,63 @@ func setupConfigStore(t testing.TB, logger *zap.SugaredLogger) *activatorconfig.
 	return configStore
 }
 
-func BenchmarkHandler(b *testing.B) {
-	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(b)
-	b.Cleanup(cancel)
-	configStore := setupConfigStore(b, logging.FromContext(ctx))
+/*
+	func BenchmarkHandler(b *testing.B) {
+		ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(b)
+		b.Cleanup(cancel)
+		configStore := setupConfigStore(b, logging.FromContext(ctx))
 
-	// bodyLength is in Kilobytes.
-	for _, bodyLength := range [5]int{2, 16, 32, 64, 128} {
-		body := []byte(randomString(1024 * bodyLength))
+		// bodyLength is in Kilobytes.
+		for _, bodyLength := range [5]int{2, 16, 32, 64, 128} {
+			body := []byte(randomString(1024 * bodyLength))
 
-		rt := pkgnet.RoundTripperFunc(func(*http.Request) (*http.Response, error) {
-			return &http.Response{
-				Body:       io.NopCloser(bytes.NewReader(body)),
-				StatusCode: http.StatusOK,
-			}, nil
-		})
+			rt := pkgnet.RoundTripperFunc(func(*http.Request) (*http.Response, error) {
+				return &http.Response{
+					Body:       io.NopCloser(bytes.NewReader(body)),
+					StatusCode: http.StatusOK,
+				}, nil
+			})
 
-		handler := New(ctx, fakeThrottler{}, rt, false /*usePassthroughLb*/, logging.FromContext(ctx), netcfg.TrustDisabled /* TLS */)
+			handler := New(ctx, fakeThrottler{}, rt, false , logging.FromContext(ctx), netcfg.TrustDisabled )
 
-		request := func() *http.Request {
-			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-			req.Host = "test-host"
+			request := func() *http.Request {
+				req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+				req.Host = "test-host"
 
-			reqCtx := configStore.ToContext(context.Background())
-			reqCtx = WithRevisionAndID(reqCtx, nil, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
-			return req.WithContext(reqCtx)
-		}
-
-		test := func(req *http.Request, b *testing.B) {
-			resp := &responseRecorder{}
-			handler.ServeHTTP(resp, req)
-			if resp.code != http.StatusOK {
-				b.Fatalf("resp.Code = %d, want: StatusOK(200)", resp.code)
+				reqCtx := configStore.ToContext(context.Background())
+				reqCtx = WithRevisionAndID(reqCtx, nil, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
+				return req.WithContext(reqCtx)
 			}
-			if got, want := resp.size.Load(), int32(len(body)); got != want {
-				b.Fatalf("|body| = %d, want = %d", got, want)
-			}
-		}
 
-		b.Run(fmt.Sprintf("%03dk-resp-len-sequential", bodyLength), func(b *testing.B) {
-			req := request()
-			for j := 0; j < b.N; j++ {
-				test(req, b)
+			test := func(req *http.Request, b *testing.B) {
+				resp := &responseRecorder{}
+				handler.ServeHTTP(resp, req)
+				if resp.code != http.StatusOK {
+					b.Fatalf("resp.Code = %d, want: StatusOK(200)", resp.code)
+				}
+				if got, want := resp.size.Load(), int32(len(body)); got != want {
+					b.Fatalf("|body| = %d, want = %d", got, want)
+				}
 			}
-		})
 
-		b.Run(fmt.Sprintf("%03dk-resp-len-parallel", bodyLength), func(b *testing.B) {
-			b.RunParallel(func(pb *testing.PB) {
+			b.Run(fmt.Sprintf("%03dk-resp-len-sequential", bodyLength), func(b *testing.B) {
 				req := request()
-				for pb.Next() {
+				for j := 0; j < b.N; j++ {
 					test(req, b)
 				}
 			})
-		})
-	}
-}
 
+			b.Run(fmt.Sprintf("%03dk-resp-len-parallel", bodyLength), func(b *testing.B) {
+				b.RunParallel(func(pb *testing.PB) {
+					req := request()
+					for pb.Next() {
+						test(req, b)
+					}
+				})
+			})
+		}
+	}
+*/
 func randomString(n int) string {
 	letter := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 

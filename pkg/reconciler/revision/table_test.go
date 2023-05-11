@@ -892,6 +892,9 @@ func reconcilerTestConfig() *config.Config {
 		},
 		Logging: &logging.Config{},
 		Tracing: &tracingconfig.Config{},
-		Network: &netcfg.Config{},
+		Network: &netcfg.Config{
+			DataplaneTrust:    netcfg.TrustDisabled,
+			ControlplaneTrust: netcfg.TrustDisabled,
+		},
 	}
 }

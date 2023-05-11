@@ -48,3 +48,15 @@ func NewProxyAutoTLSTransport(maxIdle, maxIdlePerHost int, tlsConf *tls.Config) 
 
 	return transport
 }
+
+// HTTP
+func NewProxyAutoTransport(maxIdle, maxIdlePerHost int) *http.Transport {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = pkgnet.DialWithBackOff
+	transport.DisableKeepAlives = true
+	transport.MaxIdleConns = maxIdle
+	transport.MaxIdleConnsPerHost = maxIdlePerHost
+	transport.ForceAttemptHTTP2 = false
+	transport.DisableCompression = false
+	return transport
+}

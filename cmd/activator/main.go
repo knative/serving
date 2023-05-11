@@ -158,7 +158,7 @@ func main() {
 		logger.Fatalw("Failed to construct network config", zap.Error(err))
 	}
 
-	var transport http.RoundTripper
+	var transport *http.Transport
 	var certCache *certificate.CertCache
 
 	// Enable TLS against queue-proxy when DataPlaneTrust is not disabled.
@@ -170,7 +170,7 @@ func main() {
 		certCache = certificate.NewCertCache(ctx, networkConfig.DataplaneTrust)
 		transport = NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, &certCache.TLSConf)
 	} else {
-		transport = pkgnet.NewProxyAutoTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
+		transport = NewProxyAutoTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
 	}
 
 	// Start throttler.
