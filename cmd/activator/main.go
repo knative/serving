@@ -175,7 +175,7 @@ func main() {
 
 	// Start throttler.
 	throttler := activatornet.NewThrottler(ctx, env.PodIP)
-	go throttler.Run(ctx, transport.Http1, networkConfig.EnableMeshPodAddressability, networkConfig.MeshCompatibilityMode)
+	go throttler.Run(ctx, transport.HTTP1, networkConfig.EnableMeshPodAddressability, networkConfig.MeshCompatibilityMode)
 
 	oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(networking.ActivatorServiceName, env.PodIP, logger))
 	defer oct.Shutdown(context.Background())

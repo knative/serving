@@ -59,8 +59,8 @@ func NewProxyAutoTLSTransport(maxIdle, maxIdlePerHost int, tlsConf *tls.Config) 
 	}
 
 	return &activatorhandler.HibrydTransport{
-		Http1: http1,
-		Http2: http2,
+		HTTP1: http1,
+		HTTP2: http2,
 	}
 }
 
@@ -84,7 +84,7 @@ func NewProxyAutoTransport(maxIdle, maxIdlePerHost int) *activatorhandler.Hibryd
 	}
 
 	return &activatorhandler.HibrydTransport{
-		Http1: http1,
-		Http2: http2,
+		HTTP1: http1,
+		HTTP2: http2,
 	}
 }

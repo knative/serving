@@ -66,8 +66,8 @@ type activationHandler struct {
 }
 
 type HibrydTransport struct {
-	Http1 *http.Transport
-	Http2 *http2.Transport
+	HTTP1 *http.Transport
+	HTTP2 *http2.Transport
 }
 type dialer struct {
 	conf *tls.Config
@@ -76,15 +76,16 @@ type dialer struct {
 
 func (d *dialer) Http1DialTLSContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	fmt.Println("\t Using Http1DialTLSContext")
-	d.conf.VerifyConnection = d.VerifyConnection
-	return pkgnet.DialTLSWithBackOff(ctx, network, addr, d.conf)
+	conf := d.conf.Clone()
+	conf.VerifyConnection = d.VerifyConnection
+	return pkgnet.DialTLSWithBackOff(ctx, network, addr, conf)
 }
 
 func (d *dialer) Http2DialTLSContext(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
 	fmt.Println("\t Using Http2DialTLSContext")
-
-	d.conf.VerifyConnection = d.VerifyConnection
-	return pkgnet.DialTLSWithBackOff(ctx, network, addr, d.conf)
+	conf := d.conf.Clone()
+	conf.VerifyConnection = d.VerifyConnection
+	return pkgnet.DialTLSWithBackOff(ctx, network, addr, conf)
 }
 
 func (d *dialer) VerifyConnection(cs tls.ConnectionState) error {
@@ -172,10 +173,9 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 
 		if a.trust != netcfg.TrustMinimal {
 			fmt.Printf("\tTLS per Namespace %s\n", revID.Namespace) // ignore  - used in wip for testing
-			d := dialer{conf: transport.Http1.TLSClientConfig, name: "kn-user-" + revID.Namespace}
-			transport.Http1 = transport.Http1.Clone()
-			transport.Http1.DialTLSContext = d.Http1DialTLSContext
-			transport.Http2.DialTLSContext = d.Http2DialTLSContext
+			d := dialer{conf: transport.HTTP1.TLSClientConfig, name: "kn-user-" + revID.Namespace}
+			transport.HTTP1.DialTLSContext = d.Http1DialTLSContext
+			transport.HTTP2.DialTLSContext = d.Http2DialTLSContext
 		}
 	} else {
 		fmt.Printf("\tNo TLS \n") // ignore  - used in wip for testing
@@ -185,10 +185,10 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 	proxy.BufferPool = a.bufferPool
 	if r.ProtoMajor == 2 {
 		fmt.Printf("\tUse HTTP2 transport \n") // ignore  - used in wip for testing
-		proxy.Transport = transport.Http2
+		proxy.Transport = transport.HTTP2
 	} else {
 		fmt.Printf("\tUse HTTP1 transport \n") // ignore  - used in wip for testing
-		proxy.Transport = transport.Http1
+		proxy.Transport = transport.HTTP1
 	}
 	if tracingEnabled {
 		proxy.Transport = &ochttp.Transport{
