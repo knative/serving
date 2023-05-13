@@ -21,8 +21,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
-	"errors"
-	"fmt"
 	"sync"
 
 	"go.uber.org/zap"
@@ -109,7 +107,7 @@ func (cr *CertCache) updateCache(secret *corev1.Secret) {
 	cr.TLSConf.ServerName = certificates.LegacyFakeDnsName
 	cr.TLSConf.MinVersion = tls.VersionTLS12
 	cr.TLSConf.Certificates = []tls.Certificate{cert}
-	cr.TLSConf.VerifyConnection = cr.VerifyConnection
+	//cr.TLSConf.VerifyConnection = cr.VerifyConnection
 }
 
 func (cr *CertCache) handleCertificateUpdate(_, new interface{}) {
@@ -121,6 +119,7 @@ func (cr *CertCache) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, e
 	return cr.certificate, nil
 }
 
+/*
 func (cr *CertCache) VerifyConnection(cs tls.ConnectionState) error {
 	fmt.Println("\t VerifyConnection")
 	if cs.PeerCertificates == nil {
@@ -134,3 +133,4 @@ func (cr *CertCache) VerifyConnection(cs tls.ConnectionState) error {
 	}
 	return fmt.Errorf("service does not have a matching name in certificate - names provided: %s", cs.PeerCertificates[0].DNSNames)
 }
+*/

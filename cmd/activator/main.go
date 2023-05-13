@@ -168,9 +168,9 @@ func main() {
 	if networkConfig.DataplaneTrust != netcfg.TrustDisabled {
 		logger.Info("Dataplane trust is used")
 		certCache = certificate.NewCertCache(ctx, networkConfig.DataplaneTrust)
-		transport = NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, &certCache.TLSConf)
+		transport = activatorhandler.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, &certCache.TLSConf)
 	} else {
-		transport = NewProxyAutoTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
+		transport = activatorhandler.NewProxyAutoTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
 	}
 
 	// Start throttler.

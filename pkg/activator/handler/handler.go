@@ -18,10 +18,8 @@ package handler
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"net/http/httputil"
 	"strconv"
@@ -30,14 +28,12 @@ import (
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
-	"golang.org/x/net/http2"
 	"k8s.io/apimachinery/pkg/types"
 
 	netcfg "knative.dev/networking/pkg/config"
 	netheader "knative.dev/networking/pkg/http/header"
 	netproxy "knative.dev/networking/pkg/http/proxy"
 	"knative.dev/pkg/logging/logkey"
-	pkgnet "knative.dev/pkg/network"
 	pkghandler "knative.dev/pkg/network/handlers"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/pkg/tracing/propagation/tracecontextb3"
@@ -63,44 +59,6 @@ type activationHandler struct {
 	bufferPool       httputil.BufferPool
 	logger           *zap.SugaredLogger
 	trust            netcfg.Trust
-}
-
-type HibrydTransport struct {
-	HTTP1 *http.Transport
-	HTTP2 *http2.Transport
-}
-type dialer struct {
-	conf *tls.Config
-	name string
-}
-
-func (d *dialer) HTTP1DialTLSContext(ctx context.Context, network, addr string) (net.Conn, error) {
-	fmt.Println("\t Using Http1DialTLSContext")
-	conf := d.conf.Clone()
-	conf.VerifyConnection = d.VerifyConnection
-	return pkgnet.DialTLSWithBackOff(ctx, network, addr, conf)
-}
-
-func (d *dialer) HTTP2DialTLSContext(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
-	fmt.Println("\t Using Http2DialTLSContext")
-	conf := cfg.Clone()
-	conf.VerifyConnection = d.VerifyConnection
-	return pkgnet.DialTLSWithBackOff(ctx, network, addr, conf)
-}
-
-func (d *dialer) VerifyConnection(cs tls.ConnectionState) error {
-	fmt.Println("\t Using VerifyConnection")
-	if cs.PeerCertificates == nil {
-		return errors.New("server certificate not verified during VerifyConnection")
-	}
-	for _, name := range cs.PeerCertificates[0].DNSNames {
-		if name == d.name {
-			fmt.Printf("\tFound QP for namespace %s\n", d.name)
-			return nil
-		}
-	}
-
-	return fmt.Errorf("service in namespace %s does not have a matching name in certificate- names provided: %s", d.name, cs.PeerCertificates[0].DNSNames)
 }
 
 // New constructs a new http.Handler that deals with revision activation.
@@ -172,10 +130,7 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 		proxy = pkghttp.NewHeaderPruningReverseProxy(useSecurePort(target), hostOverride, activator.RevisionHeaders, true /* uss HTTPS */)
 
 		if a.trust != netcfg.TrustMinimal {
-			fmt.Printf("\tTLS per Namespace %s\n", revID.Namespace) // ignore  - used in wip for testing
-			d := dialer{conf: transport.HTTP1.TLSClientConfig, name: "kn-user-" + revID.Namespace}
-			transport.HTTP1.DialTLSContext = d.HTTP1DialTLSContext
-			transport.HTTP2.DialTLSContext = d.HTTP2DialTLSContext
+			transport.San = "kn-user-" + revID.Namespace
 		}
 	} else {
 		fmt.Printf("\tNo TLS \n") // ignore  - used in wip for testing
