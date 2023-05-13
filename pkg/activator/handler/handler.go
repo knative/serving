@@ -74,16 +74,16 @@ type dialer struct {
 	name string
 }
 
-func (d *dialer) Http1DialTLSContext(ctx context.Context, network, addr string) (net.Conn, error) {
+func (d *dialer) HTTP1DialTLSContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	fmt.Println("\t Using Http1DialTLSContext")
 	conf := d.conf.Clone()
 	conf.VerifyConnection = d.VerifyConnection
 	return pkgnet.DialTLSWithBackOff(ctx, network, addr, conf)
 }
 
-func (d *dialer) Http2DialTLSContext(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
+func (d *dialer) HTTP2DialTLSContext(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
 	fmt.Println("\t Using Http2DialTLSContext")
-	conf := d.conf.Clone()
+	conf := cfg.Clone()
 	conf.VerifyConnection = d.VerifyConnection
 	return pkgnet.DialTLSWithBackOff(ctx, network, addr, conf)
 }
@@ -174,8 +174,8 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 		if a.trust != netcfg.TrustMinimal {
 			fmt.Printf("\tTLS per Namespace %s\n", revID.Namespace) // ignore  - used in wip for testing
 			d := dialer{conf: transport.HTTP1.TLSClientConfig, name: "kn-user-" + revID.Namespace}
-			transport.HTTP1.DialTLSContext = d.Http1DialTLSContext
-			transport.HTTP2.DialTLSContext = d.Http2DialTLSContext
+			transport.HTTP1.DialTLSContext = d.HTTP1DialTLSContext
+			transport.HTTP2.DialTLSContext = d.HTTP2DialTLSContext
 		}
 	} else {
 		fmt.Printf("\tNo TLS \n") // ignore  - used in wip for testing
