@@ -158,7 +158,7 @@ func main() {
 		logger.Fatalw("Failed to construct network config", zap.Error(err))
 	}
 
-	var transport *http.Transport
+	var transport *activatorhandler.HibrydTransport
 	var certCache *certificate.CertCache
 
 	// Enable TLS against queue-proxy when DataPlaneTrust is not disabled.
@@ -175,7 +175,7 @@ func main() {
 
 	// Start throttler.
 	throttler := activatornet.NewThrottler(ctx, env.PodIP)
-	go throttler.Run(ctx, transport, networkConfig.EnableMeshPodAddressability, networkConfig.MeshCompatibilityMode)
+	go throttler.Run(ctx, transport.Http1, networkConfig.EnableMeshPodAddressability, networkConfig.MeshCompatibilityMode)
 
 	oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(networking.ActivatorServiceName, env.PodIP, logger))
 	defer oct.Shutdown(context.Background())

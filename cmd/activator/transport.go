@@ -19,10 +19,13 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/http"
 
+	"golang.org/x/net/http2"
 	pkgnet "knative.dev/pkg/network"
+	activatorhandler "knative.dev/serving/pkg/activator/handler"
 )
 
 type dialer struct {
@@ -34,29 +37,54 @@ func (d *dialer) DialTLSContext(ctx context.Context, network, addr string) (net.
 }
 
 // NewProxyAutoTLSTransport is same with NewProxyAutoTransport but it has tls.Config to create HTTPS request.
-func NewProxyAutoTLSTransport(maxIdle, maxIdlePerHost int, tlsConf *tls.Config) *http.Transport {
+func NewProxyAutoTLSTransport(maxIdle, maxIdlePerHost int, tlsConf *tls.Config) *activatorhandler.HibrydTransport {
 	tc := dialer{conf: tlsConf}
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.DialTLSContext = tc.DialTLSContext
-	transport.DisableKeepAlives = false
-	transport.MaxIdleConns = maxIdle
-	transport.MaxIdleConnsPerHost = maxIdlePerHost
-	transport.ForceAttemptHTTP2 = false
-	transport.DisableCompression = true
+	http1 := http.DefaultTransport.(*http.Transport).Clone()
+	http1.DialTLSContext = tc.DialTLSContext
+	http1.DisableKeepAlives = false
+	http1.MaxIdleConns = maxIdle
+	http1.MaxIdleConnsPerHost = maxIdlePerHost
+	http1.ForceAttemptHTTP2 = false
+	http1.DisableCompression = true
 
-	transport.TLSClientConfig = tlsConf
+	http1.TLSClientConfig = tlsConf
 
-	return transport
+	http2 := &http2.Transport{
+		DisableCompression: true,
+		DialTLSContext: func(ctx context.Context, netw, addr string, tlsConf *tls.Config) (net.Conn, error) {
+			fmt.Println("\t Http2 Dial without VerifyConnection")
+			return pkgnet.DialTLSWithBackOff(ctx, netw, addr, tlsConf)
+		},
+		TLSClientConfig: tlsConf,
+	}
+
+	return &activatorhandler.HibrydTransport{
+		Http1: http1,
+		Http2: http2,
+	}
 }
 
 // HTTP
-func NewProxyAutoTransport(maxIdle, maxIdlePerHost int) *http.Transport {
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.DialContext = pkgnet.DialWithBackOff
-	transport.DisableKeepAlives = true
-	transport.MaxIdleConns = maxIdle
-	transport.MaxIdleConnsPerHost = maxIdlePerHost
-	transport.ForceAttemptHTTP2 = false
-	transport.DisableCompression = false
-	return transport
+func NewProxyAutoTransport(maxIdle, maxIdlePerHost int) *activatorhandler.HibrydTransport {
+	http1 := http.DefaultTransport.(*http.Transport).Clone()
+	http1.DialContext = pkgnet.DialWithBackOff
+	http1.DisableKeepAlives = true
+	http1.MaxIdleConns = maxIdle
+	http1.MaxIdleConnsPerHost = maxIdlePerHost
+	http1.ForceAttemptHTTP2 = false
+	http1.DisableCompression = false
+
+	http2 := &http2.Transport{
+		AllowHTTP:          true,
+		DisableCompression: true,
+		DialTLS: func(netw, addr string, _ *tls.Config) (net.Conn, error) {
+			return pkgnet.DialWithBackOff(context.Background(),
+				netw, addr)
+		},
+	}
+
+	return &activatorhandler.HibrydTransport{
+		Http1: http1,
+		Http2: http2,
+	}
 }

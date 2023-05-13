@@ -30,6 +30,7 @@ import (
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
+	"golang.org/x/net/http2"
 	"k8s.io/apimachinery/pkg/types"
 
 	netcfg "knative.dev/networking/pkg/config"
@@ -56,7 +57,7 @@ type Throttler interface {
 // activationHandler will wait for an active endpoint for a revision
 // to be available before proxying the request
 type activationHandler struct {
-	transport        *http.Transport
+	transport        *HibrydTransport
 	usePassthroughLb bool
 	throttler        Throttler
 	bufferPool       httputil.BufferPool
@@ -64,18 +65,30 @@ type activationHandler struct {
 	trust            netcfg.Trust
 }
 
+type HibrydTransport struct {
+	Http1 *http.Transport
+	Http2 *http2.Transport
+}
 type dialer struct {
 	conf *tls.Config
 	name string
 }
 
-func (d *dialer) DialTLSContext(ctx context.Context, network, addr string) (net.Conn, error) {
+func (d *dialer) Http1DialTLSContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	fmt.Println("\t Using Http1DialTLSContext")
+	d.conf.VerifyConnection = d.VerifyConnection
+	return pkgnet.DialTLSWithBackOff(ctx, network, addr, d.conf)
+}
+
+func (d *dialer) Http2DialTLSContext(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
+	fmt.Println("\t Using Http2DialTLSContext")
+
 	d.conf.VerifyConnection = d.VerifyConnection
 	return pkgnet.DialTLSWithBackOff(ctx, network, addr, d.conf)
 }
 
 func (d *dialer) VerifyConnection(cs tls.ConnectionState) error {
-	fmt.Println("\t VerifyConnection")
+	fmt.Println("\t Using VerifyConnection")
 	if cs.PeerCertificates == nil {
 		return errors.New("server certificate not verified during VerifyConnection")
 	}
@@ -90,7 +103,7 @@ func (d *dialer) VerifyConnection(cs tls.ConnectionState) error {
 }
 
 // New constructs a new http.Handler that deals with revision activation.
-func New(_ context.Context, t Throttler, transport *http.Transport, usePassthroughLb bool, logger *zap.SugaredLogger, trust netcfg.Trust) http.Handler {
+func New(_ context.Context, t Throttler, transport *HibrydTransport, usePassthroughLb bool, logger *zap.SugaredLogger, trust netcfg.Trust) http.Handler {
 	return &activationHandler{
 		transport:        transport, // WIP - replace function signature to `transport *http.Transport`
 		usePassthroughLb: usePassthroughLb,
@@ -109,8 +122,6 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if tracingEnabled {
 		tryContext, trySpan = trace.StartSpan(r.Context(), "throttler_try")
 	}
-
-	fmt.Printf("\tHTTP (%d) PROTO %s\n", r.ProtoMajor, r.Proto) // ignore  - used in wip for testing
 
 	revID := RevIDFrom(r.Context())
 	if err := a.throttler.Try(tryContext, revID, func(dest string) error {
@@ -144,6 +155,8 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 	netheader.RewriteHostIn(r)
 	r.Header.Set(netheader.ProxyKey, activator.Name)
 
+	fmt.Printf("\tHTTP (%d) PROTO %s\n", r.ProtoMajor, r.Proto) // ignore  - used in wip for testing
+
 	// Set up the reverse proxy.
 	hostOverride := pkghttp.NoHostOverride
 	if usePassthroughLb {
@@ -152,20 +165,31 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 
 	var proxy *httputil.ReverseProxy
 	transport := a.transport
+
 	if a.trust != netcfg.TrustDisabled {
+		fmt.Printf("\tTLS \n") // ignore  - used in wip for testing
 		proxy = pkghttp.NewHeaderPruningReverseProxy(useSecurePort(target), hostOverride, activator.RevisionHeaders, true /* uss HTTPS */)
 
 		if a.trust != netcfg.TrustMinimal {
-			d := dialer{conf: transport.TLSClientConfig, name: "kn-user-" + revID.Namespace}
-			transport = transport.Clone()
-			transport.DialTLSContext = d.DialTLSContext
+			fmt.Printf("\tTLS per Namespace %s\n", revID.Namespace) // ignore  - used in wip for testing
+			d := dialer{conf: transport.Http1.TLSClientConfig, name: "kn-user-" + revID.Namespace}
+			transport.Http1 = transport.Http1.Clone()
+			transport.Http1.DialTLSContext = d.Http1DialTLSContext
+			transport.Http2.DialTLSContext = d.Http2DialTLSContext
 		}
 	} else {
+		fmt.Printf("\tNo TLS \n") // ignore  - used in wip for testing
 		proxy = pkghttp.NewHeaderPruningReverseProxy(target, hostOverride, activator.RevisionHeaders, false /* use HTTPS */)
 	}
 
 	proxy.BufferPool = a.bufferPool
-	proxy.Transport = transport
+	if r.ProtoMajor == 2 {
+		fmt.Printf("\tUse HTTP2 transport \n") // ignore  - used in wip for testing
+		proxy.Transport = transport.Http2
+	} else {
+		fmt.Printf("\tUse HTTP1 transport \n") // ignore  - used in wip for testing
+		proxy.Transport = transport.Http1
+	}
 	if tracingEnabled {
 		proxy.Transport = &ochttp.Transport{
 			Base:        proxy.Transport,
