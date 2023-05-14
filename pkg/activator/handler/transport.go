@@ -40,19 +40,12 @@ func (v *verify) verifyConnection(cs tls.ConnectionState) error {
 	if cs.PeerCertificates == nil {
 		return errors.New("server certificate not verified during VerifyConnection")
 	}
-<<<<<<< HEAD
 	fmt.Printf("\tVerifyConnection looking for SAN %s\n", v.san)
-=======
->>>>>>> 22f1d06be4aa4df66471b9568549eef408caaea5
 	for _, name := range cs.PeerCertificates[0].DNSNames {
 		if name == v.san {
 			return nil
 		}
 	}
-<<<<<<< HEAD
-
-=======
->>>>>>> 22f1d06be4aa4df66471b9568549eef408caaea5
 	return fmt.Errorf("service with san %s does not have a matching name in certificate - names provided: %s", v.san, cs.PeerCertificates[0].DNSNames)
 }
 
