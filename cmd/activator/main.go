@@ -158,15 +158,15 @@ func main() {
 		logger.Fatalw("Failed to construct network config", zap.Error(err))
 	}
 
-	//var transport *activatorhandler.HibrydTransport
+	// Enable TLS both as client and as server if DataplaneTrust != TrustDisabled
+	tlsEnabled := networkConfig.DataplaneTrust != netcfg.TrustDisabled
 	var transport http.RoundTripper
 	var certCache *certificate.CertCache
 
-	// Enable TLS against queue-proxy when DataPlaneTrust is not disabled.
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
-	if networkConfig.DataplaneTrust != netcfg.TrustDisabled {
-		logger.Info("Dataplane trust is used")
+	if tlsEnabled {
+		logger.Info("Dataplane trust %q is used", networkConfig.DataplaneTrust)
 		certCache = certificate.NewCertCache(ctx)
 		transport = activatorhandler.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, &certCache.TLSConf)
 	} else {
@@ -209,7 +209,7 @@ func main() {
 
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
-	ah := activatorhandler.New(ctx, throttler, transport, networkConfig.EnableMeshPodAddressability, logger, networkConfig.DataplaneTrust != netcfg.TrustDisabled)
+	ah := activatorhandler.New(ctx, throttler, transport, networkConfig.EnableMeshPodAddressability, logger, tlsEnabled)
 	ah = handler.NewTimeoutHandler(ah, "activator request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
 		if rev := activatorhandler.RevisionFrom(r.Context()); rev != nil {
 			var responseStartTimeout = 0 * time.Second
@@ -282,10 +282,9 @@ func main() {
 	// Enable TLS server when DataPlaneTrust is not netcfg.TrustDisabled.
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
-	if networkConfig.DataplaneTrust != netcfg.TrustDisabled {
+	if tlsEnabled {
 		name, server := "https", pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTPSPort), ah)
 		go func(name string, s *http.Server) {
-			// Use networkConfig.DataplaneTrust to decide TLSConfig
 			s.TLSConfig = &tls.Config{
 				MinVersion:     tls.VersionTLS12,
 				GetCertificate: certCache.GetCertificate,
@@ -299,7 +298,8 @@ func main() {
 						if match != "kn-routing-0" { // routingId not yet supported
 							continue
 						}
-						if match != certificates.LegacyFakeDnsName { // required until all ingresses work with updated dataplane certificates
+						//Until all ingresses work with updated dataplane certificates  - allow also any legacy certificate
+						if match != certificates.LegacyFakeDnsName {
 							continue
 						}
 						return nil
