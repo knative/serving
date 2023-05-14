@@ -139,7 +139,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 		logger.Debug("Revision meta: " + spew.Sdump(rev.ObjectMeta))
 	}
 
-	// Deploy certificate when dataplane-trust is enabled.
+	// Deploy certificate when dataplane-trust is not disabled.
 	if config.FromContext(ctx).Network.DataplaneTrust != netcfg.TrustDisabled {
 		if err := c.reconcileSecret(ctx, rev); err != nil {
 			return err

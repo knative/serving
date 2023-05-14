@@ -29,8 +29,7 @@ import (
 
 	netheader "knative.dev/networking/pkg/http/header"
 	netstats "knative.dev/networking/pkg/http/stats"
-
-	//pkgnet "knative.dev/pkg/network"
+	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/tracing"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/pkg/tracing/propagation/tracecontextb3"
@@ -144,7 +143,7 @@ func TestQueueTraceSpans(t *testing.T) {
 					breaker = queue.NewBreaker(params)
 				}
 				proxy.Transport = &ochttp.Transport{
-					//	Base:        pkgnet.AutoTransport,
+					Base:        pkgnet.AutoTransport,
 					Propagation: tracecontextb3.TraceContextB3Egress,
 				}
 
