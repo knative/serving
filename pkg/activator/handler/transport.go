@@ -40,13 +40,19 @@ func (v *verify) verifyConnection(cs tls.ConnectionState) error {
 	if cs.PeerCertificates == nil {
 		return errors.New("server certificate not verified during VerifyConnection")
 	}
+<<<<<<< HEAD
 	fmt.Printf("\tVerifyConnection looking for SAN %s\n", v.san)
+=======
+>>>>>>> 22f1d06be4aa4df66471b9568549eef408caaea5
 	for _, name := range cs.PeerCertificates[0].DNSNames {
 		if name == v.san {
 			return nil
 		}
 	}
+<<<<<<< HEAD
 
+=======
+>>>>>>> 22f1d06be4aa4df66471b9568549eef408caaea5
 	return fmt.Errorf("service with san %s does not have a matching name in certificate - names provided: %s", v.san, cs.PeerCertificates[0].DNSNames)
 }
 
@@ -58,6 +64,7 @@ type tlsWrapper struct {
 // dialTLSContextHTTP1 handles HTTPS:HTTP1 dialer
 func (tw *tlsWrapper) dialTLSContextHTTP1(ctx context.Context, network, addr string) (net.Conn, error) {
 	return dialTLSContext(ctx, network, addr, tw.tlsConf)
+<<<<<<< HEAD
 	/*
 		san := certificates.LegacyFakeDnsName
 		config := activatorconfig.FromContext(ctx)
@@ -71,25 +78,53 @@ func (tw *tlsWrapper) dialTLSContextHTTP1(ctx context.Context, network, addr str
 		tlsConf := tw.tlsConf.Clone()
 		tlsConf.VerifyConnection = v.verifyConnection
 		return pkgnet.DialTLSWithBackOff(ctx, network, addr, tlsConf)
+=======
+	/*san := certificates.LegacyFakeDnsName
+	config := activatorconfig.FromContext(ctx)
+	trust := config.Trust
+	if trust != netcfg.TrustMinimal {
+		revID := RevIDFrom(ctx)
+		san = "kn-user-" + revID.Namespace
+	}
+	v := &verify{san: san}
+	tlsConf := tw.tlsConf.Clone()
+	tlsConf.VerifyConnection = v.verifyConnection
+	return pkgnet.DialTLSWithBackOff(ctx, network, addr, tlsConf)
+>>>>>>> 22f1d06be4aa4df66471b9568549eef408caaea5
 	*/
 }
 
 // dialTLSContext handles HTTPS:HTTP1 and HTTP2 dialers
 // Depends on the activator handler's RevIDFrom
+<<<<<<< HEAD
 func dialTLSContext(ctx context.Context, network, addr string, tlsConf *tls.Config) (net.Conn, error) {
 	config := activatorconfig.FromContext(ctx)
 	trust := config.Trust
 	fmt.Printf("\tdialTLSContext with trust %s\n", trust)
 	if trust != netcfg.TrustDisabled {
 		tlsConf = tlsConf.Clone()
+=======
+func dialTLSContext(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
+	var tlsConf *tls.Config
+	config := activatorconfig.FromContext(ctx)
+	trust := config.Trust
+
+	if trust != netcfg.TrustDisabled {
+>>>>>>> 22f1d06be4aa4df66471b9568549eef408caaea5
 		san := certificates.LegacyFakeDnsName
 		if trust != netcfg.TrustMinimal {
 			revID := RevIDFrom(ctx)
 			san = "kn-user-" + revID.Namespace
 		}
+		fmt.Printf("\tverify trust %q of san %s\n", trust, san)
 		v := &verify{san: san}
+<<<<<<< HEAD
 		tlsConf.VerifyConnection = v.verifyConnection
 		fmt.Printf("\tdialTLSContext TLS with san %s\n", san)
+=======
+		tlsConf := cfg.Clone()
+		tlsConf.VerifyConnection = v.verifyConnection
+>>>>>>> 22f1d06be4aa4df66471b9568549eef408caaea5
 	}
 	return pkgnet.DialTLSWithBackOff(ctx, network, addr, tlsConf)
 }
@@ -105,6 +140,16 @@ func newAutoTransport(v1, v2 http.RoundTripper) http.RoundTripper {
 	})
 }
 
+<<<<<<< HEAD
+=======
+type RoundTripperFunc func(*http.Request) (*http.Response, error)
+
+// RoundTrip implements http.RoundTripper.
+func (rt RoundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return rt(r)
+}
+
+>>>>>>> 22f1d06be4aa4df66471b9568549eef408caaea5
 // newHTTPTransport is a duplicate of the unexported knative/pkg's network newHTTPTransport
 func newHTTPTransport(disableKeepAlives, disableCompression bool, maxIdle, maxIdlePerHost int) http.RoundTripper {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
@@ -151,7 +196,10 @@ func newH2Transport(disableCompression bool, tlsConf *tls.Config) http.RoundTrip
 	}
 }
 
+<<<<<<< HEAD
 // Depends on the activator handler's RevIDFrom
+=======
+>>>>>>> 22f1d06be4aa4df66471b9568549eef408caaea5
 func NewProxyAutoTLSTransport(maxIdle, maxIdlePerHost int, tlsConf *tls.Config) http.RoundTripper {
 	return newAutoTransport(
 		newHTTPSTransport(false, true, maxIdle, maxIdlePerHost, tlsConf),
