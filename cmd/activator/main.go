@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"log"
@@ -32,7 +31,7 @@ import (
 	"go.uber.org/zap"
 
 	// Injection related imports.
-	"knative.dev/control-protocol/pkg/certificates"
+
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection"
 	"knative.dev/serving/pkg/activator"
@@ -167,8 +166,8 @@ func main() {
 	// See also https://github.com/knative/serving/issues/12808.
 	if tlsEnabled {
 		logger.Info("Dataplane trust %q is used", networkConfig.DataplaneTrust)
-		certCache = certificate.NewCertCache(ctx)
-		transport = activatorhandler.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, &certCache.TLSConf)
+		certCache = certificate.NewCertCache(ctx, networkConfig.DataplaneTrust)
+		transport = activatorhandler.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, &certCache.ClientTLSConf)
 	} else {
 		transport = activatorhandler.NewProxyAutoTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
 	}
@@ -285,30 +284,7 @@ func main() {
 	if tlsEnabled {
 		name, server := "https", pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTPSPort), ah)
 		go func(name string, s *http.Server) {
-			s.TLSConfig = &tls.Config{
-				MinVersion:     tls.VersionTLS12,
-				GetCertificate: certCache.GetCertificate,
-			}
-			switch networkConfig.DataplaneTrust {
-			case netcfg.TrustIdentity, netcfg.TrustMutual:
-				s.TLSConfig.ClientAuth = tls.RequireAndVerifyClientCert
-				s.TLSConfig.ClientCAs = certCache.TLSConf.RootCAs // reload when it gets updated not yet supported
-				s.TLSConfig.VerifyConnection = func(cs tls.ConnectionState) error {
-					for _, match := range cs.PeerCertificates[0].DNSNames {
-						if match != "kn-routing-0" { // routingId not yet supported
-							continue
-						}
-						//Until all ingresses work with updated dataplane certificates  - allow also any legacy certificate
-						if match != certificates.LegacyFakeDnsName {
-							continue
-						}
-						return nil
-					}
-					logger.Info("TLS: Failed Client with DNSNames: %v\n", cs.PeerCertificates[0].DNSNames)
-					return fmt.Errorf("TLS Failed to approve %v", cs.PeerCertificates[0].DNSNames)
-				}
-			}
-
+			s.TLSConfig = &certCache.ServerTLSConf
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
 			if err := s.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errCh <- fmt.Errorf("%s server failed: %w", name, err)

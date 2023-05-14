@@ -47,7 +47,7 @@ func fakeCertCache(ctx context.Context) *CertCache {
 	cr := &CertCache{
 		secretInformer: secretInformer,
 		certificate:    nil,
-		TLSConf:        tls.Config{},
+		ClientTLSConf:  tls.Config{},
 		logger:         logging.FromContext(ctx),
 	}
 
@@ -68,7 +68,7 @@ func routingCertCache(ctx context.Context) *CertCache {
 	cr := &CertCache{
 		secretInformer: secretInformer,
 		certificate:    nil,
-		TLSConf:        tls.Config{},
+		ClientTLSConf:  tls.Config{},
 		logger:         logging.FromContext(ctx),
 	}
 
@@ -157,7 +157,7 @@ func TestFakeReconcile(t *testing.T) {
 		// To access cr.TLSConf.RootCAs, take a lock.
 		cr.certificatesMux.RLock()
 		defer cr.certificatesMux.RUnlock()
-		return err == nil && pool.Equal(cr.TLSConf.RootCAs), nil
+		return err == nil && pool.Equal(cr.ClientTLSConf.RootCAs), nil
 	}); err != nil {
 		t.Fatalf("timeout to update the cert: %v", err)
 	}
@@ -237,7 +237,7 @@ func TestRoutingReconcile(t *testing.T) {
 		// To access cr.TLSConf.RootCAs, take a lock.
 		cr.certificatesMux.RLock()
 		defer cr.certificatesMux.RUnlock()
-		return err == nil && pool.Equal(cr.TLSConf.RootCAs), nil
+		return err == nil && pool.Equal(cr.ClientTLSConf.RootCAs), nil
 	}); err != nil {
 		t.Fatalf("timeout to update the cert: %v", err)
 	}

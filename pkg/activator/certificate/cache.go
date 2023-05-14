@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"sync"
 
 	"go.uber.org/zap"
@@ -40,20 +41,23 @@ import (
 type CertCache struct {
 	secretInformer v1.SecretInformer
 	logger         *zap.SugaredLogger
+	trust          netcfg.Trust
 
-	certificate *tls.Certificate
-	TLSConf     tls.Config
+	certificate   *tls.Certificate
+	ClientTLSConf tls.Config
+	ServerTLSConf tls.Config
 
 	certificatesMux sync.RWMutex
 }
 
 // NewCertCache starts secretInformer.
-func NewCertCache(ctx context.Context) *CertCache {
+func NewCertCache(ctx context.Context, trust netcfg.Trust) *CertCache {
 	secretInformer := secretinformer.Get(ctx)
 
 	cr := &CertCache{
 		secretInformer: secretInformer,
 		logger:         logging.FromContext(ctx),
+		trust:          trust,
 	}
 
 	secret, err := cr.secretInformer.Lister().Secrets(system.Namespace()).Get(netcfg.ServingRoutingCertName)
@@ -101,10 +105,34 @@ func (cr *CertCache) updateCache(secret *corev1.Secret) {
 	}
 	pool.AddCert(ca)
 
-	cr.TLSConf.RootCAs = pool
-	cr.TLSConf.ServerName = certificates.LegacyFakeDnsName
-	cr.TLSConf.MinVersion = tls.VersionTLS12
-	cr.TLSConf.Certificates = []tls.Certificate{cert}
+	cr.ClientTLSConf.RootCAs = pool
+	cr.ClientTLSConf.ServerName = certificates.LegacyFakeDnsName
+	cr.ClientTLSConf.MinVersion = tls.VersionTLS12
+	cr.ClientTLSConf.Certificates = []tls.Certificate{cert}
+
+	cr.ServerTLSConf.MinVersion = tls.VersionTLS12
+	cr.ServerTLSConf.GetCertificate = cr.GetCertificate
+
+	switch cr.trust {
+	case netcfg.TrustIdentity, netcfg.TrustMutual:
+		cr.ServerTLSConf.ClientAuth = tls.RequireAndVerifyClientCert
+		cr.ServerTLSConf.ClientCAs = pool
+		cr.ServerTLSConf.VerifyConnection = func(cs tls.ConnectionState) error {
+			fmt.Printf("\t cr.ServerTLSConf.VerifyConnection in %v\n", cs.PeerCertificates[0].DNSNames)
+			for _, match := range cs.PeerCertificates[0].DNSNames {
+				if match != "kn-routing-0" { // routingId not yet supported
+					continue
+				}
+				//Until all ingresses work with updated dataplane certificates  - allow also any legacy certificate
+				if match != certificates.LegacyFakeDnsName {
+					continue
+				}
+				return nil
+			}
+			cr.logger.Info("mTLS: Failed Client with DNSNames: %v\n", cs.PeerCertificates[0].DNSNames)
+			return fmt.Errorf("mTLS Failed to approve %v", cs.PeerCertificates[0].DNSNames)
+		}
+	}
 }
 
 func (cr *CertCache) handleCertificateUpdate(_, new interface{}) {
