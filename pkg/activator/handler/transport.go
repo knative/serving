@@ -64,7 +64,7 @@ func (tw *tlsWrapper) dialTLSContextHTTP1(ctx context.Context, network, addr str
 func dialTLSContext(ctx context.Context, network, addr string, tlsConf *tls.Config) (net.Conn, error) {
 	config := activatorconfig.FromContext(ctx)
 	trust := config.Trust
-	fmt.Printf("\tdialTLSContext with trust %s\n", trust)
+	fmt.Printf("\tdialTLSContext with trust %q\n", trust)
 	if trust != netcfg.TrustDisabled {
 		tlsConf = tlsConf.Clone()
 		san := certificates.LegacyFakeDnsName
@@ -76,6 +76,8 @@ func dialTLSContext(ctx context.Context, network, addr string, tlsConf *tls.Conf
 		v := &verify{san: san}
 		tlsConf.VerifyConnection = v.verifyConnection
 		fmt.Printf("\tdialTLSContext TLS with san %s\n", san)
+	} else {
+		tlsConf = nil
 	}
 	return pkgnet.DialTLSWithBackOff(ctx, network, addr, tlsConf)
 }
