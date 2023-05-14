@@ -26,97 +26,138 @@ import (
 
 	"golang.org/x/net/http2"
 	"knative.dev/control-protocol/pkg/certificates"
+	netcfg "knative.dev/networking/pkg/config"
 	pkgnet "knative.dev/pkg/network"
+	activatorconfig "knative.dev/serving/pkg/activator/config"
 )
 
-type HibrydTransport struct {
-	HTTP1 *http.Transport
-	HTTP2 *http2.Transport
-	San   string
+type verify struct {
+	san string
 }
 
-func (ht *HibrydTransport) HTTP1DialTLSContext(ctx context.Context, network, addr string) (net.Conn, error) {
-	fmt.Println("\t Using Http1DialTLSContext")
-	conf := ht.HTTP1.TLSClientConfig.Clone()
-	conf.VerifyConnection = ht.VerifyConnection
+type tlsWrapper struct {
+	tlsConf *tls.Config
+}
+
+func (tw *tlsWrapper) HTTP1DialTLSContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	san := certificates.LegacyFakeDnsName
+	config := activatorconfig.FromContext(ctx)
+	trust := config.Trust
+	if trust != netcfg.TrustMinimal {
+		revID := RevIDFrom(ctx)
+		san = "kn-user-" + revID.Namespace
+	}
+	v := &verify{san: san}
+
+	fmt.Printf("\tHttp1 mysan %s during trust %s\n", san, trust)
+
+	conf := tw.tlsConf.Clone()
+	conf.VerifyConnection = v.VerifyConnection
 	return pkgnet.DialTLSWithBackOff(ctx, network, addr, conf)
 }
 
-func (ht *HibrydTransport) HTTP2DialTLSContext(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
-	fmt.Println("\t Using Http2DialTLSContext")
-	conf := cfg.Clone()
-	conf.VerifyConnection = ht.VerifyConnection
-	return pkgnet.DialTLSWithBackOff(ctx, network, addr, conf)
-}
-
-func (ht *HibrydTransport) VerifyConnection(cs tls.ConnectionState) error {
-	fmt.Printf("\t Using VerifyConnection with san %s\n", ht.San)
+func (v *verify) VerifyConnection(cs tls.ConnectionState) error {
 	if cs.PeerCertificates == nil {
 		return errors.New("server certificate not verified during VerifyConnection")
 	}
+	fmt.Printf("\tVerifyConnection looking for SAN %s\n", v.san)
 	for _, name := range cs.PeerCertificates[0].DNSNames {
-		if name == ht.San {
-			fmt.Printf("\tFound QP for san %s\n", ht.San)
+		if name == v.san {
 			return nil
 		}
 	}
 
-	return fmt.Errorf("service with san %s does not have a matching name in certificate - names provided: %s", ht.San, cs.PeerCertificates[0].DNSNames)
+	return fmt.Errorf("service with san %s does not have a matching name in certificate - names provided: %s", v.san, cs.PeerCertificates[0].DNSNames)
 }
 
-// NewProxyAutoTLSTransport is same with NewProxyAutoTransport but it has tls.Config to create HTTPS request.
-// func NewProxyAutoTransport(maxIdle, maxIdlePerHost int) *activatorhandler.HibrydTransport
-func NewProxyAutoTLSTransport(maxIdle, maxIdlePerHost int, tlsConf *tls.Config) *HibrydTransport {
-	http1 := http.DefaultTransport.(*http.Transport).Clone()
-	http1.DialTLSContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-		fmt.Println("\t Http1 Dial without VerifyConnection")
-		return pkgnet.DialTLSWithBackOff(ctx, network, addr, tlsConf)
+func HTTP2DialTLSContext(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
+	var tlsConf *tls.Config
+	config := activatorconfig.FromContext(ctx)
+	trust := config.Trust
+	fmt.Printf("\tHttp2  during trust %s\n", trust)
+	if trust != netcfg.TrustDisabled {
+		tlsConf = cfg.Clone()
+		san := certificates.LegacyFakeDnsName
+		if trust != netcfg.TrustMinimal {
+			revID := RevIDFrom(ctx)
+			san = "kn-user-" + revID.Namespace
+		}
+		v := &verify{san: san}
+		tlsConf.VerifyConnection = v.VerifyConnection
+		fmt.Printf("\tHttp2 TLS with san %s\n", san)
 	}
+	return pkgnet.DialTLSWithBackOff(ctx, network, addr, tlsConf)
+	//return pkgnet.DialWithBackOff(ctx, network, addr)
+}
 
-	http1.DisableKeepAlives = false
-	http1.MaxIdleConns = maxIdle
-	http1.MaxIdleConnsPerHost = maxIdlePerHost
-	http1.ForceAttemptHTTP2 = false
-	http1.DisableCompression = true
-	http1.TLSClientConfig = tlsConf
+func NewProxyAutoTLSTransport(maxIdle, maxIdlePerHost int, tlsConf *tls.Config) http.RoundTripper {
+	return newAutoTransport(
+		newHTTPSTransport(false, true, maxIdle, maxIdlePerHost, tlsConf),
+		newH2Transport(true, tlsConf))
+}
 
-	http2 := &http2.Transport{
-		DisableCompression: true,
+func NewProxyAutoTransport(maxIdle, maxIdlePerHost int) http.RoundTripper {
+	return newAutoTransport(
+		newHTTPTransport(false, true, maxIdle, maxIdlePerHost),
+		newH2CTransport(true))
+}
+
+func newAutoTransport(v1, v2 http.RoundTripper) http.RoundTripper {
+	return RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		t := v1
+		if r.ProtoMajor == 2 {
+			t = v2
+		}
+		return t.RoundTrip(r)
+	})
+}
+
+type RoundTripperFunc func(*http.Request) (*http.Response, error)
+
+// RoundTrip implements http.RoundTripper.
+func (rt RoundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return rt(r)
+}
+
+func newHTTPTransport(disableKeepAlives, disableCompression bool, maxIdle, maxIdlePerHost int) http.RoundTripper {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = pkgnet.DialWithBackOff
+	transport.DisableKeepAlives = disableKeepAlives
+	transport.MaxIdleConns = maxIdle
+	transport.MaxIdleConnsPerHost = maxIdlePerHost
+	transport.ForceAttemptHTTP2 = false
+	transport.DisableCompression = disableCompression
+	return transport
+}
+
+func newHTTPSTransport(disableKeepAlives, disableCompression bool, maxIdle, maxIdlePerHost int, tlsConf *tls.Config) http.RoundTripper {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	//transport.DialContext = pkgnet.DialWithBackOff
+	transport.DisableKeepAlives = disableKeepAlives
+	transport.MaxIdleConns = maxIdle
+	transport.MaxIdleConnsPerHost = maxIdlePerHost
+	transport.ForceAttemptHTTP2 = false
+	transport.DisableCompression = disableCompression
+
+	transport.TLSClientConfig = tlsConf
+	tw := tlsWrapper{tlsConf: tlsConf}
+	transport.DialTLSContext = tw.HTTP1DialTLSContext
+
+	return transport
+}
+
+func newH2CTransport(disableCompression bool) http.RoundTripper {
+	return &http2.Transport{
+		AllowHTTP:          true,
+		DisableCompression: disableCompression,
+		DialTLSContext:     HTTP2DialTLSContext,
+	}
+}
+
+func newH2Transport(disableCompression bool, tlsConf *tls.Config) http.RoundTripper {
+	return &http2.Transport{
+		DisableCompression: disableCompression,
+		DialTLSContext:     HTTP2DialTLSContext,
 		TLSClientConfig:    tlsConf,
 	}
-
-	ht := &HibrydTransport{
-		HTTP1: http1,
-		HTTP2: http2,
-		San:   certificates.LegacyFakeDnsName,
-	}
-	ht.HTTP1.DialTLSContext = ht.HTTP1DialTLSContext
-	ht.HTTP2.DialTLSContext = ht.HTTP2DialTLSContext
-
-	return ht
-}
-
-// HTTP
-func NewProxyAutoTransport(maxIdle, maxIdlePerHost int) *HibrydTransport {
-	http1 := http.DefaultTransport.(*http.Transport).Clone()
-	http1.DialContext = pkgnet.DialWithBackOff
-	http1.DisableKeepAlives = true
-	http1.MaxIdleConns = maxIdle
-	http1.MaxIdleConnsPerHost = maxIdlePerHost
-	http1.ForceAttemptHTTP2 = false
-	http1.DisableCompression = false
-
-	http2 := &http2.Transport{
-		AllowHTTP:          true,
-		DisableCompression: true,
-		DialTLSContext: func(ctx context.Context, netw, addr string, _ *tls.Config) (net.Conn, error) {
-			fmt.Printf("\t Http2 Dial without VerifyConnection\n")
-			return pkgnet.DialWithBackOff(ctx, netw, addr)
-		},
-	}
-	ht := &HibrydTransport{
-		HTTP1: http1,
-		HTTP2: http2,
-	}
-	return ht
 }

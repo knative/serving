@@ -41,7 +41,6 @@ type CertCache struct {
 	secretInformer v1.SecretInformer
 	logger         *zap.SugaredLogger
 
-	trust       netcfg.Trust
 	certificate *tls.Certificate
 	TLSConf     tls.Config
 
@@ -49,13 +48,12 @@ type CertCache struct {
 }
 
 // NewCertCache starts secretInformer.
-func NewCertCache(ctx context.Context, trust netcfg.Trust) *CertCache {
+func NewCertCache(ctx context.Context) *CertCache {
 	secretInformer := secretinformer.Get(ctx)
 
 	cr := &CertCache{
 		secretInformer: secretInformer,
 		logger:         logging.FromContext(ctx),
-		trust:          trust,
 	}
 
 	secret, err := cr.secretInformer.Lister().Secrets(system.Namespace()).Get(netcfg.ServingRoutingCertName)
@@ -107,7 +105,6 @@ func (cr *CertCache) updateCache(secret *corev1.Secret) {
 	cr.TLSConf.ServerName = certificates.LegacyFakeDnsName
 	cr.TLSConf.MinVersion = tls.VersionTLS12
 	cr.TLSConf.Certificates = []tls.Certificate{cert}
-	//cr.TLSConf.VerifyConnection = cr.VerifyConnection
 }
 
 func (cr *CertCache) handleCertificateUpdate(_, new interface{}) {
@@ -118,19 +115,3 @@ func (cr *CertCache) handleCertificateUpdate(_, new interface{}) {
 func (cr *CertCache) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	return cr.certificate, nil
 }
-
-/*
-func (cr *CertCache) VerifyConnection(cs tls.ConnectionState) error {
-	fmt.Println("\t VerifyConnection")
-	if cs.PeerCertificates == nil {
-		return errors.New("server certificate not verified during VerifyConnection")
-	}
-	for _, name := range cs.PeerCertificates[0].DNSNames {
-		if name == certificates.LegacyFakeDnsName {
-			fmt.Printf("\tFound QP\n")
-			return nil
-		}
-	}
-	return fmt.Errorf("service does not have a matching name in certificate - names provided: %s", cs.PeerCertificates[0].DNSNames)
-}
-*/

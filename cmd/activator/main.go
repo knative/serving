@@ -158,16 +158,16 @@ func main() {
 		logger.Fatalw("Failed to construct network config", zap.Error(err))
 	}
 
-	var transport *activatorhandler.HibrydTransport
+	//var transport *activatorhandler.HibrydTransport
+	var transport http.RoundTripper
 	var certCache *certificate.CertCache
 
 	// Enable TLS against queue-proxy when DataPlaneTrust is not disabled.
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
-
 	if networkConfig.DataplaneTrust != netcfg.TrustDisabled {
 		logger.Info("Dataplane trust is used")
-		certCache = certificate.NewCertCache(ctx, networkConfig.DataplaneTrust)
+		certCache = certificate.NewCertCache(ctx)
 		transport = activatorhandler.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, &certCache.TLSConf)
 	} else {
 		transport = activatorhandler.NewProxyAutoTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
@@ -175,7 +175,7 @@ func main() {
 
 	// Start throttler.
 	throttler := activatornet.NewThrottler(ctx, env.PodIP)
-	go throttler.Run(ctx, transport.HTTP1, networkConfig.EnableMeshPodAddressability, networkConfig.MeshCompatibilityMode)
+	go throttler.Run(ctx, transport, networkConfig.EnableMeshPodAddressability, networkConfig.MeshCompatibilityMode)
 
 	oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(networking.ActivatorServiceName, env.PodIP, logger))
 	defer oct.Shutdown(context.Background())
@@ -190,7 +190,7 @@ func main() {
 
 	// Set up our config store
 	configMapWatcher := configmapinformer.NewInformedWatcher(kubeClient, system.Namespace())
-	configStore := activatorconfig.NewStore(logger, tracerUpdater)
+	configStore := activatorconfig.NewStore(logger, networkConfig.DataplaneTrust, tracerUpdater)
 	configStore.WatchConfigs(configMapWatcher)
 
 	statCh := make(chan []asmetrics.StatMessage)
@@ -209,7 +209,7 @@ func main() {
 
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
-	ah := activatorhandler.New(ctx, throttler, transport, networkConfig.EnableMeshPodAddressability, logger, networkConfig.DataplaneTrust)
+	ah := activatorhandler.New(ctx, throttler, transport, networkConfig.EnableMeshPodAddressability, logger, networkConfig.DataplaneTrust != netcfg.TrustDisabled)
 	ah = handler.NewTimeoutHandler(ah, "activator request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
 		if rev := activatorhandler.RevisionFrom(r.Context()); rev != nil {
 			var responseStartTimeout = 0 * time.Second

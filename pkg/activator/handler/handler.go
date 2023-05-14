@@ -19,7 +19,6 @@ package handler
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"strconv"
@@ -30,7 +29,6 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 
-	netcfg "knative.dev/networking/pkg/config"
 	netheader "knative.dev/networking/pkg/http/header"
 	netproxy "knative.dev/networking/pkg/http/proxy"
 	"knative.dev/pkg/logging/logkey"
@@ -53,23 +51,28 @@ type Throttler interface {
 // activationHandler will wait for an active endpoint for a revision
 // to be available before proxying the request
 type activationHandler struct {
-	transport        *HibrydTransport
+	transport        http.RoundTripper
+	tracingTransport http.RoundTripper
 	usePassthroughLb bool
 	throttler        Throttler
 	bufferPool       httputil.BufferPool
 	logger           *zap.SugaredLogger
-	trust            netcfg.Trust
+	tls              bool
 }
 
 // New constructs a new http.Handler that deals with revision activation.
-func New(_ context.Context, t Throttler, transport *HibrydTransport, usePassthroughLb bool, logger *zap.SugaredLogger, trust netcfg.Trust) http.Handler {
+func New(_ context.Context, t Throttler, transport http.RoundTripper, usePassthroughLb bool, logger *zap.SugaredLogger, tlsEnabled bool) http.Handler {
 	return &activationHandler{
-		transport:        transport, // WIP - replace function signature to `transport *http.Transport`
+		transport: transport,
+		tracingTransport: &ochttp.Transport{
+			Base:        transport,
+			Propagation: tracecontextb3.TraceContextB3Egress,
+		},
 		usePassthroughLb: usePassthroughLb,
 		throttler:        t,
 		bufferPool:       netproxy.NewBufferPool(),
 		logger:           logger,
-		trust:            trust,
+		tls:              tlsEnabled,
 	}
 }
 
@@ -114,8 +117,6 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 	netheader.RewriteHostIn(r)
 	r.Header.Set(netheader.ProxyKey, activator.Name)
 
-	fmt.Printf("\tHTTP (%d) PROTO %s\n", r.ProtoMajor, r.Proto) // ignore  - used in wip for testing
-
 	// Set up the reverse proxy.
 	hostOverride := pkghttp.NoHostOverride
 	if usePassthroughLb {
@@ -123,35 +124,17 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 	}
 
 	var proxy *httputil.ReverseProxy
-	transport := a.transport
-
-	if a.trust != netcfg.TrustDisabled {
-		fmt.Printf("\tTLS \n") // ignore  - used in wip for testing
+	if a.tls {
 		proxy = pkghttp.NewHeaderPruningReverseProxy(useSecurePort(target), hostOverride, activator.RevisionHeaders, true /* uss HTTPS */)
-
-		if a.trust != netcfg.TrustMinimal {
-			transport.San = "kn-user-" + revID.Namespace
-		}
 	} else {
-		fmt.Printf("\tNo TLS \n") // ignore  - used in wip for testing
 		proxy = pkghttp.NewHeaderPruningReverseProxy(target, hostOverride, activator.RevisionHeaders, false /* use HTTPS */)
 	}
 
 	proxy.BufferPool = a.bufferPool
-	if r.ProtoMajor == 2 {
-		fmt.Printf("\tUse HTTP2 transport \n") // ignore  - used in wip for testing
-		proxy.Transport = transport.HTTP2
-	} else {
-		fmt.Printf("\tUse HTTP1 transport \n") // ignore  - used in wip for testing
-		proxy.Transport = transport.HTTP1
-	}
+	proxy.Transport = a.transport
 	if tracingEnabled {
-		proxy.Transport = &ochttp.Transport{
-			Base:        proxy.Transport,
-			Propagation: tracecontextb3.TraceContextB3Egress,
-		}
+		proxy.Transport = a.tracingTransport
 	}
-
 	proxy.FlushInterval = netproxy.FlushInterval
 	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
 		pkghandler.Error(a.logger.With(zap.String(logkey.Key, revID.String())))(w, req, err)

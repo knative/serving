@@ -63,7 +63,7 @@ func TestTracingHandler(t *testing.T) {
 				t.Fatal("Failed to parse tracing config", err)
 			}
 
-			configStore := activatorconfig.NewStore(logging.FromContext(ctx))
+			configStore := activatorconfig.NewStore(logging.FromContext(ctx), "disabled")
 			configStore.OnConfigChanged(cm)
 			ctx = configStore.ToContext(ctx)
 

@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"go.uber.org/atomic"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/configmap"
 	tracingconfig "knative.dev/pkg/tracing/config"
 )
@@ -29,6 +30,7 @@ type cfgKey struct{}
 // Config is the configuration for the activator.
 type Config struct {
 	Tracing *tracingconfig.Config
+	Trust   netcfg.Trust
 }
 
 // FromContext obtains a Config injected into the passed context.
@@ -45,7 +47,7 @@ type Store struct {
 }
 
 // NewStore creates a new configuration Store.
-func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
+func NewStore(logger configmap.Logger, trust netcfg.Trust, onAfterStore ...func(name string, value interface{})) *Store {
 	s := &Store{}
 
 	// Append an update function to run after a ConfigMap has updated to update the
@@ -53,6 +55,7 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 	onAfterStore = append(onAfterStore, func(_ string, _ interface{}) {
 		s.current.Store(&Config{
 			Tracing: s.UntypedLoad(tracingconfig.ConfigName).(*tracingconfig.Config).DeepCopy(),
+			Trust:   trust,
 		})
 	})
 	s.UntypedStore = configmap.NewUntypedStore(

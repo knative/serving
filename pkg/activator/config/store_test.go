@@ -37,7 +37,7 @@ var tracingConfig = &corev1.ConfigMap{
 
 func TestStore(t *testing.T) {
 	logger := ltesting.TestLogger(t)
-	store := NewStore(logger)
+	store := NewStore(logger, "Disabled")
 	store.OnConfigChanged(tracingConfig)
 
 	ctx := store.ToContext(context.Background())
@@ -68,7 +68,7 @@ func TestStore(t *testing.T) {
 
 func BenchmarkStoreToContext(b *testing.B) {
 	logger := ltesting.TestLogger(b)
-	store := NewStore(logger)
+	store := NewStore(logger, "Disabled")
 	store.OnConfigChanged(tracingConfig)
 
 	b.Run("sequential", func(b *testing.B) {

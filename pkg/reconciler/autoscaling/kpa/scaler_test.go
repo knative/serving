@@ -760,9 +760,9 @@ func checkReplicas(t *testing.T, dynamicClient *fakedynamic.FakeDynamicClient, d
 }
 
 func TestActivatorProbe(t *testing.T) {
-	//oldRT := network.AutoTransport
+	oldRT := network.AutoTransport
 	defer func() {
-		//	network.AutoTransport = oldRT
+		network.AutoTransport = oldRT
 	}()
 	theErr := errors.New("rain")
 

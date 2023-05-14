@@ -16,7 +16,22 @@ limitations under the License.
 
 package handler
 
-/*
+import (
+	"bytes"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	netprobe "knative.dev/networking/pkg/http/probe"
+	"knative.dev/pkg/logging"
+	pkgnet "knative.dev/pkg/network"
+	rtesting "knative.dev/pkg/reconciler/testing"
+	"knative.dev/serving/pkg/activator"
+	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
+	pkghttp "knative.dev/serving/pkg/http"
+)
+
 // BenchmarkHandlerChain is supposed to try to project the entire handler chain of the
 // activator to enable us to see improvements that span handlers and to judge some of
 // the handlers that are not developed here.
@@ -54,7 +69,7 @@ func BenchmarkHandlerChain(b *testing.B) {
 	})
 
 	// Make sure to update this if the activator's main file changes.
-	ah := New(ctx, fakeThrottler{}, rt, false, logger, netcfg.TrustDisabled  TLS )
+	ah := New(ctx, fakeThrottler{}, rt, false, logger, false /* TLS */)
 	ah = concurrencyReporter.Handler(ah)
 	ah = NewTracingHandler(ah)
 	ah, _ = pkghttp.NewRequestLogHandler(ah, io.Discard, "", nil, false)
@@ -99,4 +114,3 @@ func BenchmarkHandlerChain(b *testing.B) {
 		})
 	})
 }
-*/
