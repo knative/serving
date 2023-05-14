@@ -31,32 +31,12 @@ import (
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 )
 
+// verify is a SAN verifier and offers verifyConnection that verifies if the san is in the certificate DNSNames
 type verify struct {
 	san string
 }
 
-type tlsWrapper struct {
-	tlsConf *tls.Config
-}
-
-func (tw *tlsWrapper) HTTP1DialTLSContext(ctx context.Context, network, addr string) (net.Conn, error) {
-	san := certificates.LegacyFakeDnsName
-	config := activatorconfig.FromContext(ctx)
-	trust := config.Trust
-	if trust != netcfg.TrustMinimal {
-		revID := RevIDFrom(ctx)
-		san = "kn-user-" + revID.Namespace
-	}
-	v := &verify{san: san}
-
-	fmt.Printf("\tHttp1 mysan %s during trust %s\n", san, trust)
-
-	conf := tw.tlsConf.Clone()
-	conf.VerifyConnection = v.VerifyConnection
-	return pkgnet.DialTLSWithBackOff(ctx, network, addr, conf)
-}
-
-func (v *verify) VerifyConnection(cs tls.ConnectionState) error {
+func (v *verify) verifyConnection(cs tls.ConnectionState) error {
 	if cs.PeerCertificates == nil {
 		return errors.New("server certificate not verified during VerifyConnection")
 	}
@@ -70,40 +50,53 @@ func (v *verify) VerifyConnection(cs tls.ConnectionState) error {
 	return fmt.Errorf("service with san %s does not have a matching name in certificate - names provided: %s", v.san, cs.PeerCertificates[0].DNSNames)
 }
 
-func HTTP2DialTLSContext(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
-	var tlsConf *tls.Config
+// tlsWrapper is a tls.Config wrapper with a TLS dialer for HTTP1
+type tlsWrapper struct {
+	tlsConf *tls.Config
+}
+
+// dialTLSContextHTTP1 handles HTTPS:HTTP1 dialer
+func (tw *tlsWrapper) dialTLSContextHTTP1(ctx context.Context, network, addr string) (net.Conn, error) {
+	return dialTLSContext(ctx, network, addr, tw.tlsConf)
+	/*
+		san := certificates.LegacyFakeDnsName
+		config := activatorconfig.FromContext(ctx)
+		trust := config.Trust
+		if trust != netcfg.TrustMinimal {
+			revID := RevIDFrom(ctx)
+			san = "kn-user-" + revID.Namespace
+		}
+		v := &verify{san: san}
+		fmt.Printf("\tHttp1 mysan %s during trust %s\n", san, trust)
+		tlsConf := tw.tlsConf.Clone()
+		tlsConf.VerifyConnection = v.verifyConnection
+		return pkgnet.DialTLSWithBackOff(ctx, network, addr, tlsConf)
+	*/
+}
+
+// dialTLSContext handles HTTPS:HTTP1 and HTTP2 dialers
+// Depends on the activator handler's RevIDFrom
+func dialTLSContext(ctx context.Context, network, addr string, tlsConf *tls.Config) (net.Conn, error) {
 	config := activatorconfig.FromContext(ctx)
 	trust := config.Trust
-	fmt.Printf("\tHttp2  during trust %s\n", trust)
+	fmt.Printf("\tdialTLSContext with trust %s\n", trust)
 	if trust != netcfg.TrustDisabled {
-		tlsConf = cfg.Clone()
+		tlsConf = tlsConf.Clone()
 		san := certificates.LegacyFakeDnsName
 		if trust != netcfg.TrustMinimal {
 			revID := RevIDFrom(ctx)
 			san = "kn-user-" + revID.Namespace
 		}
 		v := &verify{san: san}
-		tlsConf.VerifyConnection = v.VerifyConnection
-		fmt.Printf("\tHttp2 TLS with san %s\n", san)
+		tlsConf.VerifyConnection = v.verifyConnection
+		fmt.Printf("\tdialTLSContext TLS with san %s\n", san)
 	}
 	return pkgnet.DialTLSWithBackOff(ctx, network, addr, tlsConf)
-	//return pkgnet.DialWithBackOff(ctx, network, addr)
 }
 
-func NewProxyAutoTLSTransport(maxIdle, maxIdlePerHost int, tlsConf *tls.Config) http.RoundTripper {
-	return newAutoTransport(
-		newHTTPSTransport(false, true, maxIdle, maxIdlePerHost, tlsConf),
-		newH2Transport(true, tlsConf))
-}
-
-func NewProxyAutoTransport(maxIdle, maxIdlePerHost int) http.RoundTripper {
-	return newAutoTransport(
-		newHTTPTransport(false, true, maxIdle, maxIdlePerHost),
-		newH2CTransport(true))
-}
-
+// newAutoTransport is a duplicate of the unexported knative/pkg's network newAutoTransport
 func newAutoTransport(v1, v2 http.RoundTripper) http.RoundTripper {
-	return RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+	return pkgnet.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
 		t := v1
 		if r.ProtoMajor == 2 {
 			t = v2
@@ -112,13 +105,7 @@ func newAutoTransport(v1, v2 http.RoundTripper) http.RoundTripper {
 	})
 }
 
-type RoundTripperFunc func(*http.Request) (*http.Response, error)
-
-// RoundTrip implements http.RoundTripper.
-func (rt RoundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
-	return rt(r)
-}
-
+// newHTTPTransport is a duplicate of the unexported knative/pkg's network newHTTPTransport
 func newHTTPTransport(disableKeepAlives, disableCompression bool, maxIdle, maxIdlePerHost int) http.RoundTripper {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.DialContext = pkgnet.DialWithBackOff
@@ -130,9 +117,9 @@ func newHTTPTransport(disableKeepAlives, disableCompression bool, maxIdle, maxId
 	return transport
 }
 
+// Depends on the activator handler's RevIDFrom
 func newHTTPSTransport(disableKeepAlives, disableCompression bool, maxIdle, maxIdlePerHost int, tlsConf *tls.Config) http.RoundTripper {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	//transport.DialContext = pkgnet.DialWithBackOff
 	transport.DisableKeepAlives = disableKeepAlives
 	transport.MaxIdleConns = maxIdle
 	transport.MaxIdleConnsPerHost = maxIdlePerHost
@@ -141,23 +128,39 @@ func newHTTPSTransport(disableKeepAlives, disableCompression bool, maxIdle, maxI
 
 	transport.TLSClientConfig = tlsConf
 	tw := tlsWrapper{tlsConf: tlsConf}
-	transport.DialTLSContext = tw.HTTP1DialTLSContext
+	transport.DialTLSContext = tw.dialTLSContextHTTP1
 
 	return transport
 }
 
+// Depends on the activator handler's RevIDFrom
 func newH2CTransport(disableCompression bool) http.RoundTripper {
 	return &http2.Transport{
 		AllowHTTP:          true,
 		DisableCompression: disableCompression,
-		DialTLSContext:     HTTP2DialTLSContext,
+		DialTLSContext:     dialTLSContext,
 	}
 }
 
+// Depends on the activator handler's RevIDFrom
 func newH2Transport(disableCompression bool, tlsConf *tls.Config) http.RoundTripper {
 	return &http2.Transport{
 		DisableCompression: disableCompression,
-		DialTLSContext:     HTTP2DialTLSContext,
+		DialTLSContext:     dialTLSContext,
 		TLSClientConfig:    tlsConf,
 	}
+}
+
+// Depends on the activator handler's RevIDFrom
+func NewProxyAutoTLSTransport(maxIdle, maxIdlePerHost int, tlsConf *tls.Config) http.RoundTripper {
+	return newAutoTransport(
+		newHTTPSTransport(false, true, maxIdle, maxIdlePerHost, tlsConf),
+		newH2Transport(true, tlsConf))
+}
+
+// Depends on the activator handler's RevIDFrom
+func NewProxyAutoTransport(maxIdle, maxIdlePerHost int) http.RoundTripper {
+	return newAutoTransport(
+		newHTTPTransport(false, true, maxIdle, maxIdlePerHost),
+		newH2CTransport(true))
 }
