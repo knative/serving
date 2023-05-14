@@ -40,7 +40,6 @@ func (v *verify) verifyConnection(cs tls.ConnectionState) error {
 	if cs.PeerCertificates == nil {
 		return errors.New("server certificate not verified during VerifyConnection")
 	}
-	fmt.Printf("\tVerifyConnection looking for SAN %s\n", v.san)
 	for _, name := range cs.PeerCertificates[0].DNSNames {
 		if name == v.san {
 			return nil
@@ -64,7 +63,6 @@ func (tw *tlsWrapper) dialTLSContextHTTP1(ctx context.Context, network, addr str
 func dialTLSContext(ctx context.Context, network, addr string, tlsConf *tls.Config) (net.Conn, error) {
 	config := activatorconfig.FromContext(ctx)
 	trust := config.Trust
-	fmt.Printf("\tdialTLSContext with trust %q\n", trust)
 	if trust != netcfg.TrustDisabled {
 		tlsConf = tlsConf.Clone()
 		san := certificates.LegacyFakeDnsName
@@ -72,10 +70,8 @@ func dialTLSContext(ctx context.Context, network, addr string, tlsConf *tls.Conf
 			revID := RevIDFrom(ctx)
 			san = "kn-user-" + revID.Namespace
 		}
-		fmt.Printf("\tverify trust %q of san %s\n", trust, san)
 		v := &verify{san: san}
 		tlsConf.VerifyConnection = v.verifyConnection
-		fmt.Printf("\tdialTLSContext TLS with san %s\n", san)
 	} else {
 		tlsConf = nil
 	}

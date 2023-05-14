@@ -118,7 +118,6 @@ func (cr *CertCache) updateCache(secret *corev1.Secret) {
 		cr.ServerTLSConf.ClientAuth = tls.RequireAndVerifyClientCert
 		cr.ServerTLSConf.ClientCAs = pool
 		cr.ServerTLSConf.VerifyConnection = func(cs tls.ConnectionState) error {
-			fmt.Printf("\t cr.ServerTLSConf.VerifyConnection in %v\n", cs.PeerCertificates[0].DNSNames)
 			for _, match := range cs.PeerCertificates[0].DNSNames {
 				if match != "kn-routing-0" { // routingId not yet supported
 					continue
