@@ -58,7 +58,7 @@ func ValidateAnnotations(ctx context.Context, config *autoscalerconfig.Config, a
 		Also(validateWindow(anns)).
 		Also(validateLastPodRetention(anns)).
 		Also(validateScaleDownDelay(anns)).
-		Also(validateMetric(anns)).
+		Also(validateMetric(config, anns)).
 		Also(validateAlgorithm(anns)).
 		Also(validateInitialScale(config, anns))
 }
@@ -234,9 +234,9 @@ func validateMaxScaleWithinLimit(key string, maxScale, maxScaleLimit int32) (err
 	return errs
 }
 
-func validateMetric(m map[string]string) *apis.FieldError {
+func validateMetric(c *autoscalerconfig.Config, m map[string]string) *apis.FieldError {
 	if _, metric, ok := MetricAnnotation.Get(m); ok {
-		classValue := KPA
+		classValue := c.PodAutoscalerClass
 		if _, c, ok := ClassAnnotation.Get(m); ok {
 			classValue = c
 		}
