@@ -159,7 +159,7 @@ function delete_dns_record() {
 }
 
 # Script entry point.
-initialize "$@" --skip-istio-addon --min-nodes=4 --max-nodes=4 --enable-ha --cluster-version=1.24
+initialize "$@" --skip-istio-addon --min-nodes=4 --max-nodes=4 --enable-ha --cluster-version=1.25
 
 # Run the tests
 header "Running tests"
