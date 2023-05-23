@@ -119,14 +119,13 @@ func (cr *CertCache) updateCache(secret *corev1.Secret) {
 		cr.ServerTLSConf.ClientCAs = pool
 		cr.ServerTLSConf.VerifyConnection = func(cs tls.ConnectionState) error {
 			for _, match := range cs.PeerCertificates[0].DNSNames {
-				if match != "kn-routing-0" { // routingId not yet supported
-					continue
+				if match == "kn-routing-0" { // routingId not yet supported
+					return nil
 				}
 				//Until all ingresses work with updated dataplane certificates  - allow also any legacy certificate
-				if match != certificates.LegacyFakeDnsName {
-					continue
+				if match == certificates.LegacyFakeDnsName {
+					return nil
 				}
-				return nil
 			}
 			cr.logger.Info("mTLS: Failed Client with DNSNames: %v\n", cs.PeerCertificates[0].DNSNames)
 			return fmt.Errorf("mTLS Failed to approve %v", cs.PeerCertificates[0].DNSNames)

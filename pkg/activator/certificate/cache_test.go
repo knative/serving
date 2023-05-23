@@ -49,6 +49,7 @@ func fakeCertCache(ctx context.Context) *CertCache {
 		certificate:    nil,
 		ClientTLSConf:  tls.Config{},
 		logger:         logging.FromContext(ctx),
+		trust:          netcfg.TrustMutual,
 	}
 
 	secretInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -121,6 +122,24 @@ func TestFakeReconcile(t *testing.T) {
 		return cert != nil, nil
 	}); err != nil {
 		t.Fatal("timeout to get the secret:", err)
+	}
+
+	cs := tls.ConnectionState{PeerCertificates: []*x509.Certificate{{DNSNames: []string{"ddd", "xxx", "kn-routing-0", "ddd", "xxx"}}}}
+	if verifyErr := cr.ServerTLSConf.VerifyConnection(cs); verifyErr != nil {
+		t.Error("cr.ServerTLSConf.VerifyConnection: expected to find kn-routing-0")
+	}
+
+	cs = tls.ConnectionState{PeerCertificates: []*x509.Certificate{{DNSNames: []string{"ddd", "xxx", certificates.LegacyFakeDnsName, "ddd", "xxx"}}}}
+	if verifyErr := cr.ServerTLSConf.VerifyConnection(cs); verifyErr != nil {
+		t.Error("cr.ServerTLSConf.VerifyConnection: expected to find kn-routing-0")
+	}
+	cs = tls.ConnectionState{PeerCertificates: []*x509.Certificate{{DNSNames: []string{"ddd", "xxx"}}}}
+	if verifyErr := cr.ServerTLSConf.VerifyConnection(cs); verifyErr == nil {
+		t.Error("cr.ServerTLSConf.VerifyConnection: expected error")
+	}
+	cs = tls.ConnectionState{PeerCertificates: []*x509.Certificate{{DNSNames: []string{}}}}
+	if verifyErr := cr.ServerTLSConf.VerifyConnection(cs); verifyErr == nil {
+		t.Error("cr.ServerTLSConf.VerifyConnection: expected error")
 	}
 
 	// Update cert and key but keep using old CA, then the error is expected.

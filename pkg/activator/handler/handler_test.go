@@ -70,19 +70,26 @@ func (ft fakeThrottler) Try(_ context.Context, _ types.NamespacedName, f func(st
 
 func TestActivationHandler(t *testing.T) {
 	tests := []struct {
-		name      string
-		wantBody  string
-		wantCode  int
-		wantErr   error
-		probeErr  error
-		probeCode int
-		probeResp []string
-		throttler Throttler
+		name       string
+		wantBody   string
+		wantCode   int
+		wantErr    error
+		probeErr   error
+		probeCode  int
+		probeResp  []string
+		throttler  Throttler
+		tlsEnabled bool
 	}{{
 		name:      "active endpoint",
 		wantBody:  wantBody,
 		wantCode:  http.StatusOK,
 		throttler: fakeThrottler{},
+	}, {
+		name:       "active TLS endpoint",
+		wantBody:   wantBody,
+		wantCode:   http.StatusOK,
+		throttler:  fakeThrottler{},
+		tlsEnabled: true,
 	}, {
 		name:      "request error",
 		wantBody:  "request error\n",
@@ -123,7 +130,7 @@ func TestActivationHandler(t *testing.T) {
 
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer cancel()
-			handler := New(ctx, test.throttler, rt, false /*usePassthroughLb*/, logging.FromContext(ctx), false /* TLS */)
+			handler := New(ctx, test.throttler, rt, false /*usePassthroughLb*/, logging.FromContext(ctx), test.tlsEnabled /* TLS */)
 
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)

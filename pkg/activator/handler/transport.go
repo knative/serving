@@ -31,21 +31,18 @@ import (
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 )
 
-// verify is a SAN verifier and offers verifyConnection that verifies if the san is in the certificate DNSNames
-type verify struct {
-	san string
-}
-
-func (v *verify) verifyConnection(cs tls.ConnectionState) error {
-	if cs.PeerCertificates == nil {
-		return errors.New("server certificate not verified during VerifyConnection")
-	}
-	for _, name := range cs.PeerCertificates[0].DNSNames {
-		if name == v.san {
-			return nil
+func verifySanConnection(san string) func(tls.ConnectionState) error {
+	return func(cs tls.ConnectionState) error {
+		if cs.PeerCertificates == nil {
+			return errors.New("server certificate not verified during VerifyConnection")
 		}
+		for _, name := range cs.PeerCertificates[0].DNSNames {
+			if name == san {
+				return nil
+			}
+		}
+		return fmt.Errorf("service with san %s does not have a matching name in certificate - names provided: %s", san, cs.PeerCertificates[0].DNSNames)
 	}
-	return fmt.Errorf("service with san %s does not have a matching name in certificate - names provided: %s", v.san, cs.PeerCertificates[0].DNSNames)
 }
 
 // tlsWrapper is a tls.Config wrapper with a TLS dialer for HTTP1
@@ -70,8 +67,7 @@ func dialTLSContext(ctx context.Context, network, addr string, tlsConf *tls.Conf
 			revID := RevIDFrom(ctx)
 			san = "kn-user-" + revID.Namespace
 		}
-		v := &verify{san: san}
-		tlsConf.VerifyConnection = v.verifyConnection
+		tlsConf.VerifyConnection = verifySanConnection(san)
 	} else {
 		tlsConf = nil
 	}
