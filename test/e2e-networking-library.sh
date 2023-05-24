@@ -54,7 +54,7 @@ function stage_istio_latest() {
   mkdir -p "${istio_latest_dir}"
 
   download_net_istio_yamls \
-    "https://github.com/knative-sandbox/net-istio/releases/download/${LATEST_NET_ISTIO_RELEASE_VERSION}/net-istio.yaml" \
+    "https://github.com/knative-extension/net-istio/releases/download/${LATEST_NET_ISTIO_RELEASE_VERSION}/net-istio.yaml" \
     "${istio_latest_dir}"
 }
 
@@ -108,7 +108,7 @@ function net_istio_file_url() {
     profile="istio-ci-mesh"
   fi
 
-  echo "https://raw.githubusercontent.com/knative-sandbox/net-istio/${sha}/third_party/istio-${ISTIO_VERSION}/${profile}/${file}"
+  echo "https://raw.githubusercontent.com/knative-extension/net-istio/${sha}/third_party/istio-${ISTIO_VERSION}/${profile}/${file}"
 }
 
 function setup_ingress_env_vars() {
