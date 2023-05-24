@@ -394,7 +394,7 @@ function install() {
       fi
       if (( INTERNAL_ENCRYPTION_SNI )); then
        echo "Setting issuers in net-certmanager"
-       kubectl apply -f "${REPO_ROOT_DIR}/test/config/internal-encryption/config-certmanager.yaml"
+       kubectl apply -n ${SYSTEM_NAMESPACE} -f "${REPO_ROOT_DIR}/test/config/internal-encryption/config-certmanager.yaml"
       fi
     fi
     echo "Restart activator to mount the certificates"
