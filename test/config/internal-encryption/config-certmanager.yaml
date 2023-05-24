@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-certmanager
+  namespace: knative-serving
+  labels:
+    app.kubernetes.io/component: net-certmanager
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/name: knative-serving
+    networking.knative.dev/certificate-provider: cert-manager
+data:
+    issuerRef: |
+      kind: ClusterIssuer
+      name: letsencrypt-issuer
+    internalIssuerRef: |
+      kind: ClusterIssuer
+      name: knative-internal-encryption-issuer

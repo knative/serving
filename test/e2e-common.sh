@@ -34,7 +34,8 @@ export RUN_HTTP01_AUTO_TLS_TESTS=0
 export HTTPS=0
 export SHORT=0
 export ENABLE_HA=0
-export ENABLE_TLS=${ENABLE_TLS:-0}
+export INTERNAL_ENCRYPTION_ONE_CERT=${INTERNAL_ENCRYPTION_ONE_CERT:-0}
+export INTERNAL_ENCRYPTION_SNI=${INTERNAL_ENCRYPTION_SNI:-0}
 export MESH=0
 export PERF=0
 export KIND=${KIND:-0}
@@ -323,8 +324,12 @@ function install() {
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/resource-quota/resource-quota.yaml")
   fi
 
-  if (( ENABLE_TLS )); then
-    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/tls/cert-secret.yaml")
+  if (( INTERNAL_ENCRYPTION_ONE_CERT )); then
+    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/internal-encryption/cert-secret.yaml")
+  fi
+
+  if (( INTERNAL_ENCRYPTION_SNI )); then
+    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/internal-encryption/config-certmanager.yaml")
   fi
 
   local ytt_result=$(mktemp)
@@ -378,10 +383,10 @@ function install() {
     wait_for_leader_controller || return 1
   fi
 
-  if (( ENABLE_TLS )); then
+  if (( INTERNAL_ENCRYPTION_ONE_CERT )) || (( INTERNAL_ENCRYPTION_SNI )); then
     echo "Patch to config-network to enable internal encryption"
     toggle_feature internal-encryption true config-network
-    if [[ "$INGRESS_CLASS" == "kourier.ingress.networking.knative.dev" ]]; then
+    if (( INTERNAL_ENCRYPTION_ONE_CERT )) && [[ "$INGRESS_CLASS" == "kourier.ingress.networking.knative.dev" ]]; then
       echo "Point Kourier local gateway to custom server certificates"
       toggle_feature cluster-cert-secret server-certs config-kourier
       # This needs to match the name of Secret in test/config/tls/cert-secret.yaml

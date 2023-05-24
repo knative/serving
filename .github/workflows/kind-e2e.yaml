@@ -93,7 +93,8 @@ jobs:
 
         ingress:
         - kourier
-        - kourier-tls
+        - kourier-internal-encryption-one-cert
+        - kourier-internal-encryption-sni
         - istio
         - contour
         # Disabled due to consistent failures
@@ -133,9 +134,13 @@ jobs:
         - ingress: istio
           namespace-resources: virtualservices
 
-        - ingress: kourier-tls
+        - ingress: kourier-internal-encryption-one-cert
           ingress-class: kourier
-          enable-tls: 1
+          internal-encryption-one-cert: 1
+
+        - ingress: kourier-internal-encryption-sni
+          ingress-class: kourier
+          internal-encryption-sni: 1
 
         - test-suite: runtime
           test-path: ./test/conformance/runtime/...
@@ -149,7 +154,8 @@ jobs:
     env:
       KIND: 1
       INGRESS_CLASS: ${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
-      ENABLE_TLS: ${{ matrix.enable-tls || 0 }}
+      INTERNAL_ENCRYPTION_ONE_CERT: ${{ matrix.internal-encryption-one-cert || 0 }}
+      INTERNAL_ENCRYPTION_SNI: ${{ matrix.internal-encryption-sni || 0 }}
 
     steps:
     - name: Set up Go 1.19.x
