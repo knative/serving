@@ -3175,7 +3175,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 			Object: Route("default", "becomes-local", WithConfigTarget("config"),
 				WithRouteUID("65-23"),
 				WithRouteGeneration(1), WithRouteObservedGeneration,
-				MarkTrafficAssigned, MarkIngressNotConfigured, WithRouteConditionsTLSNotEnabledForClusterLocalMessage,
+				MarkTrafficAssigned, MarkIngressNotConfigured,
 				WithLocalDomain, WithAddress, WithInitRouteConditions,
 				WithRouteLabel(map[string]string{netapi.VisibilityLabelKey: serving.VisibilityClusterLocal}),
 				WithStatusTraffic(

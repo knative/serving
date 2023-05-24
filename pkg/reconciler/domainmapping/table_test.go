@@ -996,6 +996,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 					Hosts:           []string{"becomes.ready.run"},
 					SecretName:      "becomes.ready.run",
 					SecretNamespace: "default",
+					Visibility:      netv1alpha1.IngressVisibilityExternalIP,
 				})),
 		}},
 		WantPatches: []clientgotesting.PatchActionImpl{
