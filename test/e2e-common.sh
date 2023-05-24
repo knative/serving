@@ -328,10 +328,6 @@ function install() {
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/internal-encryption/cert-secret.yaml")
   fi
 
-  if (( INTERNAL_ENCRYPTION_SNI )); then
-    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/internal-encryption/config-certmanager.yaml")
-  fi
-
   local ytt_result=$(mktemp)
   local ytt_post_install_result=$(mktemp)
   local ytt_flags=""
@@ -386,13 +382,20 @@ function install() {
   if (( INTERNAL_ENCRYPTION_ONE_CERT )) || (( INTERNAL_ENCRYPTION_SNI )); then
     echo "Patch to config-network to enable internal encryption"
     toggle_feature internal-encryption true config-network
-    if (( INTERNAL_ENCRYPTION_ONE_CERT )) && [[ "$INGRESS_CLASS" == "kourier.ingress.networking.knative.dev" ]]; then
-      echo "Point Kourier local gateway to custom server certificates"
-      toggle_feature cluster-cert-secret server-certs config-kourier
-      # This needs to match the name of Secret in test/config/tls/cert-secret.yaml
-      export CA_CERT=ca-cert
-      # This needs to match $san from test/config/tls/generate.sh
-      export SERVER_NAME=knative.dev
+
+    if [[ "$INGRESS_CLASS" == "kourier.ingress.networking.knative.dev" ]]; then
+      if (( INTERNAL_ENCRYPTION_ONE_CERT )); then
+        echo "Point Kourier local gateway to custom server certificates"
+        toggle_feature cluster-cert-secret server-certs config-kourier
+        # This needs to match the name of Secret in test/config/tls/cert-secret.yaml
+        export CA_CERT=ca-cert
+        # This needs to match $san from test/config/tls/generate.sh
+        export SERVER_NAME=knative.dev
+      fi
+      if (( INTERNAL_ENCRYPTION_SNI )); then
+       echo "Setting issuers in net-certmanager"
+       kubectl apply -f "${REPO_ROOT_DIR}/test/config/internal-encryption/config-certmanager.yaml"
+      fi
     fi
     echo "Restart activator to mount the certificates"
     kubectl delete pod -n ${SYSTEM_NAMESPACE} -l app=activator
