@@ -115,7 +115,7 @@ jobs:
 
         - k8s-version: v1.26.4
           kind-version: v0.19.0
-          kind-image-sha: f4c0d87be03d6bea69f5e5dc0adb678bb498a190ee5c38422bf751541cebe92e
+          kind-image-sha: sha256:f4c0d87be03d6bea69f5e5dc0adb678bb498a190ee5c38422bf751541cebe92e
 
         - k8s-version: v1.27.1
           kind-version: v0.19.0
