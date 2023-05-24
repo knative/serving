@@ -108,10 +108,6 @@ jobs:
           # This is attempting to make it a bit clearer what's being tested.
           # See: https://github.com/kubernetes-sigs/kind/releases
           #      https://hub.docker.com/r/kindest/node/tags
-        - k8s-version: v1.24.7
-          kind-version: v0.17.0
-          kind-image-sha: sha256:577c630ce8e509131eab1aea12c022190978dd2f745aac5eb1fe65c0807eb315
-
         - k8s-version: v1.25.3
           kind-version: v0.17.0
           kind-image-sha: sha256:f52781bc0d7a19fb6c405c2af83abfeb311f130707a0e219175677e366cc45d1
