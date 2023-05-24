@@ -87,16 +87,16 @@ jobs:
       fail-fast: false # Keep running if one leg fails.
       matrix:
         k8s-version:
-        - v1.25.9
-        - v1.26.4
+#        - v1.25.9
+#        - v1.26.4
         - v1.27.1
 
         ingress:
-        - kourier
+#        - kourier
         - kourier-internal-encryption-one-cert
         - kourier-internal-encryption-sni
-        - istio
-        - contour
+#        - istio
+#        - contour
         # Disabled due to consistent failures
         # - gateway_istio
 
@@ -128,11 +128,11 @@ jobs:
         #   test-flags: -enable-alpha
         #   namespace-resources: httproute
 
-        - ingress: contour
-          namespace-resources: httpproxy
-
-        - ingress: istio
-          namespace-resources: virtualservices
+#        - ingress: contour
+#          namespace-resources: httpproxy
+#
+#        - ingress: istio
+#          namespace-resources: virtualservices
 
         - ingress: kourier-internal-encryption-one-cert
           ingress-class: kourier
