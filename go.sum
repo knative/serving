@@ -543,6 +543,8 @@ github.com/prometheus/statsd_exporter v0.21.0/go.mod h1:rbT83sZq2V+p73lHhPZfMc3M
 github.com/rabbitmq/amqp091-go v1.1.0/go.mod h1:ogQDLSOACsLPsIq0NpbtiifNZi2YOz0VTJ0kHRghqbM=
 github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
+github.com/retocode/networking v0.0.0-20230503060951-d9e153cbac71 h1:/Rfqr1GJxRFXl0Pc1KQk3xDIUJYMSfE/hZyVCfZiqoU=
+github.com/retocode/networking v0.0.0-20230503060951-d9e153cbac71/go.mod h1:RCR6mSg74zrog/ZYLI7/ZPJOWGQsADOZXqDOeXeOCQw=
 github.com/rogpeppe/fastuuid v1.2.0/go.mod h1:jVj6XXZzXRy/MSR5jhDC/2q6DgLz+nrA6LYCDYWNEvQ=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/russross/blackfriday/v2 v2.0.1/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
@@ -1195,8 +1197,6 @@ knative.dev/control-protocol v0.0.0-20230501014357-da93cf1acdb9 h1:KXzbo/xiiSiw5
 knative.dev/control-protocol v0.0.0-20230501014357-da93cf1acdb9/go.mod h1:6IjiiR5I2DjCWdOsj0jLvrIjzDaKYaq4jUhT1ImrWwg=
 knative.dev/hack v0.0.0-20230501013555-7d81248b4638 h1:9IuXHdwp5jNmIg+0LVTQr8o4u0FYD99uCfynM9tS0XY=
 knative.dev/hack v0.0.0-20230501013555-7d81248b4638/go.mod h1:yk2OjGDsbEnQjfxdm0/HJKS2WqTLEFg/N6nUs6Rqx3Q=
-knative.dev/networking v0.0.0-20230519194114-a44b093b6809 h1:VVhmtWC2eXl93mz2jKkGyDWM9wIOYvFYNQsp3tpHnsE=
-knative.dev/networking v0.0.0-20230519194114-a44b093b6809/go.mod h1:Y0OGdDIPKUGY5WFoKBR5KKCLsnAHbYEbzfXeWs2rYJw=
 knative.dev/pkg v0.0.0-20230519200515-52ff2acf870d h1:7SnDEbArYmc8swy5LUB0o+YnoRHL6/BXKYy4HeHlDmM=
 knative.dev/pkg v0.0.0-20230519200515-52ff2acf870d/go.mod h1:WLTHHHc/dhrDmhx03nm5F8AeqpNx3RQGggMI2N0/oks=
 pgregory.net/rapid v0.3.3 h1:jCjBsY4ln4Atz78QoBWxUEvAHaFyNDQg9+WU62aCn1U=

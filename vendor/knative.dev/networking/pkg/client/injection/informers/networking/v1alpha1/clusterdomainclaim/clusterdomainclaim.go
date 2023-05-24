@@ -21,8 +21,15 @@ package clusterdomainclaim
 import (
 	context "context"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	cache "k8s.io/client-go/tools/cache"
+	apisnetworkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	versioned "knative.dev/networking/pkg/client/clientset/versioned"
 	v1alpha1 "knative.dev/networking/pkg/client/informers/externalversions/networking/v1alpha1"
+	client "knative.dev/networking/pkg/client/injection/client"
 	factory "knative.dev/networking/pkg/client/injection/informers/factory"
+	networkingv1alpha1 "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"
@@ -30,6 +37,7 @@ import (
 
 func init() {
 	injection.Default.RegisterInformer(withInformer)
+	injection.Dynamic.RegisterDynamicInformer(withDynamicInformer)
 }
 
 // Key is used for associating the Informer inside the context.Context.
@@ -41,6 +49,11 @@ func withInformer(ctx context.Context) (context.Context, controller.Informer) {
 	return context.WithValue(ctx, Key{}, inf), inf.Informer()
 }
 
+func withDynamicInformer(ctx context.Context) context.Context {
+	inf := &wrapper{client: client.Get(ctx), resourceVersion: injection.GetResourceVersion(ctx)}
+	return context.WithValue(ctx, Key{}, inf)
+}
+
 // Get extracts the typed informer from the context.
 func Get(ctx context.Context) v1alpha1.ClusterDomainClaimInformer {
 	untyped := ctx.Value(Key{})
@@ -49,4 +62,49 @@ func Get(ctx context.Context) v1alpha1.ClusterDomainClaimInformer {
 			"Unable to fetch knative.dev/networking/pkg/client/informers/externalversions/networking/v1alpha1.ClusterDomainClaimInformer from context.")
 	}
 	return untyped.(v1alpha1.ClusterDomainClaimInformer)
+}
+
+type wrapper struct {
+	client versioned.Interface
+
+	resourceVersion string
+}
+
+var _ v1alpha1.ClusterDomainClaimInformer = (*wrapper)(nil)
+var _ networkingv1alpha1.ClusterDomainClaimLister = (*wrapper)(nil)
+
+func (w *wrapper) Informer() cache.SharedIndexInformer {
+	return cache.NewSharedIndexInformer(nil, &apisnetworkingv1alpha1.ClusterDomainClaim{}, 0, nil)
+}
+
+func (w *wrapper) Lister() networkingv1alpha1.ClusterDomainClaimLister {
+	return w
+}
+
+// SetResourceVersion allows consumers to adjust the minimum resourceVersion
+// used by the underlying client.  It is not accessible via the standard
+// lister interface, but can be accessed through a user-defined interface and
+// an implementation check e.g. rvs, ok := foo.(ResourceVersionSetter)
+func (w *wrapper) SetResourceVersion(resourceVersion string) {
+	w.resourceVersion = resourceVersion
+}
+
+func (w *wrapper) List(selector labels.Selector) (ret []*apisnetworkingv1alpha1.ClusterDomainClaim, err error) {
+	lo, err := w.client.NetworkingV1alpha1().ClusterDomainClaims().List(context.TODO(), v1.ListOptions{
+		LabelSelector:   selector.String(),
+		ResourceVersion: w.resourceVersion,
+	})
+	if err != nil {
+		return nil, err
+	}
+	for idx := range lo.Items {
+		ret = append(ret, &lo.Items[idx])
+	}
+	return ret, nil
+}
+
+func (w *wrapper) Get(name string) (*apisnetworkingv1alpha1.ClusterDomainClaim, error) {
+	return w.client.NetworkingV1alpha1().ClusterDomainClaims().Get(context.TODO(), name, v1.GetOptions{
+		ResourceVersion: w.resourceVersion,
+	})
 }
