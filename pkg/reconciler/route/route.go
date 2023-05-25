@@ -306,6 +306,7 @@ func (c *Reconciler) externalTLS(ctx context.Context, host string, r *v1.Route, 
 
 func (c *Reconciler) internalTLS(ctx context.Context, r *v1.Route, tc *traffic.Config) ([]netv1alpha1.IngressTLS, error) {
 	tls := []netv1alpha1.IngressTLS{}
+	usedDomains := make(map[string]string)
 
 	for name := range tc.Targets {
 		localDomains, err := domains.GetAllClusterLocalDomains(ctx, name, r, netv1alpha1.IngressVisibilityClusterLocal)
@@ -313,7 +314,7 @@ func (c *Reconciler) internalTLS(ctx context.Context, r *v1.Route, tc *traffic.C
 			return nil, err
 		}
 
-		desiredCert := resources.MakeInternalCertificate(r, localDomains, certClass(ctx, r))
+		desiredCert := resources.MakeInternalCertificate(r, name, localDomains, certClass(ctx, r))
 		cert, err := networkaccessor.ReconcileCertificate(ctx, r, desiredCert, c)
 		if err != nil {
 			if kaccessor.IsNotOwned(err) {
@@ -331,17 +332,17 @@ func (c *Reconciler) internalTLS(ctx context.Context, r *v1.Route, tc *traffic.C
 			r.Status.MarkCertificateNotReady(cert.Name)
 		}
 
-		domainTagMap := make(map[string]string)
 		for s, _ := range localDomains {
-			domainTagMap[s] = s
+			usedDomains[s] = s
 		}
-		orphanCerts, err := c.getOrphanRouteCerts(r, domainTagMap, netv1alpha1.IngressVisibilityClusterLocal)
-		if err != nil {
-			return nil, nil
-		}
-
-		c.deleteOrphanedCerts(ctx, orphanCerts)
 	}
+
+	orphanCerts, err := c.getOrphanRouteCerts(r, usedDomains, netv1alpha1.IngressVisibilityClusterLocal)
+	if err != nil {
+		return nil, nil
+	}
+
+	c.deleteOrphanedCerts(ctx, orphanCerts)
 
 	return tls, nil
 }
