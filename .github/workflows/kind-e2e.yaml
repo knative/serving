@@ -184,49 +184,18 @@ jobs:
       with:
         name: artifacts
         path: ~/artifacts
- 
 
-    # - name: Install metallb
-    #   shell: bash
-    #   run: |
-    #     # Install metallb
-    #     # disable the webhook-mode because there is a bug:https://github.com/metallb/metallb/issues/1597
-    #     # this webhook only checks crd, it has not effects to out e2e tests
-    #     curl https://raw.githubusercontent.com/metallb/metallb/v0.13.5/config/manifests/metallb-native.yaml -k | \
-    #       sed '0,/args:/s//args:\n        - --webhook-mode=disabled/' | \
-    #       sed '/apiVersion: admissionregistration/,$d' | \
-    #       kubectl apply -f -
-
-    #     # Add Layer 2 config
-    #     network=$(docker network inspect kind -f "{{(index .IPAM.Config 0).Subnet}}" | cut -d '.' -f1,2)
-    #     cat <<EOF | kubectl apply -f -
-    #     apiVersion: metallb.io/v1beta1
-    #     kind: IPAddressPool
-    #     metadata:
-    #       name: first-pool
-    #       namespace: metallb-system
-    #     spec:
-    #       addresses:
-    #       - $network.255.1-$network.255.250
-    #     ---
-    #     apiVersion: metallb.io/v1beta1
-    #     kind: L2Advertisement
-    #     metadata:
-    #       name: example
-    #       namespace: metallb-system
-    #     EOF
-
-    # - name: Setup local registry
-    #   run: |
-    #     # Run a registry.
-    #     docker run -d --restart=always \
-    #       -v $HOME/artifacts/registry:/var/lib/registry \
-    #       -p $REGISTRY_PORT:$REGISTRY_PORT --name $REGISTRY_NAME registry:2
-    #     # Connect the registry to the KinD network.
-    #     docker network connect "kind" $REGISTRY_NAME
-    #     # Make the $REGISTRY_NAME -> 127.0.0.1, to tell `ko` to publish to
-    #     # local registry, even when pushing $REGISTRY_NAME:$REGISTRY_PORT/some/image
-    #     sudo echo "127.0.0.1 $REGISTRY_NAME" | sudo tee -a /etc/hosts
+    - name: Setup local registry
+      run: |
+        # Run a registry.
+        docker run -d --restart=always \
+          -v $HOME/artifacts/registry:/var/lib/registry \
+          -p $REGISTRY_PORT:$REGISTRY_PORT --name $REGISTRY_NAME registry:2
+        # Connect the registry to the KinD network.
+        docker network connect "kind" $REGISTRY_NAME
+        # Make the $REGISTRY_NAME -> 127.0.0.1, to tell `ko` to publish to
+        # local registry, even when pushing $REGISTRY_NAME:$REGISTRY_PORT/some/image
+        sudo echo "127.0.0.1 $REGISTRY_NAME" | sudo tee -a /etc/hosts
 
     - name: Install Serving & Ingress
       run: |
