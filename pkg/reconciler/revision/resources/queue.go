@@ -326,6 +326,9 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			Name:  "SERVING_REQUEST_METRICS_BACKEND",
 			Value: cfg.Observability.RequestMetricsBackend,
 		}, {
+			Name:  "SERVING_REQUEST_METRICS_REPORTING_PERIOD_SECONDS",
+			Value: strconv.Itoa(cfg.Observability.RequestMetricsReportingPeriodSeconds),
+		}, {
 			Name:  "TRACING_CONFIG_BACKEND",
 			Value: string(cfg.Tracing.Backend),
 		}, {
