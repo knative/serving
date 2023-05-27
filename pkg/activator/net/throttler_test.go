@@ -225,7 +225,6 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 
 func TestThrottlerCalculateCapacity(t *testing.T) {
 	logger := TestLogger(t)
-
 	tests := []struct {
 		name                 string
 		numActivators        int32
@@ -758,7 +757,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 	// so we now know that the rest is set statically.
 	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
 		// Capacity doesn't exceed 1 in this test.
-		return rt.breaker.Capacity() == 1, nil
+		return rt.breaker.Capacity() == 2, nil
 	}); err != nil {
 		t.Fatal("Timed out waiting for the capacity to be updated")
 	}
@@ -854,19 +853,19 @@ func TestMultipleActivators(t *testing.T) {
 	// so we now know that we got and processed both the activator endpoints
 	// and the application endpoints.
 	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
-		return rt.breaker.Capacity() == 1, nil
+		return rt.breaker.Capacity() == 2, nil
 	}); err != nil {
 		t.Fatal("Timed out waiting for the capacity to be updated")
 	}
 	t.Log("This activator idx =", rt.activatorIndex.Load())
 
-	// Test with 2 activators, 3 endpoints we can send 1 request and the second times out.
+	// Test with 2 activators, 3 endpoints we can send 2 requests and the third times out.
 	var mux sync.Mutex
 	mux.Lock() // Lock the mutex so all requests are blocked in the Try function.
 
 	reqCtx, cancel2 := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel2()
-	resultChan := throttler.try(reqCtx, 2 /*requests*/, func(string) error {
+	resultChan := throttler.try(reqCtx, 3 /*requests*/, func(string) error {
 		mux.Lock()
 		return nil
 	})

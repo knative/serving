@@ -251,7 +251,8 @@ func (rt *revisionThrottler) calculateCapacity(size, activatorCount int) int {
 		// limit is math.MaxInt32 so in practice this should never be a real limit.
 		targetCapacity = revisionMaxConcurrency
 	} else if targetCapacity > 0 {
-		targetCapacity = minOneOrValue(targetCapacity / minOneOrValue(activatorCount))
+		// If targetCapacity is not divisible by activatorCount, set targetCapacity to the rounded-up integer.
+		targetCapacity = minOneOrValue(int(math.Ceil(float64(targetCapacity) / float64(minOneOrValue(activatorCount)))))
 	}
 
 	return targetCapacity
