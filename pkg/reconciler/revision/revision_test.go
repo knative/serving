@@ -728,8 +728,8 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	// Poll to see if the deployment is created. This should _already_ be there.
 	depL := fakedeploymentinformer.Get(ctx).Lister().Deployments(rev.Namespace)
 	if err := wait.PollImmediate(10*time.Millisecond, 1*time.Second, func() (bool, error) {
-		dep, err := depL.Get(names.Deployment(rev))
-		return dep != nil, err
+		dep, _ := depL.Get(names.Deployment(rev))
+		return dep != nil, nil
 	}); err != nil {
 		t.Error("Failed to see deployment creation:", err)
 	}
