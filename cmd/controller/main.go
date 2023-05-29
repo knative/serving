@@ -18,7 +18,20 @@ package main
 
 import (
 	// The set of controllers this controller process runs.
+	"context"
 	"flag"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/webhook"
+	"knative.dev/pkg/webhook/certificates"
+	"knative.dev/pkg/webhook/resourcesemantics"
+	"knative.dev/pkg/webhook/resourcesemantics/defaulting"
+	"knative.dev/pkg/webhook/resourcesemantics/validation"
+	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/reconciler/domainmapping"
 
 	certificate "knative.dev/control-protocol/pkg/certificates/reconciler"
 	"knative.dev/pkg/reconciler"
@@ -32,11 +45,11 @@ import (
 	"knative.dev/serving/pkg/reconciler/serverlessservice"
 	"knative.dev/serving/pkg/reconciler/service"
 
-	// This defines the shared main for injected controllers.
 	filteredFactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/serving/pkg/networking"
+	"knative.dev/serving/pkg/reconciler/domainmapping/config"
 )
 
 const (
@@ -53,6 +66,65 @@ var ctors = []injection.ControllerConstructor{
 	gc.NewController,
 	nscert.NewController,
 	certificate.NewControllerFactory(networking.ServingCertName),
+	domainmapping.NewController,
+	certificates.NewController,
+	newDefaultingAdmissionController,
+	newValidatingAdmissionController,
+}
+
+var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
+	servingv1alpha1.SchemeGroupVersion.WithKind("DomainMapping"): &servingv1alpha1.DomainMapping{},
+	servingv1beta1.SchemeGroupVersion.WithKind("DomainMapping"):  &servingv1beta1.DomainMapping{},
+}
+
+func newDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+	// Decorate contexts with the current state of the config.
+	store := config.NewStore(ctx)
+	store.WatchConfigs(cmw)
+
+	return defaulting.NewAdmissionController(ctx,
+
+		// Name of the resource webhook.
+		"webhook.domainmapping.serving.knative.dev",
+
+		// The path on which to serve the webhook.
+		"/defaulting",
+
+		// The resources to default.
+		types,
+
+		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
+		store.ToContext,
+
+		// Whether to disallow unknown fields. We set this to 'false' since
+		// our CRDs have schemas
+		false,
+	)
+}
+
+func newValidatingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+	// Decorate contexts with the current state of the config.
+	store := config.NewStore(ctx)
+	store.WatchConfigs(cmw)
+
+	return validation.NewAdmissionController(ctx,
+
+		// Name of the resource webhook.
+		"validation.webhook.domainmapping.serving.knative.dev",
+
+		// The path on which to serve the webhook.
+		"/resource-validation",
+
+		// The resources to validate.
+		types,
+
+		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
+		store.ToContext,
+
+		// Whether to disallow unknown fields. We set this to 'false' since
+		// our CRDs have schemas
+		false,
+	)
 }
 
 func main() {
@@ -62,5 +134,14 @@ func main() {
 
 	labelName := networking.ServingCertName + secretLabelNamePostfix
 	ctx := filteredFactory.WithSelectors(signals.NewContext(), labelName)
+	ctx = sharedmain.WithHealthProbesDisabled(ctx)
+
+	// Set up webhook options
+	ctx = webhook.WithOptions(ctx, webhook.Options{
+		ServiceName: "controller",
+		Port:        webhook.PortFromEnv(8443),
+		SecretName:  "domainmapping-webhook-certs",
+	})
+
 	sharedmain.MainWithContext(ctx, "controller", ctors...)
 }

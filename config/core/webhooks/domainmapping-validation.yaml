@@ -24,7 +24,7 @@ webhooks:
 - admissionReviewVersions: ["v1", "v1beta1"]
   clientConfig:
     service:
-      name: domainmapping-webhook
+      name: controller
       namespace: knative-serving
   failurePolicy: Fail
   sideEffects: None
