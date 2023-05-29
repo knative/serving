@@ -67,6 +67,10 @@ func randomChoice2Policy(_ context.Context, targets []*podTracker) (func(), *pod
 	// so fine.
 	if pick.getWeight() > alt.getWeight() {
 		pick = alt
+	} else if pick.getWeight() == alt.getWeight() {
+		if rand.Int63()%2 == 0 {
+			pick = alt
+		}
 	}
 	pick.increaseWeight()
 	return pick.decreaseWeight, pick

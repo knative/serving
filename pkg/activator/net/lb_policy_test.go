@@ -25,6 +25,32 @@ import (
 	"knative.dev/serving/pkg/queue"
 )
 
+func TestRandomChoice_TwoTrackersDistribution(t *testing.T) {
+	podTrackers := makeTrackers(2, 0)
+	counts := map[string]int{}
+
+	total := 100
+	for i := 0; i < total; i++ {
+		cb, pt := randomChoice2Policy(context.Background(), podTrackers)
+		cb()
+		counts[pt.dest]++
+	}
+
+	first := counts[podTrackers[0].dest]
+	second := counts[podTrackers[1].dest]
+
+	// probability of this occurring is 0.5^100
+	if first == 0 {
+		t.Error("expected the first tracker to get some requests")
+	}
+	if second == 0 {
+		t.Error("expected the second tracker to get some requests")
+	}
+	if first+second != total {
+		t.Error("expected total requests to equal 100 - was ", first+second)
+	}
+}
+
 func TestRandomChoice2(t *testing.T) {
 	t.Run("1 tracker", func(t *testing.T) {
 		podTrackers := makeTrackers(1, 0)
