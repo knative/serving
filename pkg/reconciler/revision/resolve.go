@@ -65,6 +65,8 @@ func newResolverTransport(path string, maxIdleConns, maxIdleConnsPerHost int) (*
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.MaxIdleConns = maxIdleConns
 	transport.MaxIdleConnsPerHost = maxIdleConnsPerHost
+	// disable "G402 (CWE-295): TLS MinVersion too low. (Confidence: HIGH, Severity: HIGH)"
+	// #nosec G402
 	transport.TLSClientConfig = &tls.Config{
 		MinVersion: tlsMinVersionFromEnv(tls.VersionTLS12),
 		RootCAs:    pool,

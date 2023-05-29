@@ -148,10 +148,9 @@ func validateRevisionName(ctx context.Context, name, generateName string) *apis.
 		}
 		om := apis.ParentMeta(ctx)
 		prefix := om.Name + "-"
-		if om.Name != "" {
-			// Even if there is GenerateName, allow the use
-			// of Name post-creation.
-		} else if om.GenerateName != "" {
+
+		// Even if there is GenerateName, allow the use of Name post-creation if Name is not empty.
+		if om.Name == "" && om.GenerateName != "" {
 			// We disallow bringing your own name when the parent
 			// resource uses generateName (at creation).
 			return apis.ErrDisallowedFields("metadata.name")

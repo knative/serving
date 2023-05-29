@@ -189,9 +189,8 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 
 		// Check if we have endpoints for this service
 		endpoints, err := c.endpointsLister.Endpoints(ns).Get(desiredService.Name)
-		if apierrs.IsNotFound(err) {
-			// noop
-		} else if err != nil {
+
+		if err != nil && !apierrs.IsNotFound(err) {
 			return nil, err
 		} else if !metav1.IsControlledBy(endpoints, route) {
 			// Surface an error in the route's status, and return an error.
@@ -286,13 +285,11 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 						return err
 					}
 				}
-			} else if from.Endpoints == nil && to.Endpoints == nil {
-				// noop
-			} else if from.Endpoints == nil {
+			} else if from.Endpoints == nil && to.Endpoints != nil {
 				if _, err := c.kubeclient.CoreV1().Endpoints(ns).Create(ctx, to.Endpoints, metav1.CreateOptions{}); err != nil {
 					return err
 				}
-			} else if to.Endpoints == nil {
+			} else if from.Endpoints != nil && to.Endpoints == nil {
 				if err := c.kubeclient.CoreV1().Endpoints(ns).Delete(ctx, from.Endpoints.Name, metav1.DeleteOptions{}); err != nil {
 					return err
 				}

@@ -144,9 +144,9 @@ func (c *Reconciler) findAndSetLatestReadyRevision(ctx context.Context, config *
 	}
 	for _, rev := range sortedRevisions {
 		if rev.IsReady() {
-			old, new := config.Status.LatestReadyRevisionName, rev.Name
+			oldName, newName := config.Status.LatestReadyRevisionName, rev.Name
 			config.Status.SetLatestReadyRevisionName(rev.Name)
-			if old != new {
+			if oldName != newName {
 				controller.GetEventRecorder(ctx).Eventf(
 					config, corev1.EventTypeNormal, "LatestReadyUpdate",
 					"LatestReadyRevisionName updated to %q", rev.Name)

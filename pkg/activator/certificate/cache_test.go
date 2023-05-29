@@ -52,7 +52,7 @@ func fakeCertCache(ctx context.Context) *CertCache {
 	}
 
 	secretInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterWithNameAndNamespace(system.Namespace(), netcfg.ServingInternalCertName),
+		FilterFunc: controller.FilterWithNameAndNamespace(system.Namespace(), netcfg.ServingRoutingCertName),
 		Handler: cache.ResourceEventHandlerFuncs{
 			UpdateFunc: cr.handleCertificateUpdate,
 			AddFunc:    cr.handleCertificateAdd,
@@ -78,7 +78,7 @@ func TestReconcile(t *testing.T) {
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      netcfg.ServingInternalCertName,
+			Name:      netcfg.ServingRoutingCertName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string][]byte{
