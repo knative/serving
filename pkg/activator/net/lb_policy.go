@@ -67,6 +67,11 @@ func randomChoice2Policy(_ context.Context, targets []*podTracker) (func(), *pod
 	// so fine.
 	if pick.getWeight() > alt.getWeight() {
 		pick = alt
+	} else if pick.getWeight() == alt.getWeight() {
+		//nolint:gosec // We don't need cryptographic randomness here.
+		if rand.Int63()%2 == 0 {
+			pick = alt
+		}
 	}
 	pick.increaseWeight()
 	return pick.decreaseWeight, pick
