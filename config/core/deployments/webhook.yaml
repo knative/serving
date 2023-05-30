@@ -28,8 +28,6 @@ spec:
       role: webhook
   template:
     metadata:
-      annotations:
-        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
       labels:
         app: webhook
         role: webhook

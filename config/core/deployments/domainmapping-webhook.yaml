@@ -28,8 +28,6 @@ spec:
       role: domainmapping-webhook
   template:
     metadata:
-      annotations:
-        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
       labels:
         app: domainmapping-webhook
         role: domainmapping-webhook
