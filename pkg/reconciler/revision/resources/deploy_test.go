@@ -145,6 +145,9 @@ var (
 			Name:  "SERVING_REQUEST_METRICS_BACKEND",
 			Value: "",
 		}, {
+			Name:  "SERVING_REQUEST_METRICS_REPORTING_PERIOD_SECONDS",
+			Value: "0",
+		}, {
 			Name:  "TRACING_CONFIG_BACKEND",
 			Value: "",
 		}, {
