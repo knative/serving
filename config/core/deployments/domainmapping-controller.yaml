@@ -27,8 +27,6 @@ spec:
       app: domain-mapping
   template:
     metadata:
-      annotations:
-        cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
       labels:
         app: domain-mapping
         app.kubernetes.io/component: domain-mapping
