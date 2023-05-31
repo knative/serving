@@ -127,8 +127,14 @@ const (
 	// QueueSidecarMemoryResourceRequestAnnotationKey is the explicit value of the memory request for queue-proxy's request resources
 	QueueSidecarMemoryResourceRequestAnnotationKey = "queue.sidecar." + GroupName + "/memory-resource-request"
 
-	// QueueSidecarMemoryResourceLimitAnnotationKey is the explicit value of the memory request for queue-proxy's limit resources
+	// QueueSidecarMemoryResourceLimitAnnotationKey is the explicit value of the memory limit for queue-proxy's limit resources
 	QueueSidecarMemoryResourceLimitAnnotationKey = "queue.sidecar." + GroupName + "/memory-resource-limit"
+
+	// QueueSidecarEphemeralStorageResourceRequestAnnotationKey is the explicit value of the ephemeral storage request for queue-proxy's request resources
+	QueueSidecarEphemeralStorageResourceRequestAnnotationKey = "queue.sidecar." + GroupName + "/ephemeral-storage-resource-request"
+
+	// QueueSidecarEphemeralStorageResourceLimitAnnotationKey is the explicit value of the ephemeral storage limit for queue-proxy's limit resources
+	QueueSidecarEphemeralStorageResourceLimitAnnotationKey = "queue.sidecar." + GroupName + "/ephemeral-storage-resource-limit"
 
 	// VisibilityClusterLocal is the label value for VisibilityLabelKey
 	// that will result to the Route/KService getting a cluster local
@@ -189,6 +195,14 @@ var (
 	QueueSidecarMemoryResourceLimitAnnotation = kmap.KeyPriority{
 		QueueSidecarMemoryResourceLimitAnnotationKey,
 		"queue.sidecar." + GroupName + "/MemoryResourceLimit",
+	}
+	QueueSidecarEphemeralStorageResourceRequestAnnotation = kmap.KeyPriority{
+		QueueSidecarEphemeralStorageResourceRequestAnnotationKey,
+		"queue.sidecar." + GroupName + "/EphemeralStorageResourceRequest",
+	}
+	QueueSidecarEphemeralStorageResourceLimitAnnotation = kmap.KeyPriority{
+		QueueSidecarEphemeralStorageResourceLimitAnnotationKey,
+		"queue.sidecar." + GroupName + "/EphemeralStorageResourceLimit",
 	}
 	ProgressDeadlineAnnotation = kmap.KeyPriority{
 		ProgressDeadlineAnnotationKey,

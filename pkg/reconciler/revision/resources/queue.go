@@ -154,6 +154,14 @@ func createQueueResources(cfg *deployment.Config, annotations map[string]string,
 		resourceLimits[corev1.ResourceMemory] = limitMemory
 	}
 
+	if requestEphmeralStorage, ok := resourceFromAnnotation(annotations, serving.QueueSidecarEphemeralStorageResourceRequestAnnotation); ok {
+		resourceRequests[corev1.ResourceEphemeralStorage] = requestEphmeralStorage
+	}
+
+	if limitEphemeralStorage, ok := resourceFromAnnotation(annotations, serving.QueueSidecarEphemeralStorageResourceLimitAnnotation); ok {
+		resourceLimits[corev1.ResourceEphemeralStorage] = limitEphemeralStorage
+	}
+
 	resources := corev1.ResourceRequirements{
 		Requests: resourceRequests,
 	}

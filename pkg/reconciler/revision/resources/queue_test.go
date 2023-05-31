@@ -581,10 +581,12 @@ func TestMakeQueueContainerWithResourceAnnotations(t *testing.T) {
 		rev: revision("bar", "foo",
 			func(revision *v1.Revision) {
 				revision.Annotations = map[string]string{
-					serving.QueueSidecarCPUResourceRequestAnnotationKey:    "1",
-					serving.QueueSidecarCPUResourceLimitAnnotationKey:      "2",
-					serving.QueueSidecarMemoryResourceRequestAnnotationKey: "1Gi",
-					serving.QueueSidecarMemoryResourceLimitAnnotationKey:   "2Gi",
+					serving.QueueSidecarCPUResourceRequestAnnotationKey:              "1",
+					serving.QueueSidecarCPUResourceLimitAnnotationKey:                "2",
+					serving.QueueSidecarMemoryResourceRequestAnnotationKey:           "1Gi",
+					serving.QueueSidecarMemoryResourceLimitAnnotationKey:             "2Gi",
+					serving.QueueSidecarEphemeralStorageResourceRequestAnnotationKey: "500Mi",
+					serving.QueueSidecarEphemeralStorageResourceLimitAnnotationKey:   "600Mi",
 				}
 				revision.Spec.PodSpec.Containers = []corev1.Container{{
 					Name:           servingContainerName,
@@ -594,12 +596,14 @@ func TestMakeQueueContainerWithResourceAnnotations(t *testing.T) {
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{})
 			c.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("1Gi"),
-				corev1.ResourceCPU:    resource.MustParse("1"),
+				corev1.ResourceMemory:           resource.MustParse("1Gi"),
+				corev1.ResourceCPU:              resource.MustParse("1"),
+				corev1.ResourceEphemeralStorage: resource.MustParse("500Mi"),
 			}
 			c.Resources.Limits = corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("2Gi"),
-				corev1.ResourceCPU:    resource.MustParse("2"),
+				corev1.ResourceMemory:           resource.MustParse("2Gi"),
+				corev1.ResourceCPU:              resource.MustParse("2"),
+				corev1.ResourceEphemeralStorage: resource.MustParse("600Mi"),
 			}
 		}),
 	}, {
