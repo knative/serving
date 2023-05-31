@@ -20,24 +20,10 @@ package client
 
 import (
 	context "context"
-	json "encoding/json"
-	errors "errors"
-	fmt "fmt"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	runtime "k8s.io/apimachinery/pkg/runtime"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	discovery "k8s.io/client-go/discovery"
-	dynamic "k8s.io/client-go/dynamic"
 	rest "k8s.io/client-go/rest"
-	v1alpha1 "knative.dev/caching/pkg/apis/caching/v1alpha1"
 	versioned "knative.dev/caching/pkg/client/clientset/versioned"
-	typedcachingv1alpha1 "knative.dev/caching/pkg/client/clientset/versioned/typed/caching/v1alpha1"
 	injection "knative.dev/pkg/injection"
-	dynamicclient "knative.dev/pkg/injection/clients/dynamicclient"
 	logging "knative.dev/pkg/logging"
 )
 
@@ -46,7 +32,6 @@ func init() {
 	injection.Default.RegisterClientFetcher(func(ctx context.Context) interface{} {
 		return Get(ctx)
 	})
-	injection.Dynamic.RegisterDynamicClient(withClientFromDynamic)
 }
 
 // Key is used as the key for associating information with a context.Context.
@@ -54,10 +39,6 @@ type Key struct{}
 
 func withClientFromConfig(ctx context.Context, cfg *rest.Config) context.Context {
 	return context.WithValue(ctx, Key{}, versioned.NewForConfigOrDie(cfg))
-}
-
-func withClientFromDynamic(ctx context.Context) context.Context {
-	return context.WithValue(ctx, Key{}, &wrapClient{dyn: dynamicclient.Get(ctx)})
 }
 
 // Get extracts the versioned.Interface client from the context.
@@ -73,171 +54,4 @@ func Get(ctx context.Context) versioned.Interface {
 		}
 	}
 	return untyped.(versioned.Interface)
-}
-
-type wrapClient struct {
-	dyn dynamic.Interface
-}
-
-var _ versioned.Interface = (*wrapClient)(nil)
-
-func (w *wrapClient) Discovery() discovery.DiscoveryInterface {
-	panic("Discovery called on dynamic client!")
-}
-
-func convert(from interface{}, to runtime.Object) error {
-	bs, err := json.Marshal(from)
-	if err != nil {
-		return fmt.Errorf("Marshal() = %w", err)
-	}
-	if err := json.Unmarshal(bs, to); err != nil {
-		return fmt.Errorf("Unmarshal() = %w", err)
-	}
-	return nil
-}
-
-// CachingV1alpha1 retrieves the CachingV1alpha1Client
-func (w *wrapClient) CachingV1alpha1() typedcachingv1alpha1.CachingV1alpha1Interface {
-	return &wrapCachingV1alpha1{
-		dyn: w.dyn,
-	}
-}
-
-type wrapCachingV1alpha1 struct {
-	dyn dynamic.Interface
-}
-
-func (w *wrapCachingV1alpha1) RESTClient() rest.Interface {
-	panic("RESTClient called on dynamic client!")
-}
-
-func (w *wrapCachingV1alpha1) Images(namespace string) typedcachingv1alpha1.ImageInterface {
-	return &wrapCachingV1alpha1ImageImpl{
-		dyn: w.dyn.Resource(schema.GroupVersionResource{
-			Group:    "caching.internal.knative.dev",
-			Version:  "v1alpha1",
-			Resource: "images",
-		}),
-
-		namespace: namespace,
-	}
-}
-
-type wrapCachingV1alpha1ImageImpl struct {
-	dyn dynamic.NamespaceableResourceInterface
-
-	namespace string
-}
-
-var _ typedcachingv1alpha1.ImageInterface = (*wrapCachingV1alpha1ImageImpl)(nil)
-
-func (w *wrapCachingV1alpha1ImageImpl) Create(ctx context.Context, in *v1alpha1.Image, opts v1.CreateOptions) (*v1alpha1.Image, error) {
-	in.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "caching.internal.knative.dev",
-		Version: "v1alpha1",
-		Kind:    "Image",
-	})
-	uo := &unstructured.Unstructured{}
-	if err := convert(in, uo); err != nil {
-		return nil, err
-	}
-	uo, err := w.dyn.Namespace(w.namespace).Create(ctx, uo, opts)
-	if err != nil {
-		return nil, err
-	}
-	out := &v1alpha1.Image{}
-	if err := convert(uo, out); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (w *wrapCachingV1alpha1ImageImpl) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	return w.dyn.Namespace(w.namespace).Delete(ctx, name, opts)
-}
-
-func (w *wrapCachingV1alpha1ImageImpl) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	return w.dyn.Namespace(w.namespace).DeleteCollection(ctx, opts, listOpts)
-}
-
-func (w *wrapCachingV1alpha1ImageImpl) Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.Image, error) {
-	uo, err := w.dyn.Namespace(w.namespace).Get(ctx, name, opts)
-	if err != nil {
-		return nil, err
-	}
-	out := &v1alpha1.Image{}
-	if err := convert(uo, out); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (w *wrapCachingV1alpha1ImageImpl) List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.ImageList, error) {
-	uo, err := w.dyn.Namespace(w.namespace).List(ctx, opts)
-	if err != nil {
-		return nil, err
-	}
-	out := &v1alpha1.ImageList{}
-	if err := convert(uo, out); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (w *wrapCachingV1alpha1ImageImpl) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Image, err error) {
-	uo, err := w.dyn.Namespace(w.namespace).Patch(ctx, name, pt, data, opts)
-	if err != nil {
-		return nil, err
-	}
-	out := &v1alpha1.Image{}
-	if err := convert(uo, out); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (w *wrapCachingV1alpha1ImageImpl) Update(ctx context.Context, in *v1alpha1.Image, opts v1.UpdateOptions) (*v1alpha1.Image, error) {
-	in.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "caching.internal.knative.dev",
-		Version: "v1alpha1",
-		Kind:    "Image",
-	})
-	uo := &unstructured.Unstructured{}
-	if err := convert(in, uo); err != nil {
-		return nil, err
-	}
-	uo, err := w.dyn.Namespace(w.namespace).Update(ctx, uo, opts)
-	if err != nil {
-		return nil, err
-	}
-	out := &v1alpha1.Image{}
-	if err := convert(uo, out); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (w *wrapCachingV1alpha1ImageImpl) UpdateStatus(ctx context.Context, in *v1alpha1.Image, opts v1.UpdateOptions) (*v1alpha1.Image, error) {
-	in.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "caching.internal.knative.dev",
-		Version: "v1alpha1",
-		Kind:    "Image",
-	})
-	uo := &unstructured.Unstructured{}
-	if err := convert(in, uo); err != nil {
-		return nil, err
-	}
-	uo, err := w.dyn.Namespace(w.namespace).UpdateStatus(ctx, uo, opts)
-	if err != nil {
-		return nil, err
-	}
-	out := &v1alpha1.Image{}
-	if err := convert(uo, out); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (w *wrapCachingV1alpha1ImageImpl) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return nil, errors.New("NYI: Watch")
 }

@@ -125,13 +125,12 @@ aliases:
   - skonto
   serving-reviewers:
   - KauzClay
-  - carlisia
-  - izabelacg
   - jsanin-vmw
   - kauana
-  - pradnyavmw
+  - kvmware
   - retocode
   - skonto
+  - xtreme-vikram-yadav
   serving-triage:
   - KauzClay
   - retocode

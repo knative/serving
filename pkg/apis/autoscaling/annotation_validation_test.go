@@ -351,6 +351,12 @@ func TestValidateAnnotations(t *testing.T) {
 		annotations: map[string]string{InitialScaleAnnotationKey: "0"},
 		expectErr:   "invalid value: 0: " + InitialScaleAnnotationKey + "=0 not allowed by cluster",
 	}, {
+		name:        "valid global class HPA with metric CPU",
+		annotations: map[string]string{MetricAnnotationKey: CPU},
+		configMutator: func(c *autoscalerconfig.Config) {
+			c.PodAutoscalerClass = HPA
+		},
+	}, {
 		name: "initial scale is zero and cluster allows",
 		configMutator: func(config *autoscalerconfig.Config) {
 			config.AllowZeroInitialScale = true
@@ -386,5 +392,6 @@ func defaultConfig() *autoscalerconfig.Config {
 	return &autoscalerconfig.Config{
 		AllowZeroInitialScale: false,
 		MaxScaleLimit:         0,
+		PodAutoscalerClass:    KPA,
 	}
 }

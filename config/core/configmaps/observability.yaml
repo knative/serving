@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: observability
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "fed4756e"
+    knative.dev/example-checksum: "54abd711"
 data:
   _example: |
     ################################
@@ -95,10 +95,21 @@ data:
     # It supports either prometheus (the default) or opencensus.
     metrics.backend-destination: prometheus
 
+    # metrics.reporting-period-seconds specifies the global metrics reporting period for control and data plane components.
+    # If a zero or negative value is passed the default reporting period is used (10 secs).
+    # If the attribute is not specified a default value is used per metrics backend.
+    # For the prometheus backend the default reporting period is 5s while for opencensus it is 60s.
+    metrics.reporting-period-seconds: "5"
+
     # metrics.request-metrics-backend-destination specifies the request metrics
     # destination. It enables queue proxy to send request metrics.
     # Currently supported values: prometheus (the default), opencensus.
     metrics.request-metrics-backend-destination: prometheus
+
+    # metrics.request-metrics-reporting-period-seconds specifies the request metrics reporting period in sec at queue proxy.
+    # If a zero or negative value is passed the default reporting period is used (10 secs).
+    # If the attribute is not specified, it is overridden by the value of metrics.reporting-period-seconds.
+    metrics.request-metrics-reporting-period-seconds: "5"
 
     # profiling.enable indicates whether it is allowed to retrieve runtime profiling data from
     # the pods via an HTTP server in the format expected by the pprof visualization tool. When
