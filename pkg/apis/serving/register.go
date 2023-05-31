@@ -118,6 +118,18 @@ const (
 	// It has to be in [0.1,100]
 	QueueSidecarResourcePercentageAnnotationKey = "queue.sidecar." + GroupName + "/resource-percentage"
 
+	// QueueSidecarCPUResourceRequestAnnotationKey is the explicit value of the cpu request for queue-proxy's request resources
+	QueueSidecarCPUResourceRequestAnnotationKey = "queue.sidecar." + GroupName + "/cpu-resource-request"
+
+	// QueueSidecarCPUResourceLimitAnnotationKey is the explicit value of the cpu limit for queue-proxy's limit resources
+	QueueSidecarCPUResourceLimitAnnotationKey = "queue.sidecar." + GroupName + "/cpu-resource-limit"
+
+	// QueueSidecarMemoryResourceRequestAnnotationKey is the explicit value of the memory request for queue-proxy's request resources
+	QueueSidecarMemoryResourceRequestAnnotationKey = "queue.sidecar." + GroupName + "/memory-resource-request"
+
+	// QueueSidecarMemoryResourceLimitAnnotationKey is the explicit value of the memory request for queue-proxy's limit resources
+	QueueSidecarMemoryResourceLimitAnnotationKey = "queue.sidecar." + GroupName + "/memory-resource-limit"
+
 	// VisibilityClusterLocal is the label value for VisibilityLabelKey
 	// that will result to the Route/KService getting a cluster local
 	// domain suffix.
@@ -161,6 +173,22 @@ var (
 	QueueSidecarResourcePercentageAnnotation = kmap.KeyPriority{
 		QueueSidecarResourcePercentageAnnotationKey,
 		"queue.sidecar." + GroupName + "/resourcePercentage",
+	}
+	QueueSidecarCPUResourceRequestAnnotation = kmap.KeyPriority{
+		QueueSidecarCPUResourceRequestAnnotationKey,
+		"queue.sidecar." + GroupName + "/CPUResourceRequest",
+	}
+	QueueSidecarCPUResourceLimitAnnotation = kmap.KeyPriority{
+		QueueSidecarCPUResourceLimitAnnotationKey,
+		"queue.sidecar." + GroupName + "/CPUResourceLimit",
+	}
+	QueueSidecarMemoryResourceRequestAnnotation = kmap.KeyPriority{
+		QueueSidecarMemoryResourceRequestAnnotationKey,
+		"queue.sidecar." + GroupName + "/MemoryResourceRequest",
+	}
+	QueueSidecarMemoryResourceLimitAnnotation = kmap.KeyPriority{
+		QueueSidecarMemoryResourceLimitAnnotationKey,
+		"queue.sidecar." + GroupName + "/MemoryResourceLimit",
 	}
 	ProgressDeadlineAnnotation = kmap.KeyPriority{
 		ProgressDeadlineAnnotationKey,
