@@ -19,7 +19,6 @@ package net
 import (
 	"context"
 	"errors"
-	"math"
 	"strconv"
 	"sync"
 	"testing"
@@ -616,19 +615,17 @@ func TestPodAssignmentFinite(t *testing.T) {
 	if got, want := len(rt.podTrackers), len(update.Dests); got != want {
 		t.Errorf("NumTrackers = %d, want: %d", got, want)
 	}
-	if got, want := trackerDestSet(rt.assignedTrackers), sets.NewString("ip0", "ip4", "ip5"); !got.Equal(want) {
+	// 6 = 4 * 1 + 2; index 0 and index 1 have 2 pods and others have 1 pod.
+	if got, want := trackerDestSet(rt.assignedTrackers), sets.NewString("ip0", "ip4"); !got.Equal(want) {
 		t.Errorf("Assigned trackers = %v, want: %v, diff: %s", got, want, cmp.Diff(want, got))
 	}
-	if got, want := rt.breaker.Capacity(), 6*42/4; got != want {
+	if got, want := rt.breaker.Capacity(), 2*42; got != want {
 		t.Errorf("TotalCapacity = %d, want: %d", got, want)
 	}
 	if got, want := rt.assignedTrackers[0].Capacity(), 42; got != want {
 		t.Errorf("Exclusive tracker capacity: %d, want: %d", got, want)
 	}
-	if got, want := rt.assignedTrackers[1].Capacity(), int(math.Ceil(42./4.)); got != want {
-		t.Errorf("Shared tracker capacity: %d, want: %d", got, want)
-	}
-	if got, want := rt.assignedTrackers[2].Capacity(), int(math.Ceil(42./4.)); got != want {
+	if got, want := rt.assignedTrackers[1].Capacity(), 42; got != want {
 		t.Errorf("Shared tracker capacity: %d, want: %d", got, want)
 	}
 
@@ -757,7 +754,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 	// so we now know that the rest is set statically.
 	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
 		// Capacity doesn't exceed 1 in this test.
-		return rt.breaker.Capacity() == 2, nil
+		return rt.breaker.Capacity() == 1, nil
 	}); err != nil {
 		t.Fatal("Timed out waiting for the capacity to be updated")
 	}
@@ -768,7 +765,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 	if got, want := rt.activatorIndex.Load(), int32(1); got != want {
 		t.Fatalf("activatorIndex = %d, want %d", got, want)
 	}
-	if got, want := len(rt.assignedTrackers), 2; got != want {
+	if got, want := len(rt.assignedTrackers), 1; got != want {
 		t.Fatalf("len(assignedTrackers) = %d, want %d", got, want)
 	}
 
@@ -853,19 +850,19 @@ func TestMultipleActivators(t *testing.T) {
 	// so we now know that we got and processed both the activator endpoints
 	// and the application endpoints.
 	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
-		return rt.breaker.Capacity() == 2, nil
+		return rt.breaker.Capacity() == 1, nil
 	}); err != nil {
 		t.Fatal("Timed out waiting for the capacity to be updated")
 	}
 	t.Log("This activator idx =", rt.activatorIndex.Load())
 
-	// Test with 2 activators, 3 endpoints we can send 2 requests and the third times out.
+	// Test with 2 activators, 3 endpoints we can send 1 request and the second times out.
 	var mux sync.Mutex
 	mux.Lock() // Lock the mutex so all requests are blocked in the Try function.
 
 	reqCtx, cancel2 := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel2()
-	resultChan := throttler.try(reqCtx, 3 /*requests*/, func(string) error {
+	resultChan := throttler.try(reqCtx, 2 /*requests*/, func(string) error {
 		mux.Lock()
 		return nil
 	})
@@ -1190,12 +1187,12 @@ func TestAssignSlice(t *testing.T) {
 		}}
 		cp := append(trackers[:0:0], trackers...)
 		got := assignSlice(cp, 1, 2, 5)
-		want := trackers[1:3]
+		want := trackers[1:2]
 		if !cmp.Equal(got, want, opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, want,
 				cmp.Diff(want, got, opt))
 		}
-		if got, want := got[1].b.Capacity(), 5/2+1; got != want {
+		if got, want := got[0].b.Capacity(), 0; got != want {
 			t.Errorf("Capacity for the tail pod = %d, want: %d", got, want)
 		}
 	})
@@ -1212,12 +1209,12 @@ func TestAssignSlice(t *testing.T) {
 		}}
 		cp := append(trackers[:0:0], trackers...)
 		got := assignSlice(cp, 1, 2, 6)
-		want := trackers[1:]
+		want := trackers[1:2]
 		if !cmp.Equal(got, want, opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, want,
 				cmp.Diff(want, got, opt))
 		}
-		if got, want := got[1].b.Capacity(), 3; got != want {
+		if got, want := got[0].b.Capacity(), 0; got != want {
 			t.Errorf("Capacity for the tail pod = %d, want: %d", got, want)
 		}
 	})
