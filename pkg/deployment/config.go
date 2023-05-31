@@ -75,14 +75,39 @@ var (
 	// queue sidecar. It is set at 25m for backwards-compatibility since this was
 	// the historic default before the field was operator-settable.
 	QueueSidecarCPURequestDefault = resource.MustParse("25m")
+
+	// QueueSidecarCPULimitDefault is the default limit.cpu to set for the
+	// queue sidecar.
+	QueueSidecarCPULimitDefault = resource.MustParse("1000m")
+
+	// QueueSidecarMemoryRequestDefault is the default request.memory to set for the
+	// queue sidecar.
+	QueueSidecarMemoryRequestDefault = resource.MustParse("400Mi")
+
+	// QueueSidecarMemoryLimitDefault is the default limit.memory to set for the
+	// queue sidecar.
+	QueueSidecarMemoryLimitDefault = resource.MustParse("800Mi")
+
+	// QueueSidecarEphemeralStorageRequestDefault is the default request.ephemeral-storage set for the
+	// queue sidecar.
+	QueueSidecarEphemeralStorageRequestDefault = resource.MustParse("512Mi")
+
+	// QueueSidecarEphemeralStorageLimitDefault is the default limit.ephemeral-storage to set for the
+	// queue sidecar.
+	QueueSidecarEphemeralStorageLimitDefault = resource.MustParse("1024Mi")
 )
 
 func defaultConfig() *Config {
 	cfg := &Config{
-		ProgressDeadline:               ProgressDeadlineDefault,
-		DigestResolutionTimeout:        digestResolutionTimeoutDefault,
-		RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
-		QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+		ProgressDeadline:                    ProgressDeadlineDefault,
+		DigestResolutionTimeout:             digestResolutionTimeoutDefault,
+		RegistriesSkippingTagResolving:      sets.NewString("kind.local", "ko.local", "dev.local"),
+		QueueSidecarCPURequest:              &QueueSidecarCPURequestDefault,
+		QueueSidecarCPULimit:                &QueueSidecarCPULimitDefault,
+		QueueSidecarMemoryRequest:           &QueueSidecarMemoryRequestDefault,
+		QueueSidecarMemoryLimit:             &QueueSidecarMemoryLimitDefault,
+		QueueSidecarEphemeralStorageRequest: &QueueSidecarEphemeralStorageRequestDefault,
+		QueueSidecarEphemeralStorageLimit:   &QueueSidecarEphemeralStorageLimitDefault,
 	}
 	// The following code is needed for ConfigMap testing.
 	// defaultConfig must match the example in deployment.yaml which includes: `queue-sidecar-token-audiences: ""`

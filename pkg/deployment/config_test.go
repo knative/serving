@@ -62,12 +62,6 @@ func TestControllerConfigurationFromFile(t *testing.T) {
 		// We require QSI to be explicitly set. So do it here.
 		want.QueueSidecarImage = "ko://knative.dev/serving/cmd/queue"
 
-		// The following are in the example yaml, to show usage,
-		// but default is nil, i.e. inheriting k8s.
-		// So for this test we ignore those, but verify the other fields.
-		got.QueueSidecarCPULimit = nil
-		got.QueueSidecarMemoryRequest, got.QueueSidecarMemoryLimit = nil, nil
-		got.QueueSidecarEphemeralStorageRequest, got.QueueSidecarEphemeralStorageLimit = nil, nil
 		if !cmp.Equal(got, want) {
 			t.Error("Example stanza does not match default, diff(-want,+got):", cmp.Diff(want, got))
 		}
@@ -83,12 +77,17 @@ func TestControllerConfiguration(t *testing.T) {
 	}{{
 		name: "controller configuration with bad registries",
 		wantConfig: &Config{
-			RegistriesSkippingTagResolving: sets.NewString("ko.local", ""),
-			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
-			QueueSidecarImage:              defaultSidecarImage,
-			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
-			QueueSidecarTokenAudiences:     sets.NewString("foo", "bar", "boo-srv"),
-			ProgressDeadline:               ProgressDeadlineDefault,
+			RegistriesSkippingTagResolving:      sets.NewString("ko.local", ""),
+			DigestResolutionTimeout:             digestResolutionTimeoutDefault,
+			QueueSidecarImage:                   defaultSidecarImage,
+			QueueSidecarCPURequest:              &QueueSidecarCPURequestDefault,
+			QueueSidecarCPULimit:                &QueueSidecarCPULimitDefault,
+			QueueSidecarMemoryRequest:           &QueueSidecarMemoryRequestDefault,
+			QueueSidecarMemoryLimit:             &QueueSidecarMemoryLimitDefault,
+			QueueSidecarEphemeralStorageRequest: &QueueSidecarEphemeralStorageRequestDefault,
+			QueueSidecarEphemeralStorageLimit:   &QueueSidecarEphemeralStorageLimitDefault,
+			QueueSidecarTokenAudiences:          sets.NewString("foo", "bar", "boo-srv"),
+			ProgressDeadline:                    ProgressDeadlineDefault,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:              defaultSidecarImage,
@@ -98,12 +97,17 @@ func TestControllerConfiguration(t *testing.T) {
 	}, {
 		name: "controller configuration good progress deadline",
 		wantConfig: &Config{
-			RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
-			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
-			QueueSidecarImage:              defaultSidecarImage,
-			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
-			QueueSidecarTokenAudiences:     sets.NewString(""),
-			ProgressDeadline:               444 * time.Second,
+			RegistriesSkippingTagResolving:      sets.NewString("kind.local", "ko.local", "dev.local"),
+			DigestResolutionTimeout:             digestResolutionTimeoutDefault,
+			QueueSidecarImage:                   defaultSidecarImage,
+			QueueSidecarCPURequest:              &QueueSidecarCPURequestDefault,
+			QueueSidecarCPULimit:                &QueueSidecarCPULimitDefault,
+			QueueSidecarMemoryRequest:           &QueueSidecarMemoryRequestDefault,
+			QueueSidecarMemoryLimit:             &QueueSidecarMemoryLimitDefault,
+			QueueSidecarEphemeralStorageRequest: &QueueSidecarEphemeralStorageRequestDefault,
+			QueueSidecarEphemeralStorageLimit:   &QueueSidecarEphemeralStorageLimitDefault,
+			QueueSidecarTokenAudiences:          sets.NewString(""),
+			ProgressDeadline:                    444 * time.Second,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey: defaultSidecarImage,
@@ -112,12 +116,17 @@ func TestControllerConfiguration(t *testing.T) {
 	}, {
 		name: "controller configuration good digest resolution timeout",
 		wantConfig: &Config{
-			RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
-			DigestResolutionTimeout:        60 * time.Second,
-			QueueSidecarImage:              defaultSidecarImage,
-			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
-			QueueSidecarTokenAudiences:     sets.NewString(""),
-			ProgressDeadline:               ProgressDeadlineDefault,
+			RegistriesSkippingTagResolving:      sets.NewString("kind.local", "ko.local", "dev.local"),
+			DigestResolutionTimeout:             60 * time.Second,
+			QueueSidecarImage:                   defaultSidecarImage,
+			QueueSidecarCPURequest:              &QueueSidecarCPURequestDefault,
+			QueueSidecarCPULimit:                &QueueSidecarCPULimitDefault,
+			QueueSidecarMemoryRequest:           &QueueSidecarMemoryRequestDefault,
+			QueueSidecarMemoryLimit:             &QueueSidecarMemoryLimitDefault,
+			QueueSidecarEphemeralStorageRequest: &QueueSidecarEphemeralStorageRequestDefault,
+			QueueSidecarEphemeralStorageLimit:   &QueueSidecarEphemeralStorageLimitDefault,
+			QueueSidecarTokenAudiences:          sets.NewString(""),
+			ProgressDeadline:                    ProgressDeadlineDefault,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:       defaultSidecarImage,
@@ -126,12 +135,17 @@ func TestControllerConfiguration(t *testing.T) {
 	}, {
 		name: "controller configuration with registries",
 		wantConfig: &Config{
-			RegistriesSkippingTagResolving: sets.NewString("ko.local", "ko.dev"),
-			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
-			QueueSidecarImage:              defaultSidecarImage,
-			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
-			QueueSidecarTokenAudiences:     sets.NewString(""),
-			ProgressDeadline:               ProgressDeadlineDefault,
+			RegistriesSkippingTagResolving:      sets.NewString("ko.local", "ko.dev"),
+			DigestResolutionTimeout:             digestResolutionTimeoutDefault,
+			QueueSidecarImage:                   defaultSidecarImage,
+			QueueSidecarCPURequest:              &QueueSidecarCPURequestDefault,
+			QueueSidecarCPULimit:                &QueueSidecarCPULimitDefault,
+			QueueSidecarMemoryRequest:           &QueueSidecarMemoryRequestDefault,
+			QueueSidecarMemoryLimit:             &QueueSidecarMemoryLimitDefault,
+			QueueSidecarEphemeralStorageRequest: &QueueSidecarEphemeralStorageRequestDefault,
+			QueueSidecarEphemeralStorageLimit:   &QueueSidecarEphemeralStorageLimitDefault,
+			QueueSidecarTokenAudiences:          sets.NewString(""),
+			ProgressDeadline:                    ProgressDeadlineDefault,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:              defaultSidecarImage,

@@ -316,14 +316,25 @@ func TestMakeQueueContainer(t *testing.T) {
 		rev: revision("bar", "foo",
 			withContainers(containers)),
 		dc: deployment.Config{
-			QueueSidecarCPURequest: &deployment.QueueSidecarCPURequestDefault,
+			QueueSidecarCPURequest:              &deployment.QueueSidecarCPURequestDefault,
+			QueueSidecarCPULimit:                &deployment.QueueSidecarCPULimitDefault,
+			QueueSidecarMemoryRequest:           &deployment.QueueSidecarMemoryRequestDefault,
+			QueueSidecarMemoryLimit:             &deployment.QueueSidecarMemoryLimitDefault,
+			QueueSidecarEphemeralStorageRequest: &deployment.QueueSidecarEphemeralStorageRequestDefault,
+			QueueSidecarEphemeralStorageLimit:   &deployment.QueueSidecarEphemeralStorageLimitDefault,
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{})
 			c.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceCPU: resource.MustParse("25m"),
+				corev1.ResourceCPU:              resource.MustParse("25m"),
+				corev1.ResourceMemory:           resource.MustParse("400Mi"),
+				corev1.ResourceEphemeralStorage: resource.MustParse("512Mi"),
 			}
-			c.Resources.Limits = nil
+			c.Resources.Limits = corev1.ResourceList{
+				corev1.ResourceCPU:              resource.MustParse("1000m"),
+				corev1.ResourceMemory:           resource.MustParse("800Mi"),
+				corev1.ResourceEphemeralStorage: resource.MustParse("1024Mi"),
+			}
 		}),
 	}, {
 		name: "overridden resources",
