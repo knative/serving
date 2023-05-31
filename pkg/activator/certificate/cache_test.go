@@ -49,7 +49,7 @@ func fakeCertCache(ctx context.Context) *CertCache {
 		certificate:    nil,
 		ClientTLSConf:  tls.Config{},
 		logger:         logging.FromContext(ctx),
-		trust:          netcfg.TrustMutual,
+		trustConfig:    netcfg.TrustMutual,
 	}
 
 	secretInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -124,7 +124,7 @@ func TestFakeReconcile(t *testing.T) {
 		t.Fatal("timeout to get the secret:", err)
 	}
 
-	cs := tls.ConnectionState{PeerCertificates: []*x509.Certificate{{DNSNames: []string{"ddd", "xxx", "kn-routing-0", "ddd", "xxx"}}}}
+	cs := tls.ConnectionState{PeerCertificates: []*x509.Certificate{{DNSNames: []string{"ddd", "xxx", certificates.DataPlaneRoutingName("0"), "ddd", "xxx"}}}}
 	if verifyErr := cr.ServerTLSConf.VerifyConnection(cs); verifyErr != nil {
 		t.Error("cr.ServerTLSConf.VerifyConnection: expected to find kn-routing-0")
 	}

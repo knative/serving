@@ -41,7 +41,7 @@ import (
 type CertCache struct {
 	secretInformer v1.SecretInformer
 	logger         *zap.SugaredLogger
-	trust          netcfg.Trust
+	trustConfig    netcfg.Trust
 
 	certificate   *tls.Certificate
 	ClientTLSConf tls.Config
@@ -57,7 +57,7 @@ func NewCertCache(ctx context.Context, trust netcfg.Trust) *CertCache {
 	cr := &CertCache{
 		secretInformer: secretInformer,
 		logger:         logging.FromContext(ctx),
-		trust:          trust,
+		trustConfig:    trust,
 	}
 
 	secret, err := cr.secretInformer.Lister().Secrets(system.Namespace()).Get(netcfg.ServingRoutingCertName)
@@ -113,13 +113,15 @@ func (cr *CertCache) updateCache(secret *corev1.Secret) {
 	cr.ServerTLSConf.MinVersion = tls.VersionTLS12
 	cr.ServerTLSConf.GetCertificate = cr.GetCertificate
 
-	switch cr.trust {
+	switch cr.trustConfig {
 	case netcfg.TrustIdentity, netcfg.TrustMutual:
 		cr.ServerTLSConf.ClientAuth = tls.RequireAndVerifyClientCert
 		cr.ServerTLSConf.ClientCAs = pool
 		cr.ServerTLSConf.VerifyConnection = func(cs tls.ConnectionState) error {
 			for _, match := range cs.PeerCertificates[0].DNSNames {
-				if match == "kn-routing-0" { // routingId not yet supported
+				// Activator currently supports a single routingId which is the default "0"
+				// Working with other routingId is not yet implemented
+				if match == certificates.DataPlaneRoutingName("0") {
 					return nil
 				}
 				//Until all ingresses work with updated dataplane certificates  - allow also any legacy certificate
@@ -127,8 +129,8 @@ func (cr *CertCache) updateCache(secret *corev1.Secret) {
 					return nil
 				}
 			}
-			cr.logger.Info("mTLS: Failed Client with DNSNames: %v\n", cs.PeerCertificates[0].DNSNames)
-			return fmt.Errorf("mTLS Failed to approve %v", cs.PeerCertificates[0].DNSNames)
+			cr.logger.Info("mTLS: Failed to verify client connection for DNSNames: %v\n", cs.PeerCertificates[0].DNSNames)
+			return fmt.Errorf("mTLS: Failed to verify client connection for DNSNames: %v", cs.PeerCertificates[0].DNSNames)
 		}
 	}
 }

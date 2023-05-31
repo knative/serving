@@ -34,14 +34,15 @@ import (
 func verifySanConnection(san string) func(tls.ConnectionState) error {
 	return func(cs tls.ConnectionState) error {
 		if cs.PeerCertificates == nil {
-			return errors.New("server certificate not verified during VerifyConnection")
+
+			return errors.New("server certificate could not be verified during VerifyConnection. No PeerCertificates provided")
 		}
 		for _, name := range cs.PeerCertificates[0].DNSNames {
 			if name == san {
 				return nil
 			}
 		}
-		return fmt.Errorf("service with san %s does not have a matching name in certificate - names provided: %s", san, cs.PeerCertificates[0].DNSNames)
+		return fmt.Errorf("server with SAN %s does not have a matching name in certificate.  Names provided in certificate: %s", san, cs.PeerCertificates[0].DNSNames)
 	}
 }
 
@@ -65,7 +66,7 @@ func dialTLSContext(ctx context.Context, network, addr string, tlsConf *tls.Conf
 		san := certificates.LegacyFakeDnsName
 		if trust != netcfg.TrustMinimal {
 			revID := RevIDFrom(ctx)
-			san = "kn-user-" + revID.Namespace
+			san = certificates.DataPlaneRoutingName(revID.Namespace)
 		}
 		tlsConf.VerifyConnection = verifySanConnection(san)
 	} else {
