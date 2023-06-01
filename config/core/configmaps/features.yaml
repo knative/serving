@@ -43,9 +43,8 @@ data:
     # Default SecurityContext settings to secure-by-default values
     # if unset.
     #
-    # This value will default to "enabled" in a future release,
-    # probably Knative 1.10
-    secure-pod-defaults: "disabled"
+    # Indicates whether secure-pod-defaults support is enabled
+    secure-pod-defaults: "enabled"
 
     # Indicates whether multi container support is enabled
     #
