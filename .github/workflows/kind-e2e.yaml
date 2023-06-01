@@ -50,8 +50,7 @@ jobs:
           ${{ runner.os }}-go-
 
     # Install the latest release of ko
-    - name: Install ko
-      uses: ko-build/setup-ko@v0.6
+    - uses: imjasonh/setup-ko@v0.6
 
     - name: Setup Registry
       run: |
@@ -92,10 +91,10 @@ jobs:
         - v1.27.x
 
         ingress:
-        - kourier
-        - kourier-tls
-        - istio
-        - contour
+          - kourier
+          - kourier-tls
+          - istio
+          - contour
         # Disabled due to consistent failures
         # - gateway_istio
 
@@ -104,21 +103,22 @@ jobs:
         - api
         - e2e
 
+        include:
         # Disabled due to consistent failures
         # - ingress: gateway_istio
         #   ingress-class: gateway-api
         #   test-flags: -enable-alpha
         #   namespace-resources: httproute
 
-        # - ingress: contour
-        #   namespace-resources: httpproxy
+        - ingress: contour
+          namespace-resources: httpproxy
 
         - ingress: istio
           namespace-resources: virtualservices
 
-        # - ingress: kourier-tls
-        #   ingress-class: kourier
-        #   enable-tls: 1
+        - ingress: kourier-tls
+          ingress-class: kourier
+          enable-tls: 1
 
         - test-suite: runtime
           test-path: ./test/conformance/runtime/...
@@ -149,7 +149,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
     
-    - name: Create KinD Cluster 
+    - name: Setup KinD 
       uses: chainguard-dev/actions/setup-kind@main
       with:
         k8s-version: ${{ matrix.k8s-version }}
@@ -187,6 +187,9 @@ jobs:
 
     - name: Setup local registry
       run: |
+       docker stop $REGISTRY_NAME
+       docker rm $REGISTRY_NAME
+
         # Run a registry.
         docker run -d --restart=always \
           -v $HOME/artifacts/registry:/var/lib/registry \
