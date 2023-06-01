@@ -28,8 +28,6 @@ spec:
       app: autoscaler-hpa
   template:
     metadata:
-      annotations:
-        cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
       labels:
         app: autoscaler-hpa
         app.kubernetes.io/component: autoscaler-hpa
