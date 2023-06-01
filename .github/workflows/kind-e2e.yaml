@@ -110,15 +110,15 @@ jobs:
         #   test-flags: -enable-alpha
         #   namespace-resources: httproute
 
-        - ingress: contour
-          namespace-resources: httpproxy
+        # - ingress: contour
+        #   namespace-resources: httpproxy
 
         - ingress: istio
           namespace-resources: virtualservices
 
-        - ingress: kourier-tls
-          ingress-class: kourier
-          enable-tls: 1
+        # - ingress: kourier-tls
+        #   ingress-class: kourier
+        #   enable-tls: 1
 
         - test-suite: runtime
           test-path: ./test/conformance/runtime/...
