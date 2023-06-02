@@ -12,7 +12,7 @@ env:
   # https://github.com/google/go-containerregistry/pull/125 allows insecure registry for
   # '*.local' hostnames. This works both for `ko` and our own tag-to-digest resolution logic,
   # thus allowing us to test without bypassing tag-to-digest resolution.
-  CLUSTER_DOMAIN: c${{ github.run_id }}.local
+  #CLUSTER_DOMAIN: c${{ github.run_id }}.local
   REGISTRY_NAME: registry.local
   REGISTRY_PORT: 5000
   KO_DOCKER_REPO: registry.local:5000/knative
