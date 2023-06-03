@@ -76,128 +76,126 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		podTrackers          []*podTracker
 		want                 int
 		checkAssignedPod     bool
-	}{
-		{
-			name:                 "capacity: 1, cc: 10",
-			capacity:             1,
-			containerConcurrency: 10,
-			want:                 1 * 10,
-		},
-		{
-			name:                 "capacity: 10, cc: 10",
-			capacity:             10,
-			containerConcurrency: 10,
-			want:                 10 * 10,
-		},
-		{
-			name:                 "capacity: 100, cc: 10",
-			capacity:             100,
-			containerConcurrency: 10,
-			want:                 100 * 10,
-		},
-		{
-			name:                 "numActivators: 5, capacity: 10, cc: 10",
-			capacity:             10,
-			numActivators:        5,
-			containerConcurrency: 10,
-			want:                 10 * 10 / 5,
-		},
-		{
-			name:                 "numActivators: 200, capacity: 10, cc: 10",
-			capacity:             10,
-			numActivators:        200,
-			containerConcurrency: 10,
-			want:                 1,
-		},
-		{
-			name:                 "numActivators: 200, capacity: 0, cc: 10",
-			capacity:             0,
-			numActivators:        200,
-			containerConcurrency: 10,
-			want:                 0,
-		},
+	}{{
+		name:                 "capacity: 1, cc: 10",
+		capacity:             1,
+		containerConcurrency: 10,
+		want:                 1 * 10,
+	}, {
+		name:                 "capacity: 10, cc: 10",
+		capacity:             10,
+		containerConcurrency: 10,
+		want:                 10 * 10,
+	}, {
+		name:                 "capacity: 100, cc: 10",
+		capacity:             100,
+		containerConcurrency: 10,
+		want:                 100 * 10,
+	}, {
+		name:                 "numActivators: 5, capacity: 10, cc: 10",
+		capacity:             10,
+		numActivators:        5,
+		containerConcurrency: 10,
+		want:                 10 * 10 / 5,
+	}, {
+		name:                 "numActivators: 200, capacity: 10, cc: 10",
+		capacity:             10,
+		numActivators:        200,
+		containerConcurrency: 10,
+		want:                 1,
+	}, {
+		name:                 "numActivators: 200, capacity: 0, cc: 10",
+		capacity:             0,
+		numActivators:        200,
+		containerConcurrency: 10,
+		want:                 0,
+	}, {
 		// now test with CC=0.
 		// in the CC=0 cases we use the infinite breaker whose capacity can either be
 		// totally blocked (0) or totally open (1).
-		{
-			name:                 "newInfiniteBreaker, numActivators: 200, capacity: 0, cc: 0",
-			capacity:             0,
-			numActivators:        200,
-			containerConcurrency: 0,
-			isNewInfiniteBreaker: true,
-			want:                 0,
-		},
-		{
-			name:                 "newInfiniteBreaker, numActivators: 200, capacity: 1, cc: 0",
-			capacity:             1,
-			numActivators:        200,
-			containerConcurrency: 0,
-			isNewInfiniteBreaker: true,
-			want:                 1,
-		},
-		{
-			name:                 "newInfiniteBreaker, numActivators: 200, capacity: 10, cc: 0",
-			capacity:             10,
-			numActivators:        200,
-			containerConcurrency: 0,
-			isNewInfiniteBreaker: true,
-			want:                 1,
-		},
+		name:                 "newInfiniteBreaker, numActivators: 0, capacity: 0, cc: 0",
+		capacity:             0,
+		numActivators:        0,
+		containerConcurrency: 0,
+		isNewInfiniteBreaker: true,
+		want:                 0,
+	}, {
+		name:                 "newInfiniteBreaker, numActivators: 0, capacity: 1, cc: 0",
+		capacity:             1,
+		numActivators:        0,
+		containerConcurrency: 0,
+		isNewInfiniteBreaker: true,
+		want:                 1,
+	}, {
+		name:                 "newInfiniteBreaker, numActivators: 0, capacity: 10, cc: 0",
+		capacity:             10,
+		numActivators:        0,
+		containerConcurrency: 0,
+		isNewInfiniteBreaker: true,
+		want:                 1,
+	}, {
+		name:                 "newInfiniteBreaker, numActivators: 200, capacity: 0, cc: 0",
+		capacity:             0,
+		numActivators:        200,
+		containerConcurrency: 0,
+		isNewInfiniteBreaker: true,
+		want:                 0,
+	}, {
+		name:                 "newInfiniteBreaker, numActivators: 200, capacity: 1, cc: 0",
+		capacity:             1,
+		numActivators:        200,
+		containerConcurrency: 0,
+		isNewInfiniteBreaker: true,
+		want:                 1,
+	}, {
 		// Now test with podIP trackers in tow.
 		// Simple case.
-		{
-			name:                 "numActivators: 1, capacity: 10, cc: 10, trackers(1, 10)",
-			capacity:             0,
-			numActivators:        1,
-			containerConcurrency: 10,
-			podTrackers:          makeTrackers(1, 10),
-			want:                 10,
-		},
-		{
-			name:                 "2 backends. numActivators: 1, capacity: -1, cc: 10, trackers(2, 10)",
-			capacity:             -1,
-			numActivators:        1,
-			containerConcurrency: 10,
-			podTrackers:          makeTrackers(2, 10),
-			want:                 20,
-		},
-		{
-			name:                 "2 activators. numActivators: 2, capacity: -1, cc: 10, trackers(2, 10)",
-			capacity:             -1,
-			numActivators:        2,
-			containerConcurrency: 10,
-			podTrackers:          makeTrackers(2, 10),
-			want:                 10,
-		},
-		{
-			name:                 "3 pods, index 0. numActivators: 2, index: 0, capacity: -1, cc: 10, trackers(3, 10)",
-			capacity:             -1,
-			numActivators:        2,
-			containerConcurrency: 10,
-			podTrackers:          makeTrackers(3, 10),
-			want:                 15,
-		},
-		{
-			name:                 "3 pods, index 1. numActivators: 2, index: 1, capacity: -1, cc: 10, trackers(3, 10)",
-			capacity:             -1,
-			numActivators:        2,
-			activatorIndex:       1,
-			containerConcurrency: 10,
-			podTrackers:          makeTrackers(3, 10),
-			want:                 15,
-		},
-		{
-			name:                 "Infinite capacity with podIP trackers.",
-			capacity:             1,
-			numActivators:        2,
-			activatorIndex:       1,
-			containerConcurrency: 0,
-			podTrackers:          makeTrackers(3, 0),
-			isNewInfiniteBreaker: true,
-			want:                 1,
-			checkAssignedPod:     true,
-		},
-	}
+		name:                 "numActivators: 1, capacity: 0, cc: 10, trackers(1, 10)",
+		capacity:             0,
+		numActivators:        1,
+		containerConcurrency: 10,
+		podTrackers:          makeTrackers(1, 10),
+		want:                 10,
+	}, {
+		name:                 "2 backends. numActivators: 1, capacity: -1, cc: 10, trackers(2, 10)",
+		capacity:             -1,
+		numActivators:        1,
+		containerConcurrency: 10,
+		podTrackers:          makeTrackers(2, 10),
+		want:                 20,
+	}, {
+		name:                 "2 activators. numActivators: 2, capacity: -1, cc: 10, trackers(2, 10)",
+		capacity:             -1,
+		numActivators:        2,
+		containerConcurrency: 10,
+		podTrackers:          makeTrackers(2, 10),
+		want:                 10,
+	}, {
+		name:                 "3 pods, index 0. numActivators: 2, index: 0, capacity: -1, cc: 10, trackers(3, 10)",
+		capacity:             -1,
+		numActivators:        2,
+		containerConcurrency: 10,
+		podTrackers:          makeTrackers(3, 10),
+		want:                 15,
+	}, {
+		name:                 "3 pods, index 1. numActivators: 2, index: 1, capacity: -1, cc: 10, trackers(3, 10)",
+		capacity:             -1,
+		numActivators:        2,
+		activatorIndex:       1,
+		containerConcurrency: 10,
+		podTrackers:          makeTrackers(3, 10),
+		want:                 15,
+	}, {
+		name:                 "Infinite capacity with podIP trackers.",
+		capacity:             1,
+		numActivators:        2,
+		activatorIndex:       1,
+		containerConcurrency: 0,
+		podTrackers:          makeTrackers(3, 0),
+		isNewInfiniteBreaker: true,
+		want:                 1,
+		checkAssignedPod:     true,
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rt := &revisionThrottler{
@@ -234,15 +232,13 @@ func TestThrottlerCalculateCapacity(t *testing.T) {
 		containerConcurrency int
 		size                 int
 		activatorCount       int
-	}{
-		{
-			name:                 "over revisionMaxConcurrency",
-			numActivators:        200,
-			containerConcurrency: 0,
-			size:                 revisionMaxConcurrency + 5,
-			activatorCount:       1,
-		},
-	}
+	}{{
+		name:                 "over revisionMaxConcurrency",
+		numActivators:        200,
+		containerConcurrency: 0,
+		size:                 revisionMaxConcurrency + 5,
+		activatorCount:       1,
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rt := &revisionThrottler{
