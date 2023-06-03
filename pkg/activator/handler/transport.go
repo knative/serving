@@ -65,7 +65,7 @@ func dialTLSContext(ctx context.Context, network, addr string, tlsConf *tls.Conf
 		san := certificates.LegacyFakeDnsName
 		if trust != netcfg.TrustMinimal {
 			revID := RevIDFrom(ctx)
-			san = certificates.DataPlaneRoutingName(revID.Namespace)
+			san = certificates.DataPlaneUserName(revID.Namespace)
 		}
 		tlsConf.VerifyConnection = verifySanConnection(san)
 	} else {
