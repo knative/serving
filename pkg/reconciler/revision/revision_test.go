@@ -43,7 +43,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -516,10 +515,7 @@ func TestGlobalResyncOnDefaultCMChange(t *testing.T) {
 	paL := fakepainformer.Get(ctx).Lister().PodAutoscalers(rev.Namespace)
 	if ierr := wait.PollImmediate(50*time.Millisecond, 6*time.Second, func() (bool, error) {
 		_, err = paL.Get(rev.Name)
-		if apierrs.IsNotFound(err) {
-			return false, nil
-		}
-		return err == nil, err
+		return err == nil, nil
 	}); ierr != nil {
 		t.Fatal("Failed to see PA creation:", ierr)
 	}
@@ -555,7 +551,7 @@ func TestGlobalResyncOnDefaultCMChange(t *testing.T) {
 		t.Logf("Initial PA: %#v GetErr: %v", pa, err)
 		if ierr := wait.PollImmediate(50*time.Millisecond, 2*time.Second, func() (bool, error) {
 			pa, err = paL.Get(rev.Name)
-			return pa != nil && pa.Spec.ContainerConcurrency == pos, err
+			return pa != nil && pa.Spec.ContainerConcurrency == pos, nil
 		}); ierr == nil { // err==nil!
 			break
 		}
@@ -613,8 +609,8 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 
 	want := "http://new-logging.test.com?filter=" + string(rev.UID)
 	if ierr := wait.PollImmediate(50*time.Millisecond, 5*time.Second, func() (bool, error) {
-		r, err := revL.Revisions(rev.Namespace).Get(rev.Name)
-		return r != nil && r.Status.LogURL == want, err
+		r, _ := revL.Revisions(rev.Namespace).Get(rev.Name)
+		return r != nil && r.Status.LogURL == want, nil
 	}); ierr != nil {
 		t.Fatal("Failed to see Revision propagation:", ierr)
 	}
@@ -682,8 +678,8 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 
 	depL := fakedeploymentinformer.Get(ctx).Lister().Deployments(rev.Namespace)
 	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		dep, err := depL.Get(names.Deployment(rev))
-		return dep != nil && checkF(dep), err
+		dep, _ := depL.Get(names.Deployment(rev))
+		return dep != nil && checkF(dep), nil
 	}); err != nil {
 		t.Error("Failed to see deployment properly updating:", err)
 	}
@@ -728,8 +724,8 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	// Poll to see if the deployment is created. This should _already_ be there.
 	depL := fakedeploymentinformer.Get(ctx).Lister().Deployments(rev.Namespace)
 	if err := wait.PollImmediate(10*time.Millisecond, 1*time.Second, func() (bool, error) {
-		dep, err := depL.Get(names.Deployment(rev))
-		return dep != nil, err
+		dep, _ := depL.Get(names.Deployment(rev))
+		return dep != nil, nil
 	}); err != nil {
 		t.Error("Failed to see deployment creation:", err)
 	}

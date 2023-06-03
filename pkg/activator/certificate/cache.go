@@ -140,7 +140,7 @@ func (cr *CertCache) updateCache(secret *corev1.Secret) {
 
 	cr.ClientTLSConf.RootCAs = pool
 	cr.ClientTLSConf.ServerName = certificates.LegacyFakeDnsName
-	cr.ClientTLSConf.MinVersion = tls.VersionTLS12
+	cr.ClientTLSConf.MinVersion = tls.VersionTLS13
 	cr.ClientTLSConf.Certificates = []tls.Certificate{cert}
 }
 
