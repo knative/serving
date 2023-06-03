@@ -47,31 +47,10 @@ func fakeCertCache(ctx context.Context) *CertCache {
 	cr := &CertCache{
 		secretInformer: secretInformer,
 		certificate:    nil,
-		ClientTLSConf:  tls.Config{},
 		logger:         logging.FromContext(ctx),
 		trustConfig:    netcfg.TrustMutual,
 	}
-
-	secretInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterWithNameAndNamespace(system.Namespace(), netcfg.ServingRoutingCertName),
-		Handler: cache.ResourceEventHandlerFuncs{
-			UpdateFunc: cr.handleCertificateUpdate,
-			AddFunc:    cr.handleCertificateAdd,
-		},
-	})
-
-	return cr
-}
-
-func routingCertCache(ctx context.Context) *CertCache {
-	secretInformer := fakesecretinformer.Get(ctx)
-
-	cr := &CertCache{
-		secretInformer: secretInformer,
-		certificate:    nil,
-		ClientTLSConf:  tls.Config{},
-		logger:         logging.FromContext(ctx),
-	}
+	cr.init()
 
 	secretInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.FilterWithNameAndNamespace(system.Namespace(), netcfg.ServingRoutingCertName),
@@ -184,7 +163,7 @@ func TestFakeReconcile(t *testing.T) {
 
 func TestRoutingReconcile(t *testing.T) {
 	ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
-	cr := routingCertCache(ctx)
+	cr := fakeCertCache(ctx)
 
 	waitInformers, err := rtesting.RunAndSyncInformers(ctx, informers...)
 	if err != nil {

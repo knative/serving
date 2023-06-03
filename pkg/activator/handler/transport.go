@@ -33,8 +33,7 @@ import (
 
 func verifySanConnection(san string) func(tls.ConnectionState) error {
 	return func(cs tls.ConnectionState) error {
-		if cs.PeerCertificates == nil {
-
+		if len(cs.PeerCertificates) == 0 {
 			return errors.New("server certificate could not be verified during VerifyConnection. No PeerCertificates provided")
 		}
 		for _, name := range cs.PeerCertificates[0].DNSNames {
@@ -107,7 +106,6 @@ func newHTTPSTransport(disableKeepAlives, disableCompression bool, maxIdle, maxI
 	transport.ForceAttemptHTTP2 = false
 	transport.DisableCompression = disableCompression
 
-	transport.TLSClientConfig = tlsConf
 	tw := tlsWrapper{tlsConf: tlsConf}
 	transport.DialTLSContext = tw.dialTLSContextHTTP1
 

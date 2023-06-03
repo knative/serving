@@ -50,6 +50,37 @@ type CertCache struct {
 	certificatesMux sync.RWMutex
 }
 
+func (cr *CertCache) init() {
+	cr.ServerTLSConf.MinVersion = tls.VersionTLS12
+	cr.ServerTLSConf.GetCertificate = cr.GetCertificate
+	cr.ServerTLSConf.ClientCAs = x509.NewCertPool()
+	switch cr.trustConfig {
+	case netcfg.TrustIdentity, netcfg.TrustMutual:
+		cr.ServerTLSConf.ClientAuth = tls.RequireAndVerifyClientCert
+		cr.ServerTLSConf.VerifyConnection = func(cs tls.ConnectionState) error {
+			if len(cs.PeerCertificates) == 0 {
+				// Should never happen on a server side
+				cr.logger.Info("mTLS: Failed to verify client connection. Certificate is missing\n")
+				return fmt.Errorf("mTLS: Failed to verify client connection. Certificate is missing")
+			}
+			for _, match := range cs.PeerCertificates[0].DNSNames {
+				// Activator currently supports a single routingId which is the default "0"
+				// Working with other routingId is not yet implemented
+				if match == certificates.DataPlaneRoutingName("0") {
+					return nil
+				}
+				//Until all ingresses work with updated dataplane certificates  - allow also any legacy certificate
+				if match == certificates.LegacyFakeDnsName {
+					return nil
+				}
+			}
+
+			cr.logger.Info("mTLS: Failed to verify client connection for DNSNames: %v\n", cs.PeerCertificates[0].DNSNames)
+			return fmt.Errorf("mTLS: Failed to verify client connection for DNSNames: %v", cs.PeerCertificates[0].DNSNames)
+		}
+	}
+}
+
 // NewCertCache starts secretInformer.
 func NewCertCache(ctx context.Context, trust netcfg.Trust) *CertCache {
 	secretInformer := secretinformer.Get(ctx)
@@ -59,6 +90,7 @@ func NewCertCache(ctx context.Context, trust netcfg.Trust) *CertCache {
 		logger:         logging.FromContext(ctx),
 		trustConfig:    trust,
 	}
+	cr.init()
 
 	secret, err := cr.secretInformer.Lister().Secrets(system.Namespace()).Get(netcfg.ServingRoutingCertName)
 	if err != nil {
@@ -104,35 +136,12 @@ func (cr *CertCache) updateCache(secret *corev1.Secret) {
 		return
 	}
 	pool.AddCert(ca)
+	cr.ServerTLSConf.ClientCAs.AddCert(ca)
 
 	cr.ClientTLSConf.RootCAs = pool
 	cr.ClientTLSConf.ServerName = certificates.LegacyFakeDnsName
 	cr.ClientTLSConf.MinVersion = tls.VersionTLS12
 	cr.ClientTLSConf.Certificates = []tls.Certificate{cert}
-
-	cr.ServerTLSConf.MinVersion = tls.VersionTLS12
-	cr.ServerTLSConf.GetCertificate = cr.GetCertificate
-
-	switch cr.trustConfig {
-	case netcfg.TrustIdentity, netcfg.TrustMutual:
-		cr.ServerTLSConf.ClientAuth = tls.RequireAndVerifyClientCert
-		cr.ServerTLSConf.ClientCAs = pool
-		cr.ServerTLSConf.VerifyConnection = func(cs tls.ConnectionState) error {
-			for _, match := range cs.PeerCertificates[0].DNSNames {
-				// Activator currently supports a single routingId which is the default "0"
-				// Working with other routingId is not yet implemented
-				if match == certificates.DataPlaneRoutingName("0") {
-					return nil
-				}
-				//Until all ingresses work with updated dataplane certificates  - allow also any legacy certificate
-				if match == certificates.LegacyFakeDnsName {
-					return nil
-				}
-			}
-			cr.logger.Info("mTLS: Failed to verify client connection for DNSNames: %v\n", cs.PeerCertificates[0].DNSNames)
-			return fmt.Errorf("mTLS: Failed to verify client connection for DNSNames: %v", cs.PeerCertificates[0].DNSNames)
-		}
-	}
 }
 
 func (cr *CertCache) handleCertificateUpdate(_, new interface{}) {

@@ -31,7 +31,6 @@ import (
 	"go.uber.org/zap"
 
 	// Injection related imports.
-
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection"
 	"knative.dev/serving/pkg/activator"
@@ -159,7 +158,7 @@ func main() {
 
 	// Enable TLS both as client and as server if DataplaneTrust != TrustDisabled
 	tlsEnabled := networkConfig.DataplaneTrust != netcfg.TrustDisabled
-	var roundtrip http.RoundTripper
+	var transport http.RoundTripper
 	var certCache *certificate.CertCache
 
 	// At this moment activator with TLS does not disable HTTP.
@@ -167,14 +166,14 @@ func main() {
 	if tlsEnabled {
 		logger.Info("Dataplane trust %q is used", networkConfig.DataplaneTrust)
 		certCache = certificate.NewCertCache(ctx, networkConfig.DataplaneTrust)
-		roundtrip = activatorhandler.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, &certCache.ClientTLSConf)
+		transport = activatorhandler.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, &certCache.ClientTLSConf)
 	} else {
-		roundtrip = activatorhandler.NewProxyAutoTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
+		transport = activatorhandler.NewProxyAutoTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
 	}
 
 	// Start throttler.
 	throttler := activatornet.NewThrottler(ctx, env.PodIP)
-	go throttler.Run(ctx, roundtrip, networkConfig.EnableMeshPodAddressability, networkConfig.MeshCompatibilityMode)
+	go throttler.Run(ctx, transport, networkConfig.EnableMeshPodAddressability, networkConfig.MeshCompatibilityMode)
 
 	oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(networking.ActivatorServiceName, env.PodIP, logger))
 	defer oct.Shutdown(context.Background())
@@ -208,7 +207,7 @@ func main() {
 
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
-	ah := activatorhandler.New(ctx, throttler, roundtrip, networkConfig.EnableMeshPodAddressability, logger, tlsEnabled)
+	ah := activatorhandler.New(ctx, throttler, transport, networkConfig.EnableMeshPodAddressability, logger, tlsEnabled)
 	ah = handler.NewTimeoutHandler(ah, "activator request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
 		if rev := activatorhandler.RevisionFrom(r.Context()); rev != nil {
 			var responseStartTimeout = 0 * time.Second
