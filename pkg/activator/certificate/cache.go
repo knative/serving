@@ -48,12 +48,18 @@ type CertCache struct {
 	ServerTLSConf tls.Config
 
 	certificatesMux sync.RWMutex
+	caCerts         []*x509.Certificate
 }
 
 func (cr *CertCache) init() {
+	cr.ClientTLSConf.ServerName = certificates.LegacyFakeDnsName
+	cr.ClientTLSConf.MinVersion = tls.VersionTLS13
+	cr.ClientTLSConf.RootCAs = x509.NewCertPool()
+	cr.ClientTLSConf.GetClientCertificate = cr.GetClientCertificate
+
 	cr.ServerTLSConf.MinVersion = tls.VersionTLS12
-	cr.ServerTLSConf.GetCertificate = cr.GetCertificate
 	cr.ServerTLSConf.ClientCAs = x509.NewCertPool()
+	cr.ServerTLSConf.GetCertificate = cr.GetCertificate
 	switch cr.trustConfig {
 	case netcfg.TrustIdentity, netcfg.TrustMutual:
 		cr.ServerTLSConf.ClientAuth = tls.RequireAndVerifyClientCert
@@ -128,20 +134,24 @@ func (cr *CertCache) updateCache(secret *corev1.Secret) {
 	}
 	cr.certificate = &cert
 
-	pool := x509.NewCertPool()
 	block, _ := pem.Decode(secret.Data[certificates.CaCertName])
+	if block == nil {
+		cr.logger.Warnw("failed to parse CA")
+		return
+	}
 	ca, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
 		cr.logger.Warnw("failed to parse CA", zap.Error(err))
 		return
 	}
-	pool.AddCert(ca)
+	for _, usedCa := range cr.caCerts {
+		if usedCa.Equal(ca) {
+			return
+		}
+	}
+	cr.caCerts = append(cr.caCerts, ca)
+	cr.ClientTLSConf.RootCAs.AddCert(ca)
 	cr.ServerTLSConf.ClientCAs.AddCert(ca)
-
-	cr.ClientTLSConf.RootCAs = pool
-	cr.ClientTLSConf.ServerName = certificates.LegacyFakeDnsName
-	cr.ClientTLSConf.MinVersion = tls.VersionTLS13
-	cr.ClientTLSConf.Certificates = []tls.Certificate{cert}
 }
 
 func (cr *CertCache) handleCertificateUpdate(_, new interface{}) {
@@ -150,5 +160,9 @@ func (cr *CertCache) handleCertificateUpdate(_, new interface{}) {
 
 // GetCertificate returns the cached certificates.
 func (cr *CertCache) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+	return cr.certificate, nil
+}
+
+func (cr *CertCache) GetClientCertificate(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
 	return cr.certificate, nil
 }

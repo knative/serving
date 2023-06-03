@@ -41,6 +41,16 @@ import (
 	"knative.dev/pkg/system"
 )
 
+func AddCert(t *testing.T, c *x509.CertPool, cert []byte) {
+	block, _ := pem.Decode(cert)
+	ca, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		t.Errorf("Failed to parse CA: %v", zap.Error(err))
+		return
+	}
+	c.AddCert(ca)
+}
+
 func fakeCertCache(ctx context.Context) *CertCache {
 	secretInformer := fakesecretinformer.Get(ctx)
 
@@ -97,10 +107,15 @@ func TestFakeReconcile(t *testing.T) {
 		// To access cert.Certificate, take a lock.
 		cr.certificatesMux.RLock()
 		defer cr.certificatesMux.RUnlock()
-		cert, _ := cr.GetCertificate(nil)
-		return cert != nil, nil
+		cert1, _ := cr.GetCertificate(nil)
+		cert2, _ := cr.GetClientCertificate(nil)
+		return cert1 != nil && cert2 != nil, nil
 	}); err != nil {
 		t.Fatal("timeout to get the secret:", err)
+	}
+
+	if len(cr.caCerts) != 1 {
+		t.Errorf("len(cr.caCerts) expected 1 have %d", len(cr.caCerts))
 	}
 
 	cs := tls.ConnectionState{PeerCertificates: []*x509.Certificate{{DNSNames: []string{"ddd", "xxx", certificates.DataPlaneRoutingName("0"), "ddd", "xxx"}}}}
@@ -128,116 +143,71 @@ func TestFakeReconcile(t *testing.T) {
 
 	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
 	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		// To access cert.Certificate, take a lock.
+		// To access cr.TLSConf.RootCAs, take a lock.
 		cr.certificatesMux.RLock()
 		defer cr.certificatesMux.RUnlock()
-		cert, err := cr.GetCertificate(nil)
-		return err == nil && reflect.DeepEqual(newCert.Certificate, cert.Certificate), nil
+		cert1, _ := cr.GetCertificate(nil)
+		cert2, _ := cr.GetClientCertificate(nil)
+		return err == nil && reflect.DeepEqual(newCert.Certificate, cert1.Certificate) && reflect.DeepEqual(newCert.Certificate, cert2.Certificate), nil
 	}); err != nil {
 		t.Fatalf("timeout to update the cert: %v", err)
+	}
+
+	if len(cr.caCerts) != 1 {
+		t.Errorf("len(cr.caCerts) expected 1 have %d", len(cr.caCerts))
 	}
 
 	// Update CA, now the error is gone.
 	secret.Data[certificates.CaCertName] = newCA
 
 	pool := x509.NewCertPool()
-	block, _ := pem.Decode(secret.Data[certificates.CaCertName])
-	ca, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		cr.logger.Warnw("Failed to parse CA: %v", zap.Error(err))
-		return
-	}
-
-	pool.AddCert(ca)
+	AddCert(t, pool, ca)
+	AddCert(t, pool, newCA)
 
 	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
 	if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (bool, error) {
 		// To access cr.TLSConf.RootCAs, take a lock.
 		cr.certificatesMux.RLock()
 		defer cr.certificatesMux.RUnlock()
-		return err == nil && pool.Equal(cr.ClientTLSConf.RootCAs), nil
+		return err == nil && pool.Equal(cr.ClientTLSConf.RootCAs) && pool.Equal(cr.ServerTLSConf.ClientCAs), nil
 	}); err != nil {
 		t.Fatalf("timeout to update the cert: %v", err)
 	}
-}
 
-func TestRoutingReconcile(t *testing.T) {
-	ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
-	cr := fakeCertCache(ctx)
-
-	waitInformers, err := rtesting.RunAndSyncInformers(ctx, informers...)
-	if err != nil {
-		cancel()
-		t.Fatal("failed to start informers:", err)
-	}
-	t.Cleanup(func() {
-		cancel()
-		waitInformers()
-	})
-
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      netcfg.ServingRoutingCertName,
-			Namespace: system.Namespace(),
-		},
-		Data: map[string][]byte{
-			certificates.CaCertName:     ca,
-			certificates.PrivateKeyName: tlsKey,
-			certificates.CertName:       tlsCrt,
-		},
+	if len(cr.caCerts) != 2 {
+		t.Errorf("len(cr.caCerts) expected 2 have %d", len(cr.caCerts))
 	}
 
-	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Create(ctx, secret, metav1.CreateOptions{})
-	fakesecretinformer.Get(ctx).Informer().GetIndexer().Add(secret)
+	// Update bad CA.
+	secret.Data[certificates.CaCertName] = badPem
 
-	// Wait for the resources to be created and the handler is called.
-	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		// To access cert.Certificate, take a lock.
+	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
+	if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (bool, error) {
+		// To access cr.TLSConf.RootCAs, take a lock.
 		cr.certificatesMux.RLock()
 		defer cr.certificatesMux.RUnlock()
-		cert, _ := cr.GetCertificate(nil)
-		return cert != nil, nil
+		return err == nil && pool.Equal(cr.ClientTLSConf.RootCAs) && pool.Equal(cr.ServerTLSConf.ClientCAs), nil
 	}); err != nil {
-		t.Fatal("timeout to get the secret:", err)
+		t.Fatalf("timeout to update the cert: %v", err)
 	}
 
-	// Update cert and key but keep using old CA, then the error is expected.
-	secret.Data[certificates.CertName] = newTLSCrt
-	secret.Data[certificates.PrivateKeyName] = newTLSKey
-	newCert, _ := tls.X509KeyPair(newTLSCrt, newTLSKey)
-
+	// Update bad key pair.
+	secret.Data[certificates.CertName] = badPem
+	secret.Data[certificates.PrivateKeyName] = badPem
 	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
 	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		// To access cert.Certificate, take a lock.
-		cr.certificatesMux.RLock()
-		defer cr.certificatesMux.RUnlock()
-		cert, err := cr.GetCertificate(nil)
-		return err == nil && reflect.DeepEqual(newCert.Certificate, cert.Certificate), nil
-	}); err != nil {
-		t.Fatalf("timeout to update the cert: %v", err)
-	}
-
-	// Update CA, now the error is gone.
-	secret.Data[certificates.CaCertName] = newCA
-
-	pool := x509.NewCertPool()
-	block, _ := pem.Decode(secret.Data[certificates.CaCertName])
-	ca, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		cr.logger.Warnw("Failed to parse CA: %v", zap.Error(err))
-		return
-	}
-
-	pool.AddCert(ca)
-
-	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
-	if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (bool, error) {
 		// To access cr.TLSConf.RootCAs, take a lock.
 		cr.certificatesMux.RLock()
 		defer cr.certificatesMux.RUnlock()
-		return err == nil && pool.Equal(cr.ClientTLSConf.RootCAs), nil
+		cert1, _ := cr.GetCertificate(nil)
+		cert2, _ := cr.GetClientCertificate(nil)
+		return err == nil && reflect.DeepEqual(newCert.Certificate, cert1.Certificate) && reflect.DeepEqual(newCert.Certificate, cert2.Certificate), nil
 	}); err != nil {
 		t.Fatalf("timeout to update the cert: %v", err)
+	}
+
+	if len(cr.caCerts) != 2 {
+		t.Errorf("len(cr.caCerts) expected 2 have %d", len(cr.caCerts))
 	}
 }
 
@@ -387,3 +357,6 @@ uNLDuUL4EPGk084uoa/rwQxUDwWQ05aw81c/Q0ssPeyekgLNfet4HX4lzBDJWZEQ
 FUu9LuwG/tVRBIecvo/IcUuQ1/UObbRAXpp0Y8aO56UVeBvOb9bG2/wjRJmrgR+1
 vCCFsBlglA==
 -----END CERTIFICATE-----`)
+
+var badPem = []byte(
+	`----------`)
