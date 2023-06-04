@@ -998,9 +998,11 @@ func revConfig() *config.Config {
 			Defaults:   defaults,
 			Features:   &apicfg.Features{},
 		},
-		Deployment:    &deploymentConfig,
-		Logging:       &logConfig,
-		Network:       &netcfg.Config{},
+		Deployment: &deploymentConfig,
+		Logging:    &logConfig,
+		Network: &netcfg.Config{
+			DataplaneTrust: "disabled",
+		},
 		Observability: &obsConfig,
 		Tracing:       &traceConfig,
 	}

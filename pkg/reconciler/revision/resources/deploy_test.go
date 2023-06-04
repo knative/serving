@@ -130,6 +130,10 @@ var (
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
 			},
 		}, {
+			Name:  "TRUST_CONFIG",
+			Value: "disabled",
+			// No logging configuration
+		}, {
 			Name: "SERVING_LOGGING_CONFIG",
 			// No logging configuration
 		}, {
