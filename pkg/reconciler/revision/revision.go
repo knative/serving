@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	cachingclientset "knative.dev/caching/pkg/client/clientset/versioned"
+	netcfg "knative.dev/networking/pkg/config"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
 
@@ -139,7 +140,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 	}
 
 	// Deploy certificate when internal-encryption is enabled.
-	if config.FromContext(ctx).Network.InternalEncryption {
+	if config.FromContext(ctx).Network.DataplaneTrust != netcfg.TrustDisabled {
 		if err := c.reconcileSecret(ctx, rev); err != nil {
 			return err
 		}

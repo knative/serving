@@ -311,6 +311,9 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 				},
 			},
 		}, {
+			Name:  "TRUST_CONFIG",
+			Value: string(cfg.Network.DataplaneTrust),
+		}, {
 			Name:  "SERVING_LOGGING_CONFIG",
 			Value: cfg.Logging.LoggingConfig,
 		}, {

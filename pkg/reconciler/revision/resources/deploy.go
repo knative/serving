@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	netcfg "knative.dev/networking/pkg/config"
 	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
@@ -193,7 +194,7 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 		extraVolumes = append(extraVolumes, *tokenVolume)
 	}
 
-	if cfg.Network.InternalEncryption {
+	if cfg.Network.DataplaneTrust != netcfg.TrustDisabled {
 		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varCertVolumeMount)
 		extraVolumes = append(extraVolumes, certVolume(networking.ServingCertName))
 	}

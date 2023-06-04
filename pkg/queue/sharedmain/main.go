@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"knative.dev/control-protocol/pkg/certificates"
+	netcfg "knative.dev/networking/pkg/config"
 	netstats "knative.dev/networking/pkg/http/stats"
 	pkglogging "knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
@@ -64,6 +65,9 @@ const (
 
 	// keyPath is the path for the server certificate key mounted by queue-proxy.
 	keyPath = queue.CertDirectory + "/" + certificates.PrivateKeyName
+
+	// caPath is the path for the server certificate ca mounted by queue-proxy.
+	caPath = queue.CertDirectory + "/" + certificates.CaCertName
 
 	// PodInfoAnnotationsPath is an exported path for the annotations file
 	// This path is used by QP Options (Extensions).
@@ -126,6 +130,9 @@ type Env struct {
 
 	// ServingPodIP is the pod ip address
 	ServingPodIP string `split_words:"true" required:"true"`
+
+	// TrustConfig is the level of Trust used
+	TrustConfig string `split_words:"true" required:"true"`
 }
 
 // Defaults provides Options (QP Extensions) with the default bahaviour of QP
@@ -250,9 +257,11 @@ func Main(opts ...Option) error {
 		"admin": adminServer(":"+strconv.Itoa(networking.QueueAdminPort), adminHandler),
 	}
 
+	var certCache *CertCache
 	if tlsEnabled {
 		// Drop admin http server since the admin TLS server is listening on the same port
 		delete(httpServers, "admin")
+		certCache = NewCertCache(d.Ctx, netcfg.Trust(d.Env.TrustConfig))
 	} else {
 		tlsServers = map[string]*http.Server{}
 	}
@@ -271,9 +280,10 @@ func Main(opts ...Option) error {
 	}
 	for name, server := range tlsServers {
 		go func(name string, s *http.Server) {
+			s.TLSConfig = &certCache.ServerTLSConf
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
 			logger.Info("Starting tls server ", name, s.Addr)
-			if err := s.ListenAndServeTLS(certPath, keyPath); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			if err := s.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errCh <- fmt.Errorf("%s server failed to serve: %w", name, err)
 			}
 		}(name, server)
