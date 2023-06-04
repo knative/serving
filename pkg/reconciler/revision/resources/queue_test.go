@@ -410,7 +410,10 @@ func TestMakeQueueContainer(t *testing.T) {
 				}
 			}
 			cfg := &config.Config{
-				Tracing:       &traceConfig,
+				Tracing: &traceConfig,
+				Network: &netcfg.Config{
+					DataplaneTrust: "disabled",
+				},
 				Logging:       &test.lc,
 				Observability: &test.oc,
 				Deployment:    &test.dc,
@@ -929,6 +932,7 @@ var defaultEnv = map[string]string{
 	"TRACING_CONFIG_DEBUG":                             "false",
 	"TRACING_CONFIG_SAMPLE_RATE":                       "0",
 	"TRACING_CONFIG_ZIPKIN_ENDPOINT":                   "",
+	"TRUST_CONFIG":                                     "disabled",
 	"USER_PORT":                                        strconv.Itoa(v1.DefaultUserPort),
 	"ROOT_CA":                                          "",
 }
