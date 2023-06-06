@@ -175,7 +175,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		numActivators:        2,
 		containerConcurrency: 10,
 		podTrackers:          makeTrackers(3, 10),
-		want:                 15,
+		want:                 20,
 	}, {
 		name:                 "3 pods, index 1. numActivators: 2, index: 1, capacity: -1, cc: 10, trackers(3, 10)",
 		capacity:             -1,
@@ -183,7 +183,15 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		activatorIndex:       1,
 		containerConcurrency: 10,
 		podTrackers:          makeTrackers(3, 10),
-		want:                 15,
+		want:                 10,
+	}, {
+		name:                 "numActivators: 2, index: 1, capacity: 5, cc: 1, trackers(5, 1), return 3 instead of 2",
+		capacity:             5,
+		numActivators:        2,
+		activatorIndex:       0,
+		containerConcurrency: 1,
+		podTrackers:          makeTrackers(5, 1),
+		want:                 3,
 	}, {
 		name:                 "Infinite capacity with podIP trackers.",
 		capacity:             1,
@@ -228,14 +236,16 @@ func TestThrottlerCalculateCapacity(t *testing.T) {
 		name                 string
 		numActivators        int32
 		containerConcurrency int
-		size                 int
+		numTrackers          int
 		activatorCount       int
+		backendCount         int
 	}{{
 		name:                 "over revisionMaxConcurrency",
 		numActivators:        200,
 		containerConcurrency: 0,
-		size:                 revisionMaxConcurrency + 5,
+		numTrackers:          revisionMaxConcurrency + 5,
 		activatorCount:       1,
+		backendCount:         1,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -247,7 +257,7 @@ func TestThrottlerCalculateCapacity(t *testing.T) {
 			rt.numActivators.Store(tt.numActivators)
 			// shouldn't really happen since revisionMaxConcurrency is very, very large,
 			// but check that we behave reasonably if it's exceeded.
-			capacity := rt.calculateCapacity(tt.size, tt.activatorCount)
+			capacity := rt.calculateCapacity(tt.backendCount, tt.numTrackers, tt.activatorCount)
 			if got, want := capacity, queue.MaxBreakerCapacity; got != want {
 				t.Errorf("calculateCapacity = %d, want: %d", got, want)
 			}
