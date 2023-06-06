@@ -19,6 +19,7 @@ package network
 import (
 	"net/http"
 	"os"
+	"strings"
 
 	"go.uber.org/zap"
 )
@@ -30,7 +31,9 @@ import (
 func ErrorHandler(logger *zap.SugaredLogger) func(http.ResponseWriter, *http.Request, error) {
 	return func(w http.ResponseWriter, req *http.Request, err error) {
 		ss := readSockStat(logger)
-		logger.Errorw("error reverse proxying request; sockstat: "+ss, zap.Error(err))
+		traceId := strings.Split(req.Header.Get("X-Cloud-Trace-Context"), "/")[0]
+		// log with logging.googleapis.com/trace field for Stackdriver
+		logger.Errorw("error reverse proxying request; sockstat: "+ss, zap.Error(err), "logging.googleapis.com/trace", traceId)
 		http.Error(w, err.Error(), http.StatusBadGateway)
 	}
 }
