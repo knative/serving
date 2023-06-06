@@ -189,7 +189,8 @@ func Main(opts ...Option) error {
 	d.Transport = buildTransport(env)
 
 	if env.TracingConfigBackend != tracingconfig.None {
-		oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(env.ServingPod, env.ServingPodIP, logger))
+		tracingName := fmt.Sprintf("%s-%s-queue", env.ServingNamespace, env.ServingService)
+		oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(tracingName, env.ServingPodIP, logger))
 		oct.ApplyConfig(&tracingconfig.Config{
 			Backend:        env.TracingConfigBackend,
 			Debug:          env.TracingConfigDebug,
