@@ -17,6 +17,7 @@ limitations under the License.
 package sample
 
 import (
+	"bytes"
 	"context"
 	"crypto/rsa"
 	"crypto/x509"
@@ -89,7 +90,7 @@ func (r *reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) p
 		r.logger.Errorf("Error accessing CA certificate secret %q %q: %v", system.Namespace(), r.caSecretName, err)
 		return err
 	}
-	caCert, caPk, err := parseAndValidateSecret(caSecret, false)
+	caCert, caPk, err := parseAndValidateSecret(caSecret, nil)
 	if err != nil {
 		r.logger.Infof("CA cert invalid: %v", err)
 
@@ -118,7 +119,7 @@ func (r *reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) p
 		return fmt.Errorf("unknown cert type: %v", r.secretTypeLabelName)
 	}
 
-	cert, _, err := parseAndValidateSecret(secret, true, sans...)
+	cert, _, err := parseAndValidateSecret(secret, caSecret.Data[certificates.SecretCertKey], sans...)
 	if err != nil {
 		r.logger.Infof("Secret invalid: %v", err)
 		// Check the secret to reconcile type
@@ -144,7 +145,7 @@ func (r *reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) p
 }
 
 // All sans provided are required to be lower case
-func parseAndValidateSecret(secret *corev1.Secret, shouldContainCaCert bool, sans ...string) (*x509.Certificate, *rsa.PrivateKey, error) {
+func parseAndValidateSecret(secret *corev1.Secret, caCert []byte, sans ...string) (*x509.Certificate, *rsa.PrivateKey, error) {
 	certBytes, ok := secret.Data[certificates.SecretCertKey]
 	if !ok {
 		return nil, nil, fmt.Errorf("missing cert bytes")
@@ -153,9 +154,13 @@ func parseAndValidateSecret(secret *corev1.Secret, shouldContainCaCert bool, san
 	if !ok {
 		return nil, nil, fmt.Errorf("missing pk bytes")
 	}
-	if shouldContainCaCert {
-		if _, ok := secret.Data[certificates.SecretCaCertKey]; !ok {
+	if caCert != nil {
+		ca, ok := secret.Data[certificates.SecretCaCertKey]
+		if !ok {
 			return nil, nil, fmt.Errorf("missing ca cert bytes")
+		}
+		if !bytes.Equal(ca, caCert) {
+			return nil, nil, fmt.Errorf("ca cert bytes changed")
 		}
 	}
 
