@@ -19,9 +19,12 @@ package certificates
 import "strings"
 
 const (
-	Organization           = "knative.dev"
-	LegacyFakeDnsName      = "data-plane." + Organization
-	FakeDnsName            = LegacyFakeDnsName // Deprecated
+	Organization = "knative.dev"
+	//nolint:all
+	LegacyFakeDnsName = "data-plane." + Organization
+	//nolint:all
+	// Deprecated: FakeDnsName is deprecated. Please use the DataPlaneRoutingName or DataPlaneUserName function.
+	FakeDnsName            = LegacyFakeDnsName
 	dataPlaneUserPrefix    = "kn-user-"
 	dataPlaneRoutingPrefix = "kn-routing-"
 	ControlPlaneName       = "kn-control"
@@ -33,18 +36,21 @@ const (
 	PrivateKeyName = "tls.key"
 
 	//These should be able to be deprecated some time in the future when the new names are fully adopted
+	// #nosec
 	SecretCaCertKey = "ca-cert.pem"
-	SecretCertKey   = "public-cert.pem"
-	SecretPKKey     = "private-key.pem"
+	// #nosec
+	SecretCertKey = "public-cert.pem"
+	// #nosec
+	SecretPKKey = "private-key.pem"
 )
 
 // DataPlaneRoutingName constructs a san for a data-plane-routing certificate
 // Accepts a routingId  - a unique identifier used as part of the san (default is "0" used when an empty routingId is provided)
-func DataPlaneRoutingName(routingId string) string {
-	if routingId == "" {
-		routingId = "0"
+func DataPlaneRoutingName(routingID string) string {
+	if routingID == "" {
+		routingID = "0"
 	}
-	return dataPlaneRoutingPrefix + strings.ToLower(routingId)
+	return dataPlaneRoutingPrefix + strings.ToLower(routingID)
 }
 
 // DataPlaneUserName constructs a san for a data-plane-user certificate
