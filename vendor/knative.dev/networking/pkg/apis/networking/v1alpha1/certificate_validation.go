@@ -29,7 +29,7 @@ func (c *Certificate) Validate(ctx context.Context) *apis.FieldError {
 }
 
 // Validate inspects and validates CertificateSpec object.
-func (spec *CertificateSpec) Validate(ctx context.Context) (all *apis.FieldError) {
+func (spec *CertificateSpec) Validate(_ context.Context) (all *apis.FieldError) {
 	// Spec must have at least one DNS Name.
 	if len(spec.DNSNames) == 0 {
 		all = all.Also(apis.ErrMissingField("dnsNames"))

@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
-	"knative.dev/control-protocol/pkg/certificates"
+	"knative.dev/networking/pkg/certificates"
 	netcfg "knative.dev/networking/pkg/config"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakesecretinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake"

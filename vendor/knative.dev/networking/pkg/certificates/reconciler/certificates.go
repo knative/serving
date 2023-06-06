@@ -35,7 +35,7 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 
-	"knative.dev/control-protocol/pkg/certificates"
+	"knative.dev/networking/pkg/certificates"
 )
 
 const (
@@ -95,9 +95,9 @@ func (r *reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) p
 		r.logger.Infof("CA cert invalid: %v", err)
 
 		// We need to generate a new CA cert, then shortcircuit the reconciler
-		keyPair, err := certificates.CreateCACerts(ctx, caExpirationInterval)
+		keyPair, err := certificates.CreateCACerts(caExpirationInterval)
 		if err != nil {
-			return fmt.Errorf("cannot generate the CA cert: %v", err)
+			return fmt.Errorf("cannot generate the CA cert: %w", err)
 		}
 		return r.commitUpdatedSecret(ctx, caSecret, keyPair, nil)
 	}
@@ -108,8 +108,8 @@ func (r *reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) p
 	case controlPlaneSecretType:
 		sans = []string{certificates.ControlPlaneName, certificates.LegacyFakeDnsName}
 	case dataPlaneRoutingSecretType:
-		routingId := secret.Labels[secretRoutingId]
-		san := certificates.DataPlaneRoutingName(routingId)
+		routingID := secret.Labels[secretRoutingID]
+		san := certificates.DataPlaneRoutingName(routingID)
 		sans = []string{san, certificates.LegacyFakeDnsName}
 	case dataPlaneUserSecretType:
 		sans = []string{certificates.DataPlaneUserName(secret.Namespace), certificates.LegacyFakeDnsName}
@@ -125,9 +125,9 @@ func (r *reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) p
 		// Check the secret to reconcile type
 
 		var keyPair *certificates.KeyPair
-		keyPair, err = certificates.CreateCert(ctx, caPk, caCert, expirationInterval, sans...)
+		keyPair, err = certificates.CreateCert(caPk, caCert, expirationInterval, sans...)
 		if err != nil {
-			return fmt.Errorf("cannot generate the cert: %v", err)
+			return fmt.Errorf("cannot generate the cert: %w", err)
 		}
 		err = r.commitUpdatedSecret(ctx, secret, keyPair, caSecret.Data[certificates.SecretCertKey])
 		if err != nil {
@@ -168,7 +168,7 @@ func parseAndValidateSecret(secret *corev1.Secret, caCert []byte, sans ...string
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := certificates.ValidateCert(cert, rotationThreshold); err != nil {
+	if err := certificates.CheckExpiry(cert, rotationThreshold); err != nil {
 		return nil, nil, err
 	}
 

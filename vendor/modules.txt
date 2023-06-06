@@ -1264,20 +1264,18 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/control-protocol v0.0.0-20230606080627-06411c45a53a
-## explicit; go 1.18
-knative.dev/control-protocol/pkg/certificates
-knative.dev/control-protocol/pkg/certificates/reconciler
 # knative.dev/hack v0.0.0-20230606014732-a861c8e9da08
 ## explicit; go 1.18
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/networking v0.0.0-20230606015231-2daa4836dcab
+# knative.dev/networking v0.0.0-20230606132626-14a2bd466ad6
 ## explicit; go 1.18
 knative.dev/networking/config
 knative.dev/networking/pkg
 knative.dev/networking/pkg/apis/networking
 knative.dev/networking/pkg/apis/networking/v1alpha1
+knative.dev/networking/pkg/certificates
+knative.dev/networking/pkg/certificates/reconciler
 knative.dev/networking/pkg/client/clientset/versioned
 knative.dev/networking/pkg/client/clientset/versioned/fake
 knative.dev/networking/pkg/client/clientset/versioned/scheme
