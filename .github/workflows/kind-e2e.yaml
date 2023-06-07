@@ -189,6 +189,7 @@ jobs:
 
     - name: Setup local registry
       run: |
+       # In the build job above , while setting up the registry, volume is set up. But when registry is set up in chainguard-dev/actions, it does not have a volume, so docker stop and rm is added below
        docker stop $REGISTRY_NAME
        docker rm $REGISTRY_NAME
 
