@@ -19,6 +19,10 @@ package main
 import (
 	"context"
 
+	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
+	domainmappingconfig "knative.dev/serving/pkg/reconciler/domainmapping/config"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -63,6 +67,11 @@ var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
 	net.SchemeGroupVersion.WithKind("Certificate"):       &net.Certificate{},
 	net.SchemeGroupVersion.WithKind("Ingress"):           &net.Ingress{},
 	net.SchemeGroupVersion.WithKind("ServerlessService"): &net.ServerlessService{},
+}
+
+var domainMappingTypes = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
+	servingv1alpha1.SchemeGroupVersion.WithKind("DomainMapping"): &servingv1alpha1.DomainMapping{},
+	servingv1beta1.SchemeGroupVersion.WithKind("DomainMapping"):  &servingv1beta1.DomainMapping{},
 }
 
 var serviceValidation = validation.NewCallback(
@@ -155,6 +164,56 @@ func newConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 	)
 }
 
+func newDefaultingDomainMappingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+	// Decorate contexts with the current state of the config.
+	store := domainmappingconfig.NewStore(ctx)
+	store.WatchConfigs(cmw)
+
+	return defaulting.NewAdmissionController(ctx,
+
+		// Name of the resource webhook.
+		"webhook.domainmapping.serving.knative.dev",
+
+		// The path on which to serve the webhook.
+		"/defaulting-dm",
+
+		// The resources to default.
+		domainMappingTypes,
+
+		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
+		store.ToContext,
+
+		// Whether to disallow unknown fields. We set this to 'false' since
+		// our CRDs have schemas
+		false,
+	)
+}
+
+func newValidatingDomainMappingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+	// Decorate contexts with the current state of the config.
+	store := domainmappingconfig.NewStore(ctx)
+	store.WatchConfigs(cmw)
+
+	return validation.NewAdmissionController(ctx,
+
+		// Name of the resource webhook.
+		"validation.webhook.domainmapping.serving.knative.dev",
+
+		// The path on which to serve the webhook.
+		"/resource-validation-dm",
+
+		// The resources to validate.
+		domainMappingTypes,
+
+		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
+		store.ToContext,
+
+		// Whether to disallow unknown fields. We set this to 'false' since
+		// our CRDs have schemas
+		false,
+	)
+}
+
 func main() {
 	// Set up a signal context with our webhook options
 	ctx := webhook.WithOptions(signals.NewContext(), webhook.Options{
@@ -167,7 +226,9 @@ func main() {
 	sharedmain.WebhookMainWithContext(ctx, "webhook",
 		certificates.NewController,
 		newDefaultingAdmissionController,
+		newDefaultingDomainMappingAdmissionController,
 		newValidationAdmissionController,
+		newValidatingDomainMappingAdmissionController,
 		newConfigValidationController,
 	)
 }
