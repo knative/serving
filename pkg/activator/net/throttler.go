@@ -243,6 +243,8 @@ func (rt *revisionThrottler) calculateCapacity(backendCount, numTrackers, activa
 	if numTrackers > 0 {
 		// Capacity is computed based off of number of trackers,
 		// when using pod direct routing.
+		// We use number of assignedTrackers (numTrackers) for calculation
+		// since assignedTrackers means activator's capacity
 		targetCapacity = rt.containerConcurrency * numTrackers
 	} else {
 		// Capacity is computed off of number of ready backends,
@@ -381,6 +383,10 @@ func assignSlice(trackers []*podTracker, selfIndex, numActivators, cc int) []*po
 		return trackers
 	}
 
+	// If the number of pods is not divisible by the number of activators, we allocate one pod to each activator exclusively.
+	// examples
+	// 1. we have 20 pods and 3 activators -> we'd get 2 remnants so activator with index 0,1 would each pick up a unique tracker
+	// 2. we have 24 pods and 5 activators -> we'd get 4 remnants so the activator 0,1,2,3 would each pick up a unique tracker
 	bi, ei, remnants := pickIndices(lt, selfIndex, numActivators)
 	x := append(trackers[:0:0], trackers[bi:ei]...)
 	if remnants > 0 {

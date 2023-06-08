@@ -149,35 +149,35 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	}, {
 		// Now test with podIP trackers in tow.
 		// Simple case.
-		name:                 "numActivators: 1, capacity: 0, cc: 10, trackers(1, 10)",
+		name:                 "numActivators: 1, capacity: 0, cc: 10, pods: 1",
 		capacity:             0,
 		numActivators:        1,
 		containerConcurrency: 10,
 		podTrackers:          makeTrackers(1, 10),
 		want:                 10,
 	}, {
-		name:                 "2 backends. numActivators: 1, capacity: -1, cc: 10, trackers(2, 10)",
+		name:                 "2 backends. numActivators: 1, capacity: -1, cc: 10, pods: 2",
 		capacity:             -1,
 		numActivators:        1,
 		containerConcurrency: 10,
 		podTrackers:          makeTrackers(2, 10),
 		want:                 20,
 	}, {
-		name:                 "2 activators. numActivators: 2, capacity: -1, cc: 10, trackers(2, 10)",
+		name:                 "2 activators. numActivators: 2, capacity: -1, cc: 10, pods: 2",
 		capacity:             -1,
 		numActivators:        2,
 		containerConcurrency: 10,
 		podTrackers:          makeTrackers(2, 10),
 		want:                 10,
 	}, {
-		name:                 "3 pods, index 0. numActivators: 2, index: 0, capacity: -1, cc: 10, trackers(3, 10)",
+		name:                 "numActivators: 2, index: 0, pods: 3, cc: 1. Capacity is expected to 20 (2 * 10)",
 		capacity:             -1,
 		numActivators:        2,
 		containerConcurrency: 10,
 		podTrackers:          makeTrackers(3, 10),
 		want:                 20,
 	}, {
-		name:                 "3 pods, index 1. numActivators: 2, index: 1, capacity: -1, cc: 10, trackers(3, 10)",
+		name:                 "numActivators: 2, index: 1, pods: 3, cc: 1. Capacity is expected to 10 (1 * 10)",
 		capacity:             -1,
 		numActivators:        2,
 		activatorIndex:       1,
@@ -185,13 +185,21 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		podTrackers:          makeTrackers(3, 10),
 		want:                 10,
 	}, {
-		name:                 "numActivators: 2, index: 1, capacity: 5, cc: 1, trackers(5, 1), return 3 instead of 2",
+		name:                 "numActivators: 2, index: 0, pods: 5, cc: 1. Capacity is expected to 3 (2 + 1)",
 		capacity:             5,
 		numActivators:        2,
 		activatorIndex:       0,
 		containerConcurrency: 1,
 		podTrackers:          makeTrackers(5, 1),
 		want:                 3,
+	}, {
+		name:                 "numActivators: 2, index: 1, pods: 5, cc: 1. Capacity is expected to 2",
+		capacity:             5,
+		numActivators:        2,
+		activatorIndex:       1,
+		containerConcurrency: 1,
+		podTrackers:          makeTrackers(5, 1),
+		want:                 2,
 	}, {
 		name:                 "Infinite capacity with podIP trackers.",
 		capacity:             1,
