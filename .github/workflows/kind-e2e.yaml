@@ -228,7 +228,6 @@ jobs:
           -timeout=30m \
           ${{ matrix.test-path }} \
           -skip-cleanup-on-fail \
-          #${{ matrix.test-flags || '-enable-alpha -enable-beta' }} \
           ${{'-enable-alpha -enable-beta' }} \
           --ingress-class=${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
  
