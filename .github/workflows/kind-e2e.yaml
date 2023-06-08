@@ -228,7 +228,7 @@ jobs:
           -timeout=30m \
           ${{ matrix.test-path }} \
           -skip-cleanup-on-fail \
-          ${{'-enable-alpha -enable-beta' }} \
+          -enable-alpha -enable-beta \
           --ingress-class=${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
  
     - uses: chainguard-dev/actions/kind-diag@main
