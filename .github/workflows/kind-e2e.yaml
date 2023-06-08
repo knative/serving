@@ -228,12 +228,14 @@ jobs:
           -timeout=30m \
           ${{ matrix.test-path }} \
           -skip-cleanup-on-fail \
-          ${{ matrix.test-flags || '-enable-alpha -enable-beta' }} \
+          #${{ matrix.test-flags || '-enable-alpha -enable-beta' }} \
+          ${{'-enable-alpha -enable-beta' }} \
           --ingress-class=${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
+ 
     - uses: chainguard-dev/actions/kind-diag@main
       # Only upload logs on failure.
       if: ${{ failure() }}
       with:
-        cluster-resources: nodes,namespaces,crds,${{ matrix.cluster-resources || '' }}
+        cluster-resources: nodes,namespaces,crds
         namespace-resources: configmaps,pods,svc,ksvc,route,configuration,revision,king,${{ matrix.namespace-resources || '' }}
         artifact-name: logs-${{ matrix.k8s-version}}-${{ matrix.ingress }}-${{ matrix.test-suite }}
