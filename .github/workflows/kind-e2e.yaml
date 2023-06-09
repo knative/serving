@@ -148,13 +148,19 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
-    
+
+    - uses: actions/download-artifact@v3
+      with:
+        name: artifacts
+        path: ~/artifacts
+
     - name: Setup KinD 
       uses: chainguard-dev/actions/setup-kind@main
       with:
         k8s-version: ${{ matrix.k8s-version }}
         kind-worker-count: 4
         cluster-suffix: c${{ github.run_id }}.local
+        registry-volume: $HOME/artifacts/registry
 
  
     - name: Install Dependencies
@@ -181,27 +187,6 @@ jobs:
     - uses: actions/checkout@v3
       with:
         fetch-depth: 0
-
-    - uses: actions/download-artifact@v3
-      with:
-        name: artifacts
-        path: ~/artifacts
-
-    - name: Setup local registry
-      run: |
-       # In the build job above , while setting up the registry, volume is set up. But when registry is set up in chainguard-dev/actions, it does not have a volume, so docker stop and rm is added below
-       docker stop $REGISTRY_NAME
-       docker rm $REGISTRY_NAME
-
-        # Run a registry.
-        docker run -d --restart=always \
-          -v $HOME/artifacts/registry:/var/lib/registry \
-          -p $REGISTRY_PORT:$REGISTRY_PORT --name $REGISTRY_NAME registry:2
-        # Connect the registry to the KinD network.
-        docker network connect "kind" $REGISTRY_NAME
-        # Make the $REGISTRY_NAME -> 127.0.0.1, to tell `ko` to publish to
-        # local registry, even when pushing $REGISTRY_NAME:$REGISTRY_PORT/some/image
-        sudo echo "127.0.0.1 $REGISTRY_NAME" | sudo tee -a /etc/hosts
 
     - name: Install Serving & Ingress
       run: |
