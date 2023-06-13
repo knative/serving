@@ -17,6 +17,7 @@ limitations under the License.
 package sample
 
 import (
+	"bytes"
 	"context"
 	"crypto/rsa"
 	"crypto/x509"
@@ -34,7 +35,7 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 
-	"knative.dev/control-protocol/pkg/certificates"
+	"knative.dev/networking/pkg/certificates"
 )
 
 const (
@@ -89,14 +90,14 @@ func (r *reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) p
 		r.logger.Errorf("Error accessing CA certificate secret %q %q: %v", system.Namespace(), r.caSecretName, err)
 		return err
 	}
-	caCert, caPk, err := parseAndValidateSecret(caSecret, false)
+	caCert, caPk, err := parseAndValidateSecret(caSecret, nil)
 	if err != nil {
 		r.logger.Infof("CA cert invalid: %v", err)
 
 		// We need to generate a new CA cert, then shortcircuit the reconciler
-		keyPair, err := certificates.CreateCACerts(ctx, caExpirationInterval)
+		keyPair, err := certificates.CreateCACerts(caExpirationInterval)
 		if err != nil {
-			return fmt.Errorf("cannot generate the CA cert: %v", err)
+			return fmt.Errorf("cannot generate the CA cert: %w", err)
 		}
 		return r.commitUpdatedSecret(ctx, caSecret, keyPair, nil)
 	}
@@ -107,8 +108,8 @@ func (r *reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) p
 	case controlPlaneSecretType:
 		sans = []string{certificates.ControlPlaneName, certificates.LegacyFakeDnsName}
 	case dataPlaneRoutingSecretType:
-		routingId := secret.Labels[secretRoutingId]
-		san := certificates.DataPlaneRoutingName(routingId)
+		routingID := secret.Labels[secretRoutingID]
+		san := certificates.DataPlaneRoutingName(routingID)
 		sans = []string{san, certificates.LegacyFakeDnsName}
 	case dataPlaneUserSecretType:
 		sans = []string{certificates.DataPlaneUserName(secret.Namespace), certificates.LegacyFakeDnsName}
@@ -118,15 +119,15 @@ func (r *reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) p
 		return fmt.Errorf("unknown cert type: %v", r.secretTypeLabelName)
 	}
 
-	cert, _, err := parseAndValidateSecret(secret, true, sans...)
+	cert, _, err := parseAndValidateSecret(secret, caSecret.Data[certificates.SecretCertKey], sans...)
 	if err != nil {
 		r.logger.Infof("Secret invalid: %v", err)
 		// Check the secret to reconcile type
 
 		var keyPair *certificates.KeyPair
-		keyPair, err = certificates.CreateCert(ctx, caPk, caCert, expirationInterval, sans...)
+		keyPair, err = certificates.CreateCert(caPk, caCert, expirationInterval, sans...)
 		if err != nil {
-			return fmt.Errorf("cannot generate the cert: %v", err)
+			return fmt.Errorf("cannot generate the cert: %w", err)
 		}
 		err = r.commitUpdatedSecret(ctx, secret, keyPair, caSecret.Data[certificates.SecretCertKey])
 		if err != nil {
@@ -144,7 +145,7 @@ func (r *reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) p
 }
 
 // All sans provided are required to be lower case
-func parseAndValidateSecret(secret *corev1.Secret, shouldContainCaCert bool, sans ...string) (*x509.Certificate, *rsa.PrivateKey, error) {
+func parseAndValidateSecret(secret *corev1.Secret, caCert []byte, sans ...string) (*x509.Certificate, *rsa.PrivateKey, error) {
 	certBytes, ok := secret.Data[certificates.SecretCertKey]
 	if !ok {
 		return nil, nil, fmt.Errorf("missing cert bytes")
@@ -153,9 +154,13 @@ func parseAndValidateSecret(secret *corev1.Secret, shouldContainCaCert bool, san
 	if !ok {
 		return nil, nil, fmt.Errorf("missing pk bytes")
 	}
-	if shouldContainCaCert {
-		if _, ok := secret.Data[certificates.SecretCaCertKey]; !ok {
+	if caCert != nil {
+		ca, ok := secret.Data[certificates.SecretCaCertKey]
+		if !ok {
 			return nil, nil, fmt.Errorf("missing ca cert bytes")
+		}
+		if !bytes.Equal(ca, caCert) {
+			return nil, nil, fmt.Errorf("ca cert bytes changed")
 		}
 	}
 
@@ -163,7 +168,7 @@ func parseAndValidateSecret(secret *corev1.Secret, shouldContainCaCert bool, san
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := certificates.ValidateCert(cert, rotationThreshold); err != nil {
+	if err := certificates.CheckExpiry(cert, rotationThreshold); err != nil {
 		return nil, nil, err
 	}
 

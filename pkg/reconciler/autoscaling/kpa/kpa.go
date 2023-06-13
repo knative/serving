@@ -25,6 +25,7 @@ import (
 	"go.uber.org/zap"
 
 	nv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
@@ -128,7 +129,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	// When activator CA is enabled, force activator always in path.
 	// TODO: This is a temporary state and to be fixed.
 	// See also issues/11906 and issues/12797.
-	case config.FromContext(ctx).Network.InternalEncryption:
+	case config.FromContext(ctx).Network.DataplaneTrust != netcfg.TrustDisabled:
 		mode = nv1alpha1.SKSOperationModeProxy
 
 	// If the want == -1 and PA is inactive that implies the autoscaler

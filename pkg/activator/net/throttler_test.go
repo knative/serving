@@ -65,130 +65,195 @@ func newTestThrottler(ctx context.Context) *Throttler {
 
 func TestThrottlerUpdateCapacity(t *testing.T) {
 	logger := TestLogger(t)
-	rt := &revisionThrottler{
-		logger:               logger,
-		breaker:              queue.NewBreaker(testBreakerParams),
+
+	tests := []struct {
+		name                 string
+		capacity             int
+		numActivators        int32
+		activatorIndex       int32
+		containerConcurrency int
+		isNewInfiniteBreaker bool
+		podTrackers          []*podTracker
+		want                 int
+		checkAssignedPod     bool
+	}{{
+		name:                 "capacity: 1, cc: 10",
+		capacity:             1,
 		containerConcurrency: 10,
+		want:                 1 * 10,
+	}, {
+		name:                 "capacity: 10, cc: 10",
+		capacity:             10,
+		containerConcurrency: 10,
+		want:                 10 * 10,
+	}, {
+		name:                 "capacity: 100, cc: 10",
+		capacity:             100,
+		containerConcurrency: 10,
+		want:                 100 * 10,
+	}, {
+		name:                 "numActivators: 5, capacity: 10, cc: 10",
+		capacity:             10,
+		numActivators:        5,
+		containerConcurrency: 10,
+		want:                 10 * 10 / 5,
+	}, {
+		name:                 "numActivators: 200, capacity: 10, cc: 10",
+		capacity:             10,
+		numActivators:        200,
+		containerConcurrency: 10,
+		want:                 1,
+	}, {
+		name:                 "numActivators: 200, capacity: 0, cc: 10",
+		capacity:             0,
+		numActivators:        200,
+		containerConcurrency: 10,
+		want:                 0,
+	}, {
+		// now test with CC=0.
+		// in the CC=0 cases we use the infinite breaker whose capacity can either be
+		// totally blocked (0) or totally open (1).
+		name:                 "newInfiniteBreaker, numActivators: 0, capacity: 0, cc: 0",
+		capacity:             0,
+		numActivators:        0,
+		containerConcurrency: 0,
+		isNewInfiniteBreaker: true,
+		want:                 0,
+	}, {
+		name:                 "newInfiniteBreaker, numActivators: 0, capacity: 1, cc: 0",
+		capacity:             1,
+		numActivators:        0,
+		containerConcurrency: 0,
+		isNewInfiniteBreaker: true,
+		want:                 1,
+	}, {
+		name:                 "newInfiniteBreaker, numActivators: 0, capacity: 10, cc: 0",
+		capacity:             10,
+		numActivators:        0,
+		containerConcurrency: 0,
+		isNewInfiniteBreaker: true,
+		want:                 1,
+	}, {
+		name:                 "newInfiniteBreaker, numActivators: 200, capacity: 0, cc: 0",
+		capacity:             0,
+		numActivators:        200,
+		containerConcurrency: 0,
+		isNewInfiniteBreaker: true,
+		want:                 0,
+	}, {
+		name:                 "newInfiniteBreaker, numActivators: 200, capacity: 1, cc: 0",
+		capacity:             1,
+		numActivators:        200,
+		containerConcurrency: 0,
+		isNewInfiniteBreaker: true,
+		want:                 1,
+	}, {
+		// Now test with podIP trackers in tow.
+		// Simple case.
+		name:                 "numActivators: 1, capacity: 0, cc: 10, trackers(1, 10)",
+		capacity:             0,
+		numActivators:        1,
+		containerConcurrency: 10,
+		podTrackers:          makeTrackers(1, 10),
+		want:                 10,
+	}, {
+		name:                 "2 backends. numActivators: 1, capacity: -1, cc: 10, trackers(2, 10)",
+		capacity:             -1,
+		numActivators:        1,
+		containerConcurrency: 10,
+		podTrackers:          makeTrackers(2, 10),
+		want:                 20,
+	}, {
+		name:                 "2 activators. numActivators: 2, capacity: -1, cc: 10, trackers(2, 10)",
+		capacity:             -1,
+		numActivators:        2,
+		containerConcurrency: 10,
+		podTrackers:          makeTrackers(2, 10),
+		want:                 10,
+	}, {
+		name:                 "3 pods, index 0. numActivators: 2, index: 0, capacity: -1, cc: 10, trackers(3, 10)",
+		capacity:             -1,
+		numActivators:        2,
+		containerConcurrency: 10,
+		podTrackers:          makeTrackers(3, 10),
+		want:                 15,
+	}, {
+		name:                 "3 pods, index 1. numActivators: 2, index: 1, capacity: -1, cc: 10, trackers(3, 10)",
+		capacity:             -1,
+		numActivators:        2,
+		activatorIndex:       1,
+		containerConcurrency: 10,
+		podTrackers:          makeTrackers(3, 10),
+		want:                 15,
+	}, {
+		name:                 "Infinite capacity with podIP trackers.",
+		capacity:             1,
+		numActivators:        2,
+		activatorIndex:       1,
+		containerConcurrency: 0,
+		podTrackers:          makeTrackers(3, 0),
+		isNewInfiniteBreaker: true,
+		want:                 1,
+		checkAssignedPod:     true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rt := &revisionThrottler{
+				logger:               logger,
+				breaker:              queue.NewBreaker(testBreakerParams),
+				containerConcurrency: tt.containerConcurrency,
+			}
+			rt.numActivators.Store(tt.numActivators)
+			rt.activatorIndex.Store(tt.activatorIndex)
+			rt.podTrackers = tt.podTrackers
+			if tt.isNewInfiniteBreaker {
+				rt.breaker = newInfiniteBreaker(logger)
+			}
+			rt.updateCapacity(tt.capacity)
+			if got := rt.breaker.Capacity(); got != tt.want {
+				t.Errorf("Capacity = %d, want: %d", got, tt.want)
+			}
+			if tt.checkAssignedPod {
+				if got, want := len(rt.assignedTrackers), len(rt.podTrackers); got != want {
+					t.Errorf("Assigned tracker count = %d, want: %d, diff:\n%s", got, want,
+						cmp.Diff(rt.assignedTrackers, rt.podTrackers))
+				}
+			}
+		})
 	}
+}
 
-	rt.updateCapacity(1)
-	if got, want := rt.breaker.Capacity(), 1*10; got != want {
-		t.Errorf("Capacity = %d, want: %d", got, want)
-	}
-	rt.updateCapacity(10)
-	if got, want := rt.breaker.Capacity(), 10*10; got != want {
-		t.Errorf("Capacity = %d, want: %d", got, want)
-	}
-	rt.updateCapacity(100)
-	if got, want := rt.breaker.Capacity(), 100*10; got != want {
-		t.Errorf("Capacity = %d, want: %d", got, want)
-	}
-	rt.numActivators.Store(5)
-	rt.updateCapacity(10)
-	if got, want := rt.breaker.Capacity(), 10*10/5; got != want {
-		t.Errorf("Capacity = %d, want: %d", got, want)
-	}
-	rt.numActivators.Store(200)
-	rt.updateCapacity(10)
-	if got, want := rt.breaker.Capacity(), 1; got != want {
-		t.Errorf("Capacity = %d, want: %d", got, want)
-	}
-	rt.updateCapacity(0)
-	if got, want := rt.breaker.Capacity(), 0; got != want {
-		t.Errorf("Capacity = %d, want: %d", got, want)
-	}
+func TestThrottlerCalculateCapacity(t *testing.T) {
+	logger := TestLogger(t)
 
-	// now test with CC=0.
-	// in the CC=0 cases we use the infinite breaker whose capacity can either be
-	// totally blocked (0) or totally open (1).
-	rt.containerConcurrency = 0
-	rt.breaker = newInfiniteBreaker(logger)
-
-	rt.updateCapacity(0)
-	if got, want := rt.breaker.Capacity(), 0; got != want {
-		t.Errorf("Capacity = %d, want: %d", got, want)
-	}
-	rt.updateCapacity(1)
-	if got, want := rt.breaker.Capacity(), 1; got != want {
-		t.Errorf("Capacity = %d, want: %d", got, want)
-	}
-	rt.updateCapacity(10)
-	if got, want := rt.breaker.Capacity(), 1; got != want {
-		t.Errorf("Capacity = %d, want: %d", got, want)
-	}
-
-	rt.numActivators.Store(200)
-	rt.updateCapacity(1)
-	if got, want := rt.breaker.Capacity(), 1; got != want {
-		t.Errorf("Capacity = %d, want: %d", got, want)
-	}
-	rt.updateCapacity(0)
-	if got, want := rt.breaker.Capacity(), 0; got != want {
-		t.Errorf("Capacity = %d, want: %d", got, want)
-	}
-
-	// shouldn't really happen since revisionMaxConcurrency is very, very large,
-	// but check that we behave reasonably if it's exceeded.
-	capacity := rt.calculateCapacity(revisionMaxConcurrency+5, 1)
-	if got, want := capacity, queue.MaxBreakerCapacity; got != want {
-		t.Errorf("calculateCapacity = %d, want: %d", got, want)
-	}
-
-	// Now test with podIP trackers in tow.
-	// Simple case.
-	rt.numActivators.Store(1)
-	rt.activatorIndex.Store(0)
-	rt.podTrackers = makeTrackers(1, 10)
-	rt.containerConcurrency = 10
-	rt.breaker = queue.NewBreaker(testBreakerParams)
-
-	rt.updateCapacity(0 /* doesn't matter here*/)
-	if got, want := rt.breaker.Capacity(), 10; got != want {
-		t.Errorf("Capacity = %d, want: %d", got, want)
-	}
-
-	// 2 backends.
-	rt.podTrackers = makeTrackers(2, 10)
-	rt.updateCapacity(-1 /* doesn't matter here*/)
-	if got, want := rt.breaker.Capacity(), 20; got != want {
-		t.Errorf("Capacity = %d, want: %d", got, want)
-	}
-
-	// 2 activators.
-	rt.numActivators.Store(2)
-	rt.updateCapacity(-1 /* doesn't matter here*/)
-	if got, want := rt.breaker.Capacity(), 10; got != want {
-		t.Errorf("Capacity = %d, want: %d", got, want)
-	}
-
-	// 3 pods, index 0.
-	rt.podTrackers = makeTrackers(3, 10)
-	rt.updateCapacity(-1 /* doesn't matter here*/)
-	if got, want := rt.breaker.Capacity(), 15; got != want {
-		t.Errorf("Capacity = %d, want: %d", got, want)
-	}
-
-	// 3 pods, index 1.
-	rt.activatorIndex.Store(1)
-	rt.updateCapacity(-1 /* doesn't matter here*/)
-	if got, want := rt.breaker.Capacity(), 15; got != want {
-		t.Errorf("Capacity = %d, want: %d", got, want)
-	}
-
-	// Infinite capacity with podIP trackers.
-	rt.activatorIndex.Store(1)
-	rt.containerConcurrency = 0
-	rt.breaker = newInfiniteBreaker(logger)
-	rt.podTrackers = makeTrackers(3, 0)
-	rt.updateCapacity(1)
-
-	// infinite breaker capacity is either 0 (blocked) or 1 (totally open)
-	if got, want := rt.breaker.Capacity(), 1; got != want {
-		t.Errorf("Capacity = %d, want: %d", got, want)
-	}
-	if got, want := len(rt.assignedTrackers), len(rt.podTrackers); got != want {
-		t.Errorf("Assigned tracker count = %d, want: %d, diff:\n%s", got, want,
-			cmp.Diff(rt.assignedTrackers, rt.podTrackers))
+	tests := []struct {
+		name                 string
+		numActivators        int32
+		containerConcurrency int
+		size                 int
+		activatorCount       int
+	}{{
+		name:                 "over revisionMaxConcurrency",
+		numActivators:        200,
+		containerConcurrency: 0,
+		size:                 revisionMaxConcurrency + 5,
+		activatorCount:       1,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rt := &revisionThrottler{
+				logger:               logger,
+				breaker:              newInfiniteBreaker(logger),
+				containerConcurrency: tt.containerConcurrency,
+			}
+			rt.numActivators.Store(tt.numActivators)
+			// shouldn't really happen since revisionMaxConcurrency is very, very large,
+			// but check that we behave reasonably if it's exceeded.
+			capacity := rt.calculateCapacity(tt.size, tt.activatorCount)
+			if got, want := capacity, queue.MaxBreakerCapacity; got != want {
+				t.Errorf("calculateCapacity = %d, want: %d", got, want)
+			}
+		})
 	}
 }
 

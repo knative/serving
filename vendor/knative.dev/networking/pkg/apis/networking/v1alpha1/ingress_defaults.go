@@ -38,7 +38,7 @@ func (is *IngressSpec) SetDefaults(ctx context.Context) {
 }
 
 // SetDefaults populates default values in IngressTLS
-func (t *IngressTLS) SetDefaults(ctx context.Context) {}
+func (t *IngressTLS) SetDefaults(_ context.Context) {}
 
 // SetDefaults populates default values in IngressRule
 func (r *IngressRule) SetDefaults(ctx context.Context) {
@@ -56,7 +56,7 @@ func (h *HTTPIngressRuleValue) SetDefaults(ctx context.Context) {
 }
 
 // SetDefaults populates default values in HTTPIngressPath
-func (h *HTTPIngressPath) SetDefaults(ctx context.Context) {
+func (h *HTTPIngressPath) SetDefaults(_ context.Context) {
 	// If only one split is specified, we default to 100.
 	if len(h.Splits) == 1 && h.Splits[0].Percent == 0 {
 		h.Splits[0].Percent = 100

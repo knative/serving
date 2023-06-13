@@ -24,6 +24,6 @@ func (ss *ServerlessService) SetDefaults(ctx context.Context) {
 }
 
 // SetDefaults sets default values on the ServerlessServiceSpec.
-func (*ServerlessServiceSpec) SetDefaults(ctx context.Context) {
+func (*ServerlessServiceSpec) SetDefaults(_ context.Context) {
 	// Nothing is defaultable so far.
 }

@@ -20,7 +20,7 @@ import (
 	// The set of controllers this controller process runs.
 	"flag"
 
-	certificate "knative.dev/control-protocol/pkg/certificates/reconciler"
+	certificate "knative.dev/networking/pkg/certificates/reconciler"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/signals"
 	"knative.dev/serving/pkg/reconciler/configuration"
