@@ -25,7 +25,7 @@ import (
 	"net/http"
 
 	"golang.org/x/net/http2"
-	"knative.dev/control-protocol/pkg/certificates"
+	"knative.dev/networking/pkg/certificates"
 	netcfg "knative.dev/networking/pkg/config"
 	pkgnet "knative.dev/pkg/network"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
