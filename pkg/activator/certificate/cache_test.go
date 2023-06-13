@@ -74,6 +74,8 @@ func fakeCertCache(ctx context.Context) *CertCache {
 }
 
 func TestFakeReconcile(t *testing.T) {
+	caCertPool := x509.NewCertPool()
+
 	ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
 	cr := fakeCertCache(ctx)
 
@@ -113,9 +115,18 @@ func TestFakeReconcile(t *testing.T) {
 	}); err != nil {
 		t.Fatal("timeout to get the secret:", err)
 	}
+	block, _ := pem.Decode(ca)
+	cacert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		t.Errorf("faield to parse ca %v", err)
+	}
 
-	if len(cr.caCerts) != 1 {
-		t.Errorf("len(cr.caCerts) expected 1 have %d", len(cr.caCerts))
+	caCertPool.AddCert(cacert)
+	if cr.ClientTLSConf.ClientCAs.Equal(caCertPool) {
+		t.Errorf("cr.ClientTLSConf.ClientCAs different expected")
+	}
+	if cr.ServerTLSConf.RootCAs.Equal(caCertPool) {
+		t.Errorf("cr.ClientTLSConf.ClientCAs different expected")
 	}
 
 	cs := tls.ConnectionState{PeerCertificates: []*x509.Certificate{{DNSNames: []string{"ddd", "xxx", certificates.DataPlaneRoutingName("0"), "ddd", "xxx"}}}}
@@ -153,8 +164,11 @@ func TestFakeReconcile(t *testing.T) {
 		t.Fatalf("timeout to update the cert: %v", err)
 	}
 
-	if len(cr.caCerts) != 1 {
-		t.Errorf("len(cr.caCerts) expected 1 have %d", len(cr.caCerts))
+	if cr.ClientTLSConf.ClientCAs.Equal(caCertPool) {
+		t.Errorf("cr.ClientTLSConf.ClientCAs different expected")
+	}
+	if cr.ServerTLSConf.RootCAs.Equal(caCertPool) {
+		t.Errorf("cr.ClientTLSConf.ClientCAs different expected")
 	}
 
 	// Update CA, now the error is gone.
@@ -174,8 +188,18 @@ func TestFakeReconcile(t *testing.T) {
 		t.Fatalf("timeout to update the cert: %v", err)
 	}
 
-	if len(cr.caCerts) != 2 {
-		t.Errorf("len(cr.caCerts) expected 2 have %d", len(cr.caCerts))
+	block2, _ := pem.Decode(newCA)
+	cacert2, err := x509.ParseCertificate(block2.Bytes)
+	if err != nil {
+		t.Errorf("faield to parse ca %v", err)
+	}
+
+	caCertPool.AddCert(cacert2)
+	if cr.ClientTLSConf.ClientCAs.Equal(caCertPool) {
+		t.Errorf("cr.ClientTLSConf.ClientCAs different expected")
+	}
+	if cr.ServerTLSConf.RootCAs.Equal(caCertPool) {
+		t.Errorf("cr.ClientTLSConf.ClientCAs different expected")
 	}
 
 	// Update bad CA.
@@ -206,8 +230,11 @@ func TestFakeReconcile(t *testing.T) {
 		t.Fatalf("timeout to update the cert: %v", err)
 	}
 
-	if len(cr.caCerts) != 2 {
-		t.Errorf("len(cr.caCerts) expected 2 have %d", len(cr.caCerts))
+	if cr.ClientTLSConf.ClientCAs.Equal(caCertPool) {
+		t.Errorf("cr.ClientTLSConf.ClientCAs different expected")
+	}
+	if cr.ServerTLSConf.RootCAs.Equal(caCertPool) {
+		t.Errorf("cr.ClientTLSConf.ClientCAs different expected")
 	}
 }
 

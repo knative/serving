@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"sync"
 
@@ -48,7 +47,6 @@ type CertCache struct {
 	ServerTLSConf tls.Config
 
 	certificatesMux sync.RWMutex
-	caCerts         []*x509.Certificate
 }
 
 func (cr *CertCache) init() {
@@ -134,24 +132,8 @@ func (cr *CertCache) updateCache(secret *corev1.Secret) {
 	}
 	cr.certificate = &cert
 
-	block, _ := pem.Decode(secret.Data[certificates.CaCertName])
-	if block == nil {
-		cr.logger.Warnw("failed to parse CA")
-		return
-	}
-	ca, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		cr.logger.Warnw("failed to parse CA", zap.Error(err))
-		return
-	}
-	for _, usedCa := range cr.caCerts {
-		if usedCa.Equal(ca) {
-			return
-		}
-	}
-	cr.caCerts = append(cr.caCerts, ca)
-	cr.ClientTLSConf.RootCAs.AddCert(ca)
-	cr.ServerTLSConf.ClientCAs.AddCert(ca)
+	cr.ClientTLSConf.RootCAs.AppendCertsFromPEM(secret.Data[certificates.CaCertName])
+	cr.ServerTLSConf.ClientCAs.AppendCertsFromPEM(secret.Data[certificates.CaCertName])
 }
 
 func (cr *CertCache) handleCertificateUpdate(_, new interface{}) {
