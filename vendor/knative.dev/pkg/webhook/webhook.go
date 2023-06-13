@@ -29,6 +29,7 @@ import (
 
 	// Injection stuff
 
+	"knative.dev/pkg/controller"
 	kubeinformerfactory "knative.dev/pkg/injection/clients/namespacedkube/informers/factory"
 	"knative.dev/pkg/network/handlers"
 
@@ -69,6 +70,10 @@ type Options struct {
 	// GracePeriod is how long to wait after failing readiness probes
 	// before shutting down.
 	GracePeriod time.Duration
+
+	// ControllerOptions encapsulates options for creating a new controller,
+	// including throttling and stats behavior.
+	ControllerOptions *controller.ControllerOptions
 }
 
 // Operation is the verb being operated on
