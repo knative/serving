@@ -50,7 +50,8 @@ jobs:
           ${{ runner.os }}-go-
 
     # Install the latest release of ko
-    - uses: imjasonh/setup-ko@v0.6
+    - name: Install ko
+      uses: ko-build/setup-ko@v0.6
 
     - name: Setup Registry
       run: |
@@ -91,10 +92,10 @@ jobs:
         - v1.27.x
 
         ingress:
-          - kourier
-          - kourier-tls
-          - istio
-          - contour
+        - kourier
+        - kourier-tls
+        - istio
+        - contour
         # Disabled due to consistent failures
         # - gateway_istio
 
