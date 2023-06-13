@@ -116,6 +116,7 @@ const (
 
 	// QueueSidecarResourcePercentageAnnotationKey is the percentage of user container resources to be used for queue-proxy
 	// It has to be in [0.1,100]
+	// Deprecated: Please consider setting resources explicitly for the QP per service, see `QueueSidecarCPUResourceRequestAnnotationKey` for example.
 	QueueSidecarResourcePercentageAnnotationKey = "queue.sidecar." + GroupName + "/resource-percentage"
 
 	// QueueSidecarCPUResourceRequestAnnotationKey is the explicit value of the cpu request for queue-proxy's request resources

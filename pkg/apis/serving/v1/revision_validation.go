@@ -188,14 +188,15 @@ func validateQueueSidecarAnnotation(m map[string]string) *apis.FieldError {
 	if !ok {
 		return nil
 	}
+	errs := apis.ErrGeneric("Queue proxy resource percentage annotation is deprecated. Please use the available annotations to explicitly set resource values per service").ViaKey(k).At(apis.WarningLevel)
 	value, err := strconv.ParseFloat(v, 64)
 	if err != nil {
-		return apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(k)
+		return errs.Also(apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(k))
 	}
 	if value < 0.1 || value > 100 {
-		return apis.ErrOutOfBoundsValue(value, 0.1, 100.0, apis.CurrentField).ViaKey(k)
+		return errs.Also(apis.ErrOutOfBoundsValue(value, 0.1, 100.0, apis.CurrentField).ViaKey(k))
 	}
-	return nil
+	return errs
 }
 
 // ValidateProgressDeadlineAnnotation validates the revision progress deadline annotation.

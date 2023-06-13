@@ -1093,6 +1093,9 @@ func autoscalerConfigCtx(allowInitialScaleZero bool, initialScale int) context.C
 }
 
 func TestValidateQueueSidecarAnnotation(t *testing.T) {
+	resourcePercentageDeprecationWarning := apis.ErrGeneric("Queue proxy resource percentage annotation is deprecated. Please use the available annotations to explicitly set resource values per service").
+		ViaKey(serving.QueueSidecarResourcePercentageAnnotationKey).At(apis.WarningLevel)
+
 	cases := []struct {
 		name       string
 		annotation map[string]string
@@ -1102,28 +1105,28 @@ func TestValidateQueueSidecarAnnotation(t *testing.T) {
 		annotation: map[string]string{
 			serving.QueueSidecarResourcePercentageAnnotationKey: "0.01982",
 		},
-		expectErr: &apis.FieldError{
+		expectErr: (&apis.FieldError{
 			Message: "expected 0.1 <= 0.01982 <= 100",
 			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSidecarResourcePercentageAnnotationKey)},
-		},
+		}).Also(resourcePercentageDeprecationWarning),
 	}, {
 		name: "too big for Queue sidecar resource percentage annotation",
 		annotation: map[string]string{
 			serving.QueueSidecarResourcePercentageAnnotationKey: "100.0001",
 		},
-		expectErr: &apis.FieldError{
+		expectErr: (&apis.FieldError{
 			Message: "expected 0.1 <= 100.0001 <= 100",
 			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSidecarResourcePercentageAnnotationKey)},
-		},
+		}).Also(resourcePercentageDeprecationWarning),
 	}, {
 		name: "Invalid queue sidecar resource percentage annotation",
 		annotation: map[string]string{
 			serving.QueueSidecarResourcePercentageAnnotationKey: "",
 		},
-		expectErr: &apis.FieldError{
+		expectErr: (&apis.FieldError{
 			Message: "invalid value: ",
 			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSidecarResourcePercentageAnnotationKey)},
-		},
+		}).Also(resourcePercentageDeprecationWarning),
 	}, {
 		name:       "empty annotation",
 		annotation: map[string]string{},
@@ -1137,11 +1140,13 @@ func TestValidateQueueSidecarAnnotation(t *testing.T) {
 		annotation: map[string]string{
 			serving.QueueSidecarResourcePercentageAnnotationKey: "0.1",
 		},
+		expectErr: resourcePercentageDeprecationWarning,
 	}, {
 		name: "valid value for Queue sidecar resource percentage annotation",
 		annotation: map[string]string{
 			serving.QueueSidecarResourcePercentageAnnotationKey: "100",
 		},
+		expectErr: resourcePercentageDeprecationWarning,
 	}}
 
 	for _, c := range cases {
