@@ -128,6 +128,9 @@ function parse_flags() {
       ;;
     --no-mesh)
       readonly MESH=0
+      # DO_NOT_SUBMIT:
+      # Just a demonstration now. Enable AMBIENT on no-mesh.
+      readonly AMBIENT=1
       return 1
       ;;
     --perf)
@@ -300,6 +303,10 @@ function install() {
 
   if (( MESH )); then
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/mesh")
+  fi
+
+  if (( AMBIENT )); then
+    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/ambient")
   fi
 
   if (( ENABLE_HA )); then
