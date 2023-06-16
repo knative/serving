@@ -96,7 +96,7 @@ main "$@"
 This is a helper script for Knative E2E test scripts. To use it:
 
 1. [optional] Customize the test cluster. Pass the flags as described
-   [here](../tools/kntest/pkg/kubetest2/gke/README.md) to the `initialize` function
+   [here](https://github.com/knative/toolbox/blob/main/kntest/pkg/kubetest2/gke/README.md) to the `initialize` function
    call if the default values don't fit your needs.
 
 1. Source the script.
