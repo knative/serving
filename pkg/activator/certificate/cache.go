@@ -73,10 +73,6 @@ func (cr *CertCache) init() {
 				if match == certificates.DataPlaneRoutingName("0") {
 					return nil
 				}
-				//Until all ingresses work with updated dataplane certificates  - allow also any legacy certificate
-				if match == certificates.LegacyFakeDnsName {
-					return nil
-				}
 			}
 
 			cr.logger.Info("mTLS: Failed to verify client connection for DNSNames: %v\n", cs.PeerCertificates[0].DNSNames)
