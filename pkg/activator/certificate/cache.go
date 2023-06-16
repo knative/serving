@@ -116,8 +116,8 @@ func (cr *CertCache) handleCertificateAdd(added interface{}) {
 }
 
 func (cr *CertCache) updateCache(secret *corev1.Secret) {
-	handler.TlsConfLock()
-	defer handler.TlsConfUnlock()
+	handler.TLSConfLock()
+	defer handler.TLSConfUnlock()
 
 	cert, err := tls.X509KeyPair(secret.Data[certificates.CertName], secret.Data[certificates.PrivateKeyName])
 	if err != nil {
@@ -136,20 +136,20 @@ func (cr *CertCache) handleCertificateUpdate(_, new interface{}) {
 
 // GetCertificate returns the cached certificates.
 func (cr *CertCache) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
-	handler.TlsConfLock()
-	defer handler.TlsConfUnlock()
+	handler.TLSConfLock()
+	defer handler.TLSConfUnlock()
 	return cr.certificate, nil
 }
 
 func (cr *CertCache) GetClientCertificate(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-	handler.TlsConfLock()
-	defer handler.TlsConfUnlock()
+	handler.TLSConfLock()
+	defer handler.TLSConfUnlock()
 	return cr.certificate, nil
 }
 
 func (cr *CertCache) GetConfigForClient(*tls.ClientHelloInfo) (*tls.Config, error) {
-	handler.TlsConfLock()
-	defer handler.TlsConfUnlock()
+	handler.TLSConfLock()
+	defer handler.TLSConfUnlock()
 	// Clone the certificate Pool such that the one used by the server will be different from the one that will get updated is CA is replaced.
 	serverTLSConf := cr.ServerTLSConf.Clone()
 	serverTLSConf.ClientCAs = serverTLSConf.ClientCAs.Clone()

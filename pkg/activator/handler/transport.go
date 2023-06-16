@@ -62,11 +62,11 @@ func dialTLSContext(ctx context.Context, network, addr string, tlsConf *tls.Conf
 	config := activatorconfig.FromContext(ctx)
 	trust := config.Trust
 	if trust != netcfg.TrustDisabled {
-		TlsConfLock()
+		TLSConfLock()
 		tlsConf = tlsConf.Clone()
 		// Clone the certificate Pool such that the one used by the client will be different from the one that will get updated is CA is replaced.
 		tlsConf.RootCAs = tlsConf.RootCAs.Clone()
-		TlsConfUnlock()
+		TLSConfUnlock()
 		san := certificates.LegacyFakeDnsName
 		if trust != netcfg.TrustMinimal {
 			revID := RevIDFrom(ctx)
@@ -151,10 +151,10 @@ func NewProxyAutoTransport(maxIdle, maxIdlePerHost int) http.RoundTripper {
 
 var certificatesMux sync.RWMutex
 
-func TlsConfLock() {
+func TLSConfLock() {
 	certificatesMux.Lock()
 }
 
-func TlsConfUnlock() {
+func TLSConfUnlock() {
 	certificatesMux.Unlock()
 }

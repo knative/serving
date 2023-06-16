@@ -154,8 +154,8 @@ func TestFakeReconcile(t *testing.T) {
 	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
 	if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (bool, error) {
 		// To access cr.TLSConf.RootCAs, take a lock.
-		handler.TlsConfLock()
-		defer handler.TlsConfUnlock()
+		handler.TLSConfLock()
+		defer handler.TLSConfUnlock()
 		return err == nil && pool.Equal(cr.ClientTLSConf.RootCAs) && pool.Equal(cr.ServerTLSConf.ClientCAs), nil
 	}); err != nil {
 		t.Fatalf("timeout to update the cert: %v", err)
@@ -181,8 +181,8 @@ func TestFakeReconcile(t *testing.T) {
 	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
 	if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (bool, error) {
 		// To access cr.TLSConf.RootCAs, take a lock.
-		handler.TlsConfLock()
-		defer handler.TlsConfUnlock()
+		handler.TLSConfLock()
+		defer handler.TLSConfUnlock()
 		return err == nil && pool.Equal(cr.ClientTLSConf.RootCAs) && pool.Equal(cr.ServerTLSConf.ClientCAs), nil
 	}); err != nil {
 		t.Fatalf("timeout to update the cert: %v", err)
