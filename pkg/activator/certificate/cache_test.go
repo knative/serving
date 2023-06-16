@@ -29,16 +29,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/cache"
 
 	"knative.dev/networking/pkg/certificates"
 	netcfg "knative.dev/networking/pkg/config"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakesecretinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/activator/handler"
 )
 
 func AddCert(t *testing.T, c *x509.CertPool, cert []byte) {
@@ -53,24 +51,7 @@ func AddCert(t *testing.T, c *x509.CertPool, cert []byte) {
 
 func fakeCertCache(ctx context.Context) *CertCache {
 	secretInformer := fakesecretinformer.Get(ctx)
-
-	cr := &CertCache{
-		secretInformer: secretInformer,
-		certificate:    nil,
-		logger:         logging.FromContext(ctx),
-		trustConfig:    netcfg.TrustMutual,
-	}
-	cr.init()
-
-	secretInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterWithNameAndNamespace(system.Namespace(), netcfg.ServingRoutingCertName),
-		Handler: cache.ResourceEventHandlerFuncs{
-			UpdateFunc: cr.handleCertificateUpdate,
-			AddFunc:    cr.handleCertificateAdd,
-		},
-	})
-
-	return cr
+	return newCertCache(ctx, netcfg.TrustMutual, secretInformer)
 }
 
 func TestFakeReconcile(t *testing.T) {
@@ -107,8 +88,6 @@ func TestFakeReconcile(t *testing.T) {
 	// Wait for the resources to be created and the handler is called.
 	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		// To access cert.Certificate, take a lock.
-		cr.certificatesMux.RLock()
-		defer cr.certificatesMux.RUnlock()
 		cert1, _ := cr.GetCertificate(nil)
 		cert2, _ := cr.GetClientCertificate(nil)
 		return cert1 != nil && cert2 != nil, nil
@@ -151,8 +130,6 @@ func TestFakeReconcile(t *testing.T) {
 	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
 	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		// To access cr.TLSConf.RootCAs, take a lock.
-		cr.certificatesMux.RLock()
-		defer cr.certificatesMux.RUnlock()
 		cert1, _ := cr.GetCertificate(nil)
 		cert2, _ := cr.GetClientCertificate(nil)
 		return err == nil && reflect.DeepEqual(newCert.Certificate, cert1.Certificate) && reflect.DeepEqual(newCert.Certificate, cert2.Certificate), nil
@@ -177,8 +154,8 @@ func TestFakeReconcile(t *testing.T) {
 	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
 	if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (bool, error) {
 		// To access cr.TLSConf.RootCAs, take a lock.
-		cr.certificatesMux.RLock()
-		defer cr.certificatesMux.RUnlock()
+		handler.TlsConfLock()
+		defer handler.TlsConfUnlock()
 		return err == nil && pool.Equal(cr.ClientTLSConf.RootCAs) && pool.Equal(cr.ServerTLSConf.ClientCAs), nil
 	}); err != nil {
 		t.Fatalf("timeout to update the cert: %v", err)
@@ -204,8 +181,8 @@ func TestFakeReconcile(t *testing.T) {
 	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
 	if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (bool, error) {
 		// To access cr.TLSConf.RootCAs, take a lock.
-		cr.certificatesMux.RLock()
-		defer cr.certificatesMux.RUnlock()
+		handler.TlsConfLock()
+		defer handler.TlsConfUnlock()
 		return err == nil && pool.Equal(cr.ClientTLSConf.RootCAs) && pool.Equal(cr.ServerTLSConf.ClientCAs), nil
 	}); err != nil {
 		t.Fatalf("timeout to update the cert: %v", err)
@@ -217,8 +194,6 @@ func TestFakeReconcile(t *testing.T) {
 	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
 	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		// To access cr.TLSConf.RootCAs, take a lock.
-		cr.certificatesMux.RLock()
-		defer cr.certificatesMux.RUnlock()
 		cert1, _ := cr.GetCertificate(nil)
 		cert2, _ := cr.GetClientCertificate(nil)
 		return err == nil && reflect.DeepEqual(newCert.Certificate, cert1.Certificate) && reflect.DeepEqual(newCert.Certificate, cert2.Certificate), nil

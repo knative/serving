@@ -21,7 +21,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"sync"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -34,6 +33,7 @@ import (
 	secretinformer "knative.dev/pkg/injection/clients/namespacedkube/informers/core/v1/secret"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/activator/handler"
 )
 
 // CertCache caches certificates and CA pool.
@@ -45,11 +45,14 @@ type CertCache struct {
 	certificate   *tls.Certificate
 	ClientTLSConf tls.Config
 	ServerTLSConf tls.Config
-
-	certificatesMux sync.RWMutex
 }
 
-func (cr *CertCache) init() {
+func newCertCache(ctx context.Context, trust netcfg.Trust, secretInformer v1.SecretInformer) *CertCache {
+	cr := &CertCache{
+		secretInformer: secretInformer,
+		logger:         logging.FromContext(ctx),
+		trustConfig:    trust,
+	}
 	cr.ClientTLSConf.ServerName = certificates.LegacyFakeDnsName
 	cr.ClientTLSConf.MinVersion = tls.VersionTLS13
 	cr.ClientTLSConf.RootCAs = x509.NewCertPool()
@@ -58,6 +61,7 @@ func (cr *CertCache) init() {
 	cr.ServerTLSConf.MinVersion = tls.VersionTLS12
 	cr.ServerTLSConf.ClientCAs = x509.NewCertPool()
 	cr.ServerTLSConf.GetCertificate = cr.GetCertificate
+	cr.ServerTLSConf.GetConfigForClient = cr.GetConfigForClient
 	switch cr.trustConfig {
 	case netcfg.TrustIdentity, netcfg.TrustMutual:
 		cr.ServerTLSConf.ClientAuth = tls.RequireAndVerifyClientCert
@@ -79,26 +83,6 @@ func (cr *CertCache) init() {
 			return fmt.Errorf("mTLS: Failed to verify client connection for DNSNames: %v", cs.PeerCertificates[0].DNSNames)
 		}
 	}
-}
-
-// NewCertCache starts secretInformer.
-func NewCertCache(ctx context.Context, trust netcfg.Trust) *CertCache {
-	secretInformer := secretinformer.Get(ctx)
-
-	cr := &CertCache{
-		secretInformer: secretInformer,
-		logger:         logging.FromContext(ctx),
-		trustConfig:    trust,
-	}
-	cr.init()
-
-	secret, err := cr.secretInformer.Lister().Secrets(system.Namespace()).Get(netcfg.ServingRoutingCertName)
-	if err != nil {
-		cr.logger.Warnw("failed to get secret", zap.Error(err))
-		return nil
-	}
-
-	cr.updateCache(secret)
 
 	secretInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.FilterWithNameAndNamespace(system.Namespace(), netcfg.ServingRoutingCertName),
@@ -107,7 +91,21 @@ func NewCertCache(ctx context.Context, trust netcfg.Trust) *CertCache {
 			AddFunc:    cr.handleCertificateAdd,
 		},
 	})
+	return cr
+}
 
+// NewCertCache starts secretInformer.
+func NewCertCache(ctx context.Context, trust netcfg.Trust) *CertCache {
+	secretInformer := secretinformer.Get(ctx)
+	cr := newCertCache(ctx, trust, secretInformer)
+
+	secret, err := cr.secretInformer.Lister().Secrets(system.Namespace()).Get(netcfg.ServingRoutingCertName)
+	if err != nil {
+		cr.logger.Warnw("failed to get secret", zap.Error(err))
+		return nil
+	}
+
+	cr.updateCache(secret)
 	return cr
 }
 
@@ -118,8 +116,8 @@ func (cr *CertCache) handleCertificateAdd(added interface{}) {
 }
 
 func (cr *CertCache) updateCache(secret *corev1.Secret) {
-	cr.certificatesMux.Lock()
-	defer cr.certificatesMux.Unlock()
+	handler.TlsConfLock()
+	defer handler.TlsConfUnlock()
 
 	cert, err := tls.X509KeyPair(secret.Data[certificates.CertName], secret.Data[certificates.PrivateKeyName])
 	if err != nil {
@@ -138,9 +136,22 @@ func (cr *CertCache) handleCertificateUpdate(_, new interface{}) {
 
 // GetCertificate returns the cached certificates.
 func (cr *CertCache) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+	handler.TlsConfLock()
+	defer handler.TlsConfUnlock()
 	return cr.certificate, nil
 }
 
 func (cr *CertCache) GetClientCertificate(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+	handler.TlsConfLock()
+	defer handler.TlsConfUnlock()
 	return cr.certificate, nil
+}
+
+func (cr *CertCache) GetConfigForClient(*tls.ClientHelloInfo) (*tls.Config, error) {
+	handler.TlsConfLock()
+	defer handler.TlsConfUnlock()
+	// Clone the certificate Pool such that the one used by the server will be different from the one that will get updated is CA is replaced.
+	serverTLSConf := cr.ServerTLSConf.Clone()
+	serverTLSConf.ClientCAs = serverTLSConf.ClientCAs.Clone()
+	return serverTLSConf, nil
 }

@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"sync"
 
 	"golang.org/x/net/http2"
 	"knative.dev/networking/pkg/certificates"
@@ -61,7 +62,11 @@ func dialTLSContext(ctx context.Context, network, addr string, tlsConf *tls.Conf
 	config := activatorconfig.FromContext(ctx)
 	trust := config.Trust
 	if trust != netcfg.TrustDisabled {
+		TlsConfLock()
 		tlsConf = tlsConf.Clone()
+		// Clone the certificate Pool such that the one used by the client will be different from the one that will get updated is CA is replaced.
+		tlsConf.RootCAs = tlsConf.RootCAs.Clone()
+		TlsConfUnlock()
 		san := certificates.LegacyFakeDnsName
 		if trust != netcfg.TrustMinimal {
 			revID := RevIDFrom(ctx)
@@ -142,4 +147,14 @@ func NewProxyAutoTransport(maxIdle, maxIdlePerHost int) http.RoundTripper {
 	return newAutoTransport(
 		newHTTPTransport(false, true, maxIdle, maxIdlePerHost),
 		newH2CTransport(true))
+}
+
+var certificatesMux sync.RWMutex
+
+func TlsConfLock() {
+	certificatesMux.Lock()
+}
+
+func TlsConfUnlock() {
+	certificatesMux.Unlock()
 }
