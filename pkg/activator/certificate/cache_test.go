@@ -134,10 +134,6 @@ func TestFakeReconcile(t *testing.T) {
 		t.Error("cr.ServerTLSConf.VerifyConnection: expected to find kn-routing-0")
 	}
 
-	cs = tls.ConnectionState{PeerCertificates: []*x509.Certificate{{DNSNames: []string{"ddd", "xxx", certificates.LegacyFakeDnsName, "ddd", "xxx"}}}}
-	if verifyErr := cr.ServerTLSConf.VerifyConnection(cs); verifyErr != nil {
-		t.Error("cr.ServerTLSConf.VerifyConnection: expected to find kn-routing-0")
-	}
 	cs = tls.ConnectionState{PeerCertificates: []*x509.Certificate{{DNSNames: []string{"ddd", "xxx"}}}}
 	if verifyErr := cr.ServerTLSConf.VerifyConnection(cs); verifyErr == nil {
 		t.Error("cr.ServerTLSConf.VerifyConnection: expected error")
