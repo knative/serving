@@ -183,27 +183,21 @@ var (
 	}
 	QueueSidecarCPUResourceRequestAnnotation = kmap.KeyPriority{
 		QueueSidecarCPUResourceRequestAnnotationKey,
-		"queue.sidecar." + GroupName + "/CPUResourceRequest",
 	}
 	QueueSidecarCPUResourceLimitAnnotation = kmap.KeyPriority{
 		QueueSidecarCPUResourceLimitAnnotationKey,
-		"queue.sidecar." + GroupName + "/CPUResourceLimit",
 	}
 	QueueSidecarMemoryResourceRequestAnnotation = kmap.KeyPriority{
 		QueueSidecarMemoryResourceRequestAnnotationKey,
-		"queue.sidecar." + GroupName + "/MemoryResourceRequest",
 	}
 	QueueSidecarMemoryResourceLimitAnnotation = kmap.KeyPriority{
 		QueueSidecarMemoryResourceLimitAnnotationKey,
-		"queue.sidecar." + GroupName + "/MemoryResourceLimit",
 	}
 	QueueSidecarEphemeralStorageResourceRequestAnnotation = kmap.KeyPriority{
 		QueueSidecarEphemeralStorageResourceRequestAnnotationKey,
-		"queue.sidecar." + GroupName + "/EphemeralStorageResourceRequest",
 	}
 	QueueSidecarEphemeralStorageResourceLimitAnnotation = kmap.KeyPriority{
 		QueueSidecarEphemeralStorageResourceLimitAnnotationKey,
-		"queue.sidecar." + GroupName + "/EphemeralStorageResourceLimit",
 	}
 	ProgressDeadlineAnnotation = kmap.KeyPriority{
 		ProgressDeadlineAnnotationKey,
