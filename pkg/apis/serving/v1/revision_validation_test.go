@@ -943,6 +943,34 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSidecarResourcePercentageAnnotationKey)},
 		}).ViaField("metadata.annotations"),
 	}, {
+		name: "Invalid queue sidecar resource annotations",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					serving.QueueSidecarCPUResourceLimitAnnotationKey:                "100mx",
+					serving.QueueSidecarCPUResourceRequestAnnotationKey:              "50mx",
+					serving.QueueSidecarMemoryResourceLimitAnnotationKey:             "1Gi",
+					serving.QueueSidecarMemoryResourceRequestAnnotationKey:           "100Mi",
+					serving.QueueSidecarEphemeralStorageResourceLimitAnnotationKey:   "5Gi",
+					serving.QueueSidecarEphemeralStorageResourceRequestAnnotationKey: "2Gi",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: ((&apis.FieldError{
+			Message: "invalid value: 100mx",
+			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSidecarCPUResourceLimitAnnotationKey)},
+		}).Also(&apis.FieldError{
+			Message: "invalid value: 50mx",
+			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSidecarCPUResourceRequestAnnotationKey)},
+		})).ViaField("metadata.annotations"),
+	}, {
 		name: "Invalid initial scale when cluster doesn't allow zero",
 		ctx:  autoscalerConfigCtx(false, 1),
 		rts: &RevisionTemplateSpec{
@@ -1151,7 +1179,7 @@ func TestValidateQueueSidecarAnnotation(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			err := validateQueueSidecarAnnotation(c.annotation)
+			err := validateQueueSidecarResourceAnnotations(c.annotation)
 			if got, want := err.Error(), c.expectErr.Error(); got != want {
 				t.Errorf("Got: %q want: %q", got, want)
 			}
