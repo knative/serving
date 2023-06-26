@@ -38,6 +38,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	kparesources "knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
+	"knative.dev/serving/pkg/reconciler/scale"
 	"knative.dev/serving/pkg/resources"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -332,9 +333,22 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 	}
 
 	min, max := pa.ScaleBounds(asConfig)
+	logger.Infof("Get the Min MinScale = %d",
+		min)
+	if val, ok := scale.Scales["min"]; ok {
+		if val < min {
+			min = val
+		}
+	}
+
+	if val, ok := scale.Scales["max"]; ok {
+		if val < max || max == 0 {
+			max = val
+		}
+	}
 	initialScale := kparesources.GetInitialScale(asConfig, pa)
 	// Log reachability as quoted string, since default value is "".
-	logger.Debugf("MinScale = %d, MaxScale = %d, InitialScale = %d, DesiredScale = %d Reachable = %q",
+	logger.Infof("After read the cache MinScale = %d, MaxScale = %d, InitialScale = %d, DesiredScale = %d Reachable = %q",
 		min, max, initialScale, desiredScale, pa.Spec.Reachability)
 	// If initial scale has been attained, ignore the initialScale altogether.
 	if initialScale > 1 && !pa.Status.IsScaleTargetInitialized() {

@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap"
@@ -89,10 +90,21 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 	// pre-existing Revision (possibly for another Configuration).
 	if err := CheckNameAvailability(config, c.revisionLister); err != nil &&
 		!apierrs.IsNotFound(err) {
+		logger.Errorf("I did not get an equal generation and revision label!!!!!!!!!!!!!!!\n")
+		logger.Errorf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
 		service.Status.MarkRevisionNameTaken(config.Spec.GetTemplate().Name)
 		return nil
 	}
 
+	logger.Info("I have got an equal generation and revision label\n")
+	r, _, _ := c.latestCreatedRevision(config)
+	if r != nil {
+		logger.Info(r.Name)
+		logger.Info(r.Status.ActualReplicas)
+		logger.Info(r.Status.DesiredReplicas)
+	}
+
+	logger.Info("HAAAAAAAAAHAAAAAAAHAAAAAAAHAAAAAAAHAAAAAAAHAAAAAAAHAAAAAAAHAAAAAAAHAAAAAAAHAAAAAAAHAAAAAAAHAAAAAAA\n")
 	route, err := c.route(ctx, service)
 	if err != nil {
 		return err
@@ -110,7 +122,70 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 	}
 
 	c.checkRoutesNotReady(config, logger, route, service)
+
+	rn, _, _ := c.latestCreatedRevision(config)
+	if rn != nil {
+		logger.Info(rn.Name)
+		logger.Info(*rn.Status.ActualReplicas)
+		if rn.Status.DesiredReplicas != nil {
+			logger.Info(*rn.Status.DesiredReplicas)
+		}
+
+	} else {
+		logger.Info("did not get latest revision")
+	}
+
+	ro, _, _ := c.previousCreatedRevision(config)
+	if ro != nil {
+		logger.Info(ro.Name)
+		logger.Info(*ro.Status.ActualReplicas)
+		if ro.Status.DesiredReplicas != nil {
+			logger.Info(*ro.Status.DesiredReplicas)
+		}
+	} else {
+		logger.Info("did not get previous revision")
+	}
+	logger.Info("HAAAAArouteHAAAAArouteHAAAAArouteHAAAAArouteHAAAAArouteHAAAAArouteHAAAAArouteHAAAAArouteHAAAAArouteHAAAAAroute\n")
+
 	return nil
+}
+
+func (c *Reconciler) latestCreatedRevision(config *v1.Configuration) (*v1.Revision, bool, error) {
+
+	lister := c.revisionLister.Revisions(config.Namespace)
+
+	// Even though we now name revisions consistently and could fetch by name, we have to
+	// keep this code to stay functional for older revisions that predate that change.
+	generationKey := serving.ConfigurationGenerationLabelKey
+	list, err := lister.List(labels.SelectorFromSet(labels.Set{
+		generationKey:                 configresources.RevisionLabelValueForKey(generationKey, config),
+		serving.ConfigurationLabelKey: config.Name,
+	}))
+
+	if err == nil && len(list) > 0 {
+		return list[0], false, nil
+	}
+
+	return nil, false, nil
+}
+
+func (c *Reconciler) previousCreatedRevision(config *v1.Configuration) (*v1.Revision, bool, error) {
+
+	lister := c.revisionLister.Revisions(config.Namespace)
+
+	// Even though we now name revisions consistently and could fetch by name, we have to
+	// keep this code to stay functional for older revisions that predate that change.
+	generationKey := serving.ConfigurationGenerationLabelKey
+	list, err := lister.List(labels.SelectorFromSet(labels.Set{
+		generationKey:                 configresources.RevisionLabelValueForKey(generationKey, config),
+		serving.ConfigurationLabelKey: config.Name,
+	}))
+
+	if err == nil && len(list) > 0 {
+		return list[len(list)-1], false, nil
+	}
+
+	return nil, false, nil
 }
 
 func (c *Reconciler) config(ctx context.Context, service *v1.Service) (*v1.Configuration, error) {
@@ -168,6 +243,7 @@ func (c *Reconciler) checkRoutesNotReady(config *v1.Configuration, logger *zap.S
 
 	if len(route.Spec.Traffic) != len(route.Status.Traffic) {
 		service.Status.MarkRouteNotYetReady()
+		logger.Errorf("No good route No good route No good route No good route No good route No good route No good route No good route")
 		return
 	}
 
@@ -182,8 +258,10 @@ func (c *Reconciler) checkRoutesNotReady(config *v1.Configuration, logger *zap.S
 	ignoreFields := cmpopts.IgnoreFields(v1.TrafficTarget{}, "URL", "LatestRevision")
 	if diff, err := kmp.SafeDiff(got, want, ignoreFields); err != nil || diff != "" {
 		logger.Errorf("Route %s is not yet what we want: %s", route.Name, diff)
+		logger.Errorf("No good route what we need No good route what we need No good route what we need No good route what we need")
 		service.Status.MarkRouteNotYetReady()
 	}
+	logger.Infof("Good Route!!!!!!!!!Good Route!!!!!Good Route!!!!!Good Route!!!!!Good Route!!!!!Good Route!!!!!Good Route!!!!!")
 }
 
 func (c *Reconciler) createConfiguration(ctx context.Context, service *v1.Service) (*v1.Configuration, error) {
@@ -302,6 +380,7 @@ func CheckNameAvailability(config *v1.Configuration, lister listers.RevisionList
 	generationKey := serving.ConfigurationGenerationLabelKey
 	expectedValue := configresources.RevisionLabelValueForKey(generationKey, config)
 	if rev.Labels != nil && rev.Labels[generationKey] == expectedValue {
+
 		return nil
 	}
 	// We only require spec equality because the rest is immutable and the user may have

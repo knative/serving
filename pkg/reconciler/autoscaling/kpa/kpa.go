@@ -39,6 +39,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
 	anames "knative.dev/serving/pkg/reconciler/autoscaling/resources/names"
+	"knative.dev/serving/pkg/reconciler/scale"
 	resourceutil "knative.dev/serving/pkg/resources"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -301,6 +302,12 @@ func computeActiveCondition(ctx context.Context, pa *autoscalingv1alpha1.PodAuto
 func activeThreshold(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler) int {
 	asConfig := config.FromContext(ctx).Autoscaler
 	min, _ := pa.ScaleBounds(asConfig)
+	if val, ok := scale.Scales["min"]; ok {
+		if val < min {
+			min = val
+		}
+	}
+
 	if !pa.Status.IsScaleTargetInitialized() {
 		initialScale := resources.GetInitialScale(asConfig, pa)
 		return int(intMax(min, initialScale))

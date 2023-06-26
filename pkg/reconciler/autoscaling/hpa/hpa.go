@@ -35,6 +35,7 @@ import (
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/hpa/resources"
+	"knative.dev/serving/pkg/reconciler/scale"
 )
 
 // Reconciler implements the control loop for the HPA resources.
@@ -116,6 +117,12 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 func activeThreshold(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler) int {
 	asConfig := config.FromContext(ctx).Autoscaler
 	min, _ := pa.ScaleBounds(asConfig)
+	if val, ok := scale.Scales["min"]; ok {
+		if min < val {
+			min = val
+		}
+	}
+
 	if !pa.Status.IsScaleTargetInitialized() {
 		initialScale := getInitialScale(asConfig, pa)
 		return int(intMax(min, initialScale))
