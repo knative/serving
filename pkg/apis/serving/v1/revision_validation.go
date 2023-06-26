@@ -199,12 +199,6 @@ func validateQueueSidecarResourceAnnotations(m map[string]string) *apis.FieldErr
 			}
 		}
 	}
-	validate := func(k, v string) *apis.FieldError {
-		if _, err := resource.ParseQuantity(v); err != nil {
-			return errs.Also(apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(k))
-		}
-		return nil
-	}
 	annoKeys := []kmap.KeyPriority{
 		serving.QueueSidecarCPUResourceRequestAnnotation,
 		serving.QueueSidecarCPUResourceLimitAnnotation,
@@ -215,8 +209,11 @@ func validateQueueSidecarResourceAnnotations(m map[string]string) *apis.FieldErr
 	}
 	for _, resAnno := range annoKeys {
 		k, v, ok := resAnno.Get(m)
-		if ok {
-			errs = errs.Also(validate(k, v))
+		if !ok {
+			continue
+		}
+		if _, err := resource.ParseQuantity(v); err != nil {
+			errs = errs.Also(apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(k))
 		}
 	}
 	return errs
