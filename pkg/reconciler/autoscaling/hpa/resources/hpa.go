@@ -30,11 +30,23 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
+	"knative.dev/serving/pkg/reconciler/scale"
 )
 
 // MakeHPA creates an HPA resource from a PA resource.
 func MakeHPA(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig.Config) *autoscalingv2.HorizontalPodAutoscaler {
 	min, max := pa.ScaleBounds(config)
+	if val, ok := scale.Scales["min"]; ok {
+		if val < min {
+			min = val
+		}
+	}
+
+	if val, ok := scale.Scales["max"]; ok {
+		if val < max || max == 0 {
+			max = val
+		}
+	}
 	if max == 0 {
 		max = math.MaxInt32 // default to no limit
 	}

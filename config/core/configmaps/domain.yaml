@@ -61,3 +61,4 @@ data:
     example.org: |
       selector:
         app: nonprofit
+  127.0.0.1.sslip.io: |
