@@ -32,6 +32,8 @@ type Interface interface {
 	Routes() RouteInformer
 	// Services returns a ServiceInformer.
 	Services() ServiceInformer
+	// ServiceOrchestrators returns a ServiceOrchestratorInformer.
+	ServiceOrchestrators() ServiceOrchestratorInformer
 }
 
 type version struct {
@@ -63,4 +65,9 @@ func (v *version) Routes() RouteInformer {
 // Services returns a ServiceInformer.
 func (v *version) Services() ServiceInformer {
 	return &serviceInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// ServiceOrchestrators returns a ServiceOrchestratorInformer.
+func (v *version) ServiceOrchestrators() ServiceOrchestratorInformer {
+	return &serviceOrchestratorInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

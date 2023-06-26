@@ -73,6 +73,14 @@ func (ss *ServiceStatus) MarkConfigurationNotOwned(name string) {
 		fmt.Sprintf("There is an existing Configuration %q that we do not own.", name))
 }
 
+// MarkServiceOrchestratorNotOwned surfaces a failure via the ServiceOrchestratorsReady
+// status noting that the ServiceOrchestrator with the name we want has already
+// been created and we do not own it.
+func (ss *ServiceStatus) MarkServiceOrchestratorNotOwned(name string) {
+	serviceCondSet.Manage(ss).MarkFalse(ServiceConditionServiceOrchestratorsReady, "NotOwned",
+		fmt.Sprintf("There is an existing ServiceOrchestrator %q that we do not own.", name))
+}
+
 // MarkRouteNotOwned surfaces a failure via the RoutesReady status noting that the Route
 // with the name we want has already been created and we do not own it.
 func (ss *ServiceStatus) MarkRouteNotOwned(name string) {

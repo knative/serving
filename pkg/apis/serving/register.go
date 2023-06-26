@@ -159,6 +159,12 @@ var (
 		Resource: "configurations",
 	}
 
+	// ServiceOrchestratorsResource represents a Knative ServiceOrchestrator
+	ServiceOrchestratorsResource = schema.GroupResource{
+		Group:    GroupName,
+		Resource: "serviceorchestrators",
+	}
+
 	// RevisionsResource represents a Knative Revision
 	RevisionsResource = schema.GroupResource{
 		Group:    GroupName,

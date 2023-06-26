@@ -718,6 +718,8 @@ Resource Types:
 <a href="#serving.knative.dev/v1.Route">Route</a>
 </li><li>
 <a href="#serving.knative.dev/v1.Service">Service</a>
+</li><li>
+<a href="#serving.knative.dev/v1.ServiceOrchestrator">ServiceOrchestrator</a>
 </li></ul>
 <h3 id="serving.knative.dev/v1.Configuration">Configuration
 </h3>
@@ -1186,6 +1188,135 @@ ServiceStatus
 </tr>
 </tbody>
 </table>
+<h3 id="serving.knative.dev/v1.ServiceOrchestrator">ServiceOrchestrator
+</h3>
+<div>
+<p>ServiceOrchestrator represents the orchestractor to launch the new revision and direct the traffic
+in an incremental way.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+serving.knative.dev/v1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>ServiceOrchestrator</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#serving.knative.dev/v1.ServiceOrchestratorSpec">
+ServiceOrchestratorSpec
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<br/>
+<br/>
+<table>
+<tr>
+<td>
+<code>StageRevisionTarget</code><br/>
+<em>
+<a href="#serving.knative.dev/v1.RevisionTarget">
+[]RevisionTarget
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>StageTraffic holds the configured traffic distribution fot the current stage.
+These entries will always contain RevisionName references.
+When ConfigurationName appears in the spec, this will hold the
+LatestReadyRevisionName that we last observed.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>revisionTarget</code><br/>
+<em>
+<a href="#serving.knative.dev/v1.RevisionTarget">
+[]RevisionTarget
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Traffic holds the configured traffic distribution.
+These entries will always contain RevisionName references.
+When ConfigurationName appears in the spec, this will hold the
+LatestReadyRevisionName that we last observed.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>initialRevisionStatus</code><br/>
+<em>
+<a href="#serving.knative.dev/v1.RevisionTarget">
+[]RevisionTarget
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Traffic holds the configured traffic distribution.
+These entries will always contain RevisionName references.
+When ConfigurationName appears in the spec, this will hold the
+LatestReadyRevisionName that we last observed.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#serving.knative.dev/v1.ServiceOrchestratorStatus">
+ServiceOrchestratorStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="serving.knative.dev/v1.ConfigurationSpec">ConfigurationSpec
 </h3>
 <p>
@@ -1548,6 +1679,105 @@ int32
 </tr>
 </tbody>
 </table>
+<h3 id="serving.knative.dev/v1.RevisionTarget">RevisionTarget
+</h3>
+<p>
+(<em>Appears on:</em><a href="#serving.knative.dev/v1.ServiceOrchestratorSpec">ServiceOrchestratorSpec</a>, <a href="#serving.knative.dev/v1.ServiceOrchestratorStatusFields">ServiceOrchestratorStatusFields</a>)
+</p>
+<div>
+<p>RevisionTarget holds the information of the revision for the current stage.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>revisionName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>direction</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetReplicas</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>latestRevision</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>percent</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Percent indicates that percentage based routing should be used and
+the value indicates the percent of traffic that is be routed to this
+Revision or Configuration. <code>0</code> (zero) mean no traffic, <code>100</code> means all
+traffic.
+When percentage based routing is being used the follow rules apply:
+- the sum of all percent values must equal 100
+- when not specified, the implied value for <code>percent</code> is zero for
+that particular Revision or Configuration</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>minScale</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<p>MinScale sets the lower bound for the number of the replicas.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>maxScale</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<p>MaxScale sets the upper bound for the number of the replicas.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="serving.knative.dev/v1.RevisionTemplateSpec">RevisionTemplateSpec
 </h3>
 <p>
@@ -1846,6 +2076,160 @@ and is scaled down, but may be rapidly pinned to a route to be made active again
 <td><p>RoutingStateUnset is the empty value for routing state, this state is unexpected.</p>
 </td>
 </tr></tbody>
+</table>
+<h3 id="serving.knative.dev/v1.ServiceOrchestratorSpec">ServiceOrchestratorSpec
+</h3>
+<p>
+(<em>Appears on:</em><a href="#serving.knative.dev/v1.ServiceOrchestrator">ServiceOrchestrator</a>)
+</p>
+<div>
+<p>ServiceOrchestratorSpec holds the desired state of the Configuration (from the client).</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>StageRevisionTarget</code><br/>
+<em>
+<a href="#serving.knative.dev/v1.RevisionTarget">
+[]RevisionTarget
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>StageTraffic holds the configured traffic distribution fot the current stage.
+These entries will always contain RevisionName references.
+When ConfigurationName appears in the spec, this will hold the
+LatestReadyRevisionName that we last observed.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>revisionTarget</code><br/>
+<em>
+<a href="#serving.knative.dev/v1.RevisionTarget">
+[]RevisionTarget
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Traffic holds the configured traffic distribution.
+These entries will always contain RevisionName references.
+When ConfigurationName appears in the spec, this will hold the
+LatestReadyRevisionName that we last observed.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>initialRevisionStatus</code><br/>
+<em>
+<a href="#serving.knative.dev/v1.RevisionTarget">
+[]RevisionTarget
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Traffic holds the configured traffic distribution.
+These entries will always contain RevisionName references.
+When ConfigurationName appears in the spec, this will hold the
+LatestReadyRevisionName that we last observed.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="serving.knative.dev/v1.ServiceOrchestratorStatus">ServiceOrchestratorStatus
+</h3>
+<p>
+(<em>Appears on:</em><a href="#serving.knative.dev/v1.ServiceOrchestrator">ServiceOrchestrator</a>)
+</p>
+<div>
+<p>ServiceOrchestratorStatusStatus communicates the observed state of the Configuration (from the controller).</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>Status</code><br/>
+<em>
+<a href="https://pkg.go.dev/knative.dev/pkg/apis/duck/v1#Status">
+knative.dev/pkg/apis/duck/v1.Status
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>Status</code> are embedded into this type.)
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ServiceOrchestratorStatusFields</code><br/>
+<em>
+<a href="#serving.knative.dev/v1.ServiceOrchestratorStatusFields">
+ServiceOrchestratorStatusFields
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>ServiceOrchestratorStatusFields</code> are embedded into this type.)
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="serving.knative.dev/v1.ServiceOrchestratorStatusFields">ServiceOrchestratorStatusFields
+</h3>
+<p>
+(<em>Appears on:</em><a href="#serving.knative.dev/v1.ServiceOrchestratorStatus">ServiceOrchestratorStatus</a>)
+</p>
+<div>
+<p>ServiceOrchestratorStatusFields holds the fields of Configuration&rsquo;s status that
+are not generally shared.  This is defined separately and inlined so that
+other types can readily consume these fields via duck typing.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>stageRevisionStatus</code><br/>
+<em>
+<a href="#serving.knative.dev/v1.RevisionTarget">
+[]RevisionTarget
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Traffic holds the configured traffic distribution.
+These entries will always contain RevisionName references.
+When ConfigurationName appears in the spec, this will hold the
+LatestReadyRevisionName that we last observed.</p>
+</td>
+</tr>
+</tbody>
 </table>
 <h3 id="serving.knative.dev/v1.ServiceSpec">ServiceSpec
 </h3>

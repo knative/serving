@@ -20,6 +20,10 @@ import (
 	"context"
 	"fmt"
 	"k8s.io/apimachinery/pkg/labels"
+	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
+	"strconv"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap"
@@ -48,9 +52,11 @@ type Reconciler struct {
 	client clientset.Interface
 
 	// listers index properties about resources
-	configurationLister listers.ConfigurationLister
-	revisionLister      listers.RevisionLister
-	routeLister         listers.RouteLister
+	configurationLister       listers.ConfigurationLister
+	revisionLister            listers.RevisionLister
+	routeLister               listers.RouteLister
+	serviceOrchestratorLister listers.ServiceOrchestratorLister
+	podAutoscalerLister       palisters.PodAutoscalerLister
 }
 
 // Check that our Reconciler implements ksvcreconciler.Interface
@@ -62,8 +68,13 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 	defer cancel()
 
 	logger := logging.FromContext(ctx)
-
 	config, err := c.config(ctx, service)
+	if err != nil {
+		return err
+	}
+
+	// If the size of the traffic list is 0 or 1, there will be only one revision accepting the traffic.
+	_, err = c.serviceOrchestrator(ctx, service, config)
 	if err != nil {
 		return err
 	}
@@ -97,11 +108,9 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 	}
 
 	logger.Info("I have got an equal generation and revision label\n")
-	r, _, _ := c.latestCreatedRevision(config)
+	r, _ := c.latestCreatedRevision(config)
 	if r != nil {
 		logger.Info(r.Name)
-		logger.Info(r.Status.ActualReplicas)
-		logger.Info(r.Status.DesiredReplicas)
 	}
 
 	logger.Info("HAAAAAAAAAHAAAAAAAHAAAAAAAHAAAAAAAHAAAAAAAHAAAAAAAHAAAAAAAHAAAAAAAHAAAAAAAHAAAAAAAHAAAAAAAHAAAAAAA\n")
@@ -123,13 +132,13 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 
 	c.checkRoutesNotReady(config, logger, route, service)
 
-	rn, _, _ := c.latestCreatedRevision(config)
+	rn, _ := c.latestCreatedRevision(config)
 	if rn != nil {
 		logger.Info(rn.Name)
-		logger.Info(*rn.Status.ActualReplicas)
-		if rn.Status.DesiredReplicas != nil {
-			logger.Info(*rn.Status.DesiredReplicas)
-		}
+		//logger.Info(*rn.Status.ActualReplicas)
+		//if rn.Status.DesiredReplicas != nil {
+		//	logger.Info(*rn.Status.DesiredReplicas)
+		//}
 
 	} else {
 		logger.Info("did not get latest revision")
@@ -138,10 +147,10 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 	ro, _, _ := c.previousCreatedRevision(config)
 	if ro != nil {
 		logger.Info(ro.Name)
-		logger.Info(*ro.Status.ActualReplicas)
-		if ro.Status.DesiredReplicas != nil {
-			logger.Info(*ro.Status.DesiredReplicas)
-		}
+		//logger.Info(*ro.Status.ActualReplicas)
+		//if ro.Status.DesiredReplicas != nil {
+		//	logger.Info(*ro.Status.DesiredReplicas)
+		//}
 	} else {
 		logger.Info("did not get previous revision")
 	}
@@ -150,10 +159,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 	return nil
 }
 
-func (c *Reconciler) latestCreatedRevision(config *v1.Configuration) (*v1.Revision, bool, error) {
-
+func (c *Reconciler) latestCreatedRevision(config *v1.Configuration) (*v1.Revision, error) {
 	lister := c.revisionLister.Revisions(config.Namespace)
-
 	// Even though we now name revisions consistently and could fetch by name, we have to
 	// keep this code to stay functional for older revisions that predate that change.
 	generationKey := serving.ConfigurationGenerationLabelKey
@@ -161,12 +168,10 @@ func (c *Reconciler) latestCreatedRevision(config *v1.Configuration) (*v1.Revisi
 		generationKey:                 configresources.RevisionLabelValueForKey(generationKey, config),
 		serving.ConfigurationLabelKey: config.Name,
 	}))
-
 	if err == nil && len(list) > 0 {
-		return list[0], false, nil
+		return list[0], nil
 	}
-
-	return nil, false, nil
+	return nil, err
 }
 
 func (c *Reconciler) previousCreatedRevision(config *v1.Configuration) (*v1.Revision, bool, error) {
@@ -186,6 +191,42 @@ func (c *Reconciler) previousCreatedRevision(config *v1.Configuration) (*v1.Revi
 	}
 
 	return nil, false, nil
+}
+
+func (c *Reconciler) serviceOrchestrator(ctx context.Context, service *v1.Service, config *v1.Configuration) (*v1.ServiceOrchestrator, error) {
+	logger := logging.FromContext(ctx)
+	logger.Infof("call serviceOrchestrator call serviceOrchestrator call serviceOrchestrator call serviceOrchestrator call serviceOrchestrator call serviceOrchestrator call serviceOrchestrator")
+
+	recorder := controller.GetEventRecorder(ctx)
+
+	routeName := resourcenames.Route(service)
+	route, err := c.routeLister.Routes(service.Namespace).Get(routeName)
+	if apierrs.IsNotFound(err) {
+		route = nil
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to get the route: %w", err)
+	}
+
+	soName := resourcenames.ServiceOrchestrator(service)
+	so, err := c.serviceOrchestratorLister.ServiceOrchestrators(config.Namespace).Get(soName)
+	if apierrs.IsNotFound(err) {
+		so, err = c.createServiceOrchestrator(ctx, service, config, route)
+		if err != nil {
+			recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create ServiceOrchestrator %q: %v", soName, err)
+			return nil, fmt.Errorf("failed to create ServiceOrchestrator: %w", err)
+		}
+		recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created ServiceOrchestrator %q", soName)
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to get Configuration: %w", err)
+	} else if !metav1.IsControlledBy(so, service) {
+		// Surface an error in the service's status,and return an error.
+		service.Status.MarkServiceOrchestratorNotOwned(soName)
+		return nil, fmt.Errorf("service: %q does not own ServiceOrchestrator: %q", service.Name, soName)
+	} else if so, err = c.reconcileServiceOrchestrator(ctx, service, config, so); err != nil {
+		return nil, fmt.Errorf("failed to reconcile Configuration: %w", err)
+	}
+
+	return nil, nil
 }
 
 func (c *Reconciler) config(ctx context.Context, service *v1.Service) (*v1.Configuration, error) {
@@ -261,12 +302,134 @@ func (c *Reconciler) checkRoutesNotReady(config *v1.Configuration, logger *zap.S
 		logger.Errorf("No good route what we need No good route what we need No good route what we need No good route what we need")
 		service.Status.MarkRouteNotYetReady()
 	}
-	logger.Infof("Good Route!!!!!!!!!Good Route!!!!!Good Route!!!!!Good Route!!!!!Good Route!!!!!Good Route!!!!!Good Route!!!!!")
 }
 
 func (c *Reconciler) createConfiguration(ctx context.Context, service *v1.Service) (*v1.Configuration, error) {
 	return c.client.ServingV1().Configurations(service.Namespace).Create(
 		ctx, resources.MakeConfiguration(service), metav1.CreateOptions{})
+}
+
+func (c *Reconciler) calculateStageRevisionTarget(so *v1.ServiceOrchestrator) (*v1.ServiceOrchestrator, error) {
+	if so.Status.StageRevisionStatus == nil || len(so.Status.StageRevisionStatus) == 0 {
+		// There is no stage revision status, which indicates that no route is configured. We can directly set
+		// the ultimate revision target as the current stage revision target.
+		so.Spec.StageRevisionTarget = append([]v1.RevisionTarget{}, so.Spec.RevisionTarget...)
+
+		// TODO remove later: Just check the status can be reflected in the so or not.
+		so.Status.StageRevisionStatus = append([]v1.RevisionTarget{}, so.Spec.RevisionTarget...)
+	} else {
+		if len(so.Spec.InitialRevisionStatus) > 1 || len(so.Spec.RevisionTarget) > 1 {
+			// If the initial revision status contains more than one revision, or the ultimate revision target contains
+			// more than one revision, we will set the current stage target to the ultimate revision target.
+			so.Spec.StageRevisionTarget = append([]v1.RevisionTarget{}, so.Spec.RevisionTarget...)
+		} else {
+			// If the initial revision status and ultimate revision target both contains only one revision, we will
+			// roll out the revision incrementally.
+			// Check if stage revision status is ready or in progress
+			if so.IsStageReady() {
+				if so.IsReady() {
+					// If the last stage has rolled out, nothing changes.
+					return so, nil
+				} else {
+					// The current stage revision is complete. We need to calculate the next stage target.
+					so = c.updateStageRevisionSpec(so)
+				}
+			} else if so.IsStageInProgress() {
+				// Do nothing, because it is in progress to the current so.Spec.StageRevisionTarget
+				return so, nil
+			}
+		}
+	}
+
+	return so, nil
+}
+
+func (c *Reconciler) updateStageRevisionSpec(so *v1.ServiceOrchestrator) *v1.ServiceOrchestrator {
+	// Based on the list of revisions in the stage revision status and the ultimate revision target,
+	// we can get the current number of replicas based on the kpa for each revision, because the kpa shares
+	// the same name as the revision.
+
+	// Based on the oversubscription ratio, the stage revision status, the number of replicas of the new revision,
+	// we can estimate the number of replicas of the next stage. If the number of replicas of the old revision takes
+	// 100% of the traffic, we need to use the number of replicas for the old revision.
+
+	//for _, revision := range so.Status.StageRevisionStatus {
+	//
+	//}
+
+	return so
+}
+
+func (c *Reconciler) createServiceOrchestrator(ctx context.Context, service *v1.Service, config *v1.Configuration,
+	route *v1.Route) (*v1.ServiceOrchestrator, error) {
+	// To create the service, orchestrator, we need to make sure we have stageTraffic and Traffic in the spec, and
+	// stageReady, and Ready in the status.
+	records := map[string]resources.RevisionRecord{}
+
+	lister := c.podAutoscalerLister.PodAutoscalers(config.Namespace)
+	list, err := lister.List(labels.SelectorFromSet(labels.Set{
+		serving.ConfigurationLabelKey: config.Name,
+	}))
+
+	logger := logging.FromContext(ctx)
+	logger.Infof("Test service orchestrator Test service orchestrator Test service orchestrator Test service orchestrator")
+
+	if err == nil && len(list) > 0 {
+		for _, revision := range list {
+			logger.Infof("List the revision List the revision List the revision List the revision List the revision List the revision")
+			logger.Info(revision)
+
+			logger.Infof("check the annotations")
+			logger.Info(revision.Annotations)
+			record := resources.RevisionRecord{}
+			//if kpa.Status.DesiredScale != nil {
+			//	*record.Replicas = *kpa.Status.DesiredScale
+			//}
+
+			if val, ok := revision.Annotations[autoscaling.MinScaleAnnotationKey]; ok {
+				logger.Infof("check the annotations min ok")
+
+				i, err := strconv.ParseInt(val, 10, 32)
+				if err == nil {
+					logger.Infof("check the annotations min val set")
+					record.MinScale = ptr.Int32(int32(i))
+				} else {
+					logger.Infof("check the annotations min val not set")
+					logger.Info(err)
+				}
+			}
+
+			if val, ok := revision.Annotations[autoscaling.MaxScaleAnnotationKey]; ok {
+				logger.Infof("check the max annotations ok")
+				i, err := strconv.ParseInt(val, 10, 32)
+				if err == nil {
+					record.MaxScale = ptr.Int32(int32(i))
+				}
+			}
+			record.Name = revision.Name
+			records[revision.Name] = record
+
+			logger.Infof("print records")
+			logger.Info(record)
+		}
+	} else {
+		return nil, fmt.Errorf("failed to get the kpa: %w", err)
+	}
+
+	logger.Infof("Good Route!!!!!!!!!Good Route!!!!!Good Route!!!!!Good Route!!!!!Good Route!!!!!Good Route!!!!!Good Route!!!!!")
+
+	so := resources.MakeServiceOrchestrator(service, config, route, records, logger)
+	so, err = c.client.ServingV1().ServiceOrchestrators(service.Namespace).Create(
+		ctx, so, metav1.CreateOptions{})
+	if err != nil {
+		return so, err
+	}
+	so, _ = c.calculateStageRevisionTarget(so)
+	origin := so.DeepCopy()
+	if equality.Semantic.DeepEqual(origin.Spec, so.Spec) {
+		return so, nil
+	}
+	return c.client.ServingV1().ServiceOrchestrators(service.Namespace).Update(ctx, so, metav1.UpdateOptions{})
 }
 
 func configSemanticEquals(ctx context.Context, desiredConfig, config *v1.Configuration) (bool, error) {
@@ -282,6 +445,15 @@ func configSemanticEquals(ctx context.Context, desiredConfig, config *v1.Configu
 		equality.Semantic.DeepEqual(desiredConfig.Labels, config.Labels) &&
 		equality.Semantic.DeepEqual(desiredConfig.Annotations, config.Annotations) &&
 		specDiff == "", nil
+}
+
+func (c *Reconciler) reconcileServiceOrchestrator(ctx context.Context, service *v1.Service, config *v1.Configuration, so *v1.ServiceOrchestrator) (*v1.ServiceOrchestrator, error) {
+	origin := so.DeepCopy()
+	so, _ = c.calculateStageRevisionTarget(so)
+	if equality.Semantic.DeepEqual(origin.Spec, so.Spec) {
+		return so, nil
+	}
+	return c.client.ServingV1().ServiceOrchestrators(service.Namespace).Update(ctx, so, metav1.UpdateOptions{})
 }
 
 func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1.Service, config *v1.Configuration) (*v1.Configuration, error) {

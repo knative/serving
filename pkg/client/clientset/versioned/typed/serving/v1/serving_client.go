@@ -32,6 +32,7 @@ type ServingV1Interface interface {
 	RevisionsGetter
 	RoutesGetter
 	ServicesGetter
+	ServiceOrchestratorsGetter
 }
 
 // ServingV1Client is used to interact with features provided by the serving.knative.dev group.
@@ -53,6 +54,10 @@ func (c *ServingV1Client) Routes(namespace string) RouteInterface {
 
 func (c *ServingV1Client) Services(namespace string) ServiceInterface {
 	return newServices(c, namespace)
+}
+
+func (c *ServingV1Client) ServiceOrchestrators(namespace string) ServiceOrchestratorInterface {
+	return newServiceOrchestrators(c, namespace)
 }
 
 // NewForConfig creates a new ServingV1Client for the given config.
