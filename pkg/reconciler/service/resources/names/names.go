@@ -27,3 +27,8 @@ func Configuration(service kmeta.Accessor) string {
 func Route(service kmeta.Accessor) string {
 	return service.GetName()
 }
+
+// ServiceOrchestrator returns a serviceOrchestrator name based on a given service name.
+func ServiceOrchestrator(service kmeta.Accessor) string {
+	return service.GetName()
+}

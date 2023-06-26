@@ -99,6 +99,10 @@ const (
 	// ServiceConditionConfigurationsReady is set when the service's underlying
 	// configurations have reported readiness.
 	ServiceConditionConfigurationsReady apis.ConditionType = "ConfigurationsReady"
+
+	// ServiceConditionServiceOrchestratorsReady is set when the service's underlying
+	// ServiceOrchestrators have reported readiness.
+	ServiceConditionServiceOrchestratorsReady apis.ConditionType = "ServiceOrchestratorsReady"
 )
 
 // IsServiceCondition returns true if the ConditionType is a service condition type
@@ -107,7 +111,8 @@ func IsServiceCondition(t apis.ConditionType) bool {
 	case
 		ServiceConditionReady,
 		ServiceConditionRoutesReady,
-		ServiceConditionConfigurationsReady:
+		ServiceConditionConfigurationsReady,
+		ServiceConditionServiceOrchestratorsReady:
 		return true
 	}
 	return false

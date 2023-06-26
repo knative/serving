@@ -44,6 +44,10 @@ func (c *FakeServingV1) Services(namespace string) v1.ServiceInterface {
 	return &FakeServices{c, namespace}
 }
 
+func (c *FakeServingV1) ServiceOrchestrators(namespace string) v1.ServiceOrchestratorInterface {
+	return &FakeServiceOrchestrators{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeServingV1) RESTClient() rest.Interface {

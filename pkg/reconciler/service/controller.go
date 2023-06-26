@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 
 	cfgmap "knative.dev/serving/pkg/apis/config"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
@@ -25,6 +26,7 @@ import (
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route"
 	kserviceinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/service"
+	serviceorchestratorinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/serviceorchestrator"
 	ksvcreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/service"
 
 	"k8s.io/client-go/tools/cache"
@@ -45,15 +47,19 @@ func NewController(
 	routeInformer := routeinformer.Get(ctx)
 	configurationInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
+	serviceOrchestratorInformer := serviceorchestratorinformer.Get(ctx)
 
 	configStore := cfgmap.NewStore(logger.Named("config-store"))
 	configStore.WatchConfigs(cmw)
+	paInformer := painformer.Get(ctx)
 
 	c := &Reconciler{
-		client:              servingclient.Get(ctx),
-		configurationLister: configurationInformer.Lister(),
-		revisionLister:      revisionInformer.Lister(),
-		routeLister:         routeInformer.Lister(),
+		client:                    servingclient.Get(ctx),
+		configurationLister:       configurationInformer.Lister(),
+		revisionLister:            revisionInformer.Lister(),
+		routeLister:               routeInformer.Lister(),
+		serviceOrchestratorLister: serviceOrchestratorInformer.Lister(),
+		podAutoscalerLister:       paInformer.Lister(),
 	}
 	opts := func(*controller.Impl) controller.Options {
 		return controller.Options{ConfigStore: configStore}
@@ -68,6 +74,7 @@ func NewController(
 	}
 	configurationInformer.Informer().AddEventHandler(handleControllerOf)
 	routeInformer.Informer().AddEventHandler(handleControllerOf)
+	serviceOrchestratorInformer.Informer().AddEventHandler(handleControllerOf)
 
 	return impl
 }
