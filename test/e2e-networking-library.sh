@@ -80,7 +80,7 @@ function download_net_istio_yamls() {
     echo "Got NET_ISTIO_COMMIT from ${1}: ${sha}"
   fi
 
-  local istio_yaml="https://raw.githubusercontent.com/nak3/net-istio/add-ambient-3/third_party/istio-latest/istio-kind-ambient/istio.yaml"
+  local istio_yaml="$(net_istio_file_url "$sha" istio.yaml)"
   local istio_config_yaml="$(net_istio_file_url "$sha" config-istio.yaml)"
 
   wget -P "${target_dir}" "${istio_yaml}" \
@@ -103,7 +103,11 @@ function net_istio_file_url() {
   local profile="istio-ci-no-mesh"
 
   if (( KIND )); then
-    profile="istio-kind-no-mesh"
+    if (( AMBIENT )); then
+      profile="istio-kind-ambient"
+    else
+      profile="istio-kind-no-mesh"
+    fi
   elif (( MESH )); then
     profile="istio-ci-mesh"
   fi

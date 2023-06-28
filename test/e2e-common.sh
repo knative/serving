@@ -36,6 +36,7 @@ export SHORT=0
 export ENABLE_HA=0
 export ENABLE_TLS=${ENABLE_TLS:-0}
 export MESH=0
+export AMBIENT=0
 export PERF=0
 export KIND=${KIND:-0}
 export CLUSTER_DOMAIN=${CLUSTER_DOMAIN:-cluster.local}
@@ -128,9 +129,6 @@ function parse_flags() {
       ;;
     --no-mesh)
       readonly MESH=0
-      # DO_NOT_SUBMIT:
-      # Just a demonstration now. Enable AMBIENT on no-mesh.
-      readonly AMBIENT=1
       return 1
       ;;
     --perf)
