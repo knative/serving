@@ -56,6 +56,8 @@ aliases:
   - lance
   - salaboy
   knative-admin:
+  - Vishal-Chdhry
+  - creydr
   - csantanapr
   - dprotaso
   - dsimansk
@@ -70,18 +72,19 @@ aliases:
   - mchmarny
   - nainaz
   - pierDipi
-  - pradnyavmw
   - psschwei
   - puerco
   - salaboy
+  - skonto
   - smoser-ibm
   - upodroid
   - zroubalik
   knative-release-leads:
+  - Vishal-Chdhry
+  - creydr
   - dsimansk
-  - kvmware
   - pierDipi
-  - pradnyavmw
+  - skonto
   knative-robots:
   - knative-automation
   - knative-prow-releaser-robot
