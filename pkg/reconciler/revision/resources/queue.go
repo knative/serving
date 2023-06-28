@@ -138,6 +138,30 @@ func createQueueResources(cfg *deployment.Config, annotations map[string]string,
 		}
 	}
 
+	if requestCPU, ok := resourceFromAnnotation(annotations, serving.QueueSidecarCPUResourceRequestAnnotation); ok {
+		resourceRequests[corev1.ResourceCPU] = requestCPU
+	}
+
+	if limitCPU, ok := resourceFromAnnotation(annotations, serving.QueueSidecarCPUResourceLimitAnnotation); ok {
+		resourceLimits[corev1.ResourceCPU] = limitCPU
+	}
+
+	if requestMemory, ok := resourceFromAnnotation(annotations, serving.QueueSidecarMemoryResourceRequestAnnotation); ok {
+		resourceRequests[corev1.ResourceMemory] = requestMemory
+	}
+
+	if limitMemory, ok := resourceFromAnnotation(annotations, serving.QueueSidecarMemoryResourceLimitAnnotation); ok {
+		resourceLimits[corev1.ResourceMemory] = limitMemory
+	}
+
+	if requestEphmeralStorage, ok := resourceFromAnnotation(annotations, serving.QueueSidecarEphemeralStorageResourceRequestAnnotation); ok {
+		resourceRequests[corev1.ResourceEphemeralStorage] = requestEphmeralStorage
+	}
+
+	if limitEphemeralStorage, ok := resourceFromAnnotation(annotations, serving.QueueSidecarEphemeralStorageResourceLimitAnnotation); ok {
+		resourceLimits[corev1.ResourceEphemeralStorage] = limitEphemeralStorage
+	}
+
 	resources := corev1.ResourceRequirements{
 		Requests: resourceRequests,
 	}
@@ -170,6 +194,12 @@ func computeResourceRequirements(resourceQuantity *resource.Quantity, fraction f
 
 	newquantity := boundary.applyBoundary(*resource.NewMilliQuantity(newValue, resource.BinarySI))
 	return true, newquantity
+}
+
+func resourceFromAnnotation(m map[string]string, key kmap.KeyPriority) (resource.Quantity, bool) {
+	_, v, _ := key.Get(m)
+	q, err := resource.ParseQuantity(v)
+	return q, err == nil
 }
 
 func fractionFromPercentage(m map[string]string, key kmap.KeyPriority) (float64, bool) {
