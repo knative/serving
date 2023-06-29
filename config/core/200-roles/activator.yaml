@@ -40,7 +40,7 @@ metadata:
     app.kubernetes.io/name: knative-serving
 rules:
   - apiGroups: [""]
-    resources: ["services", "endpoints", ""]
+    resources: ["services", "endpoints"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["serving.knative.dev"]
     resources: ["revisions"]
