@@ -33,3 +33,11 @@ type PodAutoscalerListerExpansion interface{}
 // PodAutoscalerNamespaceListerExpansion allows custom methods to be added to
 // PodAutoscalerNamespaceLister.
 type PodAutoscalerNamespaceListerExpansion interface{}
+
+// StagePodAutoscalerListerExpansion allows custom methods to be added to
+// StagePodAutoscalerLister.
+type StagePodAutoscalerListerExpansion interface{}
+
+// StagePodAutoscalerNamespaceListerExpansion allows custom methods to be added to
+// StagePodAutoscalerNamespaceLister.
+type StagePodAutoscalerNamespaceListerExpansion interface{}

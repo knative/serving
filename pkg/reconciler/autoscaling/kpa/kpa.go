@@ -39,7 +39,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
 	anames "knative.dev/serving/pkg/reconciler/autoscaling/resources/names"
-	"knative.dev/serving/pkg/reconciler/scale"
 	resourceutil "knative.dev/serving/pkg/resources"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -103,7 +102,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 			return fmt.Errorf("error reconciling SKS: %w", err)
 		}
 		pa.Status.MarkSKSNotReady(noPrivateServiceName) // In both cases this is true.
-		computeStatus(ctx, pa, podCounts{want: scaleUnknown}, logger)
+		spa, _ := c.SpaLister.StagePodAutoscalers(pa.Namespace).Get(pa.Name)
+		computeStatus(ctx, pa, spa, podCounts{want: scaleUnknown}, logger)
 		return nil
 	}
 
@@ -119,7 +119,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
-	want, err := c.scaler.scale(ctx, pa, sks, decider.Status.DesiredScale)
+	spa, _ := c.SpaLister.StagePodAutoscalers(pa.Namespace).Get(pa.Name)
+	want, err := c.scaler.scale(ctx, pa, spa, sks, decider.Status.DesiredScale)
 	if err != nil {
 		return fmt.Errorf("error scaling target: %w", err)
 	}
@@ -187,7 +188,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 		terminating: terminating,
 	}
 	logger.Infof("Observed pod counts=%#v", pc)
-	computeStatus(ctx, pa, pc, logger)
+	computeStatus(ctx, pa, spa, pc, logger)
 	return nil
 }
 
@@ -220,11 +221,11 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *autoscalingv1alph
 	return decider, nil
 }
 
-func computeStatus(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, pc podCounts, logger *zap.SugaredLogger) {
+func computeStatus(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, spa *autoscalingv1alpha1.StagePodAutoscaler, pc podCounts, logger *zap.SugaredLogger) {
 	pa.Status.DesiredScale, pa.Status.ActualScale = ptr.Int32(int32(pc.want)), ptr.Int32(int32(pc.ready))
 
 	reportMetrics(pa, pc)
-	computeActiveCondition(ctx, pa, pc)
+	computeActiveCondition(ctx, pa, spa, pc)
 	logger.Debugf("PA Status after reconcile: %#v", pa.Status.Status)
 }
 
@@ -260,8 +261,8 @@ func reportMetrics(pa *autoscalingv1alpha1.PodAutoscaler, pc podCounts) {
 //	| -1   | >= min | 0     | active     | inactive   | <-- this case technically is impossible.
 //	| -1   | >= min | >0    | activating | active     |
 //	| -1   | >= min | >0    | active     | active     |
-func computeActiveCondition(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, pc podCounts) {
-	minReady := activeThreshold(ctx, pa)
+func computeActiveCondition(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, spa *autoscalingv1alpha1.StagePodAutoscaler, pc podCounts) {
+	minReady := activeThreshold(ctx, pa, spa)
 	if pc.ready >= minReady && pa.Status.ServiceName != "" {
 		pa.Status.MarkScaleTargetInitialized()
 	}
@@ -299,12 +300,13 @@ func computeActiveCondition(ctx context.Context, pa *autoscalingv1alpha1.PodAuto
 }
 
 // activeThreshold returns the scale required for the pa to be marked Active
-func activeThreshold(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler) int {
+func activeThreshold(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, spa *autoscalingv1alpha1.StagePodAutoscaler) int {
 	asConfig := config.FromContext(ctx).Autoscaler
 	min, _ := pa.ScaleBounds(asConfig)
-	if val, ok := scale.Scales["min"]; ok {
-		if val < min {
-			min = val
+	if spa != nil {
+		minS, _ := spa.ScaleBounds(asConfig)
+		if minS != nil && min > *minS {
+			min = *minS
 		}
 	}
 

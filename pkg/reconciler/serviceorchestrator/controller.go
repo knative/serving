@@ -26,6 +26,8 @@ import (
 	"knative.dev/pkg/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
+	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
+	spainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/stagepodautoscaler"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	soinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/serviceorchestrator"
 	soreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/serviceorchestrator"
@@ -40,14 +42,18 @@ func NewController(
 	logger := logging.FromContext(ctx)
 	soInformer := soinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
+	podAutoscalerInformer := painformer.Get(ctx)
+	stagePodAutoscalerInformer := spainformer.Get(ctx)
 
 	configStore := config.NewStore(logger.Named("config-store"))
 	configStore.WatchConfigs(cmw)
 
 	c := &Reconciler{
-		client:         servingclient.Get(ctx),
-		revisionLister: revisionInformer.Lister(),
-		clock:          &clock.RealClock{},
+		client:                   servingclient.Get(ctx),
+		revisionLister:           revisionInformer.Lister(),
+		podAutoscalerLister:      podAutoscalerInformer.Lister(),
+		stagePodAutoscalerLister: stagePodAutoscalerInformer.Lister(),
+		clock:                    &clock.RealClock{},
 	}
 	impl := soreconciler.NewImpl(ctx, c, func(*controller.Impl) controller.Options {
 		return controller.Options{ConfigStore: configStore}

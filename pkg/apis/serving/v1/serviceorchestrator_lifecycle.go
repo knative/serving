@@ -77,6 +77,18 @@ func (c *ServiceOrchestrator) IsStageFailed() bool {
 		cs.GetCondition(ServiceOrchestratorStageReady).IsFalse()
 }
 
+func (c *ServiceOrchestrator) IsStageScaleUpReady() bool {
+	cs := c.Status
+	return cs.ObservedGeneration == c.Generation &&
+		cs.GetCondition(ServiceOrchestratorStageScaleUpReady).IsTrue()
+}
+
+func (c *ServiceOrchestrator) IsStageScaleUpInProgress() bool {
+	cs := c.Status
+	return cs.ObservedGeneration == c.Generation &&
+		cs.GetCondition(ServiceOrchestratorStageScaleUpReady).IsUnknown()
+}
+
 // InitializeConditions sets the initial values to the conditions.
 func (cs *ServiceOrchestratorStatus) InitializeConditions() {
 	serviceOrchestratorCondSet.Manage(cs).InitializeConditions()
@@ -101,8 +113,28 @@ func (cs *ServiceOrchestratorStatus) MarkStageRevisionReady() {
 	serviceOrchestratorCondSet.Manage(cs).MarkTrue(ServiceOrchestratorStageReady)
 }
 
+func (cs *ServiceOrchestratorStatus) MarkStageRevisionScaleUpReady() {
+	serviceOrchestratorCondSet.Manage(cs).MarkTrue(ServiceOrchestratorStageScaleUpReady)
+}
+
+func (cs *ServiceOrchestratorStatus) MarkStageRevisionScaleDownReady() {
+	serviceOrchestratorCondSet.Manage(cs).MarkTrue(ServiceOrchestratorStageScaleDownReady)
+}
+
 // MarkLastStageRevisionComplete marks the ServiceOrchestratorLastStageComplete condition to
 // indicate that the revision rollout succeeded for the last stage.
 func (cs *ServiceOrchestratorStatus) MarkLastStageRevisionComplete() {
 	serviceOrchestratorCondSet.Manage(cs).MarkTrue(ServiceOrchestratorLastStageComplete)
+}
+
+func (cs *ServiceOrchestratorStatus) MarkStageRevisionInProgress(reason, message string) {
+	serviceOrchestratorCondSet.Manage(cs).MarkUnknown(ServiceOrchestratorStageReady, reason, message)
+}
+
+func (cs *ServiceOrchestratorStatus) MarkStageRevisionScaleDownInProgress(reason, message string) {
+	serviceOrchestratorCondSet.Manage(cs).MarkUnknown(ServiceOrchestratorStageScaleDownReady, reason, message)
+}
+
+func (cs *ServiceOrchestratorStatus) MarkStageRevisionScaleUpInProgress(reason, message string) {
+	serviceOrchestratorCondSet.Manage(cs).MarkUnknown(ServiceOrchestratorStageScaleUpReady, reason, message)
 }
