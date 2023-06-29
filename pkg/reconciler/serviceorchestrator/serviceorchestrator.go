@@ -22,7 +22,9 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/clock"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
 
 	pkgreconciler "knative.dev/pkg/reconciler"
@@ -67,11 +69,13 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, so *v1.ServiceOrchestrat
 		if revision.Direction == "" || revision.Direction == "up" {
 			spa, err := c.stagePodAutoscalerLister.StagePodAutoscalers(so.Namespace).Get(revision.RevisionName)
 			if apierrs.IsNotFound(err) {
-				c.createStagePA(ctx, &revision)
+				c.createStagePA(ctx, so, &revision)
 				return nil
 			} else if err != nil {
 				return nil
 			} else {
+				spa.Spec.MinScale = revision.MinScale
+				spa.Spec.MaxScale = revision.MaxScale
 				c.client.AutoscalingV1alpha1().StagePodAutoscalers(so.Namespace).Update(ctx, spa, metav1.UpdateOptions{})
 			}
 		}
@@ -83,13 +87,43 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, so *v1.ServiceOrchestrat
 			// Create the stage pod autoscaler with the new maxScale set to
 			// maxScale defined in the revision traffic, because scale up phase is not over, we cannot
 			// scale down the old revision.
-
+			for _, revision := range so.Spec.StageRevisionTarget {
+				if revision.Direction == "down" {
+					spa, err := c.stagePodAutoscalerLister.StagePodAutoscalers(so.Namespace).Get(revision.RevisionName)
+					if apierrs.IsNotFound(err) {
+						c.createStagePA(ctx, so, &revision)
+						return nil
+					} else if err != nil {
+						return nil
+					} else {
+						spa.Spec.MinScale = revision.MinScale
+						spa.Spec.MaxScale = revision.MaxScale
+						c.client.AutoscalingV1alpha1().StagePodAutoscalers(so.Namespace).Update(ctx, spa, metav1.UpdateOptions{})
+					}
+				}
+			}
 			return nil
 		}
 
 		so.Status.MarkStageRevisionScaleUpReady()
 		// Create the stage pod autoscaler with the new maxScale set to targetScale defined
 		// in the revision traffic. Scaling up phase is over, we are able to scale down.
+		// Create the stagePodAutoscaler for the revision to be scaled up
+		for _, revision := range so.Spec.StageRevisionTarget {
+			if revision.Direction == "down" {
+				spa, err := c.stagePodAutoscalerLister.StagePodAutoscalers(so.Namespace).Get(revision.RevisionName)
+				if apierrs.IsNotFound(err) {
+					c.createStagePA(ctx, so, &revision)
+					return nil
+				} else if err != nil {
+					return nil
+				} else {
+					spa.Spec.MinScale = revision.MinScale
+					spa.Spec.MaxScale = revision.TargetReplicas
+					c.client.AutoscalingV1alpha1().StagePodAutoscalers(so.Namespace).Update(ctx, spa, metav1.UpdateOptions{})
+				}
+			}
+		}
 
 		if !c.checkStageScaleDownReady(so) {
 			return nil
@@ -118,8 +152,21 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, so *v1.ServiceOrchestrat
 	return nil
 }
 
-func (c *Reconciler) createStagePA(ctx context.Context, revision *v1.RevisionTarget) error {
-
+func (c *Reconciler) createStagePA(ctx context.Context, so *v1.ServiceOrchestrator, revision *v1.RevisionTarget) error {
+	spa := &autoscalingv1alpha1.StagePodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      revision.RevisionName,
+			Namespace: so.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*kmeta.NewControllerRef(so),
+			},
+		},
+		Spec: autoscalingv1alpha1.StagePodAutoscalerSpec{
+			MinScale: revision.MinScale,
+			MaxScale: revision.MaxScale,
+		},
+	}
+	c.client.AutoscalingV1alpha1().StagePodAutoscalers(so.Namespace).Create(ctx, spa, metav1.CreateOptions{})
 	return nil
 }
 
