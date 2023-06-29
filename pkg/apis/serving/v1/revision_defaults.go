@@ -143,7 +143,8 @@ func (*RevisionSpec) applyProbes(container *corev1.Container) {
 	}
 	if container.ReadinessProbe.TCPSocket == nil &&
 		container.ReadinessProbe.HTTPGet == nil &&
-		container.ReadinessProbe.Exec == nil {
+		container.ReadinessProbe.Exec == nil &&
+		container.ReadinessProbe.GRPC == nil {
 		container.ReadinessProbe.TCPSocket = &corev1.TCPSocketAction{}
 	}
 

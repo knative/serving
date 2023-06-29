@@ -1888,6 +1888,31 @@ func TestContainerValidation(t *testing.T) {
 			},
 			want: apis.ErrDisallowedFields("lifecycle").Also(
 				apis.ErrMissingField("image")),
+		}, {
+			name: "valid grpc probe",
+			c: corev1.Container{
+				Name: "foo",
+				ReadinessProbe: &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						GRPC: &corev1.GRPCAction{
+							Port: 46,
+						},
+					},
+				},
+			},
+		}, {
+			name: "valid grpc probe with service",
+			c: corev1.Container{
+				Name: "foo",
+				ReadinessProbe: &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						GRPC: &corev1.GRPCAction{
+							Port:    46,
+							Service: ptr.String("foo"),
+						},
+					},
+				},
+			},
 		},
 	}
 	tests = append(tests, getCommonContainerValidationTestCases()...)

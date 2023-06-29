@@ -95,6 +95,15 @@ func TestProbeRuntime(t *testing.T) {
 				Command: []string{"/ko-app/readiness", "probe"},
 			},
 		},
+	}, {
+		name: "grpc",
+		env: []corev1.EnvVar{{
+			Name:  "READY_DELAY",
+			Value: "10s",
+		}},
+		handler: corev1.ProbeHandler{
+			GRPC: &corev1.GRPCAction{},
+		},
 	}}
 
 	for _, tc := range testCases {

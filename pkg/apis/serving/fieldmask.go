@@ -374,6 +374,7 @@ func HandlerMask(in *corev1.ProbeHandler) *corev1.ProbeHandler {
 	out.Exec = in.Exec
 	out.HTTPGet = in.HTTPGet
 	out.TCPSocket = in.TCPSocket
+	out.GRPC = in.GRPC
 
 	return out
 
@@ -425,6 +426,22 @@ func TCPSocketActionMask(in *corev1.TCPSocketAction) *corev1.TCPSocketAction {
 	// Allowed fields
 	out.Host = in.Host
 	out.Port = in.Port
+
+	return out
+}
+
+// GRPCActionMask performs a _shallow_ copy of the Kubernetes GRPCAction object to a new
+// Kubernetes GRPCAction object bringing over only the fields allowed in the Knative API. This
+// does not validate the contents or the bounds of the provided fields.
+func GRPCActionMask(in *corev1.GRPCAction) *corev1.GRPCAction {
+	if in == nil {
+		return nil
+	}
+	out := new(corev1.GRPCAction)
+
+	// Allowed fields
+	out.Port = in.Port
+	out.Service = in.Service
 
 	return out
 }

@@ -268,7 +268,9 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		if container.ReadinessProbe.TCPSocket != nil && container.ReadinessProbe.TCPSocket.Port.IntValue() != 0 {
 			probePort = container.ReadinessProbe.TCPSocket.Port.IntVal
 		}
-
+		if container.ReadinessProbe.GRPC != nil && container.ReadinessProbe.GRPC.Port > 0 {
+			probePort = container.ReadinessProbe.GRPC.Port
+		}
 		// The activator attempts to detect readiness itself by checking the Queue
 		// Proxy's health endpoint rather than waiting for Kubernetes to check and
 		// propagate the Ready state. We encode the original probe as JSON in an
@@ -449,6 +451,8 @@ func applyReadinessProbeDefaultsForExec(p *corev1.Probe, port int32) {
 			Port: intstr.FromInt(int(port)),
 		}
 		p.Exec = nil
+	case p.GRPC != nil:
+		p.GRPC.Port = port
 	}
 
 	if p.PeriodSeconds > 0 && p.TimeoutSeconds < 1 {
