@@ -59,12 +59,20 @@ var (
 
 // RevisionTarget holds the information of the revision for the current stage.
 type RevisionTarget struct {
+	// RevisionName indicates RevisionName.
+	// +optional
 	RevisionName string `json:"revisionName,omitempty"`
 
+	// Direction indicates up or down.
+	// +optional
 	Direction string `json:"direction,omitempty"`
 
+	// TargetReplicas indicates an estimated number of replicas.
+	// +optional
 	TargetReplicas *int32 `json:"targetReplicas,omitempty"`
 
+	// LatestRevision indicates whether it is the last revision or not.
+	// +optional
 	LatestRevision *bool `json:"latestRevision,omitempty"`
 
 	// Percent indicates that percentage based routing should be used and
@@ -79,9 +87,11 @@ type RevisionTarget struct {
 	Percent *int64 `json:"percent,omitempty"`
 
 	// MinScale sets the lower bound for the number of the replicas.
+	// +optional
 	MinScale *int32 `json:"minScale,omitempty"`
 
 	// MaxScale sets the upper bound for the number of the replicas.
+	// +optional
 	MaxScale *int32 `json:"maxScale,omitempty"`
 }
 
@@ -92,7 +102,7 @@ type ServiceOrchestratorSpec struct {
 	// When ConfigurationName appears in the spec, this will hold the
 	// LatestReadyRevisionName that we last observed.
 	// +optional
-	StageRevisionTarget []RevisionTarget `json:"StageRevisionTarget,omitempty"`
+	StageRevisionTarget []RevisionTarget `json:"stageRevisionTarget,omitempty"`
 
 	// Traffic holds the configured traffic distribution.
 	// These entries will always contain RevisionName references.
@@ -133,19 +143,20 @@ func IsServiceOrchestratorCondition(t apis.ConditionType) bool {
 // are not generally shared.  This is defined separately and inlined so that
 // other types can readily consume these fields via duck typing.
 type ServiceOrchestratorStatusFields struct {
-	// Traffic holds the configured traffic distribution.
-	// These entries will always contain RevisionName references.
-	// When ConfigurationName appears in the spec, this will hold the
-	// LatestReadyRevisionName that we last observed.
+	// StageRevisionStatus holds the traffic split.
 	// +optional
 	StageRevisionStatus []RevisionTarget `json:"stageRevisionStatus,omitempty"`
 }
 
-// ServiceOrchestratorStatusStatus communicates the observed state of the Configuration (from the controller).
+// ServiceOrchestratorStatus communicates the observed state of the Configuration (from the controller).
 type ServiceOrchestratorStatus struct {
 	duckv1.Status `json:",inline"`
 
 	ServiceOrchestratorStatusFields `json:",inline"`
+}
+
+func (t *ServiceOrchestratorStatus) SetStageRevisionStatus(stageRevisionStatus []RevisionTarget) {
+	t.StageRevisionStatus = stageRevisionStatus
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -159,6 +170,10 @@ type ServiceOrchestratorList struct {
 }
 
 // GetStatus retrieves the status of the Configuration. Implements the KRShaped interface.
+func (t *ServiceOrchestrator) GetStatusSO() *ServiceOrchestratorStatus {
+	return &t.Status
+}
+
 func (t *ServiceOrchestrator) GetStatus() *duckv1.Status {
 	return &t.Status.Status
 }
