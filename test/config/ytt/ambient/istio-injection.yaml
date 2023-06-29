@@ -21,4 +21,4 @@
 #@overlay/match-child-defaults missing_ok=True
 metadata:
   labels:
-    istio.io/dataplane-mode: amabient
+    istio.io/dataplane-mode: ambient
