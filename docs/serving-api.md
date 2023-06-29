@@ -1250,7 +1250,7 @@ ServiceOrchestratorSpec
 <table>
 <tr>
 <td>
-<code>StageRevisionTarget</code><br/>
+<code>stageRevisionTarget</code><br/>
 <em>
 <a href="#serving.knative.dev/v1.RevisionTarget">
 []RevisionTarget
@@ -1703,6 +1703,8 @@ string
 </em>
 </td>
 <td>
+<em>(Optional)</em>
+<p>RevisionName indicates RevisionName.</p>
 </td>
 </tr>
 <tr>
@@ -1713,6 +1715,8 @@ string
 </em>
 </td>
 <td>
+<em>(Optional)</em>
+<p>Direction indicates up or down.</p>
 </td>
 </tr>
 <tr>
@@ -1723,6 +1727,8 @@ int32
 </em>
 </td>
 <td>
+<em>(Optional)</em>
+<p>TargetReplicas indicates an estimated number of replicas.</p>
 </td>
 </tr>
 <tr>
@@ -1733,6 +1739,8 @@ bool
 </em>
 </td>
 <td>
+<em>(Optional)</em>
+<p>LatestRevision indicates whether it is the last revision or not.</p>
 </td>
 </tr>
 <tr>
@@ -1762,6 +1770,7 @@ int32
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>MinScale sets the lower bound for the number of the replicas.</p>
 </td>
 </tr>
@@ -1773,6 +1782,7 @@ int32
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>MaxScale sets the upper bound for the number of the replicas.</p>
 </td>
 </tr>
@@ -2095,7 +2105,7 @@ and is scaled down, but may be rapidly pinned to a route to be made active again
 <tbody>
 <tr>
 <td>
-<code>StageRevisionTarget</code><br/>
+<code>stageRevisionTarget</code><br/>
 <em>
 <a href="#serving.knative.dev/v1.RevisionTarget">
 []RevisionTarget
@@ -2152,7 +2162,7 @@ LatestReadyRevisionName that we last observed.</p>
 (<em>Appears on:</em><a href="#serving.knative.dev/v1.ServiceOrchestrator">ServiceOrchestrator</a>)
 </p>
 <div>
-<p>ServiceOrchestratorStatusStatus communicates the observed state of the Configuration (from the controller).</p>
+<p>ServiceOrchestratorStatus communicates the observed state of the Configuration (from the controller).</p>
 </div>
 <table>
 <thead>
@@ -2223,10 +2233,7 @@ other types can readily consume these fields via duck typing.</p>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Traffic holds the configured traffic distribution.
-These entries will always contain RevisionName references.
-When ConfigurationName appears in the spec, this will hold the
-LatestReadyRevisionName that we last observed.</p>
+<p>StageRevisionStatus holds the traffic split.</p>
 </td>
 </tr>
 </tbody>

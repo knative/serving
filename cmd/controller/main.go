@@ -31,6 +31,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/route"
 	"knative.dev/serving/pkg/reconciler/serverlessservice"
 	"knative.dev/serving/pkg/reconciler/service"
+	"knative.dev/serving/pkg/reconciler/serviceorchestrator"
 
 	// This defines the shared main for injected controllers.
 	filteredFactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
@@ -46,6 +47,7 @@ const (
 
 var ctors = []injection.ControllerConstructor{
 	configuration.NewController,
+	serviceorchestrator.NewController,
 	labeler.NewController,
 	revision.NewController,
 	route.NewController,

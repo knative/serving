@@ -309,15 +309,26 @@ func (c *Reconciler) createConfiguration(ctx context.Context, service *v1.Servic
 		ctx, resources.MakeConfiguration(service), metav1.CreateOptions{})
 }
 
-func (c *Reconciler) calculateStageRevisionTarget(so *v1.ServiceOrchestrator) (*v1.ServiceOrchestrator, error) {
+func (c *Reconciler) calculateStageRevisionTarget(ctx context.Context, so *v1.ServiceOrchestrator) (*v1.ServiceOrchestrator, error) {
+	logger := logging.FromContext(ctx)
+	logger.Info("calculateStageRevisionTarget calculateStageRevisionTarget calculateStageRevisionTarget calculateStageRevisionTarget")
+
 	if so.Status.StageRevisionStatus == nil || len(so.Status.StageRevisionStatus) == 0 {
+		logger.Info("I do not see StageRevisionStatus in status.")
+
 		// There is no stage revision status, which indicates that no route is configured. We can directly set
 		// the ultimate revision target as the current stage revision target.
 		so.Spec.StageRevisionTarget = append([]v1.RevisionTarget{}, so.Spec.RevisionTarget...)
 
 		// TODO remove later: Just check the status can be reflected in the so or not.
-		so.Status.StageRevisionStatus = append([]v1.RevisionTarget{}, so.Spec.RevisionTarget...)
+		//status := so.GetStatusSO()
+		//
+		//status.SetStageRevisionStatus(append([]v1.RevisionTarget{}, so.Spec.RevisionTarget...))
+		//so.Status.StageRevisionStatus = append([]v1.RevisionTarget{}, so.Spec.RevisionTarget...)
 	} else {
+
+		logger.Info("I see StageRevisionStatus in status.")
+
 		if len(so.Spec.InitialRevisionStatus) > 1 || len(so.Spec.RevisionTarget) > 1 {
 			// If the initial revision status contains more than one revision, or the ultimate revision target contains
 			// more than one revision, we will set the current stage target to the ultimate revision target.
@@ -424,12 +435,17 @@ func (c *Reconciler) createServiceOrchestrator(ctx context.Context, service *v1.
 	if err != nil {
 		return so, err
 	}
-	so, _ = c.calculateStageRevisionTarget(so)
-	origin := so.DeepCopy()
-	if equality.Semantic.DeepEqual(origin.Spec, so.Spec) {
-		return so, nil
-	}
-	return c.client.ServingV1().ServiceOrchestrators(service.Namespace).Update(ctx, so, metav1.UpdateOptions{})
+	so, _ = c.calculateStageRevisionTarget(ctx, so)
+	//origin := so.DeepCopy()
+	//if equality.Semantic.DeepEqual(origin.Spec, so.Spec) {
+	//	return so, nil
+	//}
+	logger.Infof("check the StageRevisionTarget")
+	logger.Info(so.Spec.StageRevisionTarget)
+	so, err = c.client.ServingV1().ServiceOrchestrators(service.Namespace).Update(ctx, so, metav1.UpdateOptions{})
+	logger.Infof("check the error")
+	logger.Info(err)
+	return so, err
 }
 
 func configSemanticEquals(ctx context.Context, desiredConfig, config *v1.Configuration) (bool, error) {
@@ -448,11 +464,11 @@ func configSemanticEquals(ctx context.Context, desiredConfig, config *v1.Configu
 }
 
 func (c *Reconciler) reconcileServiceOrchestrator(ctx context.Context, service *v1.Service, config *v1.Configuration, so *v1.ServiceOrchestrator) (*v1.ServiceOrchestrator, error) {
-	origin := so.DeepCopy()
-	so, _ = c.calculateStageRevisionTarget(so)
-	if equality.Semantic.DeepEqual(origin.Spec, so.Spec) {
-		return so, nil
-	}
+	//origin := so.DeepCopy()
+	so, _ = c.calculateStageRevisionTarget(ctx, so)
+	//if equality.Semantic.DeepEqual(origin.Spec, so.Spec) {
+	//	return so, nil
+	//}
 	return c.client.ServingV1().ServiceOrchestrators(service.Namespace).Update(ctx, so, metav1.UpdateOptions{})
 }
 
