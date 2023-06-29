@@ -57,6 +57,7 @@ type Reconciler struct {
 	routeLister               listers.RouteLister
 	serviceOrchestratorLister listers.ServiceOrchestratorLister
 	podAutoscalerLister       palisters.PodAutoscalerLister
+	stagePodAutoscalerLister  palisters.StagePodAutoscalerLister
 }
 
 // Check that our Reconciler implements ksvcreconciler.Interface
@@ -74,10 +75,10 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 	}
 
 	// If the size of the traffic list is 0 or 1, there will be only one revision accepting the traffic.
-	_, err = c.serviceOrchestrator(ctx, service, config)
-	if err != nil {
-		return err
-	}
+	//_, err = c.serviceOrchestrator(ctx, service, config)
+	//if err != nil {
+	//	return err
+	//}
 
 	if config.Generation != config.Status.ObservedGeneration {
 		// The Configuration hasn't yet reconciled our latest changes to
@@ -351,6 +352,114 @@ func (c *Reconciler) calculateStageRevisionTarget(ctx context.Context, so *v1.Se
 }
 
 func (c *Reconciler) updateStageRevisionSpec(so *v1.ServiceOrchestrator) *v1.ServiceOrchestrator {
+	if len(so.Status.StageRevisionStatus) > 2 || len(so.Spec.RevisionTarget) != 1 {
+		return so
+	}
+
+	finalRevision := so.Spec.RevisionTarget[0].RevisionName
+
+	found := false
+	index, originIndex := -1, -1
+	if len(so.Status.StageRevisionStatus) == 2 {
+		if so.Status.StageRevisionStatus[0].RevisionName == finalRevision {
+			found = true
+			index = 0
+			originIndex = 1
+		}
+		if so.Status.StageRevisionStatus[1].RevisionName == finalRevision {
+			found = true
+			index = 1
+			originIndex = 0
+		}
+		if !found {
+			so.Spec.StageRevisionTarget = append([]v1.RevisionTarget{}, so.Spec.RevisionTarget...)
+			return so
+		}
+
+		ratio := resources.OverSubRatio
+		currentTraffic := *so.Status.StageRevisionStatus[index].Percent
+
+		finalTraffic := *so.Spec.RevisionTarget[0].Percent
+
+		pa, _ := c.podAutoscalerLister.PodAutoscalers(so.Namespace).Get(finalRevision)
+		//spa, _ := c.stagePodAutoscalerLister.StagePodAutoscalers(so.Namespace).Get(finalRevision)
+		currentReplicas := *pa.Status.DesiredScale
+
+		min := so.Status.StageRevisionStatus[index].MinScale
+		max := so.Status.StageRevisionStatus[index].MaxScale
+
+		stageRevisionTarget := []v1.RevisionTarget{}
+		if min == nil {
+			if max == nil {
+				if currentReplicas == 0 {
+					// No traffic, set the stage revision target to final revision target.
+					stageRevisionTarget = append([]v1.RevisionTarget{}, so.Spec.RevisionTarget...)
+				} else {
+					// Driven by traffic
+					stageRevisionTarget = c.trafficDriven(index, originIndex, currentTraffic, finalTraffic, ratio)
+				}
+
+			} else {
+				maxV := *max
+				if currentReplicas == 0 {
+					// No traffic, set the stage revision target to final revision target.
+					stageRevisionTarget = append([]v1.RevisionTarget{}, so.Spec.RevisionTarget...)
+				} else if currentReplicas < maxV {
+					// Driven by traffic
+					stageRevisionTarget = c.trafficDriven(index, originIndex, currentTraffic, finalTraffic, ratio)
+				} else if currentReplicas == maxV {
+					// Full load.
+					stageRevisionTarget = c.fullLoad(index, originIndex, currentTraffic, finalTraffic, ratio)
+				}
+			}
+		} else {
+			if max == nil {
+				minV := *min
+				if currentReplicas == 0 {
+					// No traffic, set the stage revision target to final revision target.
+					stageRevisionTarget = append([]v1.RevisionTarget{}, so.Spec.RevisionTarget...)
+				} else if currentReplicas == minV {
+					// Lowest load.
+					stageRevisionTarget = c.fullLoad(index, originIndex, currentTraffic, finalTraffic, ratio)
+
+				} else if currentReplicas > minV {
+					// Driven by traffic
+					stageRevisionTarget = c.trafficDriven(index, originIndex, currentTraffic, finalTraffic, ratio)
+				}
+
+			} else {
+				minV := *min
+				maxV := *max
+				if currentReplicas == 0 {
+					// No traffic, set the stage revision target to final revision target.
+					stageRevisionTarget = append([]v1.RevisionTarget{}, so.Spec.RevisionTarget...)
+				} else if currentReplicas > minV && currentReplicas < maxV {
+					// Driven by traffic
+					stageRevisionTarget = c.trafficDriven(index, originIndex, currentTraffic, finalTraffic, ratio)
+				} else if currentReplicas == maxV {
+					// Full load.
+					stageRevisionTarget = c.fullLoad(index, originIndex, currentTraffic, finalTraffic, ratio)
+				} else if currentReplicas == minV {
+					// Lowest load.
+					stageRevisionTarget = c.lowestLoad(index, originIndex, currentTraffic, finalTraffic, ratio)
+				}
+
+			}
+		}
+
+		so.Spec.StageRevisionTarget = stageRevisionTarget
+	}
+
+	if len(so.Status.StageRevisionStatus) == 1 {
+		if so.Status.StageRevisionStatus[0].RevisionName == finalRevision {
+			return so
+		}
+
+		index = 0
+		originIndex = 1
+		// TODO
+	}
+
 	// Based on the list of revisions in the stage revision status and the ultimate revision target,
 	// we can get the current number of replicas based on the kpa for each revision, because the kpa shares
 	// the same name as the revision.
@@ -364,6 +473,18 @@ func (c *Reconciler) updateStageRevisionSpec(so *v1.ServiceOrchestrator) *v1.Ser
 	//}
 
 	return so
+}
+
+func (c *Reconciler) trafficDriven(index, originIndex int, currentTraffic, finalTraffic int64, ratio int) []v1.RevisionTarget {
+	return nil
+}
+
+func (c *Reconciler) fullLoad(index, originIndex int, currentTraffic, finalTraffic int64, ratio int) []v1.RevisionTarget {
+	return nil
+}
+
+func (c *Reconciler) lowestLoad(index, originIndex int, currentTraffic, finalTraffic int64, ratio int) []v1.RevisionTarget {
+	return nil
 }
 
 func (c *Reconciler) createServiceOrchestrator(ctx context.Context, service *v1.Service, config *v1.Configuration,
@@ -431,10 +552,10 @@ func (c *Reconciler) createServiceOrchestrator(ctx context.Context, service *v1.
 		return so, err
 	}
 	so, _ = c.calculateStageRevisionTarget(ctx, so)
-	//origin := so.DeepCopy()
-	//if equality.Semantic.DeepEqual(origin.Spec, so.Spec) {
-	//	return so, nil
-	//}
+	origin := so.DeepCopy()
+	if equality.Semantic.DeepEqual(origin.Spec, so.Spec) {
+		return so, nil
+	}
 	logger.Infof("check the StageRevisionTarget")
 	logger.Info(so.Spec.StageRevisionTarget)
 	so, err = c.client.ServingV1().ServiceOrchestrators(service.Namespace).Update(ctx, so, metav1.UpdateOptions{})
@@ -459,11 +580,11 @@ func configSemanticEquals(ctx context.Context, desiredConfig, config *v1.Configu
 }
 
 func (c *Reconciler) reconcileServiceOrchestrator(ctx context.Context, service *v1.Service, config *v1.Configuration, so *v1.ServiceOrchestrator) (*v1.ServiceOrchestrator, error) {
-	//origin := so.DeepCopy()
+	origin := so.DeepCopy()
 	so, _ = c.calculateStageRevisionTarget(ctx, so)
-	//if equality.Semantic.DeepEqual(origin.Spec, so.Spec) {
-	//	return so, nil
-	//}
+	if equality.Semantic.DeepEqual(origin.Spec, so.Spec) {
+		return so, nil
+	}
 	return c.client.ServingV1().ServiceOrchestrators(service.Namespace).Update(ctx, so, metav1.UpdateOptions{})
 }
 
