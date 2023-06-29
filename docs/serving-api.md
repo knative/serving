@@ -20,6 +20,8 @@
 Resource Types:
 <ul><li>
 <a href="#autoscaling.internal.knative.dev/v1alpha1.PodAutoscaler">PodAutoscaler</a>
+</li><li>
+<a href="#autoscaling.internal.knative.dev/v1alpha1.StagePodAutoscaler">StagePodAutoscaler</a>
 </li></ul>
 <h3 id="autoscaling.internal.knative.dev/v1alpha1.PodAutoscaler">PodAutoscaler
 </h3>
@@ -155,6 +157,98 @@ PodAutoscalerStatus
 <td>
 <em>(Optional)</em>
 <p>Status communicates the observed state of the PodAutoscaler (from the controller).</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="autoscaling.internal.knative.dev/v1alpha1.StagePodAutoscaler">StagePodAutoscaler
+</h3>
+<div>
+<p>PodAutoscaler is a Knative abstraction that encapsulates the interface by which Knative
+components instantiate autoscalers.  This definition is an abstraction that may be backed
+by multiple definitions.  For more information, see the Knative Pluggability presentation:
+<a href="https://docs.google.com/presentation/d/19vW9HFZ6Puxt31biNZF3uLRejDmu82rxJIk1cWmxF7w/edit">https://docs.google.com/presentation/d/19vW9HFZ6Puxt31biNZF3uLRejDmu82rxJIk1cWmxF7w/edit</a></p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+autoscaling.internal.knative.dev/v1alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>StagePodAutoscaler</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#autoscaling.internal.knative.dev/v1alpha1.StagePodAutoscalerSpec">
+StagePodAutoscalerSpec
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Spec holds the desired state of the PodAutoscaler (from the client).</p>
+<br/>
+<br/>
+<table>
+<tr>
+<td>
+<code>minScale</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MinScale sets the lower bound for the number of the replicas.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>maxScale</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MaxScale sets the upper bound for the number of the replicas.</p>
+</td>
+</tr>
+</table>
 </td>
 </tr>
 </tbody>
@@ -703,6 +797,47 @@ Used when the reachability cannot be determined, eg. during activation.</p>
 <td><p>ReachabilityUnreachable means the <code>ScaleTarget</code> is not reachable, ie. it does not have an active route.</p>
 </td>
 </tr></tbody>
+</table>
+<h3 id="autoscaling.internal.knative.dev/v1alpha1.StagePodAutoscalerSpec">StagePodAutoscalerSpec
+</h3>
+<p>
+(<em>Appears on:</em><a href="#autoscaling.internal.knative.dev/v1alpha1.StagePodAutoscaler">StagePodAutoscaler</a>)
+</p>
+<div>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>minScale</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MinScale sets the lower bound for the number of the replicas.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>maxScale</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>MaxScale sets the upper bound for the number of the replicas.</p>
+</td>
+</tr>
+</tbody>
 </table>
 <hr/>
 <h2 id="serving.knative.dev/v1">serving.knative.dev/v1</h2>

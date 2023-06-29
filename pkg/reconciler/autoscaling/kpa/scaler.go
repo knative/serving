@@ -323,7 +323,7 @@ func (ks *scaler) applyScale(ctx context.Context, pa *autoscalingv1alpha1.PodAut
 }
 
 // scale attempts to scale the given PA's target reference to the desired scale.
-func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, sks *netv1alpha1.ServerlessService, desiredScale int32) (int32, error) {
+func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, spa *autoscalingv1alpha1.StagePodAutoscaler, sks *netv1alpha1.ServerlessService, desiredScale int32) (int32, error) {
 	asConfig := config.FromContext(ctx).Autoscaler
 	logger := logging.FromContext(ctx)
 
@@ -333,6 +333,15 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 	}
 
 	min, max := pa.ScaleBounds(asConfig)
+	if spa != nil {
+		minS, maxS := spa.ScaleBounds(asConfig)
+		if minS != nil && min > *minS {
+			min = *minS
+		}
+		if maxS != nil && *maxS < max {
+			max = *maxS
+		}
+	}
 	logger.Infof("Get the Min MinScale = %d",
 		min)
 	if val, ok := scale.Scales["min"]; ok {

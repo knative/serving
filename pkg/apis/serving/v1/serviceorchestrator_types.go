@@ -132,6 +132,10 @@ const (
 	// ServiceOrchestratorLastStageComplete is set to False when the
 	// Ingress fails to become Ready.
 	ServiceOrchestratorLastStageComplete apis.ConditionType = "LastStageTrafficReady"
+
+	ServiceOrchestratorStageScaleUpReady apis.ConditionType = "StageTrafficScaleUpReady"
+
+	ServiceOrchestratorStageScaleDownReady apis.ConditionType = "StageTrafficScaleDownReady"
 )
 
 // IsServiceOrchestratorCondition returns true if the given ConditionType is a ServiceOrchestratorCondition.

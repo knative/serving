@@ -320,11 +320,6 @@ func (c *Reconciler) calculateStageRevisionTarget(ctx context.Context, so *v1.Se
 		// the ultimate revision target as the current stage revision target.
 		so.Spec.StageRevisionTarget = append([]v1.RevisionTarget{}, so.Spec.RevisionTarget...)
 
-		// TODO remove later: Just check the status can be reflected in the so or not.
-		//status := so.GetStatusSO()
-		//
-		//status.SetStageRevisionStatus(append([]v1.RevisionTarget{}, so.Spec.RevisionTarget...))
-		//so.Status.StageRevisionStatus = append([]v1.RevisionTarget{}, so.Spec.RevisionTarget...)
 	} else {
 
 		logger.Info("I see StageRevisionStatus in status.")
