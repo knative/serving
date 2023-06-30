@@ -75,10 +75,10 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 	}
 
 	// If the size of the traffic list is 0 or 1, there will be only one revision accepting the traffic.
-	//_, err = c.serviceOrchestrator(ctx, service, config)
-	//if err != nil {
-	//	return err
-	//}
+	_, err = c.serviceOrchestrator(ctx, service, config)
+	if err != nil {
+		return err
+	}
 
 	if config.Generation != config.Status.ObservedGeneration {
 		// The Configuration hasn't yet reconciled our latest changes to

@@ -102,8 +102,11 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 			return fmt.Errorf("error reconciling SKS: %w", err)
 		}
 		pa.Status.MarkSKSNotReady(noPrivateServiceName) // In both cases this is true.
-		//spa, _ := c.SpaLister.StagePodAutoscalers(pa.Namespace).Get(pa.Name)
-		computeStatus(ctx, pa, nil, podCounts{want: scaleUnknown}, logger)
+		spa, err := c.SpaLister.StagePodAutoscalers(pa.Namespace).Get(pa.Name)
+		if err != nil {
+			spa = nil
+		}
+		computeStatus(ctx, pa, spa, podCounts{want: scaleUnknown}, logger)
 		return nil
 	}
 
@@ -119,8 +122,11 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
-	//spa, _ := c.SpaLister.StagePodAutoscalers(pa.Namespace).Get(pa.Name)
-	want, err := c.scaler.scale(ctx, pa, nil, sks, decider.Status.DesiredScale)
+	spa, err := c.SpaLister.StagePodAutoscalers(pa.Namespace).Get(pa.Name)
+	if err != nil {
+		spa = nil
+	}
+	want, err := c.scaler.scale(ctx, pa, spa, sks, decider.Status.DesiredScale)
 	if err != nil {
 		return fmt.Errorf("error scaling target: %w", err)
 	}
@@ -188,7 +194,11 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 		terminating: terminating,
 	}
 	logger.Infof("Observed pod counts=%#v", pc)
-	computeStatus(ctx, pa, nil, pc, logger)
+	spa, err = c.SpaLister.StagePodAutoscalers(pa.Namespace).Get(pa.Name)
+	if err != nil {
+		spa = nil
+	}
+	computeStatus(ctx, pa, spa, pc, logger)
 	return nil
 }
 
@@ -309,7 +319,6 @@ func activeThreshold(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler,
 			min = *minS
 		}
 	}
-
 	if !pa.Status.IsScaleTargetInitialized() {
 		initialScale := resources.GetInitialScale(asConfig, pa)
 		return int(intMax(min, initialScale))
