@@ -24,14 +24,15 @@ import (
 	"k8s.io/utils/clock"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
-	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
-
+	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	soreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/serviceorchestrator"
+	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
+	"math"
 )
 
 // Reconciler implements controller.Reconciler for Configuration resources.
@@ -69,13 +70,12 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, so *v1.ServiceOrchestrat
 		if revision.Direction == "" || revision.Direction == "up" {
 			spa, err := c.stagePodAutoscalerLister.StagePodAutoscalers(so.Namespace).Get(revision.RevisionName)
 			if apierrs.IsNotFound(err) {
-				c.createStagePA(ctx, so, &revision)
+				c.createStagePA(ctx, so, &revision, false)
 				return nil
 			} else if err != nil {
 				return nil
 			} else {
-				spa.Spec.MinScale = revision.MinScale
-				spa.Spec.MaxScale = revision.MaxScale
+				spa = updateWithTargetReplicas(spa, &revision, false)
 				c.client.AutoscalingV1alpha1().StagePodAutoscalers(so.Namespace).Update(ctx, spa, metav1.UpdateOptions{})
 			}
 		}
@@ -91,13 +91,12 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, so *v1.ServiceOrchestrat
 				if revision.Direction == "down" {
 					spa, err := c.stagePodAutoscalerLister.StagePodAutoscalers(so.Namespace).Get(revision.RevisionName)
 					if apierrs.IsNotFound(err) {
-						c.createStagePA(ctx, so, &revision)
+						c.createStagePA(ctx, so, &revision, false)
 						return nil
 					} else if err != nil {
 						return nil
 					} else {
-						spa.Spec.MinScale = revision.MinScale
-						spa.Spec.MaxScale = revision.MaxScale
+						spa = updateWithTargetReplicas(spa, &revision, false)
 						c.client.AutoscalingV1alpha1().StagePodAutoscalers(so.Namespace).Update(ctx, spa, metav1.UpdateOptions{})
 					}
 				}
@@ -113,13 +112,12 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, so *v1.ServiceOrchestrat
 			if revision.Direction == "down" {
 				spa, err := c.stagePodAutoscalerLister.StagePodAutoscalers(so.Namespace).Get(revision.RevisionName)
 				if apierrs.IsNotFound(err) {
-					c.createStagePA(ctx, so, &revision)
+					c.createStagePA(ctx, so, &revision, true)
 					return nil
 				} else if err != nil {
 					return nil
 				} else {
-					spa.Spec.MinScale = revision.MinScale
-					spa.Spec.MaxScale = revision.TargetReplicas
+					spa = updateWithTargetReplicas(spa, &revision, true)
 					c.client.AutoscalingV1alpha1().StagePodAutoscalers(so.Namespace).Update(ctx, spa, metav1.UpdateOptions{})
 				}
 			}
@@ -152,7 +150,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, so *v1.ServiceOrchestrat
 	return nil
 }
 
-func (c *Reconciler) createStagePA(ctx context.Context, so *v1.ServiceOrchestrator, revision *v1.RevisionTarget) error {
+func (c *Reconciler) createStagePA(ctx context.Context, so *v1.ServiceOrchestrator, revision *v1.RevisionTarget, scaleUpReady bool) error {
 	spa := &autoscalingv1alpha1.StagePodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      revision.RevisionName,
@@ -166,8 +164,50 @@ func (c *Reconciler) createStagePA(ctx context.Context, so *v1.ServiceOrchestrat
 			MaxScale: revision.MaxScale,
 		},
 	}
+
+	spa = updateWithTargetReplicas(spa, revision, scaleUpReady)
+
 	c.client.AutoscalingV1alpha1().StagePodAutoscalers(so.Namespace).Create(ctx, spa, metav1.CreateOptions{})
 	return nil
+}
+
+func updateWithTargetReplicas(spa *autoscalingv1alpha1.StagePodAutoscaler, revision *v1.RevisionTarget,
+	scaleUpReady bool) *autoscalingv1alpha1.StagePodAutoscaler {
+	if revision.TargetReplicas == nil {
+		return spa
+	}
+	min := int32(0)
+	max := int32(math.MaxInt32)
+	if revision.MinScale != nil {
+		min = *revision.MinScale
+	}
+
+	if revision.MaxScale != nil {
+		max = *revision.MaxScale
+	}
+
+	if revision.Direction == "" || revision.Direction == "up" {
+		targetReplicas := *revision.TargetReplicas
+		if targetReplicas < min {
+			spa.Spec.MinScale = ptr.Int32(targetReplicas)
+		}
+
+	} else if revision.Direction == "down" {
+		if scaleUpReady {
+			targetReplicas := *revision.TargetReplicas
+			if targetReplicas < max {
+				spa.Spec.MaxScale = ptr.Int32(targetReplicas)
+			}
+
+			if targetReplicas < min {
+				spa.Spec.MinScale = ptr.Int32(targetReplicas)
+			}
+		} else {
+			spa.Spec.MaxScale = revision.MaxScale
+			spa.Spec.MinScale = revision.MinScale
+		}
+	}
+	return spa
 }
 
 func (c *Reconciler) checkStageScaleUpReady(so *v1.ServiceOrchestrator) bool {
