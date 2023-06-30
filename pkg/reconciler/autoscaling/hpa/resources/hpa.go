@@ -33,19 +33,8 @@ import (
 )
 
 // MakeHPA creates an HPA resource from a PA resource.
-func MakeHPA(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig.Config, spa *autoscalingv1alpha1.StagePodAutoscaler) *autoscalingv2.HorizontalPodAutoscaler {
+func MakeHPA(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig.Config) *autoscalingv2.HorizontalPodAutoscaler {
 	min, max := pa.ScaleBounds(config)
-
-	if spa != nil {
-		minS, maxS := spa.ScaleBounds(config)
-		if minS != nil && min > *minS {
-			min = *minS
-		}
-		if maxS != nil && *maxS < max {
-			max = *maxS
-		}
-	}
-
 	if max == 0 {
 		max = math.MaxInt32 // default to no limit
 	}

@@ -57,8 +57,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	logger.Debug("PA exists")
 
 	// HPA-class PA delegates autoscaling to the Kubernetes Horizontal Pod Autoscaler.
-	spa, _ := c.SpaLister.StagePodAutoscalers(pa.Namespace).Get(pa.Name)
-	desiredHpa := resources.MakeHPA(pa, config.FromContext(ctx).Autoscaler, spa)
+	desiredHpa := resources.MakeHPA(pa, config.FromContext(ctx).Autoscaler)
 	hpa, err := c.hpaLister.HorizontalPodAutoscalers(pa.Namespace).Get(desiredHpa.Name)
 	if errors.IsNotFound(err) {
 		logger.Infof("Creating HPA %q", desiredHpa.Name)
@@ -98,9 +97,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 		// If a min-scale value has been set, we don't want to mark the scale target
 		// as initialized until the current replicas are >= the min-scale value.
 		if !pa.Status.IsScaleTargetInitialized() {
-
-			spa, _ := c.SpaLister.StagePodAutoscalers(pa.Namespace).Get(pa.Name)
-			ms := activeThreshold(ctx, pa, spa)
+			ms := activeThreshold(ctx, pa)
 			if hpa.Status.CurrentReplicas >= int32(ms) {
 				pa.Status.MarkScaleTargetInitialized()
 			}
@@ -116,16 +113,9 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 }
 
 // activeThreshold returns the scale required for the pa to be marked Active
-func activeThreshold(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, spa *autoscalingv1alpha1.StagePodAutoscaler) int {
+func activeThreshold(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler) int {
 	asConfig := config.FromContext(ctx).Autoscaler
 	min, _ := pa.ScaleBounds(asConfig)
-	if spa != nil {
-		minS, _ := spa.ScaleBounds(asConfig)
-		if minS != nil && min > *minS {
-			min = *minS
-		}
-	}
-
 	if !pa.Status.IsScaleTargetInitialized() {
 		initialScale := getInitialScale(asConfig, pa)
 		return int(intMax(min, initialScale))

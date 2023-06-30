@@ -27,7 +27,6 @@ import (
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
 	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
-	spainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/stagepodautoscaler"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 	"knative.dev/serving/pkg/deployment"
 
@@ -52,7 +51,6 @@ func NewController(
 	sksInformer := sksinformer.Get(ctx)
 	hpaInformer := hpainformer.Get(ctx)
 	metricInformer := metricinformer.Get(ctx)
-	spaInformer := spainformer.Get(ctx)
 
 	onlyHPAClass := pkgreconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.HPA, false)
 
@@ -62,7 +60,6 @@ func NewController(
 			NetworkingClient: networkingclient.Get(ctx),
 			SKSLister:        sksInformer.Lister(),
 			MetricLister:     metricInformer.Lister(),
-			SpaLister:        spaInformer.Lister(),
 		},
 
 		kubeClient: kubeclient.Get(ctx),
@@ -97,7 +94,6 @@ func NewController(
 	hpaInformer.Informer().AddEventHandler(handleMatchingControllers)
 	sksInformer.Informer().AddEventHandler(handleMatchingControllers)
 	metricInformer.Informer().AddEventHandler(handleMatchingControllers)
-	spaInformer.Informer().AddEventHandler(handleMatchingControllers)
 
 	return impl
 }

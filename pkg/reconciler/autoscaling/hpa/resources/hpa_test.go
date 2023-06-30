@@ -154,7 +154,7 @@ func TestMakeHPA(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := MakeHPA(tc.pa, config, nil)
+			got := MakeHPA(tc.pa, config)
 			if equal, err := kmp.SafeEqual(tc.want, got); err != nil {
 				t.Error("Got error comparing output, err =", err)
 			} else if !equal {

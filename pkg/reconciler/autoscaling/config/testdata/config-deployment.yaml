@@ -1,1 +1,90 @@
-../../../../../config/core/configmaps/deployment.yaml
+# Copyright 2019 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-deployment
+  namespace: knative-serving
+  labels:
+    app.kubernetes.io/name: knative-serving
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/version: devel
+  annotations:
+    knative.dev/example-checksum: "410041a0"
+data:
+  # This is the Go import path for the binary that is containerized
+  # and substituted here.
+  queue-sidecar-image: ko://knative.dev/serving/cmd/queue
+  _example: |-
+    ################################
+    #                              #
+    #    EXAMPLE CONFIGURATION     #
+    #                              #
+    ################################
+
+    # This block is not actually functional configuration,
+    # but serves to illustrate the available configuration
+    # options and document them in a way that is accessible
+    # to users that `kubectl edit` this config map.
+    #
+    # These sample configuration options may be copied out of
+    # this example block and unindented to be in the data block
+    # to actually change the configuration.
+
+    # List of repositories for which tag to digest resolving should be skipped
+    registries-skipping-tag-resolving: "kind.local,ko.local,dev.local"
+
+    # Maximum time allowed for an image's digests to be resolved.
+    digest-resolution-timeout: "10s"
+
+    # Duration we wait for the deployment to be ready before considering it failed.
+    progress-deadline: "600s"
+
+    # Sets the queue proxy's CPU request.
+    # If omitted, a default value (currently "25m"), is used.
+    queue-sidecar-cpu-request: "25m"
+
+    # Sets the queue proxy's CPU limit.
+    # If omitted, no value is specified and the system default is used.
+    queue-sidecar-cpu-limit: "1000m"
+
+    # Sets the queue proxy's memory request.
+    # If omitted, no value is specified and the system default is used.
+    queue-sidecar-memory-request: "400Mi"
+
+    # Sets the queue proxy's memory limit.
+    # If omitted, no value is specified and the system default is used.
+    queue-sidecar-memory-limit: "800Mi"
+
+    # Sets the queue proxy's ephemeral storage request.
+    # If omitted, no value is specified and the system default is used.
+    queue-sidecar-ephemeral-storage-request: "512Mi"
+
+    # Sets the queue proxy's ephemeral storage limit.
+    # If omitted, no value is specified and the system default is used.
+    queue-sidecar-ephemeral-storage-limit: "1024Mi"
+
+    # Sets tokens associated with specific audiences for queue proxy - used by QPOptions
+    #
+    # For example, to add the `service-x` audience:
+    #    queue-sidecar-token-audiences: "service-x"
+    # Also supports a list of audiences, for example:
+    #    queue-sidecar-token-audiences: "service-x,service-y"
+    # If omitted, or empty, no tokens are created
+    queue-sidecar-token-audiences: ""
+
+    # Sets rootCA for the queue proxy - used by QPOptions
+    # If omitted, or empty, no rootCA is added to the golang rootCAs
+    queue-sidecar-rootca: ""
