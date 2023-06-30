@@ -18,6 +18,7 @@ package kpa
 
 import (
 	"context"
+	spainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/stagepodautoscaler"
 
 	"k8s.io/client-go/tools/cache"
 
@@ -57,6 +58,7 @@ func NewController(
 	podsInformer := filteredpodinformer.Get(ctx, serving.RevisionUID)
 	metricInformer := metricinformer.Get(ctx)
 	psInformerFactory := podscalable.Get(ctx)
+	spaInformer := spainformer.Get(ctx)
 
 	onlyKPAClass := pkgreconciler.AnnotationFilterFunc(
 		autoscaling.ClassAnnotationKey, autoscaling.KPA, false /*allowUnset*/)
@@ -67,6 +69,7 @@ func NewController(
 			NetworkingClient: networkingclient.Get(ctx),
 			SKSLister:        sksInformer.Lister(),
 			MetricLister:     metricInformer.Lister(),
+			SpaLister:        spaInformer.Lister(),
 		},
 		podsLister: podsInformer.Lister(),
 		deciders:   deciders,
@@ -100,6 +103,7 @@ func NewController(
 	}
 	sksInformer.Informer().AddEventHandler(handleMatchingControllers)
 	metricInformer.Informer().AddEventHandler(handleMatchingControllers)
+	spaInformer.Informer().AddEventHandler(handleMatchingControllers)
 
 	// Watch the knative pods.
 	podsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{

@@ -42,6 +42,7 @@ type Base struct {
 	NetworkingClient netclientset.Interface
 	SKSLister        nlisters.ServerlessServiceLister
 	MetricLister     listers.MetricLister
+	SpaLister        listers.StagePodAutoscalerLister
 }
 
 // ReconcileSKS reconciles a ServerlessService based on the given PodAutoscaler.
