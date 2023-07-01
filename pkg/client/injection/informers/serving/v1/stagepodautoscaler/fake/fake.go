@@ -23,8 +23,8 @@ import (
 
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
-	stagepodautoscaler "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/stagepodautoscaler"
 	fake "knative.dev/serving/pkg/client/injection/informers/factory/fake"
+	stagepodautoscaler "knative.dev/serving/pkg/client/injection/informers/serving/v1/stagepodautoscaler"
 )
 
 var Get = stagepodautoscaler.Get
@@ -35,6 +35,6 @@ func init() {
 
 func withInformer(ctx context.Context) (context.Context, controller.Informer) {
 	f := fake.Get(ctx)
-	inf := f.Autoscaling().V1alpha1().StagePodAutoscalers()
+	inf := f.Serving().V1().StagePodAutoscalers()
 	return context.WithValue(ctx, stagepodautoscaler.Key{}, inf), inf.Informer()
 }

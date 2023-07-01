@@ -165,7 +165,7 @@ func (t *ServiceOrchestratorStatus) SetStageRevisionStatus(stageRevisionStatus [
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ConfigurationList is a list of Configuration resources
+// ServiceOrchestratorList is a list of Configuration resources
 type ServiceOrchestratorList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`

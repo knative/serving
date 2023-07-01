@@ -30,7 +30,6 @@ type AutoscalingV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	MetricsGetter
 	PodAutoscalersGetter
-	StagePodAutoscalersGetter
 }
 
 // AutoscalingV1alpha1Client is used to interact with features provided by the autoscaling.internal.knative.dev group.
@@ -44,10 +43,6 @@ func (c *AutoscalingV1alpha1Client) Metrics(namespace string) MetricInterface {
 
 func (c *AutoscalingV1alpha1Client) PodAutoscalers(namespace string) PodAutoscalerInterface {
 	return newPodAutoscalers(c, namespace)
-}
-
-func (c *AutoscalingV1alpha1Client) StagePodAutoscalers(namespace string) StagePodAutoscalerInterface {
-	return newStagePodAutoscalers(c, namespace)
 }
 
 // NewForConfig creates a new AutoscalingV1alpha1Client for the given config.

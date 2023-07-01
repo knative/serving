@@ -39,22 +39,19 @@ import (
 	reconciler "knative.dev/pkg/reconciler"
 	versionedscheme "knative.dev/serving/pkg/client/clientset/versioned/scheme"
 	client "knative.dev/serving/pkg/client/injection/client"
-	stagepodautoscaler "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/stagepodautoscaler"
+	stagepodautoscaler "knative.dev/serving/pkg/client/injection/informers/serving/v1/stagepodautoscaler"
 )
 
 const (
 	defaultControllerAgentName = "stagepodautoscaler-controller"
-	defaultFinalizerName       = "stagepodautoscalers.autoscaling.internal.knative.dev"
-
-	// ClassAnnotationKey points to the annotation for the class of this resource.
-	ClassAnnotationKey = "autoscaling.knative.dev/class"
+	defaultFinalizerName       = "stagepodautoscalers.serving.knative.dev"
 )
 
 // NewImpl returns a controller.Impl that handles queuing and feeding work from
 // the queue through an implementation of controller.Reconciler, delegating to
 // the provided Interface and optional Finalizer methods. OptionsFn is used to return
 // controller.ControllerOptions to be used by the internal reconciler.
-func NewImpl(ctx context.Context, r Interface, classValue string, optionsFns ...controller.OptionsFn) *controller.Impl {
+func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsFn) *controller.Impl {
 	logger := logging.FromContext(ctx)
 
 	// Check the options function input. It should be 0 or 1.
@@ -98,7 +95,6 @@ func NewImpl(ctx context.Context, r Interface, classValue string, optionsFns ...
 		Lister:        lister,
 		reconciler:    r,
 		finalizerName: defaultFinalizerName,
-		classValue:    classValue,
 	}
 
 	ctrType := reflect.TypeOf(r).Elem()
@@ -107,7 +103,7 @@ func NewImpl(ctx context.Context, r Interface, classValue string, optionsFns ...
 
 	logger = logger.With(
 		zap.String(logkey.ControllerType, ctrTypeName),
-		zap.String(logkey.Kind, "autoscaling.internal.knative.dev.StagePodAutoscaler"),
+		zap.String(logkey.Kind, "serving.knative.dev.StagePodAutoscaler"),
 	)
 
 	impl := controller.NewContext(ctx, rec, controller.ControllerOptions{WorkQueueName: ctrTypeName, Logger: logger})
@@ -124,6 +120,9 @@ func NewImpl(ctx context.Context, r Interface, classValue string, optionsFns ...
 		}
 		if opts.AgentName != "" {
 			agentName = opts.AgentName
+		}
+		if opts.SkipStatusUpdates {
+			rec.skipStatusUpdates = true
 		}
 		if opts.DemoteFunc != nil {
 			rec.DemoteFunc = opts.DemoteFunc

@@ -14,22 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 )
 
 // +genclient
-// +genreconciler:class=autoscaling.knative.dev/class
+// +genreconciler
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// PodAutoscaler is a Knative abstraction that encapsulates the interface by which Knative
-// components instantiate autoscalers.  This definition is an abstraction that may be backed
-// by multiple definitions.  For more information, see the Knative Pluggability presentation:
-// https://docs.google.com/presentation/d/19vW9HFZ6Puxt31biNZF3uLRejDmu82rxJIk1cWmxF7w/edit
+// StagePodAutoscaler is a Knative abstraction that encapsulates the interface.
 type StagePodAutoscaler struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
@@ -38,21 +36,38 @@ type StagePodAutoscaler struct {
 	// Spec holds the desired state of the PodAutoscaler (from the client).
 	// +optional
 	Spec StagePodAutoscalerSpec `json:"spec,omitempty"`
+
+	// Status holds the desired state of the PodAutoscaler (from the client).
+	// +optional
+	Status StagePodAutoscalerStatus `json:"spec,omitempty"`
 }
 
-// Verify that PodAutoscaler adheres to the appropriate interfaces.
+// StagePodAutoscalerStatus communicates the observed state of the PodAutoscaler (from the controller).
+type StagePodAutoscalerStatus struct {
+	duckv1.Status `json:",inline"`
+
+	// ActualScale shows the actual number of replicas for the revision.
+	// +optional
+	ActualScale *int32 `json:"actualScale,omitempty"`
+}
+
+// Verify that StagePodAutoscaler adheres to the appropriate interfaces.
 var (
 	// Check that PodAutoscaler can be validated and can be defaulted.
-	_ apis.Validatable = (*StagePodAutoscaler)(nil)
 	_ apis.Defaultable = (*StagePodAutoscaler)(nil)
+
+	// Check that Configuration can be converted to higher versions.
+	_ apis.Convertible = (*ServiceOrchestrator)(nil)
 
 	// Check that we can create OwnerReferences to a PodAutoscaler.
 	_ kmeta.OwnerRefable = (*StagePodAutoscaler)(nil)
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*StagePodAutoscaler)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// PodAutoscalerList is a list of PodAutoscaler resources
+// StagePodAutoscaler is a list of PodAutoscaler resources
 type StagePodAutoscalerList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
@@ -68,4 +83,9 @@ type StagePodAutoscalerSpec struct {
 	// MaxScale sets the upper bound for the number of the replicas.
 	// +optional
 	MaxScale *int32 `json:"maxScale,omitempty"`
+}
+
+// GetStatus retrieves the status of the PodAutoscaler. Implements the KRShaped interface.
+func (pa *StagePodAutoscaler) GetStatus() *duckv1.Status {
+	return &pa.Status.Status
 }

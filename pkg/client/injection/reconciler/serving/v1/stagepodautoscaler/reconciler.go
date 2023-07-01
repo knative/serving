@@ -24,7 +24,9 @@ import (
 	fmt "fmt"
 
 	zap "go.uber.org/zap"
-	v1 "k8s.io/api/core/v1"
+	"go.uber.org/zap/zapcore"
+	corev1 "k8s.io/api/core/v1"
+	equality "k8s.io/apimachinery/pkg/api/equality"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -32,48 +34,49 @@ import (
 	sets "k8s.io/apimachinery/pkg/util/sets"
 	record "k8s.io/client-go/tools/record"
 	controller "knative.dev/pkg/controller"
+	kmp "knative.dev/pkg/kmp"
 	logging "knative.dev/pkg/logging"
 	reconciler "knative.dev/pkg/reconciler"
-	v1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	versioned "knative.dev/serving/pkg/client/clientset/versioned"
-	autoscalingv1alpha1 "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
+	servingv1 "knative.dev/serving/pkg/client/listers/serving/v1"
 )
 
 // Interface defines the strongly typed interfaces to be implemented by a
-// controller reconciling v1alpha1.StagePodAutoscaler.
+// controller reconciling v1.StagePodAutoscaler.
 type Interface interface {
-	// ReconcileKind implements custom logic to reconcile v1alpha1.StagePodAutoscaler. Any changes
+	// ReconcileKind implements custom logic to reconcile v1.StagePodAutoscaler. Any changes
 	// to the objects .Status or .Finalizers will be propagated to the stored
 	// object. It is recommended that implementors do not call any update calls
 	// for the Kind inside of ReconcileKind, it is the responsibility of the calling
 	// controller to propagate those properties. The resource passed to ReconcileKind
 	// will always have an empty deletion timestamp.
-	ReconcileKind(ctx context.Context, o *v1alpha1.StagePodAutoscaler) reconciler.Event
+	ReconcileKind(ctx context.Context, o *v1.StagePodAutoscaler) reconciler.Event
 }
 
 // Finalizer defines the strongly typed interfaces to be implemented by a
-// controller finalizing v1alpha1.StagePodAutoscaler.
+// controller finalizing v1.StagePodAutoscaler.
 type Finalizer interface {
-	// FinalizeKind implements custom logic to finalize v1alpha1.StagePodAutoscaler. Any changes
+	// FinalizeKind implements custom logic to finalize v1.StagePodAutoscaler. Any changes
 	// to the objects .Status or .Finalizers will be ignored. Returning a nil or
 	// Normal type reconciler.Event will allow the finalizer to be deleted on
 	// the resource. The resource passed to FinalizeKind will always have a set
 	// deletion timestamp.
-	FinalizeKind(ctx context.Context, o *v1alpha1.StagePodAutoscaler) reconciler.Event
+	FinalizeKind(ctx context.Context, o *v1.StagePodAutoscaler) reconciler.Event
 }
 
 // ReadOnlyInterface defines the strongly typed interfaces to be implemented by a
-// controller reconciling v1alpha1.StagePodAutoscaler if they want to process resources for which
+// controller reconciling v1.StagePodAutoscaler if they want to process resources for which
 // they are not the leader.
 type ReadOnlyInterface interface {
-	// ObserveKind implements logic to observe v1alpha1.StagePodAutoscaler.
+	// ObserveKind implements logic to observe v1.StagePodAutoscaler.
 	// This method should not write to the API.
-	ObserveKind(ctx context.Context, o *v1alpha1.StagePodAutoscaler) reconciler.Event
+	ObserveKind(ctx context.Context, o *v1.StagePodAutoscaler) reconciler.Event
 }
 
-type doReconcile func(ctx context.Context, o *v1alpha1.StagePodAutoscaler) reconciler.Event
+type doReconcile func(ctx context.Context, o *v1.StagePodAutoscaler) reconciler.Event
 
-// reconcilerImpl implements controller.Reconciler for v1alpha1.StagePodAutoscaler resources.
+// reconcilerImpl implements controller.Reconciler for v1.StagePodAutoscaler resources.
 type reconcilerImpl struct {
 	// LeaderAwareFuncs is inlined to help us implement reconciler.LeaderAware.
 	reconciler.LeaderAwareFuncs
@@ -82,7 +85,7 @@ type reconcilerImpl struct {
 	Client versioned.Interface
 
 	// Listers index properties about resources.
-	Lister autoscalingv1alpha1.StagePodAutoscalerLister
+	Lister servingv1.StagePodAutoscalerLister
 
 	// Recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
@@ -98,8 +101,9 @@ type reconcilerImpl struct {
 	// finalizerName is the name of the finalizer to reconcile.
 	finalizerName string
 
-	// classValue is the resource annotation[autoscaling.knative.dev/class] instance value this reconciler instance filters on.
-	classValue string
+	// skipStatusUpdates configures whether or not this reconciler automatically updates
+	// the status of the reconciled resource.
+	skipStatusUpdates bool
 }
 
 // Check that our Reconciler implements controller.Reconciler.
@@ -108,7 +112,7 @@ var _ controller.Reconciler = (*reconcilerImpl)(nil)
 // Check that our generated Reconciler is always LeaderAware.
 var _ reconciler.LeaderAware = (*reconcilerImpl)(nil)
 
-func NewReconciler(ctx context.Context, logger *zap.SugaredLogger, client versioned.Interface, lister autoscalingv1alpha1.StagePodAutoscalerLister, recorder record.EventRecorder, r Interface, classValue string, options ...controller.Options) controller.Reconciler {
+func NewReconciler(ctx context.Context, logger *zap.SugaredLogger, client versioned.Interface, lister servingv1.StagePodAutoscalerLister, recorder record.EventRecorder, r Interface, options ...controller.Options) controller.Reconciler {
 	// Check the options function input. It should be 0 or 1.
 	if len(options) > 1 {
 		logger.Fatal("Up to one options struct is supported, found: ", len(options))
@@ -142,7 +146,6 @@ func NewReconciler(ctx context.Context, logger *zap.SugaredLogger, client versio
 		Recorder:      recorder,
 		reconciler:    r,
 		finalizerName: defaultFinalizerName,
-		classValue:    classValue,
 	}
 
 	for _, opts := range options {
@@ -151,6 +154,9 @@ func NewReconciler(ctx context.Context, logger *zap.SugaredLogger, client versio
 		}
 		if opts.FinalizerName != "" {
 			rec.finalizerName = opts.FinalizerName
+		}
+		if opts.SkipStatusUpdates {
+			rec.skipStatusUpdates = true
 		}
 		if opts.DemoteFunc != nil {
 			rec.DemoteFunc = opts.DemoteFunc
@@ -209,13 +215,6 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		return err
 	}
 
-	if classValue, found := original.GetAnnotations()[ClassAnnotationKey]; !found || classValue != r.classValue {
-		logger.Debugw("Skip reconciling resource, class annotation value does not match reconciler instance value.",
-			zap.String("classKey", ClassAnnotationKey),
-			zap.String("issue", classValue+"!="+r.classValue))
-		return nil
-	}
-
 	// Don't modify the informers copy.
 	resource := original.DeepCopy()
 
@@ -259,6 +258,29 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 
 	}
 
+	// Synchronize the status.
+	switch {
+	case r.skipStatusUpdates:
+		// This reconciler implementation is configured to skip resource updates.
+		// This may mean this reconciler does not observe spec, but reconciles external changes.
+	case equality.Semantic.DeepEqual(original.Status, resource.Status):
+		// If we didn't change anything then don't call updateStatus.
+		// This is important because the copy we loaded from the injectionInformer's
+		// cache may be stale and we don't want to overwrite a prior update
+		// to status with this stale state.
+	case !s.isLeader:
+		// High-availability reconcilers may have many replicas watching the resource, but only
+		// the elected leader is expected to write modifications.
+		logger.Warn("Saw status changes when we aren't the leader!")
+	default:
+		if err = r.updateStatus(ctx, logger, original, resource); err != nil {
+			logger.Warnw("Failed to update resource status", zap.Error(err))
+			r.Recorder.Eventf(resource, corev1.EventTypeWarning, "UpdateFailed",
+				"Failed to update status for %q: %v", resource.Name, err)
+			return err
+		}
+	}
+
 	// Report the reconciler event, if any.
 	if reconcileEvent != nil {
 		var event *reconciler.ReconcilerEvent
@@ -279,7 +301,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 			// This is a wrapped error, don't emit an event.
 		} else {
 			logger.Errorw("Returned an error", zap.Error(reconcileEvent))
-			r.Recorder.Event(resource, v1.EventTypeWarning, "InternalError", reconcileEvent.Error())
+			r.Recorder.Event(resource, corev1.EventTypeWarning, "InternalError", reconcileEvent.Error())
 		}
 		return reconcileEvent
 	}
@@ -287,10 +309,44 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	return nil
 }
 
+func (r *reconcilerImpl) updateStatus(ctx context.Context, logger *zap.SugaredLogger, existing *v1.StagePodAutoscaler, desired *v1.StagePodAutoscaler) error {
+	existing = existing.DeepCopy()
+	return reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
+		// The first iteration tries to use the injectionInformer's state, subsequent attempts fetch the latest state via API.
+		if attempts > 0 {
+
+			getter := r.Client.ServingV1().StagePodAutoscalers(desired.Namespace)
+
+			existing, err = getter.Get(ctx, desired.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+		}
+
+		// If there's nothing to update, just return.
+		if equality.Semantic.DeepEqual(existing.Status, desired.Status) {
+			return nil
+		}
+
+		if logger.Desugar().Core().Enabled(zapcore.DebugLevel) {
+			if diff, err := kmp.SafeDiff(existing.Status, desired.Status); err == nil && diff != "" {
+				logger.Debug("Updating status with: ", diff)
+			}
+		}
+
+		existing.Status = desired.Status
+
+		updater := r.Client.ServingV1().StagePodAutoscalers(existing.Namespace)
+
+		_, err = updater.UpdateStatus(ctx, existing, metav1.UpdateOptions{})
+		return err
+	})
+}
+
 // updateFinalizersFiltered will update the Finalizers of the resource.
 // TODO: this method could be generic and sync all finalizers. For now it only
 // updates defaultFinalizerName or its override.
-func (r *reconcilerImpl) updateFinalizersFiltered(ctx context.Context, resource *v1alpha1.StagePodAutoscaler, desiredFinalizers sets.String) (*v1alpha1.StagePodAutoscaler, error) {
+func (r *reconcilerImpl) updateFinalizersFiltered(ctx context.Context, resource *v1.StagePodAutoscaler, desiredFinalizers sets.String) (*v1.StagePodAutoscaler, error) {
 	// Don't modify the informers copy.
 	existing := resource.DeepCopy()
 
@@ -328,21 +384,21 @@ func (r *reconcilerImpl) updateFinalizersFiltered(ctx context.Context, resource 
 		return resource, err
 	}
 
-	patcher := r.Client.AutoscalingV1alpha1().StagePodAutoscalers(resource.Namespace)
+	patcher := r.Client.ServingV1().StagePodAutoscalers(resource.Namespace)
 
 	resourceName := resource.Name
 	updated, err := patcher.Patch(ctx, resourceName, types.MergePatchType, patch, metav1.PatchOptions{})
 	if err != nil {
-		r.Recorder.Eventf(existing, v1.EventTypeWarning, "FinalizerUpdateFailed",
+		r.Recorder.Eventf(existing, corev1.EventTypeWarning, "FinalizerUpdateFailed",
 			"Failed to update finalizers for %q: %v", resourceName, err)
 	} else {
-		r.Recorder.Eventf(updated, v1.EventTypeNormal, "FinalizerUpdate",
+		r.Recorder.Eventf(updated, corev1.EventTypeNormal, "FinalizerUpdate",
 			"Updated %q finalizers", resource.GetName())
 	}
 	return updated, err
 }
 
-func (r *reconcilerImpl) setFinalizerIfFinalizer(ctx context.Context, resource *v1alpha1.StagePodAutoscaler) (*v1alpha1.StagePodAutoscaler, error) {
+func (r *reconcilerImpl) setFinalizerIfFinalizer(ctx context.Context, resource *v1.StagePodAutoscaler) (*v1.StagePodAutoscaler, error) {
 	if _, ok := r.reconciler.(Finalizer); !ok {
 		return resource, nil
 	}
@@ -358,7 +414,7 @@ func (r *reconcilerImpl) setFinalizerIfFinalizer(ctx context.Context, resource *
 	return r.updateFinalizersFiltered(ctx, resource, finalizers)
 }
 
-func (r *reconcilerImpl) clearFinalizer(ctx context.Context, resource *v1alpha1.StagePodAutoscaler, reconcileEvent reconciler.Event) (*v1alpha1.StagePodAutoscaler, error) {
+func (r *reconcilerImpl) clearFinalizer(ctx context.Context, resource *v1.StagePodAutoscaler, reconcileEvent reconciler.Event) (*v1.StagePodAutoscaler, error) {
 	if _, ok := r.reconciler.(Finalizer); !ok {
 		return resource, nil
 	}
@@ -371,7 +427,7 @@ func (r *reconcilerImpl) clearFinalizer(ctx context.Context, resource *v1alpha1.
 	if reconcileEvent != nil {
 		var event *reconciler.ReconcilerEvent
 		if reconciler.EventAs(reconcileEvent, &event) {
-			if event.EventType == v1.EventTypeNormal {
+			if event.EventType == corev1.EventTypeNormal {
 				finalizers.Delete(r.finalizerName)
 			}
 		}

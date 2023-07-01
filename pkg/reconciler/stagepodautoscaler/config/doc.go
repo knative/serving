@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,15 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
-
-import (
-	"context"
-
-	"knative.dev/pkg/apis"
-)
-
-// Validate implements apis.Validatable interface.
-func (pa *StagePodAutoscaler) Validate(ctx context.Context) *apis.FieldError {
-	return nil
-}
+// Package config holds the typed objects that define the schemas for
+// ConfigMap objects that pertain to our API objects.
+package config

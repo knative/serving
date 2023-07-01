@@ -33,6 +33,7 @@ const (
 var serviceCondSet = apis.NewLivingConditionSet(
 	ServiceConditionConfigurationsReady,
 	ServiceConditionRoutesReady,
+	ServiceConditionServiceOrchestratorsReady,
 )
 
 // GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
@@ -125,6 +126,10 @@ func (ss *ServiceStatus) MarkRevisionNameTaken(name string) {
 // See: #2430, for details.
 func (ss *ServiceStatus) MarkRouteNotYetReady() {
 	serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, trafficNotMigratedReason, trafficNotMigratedMessage)
+}
+
+func (ss *ServiceStatus) MarkServiceOrchestratorNotYetReady() {
+	serviceCondSet.Manage(ss).MarkFalse(ServiceConditionServiceOrchestratorsReady, "keep it fail for testing", "keep it fail")
 }
 
 // MarkRouteNotReconciled notes that the Route controller has not yet

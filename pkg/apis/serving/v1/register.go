@@ -57,6 +57,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&ServiceList{},
 		&ServiceOrchestrator{},
 		&ServiceOrchestratorList{},
+		&StagePodAutoscaler{},
+		&StagePodAutoscalerList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

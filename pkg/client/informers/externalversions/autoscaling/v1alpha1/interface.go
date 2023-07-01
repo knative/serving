@@ -28,8 +28,6 @@ type Interface interface {
 	Metrics() MetricInformer
 	// PodAutoscalers returns a PodAutoscalerInformer.
 	PodAutoscalers() PodAutoscalerInformer
-	// StagePodAutoscalers returns a StagePodAutoscalerInformer.
-	StagePodAutoscalers() StagePodAutoscalerInformer
 }
 
 type version struct {
@@ -51,9 +49,4 @@ func (v *version) Metrics() MetricInformer {
 // PodAutoscalers returns a PodAutoscalerInformer.
 func (v *version) PodAutoscalers() PodAutoscalerInformer {
 	return &podAutoscalerInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// StagePodAutoscalers returns a StagePodAutoscalerInformer.
-func (v *version) StagePodAutoscalers() StagePodAutoscalerInformer {
-	return &stagePodAutoscalerInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

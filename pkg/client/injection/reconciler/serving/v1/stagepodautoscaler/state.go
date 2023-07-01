@@ -24,7 +24,7 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 	cache "k8s.io/client-go/tools/cache"
 	reconciler "knative.dev/pkg/reconciler"
-	v1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 // state is used to track the state of a reconciler in a single run.
@@ -83,7 +83,7 @@ func (s *state) isNotLeaderNorObserver() bool {
 	return false
 }
 
-func (s *state) reconcileMethodFor(o *v1alpha1.StagePodAutoscaler) (string, doReconcile) {
+func (s *state) reconcileMethodFor(o *v1.StagePodAutoscaler) (string, doReconcile) {
 	if o.GetDeletionTimestamp().IsZero() {
 		if s.isLeader {
 			return reconciler.DoReconcileKind, s.reconciler.ReconcileKind

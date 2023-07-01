@@ -48,6 +48,10 @@ func (c *FakeServingV1) ServiceOrchestrators(namespace string) v1.ServiceOrchest
 	return &FakeServiceOrchestrators{c, namespace}
 }
 
+func (c *FakeServingV1) StagePodAutoscalers(namespace string) v1.StagePodAutoscalerInterface {
+	return &FakeStagePodAutoscalers{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeServingV1) RESTClient() rest.Interface {

@@ -34,6 +34,8 @@ type Interface interface {
 	Services() ServiceInformer
 	// ServiceOrchestrators returns a ServiceOrchestratorInformer.
 	ServiceOrchestrators() ServiceOrchestratorInformer
+	// StagePodAutoscalers returns a StagePodAutoscalerInformer.
+	StagePodAutoscalers() StagePodAutoscalerInformer
 }
 
 type version struct {
@@ -70,4 +72,9 @@ func (v *version) Services() ServiceInformer {
 // ServiceOrchestrators returns a ServiceOrchestratorInformer.
 func (v *version) ServiceOrchestrators() ServiceOrchestratorInformer {
 	return &serviceOrchestratorInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// StagePodAutoscalers returns a StagePodAutoscalerInformer.
+func (v *version) StagePodAutoscalers() StagePodAutoscalerInformer {
+	return &stagePodAutoscalerInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
