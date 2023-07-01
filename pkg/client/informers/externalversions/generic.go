@@ -59,8 +59,6 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Autoscaling().V1alpha1().Metrics().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("podautoscalers"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Autoscaling().V1alpha1().PodAutoscalers().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("stagepodautoscalers"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Autoscaling().V1alpha1().StagePodAutoscalers().Informer()}, nil
 
 		// Group=serving.knative.dev, Version=v1
 	case v1.SchemeGroupVersion.WithResource("configurations"):
@@ -73,6 +71,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1().Services().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("serviceorchestrators"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1().ServiceOrchestrators().Informer()}, nil
+	case v1.SchemeGroupVersion.WithResource("stagepodautoscalers"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1().StagePodAutoscalers().Informer()}, nil
 
 		// Group=serving.knative.dev, Version=v1beta1
 	case v1beta1.SchemeGroupVersion.WithResource("domainmappings"):

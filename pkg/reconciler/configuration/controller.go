@@ -18,6 +18,7 @@ package configuration
 
 import (
 	"context"
+	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/clock"
@@ -43,11 +44,12 @@ func NewController(
 
 	configStore := config.NewStore(logger.Named("config-store"))
 	configStore.WatchConfigs(cmw)
-
+	paInformer := painformer.Get(ctx)
 	c := &Reconciler{
-		client:         servingclient.Get(ctx),
-		revisionLister: revisionInformer.Lister(),
-		clock:          &clock.RealClock{},
+		client:              servingclient.Get(ctx),
+		revisionLister:      revisionInformer.Lister(),
+		podAutoscalerLister: paInformer.Lister(),
+		clock:               &clock.RealClock{},
 	}
 	impl := configreconciler.NewImpl(ctx, c, func(*controller.Impl) controller.Options {
 		return controller.Options{ConfigStore: configStore}
@@ -59,6 +61,12 @@ func NewController(
 		FilterFunc: controller.FilterController(&v1.Configuration{}),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
+
+	//handleMatchingControllers := cache.FilteringResourceEventHandler{
+	//	FilterFunc: pkgreconciler.LabelExistsFilterFunc(serving.RevisionLabelKey),
+	//	Handler:    controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)),
+	//}
+	//paInformer.Informer().AddEventHandler(handleMatchingControllers)
 
 	return impl
 }

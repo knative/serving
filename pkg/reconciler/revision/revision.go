@@ -18,6 +18,7 @@ package revision
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"time"
 
@@ -71,6 +72,7 @@ var (
 )
 
 func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (bool, error) {
+
 	totalNumOfContainers := len(rev.Spec.Containers) + len(rev.Spec.InitContainers)
 
 	// The image digest has already been resolved.
@@ -134,6 +136,21 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 	// Some things, like PA reachability, etc are computed based on various labels/annotations
 	// of revision. So it is useful to provide this information for debugging.
 	logger := logging.FromContext(ctx).Desugar()
+
+	pa, err := c.podAutoscalerLister.PodAutoscalers(rev.Namespace).Get(rev.Name)
+	if err != nil {
+		logger.Info("not found pa")
+	} else {
+		logger.Info("check the scales")
+		if pa.Status.ActualScale != nil {
+			logger.Info(strconv.Itoa(int(*pa.Status.ActualScale)))
+			logger.Info(strconv.Itoa(int(*pa.Status.DesiredScale)))
+		} else {
+			logger.Info("check the scales nil pointer")
+		}
+
+	}
+
 	if logger.Core().Enabled(zapcore.DebugLevel) {
 		logger.Debug("Revision meta: " + spew.Sdump(rev.ObjectMeta))
 	}

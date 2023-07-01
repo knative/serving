@@ -19,6 +19,7 @@ package kpa
 import (
 	"context"
 	"fmt"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"math"
 
 	"go.opencensus.io/stats"
@@ -231,7 +232,7 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *autoscalingv1alph
 	return decider, nil
 }
 
-func computeStatus(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, spa *autoscalingv1alpha1.StagePodAutoscaler, pc podCounts, logger *zap.SugaredLogger) {
+func computeStatus(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, spa *v1.StagePodAutoscaler, pc podCounts, logger *zap.SugaredLogger) {
 	pa.Status.DesiredScale, pa.Status.ActualScale = ptr.Int32(int32(pc.want)), ptr.Int32(int32(pc.ready))
 
 	reportMetrics(pa, pc)
@@ -271,7 +272,7 @@ func reportMetrics(pa *autoscalingv1alpha1.PodAutoscaler, pc podCounts) {
 //	| -1   | >= min | 0     | active     | inactive   | <-- this case technically is impossible.
 //	| -1   | >= min | >0    | activating | active     |
 //	| -1   | >= min | >0    | active     | active     |
-func computeActiveCondition(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, spa *autoscalingv1alpha1.StagePodAutoscaler, pc podCounts) {
+func computeActiveCondition(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, spa *v1.StagePodAutoscaler, pc podCounts) {
 	minReady := activeThreshold(ctx, pa, spa)
 	if pc.ready >= minReady && pa.Status.ServiceName != "" {
 		pa.Status.MarkScaleTargetInitialized()
@@ -310,7 +311,7 @@ func computeActiveCondition(ctx context.Context, pa *autoscalingv1alpha1.PodAuto
 }
 
 // activeThreshold returns the scale required for the pa to be marked Active
-func activeThreshold(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, spa *autoscalingv1alpha1.StagePodAutoscaler) int {
+func activeThreshold(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, spa *v1.StagePodAutoscaler) int {
 	asConfig := config.FromContext(ctx).Autoscaler
 	min, _ := pa.ScaleBounds(asConfig)
 	if spa != nil {

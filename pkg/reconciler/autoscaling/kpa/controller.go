@@ -18,7 +18,7 @@ package kpa
 
 import (
 	"context"
-	spainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/stagepodautoscaler"
+	spainformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/stagepodautoscaler"
 
 	"k8s.io/client-go/tools/cache"
 

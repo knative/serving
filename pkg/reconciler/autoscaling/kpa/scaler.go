@@ -19,6 +19,7 @@ package kpa
 import (
 	"context"
 	"fmt"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"net/http"
 	"time"
 
@@ -322,7 +323,7 @@ func (ks *scaler) applyScale(ctx context.Context, pa *autoscalingv1alpha1.PodAut
 }
 
 // scale attempts to scale the given PA's target reference to the desired scale.
-func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, spa *autoscalingv1alpha1.StagePodAutoscaler, sks *netv1alpha1.ServerlessService, desiredScale int32) (int32, error) {
+func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, spa *v1.StagePodAutoscaler, sks *netv1alpha1.ServerlessService, desiredScale int32) (int32, error) {
 	asConfig := config.FromContext(ctx).Autoscaler
 	logger := logging.FromContext(ctx)
 

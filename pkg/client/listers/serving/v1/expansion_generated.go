@@ -57,3 +57,11 @@ type ServiceOrchestratorListerExpansion interface{}
 // ServiceOrchestratorNamespaceListerExpansion allows custom methods to be added to
 // ServiceOrchestratorNamespaceLister.
 type ServiceOrchestratorNamespaceListerExpansion interface{}
+
+// StagePodAutoscalerListerExpansion allows custom methods to be added to
+// StagePodAutoscalerLister.
+type StagePodAutoscalerListerExpansion interface{}
+
+// StagePodAutoscalerNamespaceListerExpansion allows custom methods to be added to
+// StagePodAutoscalerNamespaceLister.
+type StagePodAutoscalerNamespaceListerExpansion interface{}

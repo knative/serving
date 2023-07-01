@@ -19,7 +19,6 @@ package main
 import (
 	// The set of controllers this controller process runs.
 	"flag"
-
 	certificate "knative.dev/networking/pkg/certificates/reconciler"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/signals"
@@ -32,6 +31,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/serverlessservice"
 	"knative.dev/serving/pkg/reconciler/service"
 	"knative.dev/serving/pkg/reconciler/serviceorchestrator"
+	"knative.dev/serving/pkg/reconciler/stagepodautoscaler"
 
 	// This defines the shared main for injected controllers.
 	filteredFactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
@@ -48,6 +48,7 @@ const (
 var ctors = []injection.ControllerConstructor{
 	configuration.NewController,
 	serviceorchestrator.NewController,
+	stagepodautoscaler.NewController,
 	labeler.NewController,
 	revision.NewController,
 	route.NewController,

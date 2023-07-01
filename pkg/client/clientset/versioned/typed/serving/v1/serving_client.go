@@ -33,6 +33,7 @@ type ServingV1Interface interface {
 	RoutesGetter
 	ServicesGetter
 	ServiceOrchestratorsGetter
+	StagePodAutoscalersGetter
 }
 
 // ServingV1Client is used to interact with features provided by the serving.knative.dev group.
@@ -58,6 +59,10 @@ func (c *ServingV1Client) Services(namespace string) ServiceInterface {
 
 func (c *ServingV1Client) ServiceOrchestrators(namespace string) ServiceOrchestratorInterface {
 	return newServiceOrchestrators(c, namespace)
+}
+
+func (c *ServingV1Client) StagePodAutoscalers(namespace string) StagePodAutoscalerInterface {
+	return newStagePodAutoscalers(c, namespace)
 }
 
 // NewForConfig creates a new ServingV1Client for the given config.

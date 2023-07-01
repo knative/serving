@@ -21,5 +21,3 @@ package v1alpha1
 type MetricExpansion interface{}
 
 type PodAutoscalerExpansion interface{}
-
-type StagePodAutoscalerExpansion interface{}

@@ -36,10 +36,6 @@ func (c *FakeAutoscalingV1alpha1) PodAutoscalers(namespace string) v1alpha1.PodA
 	return &FakePodAutoscalers{c, namespace}
 }
 
-func (c *FakeAutoscalingV1alpha1) StagePodAutoscalers(namespace string) v1alpha1.StagePodAutoscalerInterface {
-	return &FakeStagePodAutoscalers{c, namespace}
-}
-
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeAutoscalingV1alpha1) RESTClient() rest.Interface {

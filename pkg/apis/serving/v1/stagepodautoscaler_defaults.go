@@ -14,28 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1
 
 import (
 	"context"
-
-	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/apis/config"
 )
 
 // SetDefaults sets the default values for the PodAutoscaler.
 func (pa *StagePodAutoscaler) SetDefaults(ctx context.Context) {
 	//pa.Spec.SetDefaults(apis.WithinSpec(ctx))
-	config := config.FromContextOrDefaults(ctx)
-	if pa.Annotations == nil {
-		pa.Annotations = make(map[string]string, 2)
-	}
-	if _, ok := pa.Annotations[autoscaling.ClassAnnotationKey]; !ok {
-		// Default class based on configmap setting (KPA if none specified).
-		pa.Annotations[autoscaling.ClassAnnotationKey] = config.Autoscaler.PodAutoscalerClass
-	}
-	// Default metric per class.
-	if _, ok := pa.Annotations[autoscaling.MetricAnnotationKey]; !ok {
-		pa.Annotations[autoscaling.MetricAnnotationKey] = defaultMetric(pa.Class())
-	}
+	
 }

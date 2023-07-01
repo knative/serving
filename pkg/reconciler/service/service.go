@@ -57,7 +57,7 @@ type Reconciler struct {
 	routeLister               listers.RouteLister
 	serviceOrchestratorLister listers.ServiceOrchestratorLister
 	podAutoscalerLister       palisters.PodAutoscalerLister
-	stagePodAutoscalerLister  palisters.StagePodAutoscalerLister
+	stagePodAutoscalerLister  listers.StagePodAutoscalerLister
 }
 
 // Check that our Reconciler implements ksvcreconciler.Interface
@@ -133,30 +133,10 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 
 	c.checkRoutesNotReady(config, logger, route, service)
 
-	rn, _ := c.latestCreatedRevision(config)
-	if rn != nil {
-		logger.Info(rn.Name)
-		//logger.Info(*rn.Status.ActualReplicas)
-		//if rn.Status.DesiredReplicas != nil {
-		//	logger.Info(*rn.Status.DesiredReplicas)
-		//}
-
-	} else {
-		logger.Info("did not get latest revision")
-	}
-
-	ro, _, _ := c.previousCreatedRevision(config)
-	if ro != nil {
-		logger.Info(ro.Name)
-		//logger.Info(*ro.Status.ActualReplicas)
-		//if ro.Status.DesiredReplicas != nil {
-		//	logger.Info(*ro.Status.DesiredReplicas)
-		//}
-	} else {
-		logger.Info("did not get previous revision")
-	}
-	logger.Info("HAAAAArouteHAAAAArouteHAAAAArouteHAAAAArouteHAAAAArouteHAAAAArouteHAAAAArouteHAAAAArouteHAAAAArouteHAAAAAroute\n")
-
+	// Always mark service not ready to see if more reconciling loops kick off.
+	//service.Status.MarkServiceOrchestratorNotYetReady()
+	logger.Info("does it keep on calling this error!!")
+	//service.Status.MarkConfigurationNotOwned("test")
 	return nil
 }
 

@@ -21,12 +21,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	"k8s.io/utils/clock"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
-	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	soreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/serviceorchestrator"
@@ -42,8 +42,9 @@ type Reconciler struct {
 	// listers index properties about resources
 	revisionLister           listers.RevisionLister
 	podAutoscalerLister      palisters.PodAutoscalerLister
-	stagePodAutoscalerLister palisters.StagePodAutoscalerLister
+	stagePodAutoscalerLister listers.StagePodAutoscalerLister
 	clock                    clock.PassiveClock
+	deploymentLister         appsv1listers.DeploymentLister
 }
 
 // Check that our Reconciler implements soreconciler.Interface
@@ -76,14 +77,17 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, so *v1.ServiceOrchestrat
 				return nil
 			} else {
 				spa = updateWithTargetReplicas(spa, &revision, false)
-				c.client.AutoscalingV1alpha1().StagePodAutoscalers(so.Namespace).Update(ctx, spa, metav1.UpdateOptions{})
+				c.client.ServingV1().StagePodAutoscalers(so.Namespace).Update(ctx, spa, metav1.UpdateOptions{})
 			}
 		}
 	}
 
+	logger.Info("start to check the stage revision target")
 	// If spec.StageRevisionStatus is nil, check on if the number of replicas meets the conditions.
 	if so.IsStageInProgress() {
-		if !c.checkStageScaleUpReady(so) {
+		logger.Info("in progress start to check the stage revision target")
+		if !c.checkStageScaleUpReady(ctx, so) {
+			logger.Info("not scale up ready")
 			// Create the stage pod autoscaler with the new maxScale set to
 			// maxScale defined in the revision traffic, because scale up phase is not over, we cannot
 			// scale down the old revision.
@@ -97,13 +101,14 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, so *v1.ServiceOrchestrat
 						return nil
 					} else {
 						spa = updateWithTargetReplicas(spa, &revision, false)
-						c.client.AutoscalingV1alpha1().StagePodAutoscalers(so.Namespace).Update(ctx, spa, metav1.UpdateOptions{})
+						c.client.ServingV1().StagePodAutoscalers(so.Namespace).Update(ctx, spa, metav1.UpdateOptions{})
 					}
 				}
 			}
 			return nil
 		}
 
+		logger.Info("mark checkStageScaleUpReady ready")
 		so.Status.MarkStageRevisionScaleUpReady()
 		// Create the stage pod autoscaler with the new maxScale set to targetScale defined
 		// in the revision traffic. Scaling up phase is over, we are able to scale down.
@@ -118,26 +123,30 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, so *v1.ServiceOrchestrat
 					return nil
 				} else {
 					spa = updateWithTargetReplicas(spa, &revision, true)
-					c.client.AutoscalingV1alpha1().StagePodAutoscalers(so.Namespace).Update(ctx, spa, metav1.UpdateOptions{})
+					c.client.ServingV1().StagePodAutoscalers(so.Namespace).Update(ctx, spa, metav1.UpdateOptions{})
 				}
 			}
 		}
 
-		if !c.checkStageScaleDownReady(so) {
+		if !c.checkStageScaleDownReady(ctx, so) {
 			return nil
 		}
 
+		logger.Info("mark checkStageScaleDownReady ready")
 		so.Status.MarkStageRevisionScaleDownReady()
 
 		// When the number of replicas of the new and old revision meets the conditions, set the status to stage ready.
 		so.Status.SetStageRevisionStatus(so.Spec.StageRevisionTarget)
 		so.Status.MarkStageRevisionReady()
 		if equality.Semantic.DeepEqual(so.Status.StageRevisionStatus, so.Spec.RevisionTarget) {
+			logger.Info("mark MarkLastStageRevisionComplete")
 			so.Status.MarkLastStageRevisionComplete()
 		}
 		return nil
 	} else if so.IsStageReady() {
+		logger.Info("in stage ready start to check the stage revision target")
 		if so.IsInProgress() {
+			logger.Info("in still in progress ready start to check the stage revision target")
 			if !equality.Semantic.DeepEqual(so.Status.StageRevisionStatus, so.Spec.StageRevisionTarget) {
 				// Start to move to a new stage.
 				so.Status.MarkStageRevisionScaleUpInProgress("StageRevisionStart", "Start to roll out a new stage.")
@@ -151,7 +160,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, so *v1.ServiceOrchestrat
 }
 
 func (c *Reconciler) createStagePA(ctx context.Context, so *v1.ServiceOrchestrator, revision *v1.RevisionTarget, scaleUpReady bool) error {
-	spa := &autoscalingv1alpha1.StagePodAutoscaler{
+	spa := &v1.StagePodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      revision.RevisionName,
 			Namespace: so.Namespace,
@@ -159,7 +168,7 @@ func (c *Reconciler) createStagePA(ctx context.Context, so *v1.ServiceOrchestrat
 				*kmeta.NewControllerRef(so),
 			},
 		},
-		Spec: autoscalingv1alpha1.StagePodAutoscalerSpec{
+		Spec: v1.StagePodAutoscalerSpec{
 			MinScale: revision.MinScale,
 			MaxScale: revision.MaxScale,
 		},
@@ -167,12 +176,12 @@ func (c *Reconciler) createStagePA(ctx context.Context, so *v1.ServiceOrchestrat
 
 	spa = updateWithTargetReplicas(spa, revision, scaleUpReady)
 
-	c.client.AutoscalingV1alpha1().StagePodAutoscalers(so.Namespace).Create(ctx, spa, metav1.CreateOptions{})
+	c.client.ServingV1().StagePodAutoscalers(so.Namespace).Create(ctx, spa, metav1.CreateOptions{})
 	return nil
 }
 
-func updateWithTargetReplicas(spa *autoscalingv1alpha1.StagePodAutoscaler, revision *v1.RevisionTarget,
-	scaleUpReady bool) *autoscalingv1alpha1.StagePodAutoscaler {
+func updateWithTargetReplicas(spa *v1.StagePodAutoscaler, revision *v1.RevisionTarget,
+	scaleUpReady bool) *v1.StagePodAutoscaler {
 	if revision.TargetReplicas == nil {
 		return spa
 	}
@@ -210,17 +219,43 @@ func updateWithTargetReplicas(spa *autoscalingv1alpha1.StagePodAutoscaler, revis
 	return spa
 }
 
-func (c *Reconciler) checkStageScaleUpReady(so *v1.ServiceOrchestrator) bool {
+func (c *Reconciler) checkStageScaleUpReady(ctx context.Context, so *v1.ServiceOrchestrator) bool {
+	logger := logging.FromContext(ctx)
+	logger.Info("checkStageScaleUpReady checkStageScaleUpReady checkStageScaleUpReady checkStageScaleUpReady")
 	for _, revision := range so.Spec.StageRevisionTarget {
 		pa, err := c.podAutoscalerLister.PodAutoscalers(so.Namespace).Get(revision.RevisionName)
 		if err != nil {
+			logger.Info("checkStageScaleUpReady there is error checkStageScaleUpReady checkStage")
+			logger.Info(err)
 			return false
 		}
 		if revision.Direction == "" || revision.Direction == "up" {
+			logger.Info("checkStageScaleUpReady check the revision")
+			min := int32(0)
+			max := int32(math.MaxInt32)
 			if revision.TargetReplicas == nil {
+
+				if revision.MinScale != nil {
+					min = *revision.MinScale
+				}
+
+				if revision.MaxScale != nil {
+					max = *revision.MaxScale
+				}
+				if *pa.Status.DesiredScale == *pa.Status.ActualScale && *pa.Status.ActualScale >= min && *pa.Status.ActualScale <= max {
+					logger.Info("checkStageScaleUpReady this is ready.")
+					return true
+				}
+				logger.Info("checkStageScaleUpReady this is not ready.")
+				logger.Info(*pa.Status.DesiredScale)
+				logger.Info(*pa.Status.ActualScale)
+				logger.Info(min)
+				logger.Info(max)
 				return false
 			}
-
+			logger.Info("TargetReplicas not nil.")
+			logger.Info(*pa.Status.DesiredScale)
+			logger.Info(*pa.Status.ActualScale)
 			if *pa.Status.DesiredScale >= *revision.MinScale && *pa.Status.ActualScale >= *revision.MinScale {
 				if *pa.Status.DesiredScale >= *revision.TargetReplicas && *pa.Status.ActualScale >= *revision.TargetReplicas {
 					return true
@@ -236,7 +271,9 @@ func (c *Reconciler) checkStageScaleUpReady(so *v1.ServiceOrchestrator) bool {
 	return false
 }
 
-func (c *Reconciler) checkStageScaleDownReady(so *v1.ServiceOrchestrator) bool {
+func (c *Reconciler) checkStageScaleDownReady(ctx context.Context, so *v1.ServiceOrchestrator) bool {
+	logger := logging.FromContext(ctx)
+	logger.Info("mark checkStageScaleDownReady ready")
 	for _, revision := range so.Spec.StageRevisionTarget {
 		pa, err := c.podAutoscalerLister.PodAutoscalers(so.Namespace).Get(revision.RevisionName)
 		if err != nil {

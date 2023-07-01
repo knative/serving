@@ -19,6 +19,7 @@ package configuration
 import (
 	"context"
 	"fmt"
+	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
 	"sort"
 	"strconv"
 
@@ -47,7 +48,8 @@ type Reconciler struct {
 	client clientset.Interface
 
 	// listers index properties about resources
-	revisionLister listers.RevisionLister
+	revisionLister      listers.RevisionLister
+	podAutoscalerLister palisters.PodAutoscalerLister
 
 	clock clock.PassiveClock
 }
@@ -62,6 +64,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 
 	logger := logging.FromContext(ctx)
 	recorder := controller.GetEventRecorder(ctx)
+
+	logger.Info("called the configuration ReconcileKind")
 
 	// First, fetch the revision that should exist for the current generation.
 	lcr, isBYOName, err := c.latestCreatedRevision(ctx, config)
