@@ -39,15 +39,17 @@ type StagePodAutoscaler struct {
 
 	// Status holds the desired state of the PodAutoscaler (from the client).
 	// +optional
-	Status StagePodAutoscalerStatus `json:"spec,omitempty"`
+	Status StagePodAutoscalerStatus `json:"status,omitempty"`
 }
 
 // StagePodAutoscalerStatus communicates the observed state of the PodAutoscaler (from the controller).
 type StagePodAutoscalerStatus struct {
 	duckv1.Status `json:",inline"`
 
+	// DesiredScale shows the current desired number of replicas for the revision.
+	DesiredScale *int32 `json:"desiredScale,omitempty"`
+
 	// ActualScale shows the actual number of replicas for the revision.
-	// +optional
 	ActualScale *int32 `json:"actualScale,omitempty"`
 }
 

@@ -328,7 +328,7 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 	logger := logging.FromContext(ctx)
 
 	if desiredScale < 0 && !pa.Status.IsActivating() {
-		logger.Debug("Metrics are not yet being collected.")
+		logger.Info("Metrics are not yet being collected.")
 		return desiredScale, nil
 	}
 
@@ -344,18 +344,18 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 	}
 	initialScale := kparesources.GetInitialScale(asConfig, pa)
 	// Log reachability as quoted string, since default value is "".
-	logger.Debugf("MinScale = %d, MaxScale = %d, InitialScale = %d, DesiredScale = %d Reachable = %q",
+	logger.Infof("MinScale = %d, MaxScale = %d, InitialScale = %d, DesiredScale = %d Reachable = %q",
 		min, max, initialScale, desiredScale, pa.Spec.Reachability)
 	// If initial scale has been attained, ignore the initialScale altogether.
 	if initialScale > 1 && !pa.Status.IsScaleTargetInitialized() {
 		// Ignore initial scale if minScale >= initialScale.
 		if min < initialScale {
-			logger.Debugf("Adjusting min to meet the initial scale: %d -> %d", min, initialScale)
+			logger.Infof("Adjusting min to meet the initial scale: %d -> %d", min, initialScale)
 		}
 		min = intMax(initialScale, min)
 	}
 	if newScale := applyBounds(min, max, desiredScale); newScale != desiredScale {
-		logger.Debugf("Adjusting desiredScale to meet the min and max bounds before applying: %d -> %d", desiredScale, newScale)
+		logger.Infof("Adjusting desiredScale to meet the min and max bounds before applying: %d -> %d", desiredScale, newScale)
 		desiredScale = newScale
 	}
 

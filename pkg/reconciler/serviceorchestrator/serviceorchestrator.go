@@ -18,11 +18,10 @@ package serviceorchestrator
 
 import (
 	"context"
+	"fmt"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	appsv1listers "k8s.io/client-go/listers/apps/v1"
-	"k8s.io/utils/clock"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
@@ -30,7 +29,6 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	soreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/serviceorchestrator"
-	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
 	"math"
 )
@@ -40,11 +38,7 @@ type Reconciler struct {
 	client clientset.Interface
 
 	// listers index properties about resources
-	revisionLister           listers.RevisionLister
-	podAutoscalerLister      palisters.PodAutoscalerLister
 	stagePodAutoscalerLister listers.StagePodAutoscalerLister
-	clock                    clock.PassiveClock
-	deploymentLister         appsv1listers.DeploymentLister
 }
 
 // Check that our Reconciler implements soreconciler.Interface
@@ -55,11 +49,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, so *v1.ServiceOrchestrat
 	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
 	defer cancel()
 
-	logger := logging.FromContext(ctx)
-	logger.Info("Reconciling ServiceOrchestrator. Reconciling ServiceOrchestrator. Reconciling ServiceOrchestrator. Reconciling ServiceOrchestrator. Reconciling ServiceOrchestrator.")
-
-	logger.Info("Check the stage status before before before")
-	logger.Info(so.Status.StageRevisionStatus)
+	//logger := logging.FromContext(ctx)
 
 	// If spec.StageRevisionStatus is nil, do nothing.
 	if so.Spec.StageRevisionTarget == nil || len(so.Spec.StageRevisionTarget) == 0 {
@@ -82,12 +72,9 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, so *v1.ServiceOrchestrat
 		}
 	}
 
-	logger.Info("start to check the stage revision target")
 	// If spec.StageRevisionStatus is nil, check on if the number of replicas meets the conditions.
 	if so.IsStageInProgress() {
-		logger.Info("in progress start to check the stage revision target")
 		if !c.checkStageScaleUpReady(ctx, so) {
-			logger.Info("not scale up ready")
 			// Create the stage pod autoscaler with the new maxScale set to
 			// maxScale defined in the revision traffic, because scale up phase is not over, we cannot
 			// scale down the old revision.
@@ -108,7 +95,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, so *v1.ServiceOrchestrat
 			return nil
 		}
 
-		logger.Info("mark checkStageScaleUpReady ready")
 		so.Status.MarkStageRevisionScaleUpReady()
 		// Create the stage pod autoscaler with the new maxScale set to targetScale defined
 		// in the revision traffic. Scaling up phase is over, we are able to scale down.
@@ -132,31 +118,54 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, so *v1.ServiceOrchestrat
 			return nil
 		}
 
-		logger.Info("mark checkStageScaleDownReady ready")
 		so.Status.MarkStageRevisionScaleDownReady()
 
 		// When the number of replicas of the new and old revision meets the conditions, set the status to stage ready.
-		so.Status.SetStageRevisionStatus(so.Spec.StageRevisionTarget)
+		stageCleaned := cleanRedundency(so.Spec.StageRevisionTarget)
+		so.Status.SetStageRevisionStatus(stageCleaned)
 		so.Status.MarkStageRevisionReady()
-		if equality.Semantic.DeepEqual(so.Status.StageRevisionStatus, so.Spec.RevisionTarget) {
-			logger.Info("mark MarkLastStageRevisionComplete")
+		if equality.Semantic.DeepEqual(so.Status.StageRevisionStatus, so.Spec.RevisionTarget) || latestEqual(so.Status.StageRevisionStatus, so.Spec.RevisionTarget) {
 			so.Status.MarkLastStageRevisionComplete()
+
+		} else {
+			so.Status.MarkLastStageRevisionInComplete("RevisionRollingInProgress", "Still rolling the new revision.")
 		}
 		return nil
 	} else if so.IsStageReady() {
-		logger.Info("in stage ready start to check the stage revision target")
 		if so.IsInProgress() {
-			logger.Info("in still in progress ready start to check the stage revision target")
-			if !equality.Semantic.DeepEqual(so.Status.StageRevisionStatus, so.Spec.StageRevisionTarget) {
+			if !equality.Semantic.DeepEqual(so.Status.StageRevisionStatus, so.Spec.StageRevisionTarget) && !latestEqual(so.Status.StageRevisionStatus, so.Spec.RevisionTarget) {
 				// Start to move to a new stage.
 				so.Status.MarkStageRevisionScaleUpInProgress("StageRevisionStart", "Start to roll out a new stage.")
 				so.Status.MarkStageRevisionScaleDownInProgress("StageRevisionStart", "Start to roll out a new stage.")
 				so.Status.MarkStageRevisionInProgress("StageRevisionStart", "Start to roll out a new stage.")
+				so.Status.MarkLastStageRevisionInComplete("RevisionRollingInProgress", "Still rolling the new revision.")
 			}
 		}
 	}
 
 	return nil
+}
+
+func cleanRedundency(ts []v1.RevisionTarget) []v1.RevisionTarget {
+	result := []v1.RevisionTarget{}
+	for _, r := range ts {
+		if *r.Percent != 0 {
+			result = append(result, r)
+		}
+	}
+	return result
+}
+
+func latestEqual(t1, t2 []v1.RevisionTarget) bool {
+	if *t2[0].Percent != 100 {
+		return false
+	}
+	for _, r := range t1 {
+		if *r.Percent == 100 && r.RevisionName == t2[0].RevisionName {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Reconciler) createStagePA(ctx context.Context, so *v1.ServiceOrchestrator, revision *v1.RevisionTarget, scaleUpReady bool) error {
@@ -173,8 +182,17 @@ func (c *Reconciler) createStagePA(ctx context.Context, so *v1.ServiceOrchestrat
 			MaxScale: revision.MaxScale,
 		},
 	}
-
+	logger := logging.FromContext(ctx)
+	logger.Info("go to create ")
 	spa = updateWithTargetReplicas(spa, revision, scaleUpReady)
+
+	logger.Info("display the spec of logger")
+	if spa.Spec.MinScale != nil {
+		logger.Info(*spa.Spec.MinScale)
+	}
+	if spa.Spec.MaxScale != nil {
+		logger.Info(*spa.Spec.MaxScale)
+	}
 
 	c.client.ServingV1().StagePodAutoscalers(so.Namespace).Create(ctx, spa, metav1.CreateOptions{})
 	return nil
@@ -182,9 +200,8 @@ func (c *Reconciler) createStagePA(ctx context.Context, so *v1.ServiceOrchestrat
 
 func updateWithTargetReplicas(spa *v1.StagePodAutoscaler, revision *v1.RevisionTarget,
 	scaleUpReady bool) *v1.StagePodAutoscaler {
-	if revision.TargetReplicas == nil {
-		return spa
-	}
+	fmt.Println("run the updateWithTargetReplicas")
+
 	min := int32(0)
 	max := int32(math.MaxInt32)
 	if revision.MinScale != nil {
@@ -196,25 +213,52 @@ func updateWithTargetReplicas(spa *v1.StagePodAutoscaler, revision *v1.RevisionT
 	}
 
 	if revision.Direction == "" || revision.Direction == "up" {
+		if revision.TargetReplicas == nil {
+			spa.Spec.MinScale = revision.MinScale
+			spa.Spec.MaxScale = revision.MaxScale
+			return spa
+		}
 		targetReplicas := *revision.TargetReplicas
-		if targetReplicas < min {
+		spa.Spec.MaxScale = revision.MaxScale
+		fmt.Println("check the up min scale")
+		if targetReplicas < min && *revision.Percent < int64(100) {
+			fmt.Println("set to target scale")
+			fmt.Println("target")
+			fmt.Println(targetReplicas)
+			fmt.Println("min")
+			fmt.Println(min)
+			fmt.Println("percent")
+			fmt.Println(*revision.Percent)
 			spa.Spec.MinScale = ptr.Int32(targetReplicas)
+		} else {
+			fmt.Println("set to min scale")
+			spa.Spec.MinScale = revision.MinScale
 		}
 
 	} else if revision.Direction == "down" {
 		if scaleUpReady {
+			if revision.TargetReplicas == nil {
+				spa.Spec.MinScale = revision.MinScale
+				spa.Spec.MaxScale = revision.MaxScale
+				return spa
+			}
 			targetReplicas := *revision.TargetReplicas
 			if targetReplicas < max {
 				spa.Spec.MaxScale = ptr.Int32(targetReplicas)
+			} else {
+				spa.Spec.MaxScale = revision.MaxScale
 			}
 
 			if targetReplicas < min {
 				spa.Spec.MinScale = ptr.Int32(targetReplicas)
+			} else {
+				spa.Spec.MinScale = revision.MinScale
 			}
-		} else {
-			spa.Spec.MaxScale = revision.MaxScale
-			spa.Spec.MinScale = revision.MinScale
 		}
+		//} else {
+		//	spa.Spec.MaxScale = revision.MaxScale
+		//	spa.Spec.MinScale = revision.MinScale
+		//}
 	}
 	return spa
 }
@@ -223,7 +267,7 @@ func (c *Reconciler) checkStageScaleUpReady(ctx context.Context, so *v1.ServiceO
 	logger := logging.FromContext(ctx)
 	logger.Info("checkStageScaleUpReady checkStageScaleUpReady checkStageScaleUpReady checkStageScaleUpReady")
 	for _, revision := range so.Spec.StageRevisionTarget {
-		pa, err := c.podAutoscalerLister.PodAutoscalers(so.Namespace).Get(revision.RevisionName)
+		pa, err := c.stagePodAutoscalerLister.StagePodAutoscalers(so.Namespace).Get(revision.RevisionName)
 		if err != nil {
 			logger.Info("checkStageScaleUpReady there is error checkStageScaleUpReady checkStage")
 			logger.Info(err)
@@ -231,40 +275,40 @@ func (c *Reconciler) checkStageScaleUpReady(ctx context.Context, so *v1.ServiceO
 		}
 		if revision.Direction == "" || revision.Direction == "up" {
 			logger.Info("checkStageScaleUpReady check the revision")
-			min := int32(0)
-			max := int32(math.MaxInt32)
-			if revision.TargetReplicas == nil {
+			logger.Info(pa.IsStageScaleInReady())
 
-				if revision.MinScale != nil {
-					min = *revision.MinScale
-				}
-
-				if revision.MaxScale != nil {
-					max = *revision.MaxScale
-				}
-				if *pa.Status.DesiredScale == *pa.Status.ActualScale && *pa.Status.ActualScale >= min && *pa.Status.ActualScale <= max {
-					logger.Info("checkStageScaleUpReady this is ready.")
-					return true
-				}
-				logger.Info("checkStageScaleUpReady this is not ready.")
-				logger.Info(*pa.Status.DesiredScale)
-				logger.Info(*pa.Status.ActualScale)
-				logger.Info(min)
-				logger.Info(max)
+			if !pa.IsStageScaleInReady() {
 				return false
 			}
-			logger.Info("TargetReplicas not nil.")
-			logger.Info(*pa.Status.DesiredScale)
-			logger.Info(*pa.Status.ActualScale)
-			if *pa.Status.DesiredScale >= *revision.MinScale && *pa.Status.ActualScale >= *revision.MinScale {
-				if *pa.Status.DesiredScale >= *revision.TargetReplicas && *pa.Status.ActualScale >= *revision.TargetReplicas {
-					return true
-				} else if *pa.Status.DesiredScale < *revision.TargetReplicas && *pa.Status.ActualScale < *revision.TargetReplicas {
-					if *pa.Status.DesiredScale == *pa.Status.ActualScale {
-						return true
-					}
-				}
+			min := int32(0)
+			max := int32(math.MaxInt32)
+			if revision.MinScale != nil {
+				min = *revision.MinScale
 			}
+
+			if revision.MaxScale != nil {
+				max = *revision.MaxScale
+			}
+			if revision.TargetReplicas == nil {
+
+				if *pa.Status.DesiredScale == *pa.Status.ActualScale && *pa.Status.ActualScale >= min && *pa.Status.ActualScale <= max {
+					return true
+				}
+				return false
+			}
+			if *pa.Status.DesiredScale >= *revision.TargetReplicas && *pa.Status.ActualScale >= *revision.TargetReplicas {
+				return true
+			} else if *pa.Status.DesiredScale == *revision.TargetReplicas && *pa.Status.DesiredScale == *pa.Status.ActualScale {
+				return true
+			} else if *pa.Status.DesiredScale >= min && *pa.Status.DesiredScale == *pa.Status.ActualScale {
+				return true
+			}
+
+			//else if *pa.Status.DesiredScale < *revision.TargetReplicas && *pa.Status.ActualScale < *revision.TargetReplicas {
+			//	if *pa.Status.DesiredScale == *pa.Status.ActualScale {
+			//		return true
+			//	}
+			//}
 		}
 
 	}
@@ -275,14 +319,26 @@ func (c *Reconciler) checkStageScaleDownReady(ctx context.Context, so *v1.Servic
 	logger := logging.FromContext(ctx)
 	logger.Info("mark checkStageScaleDownReady ready")
 	for _, revision := range so.Spec.StageRevisionTarget {
-		pa, err := c.podAutoscalerLister.PodAutoscalers(so.Namespace).Get(revision.RevisionName)
+		pa, err := c.stagePodAutoscalerLister.StagePodAutoscalers(so.Namespace).Get(revision.RevisionName)
 		if err != nil {
 			return false
 		}
 		if revision.Direction == "down" {
 			if revision.TargetReplicas == nil {
+				max := int32(math.MaxInt32)
+
+				if revision.MaxScale != nil {
+					max = *revision.MaxScale
+				}
+				if *pa.Status.DesiredScale > max || *pa.Status.ActualScale > max {
+					return false
+				}
+
 				return false
 			}
+			//if !pa.IsStageScaleInReady() {
+			//	return false
+			//}
 			if *pa.Status.DesiredScale > *revision.TargetReplicas || *pa.Status.ActualScale > *revision.TargetReplicas {
 				return false
 			}

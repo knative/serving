@@ -42,9 +42,8 @@ type RevisionRecord struct {
 
 // MakeServiceOrchestrator creates a ServiceOrchestrator from a Service object.
 func MakeServiceOrchestrator(service *v1.Service, config *v1.Configuration, route *v1.Route, records map[string]RevisionRecord,
-	logging *zap.SugaredLogger) *v1.ServiceOrchestrator {
+	logging *zap.SugaredLogger, so *v1.ServiceOrchestrator) *v1.ServiceOrchestrator {
 	// The ultimate revision target comes from the service.
-	logging.Infof("MakeServiceOrchestrator MakeServiceOrchestrator MakeServiceOrchestrator MakeServiceOrchestrator MakeServiceOrchestrators")
 
 	logging.Infof("check the service R")
 	logging.Info(service)
@@ -76,15 +75,18 @@ func MakeServiceOrchestrator(service *v1.Service, config *v1.Configuration, rout
 				target.MaxScale = ptr.Int32(*val.MaxScale)
 			}
 		} else {
+			logging.Info("not found revision with service empty")
+			logging.Info("get lables from anno with service empty")
+			logging.Info(target.RevisionName)
 			// Get min and max scales from the service
-			if val, ok := service.Annotations[autoscaling.MinScaleAnnotationKey]; ok {
+			if val, ok := service.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey]; ok {
 				i, err := strconv.ParseInt(val, 10, 32)
 				if err == nil {
 					target.MinScale = ptr.Int32(int32(i))
 				}
 			}
 
-			if val, ok := service.Annotations[autoscaling.MaxScaleAnnotationKey]; ok {
+			if val, ok := service.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]; ok {
 				i, err := strconv.ParseInt(val, 10, 32)
 				if err == nil {
 					target.MaxScale = ptr.Int32(int32(i))
@@ -122,20 +124,33 @@ func MakeServiceOrchestrator(service *v1.Service, config *v1.Configuration, rout
 					target.MaxScale = ptr.Int32(*val.MaxScale)
 				}
 			} else {
+				logging.Info("not found revision")
+				logging.Info("get labels from anno")
+				logging.Info(target.RevisionName)
 				// Get min and max scales from the service
-				if val, ok := service.Annotations[autoscaling.MinScaleAnnotationKey]; ok {
+				if val, ok := service.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey]; ok {
 					i, err := strconv.ParseInt(val, 10, 32)
 					if err == nil {
+						logging.Info("set min scale")
 						target.MinScale = ptr.Int32(int32(i))
+					} else {
+						logging.Info("fail set min scale")
 					}
 
+				} else {
+					logging.Info("no min scale")
 				}
 
-				if val, ok := service.Annotations[autoscaling.MaxScaleAnnotationKey]; ok {
+				if val, ok := service.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]; ok {
 					i, err := strconv.ParseInt(val, 10, 32)
 					if err == nil {
+						logging.Info("set max scale")
 						target.MaxScale = ptr.Int32(int32(i))
+					} else {
+						logging.Info("fail set max scale")
 					}
+				} else {
+					logging.Info("no max scale")
 				}
 			}
 			ultimateRevisionTarget[i] = target
@@ -144,9 +159,7 @@ func MakeServiceOrchestrator(service *v1.Service, config *v1.Configuration, rout
 	}
 
 	if route == nil || route.Status.Traffic == nil || len(route.Status.Traffic) == 0 {
-
 		initialRevisionStatus = nil
-		initialRevisionStatus = ultimateRevisionTarget
 	} else {
 		logging.Infof("run this part to create for the first version run this part to create for the first version run this part to create for the first version run this part to create for the first version")
 
@@ -178,20 +191,44 @@ func MakeServiceOrchestrator(service *v1.Service, config *v1.Configuration, rout
 	// The initial revision status comes from the route. We set the first stage revision status to the
 	// initial revision status as well.
 
-	so := &v1.ServiceOrchestrator{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.ServiceOrchestrator(service),
-			Namespace: service.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*kmeta.NewControllerRef(service),
+	if so == nil {
+		so = &v1.ServiceOrchestrator{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      names.ServiceOrchestrator(service),
+				Namespace: service.Namespace,
+				OwnerReferences: []metav1.OwnerReference{
+					*kmeta.NewControllerRef(service),
+				},
 			},
-		},
-		Spec: v1.ServiceOrchestratorSpec{
-			RevisionTarget:        ultimateRevisionTarget,
-			InitialRevisionStatus: initialRevisionStatus,
-		},
+			Spec: v1.ServiceOrchestratorSpec{
+				RevisionTarget:        ultimateRevisionTarget,
+				InitialRevisionStatus: initialRevisionStatus,
+			},
+		}
+	} else if !trafficEqual(so.Spec.RevisionTarget, ultimateRevisionTarget) {
+		if so.Status.StageRevisionStatus != nil && len(so.Status.StageRevisionStatus) != 0 {
+			so.Spec.InitialRevisionStatus = append([]v1.RevisionTarget{}, so.Status.StageRevisionStatus...)
+		} else {
+			so.Spec.InitialRevisionStatus = nil
+		}
+
+		so.Spec.RevisionTarget = ultimateRevisionTarget
+		so.Spec.StageRevisionTarget = nil
 	}
 
-	so.Status.StageRevisionStatus = append([]v1.RevisionTarget{}, initialRevisionStatus...)
 	return so
+}
+
+func trafficEqual(target1, target2 []v1.RevisionTarget) bool {
+	if len(target1) != len(target2) {
+		return false
+	}
+
+	for i, t := range target1 {
+		if t.RevisionName != target2[i].RevisionName || *t.Percent != *target2[i].Percent {
+			return false
+		}
+
+	}
+	return true
 }

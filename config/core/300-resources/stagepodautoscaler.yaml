@@ -47,8 +47,8 @@ spec:
         - name: Reason
           type: string
           jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
-      schema:
-        openAPIV3Schema:
+      "schema":
+        "openAPIV3Schema":
           description: StagePodAutoscaler is a Knative abstraction that encapsulates the interface.
           type: object
           properties:
@@ -61,6 +61,18 @@ spec:
             metadata:
               type: object
             spec:
+              description: Spec holds the desired state of the PodAutoscaler (from the client).
+              type: object
+              properties:
+                maxScale:
+                  description: MaxScale sets the upper bound for the number of the replicas.
+                  type: integer
+                  format: int32
+                minScale:
+                  description: MinScale sets the lower bound for the number of the replicas.
+                  type: integer
+                  format: int32
+            status:
               description: Status holds the desired state of the PodAutoscaler (from the client).
               type: object
               properties:
@@ -101,6 +113,10 @@ spec:
                       type:
                         description: Type of condition.
                         type: string
+                desiredScale:
+                  description: DesiredScale shows the current desired number of replicas for the revision.
+                  type: integer
+                  format: int32
                 observedGeneration:
                   description: ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.
                   type: integer

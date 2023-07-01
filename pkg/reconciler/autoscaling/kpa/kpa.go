@@ -86,7 +86,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	defer cancel()
 
 	logger := logging.FromContext(ctx)
-
+	logger.Info("the kpa was kicked off ReconcileKind")
 	// We need the SKS object in order to optimize scale to zero
 	// performance. It is OK if SKS is nil at this point.
 	sksName := anames.SKS(pa.Name)

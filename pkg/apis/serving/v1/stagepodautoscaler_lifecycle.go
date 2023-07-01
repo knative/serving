@@ -23,11 +23,13 @@ import (
 	"knative.dev/pkg/apis"
 )
 
-var podCondSet = apis.NewLivingConditionSet()
+var stagePodCondSet = apis.NewLivingConditionSet(
+	PodAutoscalerStageReady,
+)
 
 // GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
 func (*StagePodAutoscaler) GetConditionSet() apis.ConditionSet {
-	return podCondSet
+	return stagePodCondSet
 }
 
 // GetGroupVersionKind returns the GVK for the PodAutoscaler.
@@ -37,4 +39,30 @@ func (pa *StagePodAutoscaler) GetGroupVersionKind() schema.GroupVersionKind {
 
 func (pa *StagePodAutoscaler) ScaleBounds(asConfig *autoscalerconfig.Config) (*int32, *int32) {
 	return pa.Spec.MinScale, pa.Spec.MaxScale
+}
+
+func (c *StagePodAutoscaler) IsStageScaleInReady() bool {
+	cs := c.Status
+	return cs.GetCondition(PodAutoscalerStageReady).IsTrue()
+}
+
+func (c *StagePodAutoscaler) IsStageScaleInProgress() bool {
+	cs := c.Status
+	return cs.GetCondition(PodAutoscalerStageReady).IsUnknown()
+}
+
+// InitializeConditions sets the initial values to the conditions.
+func (cs *StagePodAutoscalerStatus) InitializeConditions() {
+	stagePodCondSet.Manage(cs).InitializeConditions()
+}
+
+func (cs *StagePodAutoscalerStatus) MarkPodAutoscalerStageNotReady(message string) {
+	stagePodCondSet.Manage(cs).MarkUnknown(
+		PodAutoscalerStageReady,
+		"PodAutoscalerStageNotReady",
+		"The stage pod autoscaler is not ready: %s.", message)
+}
+
+func (cs *StagePodAutoscalerStatus) MarkPodAutoscalerStageReady() {
+	stagePodCondSet.Manage(cs).MarkTrue(PodAutoscalerStageReady)
 }
