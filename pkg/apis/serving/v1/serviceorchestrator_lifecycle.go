@@ -41,52 +41,44 @@ func (*ServiceOrchestrator) GetGroupVersionKind() schema.GroupVersionKind {
 // is true and the latest spec has been observed.
 func (c *ServiceOrchestrator) IsReady() bool {
 	cs := c.Status
-	return cs.ObservedGeneration == c.Generation &&
-		cs.GetCondition(ServiceOrchestratorConditionReady).IsTrue()
+	return cs.GetCondition(ServiceOrchestratorConditionReady).IsTrue()
 }
 
 // IsFailed returns true if the resource has observed
 // the latest generation and ready is false.
 func (c *ServiceOrchestrator) IsFailed() bool {
 	cs := c.Status
-	return cs.ObservedGeneration == c.Generation &&
-		cs.GetCondition(ServiceOrchestratorConditionReady).IsFalse()
+	return cs.GetCondition(ServiceOrchestratorConditionReady).IsFalse()
 }
 
 func (c *ServiceOrchestrator) IsInProgress() bool {
 	cs := c.Status
-	return cs.ObservedGeneration == c.Generation &&
-		cs.GetCondition(ServiceOrchestratorConditionReady).IsUnknown()
+	return cs.GetCondition(ServiceOrchestratorConditionReady).IsUnknown()
 }
 
 func (c *ServiceOrchestrator) IsStageInProgress() bool {
 	cs := c.Status
-	return cs.ObservedGeneration == c.Generation &&
-		cs.GetCondition(ServiceOrchestratorStageReady).IsUnknown()
+	return cs.GetCondition(ServiceOrchestratorStageReady).IsUnknown()
 }
 
 func (c *ServiceOrchestrator) IsStageReady() bool {
 	cs := c.Status
-	return cs.ObservedGeneration == c.Generation &&
-		cs.GetCondition(ServiceOrchestratorStageReady).IsTrue()
+	return cs.GetCondition(ServiceOrchestratorStageReady).IsTrue()
 }
 
 func (c *ServiceOrchestrator) IsStageFailed() bool {
 	cs := c.Status
-	return cs.ObservedGeneration == c.Generation &&
-		cs.GetCondition(ServiceOrchestratorStageReady).IsFalse()
+	return cs.GetCondition(ServiceOrchestratorStageReady).IsFalse()
 }
 
 func (c *ServiceOrchestrator) IsStageScaleUpReady() bool {
 	cs := c.Status
-	return cs.ObservedGeneration == c.Generation &&
-		cs.GetCondition(ServiceOrchestratorStageScaleUpReady).IsTrue()
+	return cs.GetCondition(ServiceOrchestratorStageScaleUpReady).IsTrue()
 }
 
 func (c *ServiceOrchestrator) IsStageScaleUpInProgress() bool {
 	cs := c.Status
-	return cs.ObservedGeneration == c.Generation &&
-		cs.GetCondition(ServiceOrchestratorStageScaleUpReady).IsUnknown()
+	return cs.GetCondition(ServiceOrchestratorStageScaleUpReady).IsUnknown()
 }
 
 // InitializeConditions sets the initial values to the conditions.
@@ -125,6 +117,10 @@ func (cs *ServiceOrchestratorStatus) MarkStageRevisionScaleDownReady() {
 // indicate that the revision rollout succeeded for the last stage.
 func (cs *ServiceOrchestratorStatus) MarkLastStageRevisionComplete() {
 	serviceOrchestratorCondSet.Manage(cs).MarkTrue(ServiceOrchestratorLastStageComplete)
+}
+
+func (cs *ServiceOrchestratorStatus) MarkLastStageRevisionInComplete(reason, message string) {
+	serviceOrchestratorCondSet.Manage(cs).MarkUnknown(ServiceOrchestratorLastStageComplete, reason, message)
 }
 
 func (cs *ServiceOrchestratorStatus) MarkStageRevisionInProgress(reason, message string) {

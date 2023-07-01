@@ -103,7 +103,13 @@ func NewController(
 	}
 	sksInformer.Informer().AddEventHandler(handleMatchingControllers)
 	metricInformer.Informer().AddEventHandler(handleMatchingControllers)
-	spaInformer.Informer().AddEventHandler(handleMatchingControllers)
+	//handleMatchingControllers1 := cache.FilteringResourceEventHandler{
+	//	//FilterFunc: pkgreconciler.LabelExistsFilterFunc(serving.RevisionLabelKey),
+	//	Handler: controller.HandleAll(impl.Enqueue),
+	//}
+	//spaInformer.Informer().AddEventHandler(handleMatchingControllers1)
+
+	spaInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	// Watch the knative pods.
 	podsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{

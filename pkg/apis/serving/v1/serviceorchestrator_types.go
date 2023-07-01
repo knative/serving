@@ -136,6 +136,8 @@ const (
 	ServiceOrchestratorStageScaleUpReady apis.ConditionType = "StageTrafficScaleUpReady"
 
 	ServiceOrchestratorStageScaleDownReady apis.ConditionType = "StageTrafficScaleDownReady"
+
+	PodAutoscalerStageReady apis.ConditionType = "PodAutoscalerStageReady"
 )
 
 // IsServiceOrchestratorCondition returns true if the given ConditionType is a ServiceOrchestratorCondition.

@@ -19,6 +19,7 @@ package revision
 import (
 	"context"
 	"fmt"
+	"k8s.io/client-go/tools/cache"
 	"net/http"
 	"time"
 
@@ -41,6 +42,7 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	apisconfig "knative.dev/serving/pkg/apis/config"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 )
@@ -123,16 +125,12 @@ func newControllerWithOptions(
 	// Set up an event handler for when the resource types of interest change
 	revisionInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
-	//handleMatchingControllers := cache.FilteringResourceEventHandler{
-	//	FilterFunc: controller.FilterController(&v1.Revision{}),
-	//	Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	//}
-	//deploymentInformer.Informer().AddEventHandler(handleMatchingControllers)
-	//handleMatchingControllers := cache.FilteringResourceEventHandler{
-	//	FilterFunc: pkgreconciler.LabelExistsFilterFunc(serving.RevisionLabelKey),
-	//	Handler:    controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)),
-	//}
-	//paInformer.Informer().AddEventHandler(handleMatchingControllers)
+	handleMatchingControllers := cache.FilteringResourceEventHandler{
+		FilterFunc: controller.FilterController(&v1.Revision{}),
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+	}
+	deploymentInformer.Informer().AddEventHandler(handleMatchingControllers)
+	paInformer.Informer().AddEventHandler(handleMatchingControllers)
 
 	// We don't watch for changes to Image because we don't incorporate any of its
 	// properties into our own status and should work completely in the absence of

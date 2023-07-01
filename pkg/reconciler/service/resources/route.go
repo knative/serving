@@ -56,3 +56,53 @@ func MakeRoute(service *v1.Service) *v1.Route {
 
 	return c
 }
+
+func convertIntoTrafficTarget(service *v1.Service, revisionTarget []v1.RevisionTarget) []v1.TrafficTarget {
+	trafficTarget := make([]v1.TrafficTarget, len(revisionTarget), len(revisionTarget))
+	for i, revision := range revisionTarget {
+		target := v1.TrafficTarget{}
+		target.LatestRevision = revision.LatestRevision
+		target.Percent = revision.Percent
+		if *revision.LatestRevision {
+			target.ConfigurationName = service.Name
+		} else {
+			target.RevisionName = revision.RevisionName
+		}
+		trafficTarget[i] = target
+	}
+	return trafficTarget
+}
+
+func MakeRouteFromSo(service *v1.Service, so *v1.ServiceOrchestrator) *v1.Route {
+	trafficTarget := convertIntoTrafficTarget(service, so.Spec.StageRevisionTarget)
+	c := &v1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      names.Route(service),
+			Namespace: service.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*kmeta.NewControllerRef(service),
+			},
+			Annotations: kmeta.FilterMap(service.GetAnnotations(), func(key string) bool {
+				return key == corev1.LastAppliedConfigAnnotation
+			}),
+			Labels: kmeta.UnionMaps(service.GetLabels(), map[string]string{
+				// Add this service's name to the route annotations.
+				serving.ServiceLabelKey: service.Name,
+			}),
+		},
+		Spec: v1.RouteSpec{
+			Traffic: trafficTarget,
+		},
+		//*service.Spec.RouteSpec.DeepCopy(),
+	}
+
+	// Fill in any missing ConfigurationName fields when translating
+	// from Service to Route.
+	for idx := range c.Spec.Traffic {
+		if c.Spec.Traffic[idx].RevisionName == "" {
+			c.Spec.Traffic[idx].ConfigurationName = names.Configuration(service)
+		}
+	}
+
+	return c
+}

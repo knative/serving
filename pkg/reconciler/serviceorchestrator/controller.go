@@ -19,14 +19,10 @@ package serviceorchestrator
 import (
 	"context"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/utils/clock"
-	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
-	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	soinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/serviceorchestrator"
 	spainformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/stagepodautoscaler"
 	soreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/serviceorchestrator"
@@ -38,21 +34,14 @@ func NewController(
 	cmw configmap.Watcher,
 ) *controller.Impl {
 	soInformer := soinformer.Get(ctx)
-	revisionInformer := revisioninformer.Get(ctx)
-	paInformer := painformer.Get(ctx)
 	stagePodAutoscalerInformer := spainformer.Get(ctx)
-	deploymentInformer := deploymentinformer.Get(ctx)
 
 	//configStore := config.NewStore(logger.Named("config-store"))
 	//configStore.WatchConfigs(cmw)
 
 	c := &Reconciler{
 		client:                   servingclient.Get(ctx),
-		revisionLister:           revisionInformer.Lister(),
-		podAutoscalerLister:      paInformer.Lister(),
 		stagePodAutoscalerLister: stagePodAutoscalerInformer.Lister(),
-		clock:                    &clock.RealClock{},
-		deploymentLister:         deploymentInformer.Lister(),
 	}
 	impl := soreconciler.NewImpl(ctx, c)
 

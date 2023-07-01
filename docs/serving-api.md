@@ -1408,7 +1408,7 @@ int32
 </tr>
 <tr>
 <td>
-<code>spec</code><br/>
+<code>status</code><br/>
 <em>
 <a href="#serving.knative.dev/v1.StagePodAutoscalerStatus">
 StagePodAutoscalerStatus
@@ -1418,37 +1418,6 @@ StagePodAutoscalerStatus
 <td>
 <em>(Optional)</em>
 <p>Status holds the desired state of the PodAutoscaler (from the client).</p>
-<br/>
-<br/>
-<table>
-<tr>
-<td>
-<code>Status</code><br/>
-<em>
-<a href="https://pkg.go.dev/knative.dev/pkg/apis/duck/v1#Status">
-knative.dev/pkg/apis/duck/v1.Status
-</a>
-</em>
-</td>
-<td>
-<p>
-(Members of <code>Status</code> are embedded into this type.)
-</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>actualScale</code><br/>
-<em>
-int32
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ActualScale shows the actual number of replicas for the revision.</p>
-</td>
-</tr>
-</table>
 </td>
 </tr>
 </tbody>
@@ -2574,13 +2543,23 @@ knative.dev/pkg/apis/duck/v1.Status
 </tr>
 <tr>
 <td>
+<code>desiredScale</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<p>DesiredScale shows the current desired number of replicas for the revision.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>actualScale</code><br/>
 <em>
 int32
 </em>
 </td>
 <td>
-<em>(Optional)</em>
 <p>ActualScale shows the actual number of replicas for the revision.</p>
 </td>
 </tr>

@@ -812,6 +812,11 @@ func (in *StagePodAutoscalerSpec) DeepCopy() *StagePodAutoscalerSpec {
 func (in *StagePodAutoscalerStatus) DeepCopyInto(out *StagePodAutoscalerStatus) {
 	*out = *in
 	in.Status.DeepCopyInto(&out.Status)
+	if in.DesiredScale != nil {
+		in, out := &in.DesiredScale, &out.DesiredScale
+		*out = new(int32)
+		**out = **in
+	}
 	if in.ActualScale != nil {
 		in, out := &in.ActualScale, &out.ActualScale
 		*out = new(int32)

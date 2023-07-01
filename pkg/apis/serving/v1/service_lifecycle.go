@@ -128,8 +128,12 @@ func (ss *ServiceStatus) MarkRouteNotYetReady() {
 	serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, trafficNotMigratedReason, trafficNotMigratedMessage)
 }
 
-func (ss *ServiceStatus) MarkServiceOrchestratorNotYetReady() {
-	serviceCondSet.Manage(ss).MarkFalse(ServiceConditionServiceOrchestratorsReady, "keep it fail for testing", "keep it fail")
+func (ss *ServiceStatus) MarkServiceOrchestratorReady() {
+	serviceCondSet.Manage(ss).MarkTrue(ServiceConditionServiceOrchestratorsReady)
+}
+
+func (ss *ServiceStatus) MarkServiceOrchestratorInProgress() {
+	serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionServiceOrchestratorsReady, "RollingoutInProgress", "New revision is rollong out in progress")
 }
 
 // MarkRouteNotReconciled notes that the Route controller has not yet
