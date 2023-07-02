@@ -1654,7 +1654,7 @@ func TestContainerValidation(t *testing.T) {
 					ProbeHandler: corev1.ProbeHandler{},
 				},
 			},
-			want: apis.ErrMissingOneOf("livenessProbe.httpGet", "livenessProbe.tcpSocket", "livenessProbe.exec"),
+			want: apis.ErrMissingOneOf("livenessProbe.httpGet", "livenessProbe.tcpSocket", "livenessProbe.exec", "livenessProbe.grpc"),
 		}, {
 			name: "invalid with multiple handlers",
 			c: corev1.Container{
@@ -1891,7 +1891,7 @@ func TestContainerValidation(t *testing.T) {
 		}, {
 			name: "valid grpc probe",
 			c: corev1.Container{
-				Name: "foo",
+				Image: "foo",
 				ReadinessProbe: &corev1.Probe{
 					ProbeHandler: corev1.ProbeHandler{
 						GRPC: &corev1.GRPCAction{
@@ -1903,7 +1903,7 @@ func TestContainerValidation(t *testing.T) {
 		}, {
 			name: "valid grpc probe with service",
 			c: corev1.Container{
-				Name: "foo",
+				Image: "foo",
 				ReadinessProbe: &corev1.Probe{
 					ProbeHandler: corev1.ProbeHandler{
 						GRPC: &corev1.GRPCAction{
