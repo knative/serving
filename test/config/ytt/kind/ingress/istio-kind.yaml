@@ -1,8 +1,0 @@
-#@ load("@ytt:overlay", "overlay")
-#@ load("helpers.lib.yaml", "subset")
-
-#@overlay/match by=subset(kind="Service", namespace="istio-system", name="istio-ingressgateway"), expects="1+"
----
-spec:
-  #@overlay/merge
-  type: LoadBalancer
