@@ -1893,6 +1893,10 @@ func TestContainerValidation(t *testing.T) {
 			c: corev1.Container{
 				Image: "foo",
 				ReadinessProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
 					ProbeHandler: corev1.ProbeHandler{
 						GRPC: &corev1.GRPCAction{
 							Port: 46,
@@ -1905,6 +1909,10 @@ func TestContainerValidation(t *testing.T) {
 			c: corev1.Container{
 				Image: "foo",
 				ReadinessProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
 					ProbeHandler: corev1.ProbeHandler{
 						GRPC: &corev1.GRPCAction{
 							Port:    46,
