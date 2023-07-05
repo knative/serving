@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "d3565159"
+    knative.dev/example-checksum: "eb70e734"
 data:
   _example: |-
     ################################
@@ -201,3 +201,6 @@ data:
     #
     # NOTE THAT THIS IS AN EXPERIMENTAL / ALPHA FEATURE
     queueproxy.mount-podinfo: "disabled"
+
+    # Default queue proxy resource requests and limits to good values for most cases if set.
+    queueproxy.resource-defaults: "disabled"

@@ -312,28 +312,37 @@ func TestMakeQueueContainer(t *testing.T) {
 			})
 		}),
 	}, {
-		name: "default resource config",
+		name: "default resource config with feature qp defaults disabled",
 		rev: revision("bar", "foo",
 			withContainers(containers)),
 		dc: deployment.Config{
-			QueueSidecarCPURequest:              &deployment.QueueSidecarCPURequestDefault,
-			QueueSidecarCPULimit:                &deployment.QueueSidecarCPULimitDefault,
-			QueueSidecarMemoryRequest:           &deployment.QueueSidecarMemoryRequestDefault,
-			QueueSidecarMemoryLimit:             &deployment.QueueSidecarMemoryLimitDefault,
-			QueueSidecarEphemeralStorageRequest: &deployment.QueueSidecarEphemeralStorageRequestDefault,
-			QueueSidecarEphemeralStorageLimit:   &deployment.QueueSidecarEphemeralStorageLimitDefault,
+			QueueSidecarCPURequest: &deployment.QueueSidecarCPURequestDefault,
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{})
 			c.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceCPU:              resource.MustParse("25m"),
-				corev1.ResourceMemory:           resource.MustParse("400Mi"),
-				corev1.ResourceEphemeralStorage: resource.MustParse("512Mi"),
+				corev1.ResourceCPU: deployment.QueueSidecarCPURequestDefault,
+			}
+		}),
+	}, {
+		name: "resource config with feature qp defaults enabled",
+		rev: revision("bar", "foo",
+			withContainers(containers)),
+		dc: deployment.Config{
+			QueueSidecarCPURequest: &deployment.QueueSidecarCPURequestDefault,
+		},
+		fc: apicfg.Features{
+			QueueProxyResourceDefaults: apicfg.Enabled,
+		},
+		want: queueContainer(func(c *corev1.Container) {
+			c.Env = env(map[string]string{})
+			c.Resources.Requests = corev1.ResourceList{
+				corev1.ResourceCPU:    deployment.QueueSidecarCPURequestDefault,
+				corev1.ResourceMemory: deployment.QueueSidecarMemoryRequestDefault,
 			}
 			c.Resources.Limits = corev1.ResourceList{
-				corev1.ResourceCPU:              resource.MustParse("1000m"),
-				corev1.ResourceMemory:           resource.MustParse("800Mi"),
-				corev1.ResourceEphemeralStorage: resource.MustParse("1024Mi"),
+				corev1.ResourceCPU:    deployment.QueueSidecarCPULimitDefault,
+				corev1.ResourceMemory: deployment.QueueSidecarMemoryLimitDefault,
 			}
 		}),
 	}, {

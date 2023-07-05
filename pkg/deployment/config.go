@@ -99,15 +99,10 @@ var (
 
 func defaultConfig() *Config {
 	cfg := &Config{
-		ProgressDeadline:                    ProgressDeadlineDefault,
-		DigestResolutionTimeout:             digestResolutionTimeoutDefault,
-		RegistriesSkippingTagResolving:      sets.NewString("kind.local", "ko.local", "dev.local"),
-		QueueSidecarCPURequest:              &QueueSidecarCPURequestDefault,
-		QueueSidecarCPULimit:                &QueueSidecarCPULimitDefault,
-		QueueSidecarMemoryRequest:           &QueueSidecarMemoryRequestDefault,
-		QueueSidecarMemoryLimit:             &QueueSidecarMemoryLimitDefault,
-		QueueSidecarEphemeralStorageRequest: &QueueSidecarEphemeralStorageRequestDefault,
-		QueueSidecarEphemeralStorageLimit:   &QueueSidecarEphemeralStorageLimitDefault,
+		ProgressDeadline:               ProgressDeadlineDefault,
+		DigestResolutionTimeout:        digestResolutionTimeoutDefault,
+		RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
+		QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 	}
 	// The following code is needed for ConfigMap testing.
 	// defaultConfig must match the example in deployment.yaml which includes: `queue-sidecar-token-audiences: ""`
