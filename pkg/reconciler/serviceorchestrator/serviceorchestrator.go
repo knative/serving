@@ -339,10 +339,12 @@ func (c *Reconciler) checkStageScaleDownReady(ctx context.Context, so *v1.Servic
 			//if !pa.IsStageScaleInReady() {
 			//	return false
 			//}
-			if *pa.Status.DesiredScale > *revision.TargetReplicas || *pa.Status.ActualScale > *revision.TargetReplicas {
-				return false
+			if *pa.Status.DesiredScale <= *revision.TargetReplicas && *pa.Status.ActualScale <= *revision.TargetReplicas {
+				return true
+			} else if *pa.Status.DesiredScale == *pa.Status.ActualScale {
+				return true
 			}
 		}
 	}
-	return true
+	return false
 }
