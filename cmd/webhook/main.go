@@ -160,20 +160,6 @@ func newConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 	)
 }
 
-func copyAndOverrideWebhookQueueName(ctx context.Context, queueName string) context.Context {
-	cpWopts := *webhook.GetOptions(ctx)
-	if cpWopts.ControllerOptions != nil {
-		// Override if the queue name is set elsewhere, context propagates the last value set
-		cOpts := *cpWopts.ControllerOptions
-		cOpts.WorkQueueName = queueName
-		cpWopts.ControllerOptions = &cOpts
-	} else {
-		cpWopts.ControllerOptions = &controller.ControllerOptions{WorkQueueName: queueName}
-	}
-	cpWopts.ControllerOptions.Logger = logging.FromContext(ctx)
-	return webhook.WithOptions(ctx, cpWopts)
-}
-
 func main() {
 	// Set up a signal context with our webhook options
 	ctx := webhook.WithOptions(signals.NewContext(), webhook.Options{
