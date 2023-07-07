@@ -657,7 +657,7 @@ function foreach_go_module() {
       echo "Command '${cmd}' failed in module $gomod_dir: $failed" >&2
       return $failed
     fi
-  done < <(go_run knative.dev/test-infra/tools/modscope@latest ls -p)
+  done < <(go_run knative.dev/toolbox/modscope@latest ls -p)
 }
 
 # Update go deps.
@@ -709,7 +709,7 @@ function __go_update_deps_for_module() {
     else
       group "Upgrading to release ${RELEASE}"
     fi
-    FLOATING_DEPS+=( $(go_run knative.dev/test-infra/buoy@latest float ./go.mod "${buoyArgs[@]}") )
+    FLOATING_DEPS+=( $(go_run knative.dev/toolbox/buoy@latest float ./go.mod "${buoyArgs[@]}") )
     if [[ ${#FLOATING_DEPS[@]} > 0 ]]; then
       echo "Floating deps to ${FLOATING_DEPS[@]}"
       go get -d ${FLOATING_DEPS[@]}
@@ -754,7 +754,7 @@ function __go_update_deps_for_module() {
 # Intended to be used like:
 #   export MODULE_NAME=$(go_mod_module_name)
 function go_mod_module_name() {
-  go_run knative.dev/test-infra/tools/modscope@latest current
+  go_run knative.dev/toolbox/modscope@latest current
 }
 
 # Return a GOPATH to a temp directory. Works around the out-of-GOPATH issues
