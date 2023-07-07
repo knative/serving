@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "410041a0"
+    knative.dev/example-checksum: "ed77183a"
 data:
   # This is the Go import path for the binary that is containerized
   # and substituted here.
@@ -57,15 +57,18 @@ data:
     queue-sidecar-cpu-request: "25m"
 
     # Sets the queue proxy's CPU limit.
-    # If omitted, no value is specified and the system default is used.
+    # If omitted, a default value (currently "1000m"), is used when
+    # `queueproxy.resource-defaults` is set to `Enabled`.
     queue-sidecar-cpu-limit: "1000m"
 
     # Sets the queue proxy's memory request.
-    # If omitted, no value is specified and the system default is used.
+    # If omitted, a default value (currently "400Mi"), is used when
+    # `queueproxy.resource-defaults` is set to `Enabled`.
     queue-sidecar-memory-request: "400Mi"
 
     # Sets the queue proxy's memory limit.
-    # If omitted, no value is specified and the system default is used.
+    # If omitted, a default value (currently "800Mi"), is used when
+    # `queueproxy.resource-defaults` is set to `Enabled`.
     queue-sidecar-memory-limit: "800Mi"
 
     # Sets the queue proxy's ephemeral storage request.
