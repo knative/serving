@@ -35,7 +35,7 @@ spec:
         app.kubernetes.io/name: knative-serving
         app.kubernetes.io/version: devel
     spec:
-      serviceAccountName: controller
+      serviceAccountName: activator
       containers:
       - name: activator
         # This is the Go import path for the binary that is containerized
