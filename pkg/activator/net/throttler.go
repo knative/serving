@@ -89,6 +89,9 @@ func (p *podTracker) getWeight() int32 {
 }
 
 func (p *podTracker) String() string {
+	if p == nil {
+		return "<nil>"
+	}
 	return p.dest
 }
 
