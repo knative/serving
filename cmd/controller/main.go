@@ -37,6 +37,7 @@ import (
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/serving/pkg/networking"
+	"knative.dev/serving/pkg/reconciler/domainmapping"
 )
 
 const (
@@ -53,6 +54,7 @@ var ctors = []injection.ControllerConstructor{
 	gc.NewController,
 	nscert.NewController,
 	certificate.NewControllerFactory(networking.ServingCertName),
+	domainmapping.NewController,
 }
 
 func main() {

@@ -51,3 +51,5 @@ webhooks:
     - revisions
     - routes
     - services
+    - domainmappings
+    - domainmappings/status
