@@ -251,9 +251,9 @@ func GRPCProbe(config GRPCProbeConfigOptions) error {
 
 	if err != nil {
 		if err == context.DeadlineExceeded {
-			return fmt.Errorf("timeout: failed to connect service %q within %v", addr, config.Timeout)
+			return fmt.Errorf("failed to connect service %q within %v: %w", addr, config.Timeout, err)
 		} else {
-			return fmt.Errorf("error: failed to connect service at %q", addr)
+			return fmt.Errorf("failed to connect service at %q: %w", addr, err)
 		}
 	}
 
@@ -272,12 +272,12 @@ func GRPCProbe(config GRPCProbeConfigOptions) error {
 		if ok {
 			switch stat.Code() {
 			case codes.Unimplemented:
-				return fmt.Errorf("error: this server does not implement the grpc health protocol (grpc.health.v1.Health): %s", stat.Message())
+				return fmt.Errorf("this server does not implement the grpc health protocol (grpc.health.v1.Health) %w", err)
 			case codes.DeadlineExceeded:
-				return fmt.Errorf("timeout: health rpc did not complete within %v", config.Timeout)
+				return fmt.Errorf("health rpc did not complete within %v: %w", config.Timeout, err)
 			}
 		}
-		return fmt.Errorf("error: health rpc probe failed: %+v", err)
+		return fmt.Errorf("health rpc probe failed: %w", err)
 	}
 
 	if resp.GetStatus() != grpchealth.HealthCheckResponse_SERVING {
