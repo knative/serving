@@ -225,6 +225,8 @@ func isHTTPProbeReady(res *http.Response) bool {
 
 // GRPCProbe checks that gRPC connection can be established to the address.
 func GRPCProbe(config GRPCProbeConfigOptions) error {
+
+	// Use k8s.io/kubernetes/pkg/probe/dialer_others.go to correspond to OSs other than Windows
 	dialer := &net.Dialer{
 		Control: func(network, address string, c syscall.RawConn) error {
 			return c.Control(func(fd uintptr) {
