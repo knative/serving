@@ -148,6 +148,10 @@ func (*RevisionSpec) applyProbes(container *corev1.Container) {
 		container.ReadinessProbe.TCPSocket = &corev1.TCPSocketAction{}
 	}
 
+	if container.ReadinessProbe.GRPC != nil && container.ReadinessProbe.GRPC.Service == nil {
+		container.ReadinessProbe.GRPC.Service = ptr.String("")
+	}
+
 	if container.ReadinessProbe.SuccessThreshold == 0 {
 		container.ReadinessProbe.SuccessThreshold = 1
 	}
