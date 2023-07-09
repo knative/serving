@@ -26,7 +26,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aws/smithy-go/ptr"
 	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -38,6 +37,7 @@ import (
 	"k8s.io/client-go/pkg/version"
 	netheader "knative.dev/networking/pkg/http/header"
 	pkgnet "knative.dev/pkg/network"
+	"knative.dev/pkg/ptr"
 )
 
 // HTTPProbeConfigOptions holds the HTTP probe config options
@@ -265,7 +265,7 @@ func GRPCProbe(config GRPCProbeConfigOptions) error {
 	client := grpchealth.NewHealthClient(conn)
 
 	resp, err := client.Check(metadata.NewOutgoingContext(ctx, make(metadata.MD)), &grpchealth.HealthCheckRequest{
-		Service: ptr.ToString(config.Service),
+		Service: ptr.StringValue(config.Service),
 	})
 
 	if err != nil {
