@@ -34,7 +34,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/pkg/version"
 	netheader "knative.dev/networking/pkg/http/header"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
@@ -59,6 +58,8 @@ type TCPProbeConfigOptions struct {
 type GRPCProbeConfigOptions struct {
 	Timeout time.Duration
 	*corev1.GRPCAction
+	KubeMajor string
+	KubeMinor string
 }
 
 // TCPProbe checks that a TCP socket to the address can be opened.
@@ -232,10 +233,8 @@ func GRPCProbe(config GRPCProbeConfigOptions) error {
 		},
 	}
 
-	v := version.Get()
-
 	opts := []grpc.DialOption{
-		grpc.WithUserAgent(fmt.Sprintf("kube-probe/%s.%s", v.Major, v.Minor)),
+		grpc.WithUserAgent(netheader.KubeProbeUAPrefix + config.KubeMajor + "/" + config.KubeMinor),
 		grpc.WithBlock(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()), // credentials are currently not supported
 		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
