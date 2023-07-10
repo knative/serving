@@ -21,9 +21,9 @@ require (
 	go.uber.org/automaxprocs v1.4.0
 	go.uber.org/zap v1.19.1
 	golang.org/x/net v0.12.0
-	golang.org/x/sync v0.1.0
-	golang.org/x/time v0.1.0
-	google.golang.org/api v0.114.0
+	golang.org/x/sync v0.2.0
+	golang.org/x/time v0.3.0
+	google.golang.org/api v0.124.0
 	google.golang.org/grpc v1.56.1
 	k8s.io/api v0.26.5
 	k8s.io/apiextensions-apiserver v0.26.5
@@ -32,10 +32,10 @@ require (
 	k8s.io/code-generator v0.26.5
 	k8s.io/kube-openapi v0.0.0-20221012153701-172d655c2280
 	k8s.io/utils v0.0.0-20221108210102-8e77b1f39fe2
-	knative.dev/caching v0.0.0-20230707011843-0ba05f9fb292
+	knative.dev/caching v0.0.0-20230710014341-19673150e439
 	knative.dev/hack v0.0.0-20230707105034-cc92cdb68f01
-	knative.dev/networking v0.0.0-20230707011444-1431d70eb39d
-	knative.dev/pkg v0.0.0-20230628105954-6eb4b40a9a30
+	knative.dev/networking v0.0.0-20230710015341-b2cce924227a
+	knative.dev/pkg v0.0.0-20230710013638-5ef4812a4fe9
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -101,9 +101,10 @@ require (
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20230209165335-3624968304fd // indirect
 	github.com/google/go-github/v27 v27.0.6 // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
+	github.com/google/s2a-go v0.1.4 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
-	github.com/googleapis/gax-go/v2 v2.7.1 // indirect
+	github.com/googleapis/gax-go/v2 v2.9.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.11.3 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/influxdata/line-protocol v0.0.0-20200327222509-2487e7298839 // indirect
@@ -135,12 +136,12 @@ require (
 	github.com/vbatts/tar-split v0.11.2 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/crypto v0.11.0 // indirect
-	golang.org/x/mod v0.8.0 // indirect
-	golang.org/x/oauth2 v0.7.0 // indirect
+	golang.org/x/mod v0.9.0 // indirect
+	golang.org/x/oauth2 v0.8.0 // indirect
 	golang.org/x/sys v0.10.0 // indirect
 	golang.org/x/term v0.10.0 // indirect
 	golang.org/x/text v0.11.0 // indirect
-	golang.org/x/tools v0.6.0 // indirect
+	golang.org/x/tools v0.7.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230525234025-438c736192d0 // indirect
