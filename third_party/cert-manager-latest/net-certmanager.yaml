@@ -19,7 +19,7 @@ metadata:
   name: knative-serving-certmanager
   labels:
     app.kubernetes.io/component: net-certmanager
-    app.kubernetes.io/version: "20230630-3ff3c987"
+    app.kubernetes.io/version: "20230705-d6805af2"
     app.kubernetes.io/name: knative-serving
     serving.knative.dev/controller: "true"
     networking.knative.dev/certificate-provider: cert-manager
@@ -52,7 +52,7 @@ metadata:
   name: config.webhook.net-certmanager.networking.internal.knative.dev
   labels:
     app.kubernetes.io/component: net-certmanager
-    app.kubernetes.io/version: "20230630-3ff3c987"
+    app.kubernetes.io/version: "20230705-d6805af2"
     app.kubernetes.io/name: knative-serving
     networking.knative.dev/certificate-provider: cert-manager
 webhooks:
@@ -93,7 +93,7 @@ metadata:
   namespace: knative-serving
   labels:
     app.kubernetes.io/component: net-certmanager
-    app.kubernetes.io/version: "20230630-3ff3c987"
+    app.kubernetes.io/version: "20230705-d6805af2"
     app.kubernetes.io/name: knative-serving
     networking.knative.dev/certificate-provider: cert-manager
 
@@ -119,7 +119,7 @@ metadata:
   namespace: knative-serving
   labels:
     app.kubernetes.io/component: net-certmanager
-    app.kubernetes.io/version: "20230630-3ff3c987"
+    app.kubernetes.io/version: "20230705-d6805af2"
     app.kubernetes.io/name: knative-serving
     networking.knative.dev/certificate-provider: cert-manager
 data:
@@ -138,13 +138,23 @@ data:
     # These sample configuration options may be copied out of
     # this block and unindented to actually change the configuration.
 
-    # issuerRef is a reference to the issuer for this certificate.
+    # issuerRef is a reference to the issuer for cluster external certificates used for ingress.
     # IssuerRef should be either `ClusterIssuer` or `Issuer`.
     # Please refer `IssuerRef` in https://github.com/cert-manager/cert-manager/tree/master/pkg/apis/certmanager/v1/types_certificate.go
     # for more details about IssuerRef configuration.
+    # If the issuerRef is not specified, the self-signed `knative-internal-encryption-ca` ClusterIssuer is used.
     issuerRef: |
       kind: ClusterIssuer
       name: letsencrypt-issuer
+
+    # clusterInternalIssuerRef is a reference to the issuer for cluster internal certificates used for ingress.
+    # ClusterInternalIssuerRef should be either `ClusterIssuer` or `Issuer`.
+    # Please refer `IssuerRef` in https://github.com/cert-manager/cert-manager/tree/master/pkg/apis/certmanager/v1/types_certificate.go
+    # for more details about ClusterInternalIssuerRef configuration.
+    # If the clusterInternalIssuerRef is not specified, the self-signed `knative-internal-encryption-ca` ClusterIssuer is used.
+    clusterInternalIssuerRef: |
+      kind: ClusterIssuer
+      name: knative-internal-encryption-issuer
 
 ---
 # Copyright 2020 The Knative Authors
@@ -168,7 +178,7 @@ metadata:
   namespace: knative-serving
   labels:
     app.kubernetes.io/component: net-certmanager
-    app.kubernetes.io/version: "20230630-3ff3c987"
+    app.kubernetes.io/version: "20230705-d6805af2"
     app.kubernetes.io/name: knative-serving
     networking.knative.dev/certificate-provider: cert-manager
 spec:
@@ -180,7 +190,7 @@ spec:
       labels:
         app: net-certmanager-controller
         app.kubernetes.io/component: net-certmanager
-        app.kubernetes.io/version: "20230630-3ff3c987"
+        app.kubernetes.io/version: "20230705-d6805af2"
         app.kubernetes.io/name: knative-serving
     spec:
       serviceAccountName: controller
@@ -188,7 +198,7 @@ spec:
         - name: controller
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/controller@sha256:87a3aed9a69781059052a0754997d8c9004482c76d9556344b47351a6671ea15
+          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/controller@sha256:c386efb2dfac5835b85d21d143b28153ce0f6707fbbcf5f785c78c8e3368d789
           resources:
             requests:
               cpu: 30m
@@ -227,7 +237,7 @@ metadata:
   labels:
     app: net-certmanager-controller
     app.kubernetes.io/component: net-certmanager
-    app.kubernetes.io/version: "20230630-3ff3c987"
+    app.kubernetes.io/version: "20230705-d6805af2"
     app.kubernetes.io/name: knative-serving
     networking.knative.dev/certificate-provider: cert-manager
   name: net-certmanager-controller
@@ -243,6 +253,52 @@ spec:
       targetPort: 8008
   selector:
     app: net-certmanager-controller
+
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-cluster-issuer
+  labels:
+    app.kubernetes.io/component: net-certmanager
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/name: knative-serving
+    networking.knative.dev/certificate-provider: cert-manager
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: knative-internal-encryption-issuer
+  labels:
+    app.kubernetes.io/component: net-certmanager
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/name: knative-serving
+    networking.knative.dev/certificate-provider: cert-manager
+spec:
+  ca:
+    secretName: knative-internal-encryption-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: knative-internal-encryption-ca
+  namespace: cert-manager #  If you want to use it as a ClusterIssuer the secret must be in the cert-manager namespace.
+  labels:
+    app.kubernetes.io/component: net-certmanager
+    app.kubernetes.io/version: devel
+    app.kubernetes.io/name: knative-serving
+    networking.knative.dev/certificate-provider: cert-manager
+spec:
+  secretName: knative-internal-encryption-ca
+  commonName: knative.dev
+  usages:
+    - server auth
+  isCA: true
+  issuerRef:
+    kind: ClusterIssuer
+    name: selfsigned-cluster-issuer
 
 ---
 # Copyright 2020 The Knative Authors
@@ -266,7 +322,7 @@ metadata:
   namespace: knative-serving
   labels:
     app.kubernetes.io/component: net-certmanager
-    app.kubernetes.io/version: "20230630-3ff3c987"
+    app.kubernetes.io/version: "20230705-d6805af2"
     app.kubernetes.io/name: knative-serving
     networking.knative.dev/certificate-provider: cert-manager
 spec:
@@ -279,7 +335,7 @@ spec:
       labels:
         app: net-certmanager-webhook
         app.kubernetes.io/component: net-certmanager
-        app.kubernetes.io/version: "20230630-3ff3c987"
+        app.kubernetes.io/version: "20230705-d6805af2"
         app.kubernetes.io/name: knative-serving
         role: net-certmanager-webhook
     spec:
@@ -288,7 +344,7 @@ spec:
         - name: webhook
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/webhook@sha256:a8e5e35eb1a50f3a4073b812cc868c3c74a0162951ead774537a5a90968bb3a4
+          image: gcr.io/knative-nightly/knative.dev/net-certmanager/cmd/webhook@sha256:62ca22cb69a509668bc61300b3cdc92b9ecb6c76e6bddbb6327195d038b050f7
           resources:
             requests:
               cpu: 20m
@@ -352,7 +408,7 @@ metadata:
   labels:
     role: net-certmanager-webhook
     app.kubernetes.io/component: net-certmanager
-    app.kubernetes.io/version: "20230630-3ff3c987"
+    app.kubernetes.io/version: "20230705-d6805af2"
     app.kubernetes.io/name: knative-serving
     networking.knative.dev/certificate-provider: cert-manager
 spec:
