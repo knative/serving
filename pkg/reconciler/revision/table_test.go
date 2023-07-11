@@ -679,7 +679,10 @@ func TestReconcile(t *testing.T) {
 				withDefaultContainerStatuses(), withInitContainerStatuses(), WithRevisionObservedGeneration(1)),
 		}},
 		Key: "foo/first-reconcile",
-		Ctx: defaultconfig.ToContext(context.Background(), &defaultconfig.Config{Features: &defaultconfig.Features{PodSpecInitContainers: defaultconfig.Enabled}}),
+		Ctx: defaultconfig.ToContext(context.Background(), &defaultconfig.Config{Features: &defaultconfig.Features{
+			PodSpecInitContainers: defaultconfig.Enabled,
+			SecurePodDefaults:     defaultconfig.Enabled,
+		}}),
 	}, {
 		Name: "first revision reconciliation with PVC, PVC enabled",
 		// Test the simplest successful reconciliation flow.
@@ -703,6 +706,7 @@ func TestReconcile(t *testing.T) {
 		Ctx: defaultconfig.ToContext(context.Background(), &defaultconfig.Config{Features: &defaultconfig.Features{
 			PodSpecPersistentVolumeClaim: defaultconfig.Enabled,
 			PodSpecPersistentVolumeWrite: defaultconfig.Enabled,
+			SecurePodDefaults:            defaultconfig.Enabled,
 		}}),
 	}}
 

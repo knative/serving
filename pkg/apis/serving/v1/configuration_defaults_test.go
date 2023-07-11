@@ -76,6 +76,16 @@ func TestConfigurationDefaulting(t *testing.T) {
 								Image:          "busybox",
 								Resources:      defaultResources,
 								ReadinessProbe: defaultProbe,
+								SecurityContext: &corev1.SecurityContext{
+									Capabilities: &corev1.Capabilities{
+										Drop: []corev1.Capability{"ALL"},
+									},
+									RunAsNonRoot:             ptr.Bool(true),
+									AllowPrivilegeEscalation: ptr.Bool(false),
+									SeccompProfile: &corev1.SeccompProfile{
+										Type: corev1.SeccompProfileTypeRuntimeDefault,
+									},
+								},
 							}},
 						},
 						TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
@@ -111,6 +121,16 @@ func TestConfigurationDefaulting(t *testing.T) {
 								Image:          "busybox",
 								Resources:      defaultResources,
 								ReadinessProbe: defaultProbe,
+								SecurityContext: &corev1.SecurityContext{
+									Capabilities: &corev1.Capabilities{
+										Drop: []corev1.Capability{"ALL"},
+									},
+									RunAsNonRoot:             ptr.Bool(true),
+									AllowPrivilegeEscalation: ptr.Bool(false),
+									SeccompProfile: &corev1.SeccompProfile{
+										Type: corev1.SeccompProfileTypeRuntimeDefault,
+									},
+								},
 							}},
 						},
 						TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
@@ -148,6 +168,16 @@ func TestConfigurationDefaulting(t *testing.T) {
 								Image:          "busybox",
 								Resources:      defaultResources,
 								ReadinessProbe: defaultProbe,
+								SecurityContext: &corev1.SecurityContext{
+									Capabilities: &corev1.Capabilities{
+										Drop: []corev1.Capability{"ALL"},
+									},
+									RunAsNonRoot:             ptr.Bool(true),
+									AllowPrivilegeEscalation: ptr.Bool(false),
+									SeccompProfile: &corev1.SeccompProfile{
+										Type: corev1.SeccompProfileTypeRuntimeDefault,
+									},
+								},
 							}},
 						},
 						TimeoutSeconds:       ptr.Int64(60),

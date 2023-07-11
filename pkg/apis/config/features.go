@@ -72,7 +72,7 @@ func defaultFeaturesConfig() *Features {
 		PodSpecInitContainers:            Disabled,
 		PodSpecDNSPolicy:                 Disabled,
 		PodSpecDNSConfig:                 Disabled,
-		SecurePodDefaults:                Disabled,
+		SecurePodDefaults:                Enabled,
 		TagHeaderBasedRouting:            Disabled,
 		AutoDetectHTTP2:                  Disabled,
 	}

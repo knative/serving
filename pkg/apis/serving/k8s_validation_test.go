@@ -108,6 +108,27 @@ func withPodSpecSecurityContextEnabled() configOption {
 	}
 }
 
+func withPodSpecSecurityContextDisabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecSecurityContext = config.Disabled
+		return cfg
+	}
+}
+
+func withSecurePodDefaultsDisabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.SecurePodDefaults = config.Disabled
+		return cfg
+	}
+}
+
+func withSecurePodDefaultsEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.SecurePodDefaults = config.Enabled
+		return cfg
+	}
+}
+
 func withContainerSpecAddCapabilitiesEnabled() configOption {
 	return func(cfg *config.Config) *config.Config {
 		cfg.Features.ContainerSpecAddCapabilities = config.Enabled
@@ -1274,7 +1295,7 @@ func TestPodSpecFeatureValidation(t *testing.T) {
 			Message: "must not set the field(s)",
 			Paths:   []string{"securityContext"},
 		},
-		cfgOpts: []configOption{withPodSpecSecurityContextEnabled()},
+		cfgOpts: []configOption{withPodSpecSecurityContextEnabled(), withSecurePodDefaultsDisabled()},
 	}, {
 		name: "PriorityClassName",
 		featureSpec: corev1.PodSpec{
@@ -3015,3 +3036,94 @@ func TestPodSpecSecurityContextValidation(t *testing.T) {
 		})
 	}
 }
+
+// func TestPodSpecSecurityContextFeatureValidation(t *testing.T) {
+// 	// test relationship between SecurePodDefaults and PodSpecSecurityContext
+// 	featureData := struct {
+// 		name        string
+// 		featureSpec corev1.PodSpec
+// 		cfgOpts     []configOption
+// 		err         *apis.FieldError
+// 		errLevel    apis.DiagnosticLevel
+// 	}{
+// 		name: "PodSpecSecurityContext",
+// 		featureSpec: corev1.PodSpec{
+// 			SecurityContext: &corev1.PodSecurityContext{},
+// 		},
+// 		err: &apis.FieldError{
+// 			Message: "must not set the field(s)",
+// 			Paths:   []string{"securityContext"},
+// 		},
+// 		cfgOpts: []configOption{withPodSpecSecurityContextEnabled(), withSecurePodDefaultsDisabled()},
+// 	}{
+// 		name: "SecurePodDefaults",
+// 		featureSpec: corev1.PodSpec{
+// 			SecurityContext: &corev1.PodSecurityContext{},
+// 		},
+// 		err: &apis.FieldError{
+// 			Message: "must not set the field(s)",
+// 			Paths:   []string{"securityContext"},
+// 		},
+// 		cfgOpts: []configOption{withPodSpecSecurityContextEnabled(), withSecurePodDefaultsDisabled()},
+// 	}
+
+// 	featureTests := []struct {
+// 		nameTemplate       string
+// 		enableFeature      bool
+// 		includeFeatureSpec bool
+// 		wantError          bool
+// 	}{{
+// 		nameTemplate:       "flag disabled: %s not present",
+// 		enableFeature:      false,
+// 		includeFeatureSpec: false,
+// 		wantError:          false,
+// 	}, {
+// 		nameTemplate:       "flag disabled: %s present",
+// 		enableFeature:      false,
+// 		includeFeatureSpec: true,
+// 		wantError:          false,
+// 	}, {
+// 		nameTemplate:       "flag enabled: %s not present",
+// 		enableFeature:      true,
+// 		includeFeatureSpec: false,
+// 		wantError:          false,
+// 	}, {
+// 		nameTemplate:       "flag enabled: %s present",
+// 		enableFeature:      true,
+// 		includeFeatureSpec: true,
+// 		wantError:          false,
+// 	}}
+
+// 	for _, test := range featureTests {
+// 		t.Run(fmt.Sprintf(test.nameTemplate, featureData.name), func(t *testing.T) {
+// 			ctx := context.Background()
+// 			obj := corev1.PodSpec{
+// 				Containers: []corev1.Container{{
+// 					Image: "busybox",
+// 				}},
+// 			}
+// 			want := &apis.FieldError{}
+// 			if test.wantError {
+// 				want = featureData.err
+// 			}
+// 			if test.enableFeature {
+// 				cfg := config.FromContextOrDefaults(ctx)
+// 				for _, opt := range featureData.cfgOpts {
+// 					cfg = opt(cfg)
+// 				}
+// 				ctx = config.ToContext(ctx, cfg)
+// 			}
+// 			if test.includeFeatureSpec {
+// 				obj = featureData.featureSpec
+// 				obj.Containers = []corev1.Container{{
+// 					Image: "busybox",
+// 				}}
+// 			}
+// 			got := ValidatePodSpec(ctx, obj)
+// 			got = got.Filter(featureData.errLevel)
+// 			if diff := cmp.Diff(want.Error(), got.Error()); diff != "" {
+// 				t.Errorf("ValidatePodSpec (-want, +got): \n%s", diff)
+// 			}
+// 		})
+// 	}
+// }

@@ -91,6 +91,16 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name:           config.DefaultUserContainerName,
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}},
 				},
 			},
@@ -123,6 +133,16 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name:           config.DefaultUserContainerName,
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}},
 				},
 			},
@@ -158,6 +178,16 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name:           config.DefaultUserContainerName,
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}},
 					EnableServiceLinks: ptr.Bool(true),
 				},
@@ -189,6 +219,16 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name:           config.DefaultUserContainerName,
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}},
 					EnableServiceLinks: ptr.Bool(true),
 				},
@@ -220,6 +260,16 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name:           config.DefaultUserContainerName,
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}},
 					EnableServiceLinks: ptr.Bool(false),
 				},
@@ -254,6 +304,16 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name:           config.DefaultUserContainerName,
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}},
 					EnableServiceLinks: ptr.Bool(false),
 				},
@@ -289,6 +349,16 @@ func TestRevisionDefaulting(t *testing.T) {
 						}},
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}},
 				},
 				ContainerConcurrency: ptr.Int64(1),
@@ -322,6 +392,16 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name:           config.DefaultUserContainerName,
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}},
 				},
 			},
@@ -362,6 +442,16 @@ func TestRevisionDefaulting(t *testing.T) {
 								},
 							},
 						},
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}},
 				},
 			},
@@ -399,6 +489,16 @@ func TestRevisionDefaulting(t *testing.T) {
 								},
 							},
 						},
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}},
 				},
 			},
@@ -430,6 +530,16 @@ func TestRevisionDefaulting(t *testing.T) {
 							SuccessThreshold: 1,
 							TimeoutSeconds:   1, // Added as k8s default
 						},
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 						Resources: defaultResources,
 					}},
 				},
@@ -452,6 +562,16 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name:           config.DefaultUserContainerName,
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}},
 				},
 			},
@@ -503,6 +623,16 @@ func TestRevisionDefaulting(t *testing.T) {
 							},
 						},
 						ReadinessProbe: defaultProbe,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}},
 				},
 			},
@@ -532,12 +662,32 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name:           "busybox",
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 						Ports: []corev1.ContainerPort{{
 							ContainerPort: 8888,
 						}},
 					}, {
 						Name:      "helloworld",
 						Resources: defaultResources,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}},
 				},
 			},
@@ -578,31 +728,111 @@ func TestRevisionDefaulting(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name:      "user-container-1",
 						Resources: defaultResources,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}, {
 						Name:           "user-container-0",
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 						Ports: []corev1.ContainerPort{{
 							ContainerPort: 8888,
 						}},
 					}, {
 						Name:      "user-container-3",
 						Resources: defaultResources,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}, {
 						Name:      "user-container-2",
 						Resources: defaultResources,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}, {
 						Name:      "user-container-5",
 						Resources: defaultResources,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}, {
 						Name:      "user-container-6",
 						Resources: defaultResources,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}, {
 						Name:      "user-container-7",
 						Resources: defaultResources,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}, {
 						Name:      "user-container-4",
 						Resources: defaultResources,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}},
 				},
 			},
@@ -661,17 +891,57 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name:           "busybox",
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 						Ports: []corev1.ContainerPort{{
 							ContainerPort: 8888,
 						}},
 					}, {
 						Name:      "helloworld",
 						Resources: defaultResources,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}},
 					InitContainers: []corev1.Container{{
 						Name: "init1",
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}, {
 						Name: "init2",
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}},
 				},
 			},
@@ -710,21 +980,81 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name:           "busybox",
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 						Ports: []corev1.ContainerPort{{
 							ContainerPort: 8888,
 						}},
 					}, {
 						Name:      "helloworld",
 						Resources: defaultResources,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}},
 					InitContainers: []corev1.Container{{
 						Name: "init1",
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}, {
 						Name: "init2",
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}, {
 						Name: "init-container-0",
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}, {
 						Name: "init-container-1",
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}},
 				},
 			},
@@ -763,21 +1093,81 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name:           "user-container-0",
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 						Ports: []corev1.ContainerPort{{
 							ContainerPort: 8888,
 						}},
 					}, {
 						Name:      "user-container-1",
 						Resources: defaultResources,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}},
 					InitContainers: []corev1.Container{{
 						Name: "init1",
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}, {
 						Name: "init2",
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}, {
 						Name: "init-container-0",
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}, {
 						Name: "init-container-1",
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}},
 				},
 			},
@@ -816,21 +1206,81 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name:           "init-container-0",
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 						Ports: []corev1.ContainerPort{{
 							ContainerPort: 8888,
 						}},
 					}, {
 						Name:      "init-container-1",
 						Resources: defaultResources,
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}},
 					InitContainers: []corev1.Container{{
 						Name: "init1",
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}, {
 						Name: "init2",
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}, {
 						Name: "init-container-2",
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}, {
 						Name: "init-container-3",
+						SecurityContext: &corev1.SecurityContext{
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+						},
 					}},
 				},
 			},

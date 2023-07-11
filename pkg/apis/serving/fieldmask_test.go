@@ -809,7 +809,11 @@ func TestPodSecurityContextMask(t *testing.T) {
 		},
 	}
 
-	want := &corev1.PodSecurityContext{}
+	want := &corev1.PodSecurityContext{
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+	}
 	ctx := context.Background()
 
 	got := PodSecurityContextMask(ctx, in)
