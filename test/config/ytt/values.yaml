@@ -19,8 +19,6 @@ serving:
     - webhook
     - autoscaler-hpa
     - autoscaler
-    - domainmapping-webhook
-    - domain-mapping
 #! for perrformance tests
 influxtoken:
 influxurl:
