@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "cee81616"
+    knative.dev/example-checksum: "51805dd0"
 data:
   _example: |-
     ################################
@@ -44,6 +44,12 @@ data:
     # if unset.
     #
     # Indicates whether secure-pod-defaults support is enabled
+<<<<<<< HEAD
+=======
+
+    # WARNING: Cannot safely be disabled once enabled.
+    # See: https://knative.dev/docs/serving/feature-flags/#secure-pod-defaults
+>>>>>>> 21ca62711 (Add link to secure-pod-defaults documentation)
     secure-pod-defaults: "enabled"
 
     # Indicates whether multi container support is enabled
