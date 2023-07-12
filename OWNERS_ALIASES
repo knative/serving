@@ -20,13 +20,19 @@ aliases:
   - salaboy
   docs-reviewers:
   - nainaz
+  - nak3
   - pmbanugo
+  - retocode
+  - skonto
   - snneji
   docs-wg-leads:
   - snneji
   docs-writers:
   - csantanapr
+  - nak3
   - psschwei
+  - retocode
+  - skonto
   - snneji
   eventing-reviewers:
   - aslom
