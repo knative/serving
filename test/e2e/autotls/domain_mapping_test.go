@@ -117,7 +117,7 @@ func TestDomainMappingAutoTLS(t *testing.T) {
 		t.Fatalf("Create(DomainMapping) = %v, expected no error", err)
 	}
 
-	t.Cleanup(func() {
+	test.EnsureCleanup(t, func() {
 		clients.ServingAlphaClient.DomainMappings.Delete(ctx, dm.Name, metav1.DeleteOptions{})
 	})
 
