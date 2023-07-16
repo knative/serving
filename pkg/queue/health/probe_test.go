@@ -17,6 +17,9 @@ limitations under the License.
 package health
 
 import (
+	"context"
+	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -28,9 +31,12 @@ import (
 	"go.uber.org/atomic"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	netheader "knative.dev/networking/pkg/http/header"
+	"knative.dev/pkg/ptr"
 )
 
 func TestTCPProbe(t *testing.T) {
@@ -265,6 +271,24 @@ func TestHTTPProbeResponseErrorFailure(t *testing.T) {
 	}
 }
 
+func TestGRPCProbeSuccessWithDefaultServiceName(t *testing.T) {
+	port := 12345
+
+	if err := newTestGRPCServer(t, port); err != nil {
+		t.Errorf("Failed to create test grpc server: %v", err)
+	}
+
+	gRPCAction := newGRPCAction(t, port, "")
+	config := GRPCProbeConfigOptions{
+		Timeout:    time.Second,
+		GRPCAction: gRPCAction,
+	}
+
+	if err := GRPCProbe(config); err != nil {
+		t.Error("Expected probe to succeed but it failed with", err)
+	}
+}
+
 func newH2cTestServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
 	h2s := &http2.Server{}
 	t.Helper()
@@ -286,6 +310,27 @@ func newTestServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
 	return server
 }
 
+func newTestGRPCServer(t *testing.T, port int) error {
+	t.Helper()
+	grpcAddr := fmt.Sprintf("127.0.0.1:%d", port)
+	lis, err := net.Listen("tcp", grpcAddr)
+	if err != nil {
+		t.Fatalf("failed to listen: %v", err)
+	}
+
+	s := grpc.NewServer()
+	grpc_health_v1.RegisterHealthServer(s, &grpcHealthServer{})
+
+	go func() {
+		if err := s.Serve(lis); err != nil {
+			t.Fatalf("Failed to run gRPC test server %v", err)
+		}
+	}()
+	t.Cleanup(s.Stop)
+
+	return nil
+}
+
 func newHTTPGetAction(t *testing.T, serverURL string) *corev1.HTTPGetAction {
 	t.Helper()
 
@@ -300,4 +345,21 @@ func newHTTPGetAction(t *testing.T, serverURL string) *corev1.HTTPGetAction {
 		// We only ever use httptest.NewServer which is http.
 		Scheme: corev1.URISchemeHTTP,
 	}
+}
+
+func newGRPCAction(t *testing.T, port int, service string) *corev1.GRPCAction {
+	t.Helper()
+
+	return &corev1.GRPCAction{
+		Port:    int32(port),
+		Service: ptr.String(service),
+	}
+}
+
+type grpcHealthServer struct {
+	grpc_health_v1.UnimplementedHealthServer
+}
+
+func (s *grpcHealthServer) Check(_ context.Context, _ *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
+	return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVING}, nil
 }
