@@ -18,8 +18,11 @@ package readiness
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -655,6 +658,30 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 	}
 }
 
+func TestGRPCSuccess(t *testing.T) {
+	port := 12345
+	if err := newTestGRPCServer(t, port); err != nil {
+		t.Errorf("Failed to create test grpc server: %v", err)
+	}
+
+	pb := NewProbe(&corev1.Probe{
+		PeriodSeconds:    1,
+		TimeoutSeconds:   5,
+		SuccessThreshold: 1,
+		FailureThreshold: 1,
+		ProbeHandler: corev1.ProbeHandler{
+			GRPC: &corev1.GRPCAction{
+				Port:    int32(port),
+				Service: nil,
+			},
+		},
+	})
+
+	if !pb.ProbeContainer() {
+		t.Error("Probe failed. Expected success.")
+	}
+}
+
 func newTestServer(t *testing.T, h http.HandlerFunc) *url.URL {
 	t.Helper()
 
@@ -667,4 +694,33 @@ func newTestServer(t *testing.T, h http.HandlerFunc) *url.URL {
 	}
 
 	return u
+}
+
+func newTestGRPCServer(t *testing.T, port int) error {
+	t.Helper()
+	grpcAddr := fmt.Sprintf("127.0.0.1:%d", port)
+	lis, err := net.Listen("tcp", grpcAddr)
+	if err != nil {
+		t.Fatalf("failed to listen: %v", err)
+	}
+
+	s := grpc.NewServer()
+	grpc_health_v1.RegisterHealthServer(s, &grpcHealthServer{})
+
+	go func() {
+		if err := s.Serve(lis); err != nil {
+			t.Fatalf("Failed to run gRPC test server %v", err)
+		}
+	}()
+	t.Cleanup(s.Stop)
+
+	return nil
+}
+
+type grpcHealthServer struct {
+	grpc_health_v1.UnimplementedHealthServer
+}
+
+func (s *grpcHealthServer) Check(_ context.Context, _ *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
+	return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVING}, nil
 }
