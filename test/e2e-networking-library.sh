@@ -103,7 +103,11 @@ function net_istio_file_url() {
   local profile="istio-ci-no-mesh"
 
   if (( KIND )); then
-    profile="istio-kind-no-mesh"
+    if (( AMBIENT )); then
+      profile="istio-kind-ambient"
+    else
+      profile="istio-kind-no-mesh"
+    fi
   elif (( MESH )); then
     profile="istio-ci-mesh"
   fi

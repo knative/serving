@@ -95,6 +95,7 @@ jobs:
         - kourier
         - kourier-tls
         - istio
+        - istio-ambient
         - contour
         # Disabled due to consistent failures
         # - gateway_istio
@@ -117,6 +118,11 @@ jobs:
         - ingress: istio
           namespace-resources: virtualservices
 
+        - ingress: istio-ambient
+          namespace-resources: virtualservices
+          ingress-class: istio
+          ambient: 1
+
         - ingress: kourier-tls
           ingress-class: kourier
           enable-tls: 1
@@ -134,6 +140,7 @@ jobs:
       KIND: 1
       INGRESS_CLASS: ${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
       ENABLE_TLS: ${{ matrix.enable-tls || 0 }}
+      AMBIENT: ${{ matrix.ambient || 0 }}
 
     steps:
     - name: Set up Go 1.19.x
