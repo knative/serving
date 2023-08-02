@@ -100,7 +100,7 @@ go test -tags=e2e -count=1 ./test/conformance/... \
 
 ## Running performance tests
 
-Performance tests using [kperf](https://github.com/knative-sandbox/kperf) can be run in
+Performance tests using [kperf](https://github.com/knative-extensions/kperf) can be run in
 a pull request using the optional test job `/test pull-knative-serving-performance-tests-kperf`
 
 A report will be generated in the artifacts folder of the test run.

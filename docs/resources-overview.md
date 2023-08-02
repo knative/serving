@@ -11,9 +11,9 @@ which they form.
 
 Knative Serving depends on an KIngress implementation in order to function.
 KIngress is pluggable, and implementations exist for a variety of ingress
-providers, including [Istio](https://github.com/knative-sandbox/net-istio),
-[Contour](https://github.com/knative-sandbox/net-contour) and
-[Kourier](https://github.com/knative-sandbox/net-kourier).
+providers, including [Istio](https://github.com/knative-extensions/net-istio),
+[Contour](https://github.com/knative-extensions/net-contour) and
+[Kourier](https://github.com/knative-extensions/net-kourier).
 
 ## Components
 

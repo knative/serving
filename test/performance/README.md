@@ -43,4 +43,4 @@ To run a benchmark once, and use the result from `mako-stub` for plotting:
 
 ### Benchmarking using Kperf
 
-Running `performance-tests.sh` runs performance tests using [kperf](https://github.com/knative-sandbox/kperf)
+Running `performance-tests.sh` runs performance tests using [kperf](https://github.com/knative-extensions/kperf)

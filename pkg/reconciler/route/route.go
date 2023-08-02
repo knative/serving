@@ -109,7 +109,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	// reconciliation.  For instance, if we were to hit an error creating new placeholder
 	// service, we might report "Ready: True" with a bumped ObservedGeneration without
 	// having updated the kingress at all!
-	// We hit this in: https://github.com/knative-sandbox/net-contour/issues/238
+	// We hit this in: https://github.com/knative-extensions/net-contour/issues/238
 	if r.GetObjectMeta().GetGeneration() != r.Status.ObservedGeneration {
 		r.Status.MarkIngressNotConfigured()
 	}

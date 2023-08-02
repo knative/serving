@@ -333,7 +333,7 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 	t.Log("Creating service for grpc-ping")
 
 	svcName := test.ObjectNameForTest(t)
-	// Long name hits this issue https://github.com/knative-sandbox/net-certmanager/issues/214
+	// Long name hits this issue https://github.com/knative-extensions/net-certmanager/issues/214
 	if t.Name() == "TestGRPCStreamingPingViaActivator" {
 		svcName = test.AppendRandomString("grpc-streaming-pig-act")
 	}
