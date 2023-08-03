@@ -33,6 +33,7 @@ Options:
 Examples:
   echo "GET http://:80" | vegeta attack -rate=10/s > results.gob
   echo "GET http://:80" | vegeta attack -rate=100/s | vegeta encode > results.json
+  vegeta report < results.gob | rg -vU 'Error Set:.*' # Don't show errors
   vegeta report results.*
 `
 
@@ -44,7 +45,7 @@ func reportCmd() command {
 	buckets := fs.String("buckets", "", "Histogram buckets, e.g.: \"[0,1ms,10ms]\"")
 
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stderr, reportUsage)
+		fmt.Fprintf(os.Stderr, "%s\n", reportUsage)
 	}
 
 	return command{fs, func(args []string) error {

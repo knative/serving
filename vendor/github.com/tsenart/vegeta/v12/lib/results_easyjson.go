@@ -4,11 +4,12 @@ package vegeta
 
 import (
 	json "encoding/json"
+	http "net/http"
+	time "time"
+
 	easyjson "github.com/mailru/easyjson"
 	jlexer "github.com/mailru/easyjson/jlexer"
 	jwriter "github.com/mailru/easyjson/jwriter"
-	http "net/http"
-	time "time"
 )
 
 // suppress unused package warning
@@ -30,7 +31,7 @@ func easyjsonBd1621b8DecodeGithubComTsenartVegetaV12Lib(in *jlexer.Lexer, out *j
 	}
 	in.Delim('{')
 	for !in.IsDelim('}') {
-		key := in.UnsafeString()
+		key := in.UnsafeFieldName(false)
 		in.WantColon()
 		if in.IsNull() {
 			in.Skip()
@@ -72,11 +73,7 @@ func easyjsonBd1621b8DecodeGithubComTsenartVegetaV12Lib(in *jlexer.Lexer, out *j
 				in.Skip()
 			} else {
 				in.Delim('{')
-				if !in.IsDelim('}') {
-					out.Headers = make(http.Header)
-				} else {
-					out.Headers = nil
-				}
+				out.Headers = make(http.Header)
 				for !in.IsDelim('}') {
 					key := string(in.String())
 					in.WantColon()

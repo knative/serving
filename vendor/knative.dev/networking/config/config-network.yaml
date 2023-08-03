@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: networking
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "2b6d10ba"
+    knative.dev/example-checksum: "a576301d"
 data:
   _example: |
     ################################
@@ -88,7 +88,7 @@ data:
     # value is "{{.Name}}.{{.Namespace}}.{{.Domain}}".
     #
     # Valid variables defined in the template include Name, Namespace, Domain,
-    # Labels, and Annotations. Name will be the result of the tagTemplate
+    # Labels, and Annotations. Name will be the result of the tag-template
     # below, if a tag is specified for the route.
     #
     # Changing this value might be necessary when the extra levels in
@@ -108,10 +108,10 @@ data:
     # would be {Name}-{Namespace}.foo.{Domain}
     domain-template: "{{.Name}}.{{.Namespace}}.{{.Domain}}"
 
-    # tagTemplate specifies the golang text template string to use
+    # tag-template specifies the golang text template string to use
     # when constructing the DNS name for "tags" within the traffic blocks
     # of Routes and Configuration.  This is used in conjunction with the
-    # domainTemplate above to determine the full URL for the tag.
+    # domain-template above to determine the full URL for the tag.
     tag-template: "{{.Tag}}-{{.Name}}"
 
     # Controls whether TLS certificates are automatically provisioned and

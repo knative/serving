@@ -7,16 +7,18 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tsenart/vegeta/v12/internal/resolver"
 	vegeta "github.com/tsenart/vegeta/v12/lib"
+	prom "github.com/tsenart/vegeta/v12/lib/prom"
 )
 
 func attackCmd() command {
@@ -27,6 +29,7 @@ func attackCmd() command {
 		laddr:        localAddr{&vegeta.DefaultLocalAddr},
 		rate:         vegeta.Rate{Freq: 50, Per: time.Second},
 		maxBody:      vegeta.DefaultMaxBody,
+		promAddr:     "0.0.0.0:8880",
 	}
 	fs.StringVar(&opts.name, "name", "", "Attack name")
 	fs.StringVar(&opts.targetsf, "targets", "stdin", "Targets file")
@@ -56,6 +59,9 @@ func attackCmd() command {
 	fs.Var(&opts.laddr, "laddr", "Local IP address")
 	fs.BoolVar(&opts.keepalive, "keepalive", true, "Use persistent connections")
 	fs.StringVar(&opts.unixSocket, "unix-socket", "", "Connect over a unix socket. This overrides the host address in target URLs")
+	fs.StringVar(&opts.promAddr, "prometheus-addr", "", "Prometheus exporter listen address [empty = disabled]. Example: 0.0.0.0:8880")
+	fs.Var(&dnsTTLFlag{&opts.dnsTTL}, "dns-ttl", "Cache DNS lookups for the given duration [-1 = disabled, 0 = forever]")
+	fs.BoolVar(&opts.sessionTickets, "session-tickets", false, "Enable TLS session resumption using session tickets")
 	systemSpecificFlags(fs, opts)
 
 	return command{fs, func(args []string) error {
@@ -99,6 +105,9 @@ type attackOpts struct {
 	keepalive      bool
 	resolvers      csl
 	unixSocket     string
+	promAddr       string
+	dnsTTL         time.Duration
+	sessionTickets bool
 }
 
 // attack validates the attack arguments, sets up the
@@ -116,6 +125,8 @@ func attack(opts *attackOpts) (err error) {
 		net.DefaultResolver = res
 	}
 
+	net.DefaultResolver.PreferGo = true
+
 	files := map[string]io.Reader{}
 	for _, filename := range []string{opts.targetsf, opts.bodyf} {
 		if filename == "" {
@@ -131,7 +142,7 @@ func attack(opts *attackOpts) (err error) {
 
 	var body []byte
 	if bodyf, ok := files[opts.bodyf]; ok {
-		if body, err = ioutil.ReadAll(bodyf); err != nil {
+		if body, err = io.ReadAll(bodyf); err != nil {
 			return fmt.Errorf("error reading %s: %s", opts.bodyf, err)
 		}
 	}
@@ -172,6 +183,24 @@ func attack(opts *attackOpts) (err error) {
 		return err
 	}
 
+	var pm *prom.Metrics
+	if opts.promAddr != "" {
+		pm = prom.NewMetrics()
+
+		r := prometheus.NewRegistry()
+		if err := pm.Register(r); err != nil {
+			return fmt.Errorf("error registering prometheus metrics: %s", err)
+		}
+
+		srv := http.Server{
+			Addr:    opts.promAddr,
+			Handler: prom.NewHandler(r, time.Now().UTC()),
+		}
+
+		defer srv.Close()
+		go srv.ListenAndServe()
+	}
+
 	atk := vegeta.NewAttacker(
 		vegeta.Redirects(opts.redirects),
 		vegeta.Timeout(opts.timeout),
@@ -188,23 +217,42 @@ func attack(opts *attackOpts) (err error) {
 		vegeta.UnixSocket(opts.unixSocket),
 		vegeta.ProxyHeader(proxyHdr),
 		vegeta.ChunkedBody(opts.chunked),
+		vegeta.DNSCaching(opts.dnsTTL),
+		vegeta.SessionTickets(opts.sessionTickets),
 	)
 
 	res := atk.Attack(tr, opts.rate, opts.duration, opts.name)
 	enc := vegeta.NewEncoder(out)
 	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, os.Interrupt)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 
+	return processAttack(atk, res, enc, sig, pm)
+}
+
+func processAttack(
+	atk *vegeta.Attacker,
+	res <-chan *vegeta.Result,
+	enc vegeta.Encoder,
+	sig <-chan os.Signal,
+	pm *prom.Metrics,
+) error {
 	for {
 		select {
 		case <-sig:
-			atk.Stop()
-			return nil
+			if stopSent := atk.Stop(); !stopSent {
+				// Exit immediately on second signal.
+				return nil
+			}
 		case r, ok := <-res:
 			if !ok {
 				return nil
 			}
-			if err = enc.Encode(r); err != nil {
+
+			if pm != nil {
+				pm.Observe(r)
+			}
+
+			if err := enc.Encode(r); err != nil {
 				return err
 			}
 		}
@@ -218,7 +266,7 @@ func tlsConfig(insecure bool, certf, keyf string, rootCerts []string) (*tls.Conf
 	filenames := append([]string{certf, keyf}, rootCerts...)
 	for _, f := range filenames {
 		if f != "" {
-			if files[f], err = ioutil.ReadFile(f); err != nil {
+			if files[f], err = os.ReadFile(f); err != nil {
 				return nil, err
 			}
 		}
