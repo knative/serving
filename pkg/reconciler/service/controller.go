@@ -65,7 +65,7 @@ func NewController(
 		return controller.Options{ConfigStore: configStore}
 	}
 	impl := ksvcreconciler.NewImpl(ctx, c, opts)
-
+	c.enqueueAfter = impl.EnqueueAfter
 	serviceInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	handleControllerOf := cache.FilteringResourceEventHandler{

@@ -23,8 +23,10 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/reconciler/serviceorchestrator"
 	"math"
 	"strconv"
+	"time"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap"
@@ -59,6 +61,7 @@ type Reconciler struct {
 	serviceOrchestratorLister listers.ServiceOrchestratorLister
 	podAutoscalerLister       palisters.PodAutoscalerLister
 	stagePodAutoscalerLister  listers.StagePodAutoscalerLister
+	enqueueAfter              func(interface{}, time.Duration)
 }
 
 // Check that our Reconciler implements ksvcreconciler.Interface
@@ -129,8 +132,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 
 	c.checkRoutesNotReady(config, logger, route, service)
 
-	c.checkServiceOrchestratorsReady(so, service)
-	return nil
+	return c.checkServiceOrchestratorsReady(ctx, service, so, service)
 }
 
 func (c *Reconciler) latestCreatedRevision(config *v1.Configuration) (*v1.Revision, error) {
@@ -247,13 +249,58 @@ func (c *Reconciler) route(ctx context.Context, service *v1.Service, so *v1.Serv
 	return route, nil
 }
 
-func (c *Reconciler) checkServiceOrchestratorsReady(so *v1.ServiceOrchestrator, service *v1.Service) {
+func (c *Reconciler) checkServiceOrchestratorsReady(ctx context.Context, s *v1.Service, so *v1.ServiceOrchestrator, service *v1.Service) pkgreconciler.Event {
 
 	if so.IsReady() {
 		service.Status.MarkServiceOrchestratorReady()
+		return nil
 	} else {
 		service.Status.MarkServiceOrchestratorInProgress()
+		if equality.Semantic.DeepEqual(so.Spec.RevisionTarget, so.Spec.StageRevisionTarget) || serviceorchestrator.LatestEqual(so.Spec.StageRevisionTarget, so.Spec.RevisionTarget) {
+			// We reach the last stage, there is no need to schedule a requeue in 2 mins.
+			return nil
+		}
+
+		targetTime := so.Spec.TargetFinishTime
+
+		now := metav1.NewTime(time.Now())
+		if targetTime.Inner.Before(&now) {
+			// Check if the stage target time has expired. If so, change the traffic split to the next stage.
+			stageRevisionTarget := shiftTrafficNextStage(so.Spec.StageRevisionTarget)
+			so.Spec.StageRevisionTarget = stageRevisionTarget
+			t := time.Now()
+			so.Spec.StageTarget.TargetFinishTime.Inner = metav1.NewTime(t.Add(time.Minute * 2))
+			c.client.ServingV1().ServiceOrchestrators(service.Namespace).Update(ctx, so, metav1.UpdateOptions{})
+			c.enqueueAfter(s, time.Duration(60*float64(time.Second)))
+			return nil
+		} else {
+			// If not, continue to wait.
+			c.enqueueAfter(s, time.Duration(60*float64(time.Second)))
+			return nil
+		}
+
 	}
+}
+
+func shiftTrafficNextStage(revisionTarget []v1.RevisionTarget) []v1.RevisionTarget {
+	stageTrafficDeltaInt := int64(resources.OverSubRatio)
+	for i, _ := range revisionTarget {
+		if revisionTarget[i].Direction == "up" || revisionTarget[i].Direction == "" {
+			if *revisionTarget[i].Percent+stageTrafficDeltaInt >= 100 {
+				revisionTarget[i].Percent = ptr.Int64(100)
+			} else {
+				revisionTarget[i].Percent = ptr.Int64(*revisionTarget[i].Percent + stageTrafficDeltaInt)
+			}
+		} else if revisionTarget[i].Direction == "down" {
+			if *revisionTarget[i].Percent-stageTrafficDeltaInt <= 0 {
+				revisionTarget[i].Percent = ptr.Int64(0)
+			} else {
+				revisionTarget[i].Percent = ptr.Int64(*revisionTarget[i].Percent - stageTrafficDeltaInt)
+			}
+		}
+	}
+
+	return revisionTarget
 }
 
 func (c *Reconciler) checkRoutesNotReady(config *v1.Configuration, logger *zap.SugaredLogger, route *v1.Route, service *v1.Service) {
@@ -444,6 +491,8 @@ func (c *Reconciler) updateStageRevisionSpec(so *v1.ServiceOrchestrator) *v1.Ser
 		}
 
 		so.Spec.StageRevisionTarget = stageRevisionTarget
+		t := time.Now()
+		so.Spec.StageTarget.TargetFinishTime.Inner = metav1.NewTime(t.Add(time.Minute * 2))
 	}
 
 	if len(startRevisionStatus) == 1 {
@@ -531,7 +580,11 @@ func (c *Reconciler) updateStageRevisionSpec(so *v1.ServiceOrchestrator) *v1.Ser
 			}
 		}
 
+		//stageRevisionTarget.
 		so.Spec.StageRevisionTarget = stageRevisionTarget
+		t := time.Now()
+
+		so.Spec.StageTarget.TargetFinishTime.Inner = metav1.NewTime(t.Add(time.Minute * 2))
 	}
 
 	return so
@@ -867,4 +920,10 @@ func CheckNameAvailability(config *v1.Configuration, lister listers.RevisionList
 		return errConflict
 	}
 	return nil
+}
+
+func upgradeInProgress() error {
+	return fmt.Errorf("the upgrade is in progress",
+		controller.NewRequeueAfter(150*time.Second),
+	)
 }

@@ -162,6 +162,9 @@ spec:
                         description: TargetReplicas indicates an estimated number of replicas.
                         type: integer
                         format: int32
+                targetFinishTime:
+                  description: TargetFinishTime indicates target time to complete this target.
+                  type: string
             status:
               description: ServiceOrchestratorStatus communicates the observed state of the Configuration (from the controller).
               type: object

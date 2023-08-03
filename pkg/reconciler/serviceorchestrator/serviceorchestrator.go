@@ -124,7 +124,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, so *v1.ServiceOrchestrat
 		stageCleaned := cleanRedundency(so.Spec.StageRevisionTarget)
 		so.Status.SetStageRevisionStatus(stageCleaned)
 		so.Status.MarkStageRevisionReady()
-		if equality.Semantic.DeepEqual(so.Status.StageRevisionStatus, so.Spec.RevisionTarget) || latestEqual(so.Status.StageRevisionStatus, so.Spec.RevisionTarget) {
+		if equality.Semantic.DeepEqual(so.Status.StageRevisionStatus, so.Spec.RevisionTarget) || LatestEqual(so.Status.StageRevisionStatus, so.Spec.RevisionTarget) {
 			so.Status.MarkLastStageRevisionComplete()
 
 		} else {
@@ -133,7 +133,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, so *v1.ServiceOrchestrat
 		return nil
 	} else if so.IsStageReady() {
 		if so.IsInProgress() {
-			if !equality.Semantic.DeepEqual(so.Status.StageRevisionStatus, so.Spec.StageRevisionTarget) && !latestEqual(so.Status.StageRevisionStatus, so.Spec.RevisionTarget) {
+			if !equality.Semantic.DeepEqual(so.Status.StageRevisionStatus, so.Spec.StageRevisionTarget) && !LatestEqual(so.Status.StageRevisionStatus, so.Spec.RevisionTarget) {
 				// Start to move to a new stage.
 				so.Status.MarkStageRevisionScaleUpInProgress("StageRevisionStart", "Start to roll out a new stage.")
 				so.Status.MarkStageRevisionScaleDownInProgress("StageRevisionStart", "Start to roll out a new stage.")
@@ -156,7 +156,7 @@ func cleanRedundency(ts []v1.RevisionTarget) []v1.RevisionTarget {
 	return result
 }
 
-func latestEqual(t1, t2 []v1.RevisionTarget) bool {
+func LatestEqual(t1, t2 []v1.RevisionTarget) bool {
 	if *t2[0].Percent != 100 {
 		return false
 	}
@@ -339,12 +339,10 @@ func (c *Reconciler) checkStageScaleDownReady(ctx context.Context, so *v1.Servic
 			//if !pa.IsStageScaleInReady() {
 			//	return false
 			//}
-			if *pa.Status.DesiredScale <= *revision.TargetReplicas && *pa.Status.ActualScale <= *revision.TargetReplicas {
-				return true
-			} else if *pa.Status.DesiredScale == *pa.Status.ActualScale {
-				return true
+			if *pa.Status.DesiredScale > *revision.TargetReplicas || *pa.Status.ActualScale > *revision.TargetReplicas {
+				return false
 			}
 		}
 	}
-	return false
+	return true
 }
