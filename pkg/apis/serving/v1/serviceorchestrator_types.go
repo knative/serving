@@ -95,14 +95,22 @@ type RevisionTarget struct {
 	MaxScale *int32 `json:"maxScale,omitempty"`
 }
 
-// ServiceOrchestratorSpec holds the desired state of the Configuration (from the client).
-type ServiceOrchestratorSpec struct {
+type StageTarget struct {
 	// StageTraffic holds the configured traffic distribution fot the current stage.
 	// These entries will always contain RevisionName references.
 	// When ConfigurationName appears in the spec, this will hold the
 	// LatestReadyRevisionName that we last observed.
 	// +optional
 	StageRevisionTarget []RevisionTarget `json:"stageRevisionTarget,omitempty"`
+
+	// TargetFinishTime indicates target time to complete this target.
+	// +optional
+	TargetFinishTime apis.VolatileTime `json:"targetFinishTime,omitempty"`
+}
+
+// ServiceOrchestratorSpec holds the desired state of the Configuration (from the client).
+type ServiceOrchestratorSpec struct {
+	StageTarget `json:",inline"`
 
 	// Traffic holds the configured traffic distribution.
 	// These entries will always contain RevisionName references.

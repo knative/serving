@@ -1252,19 +1252,17 @@ ServiceOrchestratorSpec
 <table>
 <tr>
 <td>
-<code>stageRevisionTarget</code><br/>
+<code>StageTarget</code><br/>
 <em>
-<a href="#serving.knative.dev/v1.RevisionTarget">
-[]RevisionTarget
+<a href="#serving.knative.dev/v1.StageTarget">
+StageTarget
 </a>
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>StageTraffic holds the configured traffic distribution fot the current stage.
-These entries will always contain RevisionName references.
-When ConfigurationName appears in the spec, this will hold the
-LatestReadyRevisionName that we last observed.</p>
+<p>
+(Members of <code>StageTarget</code> are embedded into this type.)
+</p>
 </td>
 </tr>
 <tr>
@@ -1787,7 +1785,7 @@ int32
 <h3 id="serving.knative.dev/v1.RevisionTarget">RevisionTarget
 </h3>
 <p>
-(<em>Appears on:</em><a href="#serving.knative.dev/v1.ServiceOrchestratorSpec">ServiceOrchestratorSpec</a>, <a href="#serving.knative.dev/v1.ServiceOrchestratorStatusFields">ServiceOrchestratorStatusFields</a>)
+(<em>Appears on:</em><a href="#serving.knative.dev/v1.ServiceOrchestratorSpec">ServiceOrchestratorSpec</a>, <a href="#serving.knative.dev/v1.ServiceOrchestratorStatusFields">ServiceOrchestratorStatusFields</a>, <a href="#serving.knative.dev/v1.StageTarget">StageTarget</a>)
 </p>
 <div>
 <p>RevisionTarget holds the information of the revision for the current stage.</p>
@@ -2210,19 +2208,17 @@ and is scaled down, but may be rapidly pinned to a route to be made active again
 <tbody>
 <tr>
 <td>
-<code>stageRevisionTarget</code><br/>
+<code>StageTarget</code><br/>
 <em>
-<a href="#serving.knative.dev/v1.RevisionTarget">
-[]RevisionTarget
+<a href="#serving.knative.dev/v1.StageTarget">
+StageTarget
 </a>
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>StageTraffic holds the configured traffic distribution fot the current stage.
-These entries will always contain RevisionName references.
-When ConfigurationName appears in the spec, this will hold the
-LatestReadyRevisionName that we last observed.</p>
+<p>
+(Members of <code>StageTarget</code> are embedded into this type.)
+</p>
 </td>
 </tr>
 <tr>
@@ -2561,6 +2557,52 @@ int32
 </td>
 <td>
 <p>ActualScale shows the actual number of replicas for the revision.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="serving.knative.dev/v1.StageTarget">StageTarget
+</h3>
+<p>
+(<em>Appears on:</em><a href="#serving.knative.dev/v1.ServiceOrchestratorSpec">ServiceOrchestratorSpec</a>)
+</p>
+<div>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>stageRevisionTarget</code><br/>
+<em>
+<a href="#serving.knative.dev/v1.RevisionTarget">
+[]RevisionTarget
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>StageTraffic holds the configured traffic distribution fot the current stage.
+These entries will always contain RevisionName references.
+When ConfigurationName appears in the spec, this will hold the
+LatestReadyRevisionName that we last observed.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetFinishTime</code><br/>
+<em>
+knative.dev/pkg/apis.VolatileTime
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TargetFinishTime indicates target time to complete this target.</p>
 </td>
 </tr>
 </tbody>
