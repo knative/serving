@@ -19,6 +19,7 @@ package certificate
 import (
 	"crypto/sha256"
 	"crypto/tls"
+	"fmt"
 	"os"
 	"path"
 	"sync"
@@ -62,7 +63,9 @@ func NewCertWatcher(certPath, keyPath string, reloadInterval time.Duration, logg
 		zap.String("certDir", certDir), zap.String("keyDir", keyDir))
 
 	// initial load
-	cw.loadCert()
+	if err := cw.loadCert(); err != nil {
+		return nil, err
+	}
 
 	go cw.watch()
 
@@ -90,22 +93,23 @@ func (cw *CertWatcher) watch() {
 			return
 
 		case <-cw.ticker.C:
-			cw.loadCert()
+			// On error, we do not want to stop trying
+			if err := cw.loadCert(); err != nil {
+				cw.logger.Error(err)
+			}
 		}
 	}
 }
 
-func (cw *CertWatcher) loadCert() {
+func (cw *CertWatcher) loadCert() error {
 	var err error
 	certFile, err := os.ReadFile(cw.certPath)
 	if err != nil {
-		cw.logger.Error("failed to load certificate file", zap.String("certPath", cw.certPath), zap.Error(err))
-		return
+		return fmt.Errorf("failed to load certificate file in %s: %w", cw.certPath, err)
 	}
 	keyFile, err := os.ReadFile(cw.keyPath)
 	if err != nil {
-		cw.logger.Error("failed to load key file", zap.String("keyPath", cw.keyPath), zap.Error(err))
-		return
+		return fmt.Errorf("failed to load key file in %s: %w", cw.keyPath, err)
 	}
 
 	certChecksum := sha256.Sum256(certFile)
@@ -114,8 +118,7 @@ func (cw *CertWatcher) loadCert() {
 	if certChecksum != cw.certChecksum || keyChecksum != cw.keyChecksum {
 		keyPair, err := tls.LoadX509KeyPair(cw.certPath, cw.keyPath)
 		if err != nil {
-			cw.logger.Error("failed to load and parse certificate", zap.Error(err))
-			return
+			return fmt.Errorf("failed to parse certificate: %w", err)
 		}
 
 		cw.mux.Lock()
@@ -127,4 +130,6 @@ func (cw *CertWatcher) loadCert() {
 
 		cw.logger.Info("Certificate and/or key have changed on disk and were reloaded.")
 	}
+
+	return nil
 }

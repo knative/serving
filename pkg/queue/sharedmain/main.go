@@ -314,6 +314,11 @@ func Main(opts ...Option) error {
 				logger.Errorw("Failed to shutdown server", zap.String("server", name), zap.Error(err))
 			}
 		}
+
+		if certWatcher != nil {
+			certWatcher.Stop()
+		}
+
 		logger.Info("Shutdown complete, exiting...")
 	}
 	return nil
