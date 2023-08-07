@@ -36,7 +36,7 @@ The different parts are independent of each other and (can) use different Certif
 * The certificates are hosted using SNI by the cluster-local endpoint of the ingress-controller.
 * The caller has to trust the CA that signed the certificates. Knative exposes the CA certificates in the `status.address.CACerts` field of each `Knative Service` (⛔️ not yet implemented, see https://github.com/knative/serving/issues/14196). Each callee has to make sure that it trusts that CA.
 * These certificates are provided using an implementation to the `Knative Certificate` abstraction with [visibility label](https://github.com/knative-extensions/net-certmanager/blob/main/pkg/reconciler/certificate/resources/cert_manager_certificate.go#L115) `cluster-local`. Currently, we support two implementations:
-  * Knative integrated CA (embedded in [Serving Controller](TODO))  (⛔️ not implemented yet)
+  * Knative integrated CA (will be embedded in Serving Controller - ⛔️ not implemented yet)
   * [net-certmanager](https://github.com/knative-extensions/net-certmanager) (⛔️ not usable yet)
 
 
