@@ -108,6 +108,10 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 			// Surface an event for the first revision becoming ready.
 			recorder.Event(config, corev1.EventTypeNormal, "ConfigurationReady",
 				"Configuration becomes ready")
+			err := c.deletePreviouslyFailingRevisions(ctx, config, lcr)
+			if err != nil {
+				logger.Error("Failed to delete older failing revisions")
+			}
 		}
 
 	case rc.IsFalse():
@@ -309,4 +313,23 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1.Configuratio
 	logger.Infof("Created Revision: %#v", created)
 
 	return created, nil
+}
+
+func (c *Reconciler) deletePreviouslyFailingRevisions(ctx context.Context, config *v1.Configuration, lcr *v1.Revision) error {
+	lister := c.revisionLister.Revisions(config.Namespace)
+	list, err := lister.List(labels.SelectorFromSet(labels.Set{
+		serving.ConfigurationLabelKey: config.Name,
+	}))
+
+	if err != nil {
+		return err
+	}
+
+	for i := 0; i < len(list); i++ {
+		if !(list[i].Name == lcr.Name) {
+			_ = c.client.ServingV1().Revisions(config.Namespace).Delete(ctx, list[i].Name, metav1.DeleteOptions{})
+		}
+	}
+
+	return nil
 }
