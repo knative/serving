@@ -58,10 +58,11 @@ type ServingBetaClients struct {
 
 // ServingClients holds instances of interfaces for making requests to knative serving clients.
 type ServingClients struct {
-	Routes    servingv1.RouteInterface
-	Configs   servingv1.ConfigurationInterface
-	Revisions servingv1.RevisionInterface
-	Services  servingv1.ServiceInterface
+	Routes         servingv1.RouteInterface
+	Configs        servingv1.ConfigurationInterface
+	Revisions      servingv1.RevisionInterface
+	Services       servingv1.ServiceInterface
+	DomainMappings servingv1.DomainMappingInterface
 }
 
 // NetworkingClients holds instances of interfaces for making requests to Knative
@@ -153,10 +154,11 @@ func newServingClients(cfg *rest.Config, namespace string) (*ServingClients, err
 	}
 
 	return &ServingClients{
-		Configs:   cs.ServingV1().Configurations(namespace),
-		Revisions: cs.ServingV1().Revisions(namespace),
-		Routes:    cs.ServingV1().Routes(namespace),
-		Services:  cs.ServingV1().Services(namespace),
+		Configs:        cs.ServingV1().Configurations(namespace),
+		Revisions:      cs.ServingV1().Revisions(namespace),
+		Routes:         cs.ServingV1().Routes(namespace),
+		Services:       cs.ServingV1().Services(namespace),
+		DomainMappings: cs.ServingV1().DomainMappings(namespace),
 	}, nil
 }
 

@@ -32,6 +32,10 @@ func (c *FakeServingV1) Configurations(namespace string) v1.ConfigurationInterfa
 	return &FakeConfigurations{c, namespace}
 }
 
+func (c *FakeServingV1) DomainMappings(namespace string) v1.DomainMappingInterface {
+	return &FakeDomainMappings{c, namespace}
+}
+
 func (c *FakeServingV1) Revisions(namespace string) v1.RevisionInterface {
 	return &FakeRevisions{c, namespace}
 }

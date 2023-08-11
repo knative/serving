@@ -710,6 +710,8 @@ Resource Types:
 <ul><li>
 <a href="#serving.knative.dev/v1.Configuration">Configuration</a>
 </li><li>
+<a href="#serving.knative.dev/v1.DomainMapping">DomainMapping</a>
+</li><li>
 <a href="#serving.knative.dev/v1.Revision">Revision</a>
 </li><li>
 <a href="#serving.knative.dev/v1.Route">Route</a>
@@ -807,6 +809,122 @@ ConfigurationStatus
 </td>
 <td>
 <em>(Optional)</em>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="serving.knative.dev/v1.DomainMapping">DomainMapping
+</h3>
+<div>
+<p>DomainMapping is a mapping from a custom hostname to an Addressable.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+serving.knative.dev/v1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>DomainMapping</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Standard object&rsquo;s metadata.
+More info: <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata">https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#metadata</a></p>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#serving.knative.dev/v1.DomainMappingSpec">
+DomainMappingSpec
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Spec is the desired state of the DomainMapping.
+More info: <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status">https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status</a></p>
+<br/>
+<br/>
+<table>
+<tr>
+<td>
+<code>ref</code><br/>
+<em>
+<a href="https://pkg.go.dev/knative.dev/pkg/apis/duck/v1#KReference">
+knative.dev/pkg/apis/duck/v1.KReference
+</a>
+</em>
+</td>
+<td>
+<p>Ref specifies the target of the Domain Mapping.</p>
+<p>The object identified by the Ref must be an Addressable with a URL of the
+form <code>{name}.{namespace}.{domain}</code> where <code>{domain}</code> is the cluster domain,
+and <code>{name}</code> and <code>{namespace}</code> are the name and namespace of a Kubernetes
+Service.</p>
+<p>This contract is satisfied by Knative types such as Knative Services and
+Knative Routes, and by Kubernetes Services.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>tls</code><br/>
+<em>
+<a href="#serving.knative.dev/v1.SecretTLS">
+SecretTLS
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TLS allows the DomainMapping to terminate TLS traffic with an existing secret.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#serving.knative.dev/v1.DomainMappingStatus">
+DomainMappingStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Status is the current state of the DomainMapping.
+More info: <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status">https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status</a></p>
 </td>
 </tr>
 </tbody>
@@ -1347,6 +1465,118 @@ string
 </tr>
 </tbody>
 </table>
+<h3 id="serving.knative.dev/v1.DomainMappingSpec">DomainMappingSpec
+</h3>
+<p>
+(<em>Appears on:</em><a href="#serving.knative.dev/v1.DomainMapping">DomainMapping</a>)
+</p>
+<div>
+<p>DomainMappingSpec describes the DomainMapping the user wishes to exist.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>ref</code><br/>
+<em>
+<a href="https://pkg.go.dev/knative.dev/pkg/apis/duck/v1#KReference">
+knative.dev/pkg/apis/duck/v1.KReference
+</a>
+</em>
+</td>
+<td>
+<p>Ref specifies the target of the Domain Mapping.</p>
+<p>The object identified by the Ref must be an Addressable with a URL of the
+form <code>{name}.{namespace}.{domain}</code> where <code>{domain}</code> is the cluster domain,
+and <code>{name}</code> and <code>{namespace}</code> are the name and namespace of a Kubernetes
+Service.</p>
+<p>This contract is satisfied by Knative types such as Knative Services and
+Knative Routes, and by Kubernetes Services.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>tls</code><br/>
+<em>
+<a href="#serving.knative.dev/v1.SecretTLS">
+SecretTLS
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TLS allows the DomainMapping to terminate TLS traffic with an existing secret.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="serving.knative.dev/v1.DomainMappingStatus">DomainMappingStatus
+</h3>
+<p>
+(<em>Appears on:</em><a href="#serving.knative.dev/v1.DomainMapping">DomainMapping</a>)
+</p>
+<div>
+<p>DomainMappingStatus describes the current state of the DomainMapping.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>Status</code><br/>
+<em>
+<a href="https://pkg.go.dev/knative.dev/pkg/apis/duck/v1#Status">
+knative.dev/pkg/apis/duck/v1.Status
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>Status</code> are embedded into this type.)
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>url</code><br/>
+<em>
+<a href="https://pkg.go.dev/knative.dev/pkg/apis#URL">
+knative.dev/pkg/apis.URL
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>URL is the URL of this DomainMapping.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>address</code><br/>
+<em>
+<a href="https://pkg.go.dev/knative.dev/pkg/apis/duck/v1#Addressable">
+knative.dev/pkg/apis/duck/v1.Addressable
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Address holds the information needed for a DomainMapping to be the target of an event.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="serving.knative.dev/v1.RevisionSpec">RevisionSpec
 </h3>
 <p>
@@ -1843,6 +2073,35 @@ and is scaled down, but may be rapidly pinned to a route to be made active again
 <td><p>RoutingStateUnset is the empty value for routing state, this state is unexpected.</p>
 </td>
 </tr></tbody>
+</table>
+<h3 id="serving.knative.dev/v1.SecretTLS">SecretTLS
+</h3>
+<p>
+(<em>Appears on:</em><a href="#serving.knative.dev/v1.DomainMappingSpec">DomainMappingSpec</a>)
+</p>
+<div>
+<p>SecretTLS wrapper for TLS SecretName.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>secretName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>SecretName is the name of the existing secret used to terminate TLS traffic.</p>
+</td>
+</tr>
+</tbody>
 </table>
 <h3 id="serving.knative.dev/v1.ServiceSpec">ServiceSpec
 </h3>

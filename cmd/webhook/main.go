@@ -58,6 +58,7 @@ var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
 	servingv1.SchemeGroupVersion.WithKind("Configuration"): &servingv1.Configuration{},
 	servingv1.SchemeGroupVersion.WithKind("Route"):         &servingv1.Route{},
 	servingv1.SchemeGroupVersion.WithKind("Service"):       &servingv1.Service{},
+	servingv1.SchemeGroupVersion.WithKind("DomainMapping"): &servingv1.DomainMapping{},
 
 	autoscalingv1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler"): &autoscalingv1alpha1.PodAutoscaler{},
 	autoscalingv1alpha1.SchemeGroupVersion.WithKind("Metric"):        &autoscalingv1alpha1.Metric{},
