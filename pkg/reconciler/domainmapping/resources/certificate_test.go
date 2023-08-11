@@ -28,7 +28,7 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	// . "knative.dev/serving/pkg/testing/v1"
 )
 
@@ -36,16 +36,16 @@ func TestMakeCertificate(t *testing.T) {
 	certClass := "cert-class"
 	for _, tc := range []struct {
 		name string
-		dm   v1alpha1.DomainMapping
+		dm   v1beta1.DomainMapping
 		want networkingv1alpha1.Certificate
 	}{{
 		name: "basic",
-		dm: v1alpha1.DomainMapping{
+		dm: v1beta1.DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "mapping.com",
 				Namespace: "the-namespace",
 			},
-			Spec: v1alpha1.DomainMappingSpec{
+			Spec: v1beta1.DomainMappingSpec{
 				Ref: duckv1.KReference{
 					Namespace: "the-namespace",
 					Name:      "the-name",
@@ -71,7 +71,7 @@ func TestMakeCertificate(t *testing.T) {
 		},
 	}, {
 		name: "filter last-applied",
-		dm: v1alpha1.DomainMapping{
+		dm: v1beta1.DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "mapping.com",
 				Namespace: "the-namespace",
@@ -80,7 +80,7 @@ func TestMakeCertificate(t *testing.T) {
 					"others":                           "kept",
 				},
 			},
-			Spec: v1alpha1.DomainMappingSpec{
+			Spec: v1beta1.DomainMappingSpec{
 				Ref: duckv1.KReference{
 					Namespace: "the-namespace",
 					Name:      "the-name",
