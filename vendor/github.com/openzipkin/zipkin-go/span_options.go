@@ -1,4 +1,4 @@
-// Copyright 2021 The OpenZipkin Authors
+// Copyright 2022 The OpenZipkin Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import (
 // the Span to be created with tracer.StartSpan().
 type SpanOption func(t *Tracer, s *spanImpl)
 
-// Kind sets the kind of the span being created..
+// Kind sets the kind of the span being created.
 func Kind(kind model.Kind) SpanOption {
 	return func(t *Tracer, s *spanImpl) {
 		s.Kind = kind
