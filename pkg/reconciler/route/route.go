@@ -265,7 +265,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 			tls = append(tls, resources.MakeIngressTLS(cert, dnsNames.List()))
 		} else {
 			acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
-			r.Status.MarkCertificateNotReady(cert.Name)
+			r.Status.MarkCertificateNotReady(cert)
 			// When httpProtocol is enabled, downgrade http scheme.
 			// Explicitly not using the override settings here as to not to muck with
 			// AutoTLS semantics.

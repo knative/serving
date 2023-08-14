@@ -208,7 +208,7 @@ func MarkUnknownTrafficError(msg string) RouteOption {
 
 // MarkCertificateNotReady calls the method of the same name on .Status
 func MarkCertificateNotReady(r *v1.Route) {
-	r.Status.MarkCertificateNotReady(routenames.Certificate(r))
+	r.Status.MarkCertificateNotReady(&netv1alpha1.Certificate{})
 }
 
 // MarkCertificateNotOwned calls the method of the same name on .Status
