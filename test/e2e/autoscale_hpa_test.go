@@ -179,12 +179,17 @@ func assertMemoryHPAAutoscaleUpToNumPods(ctx *TestContext, targetPods float64, d
 
 func generateTrafficAtFixedConcurrencyWithLoad(ctx *TestContext, concurrency int, vegetaParam string, vegetaValue int, stopChan chan struct{}) error {
 	pacer := vegeta.ConstantPacer{} // Sends requests as quickly as possible, capped by MaxWorkers below.
+	tlsConf := vegeta.DefaultTLSConfig
+	if test.ServingFlags.HTTPS {
+		tlsConf = test.TLSClientConfig(context.Background(), ctx.t.Logf, ctx.clients)
+	}
 	attacker := vegeta.NewAttacker(
 		vegeta.Timeout(0), // No timeout is enforced at all.
 		vegeta.Workers(uint64(concurrency)),
-		vegeta.MaxWorkers(uint64(concurrency)))
+		vegeta.MaxWorkers(uint64(concurrency)),
+		vegeta.TLSConfig(tlsConf))
 	target, err := getVegetaTarget(
-		ctx.clients.KubeClient, ctx.resources.Route.Status.URL.URL().Hostname(), pkgTest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain, vegetaParam, vegetaValue)
+		ctx.clients.KubeClient, ctx.resources.Route.Status.URL.URL().Hostname(), pkgTest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain, vegetaParam, vegetaValue, test.ServingFlags.HTTPS)
 	if err != nil {
 		return fmt.Errorf("error creating vegeta target: %w", err)
 	}
