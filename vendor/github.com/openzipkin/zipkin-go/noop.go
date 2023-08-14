@@ -1,4 +1,4 @@
-// Copyright 2021 The OpenZipkin Authors
+// Copyright 2022 The OpenZipkin Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ func (*noopSpan) Tag(string, string) {}
 
 func (*noopSpan) Finish() {}
 
-func (*noopSpan) FinishedWithDuration(duration time.Duration) {}
+func (*noopSpan) FinishedWithDuration(_ time.Duration) {}
 
 func (*noopSpan) Flush() {}
 
