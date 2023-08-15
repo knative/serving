@@ -81,6 +81,14 @@ toggle_feature allow-zero-initial-scale false config-autoscaler || fail_test
 
 go_test_e2e -timeout=2m ./test/e2e/domainmapping ${E2E_TEST_FLAGS} || failed=1
 
+toggle_feature dataplane-trust enabled config-network || fail_test
+# with the current implementation, Activator is always in the request path, and needs to be restarted after configuring dataplane-trust
+restart_pod ${SYSTEM_NAMESPACE} "app=activator"
+go_test_e2e -timeout=2m ./test/e2e/internalencryption ${TEST_OPTIONS} || failed=1
+toggle_feature dataplane-trust disabled config-network || fail_test
+# with the current implementation, Activator is always in the request path, and needs to be restarted after configuring dataplane-trust
+restart_pod ${SYSTEM_NAMESPACE} "app=activator"
+
 kubectl get cm "config-gc" -n "${SYSTEM_NAMESPACE}" -o yaml > "${TMP_DIR}"/config-gc.yaml
 add_trap "kubectl replace cm 'config-gc' -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.yaml" SIGKILL SIGTERM SIGQUIT
 immediate_gc

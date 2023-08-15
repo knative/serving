@@ -453,6 +453,13 @@ function wait_for_leader_controller() {
   return 1
 }
 
+function restart_pod() {
+  local namespace="$1"
+  local label="$2"
+  echo -n "Deleting pod in ${namespace} with label ${label}"
+  kubectl -n ${namespace} delete pod -l ${label}
+}
+
 function toggle_feature() {
   local FEATURE="$1"
   local STATE="$2"
