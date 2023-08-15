@@ -20,8 +20,10 @@ import (
 	"net/http"
 	"time"
 
+	"go.opencensus.io/tag"
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/activator"
+	activatorconfig "knative.dev/serving/pkg/activator/config"
 	"knative.dev/serving/pkg/apis/serving"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/metrics"
@@ -45,6 +47,9 @@ func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rev := RevisionFrom(r.Context())
 	reporterCtx, _ := metrics.PodRevisionContext(h.podName, activator.Name,
 		rev.Namespace, rev.Labels[serving.ServiceLabelKey], rev.Labels[serving.ConfigurationLabelKey], rev.Name)
+
+	securityMode := activatorconfig.FromContext(r.Context()).Network.DataplaneTrust
+	reporterCtx, _ = tag.New(reporterCtx, tag.Upsert(metrics.SecurityMode, string(securityMode)))
 
 	start := time.Now()
 
