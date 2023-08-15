@@ -43,6 +43,7 @@ const (
 	HelloWorld          = "helloworld"
 	HTTPProxy           = "httpproxy"
 	InvalidHelloWorld   = "invalidhelloworld" // Not a real image
+	MetricsReader       = "metricsreader"
 	PizzaPlanet1        = "pizzaplanetv1"
 	PizzaPlanet2        = "pizzaplanetv2"
 	Protocols           = "protocols"
@@ -57,11 +58,12 @@ const (
 	SlowStart           = "slowstart"
 
 	// Constants for test image output.
-	PizzaPlanetText1 = "What a spaceport!"
-	PizzaPlanetText2 = "Re-energize yourself with a slice of pepperoni!"
-	HelloWorldText   = "Hello World! How about some tasty noodles?"
-	HelloHTTP2Text   = "Hello, New World! How about donuts and coffee?"
-	EmptyDirText     = "From file in empty dir!"
+	PizzaPlanetText1  = "What a spaceport!"
+	PizzaPlanetText2  = "Re-energize yourself with a slice of pepperoni!"
+	HelloWorldText    = "Hello World! How about some tasty noodles?"
+	HelloHTTP2Text    = "Hello, New World! How about donuts and coffee?"
+	EmptyDirText      = "From file in empty dir!"
+	MetricsReaderText = "Come back with a POST for metrics."
 
 	MultiContainerResponse = "Yay!! multi-container works"
 
