@@ -417,6 +417,18 @@ func TestMakeQueueContainer(t *testing.T) {
 				"ENABLE_HTTP2_AUTO_DETECTION": "false",
 			})
 		}),
+	}, {
+		name: "SecurityMode set",
+		rev: revision("bar", "foo",
+			withContainers(containers)),
+		nc: netcfg.Config{
+			DataplaneTrust: netcfg.TrustEnabled,
+		},
+		want: queueContainer(func(c *corev1.Container) {
+			c.Env = env(map[string]string{
+				"SECURITY_MODE": "enabled",
+			})
+		}),
 	}}
 
 	for _, test := range tests {
@@ -434,6 +446,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				Logging:       &test.lc,
 				Observability: &test.oc,
 				Deployment:    &test.dc,
+				Network:       &test.nc,
 				Config: &apicfg.Config{
 					Features: &test.fc,
 				},
@@ -1049,6 +1062,7 @@ var defaultEnv = map[string]string{
 	"REVISION_TIMEOUT_SECONDS":                         "45",
 	"REVISION_RESPONSE_START_TIMEOUT_SECONDS":          "0",
 	"REVISION_IDLE_TIMEOUT_SECONDS":                    "0",
+	"SECURITY_MODE":                                    "",
 	"SERVING_CONFIGURATION":                            "",
 	"SERVING_ENABLE_PROBE_REQUEST_LOG":                 "false",
 	"SERVING_ENABLE_REQUEST_LOG":                       "false",
