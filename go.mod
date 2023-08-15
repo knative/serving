@@ -14,6 +14,8 @@ require (
 	github.com/hashicorp/golang-lru v1.0.2
 	github.com/influxdata/influxdb-client-go/v2 v2.9.0
 	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/prometheus/client_model v0.4.0
+	github.com/prometheus/common v0.44.0
 	github.com/tsenart/vegeta/v12 v12.11.0
 	go.opencensus.io v0.24.0
 	go.uber.org/atomic v1.9.0
