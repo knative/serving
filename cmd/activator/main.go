@@ -158,8 +158,8 @@ func main() {
 		logger.Fatalw("Failed to construct network config", zap.Error(err))
 	}
 
-	// Enable TLS against queue-proxy when internal-encryption is enabled.
-	tlsEnabled := networkConfig.InternalEncryption
+	// Enable TLS against queue-proxy when dataplane-trust != disabled.
+	tlsEnabled := networkConfig.InternalTLSEnabled()
 
 	var certCache *certificate.CertCache
 
