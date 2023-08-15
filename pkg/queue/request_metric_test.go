@@ -27,6 +27,7 @@ import (
 	"knative.dev/pkg/metrics/metricstest"
 	"knative.dev/serving/pkg/metrics"
 
+	netcfg "knative.dev/networking/pkg/config"
 	_ "knative.dev/pkg/metrics/testing"
 )
 
@@ -34,7 +35,7 @@ const targetURI = "http://example.com"
 
 func TestNewRequestMetricsHandlerFailure(t *testing.T) {
 	t.Cleanup(reset)
-	if _, err := NewRequestMetricsHandler(nil /*next*/, "a", "b", "c", "d", "shøüld fail"); err == nil {
+	if _, err := NewRequestMetricsHandler(nil /*next*/, "a", "b", "c", "d", "shøüld fail", netcfg.TrustDisabled); err == nil {
 		t.Error("Should get error when tag value is not ascii")
 	}
 }
@@ -42,7 +43,7 @@ func TestNewRequestMetricsHandlerFailure(t *testing.T) {
 func TestRequestMetricsHandler(t *testing.T) {
 	defer reset()
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	handler, err := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
+	handler, err := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod", netcfg.TrustDisabled)
 	if err != nil {
 		t.Fatal("Failed to create handler:", err)
 	}
@@ -57,6 +58,7 @@ func TestRequestMetricsHandler(t *testing.T) {
 		metrics.LabelResponseCode:      "200",
 		metrics.LabelResponseCodeClass: "2xx",
 		"route_tag":                    disabledTagName,
+		metrics.LabelSecurityMode:      string(netcfg.TrustDisabled),
 	}
 	wantResource := &resource.Resource{
 		Type: "knative_revision",
@@ -81,7 +83,7 @@ func TestRequestMetricsHandler(t *testing.T) {
 func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
 	defer reset()
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	handler, err := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
+	handler, err := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod", netcfg.TrustDisabled)
 	if err != nil {
 		t.Fatal("Failed to create handler:", err)
 	}
@@ -98,6 +100,7 @@ func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
 		metrics.LabelResponseCode:      "200",
 		metrics.LabelResponseCodeClass: "2xx",
 		metrics.LabelRouteTag:          "test-tag",
+		metrics.LabelSecurityMode:      string(netcfg.TrustDisabled),
 	}
 	wantResource := &resource.Resource{
 		Type: "knative_revision",
@@ -113,7 +116,7 @@ func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
 
 	// Testing for default route
 	reset()
-	handler, _ = NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
+	handler, _ = NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod", netcfg.TrustDisabled)
 	req.Header.Del(netheader.RouteTagKey)
 	req.Header.Set(netheader.DefaultRouteKey, "true")
 	handler.ServeHTTP(resp, req)
@@ -121,7 +124,7 @@ func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
 	metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
 
 	reset()
-	handler, _ = NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
+	handler, _ = NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod", netcfg.TrustDisabled)
 	req.Header.Set(netheader.RouteTagKey, "test-tag")
 	req.Header.Set(netheader.DefaultRouteKey, "true")
 	handler.ServeHTTP(resp, req)
@@ -129,7 +132,7 @@ func TestRequestMetricsHandlerWithEnablingTagOnRequestMetrics(t *testing.T) {
 	metricstest.AssertMetric(t, metricstest.IntMetric("request_count", 1, wantTags).WithResource(wantResource))
 
 	reset()
-	handler, _ = NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
+	handler, _ = NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod", netcfg.TrustDisabled)
 	req.Header.Set(netheader.RouteTagKey, "test-tag")
 	req.Header.Set(netheader.DefaultRouteKey, "false")
 	handler.ServeHTTP(resp, req)
@@ -149,7 +152,7 @@ func TestRequestMetricsHandlerPanickingHandler(t *testing.T) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		panic("no!")
 	})
-	handler, err := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
+	handler, err := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod", netcfg.TrustDisabled)
 	if err != nil {
 		t.Fatal("Failed to create handler:", err)
 	}
@@ -166,6 +169,7 @@ func TestRequestMetricsHandlerPanickingHandler(t *testing.T) {
 			metrics.LabelResponseCode:      "500",
 			metrics.LabelResponseCodeClass: "5xx",
 			"route_tag":                    disabledTagName,
+			metrics.LabelSecurityMode:      string(netcfg.TrustDisabled),
 		}
 		wantResource := &resource.Resource{
 			Type: "knative_revision",
@@ -292,7 +296,7 @@ func TestAppRequestMetricsHandler(t *testing.T) {
 
 func BenchmarkRequestMetricsHandler(b *testing.B) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	handler, _ := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod")
+	handler, _ := NewRequestMetricsHandler(baseHandler, "ns", "svc", "cfg", "rev", "pod", netcfg.TrustDisabled)
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 
 	b.Run("sequential", func(b *testing.B) {

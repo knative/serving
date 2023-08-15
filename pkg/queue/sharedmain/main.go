@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"knative.dev/networking/pkg/certificates"
+	netcfg "knative.dev/networking/pkg/config"
 	netstats "knative.dev/networking/pkg/http/stats"
 	pkglogging "knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
@@ -105,6 +106,9 @@ type config struct {
 	TracingConfigBackend        tracingconfig.BackendType `split_words:"true"` // optional
 	TracingConfigSampleRate     float64                   `split_words:"true"` // optional
 	TracingConfigZipkinEndpoint string                    `split_words:"true"` // optional
+
+	// SecurityMode is the trust level for internal encryption, see config-networking.data.dataplane-trust
+	SecurityMode netcfg.Trust `split_words:"true" required:"true"`
 
 	Env
 }
@@ -408,7 +412,7 @@ func requestLogHandler(logger *zap.SugaredLogger, currentHandler http.Handler, e
 
 func requestMetricsHandler(logger *zap.SugaredLogger, currentHandler http.Handler, env config) http.Handler {
 	h, err := queue.NewRequestMetricsHandler(currentHandler, env.ServingNamespace,
-		env.ServingService, env.ServingConfiguration, env.ServingRevision, env.ServingPod)
+		env.ServingService, env.ServingConfiguration, env.ServingRevision, env.ServingPod, env.SecurityMode)
 	if err != nil {
 		logger.Errorw("Error setting up request metrics reporter. Request metrics will be unavailable.", zap.Error(err))
 		return currentHandler
