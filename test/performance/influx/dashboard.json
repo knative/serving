@@ -1,0 +1,2891 @@
+{
+  "meta": {
+    "version": "1",
+    "type": "dashboard",
+    "name": "Knative Performance Tests-Template",
+    "description": "template created from dashboard: Knative Performance Tests"
+  },
+  "content": {
+    "data": {
+      "type": "dashboard",
+      "attributes": {
+        "name": "Knative Performance Tests",
+        "description": ""
+      },
+      "relationships": {
+        "label": {
+          "data": []
+        },
+        "cell": {
+          "data": [
+            {
+              "type": "cell",
+              "id": "0bab61c9c02dd000"
+            },
+            {
+              "type": "cell",
+              "id": "0bab653c652dd000"
+            },
+            {
+              "type": "cell",
+              "id": "0bab6567fe2dd000"
+            },
+            {
+              "type": "cell",
+              "id": "0bab6892c62dd000"
+            },
+            {
+              "type": "cell",
+              "id": "0bab689fe36dd000"
+            },
+            {
+              "type": "cell",
+              "id": "0bab68df4fedd000"
+            },
+            {
+              "type": "cell",
+              "id": "0bab68f2f1edd000"
+            },
+            {
+              "type": "cell",
+              "id": "0bab68ff0dadd000"
+            },
+            {
+              "type": "cell",
+              "id": "0bab6910a3edd000"
+            },
+            {
+              "type": "cell",
+              "id": "0bab691eb4add000"
+            },
+            {
+              "type": "cell",
+              "id": "0bab695c48edd000"
+            },
+            {
+              "type": "cell",
+              "id": "0bab696865add000"
+            },
+            {
+              "type": "cell",
+              "id": "0bab69eb996dd000"
+            },
+            {
+              "type": "cell",
+              "id": "0bab6a0308edd000"
+            },
+            {
+              "type": "cell",
+              "id": "0bab6a102a2dd000"
+            },
+            {
+              "type": "cell",
+              "id": "0bab6a209e6dd000"
+            },
+            {
+              "type": "cell",
+              "id": "0bab6a2e3e6dd000"
+            },
+            {
+              "type": "cell",
+              "id": "0bab6b8c582dd000"
+            },
+            {
+              "type": "cell",
+              "id": "0bacae4a1fdc3000"
+            },
+            {
+              "type": "cell",
+              "id": "0bacaf09181c3000"
+            },
+            {
+              "type": "cell",
+              "id": "0bacba9c90dc3000"
+            },
+            {
+              "type": "cell",
+              "id": "0bacd823795c3000"
+            },
+            {
+              "type": "cell",
+              "id": "0bacd850a09c3000"
+            },
+            {
+              "type": "cell",
+              "id": "0bacd8839b1c3000"
+            },
+            {
+              "type": "cell",
+              "id": "0bacd899fe1c3000"
+            },
+            {
+              "type": "cell",
+              "id": "0bacd8bf225c3000"
+            },
+            {
+              "type": "cell",
+              "id": "0bacd8d7af9c3000"
+            },
+            {
+              "type": "cell",
+              "id": "0bacd8e66a5c3000"
+            },
+            {
+              "type": "cell",
+              "id": "0bacd8f8459c3000"
+            },
+            {
+              "type": "cell",
+              "id": "0bacd97e2d5c3000"
+            },
+            {
+              "type": "cell",
+              "id": "0bacda1bca5c3000"
+            },
+            {
+              "type": "cell",
+              "id": "0bacda84055c3000"
+            },
+            {
+              "type": "cell",
+              "id": "0bacda960e1c3000"
+            },
+            {
+              "type": "cell",
+              "id": "0bacdaa14c9c3000"
+            },
+            {
+              "type": "cell",
+              "id": "0bacdab6a61c3000"
+            },
+            {
+              "type": "cell",
+              "id": "0bacdac4589c3000"
+            },
+            {
+              "type": "cell",
+              "id": "0bacdad2359c3000"
+            },
+            {
+              "type": "cell",
+              "id": "0bacdb69b39c3000"
+            }
+          ]
+        },
+        "variable": {
+          "data": []
+        }
+      }
+    },
+    "included": [
+      {
+        "id": "0bab61c9c02dd000",
+        "type": "cell",
+        "attributes": {
+          "x": 0,
+          "y": 2,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bab61c9c02dd000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bab653c652dd000",
+        "type": "cell",
+        "attributes": {
+          "x": 4,
+          "y": 2,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bab653c652dd000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bab6567fe2dd000",
+        "type": "cell",
+        "attributes": {
+          "x": 2,
+          "y": 2,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bab6567fe2dd000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bab6892c62dd000",
+        "type": "cell",
+        "attributes": {
+          "x": 6,
+          "y": 2,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bab6892c62dd000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bab689fe36dd000",
+        "type": "cell",
+        "attributes": {
+          "x": 8,
+          "y": 2,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bab689fe36dd000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bab68df4fedd000",
+        "type": "cell",
+        "attributes": {
+          "x": 0,
+          "y": 4,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bab68df4fedd000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bab68f2f1edd000",
+        "type": "cell",
+        "attributes": {
+          "x": 2,
+          "y": 4,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bab68f2f1edd000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bab68ff0dadd000",
+        "type": "cell",
+        "attributes": {
+          "x": 4,
+          "y": 4,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bab68ff0dadd000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bab6910a3edd000",
+        "type": "cell",
+        "attributes": {
+          "x": 6,
+          "y": 4,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bab6910a3edd000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bab691eb4add000",
+        "type": "cell",
+        "attributes": {
+          "x": 8,
+          "y": 4,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bab691eb4add000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bab695c48edd000",
+        "type": "cell",
+        "attributes": {
+          "x": 0,
+          "y": 0,
+          "w": 10,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bab695c48edd000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bab696865add000",
+        "type": "cell",
+        "attributes": {
+          "x": 0,
+          "y": 8,
+          "w": 10,
+          "h": 1
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bab696865add000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bab69eb996dd000",
+        "type": "cell",
+        "attributes": {
+          "x": 0,
+          "y": 6,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bab69eb996dd000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bab6a0308edd000",
+        "type": "cell",
+        "attributes": {
+          "x": 2,
+          "y": 6,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bab6a0308edd000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bab6a102a2dd000",
+        "type": "cell",
+        "attributes": {
+          "x": 4,
+          "y": 6,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bab6a102a2dd000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bab6a209e6dd000",
+        "type": "cell",
+        "attributes": {
+          "x": 6,
+          "y": 6,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bab6a209e6dd000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bab6a2e3e6dd000",
+        "type": "cell",
+        "attributes": {
+          "x": 8,
+          "y": 6,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bab6a2e3e6dd000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bab6b8c582dd000",
+        "type": "cell",
+        "attributes": {
+          "x": 0,
+          "y": 9,
+          "w": 10,
+          "h": 4
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bab6b8c582dd000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bacae4a1fdc3000",
+        "type": "cell",
+        "attributes": {
+          "x": 0,
+          "y": 13,
+          "w": 10,
+          "h": 1
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bacae4a1fdc3000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bacaf09181c3000",
+        "type": "cell",
+        "attributes": {
+          "x": 0,
+          "y": 14,
+          "w": 8,
+          "h": 4
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bacaf09181c3000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bacba9c90dc3000",
+        "type": "cell",
+        "attributes": {
+          "x": 8,
+          "y": 14,
+          "w": 2,
+          "h": 4
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bacba9c90dc3000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bacd823795c3000",
+        "type": "cell",
+        "attributes": {
+          "x": 0,
+          "y": 18,
+          "w": 10,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bacd823795c3000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bacd850a09c3000",
+        "type": "cell",
+        "attributes": {
+          "x": 0,
+          "y": 22,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bacd850a09c3000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bacd8839b1c3000",
+        "type": "cell",
+        "attributes": {
+          "x": 0,
+          "y": 20,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bacd8839b1c3000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bacd899fe1c3000",
+        "type": "cell",
+        "attributes": {
+          "x": 0,
+          "y": 24,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bacd899fe1c3000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bacd8bf225c3000",
+        "type": "cell",
+        "attributes": {
+          "x": 2,
+          "y": 22,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bacd8bf225c3000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bacd8d7af9c3000",
+        "type": "cell",
+        "attributes": {
+          "x": 2,
+          "y": 20,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bacd8d7af9c3000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bacd8e66a5c3000",
+        "type": "cell",
+        "attributes": {
+          "x": 2,
+          "y": 24,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bacd8e66a5c3000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bacd8f8459c3000",
+        "type": "cell",
+        "attributes": {
+          "x": 4,
+          "y": 20,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bacd8f8459c3000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bacd97e2d5c3000",
+        "type": "cell",
+        "attributes": {
+          "x": 4,
+          "y": 22,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bacd97e2d5c3000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bacda1bca5c3000",
+        "type": "cell",
+        "attributes": {
+          "x": 4,
+          "y": 24,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bacda1bca5c3000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bacda84055c3000",
+        "type": "cell",
+        "attributes": {
+          "x": 6,
+          "y": 20,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bacda84055c3000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bacda960e1c3000",
+        "type": "cell",
+        "attributes": {
+          "x": 6,
+          "y": 22,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bacda960e1c3000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bacdaa14c9c3000",
+        "type": "cell",
+        "attributes": {
+          "x": 6,
+          "y": 24,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bacdaa14c9c3000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bacdab6a61c3000",
+        "type": "cell",
+        "attributes": {
+          "x": 8,
+          "y": 20,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bacdab6a61c3000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bacdac4589c3000",
+        "type": "cell",
+        "attributes": {
+          "x": 8,
+          "y": 22,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bacdac4589c3000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bacdad2359c3000",
+        "type": "cell",
+        "attributes": {
+          "x": 8,
+          "y": 24,
+          "w": 2,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bacdad2359c3000"
+            }
+          }
+        }
+      },
+      {
+        "id": "0bacdb69b39c3000",
+        "type": "cell",
+        "attributes": {
+          "x": 0,
+          "y": 26,
+          "w": 10,
+          "h": 2
+        },
+        "relationships": {
+          "view": {
+            "data": {
+              "type": "view",
+              "id": "0bacdb69b39c3000"
+            }
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bab61c9c02dd000",
+        "attributes": {
+          "name": "Load test zero: Requests",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"requests\")\n  |> filter(fn: (r) => r[\"flavor\"] == \"zero\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bab653c652dd000",
+        "attributes": {
+          "name": "Load test zero: Latency min",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-min\")\n  |> filter(fn: (r) => r[\"flavor\"] == \"zero\")\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")\n",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "ms",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bab6567fe2dd000",
+        "attributes": {
+          "name": "Load test zero: Errors",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"errors\")\n  |> filter(fn: (r) => r[\"flavor\"] == \"zero\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bab6892c62dd000",
+        "attributes": {
+          "name": "Load test zero: Latency mean",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-mean\")\n  |> filter(fn: (r) => r[\"flavor\"] == \"zero\")\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")\n",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "ms",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bab689fe36dd000",
+        "attributes": {
+          "name": "Load test zero: Latency max",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-max\")\n  |> filter(fn: (r) => r[\"flavor\"] == \"zero\")\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")\n",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "ms",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bab68df4fedd000",
+        "attributes": {
+          "name": "Load test always: Requests",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"requests\")\n  |> filter(fn: (r) => r[\"flavor\"] == \"always\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bab68f2f1edd000",
+        "attributes": {
+          "name": "Load test always: Errors",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"errors\")\n  |> filter(fn: (r) => r[\"flavor\"] == \"always\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bab68ff0dadd000",
+        "attributes": {
+          "name": "Load test always: Latency min",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-min\")\n  |> filter(fn: (r) => r[\"flavor\"] == \"always\")\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")\n",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "ms",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bab6910a3edd000",
+        "attributes": {
+          "name": "Load test always: Latency mean",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-mean\")\n  |> filter(fn: (r) => r[\"flavor\"] == \"always\")\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")\n",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "ms",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bab691eb4add000",
+        "attributes": {
+          "name": "Load test always: Latency max",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-max\")\n  |> filter(fn: (r) => r[\"flavor\"] == \"always\")\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")\n",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "ms",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bab695c48edd000",
+        "attributes": {
+          "name": "Name this Cell",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "markdown",
+            "note": "#### Load test results\n* Zero = Only hook the activator in at zero\n* Always = Always hook the activator in.\n* 200 = Hook the activator in until we reach 200 concurrent requests"
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bab696865add000",
+        "attributes": {
+          "name": "Name this Cell (Clone)",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "markdown",
+            "note": "#### Reconciler delay results"
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bab69eb996dd000",
+        "attributes": {
+          "name": "Load test 200: Requests",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"requests\")\n  |> filter(fn: (r) => r[\"flavor\"] == \"200\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bab6a0308edd000",
+        "attributes": {
+          "name": "Load test 200: Errors",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"errors\")\n  |> filter(fn: (r) => r[\"flavor\"] == \"200\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bab6a102a2dd000",
+        "attributes": {
+          "name": "Load test 200: Latency min",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-min\")\n  |> filter(fn: (r) => r[\"flavor\"] == \"200\")\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")\n",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "ms",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bab6a209e6dd000",
+        "attributes": {
+          "name": "Load test 200: Latency mean",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-mean\")\n  |> filter(fn: (r) => r[\"flavor\"] == \"200\")\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")\n",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "ms",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bab6a2e3e6dd000",
+        "attributes": {
+          "name": "Load test 200: Latency max",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-max\")\n  |> filter(fn: (r) => r[\"flavor\"] == \"200\")\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")\n",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "ms",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bab6b8c582dd000",
+        "attributes": {
+          "name": "Reconciler delay per CR",
+          "properties": {
+            "shape": "chronograf-v2",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving reconciliation delay\")\n  |> filter(fn: (r) => r[\"_field\"] == \"Configuration\" or r[\"_field\"] == \"Ingress\" or r[\"_field\"] == \"PodAutoscaler\" or r[\"_field\"] == \"Revision\" or r[\"_field\"] == \"Route\" or r[\"_field\"] == \"Service\" or r[\"_field\"] == \"ServerlessService\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"local\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "axes": {
+              "x": {
+                "bounds": [
+                  "",
+                  ""
+                ],
+                "label": "",
+                "prefix": "",
+                "suffix": "",
+                "base": "10",
+                "scale": "linear"
+              },
+              "y": {
+                "bounds": [
+                  "",
+                  ""
+                ],
+                "label": "",
+                "prefix": "",
+                "suffix": "",
+                "base": "10",
+                "scale": "linear"
+              }
+            },
+            "type": "xy",
+            "staticLegend": {
+              "colorizeRows": true,
+              "heightRatio": 0.22,
+              "show": true,
+              "opacity": 1,
+              "orientationThreshold": 100000000,
+              "valueAxis": "y",
+              "widthRatio": 1
+            },
+            "geom": "line",
+            "colors": [
+              {
+                "id": "c4637f28-66af-4b8e-817d-8a7bf4f4c673",
+                "type": "scale",
+                "hex": "#31C0F6",
+                "name": "Nineteen Eighty Four",
+                "value": 0
+              },
+              {
+                "id": "4a1e9419-947c-4e20-b507-3f169c914e5d",
+                "type": "scale",
+                "hex": "#A500A5",
+                "name": "Nineteen Eighty Four",
+                "value": 0
+              },
+              {
+                "id": "0ebeec39-b94d-405b-8258-e40ad61efed5",
+                "type": "scale",
+                "hex": "#FF7E27",
+                "name": "Nineteen Eighty Four",
+                "value": 0
+              }
+            ],
+            "note": "",
+            "showNoteWhenEmpty": false,
+            "xColumn": "_time",
+            "generateXAxisTicks": [],
+            "xTotalTicks": 0,
+            "xTickStart": 0,
+            "xTickStep": 0,
+            "yColumn": "_value",
+            "generateYAxisTicks": [],
+            "yTotalTicks": 0,
+            "yTickStart": 0,
+            "yTickStep": 0,
+            "shadeBelow": false,
+            "position": "overlaid",
+            "timeFormat": "",
+            "hoverDimension": "auto",
+            "legendColorizeRows": true,
+            "legendHide": false,
+            "legendOpacity": 1,
+            "legendOrientationThreshold": 100000000
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bacae4a1fdc3000",
+        "attributes": {
+          "name": "Name this Cell",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "markdown",
+            "note": "#### Scale from zero results"
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bacaf09181c3000",
+        "attributes": {
+          "name": "Deployment & Service ready delays",
+          "properties": {
+            "shape": "chronograf-v2",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Serving Serving scale from zero\")\n  |> filter(fn: (r) => r[\"_field\"] == \"deployment-updated-latency\" or r[\"_field\"] == \"service-ready-latency\")\n  |> map(fn: (r) => ({r with _value: r._value / 1000 }))",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "axes": {
+              "x": {
+                "bounds": [
+                  "",
+                  ""
+                ],
+                "label": "",
+                "prefix": "",
+                "suffix": "",
+                "base": "10",
+                "scale": "linear"
+              },
+              "y": {
+                "bounds": [
+                  "",
+                  ""
+                ],
+                "label": "seconds",
+                "prefix": "",
+                "suffix": "",
+                "base": "10",
+                "scale": "linear"
+              }
+            },
+            "type": "xy",
+            "staticLegend": {
+              "colorizeRows": true,
+              "heightRatio": 0.21070615034168566,
+              "show": true,
+              "opacity": 1,
+              "orientationThreshold": 100000000,
+              "widthRatio": 1
+            },
+            "geom": "line",
+            "colors": [
+              {
+                "id": "233e4497-8b3d-4753-b15f-2451dd0e5b68",
+                "type": "scale",
+                "hex": "#31C0F6",
+                "name": "Nineteen Eighty Four",
+                "value": 0
+              },
+              {
+                "id": "d0c48283-77dc-4c32-b436-11f6e9468088",
+                "type": "scale",
+                "hex": "#A500A5",
+                "name": "Nineteen Eighty Four",
+                "value": 0
+              },
+              {
+                "id": "1e8df3ce-f00a-4d6f-bf80-d076fc67dd1c",
+                "type": "scale",
+                "hex": "#FF7E27",
+                "name": "Nineteen Eighty Four",
+                "value": 0
+              }
+            ],
+            "note": "",
+            "showNoteWhenEmpty": false,
+            "xColumn": "_time",
+            "generateXAxisTicks": [],
+            "xTotalTicks": 0,
+            "xTickStart": 0,
+            "xTickStep": 0,
+            "yColumn": "_value",
+            "generateYAxisTicks": [],
+            "yTotalTicks": 0,
+            "yTickStart": 0,
+            "yTickStep": 0,
+            "shadeBelow": false,
+            "position": "overlaid",
+            "timeFormat": "",
+            "hoverDimension": "auto",
+            "legendColorizeRows": true,
+            "legendHide": false,
+            "legendOpacity": 1,
+            "legendOrientationThreshold": 100000000
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bacba9c90dc3000",
+        "attributes": {
+          "name": "Errors",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Serving Serving scale from zero\")\n  |> filter(fn: (r) => r[\"_field\"] == \"errors\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 2
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bacd823795c3000",
+        "attributes": {
+          "name": "Name this Cell (Clone)",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "markdown",
+            "note": "#### Dataplane probe results\n* Deployment = Vanilla k8s Deployment\n* Activator = Always hook the activator in\n* Queue = Only hook the activator in when scaled to zero.\n"
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bacd850a09c3000",
+        "attributes": {
+          "name": "Dataplane probe activator: Requests",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"requests\")\n  |> filter(fn: (r) => r[\"target\"] == \"activator\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bacd8839b1c3000",
+        "attributes": {
+          "name": "Dataplane probe deployment: Requests",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"requests\")\n  |> filter(fn: (r) => r[\"target\"] == \"deployment\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bacd899fe1c3000",
+        "attributes": {
+          "name": "Dataplane probe queue: Requests",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"requests\")\n  |> filter(fn: (r) => r[\"target\"] == \"queue\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bacd8bf225c3000",
+        "attributes": {
+          "name": "Dataplane probe activator: Errors",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"errors\")\n  |> filter(fn: (r) => r[\"target\"] == \"activator\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bacd8d7af9c3000",
+        "attributes": {
+          "name": "Dataplane probe deployment: Errors",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"errors\")\n  |> filter(fn: (r) => r[\"target\"] == \"deployment\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bacd8e66a5c3000",
+        "attributes": {
+          "name": "Dataplane probe queue: Errors",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"errors\")\n  |> filter(fn: (r) => r[\"target\"] == \"queue\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bacd8f8459c3000",
+        "attributes": {
+          "name": "Dataplane probe deployment: Latency min",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-min\")\n  |> filter(fn: (r) => r[\"target\"] == \"deployment\")\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")\n",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "ms",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bacd97e2d5c3000",
+        "attributes": {
+          "name": "Dataplane probe activator: Latency min",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-min\")\n  |> filter(fn: (r) => r[\"target\"] == \"activator\")\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")\n",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "ms",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bacda1bca5c3000",
+        "attributes": {
+          "name": "Dataplane probe queue: Latency min",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-min\")\n  |> filter(fn: (r) => r[\"target\"] == \"queue\")\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")\n",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "ms",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bacda84055c3000",
+        "attributes": {
+          "name": "Dataplane probe deployment: Latency mean",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-mean\")\n  |> filter(fn: (r) => r[\"target\"] == \"deployment\")\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")\n",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "ms",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bacda960e1c3000",
+        "attributes": {
+          "name": "Dataplane probe activator: Latency mean",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-mean\")\n  |> filter(fn: (r) => r[\"target\"] == \"activator\")\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")\n",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "ms",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bacdaa14c9c3000",
+        "attributes": {
+          "name": "Dataplane probe queue: Latency mean",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-mean\")\n  |> filter(fn: (r) => r[\"target\"] == \"queue\")\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")\n",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "ms",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bacdab6a61c3000",
+        "attributes": {
+          "name": "Dataplane probe deployment: Latency max",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-max\")\n  |> filter(fn: (r) => r[\"target\"] == \"deployment\")\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")\n",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "ms",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bacdac4589c3000",
+        "attributes": {
+          "name": "Dataplane probe activator: Latency max",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-max\")\n  |> filter(fn: (r) => r[\"target\"] == \"activator\")\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")\n",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "ms",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bacdad2359c3000",
+        "attributes": {
+          "name": "Dataplane probe queue: Latency max",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "single-stat",
+            "queries": [
+              {
+                "text": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-max\")\n  |> filter(fn: (r) => r[\"target\"] == \"queue\")\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")\n",
+                "editMode": "advanced",
+                "name": "",
+                "builderConfig": {
+                  "buckets": [],
+                  "tags": [
+                    {
+                      "key": "_measurement",
+                      "values": [],
+                      "aggregateFunctionType": "filter"
+                    }
+                  ],
+                  "functions": [
+                    {
+                      "name": "mean"
+                    }
+                  ],
+                  "aggregateWindow": {
+                    "period": "auto",
+                    "fillValues": false
+                  }
+                }
+              }
+            ],
+            "prefix": "",
+            "tickPrefix": "",
+            "suffix": "ms",
+            "tickSuffix": "",
+            "colors": [
+              {
+                "id": "base",
+                "type": "text",
+                "hex": "#00C9FF",
+                "name": "laser",
+                "value": 0
+              }
+            ],
+            "decimalPlaces": {
+              "isEnforced": true,
+              "digits": 0
+            },
+            "note": "",
+            "showNoteWhenEmpty": false
+          }
+        }
+      },
+      {
+        "type": "view",
+        "id": "0bacdb69b39c3000",
+        "attributes": {
+          "name": "Name this Cell (Clone) (Clone)",
+          "properties": {
+            "shape": "chronograf-v2",
+            "type": "markdown",
+            "note": "#### Rollout probe results\n* Activator Direct = Always hook the activator in: weightedExponential\n* Activator Direct Lin = Always hook the activator in: linear\n* Queue = Only hook the activator in when scaled to zero.\n"
+          }
+        }
+      }
+    ]
+  },
+  "labels": []
+}
