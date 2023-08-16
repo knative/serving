@@ -3,7 +3,7 @@
 Knative performance tests are tests geared towards producing useful performance
 metrics of the knative system. As such they can choose to take a closed-box
 point-of-view of the system and use it just like an end-user might see it. They
-can also go more open-boxy to narrow down the components under test.
+can also go more open-box to narrow down the components under test.
 
 ## Load Generator
 
@@ -15,32 +15,76 @@ different rate, you can write your own pacer by implementing
 interface. Custom pacer implementations used in Knative tests are under
 [pacers](https://github.com/knative/pkg/tree/main/test/vegeta/pacers).
 
-## Benchmarking using Mako
 
-The benchmarks were originally built to use [mako](https://github.com/google/mako), but currently
-running without connecting to the Mako backend, and collecting the data using
-a Mako sidecar stub.
+## Testing architecture
 
-### Run without Mako
+The performance tests are based on Kubernetes Jobs running Golang code based on different [benchmarks](#benchmarks).
+The script [performance-tests.sh](./performance-tests.sh) first creates a cluster in GKE, installs Serving with specific settings
+for the performance tests. Then it installs the required Knative Services and runs the testing jobs.
 
-To run a benchmark once, and use the result from `mako-stub` for plotting:
+The results are written to:
+* Stdout
+* A logfile in a folder defined with env: $ARTIFACTS
+* To an InfluxDB hosted in the knative-community GKE project: https://github.com/knative/infra/tree/main/infra/k8s/shared
 
-1. Start the benchmarking job:
 
-   `ko apply -f test/performance/benchmarks/deployment-probe/continuous/benchmark-direct.yaml`
+## Grafana
 
-1. Wait until all the pods with the selector equal to the job name are completed.
+To better visualize the test results, Grafana is used to show some dashboards.
+The dashboards are defined in [grafana-dashboard.json](./influx/grafana-dashboard.json) and available under
 
-1. Retrieve results from mako-stub using the script in where `pod_name` is the name of the pod from the previous step.
+[perf.knative.dev](https://perf.knative.dev)
 
-  `read_results.sh "$pod_name" "$pod_namespace" ${mako_port:-10001} ${timeout:-120} ${retries:-100} ${retries_interval:-10} "$output_file"`
 
-   This will download a CSV with all raw results. Alternatively you can remove
-   the port argument `-p` in `mako-stub` container to dump the output to
-   container log directly.
+## Benchmarks
 
-**Note:** Running `performance-tests-mako.sh` creates a cluster and runs all the benchmarks in sequence. Results are downloaded in a temp folder
+Knative Serving has different benchmarking scenarios:
 
-### Benchmarking using Kperf
+* [dataplane-probe](./benchmarks/dataplane-probe): Measures the overhead Knative has compared to a `Deployment`
+* [load-test](./benchmarks/load-test): Measures request metrics for Knative Services under load in different scenarios (Activator always in path, Activator only in path at zero, Activator moving out of path on high-load) 
+* [reconciliation-delay](./benchmarks/reconciliation-delay): Measures the time it takes to reconcile a `KnativeService` and its child CRs.
+* [rollout-probe](./benchmarks/rollout-probe): Measures request metrics for a rolling update of a scaled `KnativeService`.
+* [scale-from-zero](./benchmarks/scale-from-zero): Measures the latency of scaling 1, 5, 25 and 100 Knative Services from zero in parallel.
 
-Running `performance-tests.sh` runs performance tests using [kperf](https://github.com/knative-extensions/kperf)
+
+## Running the benchmarks
+
+### Local influx setup
+
+You first need a local running instance of influxDB:
+
+```bash
+helm repo add influxdata https://helm.influxdata.com/
+kubectl create ns influx
+helm upgrade --install -n influx local-influx --set persistence.enabled=true,persistence.size=50Gi influxdata/influxdb2
+echo "Admin password"
+echo $(kubectl get secret local-influx-influxdb2-auth -o "jsonpath={.data['admin-password']}" --namespace influx | base64 --decode)
+echo "Admin token"
+echo $(kubectl get secret local-influx-influxdb2-auth -o "jsonpath={.data['admin-token']}" --namespace influx | base64 --decode)
+
+# Forward the influxDB to your laptop if you want to access the UI:
+kubectl port-forward -n influx svc/local-influx-influxdb2 8080:80
+```
+
+### Local development
+
+You can run all the benchmarks directly by calling the `main()` method in `main.go` in the respective [benchmarks](./benchmarks) folders.
+
+#### Environment
+
+The tests expect to be configured with certain environment variables:
+
+* KO_DOCKER_REPO = What you have set for `ko`
+* SYSTEM_NAMESPACE = Where knative-serving is installed, typically `knative-serving`
+* INFLUX_URL=http://local-influx-influxdb2.influx:80
+* INFLUX_TOKEN = as outputted from the command above
+* PROW_TAG=local
+
+
+### Running them on cluster
+
+Check out what the [script](./performance-tests.sh) does. Basically just run:
+
+```bash
+sed "s|@SYSTEM_NAMESPACE@|$SYSTEM_NAMESPACE|g" <your-benchmark-job.yaml> | sed "s|@KO_DOCKER_REPO@|$KO_DOCKER_REPO|g" | ko apply --sbom=none -Bf -
+```

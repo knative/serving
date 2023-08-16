@@ -37,7 +37,6 @@ export ENABLE_HA=${ENABLE_HA:-0}
 export ENABLE_TLS=${ENABLE_TLS:-0}
 export MESH=${MESH:-0}
 export AMBIENT=${AMBIENT:-0}
-export PERF=${PERF:-0}
 export KIND=${KIND:-0}
 export CLUSTER_DOMAIN=${CLUSTER_DOMAIN:-cluster.local}
 
@@ -129,10 +128,6 @@ function parse_flags() {
       ;;
     --no-mesh)
       readonly MESH=0
-      return 1
-      ;;
-    --perf)
-      readonly PERF=1
       return 1
       ;;
     --enable-ha)
@@ -310,10 +305,6 @@ function install() {
   if (( ENABLE_HA )); then
     YTT_FILES+=("${E2E_YAML_DIR}/test/config/chaosduck/chaosduck.yaml")
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/ha")
-  fi
-
-  if (( PERF )); then
-    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/performance")
   fi
 
   if (( KIND )); then

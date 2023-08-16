@@ -1,8 +1,0 @@
-#@ load("@ytt:overlay", "overlay")
-#@ load("helpers.lib.yaml", "system_configmap")
-
-#@overlay/match by=system_configmap("config-autoscaler"), expects=1
----
-#@overlay/match-child-defaults missing_ok=True
-data:
-  scale-to-zero-grace-period: "10s"
