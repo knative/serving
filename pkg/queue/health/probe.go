@@ -22,6 +22,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -92,10 +93,16 @@ var transport = func() *http.Transport {
 }()
 
 func getURL(config HTTPProbeConfigOptions) url.URL {
+	// Split config.Path into path and query as it may contain query like "/?foo=bar".
+	pathQuery := strings.Split(config.Path, "?")
+	path := pathQuery[0]
+	query := strings.Join(pathQuery[1:], "?")
+
 	return url.URL{
-		Scheme: string(config.Scheme),
-		Host:   net.JoinHostPort(config.Host, config.Port.String()),
-		Path:   config.Path,
+		Scheme:   string(config.Scheme),
+		Host:     net.JoinHostPort(config.Host, config.Port.String()),
+		Path:     path,
+		RawQuery: query,
 	}
 }
 
