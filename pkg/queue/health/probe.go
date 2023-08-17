@@ -22,7 +22,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -92,28 +91,8 @@ var transport = func() *http.Transport {
 	return t
 }()
 
-func getURL(config HTTPProbeConfigOptions) url.URL {
-	// Split config.Path into path and query as it may contain query like "/?foo=bar".
-	// The code is borrowed from https://cs.opensource.google/go/go/+/refs/tags/go1.21.0:src/net/url/url.go;l=524-529
-	var (
-		rawQuery   string
-		forceQuery bool
-		path       string
-	)
-	if strings.HasSuffix(config.Path, "?") && strings.Count(config.Path, "?") == 1 {
-		forceQuery = true
-		path = config.Path[:len(config.Path)-1]
-	} else {
-		path, rawQuery, _ = strings.Cut(config.Path, "?")
-	}
-
-	return url.URL{
-		Scheme:     string(config.Scheme),
-		Host:       net.JoinHostPort(config.Host, config.Port.String()),
-		Path:       path,
-		ForceQuery: forceQuery,
-		RawQuery:   rawQuery,
-	}
+func getURL(config HTTPProbeConfigOptions) (*url.URL, error) {
+	return url.Parse(string(config.Scheme) + "://" + net.JoinHostPort(config.Host, config.Port.String()) + config.Path)
 }
 
 // http2UpgradeProbe checks that an HTTP with HTTP2 upgrade request
@@ -124,7 +103,10 @@ func http2UpgradeProbe(config HTTPProbeConfigOptions) (int, error) {
 		Transport: transport,
 		Timeout:   config.Timeout,
 	}
-	url := getURL(config)
+	url, err := getURL(config)
+	if err != nil {
+		return 0, fmt.Errorf("error constructing probe url %w", err)
+	}
 	req, err := http.NewRequest(http.MethodOptions, url.String(), nil)
 	if err != nil {
 		return 0, fmt.Errorf("error constructing probe request %w", err)
@@ -178,7 +160,10 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 		Transport: autoDowngradingTransport(config),
 		Timeout:   config.Timeout,
 	}
-	url := getURL(config)
+	url, err := getURL(config)
+	if err != nil {
+		return fmt.Errorf("error constructing probe url %w", err)
+	}
 	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 	if err != nil {
 		return fmt.Errorf("error constructing probe request %w", err)
