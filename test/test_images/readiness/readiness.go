@@ -85,6 +85,7 @@ func main() {
 		mainServer.HandleFunc("/healthz", handleHealthz)
 	}
 
+	mainServer.HandleFunc("/query", handleQuery)
 	http.ListenAndServe(":8080", mainServer)
 }
 
@@ -116,6 +117,13 @@ func handleHealthz(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Fprint(w, test.HelloWorldText)
+}
+
+func handleQuery(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Query().Get("probe") == "ok" {
+		fmt.Fprint(w, test.HelloWorldText)
+	}
+	http.Error(w, "no query", http.StatusInternalServerError)
 }
 
 func handleMain(w http.ResponseWriter, r *http.Request) {
