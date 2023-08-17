@@ -46,8 +46,9 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	domainmappingreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/domainmapping"
+	domainmappingreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1beta1/domainmapping"
 	"knative.dev/serving/pkg/reconciler/domainmapping/config"
 	"knative.dev/serving/pkg/reconciler/domainmapping/resources"
 
@@ -114,7 +115,7 @@ func TestReconcile(t *testing.T) {
 		WantDeletes: []clientgotesting.DeleteActionImpl{{
 			ActionImpl: clientgotesting.ActionImpl{
 				Verb:     "delete",
-				Resource: v1alpha1.SchemeGroupVersion.WithResource("clusterdomainclaims"),
+				Resource: v1beta1.SchemeGroupVersion.WithResource("clusterdomainclaims"),
 			},
 			Name: "cleanup.on.aisle-three",
 		}},
@@ -1042,7 +1043,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "cert.not.owned.ru"),
-			Eventf(corev1.EventTypeWarning, "InternalError", `notowned: owner: cert.not.owned.ru with Type *v1alpha1.DomainMapping does not own Certificate: "cert.not.owned.ru"`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `notowned: owner: cert.not.owned.ru with Type *v1beta1.DomainMapping does not own Certificate: "cert.not.owned.ru"`),
 		},
 	}, {
 		Name:    "cert creation failed",
@@ -1327,10 +1328,10 @@ func TestReconcileTLSEnabledButDowngraded(t *testing.T) {
 	}))
 }
 
-type domainMappingOption func(dm *v1alpha1.DomainMapping)
+type domainMappingOption func(dm *v1beta1.DomainMapping)
 
-func domainMapping(namespace, name string, opt ...domainMappingOption) *v1alpha1.DomainMapping {
-	dm := &v1alpha1.DomainMapping{
+func domainMapping(namespace, name string, opt ...domainMappingOption) *v1beta1.DomainMapping {
+	dm := &v1beta1.DomainMapping{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,
@@ -1343,19 +1344,19 @@ func domainMapping(namespace, name string, opt ...domainMappingOption) *v1alpha1
 }
 
 func withAnnotations(ans map[string]string) domainMappingOption {
-	return func(dm *v1alpha1.DomainMapping) {
+	return func(dm *v1beta1.DomainMapping) {
 		dm.Annotations = ans
 	}
 }
 
 func withLabels(label map[string]string) domainMappingOption {
-	return func(dm *v1alpha1.DomainMapping) {
+	return func(dm *v1beta1.DomainMapping) {
 		dm.Labels = label
 	}
 }
 
 func withUID(uid types.UID) domainMappingOption {
-	return func(dm *v1alpha1.DomainMapping) {
+	return func(dm *v1beta1.DomainMapping) {
 		dm.UID = uid
 	}
 }
@@ -1363,7 +1364,7 @@ func withUID(uid types.UID) domainMappingOption {
 type refOption func(*duckv1.KReference)
 
 func withRef(namespace, name string, opt ...refOption) domainMappingOption {
-	return func(dm *v1alpha1.DomainMapping) {
+	return func(dm *v1beta1.DomainMapping) {
 		dm.Spec.Ref.Namespace = namespace
 		dm.Spec.Ref.Name = name
 		dm.Spec.Ref.APIVersion = "serving.knative.dev/v1"
@@ -1383,13 +1384,13 @@ func withAPIVersionKind(apiVersion, kind string) refOption {
 }
 
 func withURL(scheme, host string) domainMappingOption {
-	return func(dm *v1alpha1.DomainMapping) {
+	return func(dm *v1beta1.DomainMapping) {
 		dm.Status.URL = &apis.URL{Scheme: scheme, Host: host}
 	}
 }
 
 func withAddress(scheme, host string) domainMappingOption {
-	return func(dm *v1alpha1.DomainMapping) {
+	return func(dm *v1beta1.DomainMapping) {
 		dm.Status.Address = &duckv1.Addressable{URL: &apis.URL{
 			Scheme: scheme,
 			Host:   host,
@@ -1397,99 +1398,99 @@ func withAddress(scheme, host string) domainMappingOption {
 	}
 }
 
-func withIngressNotConfigured(dm *v1alpha1.DomainMapping) {
+func withIngressNotConfigured(dm *v1beta1.DomainMapping) {
 	dm.Status.MarkIngressNotConfigured()
 }
 
 func withPropagatedStatus(status netv1alpha1.IngressStatus) domainMappingOption {
-	return func(r *v1alpha1.DomainMapping) {
+	return func(r *v1beta1.DomainMapping) {
 		r.Status.PropagateIngressStatus(status)
 	}
 }
 
 func withTLSSecret(secretName string) domainMappingOption {
-	return func(r *v1alpha1.DomainMapping) {
-		r.Spec.TLS = &v1alpha1.SecretTLS{
+	return func(r *v1beta1.DomainMapping) {
+		r.Spec.TLS = &v1beta1.SecretTLS{
 			SecretName: secretName,
 		}
 	}
 }
 
-func withCertificateNotRequired(dm *v1alpha1.DomainMapping) {
-	dm.Status.MarkCertificateNotRequired(v1alpha1.TLSCertificateProvidedExternally)
+func withCertificateNotRequired(dm *v1beta1.DomainMapping) {
+	dm.Status.MarkCertificateNotRequired(v1beta1.TLSCertificateProvidedExternally)
 }
 
-func withInitDomainMappingConditions(dm *v1alpha1.DomainMapping) {
+func withInitDomainMappingConditions(dm *v1beta1.DomainMapping) {
 	dm.Status.InitializeConditions()
 }
 
-func withTLSNotEnabled(dm *v1alpha1.DomainMapping) {
+func withTLSNotEnabled(dm *v1beta1.DomainMapping) {
 	dm.Status.MarkTLSNotEnabled(servingv1.AutoTLSNotEnabledMessage)
 }
 
-func withCertificateNotReady(dm *v1alpha1.DomainMapping) {
+func withCertificateNotReady(dm *v1beta1.DomainMapping) {
 	dm.Status.MarkCertificateNotReady(dm.Name)
 }
 
-func withHTTPDowngraded(dm *v1alpha1.DomainMapping) {
+func withHTTPDowngraded(dm *v1beta1.DomainMapping) {
 	dm.Status.MarkHTTPDowngrade(dm.Name)
 }
 
-func withCertificateReady(dm *v1alpha1.DomainMapping) {
+func withCertificateReady(dm *v1beta1.DomainMapping) {
 	dm.Status.MarkCertificateReady(dm.Name)
 }
 
-func withCertificateFail(dm *v1alpha1.DomainMapping) {
+func withCertificateFail(dm *v1beta1.DomainMapping) {
 	dm.Status.MarkCertificateProvisionFailed(dm.Name)
 }
 
-func withCertificateNotOwned(dm *v1alpha1.DomainMapping) {
+func withCertificateNotOwned(dm *v1beta1.DomainMapping) {
 	dm.Status.MarkCertificateNotOwned(dm.Name)
 }
 
-func withDomainClaimNotOwned(dm *v1alpha1.DomainMapping) {
+func withDomainClaimNotOwned(dm *v1beta1.DomainMapping) {
 	dm.Status.MarkDomainClaimNotOwned()
 }
 
-func withDomainClaimed(dm *v1alpha1.DomainMapping) {
+func withDomainClaimed(dm *v1beta1.DomainMapping) {
 	dm.Status.MarkDomainClaimed()
 }
 
-func withReferenceResolved(dm *v1alpha1.DomainMapping) {
+func withReferenceResolved(dm *v1beta1.DomainMapping) {
 	dm.Status.MarkReferenceResolved()
 }
 
 func withReferenceNotResolved(message string) domainMappingOption {
-	return func(dm *v1alpha1.DomainMapping) {
+	return func(dm *v1beta1.DomainMapping) {
 		dm.Status.MarkReferenceNotResolved(message)
 	}
 }
 
 func withGeneration(generation int64) domainMappingOption {
-	return func(dm *v1alpha1.DomainMapping) {
+	return func(dm *v1beta1.DomainMapping) {
 		dm.Generation = generation
 	}
 }
 
-func withObservedGeneration(dm *v1alpha1.DomainMapping) {
+func withObservedGeneration(dm *v1beta1.DomainMapping) {
 	dm.Status.ObservedGeneration = dm.Generation
 }
 
-func withFinalizer(dm *v1alpha1.DomainMapping) {
+func withFinalizer(dm *v1beta1.DomainMapping) {
 	dm.ObjectMeta.Finalizers = append(dm.ObjectMeta.Finalizers, "domainmappings.serving.knative.dev")
 }
 
 func withDeletionTimestamp(t *metav1.Time) domainMappingOption {
-	return func(dm *v1alpha1.DomainMapping) {
+	return func(dm *v1beta1.DomainMapping) {
 		dm.ObjectMeta.DeletionTimestamp = t
 	}
 }
 
-func ingress(dm *v1alpha1.DomainMapping, ingressClass string, opt ...IngressOption) *netv1alpha1.Ingress {
+func ingress(dm *v1beta1.DomainMapping, ingressClass string, opt ...IngressOption) *netv1alpha1.Ingress {
 	return ingressWithChallenges(dm, ingressClass, nil /* challenges */, opt...)
 }
 
-func ingressWithChallenges(dm *v1alpha1.DomainMapping, ingressClass string, challenges []netv1alpha1.HTTP01Challenge, opt ...IngressOption) *netv1alpha1.Ingress {
+func ingressWithChallenges(dm *v1beta1.DomainMapping, ingressClass string, challenges []netv1alpha1.HTTP01Challenge, opt ...IngressOption) *netv1alpha1.Ingress {
 	ing := resources.MakeIngress(dm, dm.Spec.Ref.Name, dm.Spec.Ref.Name+"."+dm.Spec.Ref.Namespace+".svc.cluster.local", ingressClass, netv1alpha1.HTTPOptionEnabled, nil /* tls */, challenges...)
 	for _, o := range opt {
 		o(ing)

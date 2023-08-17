@@ -44,8 +44,8 @@ import (
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/resolver"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	domainmappingreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/domainmapping"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	domainmappingreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1beta1/domainmapping"
 	servingnetworking "knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/reconciler/domainmapping/config"
 	"knative.dev/serving/pkg/reconciler/domainmapping/resources"
@@ -78,7 +78,7 @@ func (r *Reconciler) GetCertificateLister() networkinglisters.CertificateLister 
 }
 
 // ReconcileKind implements Interface.ReconcileKind.
-func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMapping) reconciler.Event {
+func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1beta1.DomainMapping) reconciler.Event {
 	ctx, cancel := context.WithTimeout(ctx, reconciler.DefaultTimeout)
 	defer cancel()
 
@@ -146,7 +146,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1alpha1.DomainMappi
 }
 
 // FinalizeKind cleans up the ClusterDomainClaim created by the DomainMapping.
-func (r *Reconciler) FinalizeKind(ctx context.Context, dm *v1alpha1.DomainMapping) reconciler.Event {
+func (r *Reconciler) FinalizeKind(ctx context.Context, dm *v1beta1.DomainMapping) reconciler.Event {
 	if !config.FromContext(ctx).Network.AutocreateClusterDomainClaims {
 		// If we're not responsible for creating domain claims, we're not responsible for cleaning them up.
 		return nil
@@ -171,7 +171,7 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, dm *v1alpha1.DomainMappin
 	return r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Delete(ctx, dm.Name, metav1.DeleteOptions{})
 }
 
-func autoTLSEnabled(ctx context.Context, dm *v1alpha1.DomainMapping) bool {
+func autoTLSEnabled(ctx context.Context, dm *v1beta1.DomainMapping) bool {
 	if !config.FromContext(ctx).Network.AutoTLS {
 		return false
 	}
@@ -192,9 +192,9 @@ func certClass(ctx context.Context) string {
 	return config.FromContext(ctx).Network.DefaultCertificateClass
 }
 
-func (r *Reconciler) tls(ctx context.Context, dm *v1alpha1.DomainMapping) ([]netv1alpha1.IngressTLS, []netv1alpha1.HTTP01Challenge, error) {
+func (r *Reconciler) tls(ctx context.Context, dm *v1beta1.DomainMapping) ([]netv1alpha1.IngressTLS, []netv1alpha1.HTTP01Challenge, error) {
 	if dm.Spec.TLS != nil {
-		dm.Status.MarkCertificateNotRequired(v1alpha1.TLSCertificateProvidedExternally)
+		dm.Status.MarkCertificateNotRequired(v1beta1.TLSCertificateProvidedExternally)
 		dm.Status.URL.Scheme = "https"
 		return []netv1alpha1.IngressTLS{{
 			Hosts:           []string{dm.Name},
@@ -246,7 +246,7 @@ func (r *Reconciler) tls(ctx context.Context, dm *v1alpha1.DomainMapping) ([]net
 	return nil, acmeChallenges, nil
 }
 
-func (r *Reconciler) reconcileIngress(ctx context.Context, dm *v1alpha1.DomainMapping, desired *netv1alpha1.Ingress) (*netv1alpha1.Ingress, error) {
+func (r *Reconciler) reconcileIngress(ctx context.Context, dm *v1beta1.DomainMapping, desired *netv1alpha1.Ingress) (*netv1alpha1.Ingress, error) {
 	recorder := controller.GetEventRecorder(ctx)
 	ingress, err := r.ingressLister.Ingresses(desired.Namespace).Get(desired.Name)
 	if apierrs.IsNotFound(err) {
@@ -279,7 +279,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, dm *v1alpha1.DomainMa
 	return ingress, err
 }
 
-func (r *Reconciler) resolveRef(ctx context.Context, dm *v1alpha1.DomainMapping) (host, backendSvc string, err error) {
+func (r *Reconciler) resolveRef(ctx context.Context, dm *v1beta1.DomainMapping) (host, backendSvc string, err error) {
 	resolved, err := r.resolver.URIFromKReference(ctx, &dm.Spec.Ref, dm)
 	if err != nil {
 		dm.Status.MarkReferenceNotResolved(err.Error())
@@ -318,7 +318,7 @@ func (r *Reconciler) resolveRef(ctx context.Context, dm *v1alpha1.DomainMapping)
 	return resolved.Host, parts[0], nil
 }
 
-func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1alpha1.DomainMapping) error {
+func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1beta1.DomainMapping) error {
 	dc, err := r.domainClaimLister.Get(dm.Name)
 	if err != nil && !apierrs.IsNotFound(err) {
 		return fmt.Errorf("failed to get ClusterDomainClaim: %w", err)
@@ -335,7 +335,7 @@ func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1alpha1.Doma
 	return nil
 }
 
-func (r *Reconciler) createDomainClaim(ctx context.Context, dm *v1alpha1.DomainMapping) error {
+func (r *Reconciler) createDomainClaim(ctx context.Context, dm *v1beta1.DomainMapping) error {
 	if !config.FromContext(ctx).Network.AutocreateClusterDomainClaims {
 		dm.Status.MarkDomainClaimNotOwned()
 		return fmt.Errorf("no ClusterDomainClaim found for domain %q (and autocreate-cluster-domain-claims property is not true)", dm.Name)

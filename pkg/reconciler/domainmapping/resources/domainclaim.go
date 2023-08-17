@@ -19,12 +19,12 @@ package resources
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 // MakeDomainClaim creates a ClusterDomainClaim named after the given DomainMapping
 // and giving ownership of the domain name to the DomainMapping's namespace.
-func MakeDomainClaim(dm *v1alpha1.DomainMapping) *netv1alpha1.ClusterDomainClaim {
+func MakeDomainClaim(dm *v1beta1.DomainMapping) *netv1alpha1.ClusterDomainClaim {
 	return &netv1alpha1.ClusterDomainClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: dm.Name,
