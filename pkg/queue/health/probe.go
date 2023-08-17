@@ -94,15 +94,25 @@ var transport = func() *http.Transport {
 
 func getURL(config HTTPProbeConfigOptions) url.URL {
 	// Split config.Path into path and query as it may contain query like "/?foo=bar".
-	pathQuery := strings.Split(config.Path, "?")
-	path := pathQuery[0]
-	query := strings.Join(pathQuery[1:], "?")
+	// The code is borrowed from https://cs.opensource.google/go/go/+/refs/tags/go1.21.0:src/net/url/url.go;l=524-529
+	var (
+		rawQuery   string
+		forceQuery bool
+		path       string
+	)
+	if strings.HasSuffix(config.Path, "?") && strings.Count(config.Path, "?") == 1 {
+		forceQuery = true
+		path = config.Path[:len(config.Path)-1]
+	} else {
+		path, rawQuery, _ = strings.Cut(config.Path, "?")
+	}
 
 	return url.URL{
-		Scheme:   string(config.Scheme),
-		Host:     net.JoinHostPort(config.Host, config.Port.String()),
-		Path:     path,
-		RawQuery: query,
+		Scheme:     string(config.Scheme),
+		Host:       net.JoinHostPort(config.Host, config.Port.String()),
+		Path:       path,
+		ForceQuery: forceQuery,
+		RawQuery:   rawQuery,
 	}
 }
 
