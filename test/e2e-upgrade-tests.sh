@@ -43,6 +43,7 @@ function stage_test_resources() {
 # Skip installing a pvc as it is not used in upgrade tests
 # Skip installing a resource quota as it is not used in upgrade tests
 PVC=0 QUOTA=0 initialize "$@" --num-nodes=4 --cluster-version=1.25 \
+  --install-latest-release
 
 # TODO(#2656): Reduce the timeout after we get this test to consistently passing.
 TIMEOUT=30m
