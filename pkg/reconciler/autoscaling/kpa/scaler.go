@@ -178,31 +178,25 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1
 	//   c) the PA has been backed by the Activator for at least the grace period
 	//      of time.
 	//  Alternatively, if (a) and the revision did not succeed to activate in
-	//  `activationTimeout` time -- also scale it to 0.
+	//  less than the stable window time -- also scale it to 0.
 	cfgs := config.FromContext(ctx)
 	cfgAS := cfgs.Autoscaler
 
 	if !cfgAS.EnableScaleToZero {
 		return 1, true
 	}
-	cfgD := cfgs.Deployment
-	var activationTimeout time.Duration
-	if progressDeadline, ok := pa.ProgressDeadline(); ok {
-		activationTimeout = progressDeadline + activationTimeoutBuffer
-	} else {
-		activationTimeout = cfgD.ProgressDeadline + activationTimeoutBuffer
-	}
 
 	now := time.Now()
 	logger := logging.FromContext(ctx)
 	switch {
 	case pa.Status.IsActivating(): // Active=Unknown
-		// If we are stuck activating for longer than our progress deadline, presume we cannot succeed and scale to 0.
-		if pa.Status.CanFailActivation(now, activationTimeout) {
-			logger.Info("Activation has timed out after ", activationTimeout)
+		sw := aresources.StableWindow(pa, cfgAS)
+		// If we are stuck activating for longer than our stable window, presume we cannot succeed and scale to 0.
+		if pa.Status.CanFailActivation(now, sw) {
+			logger.Info("Activation has timed out after ", sw)
 			return desiredScale, true
 		}
-		ks.enqueueCB(pa, activationTimeout)
+		ks.enqueueCB(pa, sw)
 		return scaleUnknown, false
 	case pa.Status.IsActive(): // Active=True
 		// Don't scale-to-zero if the PA is active
