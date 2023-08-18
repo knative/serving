@@ -21,14 +21,7 @@ package namespace
 import (
 	context "context"
 
-	apicorev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
 	v1 "k8s.io/client-go/informers/core/v1"
-	kubernetes "k8s.io/client-go/kubernetes"
-	corev1 "k8s.io/client-go/listers/core/v1"
-	cache "k8s.io/client-go/tools/cache"
-	client "knative.dev/pkg/client/injection/kube/client"
 	factory "knative.dev/pkg/client/injection/kube/informers/factory"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
@@ -37,7 +30,6 @@ import (
 
 func init() {
 	injection.Default.RegisterInformer(withInformer)
-	injection.Dynamic.RegisterDynamicInformer(withDynamicInformer)
 }
 
 // Key is used for associating the Informer inside the context.Context.
@@ -49,11 +41,6 @@ func withInformer(ctx context.Context) (context.Context, controller.Informer) {
 	return context.WithValue(ctx, Key{}, inf), inf.Informer()
 }
 
-func withDynamicInformer(ctx context.Context) context.Context {
-	inf := &wrapper{client: client.Get(ctx), resourceVersion: injection.GetResourceVersion(ctx)}
-	return context.WithValue(ctx, Key{}, inf)
-}
-
 // Get extracts the typed informer from the context.
 func Get(ctx context.Context) v1.NamespaceInformer {
 	untyped := ctx.Value(Key{})
@@ -62,49 +49,4 @@ func Get(ctx context.Context) v1.NamespaceInformer {
 			"Unable to fetch k8s.io/client-go/informers/core/v1.NamespaceInformer from context.")
 	}
 	return untyped.(v1.NamespaceInformer)
-}
-
-type wrapper struct {
-	client kubernetes.Interface
-
-	resourceVersion string
-}
-
-var _ v1.NamespaceInformer = (*wrapper)(nil)
-var _ corev1.NamespaceLister = (*wrapper)(nil)
-
-func (w *wrapper) Informer() cache.SharedIndexInformer {
-	return cache.NewSharedIndexInformer(nil, &apicorev1.Namespace{}, 0, nil)
-}
-
-func (w *wrapper) Lister() corev1.NamespaceLister {
-	return w
-}
-
-// SetResourceVersion allows consumers to adjust the minimum resourceVersion
-// used by the underlying client.  It is not accessible via the standard
-// lister interface, but can be accessed through a user-defined interface and
-// an implementation check e.g. rvs, ok := foo.(ResourceVersionSetter)
-func (w *wrapper) SetResourceVersion(resourceVersion string) {
-	w.resourceVersion = resourceVersion
-}
-
-func (w *wrapper) List(selector labels.Selector) (ret []*apicorev1.Namespace, err error) {
-	lo, err := w.client.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{
-		LabelSelector:   selector.String(),
-		ResourceVersion: w.resourceVersion,
-	})
-	if err != nil {
-		return nil, err
-	}
-	for idx := range lo.Items {
-		ret = append(ret, &lo.Items[idx])
-	}
-	return ret, nil
-}
-
-func (w *wrapper) Get(name string) (*apicorev1.Namespace, error) {
-	return w.client.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{
-		ResourceVersion: w.resourceVersion,
-	})
 }

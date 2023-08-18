@@ -32,7 +32,6 @@ data:
   loglevel.webhook: "debug"
   loglevel.activator: "debug"
   loglevel.hpaautoscaler: "debug"
-  loglevel.domainmapping: "debug"
   loglevel.net-istio-controller: "debug"
   loglevel.net-certmanager-controller: "debug"
   loglevel.net-contour-controller: "debug"

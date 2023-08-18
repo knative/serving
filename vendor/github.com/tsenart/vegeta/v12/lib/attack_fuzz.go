@@ -1,3 +1,4 @@
+//go:build gofuzz
 // +build gofuzz
 
 package vegeta
@@ -5,7 +6,6 @@ package vegeta
 import (
 	"encoding/binary"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -20,7 +20,7 @@ func FuzzAttackerTCP(fuzz []byte) int {
 	}
 
 	// Start server
-	directory, err := ioutil.TempDir("/tmp", "fuzz")
+	directory, err := os.MkdirTemp("/tmp", "fuzz")
 	if err != nil {
 		panic(err.Error())
 	}
@@ -77,7 +77,7 @@ func FuzzAttackerHTTP(fuzz []byte) int {
 	}
 
 	// Start server
-	directory, err := ioutil.TempDir("/tmp", "fuzz")
+	directory, err := os.MkdirTemp("/tmp", "fuzz")
 	if err != nil {
 		panic(err.Error())
 	}

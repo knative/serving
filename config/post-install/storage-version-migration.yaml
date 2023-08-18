@@ -47,6 +47,7 @@ spec:
           - "configurations.serving.knative.dev"
           - "revisions.serving.knative.dev"
           - "routes.serving.knative.dev"
+          - "domainmappings.serving.knative.dev"
         resources:
           requests:
             cpu: 100m

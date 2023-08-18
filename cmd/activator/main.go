@@ -285,7 +285,7 @@ func main() {
 		name, server := "https", pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTPSPort), ah)
 		go func(name string, s *http.Server) {
 			s.TLSConfig = &tls.Config{
-				MinVersion:     tls.VersionTLS12,
+				MinVersion:     tls.VersionTLS13,
 				GetCertificate: certCache.GetCertificate,
 			}
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.

@@ -312,7 +312,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			})
 		}),
 	}, {
-		name: "default resource config",
+		name: "default resource config with feature qp defaults disabled",
 		rev: revision("bar", "foo",
 			withContainers(containers)),
 		dc: deployment.Config{
@@ -321,9 +321,29 @@ func TestMakeQueueContainer(t *testing.T) {
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{})
 			c.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceCPU: resource.MustParse("25m"),
+				corev1.ResourceCPU: deployment.QueueSidecarCPURequestDefault,
 			}
-			c.Resources.Limits = nil
+		}),
+	}, {
+		name: "resource config with feature qp defaults enabled",
+		rev: revision("bar", "foo",
+			withContainers(containers)),
+		dc: deployment.Config{
+			QueueSidecarCPURequest: &deployment.QueueSidecarCPURequestDefault,
+		},
+		fc: apicfg.Features{
+			QueueProxyResourceDefaults: apicfg.Enabled,
+		},
+		want: queueContainer(func(c *corev1.Container) {
+			c.Env = env(map[string]string{})
+			c.Resources.Requests = corev1.ResourceList{
+				corev1.ResourceCPU:    deployment.QueueSidecarCPURequestDefault,
+				corev1.ResourceMemory: deployment.QueueSidecarMemoryRequestDefault,
+			}
+			c.Resources.Limits = corev1.ResourceList{
+				corev1.ResourceCPU:    deployment.QueueSidecarCPULimitDefault,
+				corev1.ResourceMemory: deployment.QueueSidecarMemoryLimitDefault,
+			}
 		}),
 	}, {
 		name: "overridden resources",
@@ -545,6 +565,122 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			c.Resources.Requests = corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("25m"),
 				corev1.ResourceMemory: resource.MustParse("200Mi"),
+			}
+		}),
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := revConfig()
+			cfg.Deployment = &test.dc
+			got, err := makeQueueContainer(test.rev, cfg)
+			if err != nil {
+				t.Fatal("makeQueueContainer returned error:", err)
+			}
+			test.want.Env = append(test.want.Env, corev1.EnvVar{
+				Name:  "SERVING_READINESS_PROBE",
+				Value: probeJSON(test.rev.Spec.GetContainer()),
+			})
+			sortEnv(got.Env)
+			sortEnv(test.want.Env)
+			if got, want := *got, test.want; !cmp.Equal(got, want, quantityComparer) {
+				t.Errorf("makeQueueContainer (-want, +got) =\n%s", cmp.Diff(want, got, quantityComparer))
+			}
+		})
+	}
+}
+
+func TestMakeQueueContainerWithResourceAnnotations(t *testing.T) {
+	tests := []struct {
+		name string
+		rev  *v1.Revision
+		want corev1.Container
+		dc   deployment.Config
+	}{{
+		name: "resources defined via annotations",
+		rev: revision("bar", "foo",
+			func(revision *v1.Revision) {
+				revision.Annotations = map[string]string{
+					serving.QueueSidecarCPUResourceRequestAnnotationKey:              "1",
+					serving.QueueSidecarCPUResourceLimitAnnotationKey:                "2",
+					serving.QueueSidecarMemoryResourceRequestAnnotationKey:           "1Gi",
+					serving.QueueSidecarMemoryResourceLimitAnnotationKey:             "2Gi",
+					serving.QueueSidecarEphemeralStorageResourceRequestAnnotationKey: "500Mi",
+					serving.QueueSidecarEphemeralStorageResourceLimitAnnotationKey:   "600Mi",
+				}
+				revision.Spec.PodSpec.Containers = []corev1.Container{{
+					Name:           servingContainerName,
+					ReadinessProbe: testProbe,
+				}}
+			}),
+		want: queueContainer(func(c *corev1.Container) {
+			c.Env = env(map[string]string{})
+			c.Resources.Requests = corev1.ResourceList{
+				corev1.ResourceMemory:           resource.MustParse("1Gi"),
+				corev1.ResourceCPU:              resource.MustParse("1"),
+				corev1.ResourceEphemeralStorage: resource.MustParse("500Mi"),
+			}
+			c.Resources.Limits = corev1.ResourceList{
+				corev1.ResourceMemory:           resource.MustParse("2Gi"),
+				corev1.ResourceCPU:              resource.MustParse("2"),
+				corev1.ResourceEphemeralStorage: resource.MustParse("600Mi"),
+			}
+		}),
+	}, {
+		name: "resources defined via annotations with bad values ignored",
+		rev: revision("bar", "foo",
+			func(revision *v1.Revision) {
+				revision.Annotations = map[string]string{
+					serving.QueueSidecarCPUResourceRequestAnnotationKey:    "zzz",
+					serving.QueueSidecarCPUResourceLimitAnnotationKey:      "2",
+					serving.QueueSidecarMemoryResourceRequestAnnotationKey: "Gdx",
+					serving.QueueSidecarMemoryResourceLimitAnnotationKey:   "2Gi",
+				}
+				revision.Spec.PodSpec.Containers = []corev1.Container{{
+					Name:           servingContainerName,
+					ReadinessProbe: testProbe,
+				}}
+			}),
+		want: queueContainer(func(c *corev1.Container) {
+			c.Env = env(map[string]string{})
+			c.Resources.Limits = corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("2Gi"),
+				corev1.ResourceCPU:    resource.MustParse("2"),
+			}
+		}),
+	}, {
+		name: "resources defined via annotations mixed with percentage annotation",
+		rev: revision("bar", "foo",
+			func(revision *v1.Revision) {
+				revision.Annotations = map[string]string{
+					serving.QueueSidecarCPUResourceLimitAnnotationKey:    "1",
+					serving.QueueSidecarMemoryResourceLimitAnnotationKey: "4Gi",
+					serving.QueueSidecarResourcePercentageAnnotationKey:  "50",
+				}
+				revision.Spec.PodSpec.Containers = []corev1.Container{{
+					Name:           servingContainerName,
+					ReadinessProbe: testProbe,
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("1Gi"),
+							corev1.ResourceCPU:    resource.MustParse("1"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("2Gi"),
+							corev1.ResourceCPU:    resource.MustParse("2"),
+						},
+					}},
+				}
+			}),
+		want: queueContainer(func(c *corev1.Container) {
+			c.Env = env(map[string]string{})
+			c.Resources.Requests = corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("200Mi"), // hits the boundary for max value
+				corev1.ResourceCPU:    resource.MustParse("100m"),  // hits the boundary for max value
+			}
+			c.Resources.Limits = corev1.ResourceList{ // enforce the desired limits
+				corev1.ResourceMemory: resource.MustParse("4Gi"),
+				corev1.ResourceCPU:    resource.MustParse("1"),
 			}
 		}),
 	}}
@@ -903,33 +1039,34 @@ func TestTCPProbeGeneration(t *testing.T) {
 }
 
 var defaultEnv = map[string]string{
-	"CONTAINER_CONCURRENCY":                   "0",
-	"ENABLE_HTTP2_AUTO_DETECTION":             "false",
-	"ENABLE_PROFILING":                        "false",
-	"METRICS_DOMAIN":                          metrics.Domain(),
-	"METRICS_COLLECTOR_ADDRESS":               "",
-	"QUEUE_SERVING_PORT":                      "8012",
-	"QUEUE_SERVING_TLS_PORT":                  "8112",
-	"REVISION_TIMEOUT_SECONDS":                "45",
-	"REVISION_RESPONSE_START_TIMEOUT_SECONDS": "0",
-	"REVISION_IDLE_TIMEOUT_SECONDS":           "0",
-	"SERVING_CONFIGURATION":                   "",
-	"SERVING_ENABLE_PROBE_REQUEST_LOG":        "false",
-	"SERVING_ENABLE_REQUEST_LOG":              "false",
-	"SERVING_LOGGING_CONFIG":                  "",
-	"SERVING_LOGGING_LEVEL":                   "",
-	"SERVING_NAMESPACE":                       "foo",
-	"SERVING_REQUEST_LOG_TEMPLATE":            "",
-	"SERVING_REQUEST_METRICS_BACKEND":         "",
-	"SERVING_REVISION":                        "bar",
-	"SERVING_SERVICE":                         "",
-	"SYSTEM_NAMESPACE":                        system.Namespace(),
-	"TRACING_CONFIG_BACKEND":                  "",
-	"TRACING_CONFIG_DEBUG":                    "false",
-	"TRACING_CONFIG_SAMPLE_RATE":              "0",
-	"TRACING_CONFIG_ZIPKIN_ENDPOINT":          "",
-	"USER_PORT":                               strconv.Itoa(v1.DefaultUserPort),
-	"ROOT_CA":                                 "",
+	"CONTAINER_CONCURRENCY":                            "0",
+	"ENABLE_HTTP2_AUTO_DETECTION":                      "false",
+	"ENABLE_PROFILING":                                 "false",
+	"METRICS_DOMAIN":                                   metrics.Domain(),
+	"METRICS_COLLECTOR_ADDRESS":                        "",
+	"QUEUE_SERVING_PORT":                               "8012",
+	"QUEUE_SERVING_TLS_PORT":                           "8112",
+	"REVISION_TIMEOUT_SECONDS":                         "45",
+	"REVISION_RESPONSE_START_TIMEOUT_SECONDS":          "0",
+	"REVISION_IDLE_TIMEOUT_SECONDS":                    "0",
+	"SERVING_CONFIGURATION":                            "",
+	"SERVING_ENABLE_PROBE_REQUEST_LOG":                 "false",
+	"SERVING_ENABLE_REQUEST_LOG":                       "false",
+	"SERVING_LOGGING_CONFIG":                           "",
+	"SERVING_LOGGING_LEVEL":                            "",
+	"SERVING_NAMESPACE":                                "foo",
+	"SERVING_REQUEST_LOG_TEMPLATE":                     "",
+	"SERVING_REQUEST_METRICS_BACKEND":                  "",
+	"SERVING_REQUEST_METRICS_REPORTING_PERIOD_SECONDS": "0",
+	"SERVING_REVISION":                                 "bar",
+	"SERVING_SERVICE":                                  "",
+	"SYSTEM_NAMESPACE":                                 system.Namespace(),
+	"TRACING_CONFIG_BACKEND":                           "",
+	"TRACING_CONFIG_DEBUG":                             "false",
+	"TRACING_CONFIG_SAMPLE_RATE":                       "0",
+	"TRACING_CONFIG_ZIPKIN_ENDPOINT":                   "",
+	"USER_PORT":                                        strconv.Itoa(v1.DefaultUserPort),
+	"ROOT_CA":                                          "",
 }
 
 func probeJSON(container *corev1.Container) string {

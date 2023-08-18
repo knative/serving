@@ -30,7 +30,7 @@ source $(dirname $0)/../e2e-common.sh
 # Skip installing istio as an add-on.
 # Temporarily increasing the cluster size for serving tests to rule out
 # resource/eviction as causes of flakiness.
-initialize --num-nodes=4 --perf --cluster-version=1.24 "$@"
+initialize --num-nodes=4 --perf --cluster-version=1.25 "$@"
 
 header "Running tests"
 

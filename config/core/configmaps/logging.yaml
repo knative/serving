@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: logging
     app.kubernetes.io/name: knative-serving
   annotations:
-    knative.dev/example-checksum: "b0f3c6f2"
+    knative.dev/example-checksum: "53fda05f"
 data:
   _example: |
     ################################
@@ -76,3 +76,5 @@ data:
     loglevel.net-certmanager-controller: "info"
     loglevel.net-istio-controller: "info"
     loglevel.net-contour-controller: "info"
+    loglevel.net-kourier-controller: "info"
+    loglevel.net-gateway-api-controller: "info"

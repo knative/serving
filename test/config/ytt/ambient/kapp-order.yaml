@@ -1,0 +1,22 @@
+#! ztunnel have to be deployed before istio-cni-node.
+#! TODO: Remove this ordering if https://github.com/istio/istio/issues/45781 was solved.
+
+#@ load("@ytt:overlay", "overlay")
+#@ load("helpers.lib.yaml", "subset", "label_subset")
+
+#@overlay/match by=subset(kind="DaemonSet", name="ztunnel"), expects="1+"
+---
+metadata:
+  #@overlay/match missing_ok=True
+  annotations:
+    #@overlay/match missing_ok=True
+    kapp.k14s.io/change-group: "ztunnel"
+
+#@overlay/match by=subset(kind="DaemonSet", name="istio-cni-node"), expects="1+"
+---
+metadata:
+  #@overlay/match missing_ok=True
+  #@overlay/match-child-defaults missing_ok=True
+  annotations:
+    kapp.k14s.io/change-group: "istio-cni-node"
+    kapp.k14s.io/change-rule: "upsert after upserting ztunnel"

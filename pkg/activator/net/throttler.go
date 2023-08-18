@@ -18,8 +18,6 @@ package net
 
 import (
 	"context"
-	"math"
-	"math/rand"
 	"net/http"
 	"sort"
 	"sync"
@@ -91,6 +89,9 @@ func (p *podTracker) getWeight() int32 {
 }
 
 func (p *podTracker) String() string {
+	if p == nil {
+		return "<nil>"
+	}
 	return p.dest
 }
 
@@ -240,18 +241,30 @@ func (rt *revisionThrottler) try(ctx context.Context, function func(string) erro
 	return ret
 }
 
-func (rt *revisionThrottler) calculateCapacity(size, activatorCount int) int {
-	targetCapacity := rt.containerConcurrency * size
+func (rt *revisionThrottler) calculateCapacity(backendCount, numTrackers, activatorCount int) int {
+	targetCapacity := 0
+	if numTrackers > 0 {
+		// Capacity is computed based off of number of trackers,
+		// when using pod direct routing.
+		// We use number of assignedTrackers (numTrackers) for calculation
+		// since assignedTrackers means activator's capacity
+		targetCapacity = rt.containerConcurrency * numTrackers
+	} else {
+		// Capacity is computed off of number of ready backends,
+		// when we are using clusterIP routing.
+		targetCapacity = rt.containerConcurrency * backendCount
+		if targetCapacity > 0 {
+			targetCapacity = minOneOrValue(targetCapacity / minOneOrValue(activatorCount))
+		}
+	}
 
-	if size > 0 && (rt.containerConcurrency == 0 || targetCapacity > revisionMaxConcurrency) {
+	if (backendCount > 0) && (rt.containerConcurrency == 0 || targetCapacity > revisionMaxConcurrency) {
 		// If cc==0, we need to pick a number, but it does not matter, since
 		// infinite breaker will dole out as many tokens as it can.
 		// For cc>0 we clamp targetCapacity to maxConcurrency because the backing
 		// breaker requires some limit (it's backed by a chan struct{}), but the
 		// limit is math.MaxInt32 so in practice this should never be a real limit.
 		targetCapacity = revisionMaxConcurrency
-	} else if targetCapacity > 0 {
-		targetCapacity = minOneOrValue(targetCapacity / minOneOrValue(activatorCount))
 	}
 
 	return targetCapacity
@@ -305,16 +318,7 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 		return len(assigned)
 	}()
 
-	capacity := 0
-	if numTrackers > 0 {
-		// Capacity is computed based off of number of trackers,
-		// when using pod direct routing.
-		capacity = rt.calculateCapacity(len(rt.podTrackers), ac)
-	} else {
-		// Capacity is computed off of number of ready backends,
-		// when we are using clusterIP routing.
-		capacity = rt.calculateCapacity(backendCount, ac)
-	}
+	capacity := rt.calculateCapacity(backendCount, numTrackers, ac)
 	rt.logger.Infof("Set capacity to %d (backends: %d, index: %d/%d)",
 		capacity, backendCount, ai, ac)
 
@@ -382,22 +386,16 @@ func assignSlice(trackers []*podTracker, selfIndex, numActivators, cc int) []*po
 		return trackers
 	}
 
+	// If the number of pods is not divisible by the number of activators, we allocate one pod to each activator exclusively.
+	// examples
+	// 1. we have 20 pods and 3 activators -> we'd get 2 remnants so activator with index 0,1 would each pick up a unique tracker
+	// 2. we have 24 pods and 5 activators -> we'd get 4 remnants so the activator 0,1,2,3 would each pick up a unique tracker
 	bi, ei, remnants := pickIndices(lt, selfIndex, numActivators)
 	x := append(trackers[:0:0], trackers[bi:ei]...)
 	if remnants > 0 {
 		tail := trackers[len(trackers)-remnants:]
-		// We shuffle the tail, to ensure that pods in the tail get better
-		// load distribution, since we sort the pods above, this puts more requests
-		// on the very first tail pod, than on the others.
-		rand.Shuffle(remnants, func(i, j int) {
-			tail[i], tail[j] = tail[j], tail[i]
-		})
-		// assignSlice is not called for CC=0 case.
-		dcc := int(math.Ceil(float64(cc) / float64(numActivators)))
-		// This is basically: x = append(x, trackers[len(trackers)-remnants:]...)
-		// But we need to update the capacity.
-		for _, t := range tail {
-			t.UpdateConcurrency(dcc)
+		if len(tail) > selfIndex {
+			t := tail[selfIndex]
 			x = append(x, t)
 		}
 	}

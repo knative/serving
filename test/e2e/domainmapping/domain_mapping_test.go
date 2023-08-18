@@ -95,7 +95,7 @@ func TestBYOCertificate(t *testing.T) {
 		t.Fatalf("Secret creation could not be completed: %v", err)
 	}
 
-	t.Cleanup(func() {
+	test.EnsureCleanup(t, func() {
 		err = clients.KubeClient.CoreV1().Secrets(secret.Namespace).Delete(ctx, secret.Name, metav1.DeleteOptions{})
 		if err != nil {
 			t.Fatalf("Secret %s/%s could not be deleted: %v", secret.Namespace, secret.Name, err)
@@ -125,7 +125,7 @@ func TestBYOCertificate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Problem creating DomainMapping %q: %v", host, err)
 	}
-	t.Cleanup(func() {
+	test.EnsureCleanup(t, func() {
 		clients.ServingAlphaClient.DomainMappings.Delete(ctx, dm.Name, metav1.DeleteOptions{})
 	})
 

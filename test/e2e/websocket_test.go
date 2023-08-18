@@ -168,7 +168,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 	clients := test.Setup(t)
 
 	svcName := test.ObjectNameForTest(t)
-	// Long name hits this issue https://github.com/knative-sandbox/net-certmanager/issues/214
+	// Long name hits this issue https://github.com/knative-extensions/net-certmanager/issues/214
 	if test.ServingFlags.HTTPS {
 		svcName = test.AppendRandomString("web-socket-blue-green")
 	}

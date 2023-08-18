@@ -1427,6 +1427,6 @@ func testContextWithHTTPOption() context.Context {
 
 func testContextWithActivatorCA() context.Context {
 	cfg := testConfig()
-	cfg.Network.InternalEncryption = true
+	cfg.Network.DataplaneTrust = netcfg.TrustMinimal
 	return config.ToContext(context.Background(), cfg)
 }

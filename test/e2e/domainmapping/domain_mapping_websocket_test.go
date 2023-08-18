@@ -89,7 +89,7 @@ func TestDomainMappingWebsocket(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Problem creating DomainMapping %q: %v", host, err)
 	}
-	t.Cleanup(func() {
+	test.EnsureCleanup(t, func() {
 		clients.ServingBetaClient.DomainMappings.Delete(ctx, dm.Name, metav1.DeleteOptions{})
 	})
 

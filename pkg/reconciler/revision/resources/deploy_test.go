@@ -75,7 +75,7 @@ var (
 
 	defaultQueueContainer = &corev1.Container{
 		Name:      QueueContainerName,
-		Resources: createQueueResources(&deploymentConfig, make(map[string]string), &corev1.Container{}),
+		Resources: createQueueResources(&deploymentConfig, make(map[string]string), &corev1.Container{}, false),
 		Ports:     append(queueNonServingPorts, queueHTTPPort, queueHTTPSPort),
 		ReadinessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
@@ -144,6 +144,9 @@ var (
 		}, {
 			Name:  "SERVING_REQUEST_METRICS_BACKEND",
 			Value: "",
+		}, {
+			Name:  "SERVING_REQUEST_METRICS_REPORTING_PERIOD_SECONDS",
+			Value: "0",
 		}, {
 			Name:  "TRACING_CONFIG_BACKEND",
 			Value: "",

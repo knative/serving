@@ -943,6 +943,34 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSidecarResourcePercentageAnnotationKey)},
 		}).ViaField("metadata.annotations"),
 	}, {
+		name: "Invalid queue sidecar resource annotations",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					serving.QueueSidecarCPUResourceLimitAnnotationKey:                "100mx",
+					serving.QueueSidecarCPUResourceRequestAnnotationKey:              "50mx",
+					serving.QueueSidecarMemoryResourceLimitAnnotationKey:             "1Gi",
+					serving.QueueSidecarMemoryResourceRequestAnnotationKey:           "100Mi",
+					serving.QueueSidecarEphemeralStorageResourceLimitAnnotationKey:   "5Gi",
+					serving.QueueSidecarEphemeralStorageResourceRequestAnnotationKey: "2Gi",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: ((&apis.FieldError{
+			Message: "invalid value: 100mx",
+			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSidecarCPUResourceLimitAnnotationKey)},
+		}).Also(&apis.FieldError{
+			Message: "invalid value: 50mx",
+			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSidecarCPUResourceRequestAnnotationKey)},
+		})).ViaField("metadata.annotations"),
+	}, {
 		name: "Invalid initial scale when cluster doesn't allow zero",
 		ctx:  autoscalerConfigCtx(false, 1),
 		rts: &RevisionTemplateSpec{
@@ -1093,6 +1121,9 @@ func autoscalerConfigCtx(allowInitialScaleZero bool, initialScale int) context.C
 }
 
 func TestValidateQueueSidecarAnnotation(t *testing.T) {
+	resourcePercentageDeprecationWarning := apis.ErrGeneric("Queue proxy resource percentage annotation is deprecated. Please use the available annotations to explicitly set resource values per service").
+		ViaKey(serving.QueueSidecarResourcePercentageAnnotationKey).At(apis.WarningLevel)
+
 	cases := []struct {
 		name       string
 		annotation map[string]string
@@ -1102,28 +1133,28 @@ func TestValidateQueueSidecarAnnotation(t *testing.T) {
 		annotation: map[string]string{
 			serving.QueueSidecarResourcePercentageAnnotationKey: "0.01982",
 		},
-		expectErr: &apis.FieldError{
+		expectErr: (&apis.FieldError{
 			Message: "expected 0.1 <= 0.01982 <= 100",
 			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSidecarResourcePercentageAnnotationKey)},
-		},
+		}).Also(resourcePercentageDeprecationWarning),
 	}, {
 		name: "too big for Queue sidecar resource percentage annotation",
 		annotation: map[string]string{
 			serving.QueueSidecarResourcePercentageAnnotationKey: "100.0001",
 		},
-		expectErr: &apis.FieldError{
+		expectErr: (&apis.FieldError{
 			Message: "expected 0.1 <= 100.0001 <= 100",
 			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSidecarResourcePercentageAnnotationKey)},
-		},
+		}).Also(resourcePercentageDeprecationWarning),
 	}, {
 		name: "Invalid queue sidecar resource percentage annotation",
 		annotation: map[string]string{
 			serving.QueueSidecarResourcePercentageAnnotationKey: "",
 		},
-		expectErr: &apis.FieldError{
+		expectErr: (&apis.FieldError{
 			Message: "invalid value: ",
 			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSidecarResourcePercentageAnnotationKey)},
-		},
+		}).Also(resourcePercentageDeprecationWarning),
 	}, {
 		name:       "empty annotation",
 		annotation: map[string]string{},
@@ -1137,16 +1168,18 @@ func TestValidateQueueSidecarAnnotation(t *testing.T) {
 		annotation: map[string]string{
 			serving.QueueSidecarResourcePercentageAnnotationKey: "0.1",
 		},
+		expectErr: resourcePercentageDeprecationWarning,
 	}, {
 		name: "valid value for Queue sidecar resource percentage annotation",
 		annotation: map[string]string{
 			serving.QueueSidecarResourcePercentageAnnotationKey: "100",
 		},
+		expectErr: resourcePercentageDeprecationWarning,
 	}}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			err := validateQueueSidecarAnnotation(c.annotation)
+			err := validateQueueSidecarResourceAnnotations(c.annotation)
 			if got, want := err.Error(), c.expectErr.Error(); got != want {
 				t.Errorf("Got: %q want: %q", got, want)
 			}

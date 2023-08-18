@@ -1,0 +1,23 @@
+#! The resources in net-certmanager expect cert-manager to be up and running.
+#! This overlay tells kapp to wait with applying net-certmanager until cert-manager ready.
+
+#@ load("@ytt:overlay", "overlay")
+#@ load("helpers.lib.yaml", "subset", "label_subset")
+
+#@overlay/match by=subset(namespace="cert-manager"), expects="1+"
+---
+metadata:
+  #@overlay/match missing_ok=True
+  annotations:
+    #@overlay/match missing_ok=True
+    kapp.k14s.io/change-group: "cert-manager.io"
+
+#@overlay/match by=label_subset("app.kubernetes.io/component", "net-certmanager"), expects="1+"
+---
+metadata:
+  #@overlay/match missing_ok=True
+  #@overlay/match-child-defaults missing_ok=True
+  annotations:
+    kapp.k14s.io/change-group: "knative.dev/net-certmanager"
+    kapp.k14s.io/change-rule: "upsert after upserting cert-manager.io"
+

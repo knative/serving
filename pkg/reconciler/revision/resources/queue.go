@@ -89,22 +89,28 @@ var (
 	}
 )
 
-func createQueueResources(cfg *deployment.Config, annotations map[string]string, userContainer *corev1.Container) corev1.ResourceRequirements {
+func createQueueResources(cfg *deployment.Config, annotations map[string]string, userContainer *corev1.Container, useDefaults bool) corev1.ResourceRequirements {
 	resourceRequests := corev1.ResourceList{}
 	resourceLimits := corev1.ResourceList{}
 
 	for _, r := range []struct {
-		Name    corev1.ResourceName
-		Request *resource.Quantity
-		Limit   *resource.Quantity
+		Name           corev1.ResourceName
+		Request        *resource.Quantity
+		RequestDefault *resource.Quantity
+		Limit          *resource.Quantity
+		LimitDefault   *resource.Quantity
 	}{{
-		Name:    corev1.ResourceCPU,
-		Request: cfg.QueueSidecarCPURequest,
-		Limit:   cfg.QueueSidecarCPULimit,
+		Name:           corev1.ResourceCPU,
+		Request:        cfg.QueueSidecarCPURequest,
+		RequestDefault: &deployment.QueueSidecarCPURequestDefault,
+		Limit:          cfg.QueueSidecarCPULimit,
+		LimitDefault:   &deployment.QueueSidecarCPULimitDefault,
 	}, {
-		Name:    corev1.ResourceMemory,
-		Request: cfg.QueueSidecarMemoryRequest,
-		Limit:   cfg.QueueSidecarMemoryLimit,
+		Name:           corev1.ResourceMemory,
+		Request:        cfg.QueueSidecarMemoryRequest,
+		RequestDefault: &deployment.QueueSidecarMemoryRequestDefault,
+		Limit:          cfg.QueueSidecarMemoryLimit,
+		LimitDefault:   &deployment.QueueSidecarMemoryLimitDefault,
 	}, {
 		Name:    corev1.ResourceEphemeralStorage,
 		Request: cfg.QueueSidecarEphemeralStorageRequest,
@@ -112,9 +118,13 @@ func createQueueResources(cfg *deployment.Config, annotations map[string]string,
 	}} {
 		if r.Request != nil {
 			resourceRequests[r.Name] = *r.Request
+		} else if useDefaults && r.RequestDefault != nil {
+			resourceRequests[r.Name] = *r.RequestDefault
 		}
 		if r.Limit != nil {
 			resourceLimits[r.Name] = *r.Limit
+		} else if useDefaults && r.LimitDefault != nil {
+			resourceLimits[r.Name] = *r.LimitDefault
 		}
 	}
 
@@ -136,6 +146,30 @@ func createQueueResources(cfg *deployment.Config, annotations map[string]string,
 		if ok, limitMemory = computeResourceRequirements(userContainer.Resources.Limits.Memory(), resourceFraction, queueContainerLimitMemory); ok {
 			resourceLimits[corev1.ResourceMemory] = limitMemory
 		}
+	}
+
+	if requestCPU, ok := resourceFromAnnotation(annotations, serving.QueueSidecarCPUResourceRequestAnnotation); ok {
+		resourceRequests[corev1.ResourceCPU] = requestCPU
+	}
+
+	if limitCPU, ok := resourceFromAnnotation(annotations, serving.QueueSidecarCPUResourceLimitAnnotation); ok {
+		resourceLimits[corev1.ResourceCPU] = limitCPU
+	}
+
+	if requestMemory, ok := resourceFromAnnotation(annotations, serving.QueueSidecarMemoryResourceRequestAnnotation); ok {
+		resourceRequests[corev1.ResourceMemory] = requestMemory
+	}
+
+	if limitMemory, ok := resourceFromAnnotation(annotations, serving.QueueSidecarMemoryResourceLimitAnnotation); ok {
+		resourceLimits[corev1.ResourceMemory] = limitMemory
+	}
+
+	if requestEphmeralStorage, ok := resourceFromAnnotation(annotations, serving.QueueSidecarEphemeralStorageResourceRequestAnnotation); ok {
+		resourceRequests[corev1.ResourceEphemeralStorage] = requestEphmeralStorage
+	}
+
+	if limitEphemeralStorage, ok := resourceFromAnnotation(annotations, serving.QueueSidecarEphemeralStorageResourceLimitAnnotation); ok {
+		resourceLimits[corev1.ResourceEphemeralStorage] = limitEphemeralStorage
 	}
 
 	resources := corev1.ResourceRequirements{
@@ -170,6 +204,12 @@ func computeResourceRequirements(resourceQuantity *resource.Quantity, fraction f
 
 	newquantity := boundary.applyBoundary(*resource.NewMilliQuantity(newValue, resource.BinarySI))
 	return true, newquantity
+}
+
+func resourceFromAnnotation(m map[string]string, key kmap.KeyPriority) (resource.Quantity, bool) {
+	_, v, _ := key.Get(m)
+	q, err := resource.ParseQuantity(v)
+	return q, err == nil
 }
 
 func fractionFromPercentage(m map[string]string, key kmap.KeyPriority) (float64, bool) {
@@ -258,10 +298,11 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		}
 	}
 
+	useQPResourceDefaults := cfg.Features.QueueProxyResourceDefaults == apicfg.Enabled
 	c := &corev1.Container{
 		Name:            QueueContainerName,
 		Image:           cfg.Deployment.QueueSidecarImage,
-		Resources:       createQueueResources(cfg.Deployment, rev.GetAnnotations(), container),
+		Resources:       createQueueResources(cfg.Deployment, rev.GetAnnotations(), container, useQPResourceDefaults),
 		Ports:           ports,
 		StartupProbe:    execProbe,
 		ReadinessProbe:  httpProbe,
@@ -325,6 +366,9 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		}, {
 			Name:  "SERVING_REQUEST_METRICS_BACKEND",
 			Value: cfg.Observability.RequestMetricsBackend,
+		}, {
+			Name:  "SERVING_REQUEST_METRICS_REPORTING_PERIOD_SECONDS",
+			Value: strconv.Itoa(cfg.Observability.RequestMetricsReportingPeriodSeconds),
 		}, {
 			Name:  "TRACING_CONFIG_BACKEND",
 			Value: string(cfg.Tracing.Backend),

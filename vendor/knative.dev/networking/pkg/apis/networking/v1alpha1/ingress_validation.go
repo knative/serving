@@ -152,7 +152,7 @@ func (b IngressBackend) Validate(ctx context.Context) *apis.FieldError {
 }
 
 // Validate inspects and validates IngressTLS object.
-func (t *IngressTLS) Validate(ctx context.Context) *apis.FieldError {
+func (t *IngressTLS) Validate(_ context.Context) *apis.FieldError {
 	// Provided TLS setting must not be empty.
 	if equality.Semantic.DeepEqual(t, &IngressTLS{}) {
 		return apis.ErrMissingField(apis.CurrentField)
@@ -168,7 +168,7 @@ func (t *IngressTLS) Validate(ctx context.Context) *apis.FieldError {
 	return all
 }
 
-func (t HTTPOption) Validate(ctx context.Context) (all *apis.FieldError) {
+func (t HTTPOption) Validate(_ context.Context) (all *apis.FieldError) {
 	switch t {
 	case "", HTTPOptionEnabled, HTTPOptionRedirected:
 		break

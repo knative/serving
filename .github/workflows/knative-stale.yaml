@@ -1,7 +1,7 @@
 # Copyright 2020 The Knative Authors.
 # SPDX-License-Identifier: Apache-2.0
 
-# This file is automagically synced here from github.com/knative-sandbox/knobots
+# This file is automagically synced here from github.com/knative-extensions/knobots
 name: 'Close stale'
 
 on:

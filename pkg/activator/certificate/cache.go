@@ -28,7 +28,7 @@ import (
 	v1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"knative.dev/control-protocol/pkg/certificates"
+	"knative.dev/networking/pkg/certificates"
 	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/controller"
 	secretinformer "knative.dev/pkg/injection/clients/namespacedkube/informers/core/v1/secret"
@@ -103,7 +103,7 @@ func (cr *CertCache) updateCache(secret *corev1.Secret) {
 
 	cr.TLSConf.RootCAs = pool
 	cr.TLSConf.ServerName = certificates.LegacyFakeDnsName
-	cr.TLSConf.MinVersion = tls.VersionTLS12
+	cr.TLSConf.MinVersion = tls.VersionTLS13
 }
 
 func (cr *CertCache) handleCertificateUpdate(_, new interface{}) {

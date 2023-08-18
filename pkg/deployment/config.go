@@ -75,6 +75,26 @@ var (
 	// queue sidecar. It is set at 25m for backwards-compatibility since this was
 	// the historic default before the field was operator-settable.
 	QueueSidecarCPURequestDefault = resource.MustParse("25m")
+
+	// QueueSidecarCPULimitDefault is the default limit.cpu to set for the
+	// queue sidecar.
+	QueueSidecarCPULimitDefault = resource.MustParse("1000m")
+
+	// QueueSidecarMemoryRequestDefault is the default request.memory to set for the
+	// queue sidecar.
+	QueueSidecarMemoryRequestDefault = resource.MustParse("400Mi")
+
+	// QueueSidecarMemoryLimitDefault is the default limit.memory to set for the
+	// queue sidecar.
+	QueueSidecarMemoryLimitDefault = resource.MustParse("800Mi")
+
+	// QueueSidecarEphemeralStorageRequestDefault is the default request.ephemeral-storage set for the
+	// queue sidecar.
+	QueueSidecarEphemeralStorageRequestDefault = resource.MustParse("512Mi")
+
+	// QueueSidecarEphemeralStorageLimitDefault is the default limit.ephemeral-storage to set for the
+	// queue sidecar.
+	QueueSidecarEphemeralStorageLimitDefault = resource.MustParse("1024Mi")
 )
 
 func defaultConfig() *Config {

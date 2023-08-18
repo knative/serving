@@ -23,8 +23,10 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/api/validation"
 	"knative.dev/pkg/apis"
+	"knative.dev/pkg/kmap"
 	"knative.dev/pkg/kmp"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
@@ -68,7 +70,7 @@ func (rts *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError 
 	// If the RevisionTemplateSpec has a name specified, then check that
 	// it follows the requirements on the name.
 	errs = errs.Also(validateRevisionName(ctx, rts.Name, rts.GenerateName))
-	errs = errs.Also(validateQueueSidecarAnnotation(rts.Annotations).ViaField("metadata.annotations"))
+	errs = errs.Also(validateQueueSidecarResourceAnnotations(rts.Annotations).ViaField("metadata.annotations"))
 	errs = errs.Also(validateProgressDeadlineAnnotation(rts.Annotations).ViaField("metadata.annotations"))
 	return errs
 }
@@ -179,23 +181,42 @@ func validateTimeoutSeconds(ctx context.Context, timeoutSeconds int64) *apis.Fie
 	return nil
 }
 
-// validateQueueSidecarAnnotation validates QueueSideCarResourcePercentageAnnotation
-func validateQueueSidecarAnnotation(m map[string]string) *apis.FieldError {
+// validateQueueSidecarResourceAnnotations validates QueueSideCarResourcePercentageAnnotation and other QP resource related annotations.
+func validateQueueSidecarResourceAnnotations(m map[string]string) *apis.FieldError {
 	if len(m) == 0 {
 		return nil
 	}
-	k, v, ok := serving.QueueSidecarResourcePercentageAnnotation.Get(m)
-	if !ok {
-		return nil
+
+	var errs *apis.FieldError
+	if k, v, ok := serving.QueueSidecarResourcePercentageAnnotation.Get(m); ok {
+		errs = apis.ErrGeneric("Queue proxy resource percentage annotation is deprecated. Please use the available annotations to explicitly set resource values per service").ViaKey(k).At(apis.WarningLevel)
+		value, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			errs = errs.Also(apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(k))
+		} else {
+			if value < 0.1 || value > 100 {
+				errs = errs.Also(apis.ErrOutOfBoundsValue(value, 0.1, 100.0, apis.CurrentField).ViaKey(k))
+			}
+		}
 	}
-	value, err := strconv.ParseFloat(v, 64)
-	if err != nil {
-		return apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(k)
+	annoKeys := []kmap.KeyPriority{
+		serving.QueueSidecarCPUResourceRequestAnnotation,
+		serving.QueueSidecarCPUResourceLimitAnnotation,
+		serving.QueueSidecarMemoryResourceRequestAnnotation,
+		serving.QueueSidecarMemoryResourceLimitAnnotation,
+		serving.QueueSidecarEphemeralStorageResourceRequestAnnotation,
+		serving.QueueSidecarEphemeralStorageResourceLimitAnnotation,
 	}
-	if value < 0.1 || value > 100 {
-		return apis.ErrOutOfBoundsValue(value, 0.1, 100.0, apis.CurrentField).ViaKey(k)
+	for _, resAnno := range annoKeys {
+		k, v, ok := resAnno.Get(m)
+		if !ok {
+			continue
+		}
+		if _, err := resource.ParseQuantity(v); err != nil {
+			errs = errs.Also(apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(k))
+		}
 	}
-	return nil
+	return errs
 }
 
 // ValidateProgressDeadlineAnnotation validates the revision progress deadline annotation.

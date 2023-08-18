@@ -73,6 +73,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 			PodSpecDNSPolicy:                 Enabled,
 			PodSpecDNSConfig:                 Enabled,
 			SecurePodDefaults:                Enabled,
+			QueueProxyResourceDefaults:       Enabled,
 			TagHeaderBasedRouting:            Enabled,
 		}),
 		data: map[string]string{
@@ -90,6 +91,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"kubernetes.podspec-dnspolicy":                 "Enabled",
 			"kubernetes.podspec-dnsconfig":                 "Enabled",
 			"secure-pod-defaults":                          "Enabled",
+			"queueproxy.resource-defaults":                 "Enabled",
 			"tag-header-based-routing":                     "Enabled",
 		},
 	}, {

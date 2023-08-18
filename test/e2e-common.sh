@@ -36,6 +36,7 @@ export SHORT=0
 export ENABLE_HA=0
 export ENABLE_TLS=${ENABLE_TLS:-0}
 export MESH=0
+export AMBIENT=${AMBIENT:-0}
 export PERF=0
 export KIND=${KIND:-0}
 export CLUSTER_DOMAIN=${CLUSTER_DOMAIN:-cluster.local}
@@ -294,11 +295,16 @@ function install() {
   fi
 
   YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/ingress/${ingress}")
+  YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/certmanager/kapp-order.yaml")
   YTT_FILES+=("${REPO_ROOT_DIR}/third_party/cert-manager-${CERT_MANAGER_VERSION}/cert-manager.yaml")
   YTT_FILES+=("${REPO_ROOT_DIR}/third_party/cert-manager-${CERT_MANAGER_VERSION}/net-certmanager.yaml")
 
   if (( MESH )); then
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/mesh")
+  fi
+
+  if ((AMBIENT)); then
+    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/ambient")
   fi
 
   if (( ENABLE_HA )); then
@@ -312,7 +318,6 @@ function install() {
 
   if (( KIND )); then
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/kind/core")
-    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/kind/ingress/${ingress}-kind.yaml")
   fi
 
   if (( PVC )); then

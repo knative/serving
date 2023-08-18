@@ -26,7 +26,7 @@ function stage_gateway_api_resources() {
   mkdir -p "${gateway_dir}"
 
   # TODO: if we switch to istio 1.12 we can reuse stage_istio_head
-  curl -sL https://istio.io/downloadIstioctl | ISTIO_VERSION=1.12.2 sh -
+  curl -sL https://istio.io/downloadIstioctl | ISTIO_VERSION=1.17.2 sh -
 
   local params="--set values.global.proxy.clusterDomain=${CLUSTER_DOMAIN}"
 
@@ -54,7 +54,7 @@ function stage_istio_latest() {
   mkdir -p "${istio_latest_dir}"
 
   download_net_istio_yamls \
-    "https://github.com/knative-sandbox/net-istio/releases/download/${LATEST_NET_ISTIO_RELEASE_VERSION}/net-istio.yaml" \
+    "https://github.com/knative-extensions/net-istio/releases/download/${LATEST_NET_ISTIO_RELEASE_VERSION}/net-istio.yaml" \
     "${istio_latest_dir}"
 }
 
@@ -103,12 +103,16 @@ function net_istio_file_url() {
   local profile="istio-ci-no-mesh"
 
   if (( KIND )); then
-    profile="istio-kind-no-mesh"
+    if (( AMBIENT )); then
+      profile="istio-kind-ambient"
+    else
+      profile="istio-kind-no-mesh"
+    fi
   elif (( MESH )); then
     profile="istio-ci-mesh"
   fi
 
-  echo "https://raw.githubusercontent.com/knative-sandbox/net-istio/${sha}/third_party/istio-${ISTIO_VERSION}/${profile}/${file}"
+  echo "https://raw.githubusercontent.com/knative-extensions/net-istio/${sha}/third_party/istio-${ISTIO_VERSION}/${profile}/${file}"
 }
 
 function setup_ingress_env_vars() {
