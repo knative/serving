@@ -25,6 +25,7 @@ import (
 	"strings"
 	"text/template"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/lru"
 	cm "knative.dev/pkg/configmap"
@@ -321,6 +322,14 @@ func defaultConfig() *Config {
 	}
 }
 
+// NewConfigFromConfigMap returns a Config for the given configmap
+func NewConfigFromConfigMap(config *corev1.ConfigMap) (*Config, error) {
+	if config == nil {
+		return NewConfigFromMap(nil)
+	}
+	return NewConfigFromMap(config.Data)
+}
+
 // NewConfigFromMap creates a Config from the supplied data.
 func NewConfigFromMap(data map[string]string) (*Config, error) {
 	nc := defaultConfig()
@@ -434,6 +443,11 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	}
 
 	return nc, nil
+}
+
+// InternalTLSEnabled returns whether or not dataplane-trust is disabled
+func (c *Config) InternalTLSEnabled() bool {
+	return c.DataplaneTrust != TrustDisabled
 }
 
 // GetDomainTemplate returns the golang Template from the config map
