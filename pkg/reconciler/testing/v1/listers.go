@@ -35,11 +35,11 @@ import (
 	"knative.dev/pkg/reconciler/testing"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	fakeservingclientset "knative.dev/serving/pkg/client/clientset/versioned/fake"
 	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
-	servingv1alpha1listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	servingv1beta1listers "knative.dev/serving/pkg/client/listers/serving/v1beta1"
 )
 
 var clientSetSchemes = []func(*runtime.Scheme) error{
@@ -119,8 +119,8 @@ func (l *Listers) GetRouteLister() servinglisters.RouteLister {
 }
 
 // GetDomainMappingLister returns a lister for DomainMapping objects.
-func (l *Listers) GetDomainMappingLister() servingv1alpha1listers.DomainMappingLister {
-	return servingv1alpha1listers.NewDomainMappingLister(l.IndexerFor(&v1alpha1.DomainMapping{}))
+func (l *Listers) GetDomainMappingLister() servingv1beta1listers.DomainMappingLister {
+	return servingv1beta1listers.NewDomainMappingLister(l.IndexerFor(&v1beta1.DomainMapping{}))
 }
 
 // GetServerlessServiceLister returns a lister for the ServerlessService objects.

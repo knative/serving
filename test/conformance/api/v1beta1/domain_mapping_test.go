@@ -90,7 +90,7 @@ func TestDomainMapping(t *testing.T) {
 	}
 
 	test.EnsureCleanup(t, func() {
-		clients.ServingAlphaClient.DomainMappings.Delete(ctx, dm.Name, metav1.DeleteOptions{})
+		clients.ServingBetaClient.DomainMappings.Delete(ctx, dm.Name, metav1.DeleteOptions{})
 	})
 
 	// Wait for DomainMapping to go Ready.
@@ -158,12 +158,12 @@ func TestDomainMapping(t *testing.T) {
 	}
 
 	test.EnsureCleanup(t, func() {
-		altClients.ServingAlphaClient.DomainMappings.Delete(ctx, altDm.Name, metav1.DeleteOptions{})
+		altClients.ServingBetaClient.DomainMappings.Delete(ctx, altDm.Name, metav1.DeleteOptions{})
 	})
 
 	// Second domain mapping should go to DomainMappingConditionDomainClaimed=false state.
 	waitErr = wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		state, err := altClients.ServingAlphaClient.DomainMappings.Get(context.Background(), dm.Name, metav1.GetOptions{})
+		state, err := altClients.ServingBetaClient.DomainMappings.Get(context.Background(), dm.Name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
 		}
@@ -191,7 +191,7 @@ func TestDomainMapping(t *testing.T) {
 	}
 
 	// Delete the first DomainMapping.
-	if err := clients.ServingAlphaClient.DomainMappings.Delete(ctx, dm.Name, metav1.DeleteOptions{}); err != nil {
+	if err := clients.ServingBetaClient.DomainMappings.Delete(ctx, dm.Name, metav1.DeleteOptions{}); err != nil {
 		t.Fatalf("Delete=%v, expected no error", err)
 	}
 
