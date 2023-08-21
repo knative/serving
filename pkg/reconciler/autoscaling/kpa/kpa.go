@@ -167,7 +167,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	pa.Status.ServiceName = sks.Status.ServiceName
 
 	// If SKS is not ready — ensure we're not becoming ready.
-	if sks.IsReady() {
+	// Do not use ServerlessService.IsReady() here because this flips to not ready when the generation changes.
+	if sks.Status.GetCondition(nv1alpha1.ServerlessServiceConditionReady).IsTrue() {
 		logger.Debug("SKS is ready, marking SKS status ready")
 		pa.Status.MarkSKSReady()
 	} else {
