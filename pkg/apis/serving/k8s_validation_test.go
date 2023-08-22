@@ -788,7 +788,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		name: "flag enabled: probes are not allowed for non serving containers",
+		name: "flag enabled: probes are allowed for non serving containers",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
 				Name:  "container-a",
@@ -807,10 +807,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				},
 			}},
 		},
-		want: &apis.FieldError{
-			Message: "must not set the field(s)",
-			Paths:   []string{"containers[1].livenessProbe.timeoutSeconds", "containers[1].readinessProbe.timeoutSeconds"},
-		},
+		want: nil,
 	}, {
 		name: "flag enabled: multiple containers with no port",
 		ps: corev1.PodSpec{
@@ -891,7 +888,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 			Details: "Only a single port is allowed across all containers",
 		},
 	}, {
-		name: "flag enabled: multiple containers with readinessProbe targeting different container's port",
+		name: "flag enabled: multiple containers with livelinessProbe targeting main container's port",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
 				Name:  "container-a",
@@ -911,7 +908,35 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 				},
 			}},
 		},
-		want: apis.ErrDisallowedFields("containers[1].livenessProbe"),
+		want: &apis.FieldError{
+			Message: "liveness probe port 9999 is same as main container port 9999",
+			Paths:   []string{"containers[1].livenessProbe"},
+		},
+	}, {
+		name: "flag enabled: multiple containers with readinessProbe targeting main container's port",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:  "container-a",
+				Image: "work",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 9999,
+				}},
+			}, {
+				Name:  "container-b",
+				Image: "health",
+				ReadinessProbe: &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Port: intstr.FromInt(9999), // This is the other container's port
+						},
+					},
+				},
+			}},
+		},
+		want: &apis.FieldError{
+			Message: "readiness probe port 9999 is same as main container port 9999",
+			Paths:   []string{"containers[1].readinessProbe"},
+		},
 	}, {
 		name: "flag enabled: multiple containers with illegal env variable defined for side car",
 		ps: corev1.PodSpec{

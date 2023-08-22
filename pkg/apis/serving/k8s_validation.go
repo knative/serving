@@ -447,8 +447,7 @@ func validateContainers(ctx context.Context, containers []corev1.Container, volu
 		// Probes are not allowed on other than serving container,
 		// ref: http://bit.ly/probes-condition
 		if len(containers[i].Ports) == 0 {
-			// Note, if we allow readiness/liveness checks on sidecars, we should pass in an *empty* port here, not the main container's port.
-			errs = errs.Also(validateSidecarContainer(WithinSidecarContainer(ctx), containers[i], volumes).ViaFieldIndex("containers", i))
+			errs = errs.Also(validateSidecarContainer(WithinSidecarContainer(ctx), containers[i], volumes, port).ViaFieldIndex("containers", i))
 		} else {
 			errs = errs.Also(ValidateContainer(WithinUserContainer(ctx), containers[i], volumes, port).ViaFieldIndex("containers", i))
 		}
@@ -505,15 +504,46 @@ func validateContainersPorts(containers []corev1.Container) (corev1.ContainerPor
 }
 
 // validateSidecarContainer validate fields for non serving containers
-func validateSidecarContainer(ctx context.Context, container corev1.Container, volumes map[string]corev1.Volume) (errs *apis.FieldError) {
+func validateSidecarContainer(ctx context.Context, container corev1.Container, volumes map[string]corev1.Volume, mainContainerPort corev1.ContainerPort) (errs *apis.FieldError) {
+	// Checks if liveness/readiness probes are the same as the main container port
 	if container.LivenessProbe != nil {
-		errs = errs.Also(apis.CheckDisallowedFields(*container.LivenessProbe,
-			*ProbeMask(&corev1.Probe{})).ViaField("livenessProbe"))
+		if container.LivenessProbe.HTTPGet != nil {
+			if container.LivenessProbe.HTTPGet.Port.IntVal == mainContainerPort.ContainerPort {
+				errs = errs.Also(&apis.FieldError{
+					Message: fmt.Sprintf("liveness probe port %d is same as main container port %d", container.LivenessProbe.HTTPGet.Port.IntVal, mainContainerPort.ContainerPort),
+					Paths:   []string{"livenessProbe"},
+				})
+			}
+		}
+		if container.LivenessProbe.TCPSocket != nil {
+			if container.LivenessProbe.TCPSocket.Port.IntVal == mainContainerPort.ContainerPort {
+				errs = errs.Also(&apis.FieldError{
+					Message: fmt.Sprintf("liveness probe port %d is same as main container port %d", container.LivenessProbe.TCPSocket.Port.IntVal, mainContainerPort.ContainerPort),
+					Paths:   []string{"livenessProbe"},
+				})
+			}
+		}
 	}
+
 	if container.ReadinessProbe != nil {
-		errs = errs.Also(apis.CheckDisallowedFields(*container.ReadinessProbe,
-			*ProbeMask(&corev1.Probe{})).ViaField("readinessProbe"))
+		if container.ReadinessProbe.HTTPGet != nil {
+			if container.ReadinessProbe.HTTPGet.Port.IntVal == mainContainerPort.ContainerPort {
+				errs = errs.Also(&apis.FieldError{
+					Message: fmt.Sprintf("readiness probe port %d is same as main container port %d", container.ReadinessProbe.HTTPGet.Port.IntVal, mainContainerPort.ContainerPort),
+					Paths:   []string{"readinessProbe"},
+				})
+			}
+		}
+		if container.ReadinessProbe.TCPSocket != nil {
+			if container.ReadinessProbe.TCPSocket.Port.IntVal == mainContainerPort.ContainerPort {
+				errs = errs.Also(&apis.FieldError{
+					Message: fmt.Sprintf("readiness probe port %d is same as main container port %d", container.ReadinessProbe.TCPSocket.Port.IntVal, mainContainerPort.ContainerPort),
+					Paths:   []string{"readinessProbe"},
+				})
+			}
+		}
 	}
+
 	return errs.Also(validate(ctx, container, volumes))
 }
 
