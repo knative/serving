@@ -91,7 +91,7 @@ function create_test_cluster() {
   fi
 
   case "$1" in
-    gke) create_gke_test_cluster "$2" "$3" "${4:-}" ;;
+    gke) create_gke_test_cluster "$2" "$3" "$4" "${5:-}" ;;
     kind) create_kind_test_cluster "$2" "$3" "${4:-}" ;;
     *) echo "unsupported provider: $1"; exit 1 ;;
   esac
@@ -117,29 +117,50 @@ function create_kind_test_cluster() {
 }
 
 # Create a GKE test cluster with kubetest2 and run the test command.
-# Parameters: $1 - custom flags defined in kntest
-#             $2 - test command to run after the cluster is created (optional)
+# Parameters: $1 - custom flags defined in kubetest2
+#             $2 - custom flags to pass directly to gcloud
+#             $3 - test command to run after the cluster is created (optional)
 function create_gke_test_cluster() {
   local -n _custom_flags=$1
-  local -n _test_command=$2
+  local -n _extra_gcloud_flags=$2
+  local -n _test_command=$3
 
   # We are disabling logs and metrics on Boskos Clusters by default as they are not used. Manually set ENABLE_GKE_TELEMETRY to true to enable telemetry
   # and ENABLE_PREEMPTIBLE_NODES to true to create preemptible/spot VMs. VM Preemption is a rare event and shouldn't be distruptive given the fault tolerant nature of our tests.
-  local extra_gcloud_flags=""
   if [[ "${ENABLE_GKE_TELEMETRY:-}" != "true" ]]; then
-    extra_gcloud_flags="${extra_gcloud_flags} --logging=NONE --monitoring=NONE"
+    _extra_gcloud_flags+=("--logging=NONE --monitoring=NONE")
+  fi
+
+  if [[ "${CLOUD_PROVIDER}" == "gke" ]]; then
+      extra_gcloud_flags+=("--addons=NodeLocalDNS")
   fi
 
   if [[ "${ENABLE_PREEMPTIBLE_NODES:-}" == "true" ]]; then
-    extra_gcloud_flags="${extra_gcloud_flags} --preemptible"
+    _extra_gcloud_flags+=("--preemptible")
   fi
+
+  _extra_gcloud_flags+=("--quiet")
   if ! command -v kubetest2 >/dev/null; then
     tmpbin="$(mktemp -d)"
     echo "kubetest2 not found, installing in temp path: ${tmpbin}"
     GOBIN="$tmpbin" go install sigs.k8s.io/kubetest2/...@latest
     export PATH="${tmpbin}:${PATH}"
   fi
-  run_kntest kubetest2 gke "${_custom_flags[@]}" \
-    --test-command="${_test_command[*]}" \
-    --extra-gcloud-flags="${extra_gcloud_flags}"
+  if [[ ! " ${_custom_flags[*]} " =~ "--machine-type=" ]]; then
+      _custom_flags+=("--machine-type=e2-standard-4")
+  fi
+  kubetest2 gke "${_custom_flags[@]}" \
+    --rundir-in-artifacts \
+    --up \
+    --down \
+    --boskos-heartbeat-interval-seconds=20 \
+    --v=1 \
+    --network=e2e-network \
+    --boskos-acquire-timeout-seconds=1200 \
+    --region="${E2E_CLUSTER_REGION},us-east1,us-west1" \
+    --gcloud-extra-flags="${_extra_gcloud_flags[*]}" \
+    --retryable-error-patterns='.*does not have enough resources available to fulfill.*,.*only \\d+ nodes out of \\d+ have registered; this is likely due to Nodes failing to start correctly.*,.*All cluster resources were brought up.+ but: component .+ from endpoint .+ is unhealthy.*' \
+    --test=exec \
+    -- \
+    "${_test_command[@]}"
 }

@@ -28,7 +28,7 @@
 source $(dirname $0)/e2e-common.sh
 
 # Script entry point.
-initialize --skip-istio-addon --min-nodes=4 --max-nodes=4 --enable-ha --cluster-version=1.25 "$@"
+initialize --num-nodes=4 --enable-ha --cluster-version=1.25 "$@"
 
 # Run the tests
 header "Running tests"
@@ -45,7 +45,7 @@ fi
 if (( HTTPS )); then
   use_https="--https"
   toggle_feature autoTLS Enabled config-network
-  kubectl apply -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/
+  kubectl apply -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/caissuer/
   add_trap "kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 fi
 
@@ -79,7 +79,7 @@ go_test_e2e -timeout=30m \
   ./test/conformance/api/... \
   ./test/conformance/runtime/... \
   ./test/e2e \
-  ${parallelism} \
+  "${parallelism}" \
   ${TEST_OPTIONS} || failed=1
 toggle_feature autocreateClusterDomainClaims false config-network || fail_test
 
@@ -95,11 +95,11 @@ toggle_feature autocreateClusterDomainClaims true config-network || fail_test
 go_test_e2e -timeout=2m ./test/e2e/domainmapping ${TEST_OPTIONS} || failed=1
 toggle_feature autocreateClusterDomainClaims false config-network || fail_test
 
-kubectl get cm "config-gc" -n "${SYSTEM_NAMESPACE}" -o yaml > ${TMP_DIR}/config-gc.yaml
+kubectl get cm "config-gc" -n "${SYSTEM_NAMESPACE}" -o yaml > "${TMP_DIR}"/config-gc.yaml
 add_trap "kubectl replace cm 'config-gc' -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.yaml" SIGKILL SIGTERM SIGQUIT
 immediate_gc
 go_test_e2e -timeout=2m ./test/e2e/gc ${TEST_OPTIONS} || failed=1
-kubectl replace cm "config-gc" -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.yaml
+kubectl replace cm "config-gc" -n ${SYSTEM_NAMESPACE} -f "${TMP_DIR}"/config-gc.yaml
 
 # Run scale tests.
 # Note that we use a very high -parallel because each ksvc is run as its own
