@@ -36,7 +36,7 @@ ns="default"
 # Skip installing istio as an add-on.
 # Temporarily increasing the cluster size for serving tests to rule out
 # resource/eviction as causes of flakiness.
-initialize --num-nodes=10 --perf --cluster-version=1.25 "$@"
+initialize --num-nodes=10 --cluster-version=1.25 "$@"
 
 function scale_activator() {
   local replicas=$1
