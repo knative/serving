@@ -17,7 +17,7 @@
 # This is a helper script for Knative performance test scripts.
 # See README.md for instructions on how to use it.
 
-source $(dirname "${BASH_SOURCE[0]}")/library.sh
+source "$(dirname "${BASH_SOURCE[0]}")"/library.sh
 
 # Configurable parameters.
 # If not provided, they will fall back to the default values.
@@ -76,7 +76,8 @@ EOF
     update_knative || abort "failed to update knative"
   fi
   # get benchmark name from the cluster name
-  local benchmark_name=$(get_benchmark_name "$1")
+  local benchmark_name
+  benchmark_name=$(get_benchmark_name "$1")
   if function_exists update_benchmark; then
     update_benchmark "${benchmark_name}" || abort "failed to update benchmark"
   fi
@@ -92,13 +93,16 @@ function get_benchmark_name() {
 # Update the clusters related to the current repo.
 function update_clusters() {
   header "Updating all clusters for ${REPO_NAME}"
-  local all_clusters=$(gcloud container clusters list --project="${PROJECT_NAME}" --format="csv[no-heading](name,zone)")
+  local all_clusters
+  all_clusters=$(gcloud container clusters list --project="${PROJECT_NAME}" --format="csv[no-heading](name,zone)")
   echo ">> Project contains clusters:" "${all_clusters}"
   for cluster in ${all_clusters}; do
-    local name=$(echo "${cluster}" | cut -f1 -d",")
+    local name
+    name=$(echo "${cluster}" | cut -f1 -d",")
     # the cluster name is prefixed with "${REPO_NAME}--", here we should only handle clusters belonged to the current repo
     [[ ! ${name} =~ ^${REPO_NAME}-- ]] && continue
-    local zone=$(echo "${cluster}" | cut -f2 -d",")
+    local zone
+    zone=$(echo "${cluster}" | cut -f2 -d",")
 
     # Update all resources installed on the cluster
     update_cluster "${name}" "${zone}"
@@ -109,7 +113,7 @@ function update_clusters() {
 # Run the perf-tests tool
 # Parameters: $1..$n - parameters passed to the tool
 function run_perf_cluster_tool() {
-  perf-tests $@
+  perf-tests "$@"
 }
 
 # Delete the old clusters belonged to the current repo, and recreate them with the same configuration.

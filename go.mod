@@ -12,18 +12,18 @@ require (
 	github.com/google/gofuzz v1.2.0
 	github.com/google/mako v0.0.0-20190821191249-122f8dcef9e3
 	github.com/gorilla/websocket v1.5.0
-	github.com/hashicorp/golang-lru v0.5.4
+	github.com/hashicorp/golang-lru v1.0.2
 	github.com/influxdata/influxdb-client-go/v2 v2.9.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/tsenart/vegeta/v12 v12.11.0
 	go.opencensus.io v0.24.0
 	go.uber.org/atomic v1.9.0
-	go.uber.org/automaxprocs v1.4.0
-	go.uber.org/zap v1.24.0
+	go.uber.org/automaxprocs v1.5.3
+	go.uber.org/zap v1.25.0
 	golang.org/x/net v0.14.0
 	golang.org/x/sync v0.3.0
 	golang.org/x/time v0.3.0
-	google.golang.org/api v0.136.0
+	google.golang.org/api v0.138.0
 	google.golang.org/grpc v1.57.0
 	k8s.io/api v0.26.5
 	k8s.io/apiextensions-apiserver v0.26.5
@@ -32,10 +32,10 @@ require (
 	k8s.io/code-generator v0.26.5
 	k8s.io/kube-openapi v0.0.0-20221012153701-172d655c2280
 	k8s.io/utils v0.0.0-20221108210102-8e77b1f39fe2
-	knative.dev/caching v0.0.0-20230816124641-fb5eab7e73c3
-	knative.dev/hack v0.0.0-20230815012940-044c02b7a447
-	knative.dev/networking v0.0.0-20230817140742-4bfcc9fb6012
-	knative.dev/pkg v0.0.0-20230815132840-4f651e092853
+	knative.dev/caching v0.0.0-20230822003854-eb3243f87fff
+	knative.dev/hack v0.0.0-20230818155117-9cc05a31e8c0
+	knative.dev/networking v0.0.0-20230822003854-1d7920d27b9e
+	knative.dev/pkg v0.0.0-20230821102121-81e4ee140363
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -69,7 +69,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.16.19 // indirect
 	github.com/aws/smithy-go v1.13.3 // indirect
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20221004211355-a250ad2ca1e3 // indirect
-	github.com/benbjohnson/clock v1.1.0 // indirect
+	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
@@ -102,7 +102,7 @@ require (
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20230209165335-3624968304fd // indirect
 	github.com/google/go-github/v27 v27.0.6 // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
-	github.com/google/s2a-go v0.1.4 // indirect
+	github.com/google/s2a-go v0.1.5 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.5 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.0 // indirect
@@ -135,7 +135,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/tsenart/go-tsz v0.0.0-20180814235614-0bd30b3df1c3 // indirect
 	github.com/vbatts/tar-split v0.11.2 // indirect
-	go.uber.org/multierr v1.6.0 // indirect
+	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/crypto v0.12.0 // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/oauth2 v0.11.0 // indirect
