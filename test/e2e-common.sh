@@ -19,44 +19,44 @@
 source "$(dirname "${BASH_SOURCE[0]}")/../vendor/knative.dev/hack/e2e-tests.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/e2e-networking-library.sh"
 
-export CERT_MANAGER_VERSION="latest"
+export CERT_MANAGER_VERSION=${CERT_MANAGER_VERSION:-"latest"}
 # Since default is istio, make default ingress as istio
 export INGRESS_CLASS=${INGRESS_CLASS:-istio.ingress.networking.knative.dev}
-export ISTIO_VERSION="latest"
-export KOURIER_VERSION=""
-export CONTOUR_VERSION=""
-export GATEWAY_API_VERSION=""
-export CERTIFICATE_CLASS=""
+export ISTIO_VERSION=${ISTIO_VERSION:-"latest"}
+export KOURIER_VERSION=${KOURIER_VERSION:-""}
+export CONTOUR_VERSION=${CONTOUR_VERSION:-""}
+export GATEWAY_API_VERSION=${GATEWAY_API_VERSION:-""}
+export CERTIFICATE_CLASS=${CERTIFICATE_CLASS:-""}
 # Only build linux/amd64 bit images
 export KO_FLAGS="${KO_FLAGS:---platform=linux/amd64}"
 
-export RUN_HTTP01_AUTO_TLS_TESTS=0
-export HTTPS=0
-export SHORT=0
-export ENABLE_HA=0
+export RUN_HTTP01_AUTO_TLS_TESTS=${RUN_HTTP01_AUTO_TLS_TESTS:-0}
+export HTTPS=${HTTPS:-0}
+export SHORT=${SHORT:-0}
+export ENABLE_HA=${ENABLE_HA:-0}
 export ENABLE_TLS=${ENABLE_TLS:-0}
-export MESH=0
+export MESH=${MESH:-0}
 export AMBIENT=${AMBIENT:-0}
-export PERF=0
+export PERF=${PERF:-0}
 export KIND=${KIND:-0}
 export CLUSTER_DOMAIN=${CLUSTER_DOMAIN:-cluster.local}
 
 # List of custom YAMLs to install, if specified (space-separated).
-export INSTALL_CUSTOM_YAMLS=""
-export INSTALL_SERVING_VERSION="HEAD"
-export INSTALL_ISTIO_VERSION="HEAD"
+export INSTALL_CUSTOM_YAMLS=${INSTALL_CUSTOM_YAMLS:-""}
+export INSTALL_SERVING_VERSION=${INSTALL_SERVING_VERSION:-"HEAD"}
+export INSTALL_ISTIO_VERSION=${INSTALL_ISTIO_VERSION:-"HEAD"}
 export YTT_FILES=()
 
 export TMP_DIR="${TMP_DIR:-$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)}"
 
-readonly E2E_YAML_DIR="${TMP_DIR}/e2e-yaml"
+readonly E2E_YAML_DIR=${E2E_YAML_DIR:-"${TMP_DIR}/e2e-yaml"}
 
 # This the namespace used to install Knative Serving. Use generated UUID as namespace.
 export SYSTEM_NAMESPACE="${SYSTEM_NAMESPACE:-$(uuidgen | tr 'A-Z' 'a-z')}"
 
 # Keep this in sync with test/ha/ha.go
-readonly REPLICAS=3
-readonly BUCKETS=10
+readonly REPLICAS=${REPLICAS:-3}
+readonly BUCKETS=${BUCKETS:-10}
 
 export PVC=${PVC:-1}
 export QUOTA=${QUOTA:-1}
