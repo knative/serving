@@ -66,8 +66,8 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 
 	cgroups := ri.Host.Cgroups
 
-	// These are used to check the ratio of 'period' to 'quota'. It needs to
-	// be equal to the 'cpuLimit (limit = period / quota)
+	// These are used to check the ratio of 'quota' to 'period'. It needs to
+	// be equal to the 'cpuLimit (limit = quota / period)
 	var period, quota *int
 
 	for _, cgroup := range cgroups {
