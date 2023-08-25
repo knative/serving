@@ -45,10 +45,7 @@ func toMilliValue(value float64) string {
 func isCgroupsV2(t *testing.T, mounts []*types.Mount) bool {
 	for _, mount := range mounts {
 		if mount.Path == "/sys/fs/cgroup" {
-			if mount.Type == "cgroup2" {
-				return true
-			}
-			return false
+			return mount.Type == "cgroup2"
 		}
 	}
 	t.Fatal("Failed to find cgroup mount on /sys/fs/cgroup")
