@@ -17,6 +17,7 @@ limitations under the License.
 package handlers
 
 import (
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -24,18 +25,34 @@ import (
 	"knative.dev/serving/test/types"
 )
 
-// cgroupPaths is the set of cgroups probed and returned to the
+// cgroupV1Paths is the set of cgroups probed and returned to the
 // client as Cgroups.
-var cgroupPaths = []string{
+var cgroupV1Paths = []string{
 	"/sys/fs/cgroup/memory/memory.limit_in_bytes",
 	"/sys/fs/cgroup/cpu/cpu.cfs_period_us",
 	"/sys/fs/cgroup/cpu/cpu.cfs_quota_us",
 	"/sys/fs/cgroup/cpu/cpu.shares"}
 
+var cgroupV2Paths = []string{
+	"/sys/fs/cgroup/memory.max",
+	"/sys/fs/cgroup/cpu.max",
+	"/sys/fs/cgroup/cpu.weight"}
+
 var (
 	yes = true
 	no  = false
 )
+
+func cgroupPaths() []string {
+	cgroupv2File := "/sys/fs/cgroup/cgroup.controllers"
+	_, err := os.Stat(cgroupv2File)
+	if err == nil {
+		log.Println("using cgroup v2")
+		return cgroupV2Paths
+	}
+	log.Println("using cgroup v1")
+	return cgroupV1Paths
+}
 
 func cgroups(paths ...string) []*types.Cgroup {
 	var cgroups []*types.Cgroup
@@ -50,7 +67,12 @@ func cgroups(paths ...string) []*types.Cgroup {
 			cgroups = append(cgroups, &types.Cgroup{Name: path, Error: err.Error()})
 			continue
 		}
+
 		cs := strings.Trim(string(bc), "\n")
+		if path == "/sys/fs/cgroup/cpu.max" {
+			// The format is like 'max 100000' so trim the front "max".
+			cs = strings.Split(cs, " ")[1]
+		}
 		ic, err := strconv.Atoi(cs)
 		if err != nil {
 			cgroups = append(cgroups, &types.Cgroup{Name: path, Error: err.Error()})
