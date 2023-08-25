@@ -40,7 +40,12 @@ GO_TEST_FLAGS=""
 E2E_TEST_FLAGS="${TEST_OPTIONS}"
 
 if [ -z "${E2E_TEST_FLAGS}" ]; then
-  E2E_TEST_FLAGS=" -enable-alpha -enable-beta -resolvabledomain=$(use_resolvable_domain) -ingress-class=${INGRESS_CLASS}"
+  E2E_TEST_FLAGS="-resolvabledomain=$(use_resolvable_domain) -ingress-class=${INGRESS_CLASS}"
+
+  # Drop testing alpha and beta features with the Gateway API
+  if [[ "${INGRESS_CLASS}" != *"gateway-api"* ]]; then
+    E2E_TEST_FLAGS+=" -enable-alpha -enable-beta"
+  fi
 fi
 
 if (( HTTPS )); then
