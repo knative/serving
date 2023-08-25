@@ -42,14 +42,13 @@ func toMilliValue(value float64) string {
 	return fmt.Sprintf("%dm", int(value*1000))
 }
 
-func isCgroupsV2(t *testing.T, mounts []*types.Mount) bool {
+func isCgroupsV2(mounts []*types.Mount) (bool, error) {
 	for _, mount := range mounts {
 		if mount.Path == "/sys/fs/cgroup" {
-			return mount.Type == "cgroup2"
+			return mount.Type == "cgroup2", nil
 		}
 	}
-	t.Fatal("Failed to find cgroup mount on /sys/fs/cgroup")
-	return false
+	return false, fmt.Errorf("Failed to find cgroup mount on /sys/fs/cgroup")
 }
 
 // TestMustHaveCgroupConfigured verifies that the Linux cgroups are configured based on the specified
@@ -81,7 +80,10 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 		"/sys/fs/cgroup/cpu.max":    int(resources.Limits.Cpu().MilliValue())}
 
 	cgroups := ri.Host.Cgroups
-	cgroupV2 := isCgroupsV2(t, ri.Host.Mounts)
+	cgroupV2, err := isCgroupsV2(ri.Host.Mounts)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	expectedCgroups := expectedCgroupsV1
 	if cgroupV2 {
