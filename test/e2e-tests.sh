@@ -69,7 +69,7 @@ go_test_e2e -timeout=30m \
   ${GO_TEST_FLAGS} \
   ./test/conformance/api/... \
   ./test/conformance/runtime/... \
-  ./test/e2e -- \
+  ./test/e2e \
   ${E2E_TEST_FLAGS} || failed=1
 toggle_feature autocreateClusterDomainClaims false config-network || fail_test
 
