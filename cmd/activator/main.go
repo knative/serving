@@ -159,7 +159,7 @@ func main() {
 	}
 
 	// Enable TLS against queue-proxy when internal-encryption is enabled.
-	tlsEnabled := networkConfig.InternalEncryption
+	tlsEnabled := networkConfig.InternalTLSEnabled()
 
 	var certCache *certificate.CertCache
 
