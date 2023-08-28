@@ -249,7 +249,7 @@ func (rw *revisionWatcher) probePodIPs(ready, notReady sets.String) (succeeded s
 	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
 	defer cancel()
 
-	probeGroup, egCtx := errgroup.WithContext(ctx)
+	probeGroup := errgroup.Group{}
 	healthyDests := make(chan string, dests.Len())
 
 	var probed bool
@@ -264,7 +264,7 @@ func (rw *revisionWatcher) probePodIPs(ready, notReady sets.String) (succeeded s
 
 		dest := dest // Standard Go concurrency pattern.
 		probeGroup.Go(func() error {
-			ok, notMesh, err := rw.probe(egCtx, dest)
+			ok, notMesh, err := rw.probe(ctx, dest)
 			if ok && (ready.Has(dest) || rw.enableProbeOptimisation) {
 				healthyDests <- dest
 			}
