@@ -153,7 +153,7 @@ func generateTraffic(
 func newVegetaHTTPClient(ctx *TestContext, url *url.URL) *http.Client {
 
 	vegetaTransportDefaults := func(transport *http.Transport) *http.Transport {
-		transport.MaxIdleConnsPerHost = vegeta.DefaultMaxConnections
+		transport.MaxIdleConnsPerHost = vegeta.DefaultConnections
 		transport.MaxConnsPerHost = vegeta.DefaultMaxConnections
 		return transport
 	}
