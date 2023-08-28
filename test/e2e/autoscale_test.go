@@ -176,10 +176,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 
 	// TODO: Remove this when "activator always stay in path" is eliminated.
 	dataplaneTrustMode := cm.Data[netcfg.DataplaneTrustKey]
-	if strings.EqualFold(dataplaneTrustMode, string(netcfg.TrustMinimal)) ||
-		strings.EqualFold(dataplaneTrustMode, string(netcfg.TrustEnabled)) ||
-		strings.EqualFold(dataplaneTrustMode, string(netcfg.TrustMutual)) ||
-		strings.EqualFold(dataplaneTrustMode, string(netcfg.TrustIdentity)) {
+	if dataplaneTrustMode != "" && !strings.EqualFold(dataplaneTrustMode, string(netcfg.TrustDisabled)) {
 		t.Skip("Skipping TestTargetBurstCapacity as activator always stay in path.")
 	}
 
