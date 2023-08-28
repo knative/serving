@@ -173,9 +173,14 @@ func TestTargetBurstCapacity(t *testing.T) {
 	if err != nil {
 		t.Fatal("Fail to get ConfigMap config-network:", err)
 	}
-	if !strings.EqualFold(cm.Data[netcfg.DataplaneTrustKey], string(netcfg.TrustDisabled)) {
-		// TODO: Remove this when https://github.com/knative/serving/issues/12797 was done.
-		t.Skip("Skipping TestTargetBurstCapacity as activator-ca is specified. See issue/12797.")
+
+	// TODO: Remove this when "activator always stay in path" is eliminated.
+	dataplaneTrustMode := cm.Data[netcfg.DataplaneTrustKey]
+	if strings.EqualFold(dataplaneTrustMode, string(netcfg.TrustMinimal)) ||
+		strings.EqualFold(dataplaneTrustMode, string(netcfg.TrustEnabled)) ||
+		strings.EqualFold(dataplaneTrustMode, string(netcfg.TrustMutual)) ||
+		strings.EqualFold(dataplaneTrustMode, string(netcfg.TrustIdentity)) {
+		t.Skip("Skipping TestTargetBurstCapacity as activator always stay in path.")
 	}
 
 	cfg, err := autoscalerCM(ctx.clients)
