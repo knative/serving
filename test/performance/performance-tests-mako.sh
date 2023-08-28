@@ -242,3 +242,5 @@ kubectl delete ksvc queue-proxy-with-cc -n "$ns" --ignore-not-found=true
 kubectl wait --for=delete ksvc/queue-proxy-with-cc --timeout=60s -n "$ns"
 
 success
+
+echo "You can find the results here: https://perf.knative.dev/d/igHJ5-gIk/knative-serving-performance-tests?orgId=1&var-prowtag=${PROW_TAG}"

@@ -33,7 +33,7 @@ The results are written to:
 To better visualize the test results, Grafana is used to show some dashboards.
 The dashboards are defined in [grafana-dashboard.json](./influx/grafana-dashboard.json) and available under
 
-[perf.knative.dev](https://perf.knative.dev)
+[perf.knative.dev](https://perf.knative.dev/d/igHJ5-gIk/knative-serving-performance-tests?orgId=1)
 
 
 ## Benchmarks
@@ -64,6 +64,11 @@ echo $(kubectl get secret local-influx-influxdb2-auth -o "jsonpath={.data['admin
 
 # Forward the influxDB to your laptop if you want to access the UI:
 kubectl port-forward -n influx svc/local-influx-influxdb2 8080:80
+
+# Set up the expected influxdb config
+export INFLUX_URL=http://localhost:8080
+export INFLUX_TOKEN=$(kubectl get secret local-influx-influxdb2-auth -o "jsonpath={.data['admin-token']}" --namespace influx | base64 --decode)
+./visualization/setup-influx-db.sh
 ```
 
 ### Local development
