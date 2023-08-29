@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -33,10 +34,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
@@ -99,31 +98,15 @@ func (ctx *TestContext) SetNames(names *test.ResourceNames) {
 	ctx.names = names
 }
 
-func getVegetaTarget(kubeClientset kubernetes.Interface, domain, endpointOverride string, resolvable bool, paramName string, paramValue int, https bool) (vegeta.Target, error) {
+func getVegetaTarget(domain string, paramName string, paramValue int, https bool) vegeta.Target {
 	scheme := "http"
 	if https {
 		scheme = "https"
 	}
-	if resolvable {
-		return vegeta.Target{
-			Method: http.MethodGet,
-			URL:    fmt.Sprintf("%s://%s?%s=%d", scheme, domain, paramName, paramValue),
-		}, nil
-	}
-
-	// If the domain that the Route controller is configured to assign to Route.Status.Domain
-	// (the domainSuffix) is not resolvable, we need to retrieve the endpoint and spoof
-	// the Host in our requests.
-	endpoint, mapper, err := ingress.GetIngressEndpoint(context.Background(), kubeClientset, endpointOverride)
-	if err != nil {
-		return vegeta.Target{}, err
-	}
-
 	return vegeta.Target{
 		Method: http.MethodGet,
-		URL:    fmt.Sprintf("%s://%s:%s?%s=%d", scheme, endpoint, mapper("80"), paramName, paramValue),
-		Header: http.Header{"Host": []string{domain}},
-	}, nil
+		URL:    fmt.Sprintf("%s://%s?%s=%d", scheme, domain, paramName, paramValue),
+	}
 }
 
 func generateTraffic(
@@ -167,22 +150,41 @@ func generateTraffic(
 	}
 }
 
+func newVegetaHTTPClient(ctx *TestContext, url *url.URL) *http.Client {
+
+	vegetaTransportDefaults := func(transport *http.Transport) *http.Transport {
+		transport.MaxIdleConnsPerHost = vegeta.DefaultConnections
+		transport.MaxConnsPerHost = vegeta.DefaultMaxConnections
+		return transport
+	}
+
+	spoof, err := pkgTest.NewSpoofingClient(
+		context.Background(),
+		ctx.Clients().KubeClient,
+		ctx.t.Logf,
+		url.Hostname(),
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(context.Background(), ctx.t.Logf, ctx.Clients(), test.ServingFlags.HTTPS),
+		vegetaTransportDefaults,
+	)
+
+	if err != nil {
+		ctx.t.Fatal("Error creating spoofing client:", err)
+	}
+	return spoof.Client
+}
+
 func generateTrafficAtFixedConcurrency(ctx *TestContext, concurrency int, stopChan chan struct{}) error {
 	pacer := vegeta.ConstantPacer{} // Sends requests as quickly as possible, capped by MaxWorkers below.
-	tlsConf := vegeta.DefaultTLSConfig
-	if test.ServingFlags.HTTPS {
-		tlsConf = test.TLSClientConfig(context.Background(), ctx.t.Logf, ctx.clients)
-	}
+
 	attacker := vegeta.NewAttacker(
 		vegeta.Timeout(0), // No timeout is enforced at all.
 		vegeta.Workers(uint64(concurrency)),
 		vegeta.MaxWorkers(uint64(concurrency)),
-		vegeta.TLSConfig(tlsConf))
-	target, err := getVegetaTarget(
-		ctx.clients.KubeClient, ctx.resources.Route.Status.URL.URL().Hostname(), pkgTest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain, "sleep", autoscaleSleep, test.ServingFlags.HTTPS)
-	if err != nil {
-		return fmt.Errorf("error creating vegeta target: %w", err)
-	}
+		vegeta.Client(newVegetaHTTPClient(ctx, ctx.resources.Route.Status.URL.URL())),
+	)
+
+	target := getVegetaTarget(ctx.resources.Route.Status.URL.URL().Hostname(), "sleep", autoscaleSleep, test.ServingFlags.HTTPS)
 
 	ctx.t.Logf("Maintaining %d concurrent requests.", concurrency)
 	return generateTraffic(ctx, attacker, pacer, stopChan, target)
@@ -190,16 +192,12 @@ func generateTrafficAtFixedConcurrency(ctx *TestContext, concurrency int, stopCh
 
 func generateTrafficAtFixedRPS(ctx *TestContext, rps int, stopChan chan struct{}) error {
 	pacer := vegeta.ConstantPacer{Freq: rps, Per: time.Second}
-	tlsConf := vegeta.DefaultTLSConfig
-	if test.ServingFlags.HTTPS {
-		tlsConf = test.TLSClientConfig(context.Background(), ctx.t.Logf, ctx.clients)
-	}
-	attacker := vegeta.NewAttacker(vegeta.Timeout(0), vegeta.TLSConfig(tlsConf)) // No timeout is enforced at all.
-	target, err := getVegetaTarget(
-		ctx.clients.KubeClient, ctx.resources.Route.Status.URL.URL().Hostname(), pkgTest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain, "sleep", autoscaleSleep, test.ServingFlags.HTTPS)
-	if err != nil {
-		return fmt.Errorf("error creating vegeta target: %w", err)
-	}
+	attacker := vegeta.NewAttacker(
+		vegeta.Timeout(0),
+		vegeta.Client(newVegetaHTTPClient(ctx, ctx.resources.Route.Status.URL.URL())),
+	)
+
+	target := getVegetaTarget(ctx.resources.Route.Status.URL.URL().Hostname(), "sleep", autoscaleSleep, test.ServingFlags.HTTPS)
 
 	ctx.t.Logf("Maintaining %v RPS.", rps)
 	return generateTraffic(ctx, attacker, pacer, stopChan, target)
