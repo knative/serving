@@ -385,7 +385,7 @@ function install() {
 
   if (( ENABLE_TLS )); then
     echo "Patch to config-network to enable internal encryption"
-    toggle_feature internal-encryption true config-network
+    toggle_feature dataplane-trust minimal config-network
     if [[ "$INGRESS_CLASS" == "kourier.ingress.networking.knative.dev" ]]; then
       echo "Point Kourier local gateway to custom server certificates"
       toggle_feature cluster-cert-secret server-certs config-kourier
