@@ -186,7 +186,7 @@ func generateTrafficAtFixedConcurrencyWithLoad(ctx *TestContext, concurrency int
 		vegeta.Client(newVegetaHTTPClient(ctx, ctx.resources.Route.Status.URL.URL())),
 	)
 
-	target := getVegetaTarget(ctx.resources.Route.Status.URL.URL().Hostname(), "sleep", autoscaleSleep, test.ServingFlags.HTTPS)
+	target := getVegetaTarget(ctx.resources.Route.Status.URL.URL().Hostname(), vegetaParam, vegetaValue, test.ServingFlags.HTTPS)
 	ctx.t.Logf("Maintaining %d concurrent requests.", concurrency)
 	return generateTraffic(ctx, attacker, pacer, stopChan, target)
 }
