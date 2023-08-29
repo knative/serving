@@ -22,7 +22,7 @@ The different parts are independent of each other and (can) use different Certif
 * Certificate CN/SAN contains the external domain of a Knative Service, e.g. `myapp-<namespace>.example.com`.
 * The certificates are hosted using SNI by the external endpoint of the ingress-controller.
 * The caller has to trust the (external) CA that signed the certificates (this is out of the scope of Knative).
-* These certificates are either [provided manually](https://knative.dev/docs/serving/using-a-tls-cert/) or by using an implementation to the `Knative Certificate` abstraction. Currently, we support two implementations:
+* These certificates are either [provided manually](https://knative.dev/docs/serving/using-a-tls-cert/) or by using an implementation to the [Knative Certificate abstraction](https://github.com/knative/networking/blob/main/pkg/apis/networking/v1alpha1/certificate_types.go#L34). Currently, we support two implementations:
   * [net-certmanager](https://github.com/knative-extensions/net-certmanager) 
   * [net-http01](https://github.com/knative-extensions/net-http01)
 * Please refer to the [documentation](https://knative.dev/docs/serving/using-auto-tls/) for more information.
