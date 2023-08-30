@@ -259,6 +259,7 @@ func Main(opts ...Option) error {
 		if err != nil {
 			logger.Fatal("failed to create certWatcher", zap.Error(err))
 		}
+		defer certWatcher.Stop()
 
 		// Drop admin http server since the admin TLS server is listening on the same port
 		delete(httpServers, "admin")
@@ -313,10 +314,6 @@ func Main(opts ...Option) error {
 			if err := srv.Shutdown(context.Background()); err != nil {
 				logger.Errorw("Failed to shutdown server", zap.String("server", name), zap.Error(err))
 			}
-		}
-
-		if certWatcher != nil {
-			certWatcher.Stop()
 		}
 
 		logger.Info("Shutdown complete, exiting...")
