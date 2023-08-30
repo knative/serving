@@ -20,6 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmeta"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -44,27 +45,30 @@ func MakePA(rev *v1.Revision) *autoscalingv1alpha1.PodAutoscaler {
 				Name:       names.Deployment(rev),
 			},
 			ProtocolType: rev.GetProtocol(),
-			Reachability: func() autoscalingv1alpha1.ReachabilityType {
-				// If the Revision has failed to become Ready, then mark the PodAutoscaler as unreachable.
-				if rev.Status.GetCondition(v1.RevisionConditionReady).IsFalse() {
-					// Make sure that we don't do this when a newly failing revision is
-					// marked reachable by outside forces.
-					if !rev.IsReachable() {
-						return autoscalingv1alpha1.ReachabilityUnreachable
-					}
-				}
-
-				// We don't know the reachability if the revision has just been created
-				// or it is activating.
-				if rev.Status.GetCondition(v1.RevisionConditionActive).IsUnknown() {
-					return autoscalingv1alpha1.ReachabilityUnknown
-				}
-
-				if rev.IsReachable() {
-					return autoscalingv1alpha1.ReachabilityReachable
-				}
-				return autoscalingv1alpha1.ReachabilityUnreachable
-			}(),
+			Reachability: reachability(rev),
 		},
+	}
+}
+
+func reachability(rev *v1.Revision) autoscalingv1alpha1.ReachabilityType {
+	// check infra failures
+	conds := []apis.ConditionType{
+		v1.RevisionConditionResourcesAvailable,
+		v1.RevisionConditionContainerHealthy,
+	}
+
+	for _, cond := range conds {
+		if c := rev.Status.GetCondition(cond); c != nil && c.IsFalse() {
+			return autoscalingv1alpha1.ReachabilityUnreachable
+		}
+	}
+
+	switch rev.GetRoutingState() {
+	case v1.RoutingStateActive:
+		return autoscalingv1alpha1.ReachabilityReachable
+	case v1.RoutingStateReserve:
+		return autoscalingv1alpha1.ReachabilityUnreachable
+	default:
+		return autoscalingv1alpha1.ReachabilityUnknown
 	}
 }

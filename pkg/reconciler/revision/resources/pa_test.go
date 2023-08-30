@@ -22,6 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/ptr"
@@ -37,26 +38,22 @@ func TestMakePA(t *testing.T) {
 		want *autoscalingv1alpha1.PodAutoscaler
 	}{{
 		name: "name is bar (Concurrency=1, Reachable=true)",
-		rev: func() *v1.Revision {
-			rev := v1.Revision{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "foo",
-					Name:      "bar",
-					UID:       "1234",
-					Labels: map[string]string{
-						serving.RoutingStateLabelKey: "active",
-					},
-					Annotations: map[string]string{
-						"a": "b",
-					},
+		rev: &v1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				UID:       "1234",
+				Labels: map[string]string{
+					serving.RoutingStateLabelKey: string(v1.RoutingStateActive),
 				},
-				Spec: v1.RevisionSpec{
-					ContainerConcurrency: ptr.Int64(1),
+				Annotations: map[string]string{
+					"a": "b",
 				},
-			}
-			rev.Status.MarkActiveTrue()
-			return &rev
-		}(),
+			},
+			Spec: v1.RevisionSpec{
+				ContainerConcurrency: ptr.Int64(1),
+			},
+		},
 		want: &autoscalingv1alpha1.PodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
@@ -91,28 +88,27 @@ func TestMakePA(t *testing.T) {
 		},
 	}, {
 		name: "name is baz (Concurrency=0, Reachable=false)",
-		rev: func() *v1.Revision {
-			rev := v1.Revision{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "blah",
-					Name:      "baz",
-					UID:       "4321",
+		rev: &v1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "blah",
+				Name:      "baz",
+				UID:       "4321",
+				Labels: map[string]string{
+					serving.RoutingStateLabelKey: string(v1.RoutingStateReserve),
 				},
-				Spec: v1.RevisionSpec{
-					ContainerConcurrency: ptr.Int64(0),
-					PodSpec: corev1.PodSpec{
-						Containers: []corev1.Container{{
-							Ports: []corev1.ContainerPort{{
-								Name:     "h2c",
-								HostPort: int32(443),
-							}},
+			},
+			Spec: v1.RevisionSpec{
+				ContainerConcurrency: ptr.Int64(0),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Ports: []corev1.ContainerPort{{
+							Name:     "h2c",
+							HostPort: int32(443),
 						}},
-					},
+					}},
 				},
-			}
-			rev.Status.MarkActiveTrue()
-			return &rev
-		}(),
+			},
+		},
 		want: &autoscalingv1alpha1.PodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "blah",
@@ -143,83 +139,25 @@ func TestMakePA(t *testing.T) {
 				Reachability: autoscalingv1alpha1.ReachabilityUnreachable,
 			}},
 	}, {
-		name: "name is baz (Concurrency=0, Reachable=false, Activating)",
-		rev: func() *v1.Revision {
-			rev := v1.Revision{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "blah",
-					Name:      "baz",
-					UID:       "4321",
-				},
-				Spec: v1.RevisionSpec{
-					ContainerConcurrency: ptr.Int64(0),
-					PodSpec: corev1.PodSpec{
-						Containers: []corev1.Container{{
-							Ports: []corev1.ContainerPort{{
-								Name:     "h2c",
-								HostPort: int32(443),
-							}},
-						}},
-					},
-				},
-			}
-			rev.Status.MarkActiveUnknown("reasons", "because")
-			return &rev
-		}(),
-		want: &autoscalingv1alpha1.PodAutoscaler{
+		name: "unknown routing state",
+		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "blah",
-				Name:      "baz",
-				Labels: map[string]string{
-					serving.RevisionLabelKey: "baz",
-					serving.RevisionUID:      "4321",
-					AppLabelKey:              "baz",
-				},
-				Annotations: map[string]string{},
-				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         v1.SchemeGroupVersion.String(),
-					Kind:               "Revision",
-					Name:               "baz",
-					UID:                "4321",
-					Controller:         ptr.Bool(true),
-					BlockOwnerDeletion: ptr.Bool(true),
-				}},
+				Name:      "batman",
+				UID:       "4321",
 			},
-			Spec: autoscalingv1alpha1.PodAutoscalerSpec{
-				ContainerConcurrency: 0,
-				ScaleTargetRef: corev1.ObjectReference{
-					APIVersion: "apps/v1",
-					Kind:       "Deployment",
-					Name:       "baz-deployment",
-				},
-				ProtocolType: networking.ProtocolH2C,
-				Reachability: autoscalingv1alpha1.ReachabilityUnknown,
-			}},
-	}, {
-		name: "name is batman (Activating, Revision failed)",
-		rev: func() *v1.Revision {
-			rev := v1.Revision{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "blah",
-					Name:      "batman",
-					UID:       "4321",
-				},
-				Spec: v1.RevisionSpec{
-					ContainerConcurrency: ptr.Int64(0),
-					PodSpec: corev1.PodSpec{
-						Containers: []corev1.Container{{
-							Ports: []corev1.ContainerPort{{
-								Name:     "h2c",
-								HostPort: int32(443),
-							}},
+			Spec: v1.RevisionSpec{
+				ContainerConcurrency: ptr.Int64(0),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Ports: []corev1.ContainerPort{{
+							Name:     "h2c",
+							HostPort: int32(443),
 						}},
-					},
+					}},
 				},
-			}
-			rev.Status.MarkActiveUnknown("reasons", "because")
-			rev.Status.MarkResourcesAvailableFalse("foo", "bar")
-			return &rev
-		}(),
+			},
+		},
 		want: &autoscalingv1alpha1.PodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "blah",
@@ -248,50 +186,45 @@ func TestMakePA(t *testing.T) {
 				},
 				ProtocolType: networking.ProtocolH2C,
 				// When the Revision has failed, we mark the PA as unreachable.
-				Reachability: autoscalingv1alpha1.ReachabilityUnreachable,
+				Reachability: autoscalingv1alpha1.ReachabilityUnknown,
 			}},
 	}, {
-		name: "name is robin (Activating, Revision routable but failed)",
-		rev: func() *v1.Revision {
-			rev := v1.Revision{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "blah",
-					Name:      "robin",
-					UID:       "4321",
-					Labels: map[string]string{
-						serving.RoutingStateLabelKey: "active",
-					},
+		name: "pending routing state",
+		rev: &v1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "blah",
+				Name:      "batman",
+				UID:       "4321",
+				Labels: map[string]string{
+					serving.RoutingStateLabelKey: string(v1.RoutingStatePending),
 				},
-				Spec: v1.RevisionSpec{
-					ContainerConcurrency: ptr.Int64(0),
-					PodSpec: corev1.PodSpec{
-						Containers: []corev1.Container{{
-							Ports: []corev1.ContainerPort{{
-								Name:     "h2c",
-								HostPort: int32(443),
-							}},
+			},
+			Spec: v1.RevisionSpec{
+				ContainerConcurrency: ptr.Int64(0),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Ports: []corev1.ContainerPort{{
+							Name:     "h2c",
+							HostPort: int32(443),
 						}},
-					},
+					}},
 				},
-			}
-			rev.Status.MarkActiveUnknown("reasons", "because")
-			rev.Status.MarkResourcesAvailableFalse("foo", "bar")
-			return &rev
-		}(),
+			},
+		},
 		want: &autoscalingv1alpha1.PodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "blah",
-				Name:      "robin",
+				Name:      "batman",
 				Labels: map[string]string{
-					serving.RevisionLabelKey: "robin",
+					serving.RevisionLabelKey: "batman",
 					serving.RevisionUID:      "4321",
-					AppLabelKey:              "robin",
+					AppLabelKey:              "batman",
 				},
 				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1.SchemeGroupVersion.String(),
 					Kind:               "Revision",
-					Name:               "robin",
+					Name:               "batman",
 					UID:                "4321",
 					Controller:         ptr.Bool(true),
 					BlockOwnerDeletion: ptr.Bool(true),
@@ -302,12 +235,135 @@ func TestMakePA(t *testing.T) {
 				ScaleTargetRef: corev1.ObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
-					Name:       "robin-deployment",
+					Name:       "batman-deployment",
 				},
 				ProtocolType: networking.ProtocolH2C,
-				// Reachability trumps failure of Revisions.
+				// When the Revision has failed, we mark the PA as unreachable.
 				Reachability: autoscalingv1alpha1.ReachabilityUnknown,
 			}},
+	}, {
+		name: "failed deployment",
+		rev: &v1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "blah",
+				Name:      "batman",
+				UID:       "4321",
+				Labels: map[string]string{
+					serving.RoutingStateLabelKey: string(v1.RoutingStateActive),
+				},
+			},
+			Spec: v1.RevisionSpec{
+				ContainerConcurrency: ptr.Int64(0),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Ports: []corev1.ContainerPort{{
+							Name:     "h2c",
+							HostPort: int32(443),
+						}},
+					}},
+				},
+			},
+			Status: v1.RevisionStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{{
+						Type:   v1.RevisionConditionResourcesAvailable,
+						Status: corev1.ConditionFalse,
+					}},
+				},
+			},
+		},
+		want: &autoscalingv1alpha1.PodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:   "blah",
+				Name:        "batman",
+				Annotations: map[string]string{},
+				Labels: map[string]string{
+					serving.RevisionLabelKey: "batman",
+					serving.RevisionUID:      "4321",
+					AppLabelKey:              "batman",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion:         v1.SchemeGroupVersion.String(),
+					Kind:               "Revision",
+					Name:               "batman",
+					UID:                "4321",
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
+				}},
+			},
+			Spec: autoscalingv1alpha1.PodAutoscalerSpec{
+				ContainerConcurrency: 0,
+				ScaleTargetRef: corev1.ObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "batman-deployment",
+				},
+				ProtocolType: networking.ProtocolH2C,
+				Reachability: autoscalingv1alpha1.ReachabilityUnreachable,
+			},
+		},
+	}, {
+		// Crashlooping container that never starts
+		name: "failed container",
+		rev: &v1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "blah",
+				Name:      "batman",
+				UID:       "4321",
+				Labels: map[string]string{
+					serving.RoutingStateLabelKey: string(v1.RoutingStateActive),
+				},
+			},
+			Spec: v1.RevisionSpec{
+				ContainerConcurrency: ptr.Int64(0),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Ports: []corev1.ContainerPort{{
+							Name:     "h2c",
+							HostPort: int32(443),
+						}},
+					}},
+				},
+			},
+			Status: v1.RevisionStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{{
+						Type:   v1.RevisionConditionContainerHealthy,
+						Status: corev1.ConditionFalse,
+					}},
+				},
+			},
+		},
+		want: &autoscalingv1alpha1.PodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:   "blah",
+				Name:        "batman",
+				Annotations: map[string]string{},
+				Labels: map[string]string{
+					serving.RevisionLabelKey: "batman",
+					serving.RevisionUID:      "4321",
+					AppLabelKey:              "batman",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion:         v1.SchemeGroupVersion.String(),
+					Kind:               "Revision",
+					Name:               "batman",
+					UID:                "4321",
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
+				}},
+			},
+			Spec: autoscalingv1alpha1.PodAutoscalerSpec{
+				ContainerConcurrency: 0,
+				ScaleTargetRef: corev1.ObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "batman-deployment",
+				},
+				ProtocolType: networking.ProtocolH2C,
+				Reachability: autoscalingv1alpha1.ReachabilityUnreachable,
+			},
+		},
 	}}
 
 	for _, test := range tests {
