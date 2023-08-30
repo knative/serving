@@ -109,7 +109,7 @@ backend asynchronously.
 #### Kafka Reporter
 High performance Reporter transporting Spans to the Zipkin server using a Kafka
 Producer digesting JSON V2 Spans. The reporter uses the
-[Sarama async producer](https://godoc.org/github.com/Shopify/sarama#AsyncProducer)
+[Sarama async producer](https://pkg.go.dev/github.com/IBM/sarama#AsyncProducer)
 underneath.
 
 ## usage and examples
