@@ -91,12 +91,8 @@ var transport = func() *http.Transport {
 	return t
 }()
 
-func getURL(config HTTPProbeConfigOptions) url.URL {
-	return url.URL{
-		Scheme: string(config.Scheme),
-		Host:   net.JoinHostPort(config.Host, config.Port.String()),
-		Path:   config.Path,
-	}
+func getURL(config HTTPProbeConfigOptions) (*url.URL, error) {
+	return url.Parse(string(config.Scheme) + "://" + net.JoinHostPort(config.Host, config.Port.String()) + config.Path)
 }
 
 // http2UpgradeProbe checks that an HTTP with HTTP2 upgrade request
@@ -107,7 +103,10 @@ func http2UpgradeProbe(config HTTPProbeConfigOptions) (int, error) {
 		Transport: transport,
 		Timeout:   config.Timeout,
 	}
-	url := getURL(config)
+	url, err := getURL(config)
+	if err != nil {
+		return 0, fmt.Errorf("error constructing probe url %w", err)
+	}
 	req, err := http.NewRequest(http.MethodOptions, url.String(), nil)
 	if err != nil {
 		return 0, fmt.Errorf("error constructing probe request %w", err)
@@ -161,7 +160,10 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 		Transport: autoDowngradingTransport(config),
 		Timeout:   config.Timeout,
 	}
-	url := getURL(config)
+	url, err := getURL(config)
+	if err != nil {
+		return fmt.Errorf("error constructing probe url %w", err)
+	}
 	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 	if err != nil {
 		return fmt.Errorf("error constructing probe request %w", err)

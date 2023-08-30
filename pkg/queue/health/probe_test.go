@@ -63,7 +63,10 @@ func TestHTTPProbeSuccess(t *testing.T) {
 		Value: "Testval",
 	}
 	var gotPath string
+	var gotQuery string
 	const expectedPath = "/health"
+	const expectedQuery = "foo=bar"
+	const configPath = expectedPath + "?" + expectedQuery
 	server := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if v := r.Header.Get(expectedHeader.Name); v != "" {
 			gotHeader = corev1.HTTPHeader{Name: expectedHeader.Name, Value: v}
@@ -72,11 +75,12 @@ func TestHTTPProbeSuccess(t *testing.T) {
 			gotKubeletHeader = true
 		}
 		gotPath = r.URL.Path
+		gotQuery = r.URL.RawQuery
 		w.WriteHeader(http.StatusOK)
 	})
 
 	action := newHTTPGetAction(t, server.URL)
-	action.Path = expectedPath
+	action.Path = configPath
 	action.HTTPHeaders = []corev1.HTTPHeader{expectedHeader}
 
 	config := HTTPProbeConfigOptions{
@@ -97,6 +101,9 @@ func TestHTTPProbeSuccess(t *testing.T) {
 	}
 	if !cmp.Equal(gotPath, expectedPath) {
 		t.Errorf("Path = %s, want: %s", gotPath, expectedPath)
+	}
+	if !cmp.Equal(gotQuery, expectedQuery) {
+		t.Errorf("Query = %s, want: %s", gotQuery, expectedQuery)
 	}
 	// Close the server so probing fails afterwards.
 	server.Close()
