@@ -18,6 +18,7 @@ package sharedmain
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net/http"
@@ -29,6 +30,7 @@ import (
 	"go.opencensus.io/plugin/ochttp"
 	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap"
+	"knative.dev/serving/pkg/queue/certificate"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -245,16 +247,22 @@ func Main(opts ...Option) error {
 		httpServers["profile"] = profiling.NewServer(profiling.NewHandler(logger, true))
 	}
 
-	tlsServers := map[string]*http.Server{
-		"main":  mainServer(":"+env.QueueServingTLSPort, mainHandler),
-		"admin": adminServer(":"+strconv.Itoa(networking.QueueAdminPort), adminHandler),
-	}
+	tlsServers := make(map[string]*http.Server)
+	var certWatcher *certificate.CertWatcher
+	var err error
 
 	if tlsEnabled {
+		tlsServers["main"] = mainServer(":"+env.QueueServingTLSPort, mainHandler)
+		tlsServers["admin"] = adminServer(":"+strconv.Itoa(networking.QueueAdminPort), adminHandler)
+
+		certWatcher, err = certificate.NewCertWatcher(certPath, keyPath, 1*time.Minute, logger)
+		if err != nil {
+			logger.Fatal("failed to create certWatcher", zap.Error(err))
+		}
+		defer certWatcher.Stop()
+
 		// Drop admin http server since the admin TLS server is listening on the same port
 		delete(httpServers, "admin")
-	} else {
-		tlsServers = map[string]*http.Server{}
 	}
 
 	logger.Info("Starting queue-proxy")
@@ -271,9 +279,13 @@ func Main(opts ...Option) error {
 	}
 	for name, server := range tlsServers {
 		go func(name string, s *http.Server) {
-			// Don't forward ErrServerClosed as that indicates we're already shutting down.
 			logger.Info("Starting tls server ", name, s.Addr)
-			if err := s.ListenAndServeTLS(certPath, keyPath); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			s.TLSConfig = &tls.Config{
+				GetCertificate: certWatcher.GetCertificate,
+				MinVersion:     tls.VersionTLS13,
+			}
+			// Don't forward ErrServerClosed as that indicates we're already shutting down.
+			if err := s.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errCh <- fmt.Errorf("%s server failed to serve: %w", name, err)
 			}
 		}(name, server)
@@ -303,6 +315,7 @@ func Main(opts ...Option) error {
 				logger.Errorw("Failed to shutdown server", zap.String("server", name), zap.Error(err))
 			}
 		}
+
 		logger.Info("Shutdown complete, exiting...")
 	}
 	return nil
