@@ -161,12 +161,11 @@ func main() {
 				return mr
 
 			case <-tick.C:
-				svc, err := sc.ServingV1().Services(tmpl.Namespace).Create(ctx, tmpl, metav1.CreateOptions{})
+				_, err := sc.ServingV1().Services(tmpl.Namespace).Create(ctx, tmpl, metav1.CreateOptions{})
 				if err != nil {
 					log.Println("Error creating service:", err)
 					break
 				}
-				log.Println("Created:", svc.Name)
 
 			case event := <-serviceWI.ResultChan():
 				if event.Type != watch.Modified {
@@ -262,6 +261,7 @@ func handleEvent(influxReporter *performance.InfluxReporter, metricResults *vege
 		// We need to count ready Services separately, for the SLA
 		if metric == "Service" {
 			result.Code = 200
+			log.Printf("Service %s ready in %vs", svc.GetName(), elapsed.Seconds())
 		}
 		metricResults.Add(&result)
 	} else if cc.Status == corev1.ConditionFalse {
@@ -297,14 +297,7 @@ func readTemplate() (*v1.Service, error) {
 }
 
 func checkSLA(results *vegeta.Metrics, expectedReadyServices float64) error {
-	// SLA 1: The p95 latency deploying a new service takes up to max 25 seconds.
-	if results.Latencies.P95 >= 0*time.Second && results.Latencies.P95 <= 25*time.Second {
-		log.Println("SLA 1 passed. P95 latency is in 0-25s time range")
-	} else {
-		return fmt.Errorf("SLA 1 failed. P95 latency is not in 0-25s time range: %s", results.Latencies.P95)
-	}
-
-	// SLA 2: The number of services deployed to "Ready=True" should be reached.
+	// SLA 1: The number of services deployed to "Ready=True" should be reached.
 	// Example: Configured to run for 35m with a frequency of 5s, the theoretical limit is 420
 	// if deployments take 0s. Factoring in deployment latency, we will miss a
 	// handful of the trailing deployments, so we relax this a bit to 97% of that.
@@ -313,10 +306,18 @@ func checkSLA(results *vegeta.Metrics, expectedReadyServices float64) error {
 	// Success is a percentage of all requests, so we need to multiply this by the total requests
 	readyServices := results.Success * float64(results.Requests)
 	if readyServices >= relaxedExpectedReadyServices && readyServices <= expectedReadyServices {
-		log.Println("SLA 2 passed. Amount of ready services is within the expected range")
-	} else {
-		return fmt.Errorf("SLA 2 failed. Amount of ready services is out of the expected range. Is: %f, Range: %f-%f",
+		log.Printf("SLA 1 passed. Amount of ready services is within the expected range. Is: %f, expected: %f-%f",
 			readyServices, relaxedExpectedReadyServices, expectedReadyServices)
+	} else {
+		return fmt.Errorf("SLA 1 failed. Amount of ready services is out of the expected range. Is: %f, Range: %f-%f",
+			readyServices, relaxedExpectedReadyServices, expectedReadyServices)
+	}
+
+	// SLA 2: The p95 latency deploying a new service takes up to max 25 seconds.
+	if results.Latencies.P95 >= 0*time.Second && results.Latencies.P95 <= 25*time.Second {
+		log.Println("SLA 2 passed. P95 latency is in 0-25s time range")
+	} else {
+		return fmt.Errorf("SLA 2 failed. P95 latency is not in 0-25s time range: %s", results.Latencies.P95)
 	}
 
 	return nil
