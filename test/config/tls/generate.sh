@@ -19,13 +19,13 @@
 san="knative.dev"
 
 # Create CA key and cert
-openssl req -x509 -sha256 -nodes -days 365 -newkey rsa:2048 -subj '/O=Knative Community/CN=example.com' -keyout rootCAKey.pem -out rootCACert.pem
+openssl req -x509 -sha256 -nodes -days 3650 -newkey rsa:2048 -subj '/O=Knative Community/CN=example.com' -keyout rootCAKey.pem -out rootCACert.pem
 
 # Create server key
 openssl req -out tls.csr -newkey rsa:2048 -nodes -keyout tls.key -subj "/CN=example.com/O=Knative Community" -addext "subjectAltName = DNS:$san"
 
 # Create server certs
-openssl x509 -req -extfile <(printf "subjectAltName=DNS:$san") -days 365 -in tls.csr -CA rootCACert.pem -CAkey rootCAKey.pem -CAcreateserial -out tls.crt
+openssl x509 -req -extfile <(printf "subjectAltName=DNS:$san") -days 3650 -in tls.csr -CA rootCACert.pem -CAkey rootCAKey.pem -CAcreateserial -out tls.crt
 
 CA_CERT=$(cat rootCACert.pem | base64  | tr -d '\n')
 TLS_KEY=$(cat tls.key | base64  | tr -d '\n')
