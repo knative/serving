@@ -147,12 +147,13 @@ LOOP:
 				metricResults.Add(res)
 			} else {
 				// If there are no more results, then we're done!
-				// Compute latency percentiles
-				metricResults.Close()
 				break LOOP
 			}
 		}
 	}
+
+	// Compute latency percentiles
+	metricResults.Close()
 
 	// Report results to influx
 	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"requests": float64(metricResults.Requests)})
