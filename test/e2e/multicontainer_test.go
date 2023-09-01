@@ -59,8 +59,9 @@ func TestMultiContainer(t *testing.T) {
 
 	// Please see the comment in test/v1/configuration.go.
 	if !test.ServingFlags.DisableOptionalAPI {
-		containers[0].ImagePullPolicy = corev1.PullIfNotPresent
-		containers[1].ImagePullPolicy = corev1.PullIfNotPresent
+		for _, c := range containers {
+			c.ImagePullPolicy = corev1.PullIfNotPresent
+		}
 	}
 
 	test.EnsureTearDown(t, clients, &names)
