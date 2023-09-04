@@ -724,6 +724,13 @@ func TestServiceCreateWithMultipleContainers(t *testing.T) {
 		Image: pkgtest.ImagePath(names.Sidecars[0]),
 	}}
 
+	// Please see the comment in test/v1/configuration.go.
+	if !test.ServingFlags.DisableOptionalAPI {
+		for _, c := range containers {
+			c.ImagePullPolicy = corev1.PullIfNotPresent
+		}
+	}
+
 	// Setup initial Service
 	if _, err := v1test.CreateServiceReady(t, clients, &names, func(svc *v1.Service) {
 		svc.Spec.Template.Spec.Containers = containers
