@@ -71,6 +71,20 @@ export INFLUX_TOKEN=$(kubectl get secret local-influx-influxdb2-auth -o "jsonpat
 ./visualization/setup-influx-db.sh
 ```
 
+### Local grafana dashboards
+
+Use an existing grafana instance or create one on your cluster, [see docs](https://grafana.com/docs/grafana/latest/setup-grafana/installation/kubernetes/).
+
+To use our influxDB as a datasource for Grafana
+* Navigate to Grafana UI and log in using the user from above (e.g. https://grafana-route-influx.apps.rlehmann-ocp.serverless.devcluster.openshift.com/)
+* Create a new datasource for InfluxDB
+* Select the flux query language
+* Server-URL: http://local-influx-influxdb2.influx:80  (Note: this could be different if your grafana instance is hosted outside the cluster)
+* Organization: Knativetest
+* Bucket: knative-serving
+* Token: <your influx-db token>
+
+
 ### Local development
 
 You can run all the benchmarks directly by calling the `main()` method in `main.go` in the respective [benchmarks](./benchmarks) folders.
