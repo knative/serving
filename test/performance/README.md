@@ -31,9 +31,9 @@ The results are written to:
 ## Grafana
 
 To better visualize the test results, Grafana is used to show some dashboards.
-The dashboards are defined in [grafana-dashboard.json](./influx/grafana-dashboard.json) and available under
+The dashboards are defined in [grafana-dashboard.json](./visualization/grafana-dashboard.json) and available under
 
-[perf.knative.dev](https://perf.knative.dev/d/igHJ5-gIk/knative-serving-performance-tests?orgId=1)
+[grafana.knative.dev](https://grafana.knative.dev/d/HFw0qn74k/knative-serving-performance-tests?orgId=1)
 
 
 ## Benchmarks

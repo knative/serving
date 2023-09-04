@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The Knative Authors
+Copyright 2023 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -58,7 +58,6 @@ func NewInfluxReporter(tags map[string]string) (*InfluxReporter, error) {
 	client := influxdb2.NewClientWithOptions(url, token,
 		influxdb2.DefaultOptions().
 			SetUseGZip(true).
-			SetBatchSize(20).
 			//nolint:gosec // We explicitly don't need to check certs here since this is test code.
 			SetTLSConfig(&tls.Config{InsecureSkipVerify: true}))
 
