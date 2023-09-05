@@ -50,7 +50,7 @@ fi
 
 if (( HTTPS )); then
   E2E_TEST_FLAGS+=" -https"
-  toggle_feature autoTLS Enabled config-network
+  toggle_feature auto-tls Enabled config-network
   kubectl apply -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/caissuer/
   add_trap "kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 fi
@@ -133,7 +133,7 @@ toggle_feature autocreate-cluster-domain-claims false config-network || fail_tes
 
 if (( HTTPS )); then
   kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
-  toggle_feature autoTLS Disabled config-network
+  toggle_feature auto-tls Disabled config-network
 fi
 
 (( failed )) && fail_test
