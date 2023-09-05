@@ -24,14 +24,14 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 5,
+  "id": 6395,
   "links": [],
   "liveNow": false,
   "panels": [
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "gridPos": {
         "h": 1,
@@ -44,7 +44,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "refId": "A"
         }
@@ -55,7 +55,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "gridPos": {
         "h": 3,
@@ -68,12 +68,12 @@
         "content": "* Deployment = Vanilla k8s Deployment\n* Activator = Always hook the activator in\n* Queue = Only hook the activator in when scaled to zero.\n",
         "mode": "markdown"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -116,7 +116,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "fieldConfig": {
         "defaults": {
@@ -160,12 +160,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -209,7 +209,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "fieldConfig": {
         "defaults": {
@@ -261,12 +261,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -310,7 +310,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "fieldConfig": {
         "defaults": {
@@ -362,12 +362,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -411,7 +411,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "fieldConfig": {
         "defaults": {
@@ -459,12 +459,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -508,7 +508,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "description": "SLA:\ndeployment = 105ms\nactivator = 110ms\nqueue = 110ms",
       "fieldConfig": {
@@ -561,12 +561,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -610,7 +610,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "fieldConfig": {
         "defaults": {
@@ -662,12 +662,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -715,7 +715,7 @@
       "dashes": false,
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "fieldConfig": {
         "defaults": {
@@ -750,7 +750,7 @@
         "alertThreshold": true
       },
       "percentage": false,
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -762,7 +762,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -834,7 +834,7 @@
       "collapsed": false,
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "gridPos": {
         "h": 1,
@@ -848,7 +848,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "refId": "A"
         }
@@ -859,7 +859,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "gridPos": {
         "h": 3,
@@ -872,12 +872,12 @@
         "content": "* Zero = Only hook the activator in at zero\n* Always = Always hook the activator in.\n* 200 = Hook the activator in until we reach 200 concurrent requests",
         "mode": "markdown"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -920,7 +920,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "fieldConfig": {
         "defaults": {
@@ -964,12 +964,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -1013,7 +1013,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1065,12 +1065,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -1114,7 +1114,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1166,12 +1166,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -1215,7 +1215,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "description": "SLA\n- 0 errors",
       "fieldConfig": {
@@ -1264,12 +1264,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -1313,7 +1313,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "description": "SLA\n- max: 115ms",
       "fieldConfig": {
@@ -1366,12 +1366,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -1415,7 +1415,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1463,12 +1463,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -1516,7 +1516,7 @@
       "dashes": false,
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "fill": 1,
       "fillGradient": 0,
@@ -1544,7 +1544,7 @@
         "alertThreshold": true
       },
       "percentage": false,
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -1556,7 +1556,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -1597,7 +1597,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -1670,7 +1670,7 @@
       "collapsed": false,
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "gridPos": {
         "h": 1,
@@ -1684,7 +1684,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "refId": "A"
         }
@@ -1695,7 +1695,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "gridPos": {
         "h": 3,
@@ -1708,12 +1708,12 @@
         "content": "* Activator Direct = Always hook the activator in: weightedExponential\n* Activator Direct Lin = Always hook the activator in: linear\n* Queue = Only hook the activator in when scaled to zero.\n",
         "mode": "markdown"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -1756,7 +1756,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1800,12 +1800,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -1849,7 +1849,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1901,12 +1901,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -1950,7 +1950,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "fieldConfig": {
         "defaults": {
@@ -2002,12 +2002,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -2051,7 +2051,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "fieldConfig": {
         "defaults": {
@@ -2099,12 +2099,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -2148,7 +2148,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "description": "SLA:\n- max: 110ms",
       "fieldConfig": {
@@ -2201,12 +2201,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -2250,7 +2250,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "fieldConfig": {
         "defaults": {
@@ -2302,12 +2302,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -2355,7 +2355,7 @@
       "dashes": false,
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "fill": 1,
       "fillGradient": 0,
@@ -2383,7 +2383,7 @@
         "alertThreshold": true
       },
       "percentage": false,
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -2395,7 +2395,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -2436,7 +2436,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -2509,7 +2509,7 @@
       "collapsed": false,
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "gridPos": {
         "h": 1,
@@ -2523,7 +2523,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "refId": "A"
         }
@@ -2534,7 +2534,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "description": "SLA\n- max: 25s",
       "fieldConfig": {
@@ -2548,7 +2548,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "yellow",
@@ -2586,12 +2587,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -2636,7 +2637,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "description": "SLA\n- max: 25s",
       "fieldConfig": {
@@ -2650,7 +2651,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2684,12 +2686,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -2734,7 +2736,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "description": "SLA\n- max: 25s",
       "fieldConfig": {
@@ -2748,7 +2750,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2782,12 +2785,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -2832,7 +2835,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "description": "SLA\n- max: 25s",
       "fieldConfig": {
@@ -2846,7 +2849,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2880,12 +2884,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -2930,7 +2934,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "description": "SLA\n- max: 25s",
       "fieldConfig": {
@@ -2944,7 +2948,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2978,12 +2983,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -3028,7 +3033,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "description": "SLA\n- max: 25s",
       "fieldConfig": {
@@ -3042,7 +3047,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -3076,12 +3082,12 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -3127,7 +3133,7 @@
       "collapsed": false,
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "gridPos": {
         "h": 1,
@@ -3141,7 +3147,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "refId": "A"
         }
@@ -3156,7 +3162,7 @@
       "dashes": false,
       "datasource": {
         "type": "influxdb",
-        "uid": "6BTInGR4k"
+        "uid": "${ds}"
       },
       "description": "SLA:\n- max: 5s",
       "fill": 1,
@@ -3185,7 +3191,7 @@
         "alertThreshold": true
       },
       "percentage": false,
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -3197,7 +3203,7 @@
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "6BTInGR4k"
+            "uid": "${ds}"
           },
           "groupBy": [
             {
@@ -3288,12 +3294,12 @@
         "allValue": "all",
         "current": {
           "selected": false,
-          "text": "618b0372-dceb-4d2a-9642-1c1e08b65528",
-          "value": "618b0372-dceb-4d2a-9642-1c1e08b65528"
+          "text": "All",
+          "value": "$__all"
         },
         "datasource": {
           "type": "influxdb",
-          "uid": "6BTInGR4k"
+          "uid": "${ds}"
         },
         "definition": "import \"influxdata/influxdb/schema\"\nschema.tagValues(\n    bucket: \"knative-serving\",\n    tag: \"PROW_TAG\",\n    start: -1d\n)",
         "hide": 0,
@@ -3308,17 +3314,37 @@
         "skipUrlSync": false,
         "sort": 0,
         "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "InfluxDB",
+          "value": "InfluxDB"
+        },
+        "description": "Data Source",
+        "hide": 0,
+        "includeAll": false,
+        "label": "DataSource",
+        "multi": false,
+        "name": "ds",
+        "options": [],
+        "query": "influxdb",
+        "queryValue": "",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
       }
     ]
   },
   "time": {
-    "from": "now-3h",
+    "from": "now-6h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "Knative Serving Performance Tests",
-  "uid": "igHJ5-gIk",
-  "version": 7,
+  "uid": "igHJ5-fdk",
+  "version": 3,
   "weekStart": ""
 }
