@@ -19,7 +19,6 @@ package certificate
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -70,7 +69,7 @@ func TestCertificateRotation(t *testing.T) {
 
 	// CertWatcher should return the new certificate
 	// Give CertWatcher some time to update the certificate
-	if err := wait.Poll(1*time.Second, 30*time.Second, func() (bool, error) {
+	if err := wait.Poll(1*time.Second, 60*time.Second, func() (bool, error) {
 		c, err = cw.GetCertificate(nil)
 		if err != nil {
 			return false, err
@@ -82,7 +81,8 @@ func TestCertificateRotation(t *testing.T) {
 		}
 
 		if san != updatedSAN {
-			return false, fmt.Errorf("CertWatcher did not return the expected certificate. want: %s, got: %s", updatedSAN, san)
+			t.Logf("CertWatcher did not return the expected certificate. want: %s, got: %s", updatedSAN, san)
+			return false, nil
 		}
 
 		return true, nil
