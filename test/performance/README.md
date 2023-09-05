@@ -33,7 +33,7 @@ The results are written to:
 To better visualize the test results, Grafana is used to show some dashboards.
 The dashboards are defined in [grafana-dashboard.json](./visualization/grafana-dashboard.json) and available under
 
-[grafana.knative.dev](https://grafana.knative.dev/d/HFw0qn74k/knative-serving-performance-tests?orgId=1)
+[grafana.knative.dev](https://grafana.knative.dev/d/igHJ5-fdk/knative-serving-performance-tests?orgId=1)
 
 
 ## Benchmarks
