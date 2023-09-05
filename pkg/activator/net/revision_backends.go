@@ -249,7 +249,9 @@ func (rw *revisionWatcher) probePodIPs(ready, notReady sets.String) (succeeded s
 	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
 	defer cancel()
 
-	probeGroup := errgroup.Group{}
+	// Empty errgroup is used as cancellation on first error is not desired, all probes should be
+	// attempted even if one fails.
+	var probeGroup errgroup.Group
 	healthyDests := make(chan string, dests.Len())
 
 	var probed bool
