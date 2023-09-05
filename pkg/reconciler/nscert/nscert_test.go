@@ -99,8 +99,8 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			"domainTemplate": defaultDomainTemplate,
-			"auto-tls":       "true",
+			"domain-template": defaultDomainTemplate,
+			"auto-tls":        "true",
 			// Apply to all namespaces
 			"namespace-wildcard-cert-selector": "{}",
 		},
@@ -346,7 +346,7 @@ func TestUpdateDomainTemplate(t *testing.T) {
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			"domainTemplate":                   "{{.Name}}-suffix.{{.Namespace}}.{{.Domain}}",
+			"domain-template":                  "{{.Name}}-suffix.{{.Namespace}}.{{.Domain}}",
 			"namespace-wildcard-cert-selector": "{}",
 			"auto-tls":                         "Enabled",
 		},
@@ -367,7 +367,7 @@ func TestUpdateDomainTemplate(t *testing.T) {
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			"domainTemplate":                   "{{.Name}}.subdomain.{{.Namespace}}.{{.Domain}}",
+			"domain-template":                  "{{.Name}}.subdomain.{{.Namespace}}.{{.Domain}}",
 			"namespace-wildcard-cert-selector": `{}`,
 			"auto-tls":                         "Enabled",
 		},
@@ -389,8 +389,8 @@ func TestUpdateDomainTemplate(t *testing.T) {
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			"domainTemplate": "{{.Namespace}}.{{.Name}}.{{.Domain}}",
-			"auto-tls":       "Enabled",
+			"domain-template": "{{.Namespace}}.{{.Name}}.{{.Domain}}",
+			"auto-tls":        "Enabled",
 		},
 	}
 	watcher.OnChange(netCfg)
