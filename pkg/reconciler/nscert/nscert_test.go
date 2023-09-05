@@ -100,7 +100,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		},
 		Data: map[string]string{
 			"domainTemplate": defaultDomainTemplate,
-			"autoTLS":        "true",
+			"auto-tls":       "true",
 			// Apply to all namespaces
 			"namespace-wildcard-cert-selector": "{}",
 		},
@@ -323,7 +323,7 @@ func TestUpdateDomainTemplate(t *testing.T) {
 		},
 		Data: map[string]string{
 			"namespace-wildcard-cert-selector": "{}",
-			"autoTLS":                          "Enabled",
+			"auto-tls":                         "Enabled",
 		},
 	}
 	ctx, cancel, certEvents, watcher := newTestSetup(t, netCfg)
@@ -348,7 +348,7 @@ func TestUpdateDomainTemplate(t *testing.T) {
 		Data: map[string]string{
 			"domainTemplate":                   "{{.Name}}-suffix.{{.Namespace}}.{{.Domain}}",
 			"namespace-wildcard-cert-selector": "{}",
-			"autoTLS":                          "Enabled",
+			"auto-tls":                         "Enabled",
 		},
 	}
 	watcher.OnChange(netCfg)
@@ -369,7 +369,7 @@ func TestUpdateDomainTemplate(t *testing.T) {
 		Data: map[string]string{
 			"domainTemplate":                   "{{.Name}}.subdomain.{{.Namespace}}.{{.Domain}}",
 			"namespace-wildcard-cert-selector": `{}`,
-			"autoTLS":                          "Enabled",
+			"auto-tls":                         "Enabled",
 		},
 	}
 	watcher.OnChange(netCfg)
@@ -390,7 +390,7 @@ func TestUpdateDomainTemplate(t *testing.T) {
 		},
 		Data: map[string]string{
 			"domainTemplate": "{{.Namespace}}.{{.Name}}.{{.Domain}}",
-			"autoTLS":        "Enabled",
+			"auto-tls":       "Enabled",
 		},
 	}
 	watcher.OnChange(netCfg)
@@ -416,7 +416,7 @@ func TestChangeDefaultDomain(t *testing.T) {
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			"autoTLS":                          "Enabled",
+			"auto-tls":                         "Enabled",
 			"namespace-wildcard-cert-selector": "{}",
 		},
 	}
@@ -472,7 +472,7 @@ func TestDomainConfigDomain(t *testing.T) {
 		name:      "no domainmapping without config",
 		domainCfg: map[string]string{},
 		netCfg: map[string]string{
-			"autoTLS": "Enabled",
+			"auto-tls": "Enabled",
 		},
 	}, {
 		name: "default domain",
@@ -480,7 +480,7 @@ func TestDomainConfigDomain(t *testing.T) {
 			"other.com": "selector:\n app: dev",
 		},
 		netCfg: map[string]string{
-			"autoTLS":                          "Enabled",
+			"auto-tls":                         "Enabled",
 			"namespace-wildcard-cert-selector": "{}",
 		},
 		wantCertName: "testns.svc.cluster.local",
@@ -491,7 +491,7 @@ func TestDomainConfigDomain(t *testing.T) {
 			"default.com": "",
 		},
 		netCfg: map[string]string{
-			"autoTLS":                          "Enabled",
+			"auto-tls":                         "Enabled",
 			"namespace-wildcard-cert-selector": "{}",
 		},
 		wantCertName: "testns.default.com",
