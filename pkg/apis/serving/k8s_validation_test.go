@@ -888,7 +888,7 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 			Details: "Only a single port is allowed across all containers",
 		},
 	}, {
-		name: "flag enabled: multiple containers with livelinessProbe targeting main container's port",
+		name: "flag enabled: multiple containers with livenessProbe targeting main container's port",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
 				Name:  "container-a",

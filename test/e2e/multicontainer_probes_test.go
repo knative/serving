@@ -2,7 +2,7 @@
 // +build e2e
 
 /*
-Copyright 2020 The Knative Authors
+Copyright 2023 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,9 +23,8 @@ import (
 	"context"
 	"testing"
 
-	"k8s.io/apimachinery/pkg/util/intstr"
-
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
