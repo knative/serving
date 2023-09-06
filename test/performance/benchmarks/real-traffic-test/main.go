@@ -32,64 +32,64 @@ import (
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/labels"
 	netapi "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/environment"
 	"knative.dev/pkg/injection"
+	pkgTest "knative.dev/pkg/test"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	ktest "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/performance/performance"
 	v1test "knative.dev/serving/test/v1"
 
-	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/signals"
+
+	crytporand "crypto/rand"
 )
 
 const (
 	namespace     = "default"
 	benchmarkName = "Knative Serving real traffic test"
-	runtimeImage  = "runtime"
-	serviceName   = "perftest-"
+	serviceName   = "perftest"
 
 	duration = 5 * time.Minute
 
-	// vegeta request parameter
+	// Test configuration
+	// Defines the latency of target
 	minLatency = 0 * time.Second
-	maxLatency = 30 * time.Second
+	maxLatency = 5 * time.Second
 
-	// init-container
+	// Defines the delay that a Knative Service has for startup (init-container causes the delay)
 	minStartupLatency = 0 * time.Second
-	maxStartupLatency = 60 * time.Second
+	maxStartupLatency = 10 * time.Second
 
-	// vegeta parameter
-	minPayloadSizeKB = 1
-	maxPayloadSizeKB = 1000
-
-	// vegeta parameter
-	minRequestsPerSecond = 1
-	maxRequestPerSecond  = 200
+	// Defines the payloads that are sent on the vegeta requests
+	minPayloadSizeBytes = 10
+	maxPayloadSizeBytes = 50_000
 )
 
 var (
-	numberOfServices = flag.Int("number-of-services", 100, "The number of Knative Services to create.")
+	numberOfServices = flag.Int("number-of-services", 10, "The number of Knative Services to create")
+	rps              = flag.Int("requests-per-second", 300, "The of requests per second to send")
 )
 
-type attacker struct {
-	attacker          *vegeta.Attacker
-	url               string
-	latency           int64
-	payloadSize       int
-	requestsPerSecond int
+type serviceConfig struct {
+	resourceObjects *v1test.ResourceObjects
+
+	activatorAlwaysInPath bool
+	latency               int64
+	startupLatency        int64
+	payload               []byte
 }
 
 func main() {
-	if *numberOfServices <= 0 {
-		log.Fatalf("-number-of-services is a required flag.")
+	if *rps >= 2500 {
+		log.Fatal("One test container cannot create more than 2500 RPS without errors. Consider starting this test in parallel.")
 	}
 
 	ctx := signals.NewContext()
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
 
 	// To make testing.T work properly
@@ -119,46 +119,62 @@ func main() {
 	}
 	defer influxReporter.FlushAndShutdown()
 
-	log.Printf("Creating %d Knative Services", numberOfServices)
+	log.Printf("Creating %d Knative Services", *numberOfServices)
 	services, cleanup, err := createServices(clients, *numberOfServices)
 	if err != nil {
 		log.Fatalf("Failed to create services: %v", err)
 	}
 	defer cleanup()
 
-	// Wrap fatalf in a helper to clean up created resources
-	fatalf := func(f string, args ...interface{}) {
-		cleanup()
-		log.Fatalf(f, args...)
+	log.Print("Creating vegeta targets")
+
+	var targets []vegeta.Target
+	for _, svc := range services {
+		t := vegeta.Target{
+			Method: http.MethodPost,
+			URL:    fmt.Sprintf("http://%s.default.svc.cluster.local?sleep=%d", svc.resourceObjects.Service.Name, svc.latency),
+			Body:   svc.payload,
+		}
+		targets = append(targets, t)
+
+		log.Printf("Name: %s, startup-latency: %ds, latency: %dms, payload: %dKb, activator-always-in-path: %v",
+			svc.resourceObjects.Service.Name, svc.startupLatency, svc.latency, len(svc.payload)/1000, svc.activatorAlwaysInPath)
 	}
 
-	log.Print("Creating vegeta attackers")
-	for _, svc := range services {
-		latency := getRandomValue(minLatency.Milliseconds(), maxLatency.Milliseconds())
+	// Send configured RPS round-robin over all services,
+	// while the request timeout is based on the max delays + 20 seconds
+	log.Printf("Starting vegeta attack for with %v RPS for duration: %v", *rps, duration)
+	rate := vegeta.Rate{Freq: *rps, Per: time.Second}
+	attacker := vegeta.NewAttacker(vegeta.Timeout(maxLatency + maxStartupLatency + 20*time.Second))
+	targeter := vegeta.NewStaticTargeter(targets...)
 
-		cfg := &attacker{
-			attacker:          vegeta.NewAttacker(vegeta.Timeout(30 * time.Second)),
-			latency:           latency,
-			url:               fmt.Sprintf("http://%s.default.svc.cluster.local?sleep=%d", svc.Route, latency),
-			payloadSize:       0,
-			requestsPerSecond: 0,
+	results := attacker.Attack(targeter, rate, duration, "real-traffic-test")
+
+	var metricResults vegeta.Metrics
+
+LOOP:
+	for {
+		select {
+		case <-ctx.Done():
+			// If we time out or the pod gets shutdown via SIGTERM then start to
+			// clean thing up.
+			break LOOP
+
+		case res, ok := <-results:
+			if ok {
+				if res.Error != "" {
+					log.Printf("error occurred calling target. Err: %s, url: %s, method: %s", res.Error, res.URL, res.Method)
+				}
+				metricResults.Add(res)
+			} else {
+				// If there are no more results, then we're done!
+				break LOOP
+			}
 		}
 	}
 
-	// Ramp up load from 1k to 3k in 2 minute steps.
-	const duration = 2 * time.Minute
-	url := fmt.Sprintf("http://load-test-%s.default.svc.cluster.local?sleep=100", *flavor)
-	targeter := vegeta.NewStaticTargeter(vegeta.Target{
-		Method: http.MethodGet,
-		URL:    url,
-	})
-
-	// Make sure the target is ready before sending the large amount of requests.
-	if err := performance.ProbeTargetTillReady(url, duration); err != nil {
-		log.Fatalf("Failed to get target ready for attacking: %v", err)
-	}
-	resultsChan := vegeta.NewAttacker().Attack(targeter, pacer, 3*duration, "load-test")
-	metricResults := processResults(ctx, resultsChan, influxReporter, selector)
+	// Compute latency percentiles
+	metricResults.Close()
 
 	// Report results to influx
 	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"requests": float64(metricResults.Requests)})
@@ -169,18 +185,12 @@ func main() {
 	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"errors": float64(len(metricResults.Errors))})
 
 	// Report to stdout
-	_ = vegeta.NewTextReporter(metricResults).Report(os.Stdout)
+	_ = vegeta.NewTextReporter(&metricResults).Report(os.Stdout)
 
-	if err := checkSLA(metricResults); err != nil {
-		// make sure to still write the stats
-		influxReporter.FlushAndShutdown()
-		log.Fatalf(err.Error())
-	}
-
-	log.Println("Load test finished")
+	log.Println("Real traffic test finished")
 }
 
-func createServices(clients *test.Clients, count int) ([]*v1test.ResourceObjects, func(), error) {
+func createServices(clients *test.Clients, count int) ([]*serviceConfig, func(), error) {
 	testNames := make([]*test.ResourceNames, count)
 
 	// Initialize our service names.
@@ -188,7 +198,7 @@ func createServices(clients *test.Clients, count int) ([]*v1test.ResourceObjects
 		testNames[i] = &test.ResourceNames{
 			Service: test.AppendRandomString(fmt.Sprintf("%s-%02d", serviceName, i)),
 			// The crd.go helpers will convert to the actual image path.
-			Image: runtimeImage,
+			Image: test.Runtime,
 		}
 	}
 
@@ -198,15 +208,12 @@ func createServices(clients *test.Clients, count int) ([]*v1test.ResourceObjects
 		}
 	}
 
-	objs := make([]*v1test.ResourceObjects, count)
+	objs := make([]*serviceConfig, count)
 	begin := time.Now()
 	sos := []ktest.ServiceOption{
-		// We set a small resource alloc so that we can pack more pods into the cluster.
 		ktest.WithResourceRequirements(corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("500m"),
-				corev1.ResourceMemory: resource.MustParse("500Mi"),
-			},
+			// We set a small resource alloc so that we can pack more pods into the cluster,
+			// also we do not set limits, as buffering in QP will take memory, and we'd be OOMKilled.
 			Requests: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("10m"),
 				corev1.ResourceMemory: resource.MustParse("20Mi"),
@@ -214,13 +221,41 @@ func createServices(clients *test.Clients, count int) ([]*v1test.ResourceObjects
 		}),
 		ktest.WithServiceLabel(netapi.VisibilityLabelKey, serving.VisibilityClusterLocal),
 	}
+
 	g := errgroup.Group{}
 	for i := 0; i < count; i++ {
 		ndx := i
 		g.Go(func() error {
-			var err error
-			if objs[ndx], err = v1test.CreateServiceReady(&testing.T{}, clients, testNames[ndx], sos...); err != nil {
+			activatorInPath := getRandomBool()
+			if activatorInPath {
+				annotations := map[string]string{autoscaling.TargetBurstCapacityKey: "-1"}
+				sos = append(sos, ktest.WithConfigAnnotations(annotations))
+			}
+
+			startupLatency := getRandomValue(int64(minStartupLatency.Seconds()), int64(maxStartupLatency.Seconds()))
+			if startupLatency > 0 {
+				sos = append(sos, ktest.WithInitContainer(corev1.Container{
+					Name:  "slow-startup",
+					Image: pkgTest.ImagePath(test.SlowStart),
+					Args:  []string{"-sleep", strconv.FormatInt(startupLatency, 10)},
+				}))
+			}
+
+			createdService, err := v1test.CreateServiceReady(&testing.T{}, clients, testNames[ndx], sos...)
+			if err != nil {
 				return fmt.Errorf("%02d: failed to create Ready service: %w", ndx, err)
+			}
+			latency := getRandomValue(minLatency.Milliseconds(), maxLatency.Milliseconds())
+			payload, err := getRandomPayload(minPayloadSizeBytes, maxPayloadSizeBytes)
+			if err != nil {
+				return fmt.Errorf("%02d: failed to generate random payload: %w", ndx, err)
+			}
+			objs[ndx] = &serviceConfig{
+				resourceObjects:       createdService,
+				activatorAlwaysInPath: activatorInPath,
+				latency:               latency,
+				payload:               payload,
+				startupLatency:        startupLatency,
 			}
 			return nil
 		})
@@ -232,79 +267,22 @@ func createServices(clients *test.Clients, count int) ([]*v1test.ResourceObjects
 	return objs, cleanupNames, nil
 }
 
+func getRandomPayload(min int, max int) ([]byte, error) {
+	num := getRandomValue(int64(min), int64(max))
+
+	buf := make([]byte, num)
+	_, err := crytporand.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	return buf, nil
+}
+
 func getRandomValue(min, max int64) int64 {
 	return rand.Int63n(max-min) + min
 }
 
-func processResults(ctx context.Context, results <-chan *vegeta.Result, reporter *performance.InfluxReporter, selector labels.Selector) *vegeta.Metrics {
-	ctx, cancel := context.WithCancel(ctx)
-	deploymentStatus := performance.FetchDeploymentsStatus(ctx, namespace, selector, time.Second)
-	sksMode := performance.FetchSKSStatus(ctx, namespace, selector, time.Second)
-	defer cancel()
-
-	metricResults := &vegeta.Metrics{}
-
-	for {
-		select {
-		case <-ctx.Done():
-			// If we time out or the pod gets shutdown via SIGTERM then start to
-			// clean thing up.
-			return nil
-
-		case res, ok := <-results:
-			if ok {
-				metricResults.Add(res)
-			} else {
-				// If there are no more results, then we're done!
-				// Compute latency percentiles
-				metricResults.Close()
-
-				return metricResults
-			}
-
-		case ds := <-deploymentStatus:
-			// Add a sample point for the deployment status
-			reporter.AddDataPoint(benchmarkName,
-				map[string]interface{}{"ready-replicas": float64(ds.ReadyReplicas), "desired-replicas": float64(ds.DesiredReplicas)})
-
-		case sksm := <-sksMode:
-			// Add a sample point for the serverless service mode
-			mode := float64(0)
-			if sksm.Mode == netv1alpha1.SKSOperationModeProxy {
-				mode = 1.0
-			}
-			reporter.AddDataPoint(benchmarkName,
-				map[string]interface{}{"sks": mode, "num-activators": float64(sksm.NumActivators)})
-		}
-	}
-}
-
-func checkSLA(results *vegeta.Metrics) error {
-	// SLA 1: the p95 latency has to be over the 0->3k stepped burst
-	// falls in the +15ms range (we sleep 100 ms, so 100-115ms).
-	// This includes a mix of cold-starts and steady state (once the autoscaling decisions have leveled off).
-	if results.Latencies.P95 >= 100*time.Millisecond && results.Latencies.P95 <= 115*time.Millisecond {
-		log.Println("SLA 1 passed. P95 latency is in 100-115ms time range")
-	} else {
-		return fmt.Errorf("SLA 1 failed. P95 latency is not in 100-115ms time range: %s", results.Latencies.P95)
-	}
-
-	// SLA 2: the maximum request latency observed over the 0->3k
-	// stepped burst is no more than +10 seconds. This is not strictly a cold-start
-	// metric, but it is a superset that includes steady state latency and the latency
-	// of non-cold-start overload requests.
-	if results.Latencies.Max <= 10*time.Second {
-		log.Println("SLA 2 passed. Max latency is below 10s")
-	} else {
-		return fmt.Errorf("SLA 2 failed. Max latency is above 10s: %s", results.Latencies.Max)
-	}
-
-	// SLA 3: The mean error rate observed over the 0->3k stepped burst is 0.
-	if len(results.Errors) == 0 {
-		log.Println("SLA 3 passed. No errors occurred")
-	} else {
-		return fmt.Errorf("SLA 3 failed. Errors occurred: %d", len(results.Errors))
-	}
-
-	return nil
+func getRandomBool() bool {
+	return rand.Intn(2) == 1
 }

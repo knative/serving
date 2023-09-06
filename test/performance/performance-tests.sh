@@ -106,12 +106,19 @@ kubectl create secret generic performance-test-config -n "$ns" \
 
 # Tweak configuration for performance tests
 scale_activator 10
-toggle_feature rolloutDuration 240 config-network
+toggle_feature rollout-duration 240 config-network
 toggle_feature scale-to-zero-grace-period 10s config-autoscaler
+toggle_feature kubernetes.podspec-init-containers enabled config-features # necessary for the real traffic test
 
 echo ">> Upload the test images"
 ko resolve --sbom=none -RBf test/test_images/autoscale > /dev/null
 ko resolve --sbom=none -RBf test/test_images/helloworld > /dev/null
+ko resolve --sbom=none -RBf test/test_images/slowstart > /dev/null
+
+################################################################################################
+header "Real traffic test"
+
+run_job real-traffic-test "${REPO_ROOT_DIR}/test/performance/benchmarks/real-traffic-test/real-traffic-test.yaml"
 
 ###############################################################################################
 header "Dataplane probe: Setup"

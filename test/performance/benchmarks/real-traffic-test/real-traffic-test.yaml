@@ -47,7 +47,8 @@ spec:
       - name: load-test
         image: ko://knative.dev/serving/test/performance/benchmarks/real-traffic-test
         args:
-        - "-number-of-services=100"
+        - "-number-of-services=50"
+        - "-requests-per-second=2000"
         env:
           - name: KO_DOCKER_REPO
             value: @KO_DOCKER_REPO@
@@ -70,6 +71,6 @@ spec:
                 key: prowtag
         resources:
           requests:
-            cpu: 2000m
-            memory: 5Gi
+            cpu: 1000m
+            memory: 2Gi
       restartPolicy: Never
