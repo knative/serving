@@ -115,6 +115,8 @@ ko resolve --sbom=none -RBf test/test_images/autoscale > /dev/null
 ko resolve --sbom=none -RBf test/test_images/helloworld > /dev/null
 ko resolve --sbom=none -RBf test/test_images/slowstart > /dev/null
 
+start=$(date +%s)
+
 ################################################################################################
 header "Real traffic test"
 
@@ -251,4 +253,6 @@ kubectl wait --for=delete ksvc/queue-proxy-with-cc --timeout=60s -n "$ns"
 
 success
 
-echo "You can find the results here: https://grafana.knative.dev/d/igHJ5-fdk/knative-serving-performance-tests?orgId=1&var-prowtag=${PROW_TAG}"
+end=$(date +%s)
+
+echo "You can find the results here: https://grafana.knative.dev/d/igHJ5-fdk/knative-serving-performance-tests?orgId=1&var-prowtag=${PROW_TAG}&from=${start}&to=${end}"
