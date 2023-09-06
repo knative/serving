@@ -128,7 +128,7 @@ func main() {
 
 	log.Print("Creating vegeta targets")
 
-	var targets []vegeta.Target
+	targets := []vegeta.Target{}
 	for _, svc := range services {
 		t := vegeta.Target{
 			Method: http.MethodPost,
@@ -187,6 +187,12 @@ LOOP:
 	// Report to stdout
 	_ = vegeta.NewTextReporter(&metricResults).Report(os.Stdout)
 
+	if err := checkSLA(&metricResults); err != nil {
+		cleanup()
+		influxReporter.FlushAndShutdown()
+		log.Fatal(err.Error())
+	}
+
 	log.Println("Real traffic test finished")
 }
 
@@ -203,6 +209,7 @@ func createServices(clients *test.Clients, count int) ([]*serviceConfig, func(),
 	}
 
 	cleanupNames := func() {
+		log.Println("Cleaning up all created services")
 		for i := 0; i < count; i++ {
 			test.TearDown(clients, testNames[i])
 		}
@@ -285,4 +292,15 @@ func getRandomValue(min, max int64) int64 {
 
 func getRandomBool() bool {
 	return rand.Intn(2) == 1
+}
+
+func checkSLA(results *vegeta.Metrics) error {
+	// SLA 1: All requests should pass successfully.
+	if len(results.Errors) == 0 {
+		log.Println("SLA 1 passed. No errors occurred")
+	} else {
+		return fmt.Errorf("SLA 1 failed. Errors occurred: %d", len(results.Errors))
+	}
+
+	return nil
 }

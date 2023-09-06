@@ -47,7 +47,7 @@ spec:
       - name: probe
         image: ko://knative.dev/serving/test/performance/benchmarks/reconciliation-delay
         args:
-        - "-duration=35m"
+        - "-duration=15m"
         - "-frequency=5s"
         resources:
           requests:

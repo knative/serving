@@ -119,6 +119,7 @@ ko resolve --sbom=none -RBf test/test_images/slowstart > /dev/null
 header "Real traffic test"
 
 run_job real-traffic-test "${REPO_ROOT_DIR}/test/performance/benchmarks/real-traffic-test/real-traffic-test.yaml"
+sleep 100 # wait a bit for the cleanup to be done
 
 ###############################################################################################
 header "Dataplane probe: Setup"
