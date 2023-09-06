@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-source $(dirname $0)/e2e-common.sh
+source $(dirname "$0")/e2e-common.sh
 
 function setup_auto_tls_env_variables() {
   # DNS zone for the testing domain.
@@ -92,12 +92,12 @@ function setup_http01_auto_tls() {
 
   if [[ -z "${MESH}" ]]; then
     echo "Install cert-manager no-mesh ClusterIssuer"
-    kubectl apply -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/http01/issuer.yaml
+    kubectl apply -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/http01/issuer.yaml
   else
     echo "Install cert-manager mesh ClusterIssuer"
-    kubectl apply -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/http01/mesh-issuer.yaml
+    kubectl apply -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/http01/mesh-issuer.yaml
   fi
-  kubectl apply -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/http01/config-certmanager.yaml
+  kubectl apply -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/http01/config-certmanager.yaml
   setup_dns_record
 }
 
@@ -159,7 +159,7 @@ function delete_dns_record() {
 }
 
 # Script entry point.
-initialize "$@" --skip-istio-addon --min-nodes=4 --max-nodes=4 --enable-ha --cluster-version=1.25
+initialize "$@" --num-nodes=4 --enable-ha --cluster-version=1.25
 
 # Run the tests
 header "Running tests"

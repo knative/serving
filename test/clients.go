@@ -34,7 +34,6 @@ import (
 	networkingv1alpha1 "knative.dev/networking/pkg/client/clientset/versioned/typed/networking/v1alpha1"
 	"knative.dev/serving/pkg/client/clientset/versioned"
 	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
-	servingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	servingv1beta1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1beta1"
 
 	// Every E2E test requires this, so add it here.
@@ -43,18 +42,12 @@ import (
 
 // Clients holds instances of interfaces for making requests to Knative Serving.
 type Clients struct {
-	KubeClient         kubernetes.Interface
-	ServingAlphaClient *ServingAlphaClients
-	ServingBetaClient  *ServingBetaClients
-	ServingClient      *ServingClients
-	NetworkingClient   *NetworkingClients
-	Dynamic            dynamic.Interface
-	Apiextensions      *apiextensionsv1.ApiextensionsV1Client
-}
-
-// ServingAlphaClients holds instances of interfaces for making requests to knative serving clients.
-type ServingAlphaClients struct {
-	DomainMappings servingv1alpha1.DomainMappingInterface
+	KubeClient        kubernetes.Interface
+	ServingBetaClient *ServingBetaClients
+	ServingClient     *ServingClients
+	NetworkingClient  *NetworkingClients
+	Dynamic           dynamic.Interface
+	Apiextensions     *apiextensionsv1.ApiextensionsV1Client
 }
 
 // ServingBetaClients holds instances of interfaces for making requests to knative serving clients.
@@ -100,11 +93,6 @@ func NewClients(cfg *rest.Config, namespace string) (*Clients, error) {
 		return nil, err
 	}
 
-	clients.ServingAlphaClient, err = newServingAlphaClients(cfg, namespace)
-	if err != nil {
-		return nil, err
-	}
-
 	clients.ServingBetaClient, err = newServingBetaClients(cfg, namespace)
 	if err != nil {
 		return nil, err
@@ -139,19 +127,6 @@ func newNetworkingClients(cfg *rest.Config, namespace string) (*NetworkingClient
 		ServerlessServices: cs.NetworkingV1alpha1().ServerlessServices(namespace),
 		Ingresses:          cs.NetworkingV1alpha1().Ingresses(namespace),
 		Certificates:       cs.NetworkingV1alpha1().Certificates(namespace),
-	}, nil
-}
-
-// newServingAlphaClients instantiates and returns the serving clientset required to make requests to the
-// knative serving cluster.
-func newServingAlphaClients(cfg *rest.Config, namespace string) (*ServingAlphaClients, error) {
-	cs, err := versioned.NewForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ServingAlphaClients{
-		DomainMappings: cs.ServingV1alpha1().DomainMappings(namespace),
 	}, nil
 }
 

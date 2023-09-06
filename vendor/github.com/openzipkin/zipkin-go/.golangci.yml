@@ -16,9 +16,8 @@ linters:
     - lll
     - misspell
     - nakedret
-    - structcheck
     - unparam
-    - varcheck
+    - unused
 
 linters-settings:
   dupl:

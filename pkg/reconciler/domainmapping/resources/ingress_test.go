@@ -31,19 +31,19 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 func TestMakeIngress(t *testing.T) {
 	for _, tc := range []struct {
 		name           string
-		dm             v1alpha1.DomainMapping
+		dm             v1beta1.DomainMapping
 		want           netv1alpha1.Ingress
 		tls            []netv1alpha1.IngressTLS
 		acmeChallenges []netv1alpha1.HTTP01Challenge
 	}{{
 		name: "basic",
-		dm: v1alpha1.DomainMapping{
+		dm: v1beta1.DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "mapping.com",
 				Namespace: "the-namespace",
@@ -53,7 +53,7 @@ func TestMakeIngress(t *testing.T) {
 					corev1.LastAppliedConfigAnnotation: "blah",
 				},
 			},
-			Spec: v1alpha1.DomainMappingSpec{
+			Spec: v1beta1.DomainMappingSpec{
 				Ref: duckv1.KReference{
 					Namespace: "the-namespace",
 					Name:      "the-name",
@@ -95,7 +95,7 @@ func TestMakeIngress(t *testing.T) {
 		},
 	}, {
 		name: "tls",
-		dm: v1alpha1.DomainMapping{
+		dm: v1beta1.DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "mapping.com",
 				Namespace: "the-namespace",
@@ -105,7 +105,7 @@ func TestMakeIngress(t *testing.T) {
 					corev1.LastAppliedConfigAnnotation: "blah",
 				},
 			},
-			Spec: v1alpha1.DomainMappingSpec{
+			Spec: v1beta1.DomainMappingSpec{
 				Ref: duckv1.KReference{
 					Namespace: "the-namespace",
 					Name:      "the-name",
@@ -155,7 +155,7 @@ func TestMakeIngress(t *testing.T) {
 		},
 	}, {
 		name: "challenges",
-		dm: v1alpha1.DomainMapping{
+		dm: v1beta1.DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "mapping.com",
 				Namespace: "the-namespace",
@@ -165,7 +165,7 @@ func TestMakeIngress(t *testing.T) {
 					corev1.LastAppliedConfigAnnotation: "blah",
 				},
 			},
-			Spec: v1alpha1.DomainMappingSpec{
+			Spec: v1beta1.DomainMappingSpec{
 				Ref: duckv1.KReference{
 					Namespace: "the-namespace",
 					Name:      "the-name",

@@ -25,6 +25,7 @@ import (
 	"strings"
 	"text/template"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/lru"
 	cm "knative.dev/pkg/configmap"
@@ -133,7 +134,7 @@ const (
 	// hostname for a Route's tag.
 	TagTemplateKey = "tag-template"
 
-	// InternalEncryptionKey is deprecated and replaced by InternalDataplaneTrustKey and internal-controlplane-trust
+	// InternalEncryptionKey is deprecated and replaced by InternalDataplaneTrustKey and ControlplaneTrustKey.
 	// InternalEncryptionKey is the name of the configuration whether
 	// internal traffic is encrypted or not.
 	InternalEncryptionKey = "internal-encryption"
@@ -321,6 +322,14 @@ func defaultConfig() *Config {
 	}
 }
 
+// NewConfigFromConfigMap returns a Config for the given configmap
+func NewConfigFromConfigMap(config *corev1.ConfigMap) (*Config, error) {
+	if config == nil {
+		return NewConfigFromMap(nil)
+	}
+	return NewConfigFromMap(config.Data)
+}
+
 // NewConfigFromMap creates a Config from the supplied data.
 func NewConfigFromMap(data map[string]string) (*Config, error) {
 	nc := defaultConfig()
@@ -434,6 +443,19 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	}
 
 	return nc, nil
+}
+
+// InternalTLSEnabled returns whether or not InternalEncyrption is enabled.
+// Currently only DataplaneTrust is considered.
+func (c *Config) InternalTLSEnabled() bool {
+	return tlsEnabled(c.DataplaneTrust)
+}
+
+func tlsEnabled(trust Trust) bool {
+	return trust == TrustMinimal ||
+		trust == TrustEnabled ||
+		trust == TrustMutual ||
+		trust == TrustIdentity
 }
 
 // GetDomainTemplate returns the golang Template from the config map

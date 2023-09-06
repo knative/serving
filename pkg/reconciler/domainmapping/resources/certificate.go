@@ -20,7 +20,7 @@ import (
 	networkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	routeresources "knative.dev/serving/pkg/reconciler/route/resources"
 )
 
@@ -29,7 +29,7 @@ import (
 // This function delegates entirely to routeresources.MakeCertificate,
 // but we keep it here to hide the `certName`, and `dnsName` logic
 // from the caller.
-func MakeCertificate(dm *v1alpha1.DomainMapping, certClass string) *networkingv1alpha1.Certificate {
+func MakeCertificate(dm *v1beta1.DomainMapping, certClass string) *networkingv1alpha1.Certificate {
 	certName := kmeta.ChildName(dm.GetName(), "")
 	return routeresources.MakeCertificate(
 		dm, serving.DomainMappingUIDLabelKey, dm.Name, certName, certClass, dm.Name)

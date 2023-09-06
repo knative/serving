@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"knative.dev/serving/test"
+	"knative.dev/serving/test/types"
 
 	. "knative.dev/serving/pkg/testing/v1"
 )
@@ -41,6 +42,15 @@ func toMilliValue(value float64) string {
 	return fmt.Sprintf("%dm", int(value*1000))
 }
 
+func isCgroupsV2(mounts []*types.Mount) (bool, error) {
+	for _, mount := range mounts {
+		if mount.Path == "/sys/fs/cgroup" {
+			return mount.Type == "cgroup2", nil
+		}
+	}
+	return false, fmt.Errorf("Failed to find cgroup mount on /sys/fs/cgroup")
+}
+
 // TestMustHaveCgroupConfigured verifies that the Linux cgroups are configured based on the specified
 // resource limits and requests as delared by "MUST" in the runtime-contract.
 func TestMustHaveCgroupConfigured(t *testing.T) {
@@ -49,25 +59,40 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 
 	resources := createResources()
 
+	_, ri, err := fetchRuntimeInfo(t, clients, WithResourceRequirements(resources))
+	if err != nil {
+		t.Fatal("Error fetching runtime info:", err)
+	}
+
 	// Cgroup settings are based on the CPU and Memory Limits as well as CPU Requests
 	// https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
 	//
 	// It's important to make sure that the memory limit is divisible by common page
 	// size (4k, 8k, 16k, 64k) as some environments apply rounding to the closest page
 	// size multiple, see https://github.com/kubernetes/kubernetes/issues/82230.
-	expectedCgroups := map[string]int{
+	var expectedCgroupsV1 = map[string]int{
 		"/sys/fs/cgroup/memory/memory.limit_in_bytes": int(resources.Limits.Memory().Value()) &^ 4095, // floor() to 4K pages
 		"/sys/fs/cgroup/cpu/cpu.shares":               int(resources.Requests.Cpu().MilliValue()) * 1024 / 1000}
 
-	_, ri, err := fetchRuntimeInfo(t, clients, WithResourceRequirements(resources))
-	if err != nil {
-		t.Fatal("Error fetching runtime info:", err)
-	}
+	var expectedCgroupsV2 = map[string]int{
+		"/sys/fs/cgroup/memory.max": int(resources.Limits.Memory().Value()) &^ 4095, // floor() to 4K pages
+		"/sys/fs/cgroup/cpu.weight": int(resources.Requests.Cpu().MilliValue()) * 1024 / 1000,
+		"/sys/fs/cgroup/cpu.max":    int(resources.Limits.Cpu().MilliValue())}
 
 	cgroups := ri.Host.Cgroups
+	cgroupV2, err := isCgroupsV2(ri.Host.Mounts)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	// These are used to check the ratio of 'period' to 'quota'. It needs to
-	// be equal to the 'cpuLimit (limit = period / quota)
+	expectedCgroups := expectedCgroupsV1
+	if cgroupV2 {
+		t.Logf("using cgroupv2")
+		expectedCgroups = expectedCgroupsV2
+	}
+
+	// These are used to check the ratio of 'quota' to 'period'. It needs to
+	// be equal to the 'cpuLimit (limit = quota / period)
 	var period, quota *int
 
 	for _, cgroup := range cgroups {
@@ -96,20 +121,21 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 		}
 	}
 
-	expectedCPULimit := int(resources.Limits.Cpu().MilliValue())
-	if period == nil {
-		t.Error("Can't find the 'cpu.cfs_period_us' from cgroups")
-	} else if quota == nil {
-		t.Error("Can't find the 'cpu.cfs_quota_us' from cgroups")
-	} else {
-		// CustomCpuLimits of a core e.g. 125m means 12,5% of a single CPU, 2 or 2000m means 200% of a single CPU
-		milliCPU := (1000 * (*quota)) / (*period)
-		if milliCPU != expectedCPULimit {
-			t.Errorf("MilliCPU (%v) is wrong should be %v. Period: %v Quota: %v",
-				milliCPU, expectedCPULimit, period, quota)
+	if !cgroupV2 {
+		expectedCPULimit := int(resources.Limits.Cpu().MilliValue())
+		if period == nil {
+			t.Error("Can't find the 'cpu.cfs_period_us' from cgroups")
+		} else if quota == nil {
+			t.Error("Can't find the 'cpu.cfs_quota_us' from cgroups")
+		} else {
+			// CustomCpuLimits of a core e.g. 125m means 12,5% of a single CPU, 2 or 2000m means 200% of a single CPU
+			milliCPU := (1000 * (*quota)) / (*period)
+			if milliCPU != expectedCPULimit {
+				t.Errorf("MilliCPU (%v) is wrong should be %v. Period: %v Quota: %v",
+					milliCPU, expectedCPULimit, period, quota)
+			}
 		}
 	}
-
 }
 
 // TestShouldHaveCgroupReadOnly verifies that the Linux cgroups are mounted read-only within the
