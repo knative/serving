@@ -58,7 +58,7 @@
         "uid": "${ds}"
       },
       "gridPos": {
-        "h": 3,
+        "h": 4,
         "w": 21,
         "x": 0,
         "y": 1
@@ -142,7 +142,7 @@
         "h": 3,
         "w": 7,
         "x": 0,
-        "y": 4
+        "y": 5
       },
       "id": 17,
       "options": {
@@ -243,7 +243,7 @@
         "h": 3,
         "w": 7,
         "x": 7,
-        "y": 4
+        "y": 5
       },
       "id": 19,
       "options": {
@@ -344,7 +344,7 @@
         "h": 3,
         "w": 7,
         "x": 14,
-        "y": 4
+        "y": 5
       },
       "id": 21,
       "options": {
@@ -441,7 +441,7 @@
         "h": 3,
         "w": 7,
         "x": 0,
-        "y": 7
+        "y": 8
       },
       "id": 18,
       "options": {
@@ -543,7 +543,7 @@
         "h": 3,
         "w": 7,
         "x": 7,
-        "y": 7
+        "y": 8
       },
       "id": 20,
       "options": {
@@ -644,7 +644,7 @@
         "h": 3,
         "w": 7,
         "x": 14,
-        "y": 7
+        "y": 8
       },
       "id": 22,
       "options": {
@@ -730,7 +730,7 @@
         "h": 5,
         "w": 21,
         "x": 0,
-        "y": 10
+        "y": 11
       },
       "hiddenSeries": false,
       "id": 30,
@@ -840,7 +840,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 15
+        "y": 16
       },
       "id": 2,
       "panels": [],
@@ -862,10 +862,10 @@
         "uid": "${ds}"
       },
       "gridPos": {
-        "h": 3,
+        "h": 4,
         "w": 21,
         "x": 0,
-        "y": 16
+        "y": 17
       },
       "id": 23,
       "options": {
@@ -927,7 +927,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "displayName": "${__field.labels.flavor}",
+          "displayName": "flavor: ${__field.labels.flavor}",
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -946,7 +946,7 @@
         "h": 3,
         "w": 7,
         "x": 0,
-        "y": 19
+        "y": 21
       },
       "id": 4,
       "options": {
@@ -1020,7 +1020,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "displayName": "${__field.labels.flavor}",
+          "displayName": "flavor: ${__field.labels.flavor}",
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -1047,7 +1047,7 @@
         "h": 3,
         "w": 7,
         "x": 7,
-        "y": 19
+        "y": 21
       },
       "id": 6,
       "options": {
@@ -1121,7 +1121,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "displayName": "${__field.labels.flavor}",
+          "displayName": "flavor: ${__field.labels.flavor}",
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -1148,7 +1148,7 @@
         "h": 3,
         "w": 7,
         "x": 14,
-        "y": 19
+        "y": 21
       },
       "id": 8,
       "options": {
@@ -1223,7 +1223,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "displayName": "${__field.labels.flavor}",
+          "displayName": "flavor: ${__field.labels.flavor}",
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -1246,7 +1246,7 @@
         "h": 3,
         "w": 7,
         "x": 0,
-        "y": 22
+        "y": 24
       },
       "id": 5,
       "options": {
@@ -1321,7 +1321,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "displayName": "${__field.labels.flavor}",
+          "displayName": "flavor: ${__field.labels.flavor}",
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -1348,7 +1348,7 @@
         "h": 3,
         "w": 7,
         "x": 7,
-        "y": 22
+        "y": 24
       },
       "id": 7,
       "options": {
@@ -1422,7 +1422,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "displayName": "${__field.labels.flavor}",
+          "displayName": "flavor: ${__field.labels.flavor}",
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -1445,7 +1445,7 @@
         "h": 3,
         "w": 7,
         "x": 14,
-        "y": 22
+        "y": 24
       },
       "id": 37,
       "options": {
@@ -1518,13 +1518,19 @@
         "type": "influxdb",
         "uid": "${ds}"
       },
+      "fieldConfig": {
+        "defaults": {
+          "displayName": "${__field.name}, flavor: ${__field.labels.flavor}"
+        },
+        "overrides": []
+      },
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
         "h": 7,
         "w": 21,
         "x": 0,
-        "y": 25
+        "y": 27
       },
       "hiddenSeries": false,
       "id": 31,
@@ -1676,7 +1682,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 32
+        "y": 34
       },
       "id": 13,
       "panels": [],
@@ -1698,10 +1704,10 @@
         "uid": "${ds}"
       },
       "gridPos": {
-        "h": 3,
+        "h": 4,
         "w": 21,
         "x": 0,
-        "y": 33
+        "y": 35
       },
       "id": 16,
       "options": {
@@ -1782,7 +1788,7 @@
         "h": 3,
         "w": 7,
         "x": 0,
-        "y": 36
+        "y": 39
       },
       "id": 24,
       "options": {
@@ -1883,7 +1889,7 @@
         "h": 3,
         "w": 7,
         "x": 7,
-        "y": 36
+        "y": 39
       },
       "id": 26,
       "options": {
@@ -1984,7 +1990,7 @@
         "h": 3,
         "w": 7,
         "x": 14,
-        "y": 36
+        "y": 39
       },
       "id": 28,
       "options": {
@@ -2081,7 +2087,7 @@
         "h": 3,
         "w": 7,
         "x": 0,
-        "y": 39
+        "y": 42
       },
       "id": 25,
       "options": {
@@ -2183,7 +2189,7 @@
         "h": 3,
         "w": 7,
         "x": 7,
-        "y": 39
+        "y": 42
       },
       "id": 27,
       "options": {
@@ -2284,7 +2290,7 @@
         "h": 3,
         "w": 7,
         "x": 14,
-        "y": 39
+        "y": 42
       },
       "id": 29,
       "options": {
@@ -2363,7 +2369,7 @@
         "h": 7,
         "w": 21,
         "x": 0,
-        "y": 42
+        "y": 45
       },
       "hiddenSeries": false,
       "id": 32,
@@ -2515,7 +2521,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 49
+        "y": 52
       },
       "id": 34,
       "panels": [],
@@ -2542,7 +2548,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "displayName": "${__field.labels.parallel}",
+          "displayName": "parallel: ${__field.labels.parallel}",
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -2569,7 +2575,7 @@
         "h": 4,
         "w": 7,
         "x": 0,
-        "y": 50
+        "y": 53
       },
       "id": 35,
       "options": {
@@ -2645,7 +2651,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "displayName": "${__field.labels.parallel}",
+          "displayName": "parallel: ${__field.labels.parallel}",
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -2668,7 +2674,7 @@
         "h": 4,
         "w": 7,
         "x": 7,
-        "y": 50
+        "y": 53
       },
       "id": 40,
       "options": {
@@ -2744,7 +2750,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "displayName": "${__field.labels.parallel}",
+          "displayName": "parallel: ${__field.labels.parallel}",
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -2767,7 +2773,7 @@
         "h": 4,
         "w": 7,
         "x": 14,
-        "y": 50
+        "y": 53
       },
       "id": 38,
       "options": {
@@ -2843,7 +2849,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "displayName": "${__field.labels.parallel}",
+          "displayName": "parallel: ${__field.labels.parallel}",
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -2866,7 +2872,7 @@
         "h": 4,
         "w": 7,
         "x": 0,
-        "y": 54
+        "y": 57
       },
       "id": 36,
       "options": {
@@ -2942,7 +2948,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "displayName": "${__field.labels.parallel}",
+          "displayName": "parallel: ${__field.labels.parallel}",
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -2965,7 +2971,7 @@
         "h": 4,
         "w": 7,
         "x": 7,
-        "y": 54
+        "y": 57
       },
       "id": 41,
       "options": {
@@ -3041,7 +3047,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "displayName": "${__field.labels.parallel}",
+          "displayName": "parallel: ${__field.labels.parallel}",
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -3064,7 +3070,7 @@
         "h": 4,
         "w": 7,
         "x": 14,
-        "y": 54
+        "y": 57
       },
       "id": 39,
       "options": {
@@ -3139,7 +3145,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 58
+        "y": 61
       },
       "id": 43,
       "panels": [],
@@ -3165,13 +3171,19 @@
         "uid": "${ds}"
       },
       "description": "SLA:\n- max: 5s",
+      "fieldConfig": {
+        "defaults": {
+          "displayName": "${__field.name}"
+        },
+        "overrides": []
+      },
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
         "h": 8,
         "w": 21,
         "x": 0,
-        "y": 59
+        "y": 62
       },
       "hiddenSeries": false,
       "id": 45,
@@ -3282,9 +3294,611 @@
       "yaxis": {
         "align": false
       }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 70
+      },
+      "id": 47,
+      "panels": [],
+      "title": "Real traffic test",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${ds}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 7,
+        "x": 0,
+        "y": 71
+      },
+      "id": 49,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${ds}"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving real traffic test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"requests\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "Requests",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${ds}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "#EAB839",
+                "value": 105
+              },
+              {
+                "color": "red",
+                "value": 115
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 7,
+        "x": 7,
+        "y": 71
+      },
+      "id": 52,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${ds}"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving real traffic test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-min\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "Latency: min",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${ds}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "#EAB839",
+                "value": 115
+              },
+              {
+                "color": "red",
+                "value": 120
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 7,
+        "x": 14,
+        "y": 71
+      },
+      "id": 55,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${ds}"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving real traffic test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-mean\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "Latency: mean",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${ds}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 7,
+        "x": 0,
+        "y": 74
+      },
+      "id": 50,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${ds}"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving real traffic test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"errors\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "Errors",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${ds}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "#EAB839",
+                "value": 105
+              },
+              {
+                "color": "red",
+                "value": 115
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 7,
+        "x": 7,
+        "y": 74
+      },
+      "id": 54,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${ds}"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving real traffic test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-p95\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "Latency: p95 ",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "${ds}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "#EAB839",
+                "value": 3500
+              },
+              {
+                "color": "red",
+                "value": 5000
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 7,
+        "x": 14,
+        "y": 74
+      },
+      "id": 56,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "${ds}"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving real traffic test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-max\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "Latency: max",
+      "type": "stat"
     }
   ],
-  "refresh": false,
+  "refresh": "10s",
   "schemaVersion": 37,
   "style": "dark",
   "tags": [],
@@ -3293,7 +3907,7 @@
       {
         "allValue": "all",
         "current": {
-          "selected": false,
+          "selected": true,
           "text": "All",
           "value": "$__all"
         },
@@ -3345,6 +3959,6 @@
   "timezone": "",
   "title": "Knative Serving Performance Tests",
   "uid": "igHJ5-fdk",
-  "version": 3,
+  "version": 7,
   "weekStart": ""
 }
