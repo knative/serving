@@ -47,6 +47,7 @@ func TestCertificateRotation(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to create CertWatcher", err)
 	}
+	defer cw.Stop()
 
 	// CertWatcher should return the expected certificate
 	c, err := cw.GetCertificate(nil)
