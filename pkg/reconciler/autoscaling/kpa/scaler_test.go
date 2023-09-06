@@ -68,7 +68,7 @@ const (
 )
 
 func TestScaler(t *testing.T) {
-	const activationTimeout = progressDeadline + activationTimeoutBuffer
+	const activationTimeout = stableWindow + activationTimeoutBuffer
 	tests := []struct {
 		label               string
 		startReplicas       int
@@ -333,7 +333,7 @@ func TestScaler(t *testing.T) {
 			progressDeadline := "5s"
 			k.Annotations[serving.ProgressDeadlineAnnotationKey] = progressDeadline
 			customActivationTimeout, _ := time.ParseDuration(progressDeadline)
-			paMarkActivating(k, time.Now().Add(-(customActivationTimeout + +activationTimeoutBuffer + time.Second)))
+			paMarkActivating(k, time.Now().Add(-(customActivationTimeout + activationTimeout)))
 		},
 	}, {
 		label:         "scale down to minScale before grace period",
