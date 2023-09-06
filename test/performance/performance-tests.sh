@@ -26,7 +26,7 @@
 # project $PROJECT_ID, start knative in it, run the tests and delete the
 # cluster.
 
-source $(dirname $0)/../e2e-common.sh
+source $(dirname "$0")/../e2e-common.sh
 
 set -o errexit
 set -o nounset

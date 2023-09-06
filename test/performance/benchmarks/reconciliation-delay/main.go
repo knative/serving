@@ -23,35 +23,36 @@ import (
 	"log"
 	"math"
 	"os"
-	"path/filepath"
 	"time"
 
 	vegeta "github.com/tsenart/vegeta/v12/lib"
-	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/pkg/injection"
-	"knative.dev/pkg/signals"
-	"sigs.k8s.io/yaml"
-
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
-	"knative.dev/pkg/apis"
-
+	netapi "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	networkingclient "knative.dev/networking/pkg/client/injection/client"
+	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/pkg/injection"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/signals"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
+	ktest "knative.dev/serving/pkg/testing/v1"
+	"knative.dev/serving/test"
 	"knative.dev/serving/test/performance/performance"
+	v1test "knative.dev/serving/test/v1"
 )
 
 const (
+	namespace     = "default"
 	benchmarkName = "Knative Serving reconciliation delay"
-	template      = "knative-service-template.yaml"
 )
 
 var (
@@ -65,17 +66,12 @@ func main() {
 	ctx, startInformers := injection.EnableInjectionOrDie(ctx, cfg)
 	startInformers()
 
-	tmpl, err := readTemplate()
-	if err != nil {
-		log.Fatalf("Unable to read template %s: %v", template, err)
-	}
-
 	ctx, cancel := context.WithTimeout(ctx, *duration)
 	defer cancel()
 
 	sc := servingclient.Get(ctx)
 	cleanupServices := func() error {
-		return sc.ServingV1().Services(tmpl.Namespace).DeleteCollection(
+		return sc.ServingV1().Services(namespace).DeleteCollection(
 			context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})
 	}
 	defer cleanupServices()
@@ -92,28 +88,28 @@ func main() {
 
 	lo := metav1.ListOptions{TimeoutSeconds: ptr.Int64(int64(duration.Seconds()))}
 
-	serviceWI, err := sc.ServingV1().Services(tmpl.Namespace).Watch(ctx, lo)
+	serviceWI, err := sc.ServingV1().Services(namespace).Watch(ctx, lo)
 	if err != nil {
 		fatalf("Unable to watch services: %v", err)
 	}
 	defer serviceWI.Stop()
 	serviceSeen := sets.Set[string]{}
 
-	configurationWI, err := sc.ServingV1().Configurations(tmpl.Namespace).Watch(ctx, lo)
+	configurationWI, err := sc.ServingV1().Configurations(namespace).Watch(ctx, lo)
 	if err != nil {
 		fatalf("Unable to watch configurations: %v", err)
 	}
 	defer configurationWI.Stop()
 	configurationSeen := sets.Set[string]{}
 
-	routeWI, err := sc.ServingV1().Routes(tmpl.Namespace).Watch(ctx, lo)
+	routeWI, err := sc.ServingV1().Routes(namespace).Watch(ctx, lo)
 	if err != nil {
 		fatalf("Unable to watch routes: %v", err)
 	}
 	defer routeWI.Stop()
 	routeSeen := sets.Set[string]{}
 
-	revisionWI, err := sc.ServingV1().Revisions(tmpl.Namespace).Watch(ctx, lo)
+	revisionWI, err := sc.ServingV1().Revisions(namespace).Watch(ctx, lo)
 	if err != nil {
 		fatalf("Unable to watch revisions: %v", err)
 	}
@@ -121,21 +117,21 @@ func main() {
 	revisionSeen := sets.Set[string]{}
 
 	nc := networkingclient.Get(ctx)
-	ingressWI, err := nc.NetworkingV1alpha1().Ingresses(tmpl.Namespace).Watch(ctx, lo)
+	ingressWI, err := nc.NetworkingV1alpha1().Ingresses(namespace).Watch(ctx, lo)
 	if err != nil {
 		fatalf("Unable to watch ingresss: %v", err)
 	}
 	defer ingressWI.Stop()
 	ingressSeen := sets.Set[string]{}
 
-	sksWI, err := nc.NetworkingV1alpha1().ServerlessServices(tmpl.Namespace).Watch(ctx, lo)
+	sksWI, err := nc.NetworkingV1alpha1().ServerlessServices(namespace).Watch(ctx, lo)
 	if err != nil {
 		fatalf("Unable to watch skss: %v", err)
 	}
 	defer sksWI.Stop()
 	sksSeen := sets.Set[string]{}
 
-	paWI, err := sc.AutoscalingV1alpha1().PodAutoscalers(tmpl.Namespace).Watch(ctx, lo)
+	paWI, err := sc.AutoscalingV1alpha1().PodAutoscalers(namespace).Watch(ctx, lo)
 	if err != nil {
 		fatalf("Unable to watch pas: %v", err)
 	}
@@ -150,6 +146,8 @@ func main() {
 		}
 		defer influxReporter.FlushAndShutdown()
 
+		service := getService()
+
 		// We use vegeta.Metrics here as a metrics collector because it already contains logic to calculate percentiles
 		mr := &vegeta.Metrics{}
 		for {
@@ -161,7 +159,7 @@ func main() {
 				return mr
 
 			case <-tick.C:
-				_, err := sc.ServingV1().Services(tmpl.Namespace).Create(ctx, tmpl, metav1.CreateOptions{})
+				_, err := sc.ServingV1().Services(namespace).Create(ctx, service, metav1.CreateOptions{})
 				if err != nil {
 					log.Println("Error creating service:", err)
 					break
@@ -237,6 +235,29 @@ func main() {
 	log.Println("Reconciliation delay run finished")
 }
 
+func getService() *v1.Service {
+	rn := test.ResourceNames{
+		Service: test.AppendRandomString("runtime"),
+		// The crd.go helpers will convert to the actual image path.
+		Image: test.Runtime,
+	}
+	sos := []ktest.ServiceOption{
+		ktest.WithResourceRequirements(corev1.ResourceRequirements{
+			// We set a small resource alloc so that we can pack more pods into the cluster
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("10m"),
+				corev1.ResourceMemory: resource.MustParse("50Mi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("30m"),
+				corev1.ResourceMemory: resource.MustParse("50Mi"),
+			},
+		}),
+		ktest.WithServiceLabel(netapi.VisibilityLabelKey, serving.VisibilityClusterLocal),
+	}
+	return v1test.Service(rn, sos...)
+}
+
 func handleEvent(influxReporter *performance.InfluxReporter, metricResults *vegeta.Metrics, svc kmeta.Accessor,
 	status duckv1.Status, seen sets.Set[string], metric string) {
 	if seen.Has(svc.GetName()) {
@@ -267,33 +288,6 @@ func handleEvent(influxReporter *performance.InfluxReporter, metricResults *vege
 	} else if cc.Status == corev1.ConditionFalse {
 		log.Printf("Not Ready: %s; %s: %s", svc.GetName(), cc.Reason, cc.Message)
 	}
-}
-
-func readTemplate() (*v1.Service, error) {
-	path := filepath.Join(os.Getenv("KO_DATA_PATH"), template)
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	svc := &v1.Service{}
-	if err := yaml.Unmarshal(b, svc); err != nil {
-		return nil, err
-	}
-
-	// only set ownerReferences when deployed to a cluster
-	podName := os.Getenv("POD_NAME")
-	if podName != "" {
-		svc.OwnerReferences = []metav1.OwnerReference{{
-			APIVersion:         "v1",
-			Kind:               "Pod",
-			Name:               podName,
-			UID:                types.UID(os.Getenv("POD_UID")),
-			Controller:         ptr.Bool(true),
-			BlockOwnerDeletion: ptr.Bool(true),
-		}}
-	}
-
-	return svc, nil
 }
 
 func checkSLA(results *vegeta.Metrics, expectedReadyServices float64) error {
