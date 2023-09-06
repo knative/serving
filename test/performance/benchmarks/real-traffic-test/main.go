@@ -150,7 +150,7 @@ func main() {
 
 	results := attacker.Attack(targeter, rate, duration, "real-traffic-test")
 
-	var metricResults vegeta.Metrics
+	var metricResults *vegeta.Metrics
 
 LOOP:
 	for {
@@ -176,18 +176,11 @@ LOOP:
 	// Compute latency percentiles
 	metricResults.Close()
 
-	// Report results to influx
-	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"requests": float64(metricResults.Requests)})
-	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"latency-mean": float64(metricResults.Latencies.Mean)})
-	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"latency-min": float64(metricResults.Latencies.Min)})
-	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"latency-max": float64(metricResults.Latencies.Max)})
-	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"latency-p95": float64(metricResults.Latencies.P95)})
-	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"errors": float64(len(metricResults.Errors))})
+	// Report the results
+	influxReporter.AddDataPointsForMetrics(metricResults, benchmarkName)
+	_ = vegeta.NewTextReporter(metricResults).Report(os.Stdout)
 
-	// Report to stdout
-	_ = vegeta.NewTextReporter(&metricResults).Report(os.Stdout)
-
-	if err := checkSLA(&metricResults); err != nil {
+	if err := checkSLA(metricResults); err != nil {
 		cleanup()
 		influxReporter.FlushAndShutdown()
 		log.Fatal(err.Error())

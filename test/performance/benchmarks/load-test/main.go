@@ -100,15 +100,8 @@ func main() {
 	resultsChan := vegeta.NewAttacker().Attack(targeter, pacer, 3*duration, "load-test")
 	metricResults := processResults(ctx, resultsChan, influxReporter, selector)
 
-	// Report results to influx
-	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"requests": float64(metricResults.Requests)})
-	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"latency-mean": float64(metricResults.Latencies.Mean)})
-	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"latency-min": float64(metricResults.Latencies.Min)})
-	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"latency-max": float64(metricResults.Latencies.Max)})
-	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"latency-p95": float64(metricResults.Latencies.P95)})
-	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"errors": float64(len(metricResults.Errors))})
-
-	// Report to stdout
+	// Report the results
+	influxReporter.AddDataPointsForMetrics(metricResults, benchmarkName)
 	_ = vegeta.NewTextReporter(metricResults).Report(os.Stdout)
 
 	if err := checkSLA(metricResults); err != nil {

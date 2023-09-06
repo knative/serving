@@ -25,6 +25,7 @@ import (
 
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	"github.com/influxdata/influxdb-client-go/v2/api"
+	vegeta "github.com/tsenart/vegeta/v12/lib"
 )
 
 const (
@@ -91,6 +92,30 @@ func (ir *InfluxReporter) AddDataPoint(measurement string, fields map[string]int
 
 	// Write point asynchronously
 	ir.writeAPI.WritePoint(p)
+}
+
+// AddDataPointsForMetrics reports vegeta.Metrics to influxdb
+func (ir *InfluxReporter) AddDataPointsForMetrics(m *vegeta.Metrics, benchmarkName string) {
+	metrics := []map[string]interface{}{
+		{
+			"requests":     float64(m.Requests),
+			"rate":         m.Rate,
+			"throughput":   m.Throughput,
+			"duration":     float64(m.Duration),
+			"latency-mean": float64(m.Latencies.Mean),
+			"latency-min":  float64(m.Latencies.Min),
+			"latency-max":  float64(m.Latencies.Max),
+			"latency-p95":  float64(m.Latencies.P95),
+			"success":      m.Success,
+			"errors":       float64(len(m.Errors)),
+			"bytes-in":     float64(m.BytesIn.Total),
+			"bytes-out":    float64(m.BytesOut.Total),
+		},
+	}
+
+	for _, m := range metrics {
+		ir.AddDataPoint(benchmarkName, m)
+	}
 }
 
 func getEnvVariable(envVarName string) (string, error) {

@@ -161,13 +161,8 @@ func main() {
 
 	metricResults := vegetaReporter.StopAndCollectMetrics()
 
-	// Report results to influx
-	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"latency-mean": float64(metricResults.Latencies.Mean)})
-	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"latency-min": float64(metricResults.Latencies.Min)})
-	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"latency-max": float64(metricResults.Latencies.Max)})
-	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"latency-p95": float64(metricResults.Latencies.P95)})
-
-	// Report to stdout
+	// Report the results
+	influxReporter.AddDataPointsForMetrics(metricResults, benchmarkName)
 	_ = vegeta.NewTextReporter(metricResults).Report(os.Stdout)
 
 	sla := slas[*parallelCount]

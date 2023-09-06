@@ -128,7 +128,7 @@ func main() {
 	results := attacker.Attack(targeter, rate, *duration, "load-test")
 	deploymentStatus := performance.FetchDeploymentStatus(ctx, system.Namespace(), "activator", time.Second)
 
-	var metricResults vegeta.Metrics
+	var metricResults *vegeta.Metrics
 
 LOOP:
 	for {
@@ -155,16 +155,9 @@ LOOP:
 	// Compute latency percentiles
 	metricResults.Close()
 
-	// Report results to influx
-	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"requests": float64(metricResults.Requests)})
-	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"latency-mean": float64(metricResults.Latencies.Mean)})
-	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"latency-min": float64(metricResults.Latencies.Min)})
-	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"latency-max": float64(metricResults.Latencies.Max)})
-	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"latency-p95": float64(metricResults.Latencies.P95)})
-	influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"errors": float64(len(metricResults.Errors))})
-
-	// Report to stdout
-	_ = vegeta.NewTextReporter(&metricResults).Report(os.Stdout)
+	// Report the results
+	influxReporter.AddDataPointsForMetrics(metricResults, benchmarkName)
+	_ = vegeta.NewTextReporter(metricResults).Report(os.Stdout)
 
 	if err := checkSLA(metricResults, t.slaMin, t.slaMax); err != nil {
 		// make sure to still write the stats
@@ -175,7 +168,7 @@ LOOP:
 	log.Println("Dataplane probe test finished")
 }
 
-func checkSLA(results vegeta.Metrics, slaMin time.Duration, slaMax time.Duration) error {
+func checkSLA(results *vegeta.Metrics, slaMin time.Duration, slaMax time.Duration) error {
 	// SLA 1: The p95 latency hitting the target has to be between the range defined
 	// in the target map on top.
 	if results.Latencies.P95 >= slaMin && results.Latencies.P95 <= slaMax {
