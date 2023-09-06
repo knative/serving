@@ -150,7 +150,7 @@ func main() {
 
 	results := attacker.Attack(targeter, rate, duration, "real-traffic-test")
 
-	var metricResults *vegeta.Metrics
+	metricResults := &vegeta.Metrics{}
 
 LOOP:
 	for {

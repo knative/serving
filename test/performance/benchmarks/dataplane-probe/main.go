@@ -128,7 +128,7 @@ func main() {
 	results := attacker.Attack(targeter, rate, *duration, "load-test")
 	deploymentStatus := performance.FetchDeploymentStatus(ctx, system.Namespace(), "activator", time.Second)
 
-	var metricResults *vegeta.Metrics
+	metricResults := &vegeta.Metrics{}
 
 LOOP:
 	for {
