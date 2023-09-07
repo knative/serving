@@ -106,6 +106,9 @@ spec:
                     CACerts:
                       description: CACerts is the Certification Authority (CA) certificates in PEM format according to https://www.rfc-editor.org/rfc/rfc7468.
                       type: string
+                    audience:
+                      description: Audience is the OIDC audience for this address.
+                      type: string
                     name:
                       description: Name is the name of the address.
                       type: string

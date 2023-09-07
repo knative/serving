@@ -157,7 +157,7 @@ function create_gke_test_cluster() {
     --v=1 \
     --network=e2e-network \
     --boskos-acquire-timeout-seconds=1200 \
-    --region="${E2E_CLUSTER_REGION},us-east1,us-west1" \
+    --region="${E2E_CLUSTER_REGION:-us-central1},us-east1,us-west1" \
     --gcloud-extra-flags="${_extra_gcloud_flags[*]}" \
     --retryable-error-patterns='.*does not have enough resources available to fulfill.*,.*only \\d+ nodes out of \\d+ have registered; this is likely due to Nodes failing to start correctly.*,.*All cluster resources were brought up.+ but: component .+ from endpoint .+ is unhealthy.*' \
     --test=exec \
