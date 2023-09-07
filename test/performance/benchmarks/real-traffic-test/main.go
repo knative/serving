@@ -99,6 +99,8 @@ func main() {
 
 	// The local domain is directly resolvable by the test
 	flag.Set("resolvabledomain", "true")
+
+	// manually parse flags to avoid conflicting flags
 	flag.Parse()
 
 	cfg, err := env.GetRESTConfig()

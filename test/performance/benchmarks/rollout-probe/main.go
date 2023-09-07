@@ -168,7 +168,7 @@ LOOP:
 		case ds := <-deploymentStatus:
 			// Ignore deployment updates until we get current one.
 			if firstRev == "" {
-				break LOOP
+				continue
 			}
 			// Deployment name contains revision name.
 			// If it is the first one -- report it.

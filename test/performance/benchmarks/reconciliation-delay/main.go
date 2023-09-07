@@ -64,13 +64,17 @@ var (
 
 func main() {
 	ctx := signals.NewContext()
-	ctx, cancel := context.WithTimeout(ctx, *duration)
-	defer cancel()
 
 	// To make testing.T work properly
 	testing.Init()
 
 	env := environment.ClientConfig{}
+
+	// manually parse flags to avoid conflicting flags
+	flag.Parse()
+
+	ctx, cancel := context.WithTimeout(ctx, *duration)
+	defer cancel()
 
 	cfg, err := env.GetRESTConfig()
 	if err != nil {
@@ -157,8 +161,6 @@ func main() {
 		}
 		defer influxReporter.FlushAndShutdown()
 
-		service := getService()
-
 		// We use vegeta.Metrics here as a metrics collector because it already contains logic to calculate percentiles
 		mr := &vegeta.Metrics{}
 		for {
@@ -170,7 +172,7 @@ func main() {
 				return mr
 
 			case <-tick.C:
-				_, err := sc.ServingV1().Services(namespace).Create(ctx, service, metav1.CreateOptions{})
+				_, err := sc.ServingV1().Services(namespace).Create(ctx, getService(), metav1.CreateOptions{})
 				if err != nil {
 					log.Println("Error creating service:", err)
 					break
