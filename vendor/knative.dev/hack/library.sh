@@ -718,18 +718,23 @@ function __go_update_deps_for_module() {
     fi
   fi
 
-  group "Go mod tidy and vendor"
+  group "Go mod tidy"
 
   # Prune modules.
-  local orig_pipefail_opt=$(shopt -p -o pipefail)
+  local orig_pipefail_opt
+  orig_pipefail_opt=$(shopt -p -o pipefail)
   set -o pipefail
   go mod tidy 2>&1 | grep -v "ignoring symlink" || true
-  go mod vendor 2>&1 |  grep -v "ignoring symlink" || true
+  if [[ "${FORCE_VENDOR:-false}" == "true" ]] || [ -d vendor ]; then
+    group "Go mod vendor"
+    go mod vendor 2>&1 |  grep -v "ignoring symlink" || true
+  fi
   eval "$orig_pipefail_opt"
 
-  if ! [ -d vendor ]; then
+  if ! [[ "${FORCE_VENDOR:-false}" == "true" ]] && ! [ -d vendor ]; then
     return 0
   fi
+
   group "Removing unwanted vendor files"
 
   # Remove unwanted vendor files

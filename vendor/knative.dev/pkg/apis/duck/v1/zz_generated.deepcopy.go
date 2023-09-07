@@ -72,6 +72,11 @@ func (in *Addressable) DeepCopyInto(out *Addressable) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.Audience != nil {
+		in, out := &in.Audience, &out.Audience
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 
@@ -358,6 +363,11 @@ func (in *Destination) DeepCopyInto(out *Destination) {
 	}
 	if in.CACerts != nil {
 		in, out := &in.CACerts, &out.CACerts
+		*out = new(string)
+		**out = **in
+	}
+	if in.Audience != nil {
+		in, out := &in.Audience, &out.Audience
 		*out = new(string)
 		**out = **in
 	}
