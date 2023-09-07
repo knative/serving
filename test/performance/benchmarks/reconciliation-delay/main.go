@@ -23,6 +23,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"testing"
 	"time"
 
 	vegeta "github.com/tsenart/vegeta/v12/lib"
@@ -36,6 +37,7 @@ import (
 	networkingclient "knative.dev/networking/pkg/client/injection/client"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/pkg/environment"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
@@ -62,12 +64,21 @@ var (
 
 func main() {
 	ctx := signals.NewContext()
-	cfg := injection.ParseAndGetRESTConfigOrDie()
-	ctx, startInformers := injection.EnableInjectionOrDie(ctx, cfg)
-	startInformers()
-
 	ctx, cancel := context.WithTimeout(ctx, *duration)
 	defer cancel()
+
+	// To make testing.T work properly
+	testing.Init()
+
+	env := environment.ClientConfig{}
+
+	cfg, err := env.GetRESTConfig()
+	if err != nil {
+		log.Fatalf("failed to get kubeconfig %s", err)
+	}
+
+	ctx, startInformers := injection.EnableInjectionOrDie(ctx, cfg)
+	startInformers()
 
 	sc := servingclient.Get(ctx)
 	cleanupServices := func() error {
