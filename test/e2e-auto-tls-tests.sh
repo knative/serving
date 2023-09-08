@@ -67,15 +67,15 @@ function setup_auto_tls_common() {
 
   setup_custom_domain
 
-  toggle_feature autoTLS Enabled config-network
-  toggle_feature autocreateClusterDomainClaims true config-network
+  toggle_feature auto-tls Enabled config-network
+  toggle_feature autocreate-cluster-domain-claims true config-network
 }
 
 function cleanup_auto_tls_common() {
   cleanup_custom_domain
 
-  toggle_feature autoTLS Disabled config-network
-  toggle_feature autocreateClusterDomainClaims false config-network
+  toggle_feature auto-tls Disabled config-network
+  toggle_feature autocreate-cluster-domain-claims false config-network
   toggle_feature namespace-wildcard-cert-selector "" config-network
   kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
 }

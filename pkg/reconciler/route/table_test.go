@@ -3121,8 +3121,8 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 		}},
 		Key: "default/becomes-ready",
 	}, {
-		// This test is a same with "public becomes cluster local" above, but confirm it does not create certs with autoTLS for cluster-local.
-		Name: "public becomes cluster local w/ autoTLS",
+		// This test is a same with "public becomes cluster local" above, but confirm it does not create certs with auto-tls for cluster-local.
+		Name: "public becomes cluster local w/ auto-tls",
 		Objects: []runtime.Object{
 			Route("default", "becomes-local", WithConfigTarget("config"), WithRouteGeneration(1),
 				WithRouteLabel(map[string]string{netapi.VisibilityLabelKey: serving.VisibilityClusterLocal}),

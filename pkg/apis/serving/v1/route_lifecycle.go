@@ -193,7 +193,7 @@ const (
 	// AutoTLSNotEnabledMessage is the message which is set on the
 	// RouteConditionCertificateProvisioned condition when it is set to True
 	// because AutoTLS was not enabled.
-	AutoTLSNotEnabledMessage = "autoTLS is not enabled"
+	AutoTLSNotEnabledMessage = "auto-tls is not enabled"
 
 	// TLSNotEnabledForClusterLocalMessage is the message which is set on the
 	// RouteConditionCertificateProvisioned condition when it is set to True
@@ -202,7 +202,7 @@ const (
 )
 
 // MarkTLSNotEnabled sets RouteConditionCertificateProvisioned to true when
-// certificate config such as autoTLS is not enabled or private cluster-local service.
+// certificate config such as auto-tls is not enabled or private cluster-local service.
 func (rs *RouteStatus) MarkTLSNotEnabled(msg string) {
 	routeCondSet.Manage(rs).MarkTrueWithReason(RouteConditionCertificateProvisioned,
 		"TLSNotEnabled", msg)

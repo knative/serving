@@ -50,7 +50,7 @@ fi
 
 if (( HTTPS )); then
   E2E_TEST_FLAGS+=" -https"
-  toggle_feature autoTLS Enabled config-network
+  toggle_feature auto-tls Enabled config-network
   kubectl apply -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/caissuer/
   add_trap "kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 fi
@@ -64,14 +64,14 @@ if (( SHORT )); then
 fi
 
 
-toggle_feature autocreateClusterDomainClaims true config-network || fail_test
+toggle_feature autocreate-cluster-domain-claims true config-network || fail_test
 go_test_e2e -timeout=30m \
   ${GO_TEST_FLAGS} \
   ./test/conformance/api/... \
   ./test/conformance/runtime/... \
   ./test/e2e \
   ${E2E_TEST_FLAGS} || failed=1
-toggle_feature autocreateClusterDomainClaims false config-network || fail_test
+toggle_feature autocreate-cluster-domain-claims false config-network || fail_test
 
 toggle_feature tag-header-based-routing Enabled
 go_test_e2e -timeout=2m ./test/e2e/tagheader ${E2E_TEST_FLAGS} || failed=1
@@ -81,9 +81,9 @@ toggle_feature allow-zero-initial-scale true config-autoscaler || fail_test
 go_test_e2e -timeout=2m ./test/e2e/initscale ${E2E_TEST_FLAGS} || failed=1
 toggle_feature allow-zero-initial-scale false config-autoscaler || fail_test
 
-toggle_feature autocreateClusterDomainClaims true config-network || fail_test
+toggle_feature autocreate-cluster-domain-claims true config-network || fail_test
 go_test_e2e -timeout=2m ./test/e2e/domainmapping ${E2E_TEST_FLAGS} || failed=1
-toggle_feature autocreateClusterDomainClaims false config-network || fail_test
+toggle_feature autocreate-cluster-domain-claims false config-network || fail_test
 
 kubectl get cm "config-gc" -n "${SYSTEM_NAMESPACE}" -o yaml > "${TMP_DIR}"/config-gc.yaml
 add_trap "kubectl replace cm 'config-gc' -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.yaml" SIGKILL SIGTERM SIGQUIT
@@ -123,17 +123,17 @@ toggle_feature secure-pod-defaults Disabled
 
 # Run HA tests separately as they're stopping core Knative Serving pods.
 # Define short -spoofinterval to ensure frequent probing while stopping pods.
-toggle_feature autocreateClusterDomainClaims true config-network || fail_test
+toggle_feature autocreate-cluster-domain-claims true config-network || fail_test
 go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha \
   ${E2E_TEST_FLAGS} \
   -replicas="${REPLICAS:-1}" \
   -buckets="${BUCKETS:-1}" \
   -spoofinterval="10ms" || failed=1
-toggle_feature autocreateClusterDomainClaims false config-network || fail_test
+toggle_feature autocreate-cluster-domain-claims false config-network || fail_test
 
 if (( HTTPS )); then
   kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
-  toggle_feature autoTLS Disabled config-network
+  toggle_feature auto-tls Disabled config-network
 fi
 
 (( failed )) && fail_test
