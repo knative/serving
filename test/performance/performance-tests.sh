@@ -40,6 +40,8 @@ ns="default"
 
 initialize --num-nodes=10 --cluster-version=1.25 "$@"
 
+env
+
 function scale_activator() {
   local replicas=$1
 
@@ -115,7 +117,8 @@ ko resolve --sbom=none -RBf test/test_images/autoscale > /dev/null
 ko resolve --sbom=none -RBf test/test_images/helloworld > /dev/null
 ko resolve --sbom=none -RBf test/test_images/slowstart > /dev/null
 
-start=$(date +%s)
+# grafana expects time in milliseconds
+start=$(($(date +%s%N)/1000000))
 
 ################################################################################################
 header "Real traffic test"
@@ -251,8 +254,9 @@ run_job rollout-probe-queue-direct "${REPO_ROOT_DIR}/test/performance/benchmarks
 kubectl delete ksvc queue-proxy-with-cc -n "$ns" --ignore-not-found=true
 kubectl wait --for=delete ksvc/queue-proxy-with-cc --timeout=60s -n "$ns"
 
-success
-
-end=$(date +%s)
+# grafana expects time in milliseconds
+end=$(($(date +%s%N)/1000000))
 
 echo "You can find the results here: https://grafana.knative.dev/d/igHJ5-fdk/knative-serving-performance-tests?orgId=1&var-prowtag=${PROW_TAG}&from=${start}&to=${end}"
+
+success
