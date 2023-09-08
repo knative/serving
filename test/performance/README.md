@@ -31,7 +31,7 @@ The results are written to:
 ## Grafana
 
 To better visualize the test results, Grafana is used to show the results in a dashboard.
-The dashboard is defined in [grafana-dashboard.json](./visualization/grafana-dashboard.json) and 
+The dashboard is defined in [grafana-dashboard.json](./visualization/grafana-dashboard.json) and
 hosted on [grafana.knative.dev](https://grafana.knative.dev/d/igHJ5-fdk/knative-serving-performance-tests?orgId=1)
 
 
