@@ -114,19 +114,28 @@ func (rt *FakeRoundTripper) popResponse(host string) *FakeResponse {
 func (rt *FakeRoundTripper) RT(req *http.Request) (*http.Response, error) {
 	ctx := req.Context()
 
-	if req.Header.Get(netheader.ProbeKey) != "" {
-		rt.NumProbes.Inc()
-		resp := rt.popResponse(req.URL.Host)
-
+	delayResponse := func(resp *FakeResponse) error {
 		// Delay if set before sending response
-		if resp.Delay.Seconds() != 0 {
+		if resp.Delay != 0 {
 			timer := time.NewTimer(resp.Delay)
 			select {
 			case <-ctx.Done():
 				timer.Stop()
-				return nil, ctx.Err()
+				return ctx.Err()
 			case <-timer.C:
 			}
+		}
+
+		return nil
+	}
+
+	if req.Header.Get(netheader.ProbeKey) != "" {
+		rt.NumProbes.Inc()
+		resp := rt.popResponse(req.URL.Host)
+
+		err := delayResponse(resp)
+		if err != nil {
+			return nil, err
 		}
 
 		if resp.Err != nil {
@@ -153,15 +162,9 @@ func (rt *FakeRoundTripper) RT(req *http.Request) (*http.Response, error) {
 		resp = defaultRequestResponse()
 	}
 
-	// Delay if set before sending response
-	if resp.Delay.Seconds() != 0 {
-		timer := time.NewTimer(resp.Delay)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return nil, ctx.Err()
-		case <-timer.C:
-		}
+	err := delayResponse(resp)
+	if err != nil {
+		return nil, err
 	}
 
 	if resp.Err != nil {
