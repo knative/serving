@@ -183,7 +183,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"requests\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"requests\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -284,7 +284,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-min\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-min\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -385,7 +385,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-mean\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-mean\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -482,7 +482,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"errors\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"errors\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -584,7 +584,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-p95\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-p95\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -685,7 +685,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-max\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-max\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -780,7 +780,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"activator-pod-count\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving dataplane probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"activator-pod-count\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -987,7 +987,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"requests\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"requests\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -1088,7 +1088,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-min\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-min\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -1189,7 +1189,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-mean\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-mean\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -1287,7 +1287,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"errors\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"errors\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -1389,7 +1389,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-p95\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-p95\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -1486,7 +1486,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-max\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-max\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -1581,7 +1581,7 @@
           "hide": false,
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"desired-replicas\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"desired-replicas\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -1622,7 +1622,7 @@
           "hide": false,
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"ready-replicas\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving load test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"ready-replicas\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
           "refId": "B",
           "resultFormat": "time_series",
           "select": [
@@ -1829,7 +1829,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving rollout probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"requests\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving rollout probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"requests\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -1930,7 +1930,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving rollout probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-min\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving rollout probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-min\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -2031,7 +2031,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving rollout probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-mean\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving rollout probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-mean\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -2128,7 +2128,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving rollout probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"errors\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving rollout probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"errors\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -2230,7 +2230,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving rollout probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-p95\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving rollout probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-p95\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -2331,7 +2331,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving rollout probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-max\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving rollout probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-max\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -2420,7 +2420,7 @@
           "hide": false,
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving rollout probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"desired-pods\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving rollout probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"desired-pods\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -2461,7 +2461,7 @@
           "hide": false,
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving rollout probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"available-pods\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving rollout probe\")\n  |> filter(fn: (r) => r[\"_field\"] == \"available-pods\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
           "refId": "B",
           "resultFormat": "time_series",
           "select": [
@@ -2617,7 +2617,7 @@
           "hide": false,
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving scale from zero\")\n  |> filter(fn: (r) => r[\"_field\"] == \"service-ready-latency\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving scale from zero\")\n  |> filter(fn: (r) => r[\"_field\"] == \"service-ready-latency\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -2716,7 +2716,7 @@
           "hide": false,
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving scale from zero\")\n  |> filter(fn: (r) => r[\"_field\"] == \"service-ready-latency\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving scale from zero\")\n  |> filter(fn: (r) => r[\"_field\"] == \"service-ready-latency\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -2815,7 +2815,7 @@
           "hide": false,
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving scale from zero\")\n  |> filter(fn: (r) => r[\"_field\"] == \"service-ready-latency\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving scale from zero\")\n  |> filter(fn: (r) => r[\"_field\"] == \"service-ready-latency\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -2914,7 +2914,7 @@
           "hide": false,
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving scale from zero\")\n  |> filter(fn: (r) => r[\"_field\"] == \"deployment-updated-latency\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving scale from zero\")\n  |> filter(fn: (r) => r[\"_field\"] == \"deployment-updated-latency\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -3013,7 +3013,7 @@
           "hide": false,
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving scale from zero\")\n  |> filter(fn: (r) => r[\"_field\"] == \"deployment-updated-latency\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving scale from zero\")\n  |> filter(fn: (r) => r[\"_field\"] == \"deployment-updated-latency\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -3112,7 +3112,7 @@
           "hide": false,
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving scale from zero\")\n  |> filter(fn: (r) => r[\"_field\"] == \"deployment-updated-latency\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving scale from zero\")\n  |> filter(fn: (r) => r[\"_field\"] == \"deployment-updated-latency\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -3233,7 +3233,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving reconciliation delay\")\n  |> filter(fn: (r) => r[\"_field\"] == \"Configuration\" or r[\"_field\"] == \"Ingress\" or r[\"_field\"] == \"PodAutoscaler\" or r[\"_field\"] == \"Revision\" or r[\"_field\"] == \"Route\" or r[\"_field\"] == \"Service\" or r[\"_field\"] == \"ServerlessService\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving reconciliation delay\")\n  |> filter(fn: (r) => r[\"_field\"] == \"Configuration\" or r[\"_field\"] == \"Ingress\" or r[\"_field\"] == \"PodAutoscaler\" or r[\"_field\"] == \"Revision\" or r[\"_field\"] == \"Route\" or r[\"_field\"] == \"Service\" or r[\"_field\"] == \"ServerlessService\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"mean\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -3377,7 +3377,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving real traffic test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"requests\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving real traffic test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"requests\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -3477,7 +3477,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving real traffic test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-min\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving real traffic test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-min\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -3577,7 +3577,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving real traffic test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-mean\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving real traffic test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-mean\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -3673,7 +3673,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving real traffic test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"errors\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving real traffic test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"errors\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -3774,7 +3774,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving real traffic test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-p95\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving real traffic test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-p95\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -3874,7 +3874,7 @@
           ],
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving real traffic test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-max\")\n  |> filter(fn: (r) => r[\"PROW_TAG\"] == \"${prowtag}\" or \"${prowtag}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
+          "query": "from(bucket: \"knative-serving\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"Knative Serving real traffic test\")\n  |> filter(fn: (r) => r[\"_field\"] == \"latency-max\")\n  |> filter(fn: (r) => r[\"BUILD_ID\"] == \"${buildid}\" or \"${buildid}\" == \"all\" )\n  |> filter(fn: (r) => r[\"JOB_NAME\"] == \"${jobname}\" or \"${jobname}\" == \"all\" )\n  |> map(fn: (r) => ({r with _value: r._value / 1000.0 / 1000.0}))  \n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> yield(name: \"last\")",
           "refId": "A",
           "resultFormat": "time_series",
           "select": [
@@ -3907,7 +3907,7 @@
       {
         "allValue": "all",
         "current": {
-          "selected": true,
+          "selected": false,
           "text": "All",
           "value": "$__all"
         },
@@ -3915,14 +3915,41 @@
           "type": "influxdb",
           "uid": "${ds}"
         },
-        "definition": "import \"influxdata/influxdb/schema\"\nschema.tagValues(\n    bucket: \"knative-serving\",\n    tag: \"PROW_TAG\",\n    start: -1d\n)",
+        "definition": "import \"influxdata/influxdb/schema\"\nschema.tagValues(\n    bucket: \"knative-serving\",\n    tag: \"BUILD_ID\",\n    start: -1d\n)",
+        "description": "The builds ID according to https://prow.knative.dev/?repo=knative%2Fserving&job=*perf*",
         "hide": 0,
         "includeAll": true,
-        "label": "Prow Tag",
+        "label": "Build ID",
         "multi": false,
-        "name": "prowtag",
+        "name": "buildid",
         "options": [],
-        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(\n    bucket: \"knative-serving\",\n    tag: \"PROW_TAG\",\n    start: -1d\n)",
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(\n    bucket: \"knative-serving\",\n    tag: \"BUILD_ID\",\n    start: -1d\n)",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "allValue": "all",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "influxdb",
+          "uid": "${ds}"
+        },
+        "definition": "import \"influxdata/influxdb/schema\"\nschema.tagValues(\n    bucket: \"knative-serving\",\n    tag: \"JOB_NAME\",\n    start: -1d\n)",
+        "description": "The prow jobs name according to https://prow.knative.dev/?repo=knative%2Fserving&job=*perf*",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Job name",
+        "multi": false,
+        "name": "jobname",
+        "options": [],
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(\n    bucket: \"knative-serving\",\n    tag: \"JOB_NAME\",\n    start: -1d\n)",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -3959,6 +3986,6 @@
   "timezone": "",
   "title": "Knative Serving Performance Tests",
   "uid": "igHJ5-fdk",
-  "version": 7,
+  "version": 9,
   "weekStart": ""
 }

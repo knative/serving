@@ -102,7 +102,8 @@ The tests expect to be configured with certain environment variables:
 * SYSTEM_NAMESPACE = Where knative-serving is installed, typically `knative-serving`
 * INFLUX_URL = http://local-influx-influxdb2.influx:80
 * INFLUX_TOKEN = as outputted from the command above
-* PROW_TAG=local
+* BUILD_ID=local
+* JOB_NAME=local
 
 
 ### Running them on cluster

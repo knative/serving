@@ -32,8 +32,8 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-declare PROW_TAG
-declare PROW_JOB_ID
+declare JOB_NAME
+declare BUILD_ID
 declare ARTIFACTS
 
 ns="default"
@@ -79,11 +79,12 @@ function run_job() {
   kubectl wait --for=delete "job/$name" --timeout=60s -n "$ns"
 }
 
-export PROW_TAG="local"
 if ((IS_PROW)); then
-  export PROW_TAG=${PROW_JOB_ID}
   export INFLUX_URL=$(cat /etc/influx-url-secret-volume/influxdb-url)
   export INFLUX_TOKEN=$(cat /etc/influx-token-secret-volume/influxdb-token)
+else
+ export JOB_NAME="local"
+ export BUILD_ID="local"
 fi
 
 if [[ -z "${INFLUX_URL}" ]]; then
@@ -95,7 +96,7 @@ if [[ -z "${INFLUX_TOKEN}" ]]; then
   exit 1
 fi
 
-echo "Running load test with PROW_TAG: ${PROW_TAG}, reporting results to: ${INFLUX_URL}"
+echo "Running load test with BUILD_ID: ${BUILD_ID}, JOB_NAME: ${JOB_NAME}, reporting results to: ${INFLUX_URL}"
 
 ###############################################################################################
 header "Preparing cluster config"
@@ -104,7 +105,8 @@ kubectl delete secret performance-test-config -n "$ns" --ignore-not-found=true
 kubectl create secret generic performance-test-config -n "$ns" \
   --from-literal=influxurl="${INFLUX_URL}" \
   --from-literal=influxtoken="${INFLUX_TOKEN}" \
-  --from-literal=prowtag="${PROW_TAG}"
+  --from-literal=jobname="${JOB_NAME}" \
+  --from-literal=buildid="${BUILD_ID}"
 
 # Tweak configuration for performance tests
 scale_activator 10
@@ -257,6 +259,6 @@ kubectl wait --for=delete ksvc/queue-proxy-with-cc --timeout=60s -n "$ns"
 # grafana expects time in milliseconds
 end=$(($(date +%s%N)/1000000))
 
-echo "You can find the results here: https://grafana.knative.dev/d/igHJ5-fdk/knative-serving-performance-tests?orgId=1&var-prowtag=${PROW_TAG}&from=${start}&to=${end}"
+echo "You can find the results here: https://grafana.knative.dev/d/igHJ5-fdk/knative-serving-performance-tests?orgId=1&var-buildid=${BUILD_ID}&from=${start}&to=${end}"
 
 success

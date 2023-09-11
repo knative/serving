@@ -31,7 +31,8 @@ import (
 const (
 	influxToken = "INFLUX_TOKEN"
 	influxURL   = "INFLUX_URL"
-	prowTag     = "PROW_TAG"
+	jobNameKey  = "JOB_NAME"
+	buildIDKey  = "BUILD_ID"
 	org         = "Knativetest"
 	bucket      = "knative-serving"
 )
@@ -64,9 +65,13 @@ func NewInfluxReporter(tags map[string]string) (*InfluxReporter, error) {
 
 	writeAPI := client.WriteAPI(org, bucket)
 
-	build, found := os.LookupEnv(prowTag)
+	buildID, found := os.LookupEnv(buildIDKey)
 	if found {
-		tags[prowTag] = build
+		tags[buildIDKey] = buildID
+	}
+	jobName, found := os.LookupEnv(jobNameKey)
+	if found {
+		tags[jobNameKey] = jobName
 	}
 
 	return &InfluxReporter{

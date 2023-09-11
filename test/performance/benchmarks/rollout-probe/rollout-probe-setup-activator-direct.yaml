@@ -28,7 +28,7 @@ spec:
         autoscaling.knative.dev/metricAggregationAlgorithm: "weightedExponential"
     spec:
       containers:
-      - image: ghcr.io/knative/autoscale-go:latest
+      - image: ko://knative.dev/serving/test/test_images/autoscale
         resources:
           requests:
             cpu: 20m

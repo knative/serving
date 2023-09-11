@@ -64,11 +64,16 @@ spec:
               secretKeyRef:
                 name: performance-test-config
                 key: influxtoken
-          - name: PROW_TAG
+          - name: JOB_NAME
             valueFrom:
               secretKeyRef:
                 name: performance-test-config
-                key: prowtag
+                key: jobname
+          - name: BUILD_ID
+            valueFrom:
+              secretKeyRef:
+                name: performance-test-config
+                key: buildid
         resources:
           requests:
             cpu: 1000m

@@ -27,7 +27,7 @@ spec:
         autoscaling.knative.dev/targetBurstCapacity: "-1"
     spec:
       containers:
-      - image: ghcr.io/knative/autoscale-go:latest
+      - image: ko://knative.dev/serving/test/test_images/autoscale
         resources:
           requests:
             cpu: 20m
