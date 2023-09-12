@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
+	"time"
 
 	"go.uber.org/atomic"
 
@@ -30,9 +31,10 @@ import (
 
 // FakeResponse is a response given by the FakeRoundTripper
 type FakeResponse struct {
-	Err  error
-	Code int
-	Body string
+	Err   error
+	Code  int
+	Body  string
+	Delay time.Duration
 }
 
 // FakeRoundTripper is a roundtripper emulator useful in testing
@@ -110,9 +112,32 @@ func (rt *FakeRoundTripper) popResponse(host string) *FakeResponse {
 
 // RT is a RoundTripperFunc
 func (rt *FakeRoundTripper) RT(req *http.Request) (*http.Response, error) {
+	ctx := req.Context()
+
+	delayResponse := func(resp *FakeResponse) error {
+		// Delay if set before sending response
+		if resp.Delay != 0 {
+			timer := time.NewTimer(resp.Delay)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return ctx.Err()
+			case <-timer.C:
+			}
+		}
+
+		return nil
+	}
+
 	if req.Header.Get(netheader.ProbeKey) != "" {
 		rt.NumProbes.Inc()
 		resp := rt.popResponse(req.URL.Host)
+
+		err := delayResponse(resp)
+		if err != nil {
+			return nil, err
+		}
+
 		if resp.Err != nil {
 			return nil, resp.Err
 		}
@@ -135,6 +160,11 @@ func (rt *FakeRoundTripper) RT(req *http.Request) (*http.Response, error) {
 	resp := rt.RequestResponse
 	if resp == nil {
 		resp = defaultRequestResponse()
+	}
+
+	err := delayResponse(resp)
+	if err != nil {
+		return nil, err
 	}
 
 	if resp.Err != nil {

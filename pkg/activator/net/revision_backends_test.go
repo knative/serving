@@ -1519,3 +1519,70 @@ func TestServiceMoreThanOne(t *testing.T) {
 	case <-time.After(updateTimeout):
 	}
 }
+
+// More focused test around the probing of pods and the handling of different behaviors
+func TestProbePodIPs(t *testing.T) {
+	fakeRT := activatortest.FakeRoundTripper{
+		ExpectHost: testRevision,
+		ProbeHostResponses: map[string][]activatortest.FakeResponse{
+			"10.10.1.1": {{
+				Code: http.StatusInternalServerError,
+				Err:  errors.New("podIP transport error"),
+			}},
+			"10.10.1.2": {{
+				Code:  http.StatusOK,
+				Body:  queue.Name,
+				Delay: 250 * time.Millisecond,
+			}},
+			"10.10.1.3": {{
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+		},
+	}
+
+	// Minimally constructed revisionWatcher just to have what is needed for probing
+	rw := &revisionWatcher{
+		clusterIPHealthy:        true,
+		podsAddressable:         true,
+		rev:                     types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+		logger:                  TestLogger(t),
+		transport:               pkgnetwork.RoundTripperFunc(fakeRT.RT),
+		meshMode:                netcfg.MeshCompatibilityModeAuto,
+		enableProbeOptimisation: true,
+	}
+
+	// Initial state for tests
+	cur := dests{
+		ready:    sets.NewString("10.10.1.3", "10.10.1.2"),
+		notReady: sets.NewString("10.10.1.1"),
+	}
+
+	// Test all pods healthy (skips probes)
+	rw.healthyPods = cur.ready.Union(cur.notReady)
+	healthy, noop, notMesh, err := rw.probePodIPs(cur.ready, cur.notReady)
+	if !healthy.Equal(rw.healthyPods) {
+		t.Errorf("Healthy does not match, got %#v, want %#v diff: %s", healthy, rw.healthyPods, cmp.Diff(healthy, cur.ready))
+	}
+	if !noop || notMesh || err != nil {
+		t.Errorf("Unexpected values: noop=%t (true), notMesh=%t (false), err=%s (nil)", noop, notMesh, err)
+	}
+	if numProbes := fakeRT.NumProbes.Load(); numProbes != 0 {
+		t.Errorf("Unexpected number of probes, got %d, want %d", numProbes, 0)
+	}
+
+	// Test one pod probe errors (using mesh compatibly auto and probe optimization), even if one
+	// pod errors all probes should still be completed
+	fakeRT.NumProbes.Store(0)
+	rw.healthyPods = sets.NewString()
+	healthy, noop, notMesh, err = rw.probePodIPs(cur.ready, cur.notReady)
+	if !healthy.Equal(cur.ready) {
+		t.Errorf("Healthy does not match, got %#v, want %#v diff: %s", healthy, cur.ready, cmp.Diff(healthy, cur.ready))
+	}
+	if noop || !notMesh || err == nil {
+		t.Errorf("Unexpected values: noop=%t (false), notMesh=%t (true), err=%s (non-nil)", noop, notMesh, err)
+	}
+	if numProbes := fakeRT.NumProbes.Load(); numProbes != 3 {
+		t.Errorf("Unexpected number of probes, got %d, want %d", numProbes, 3)
+	}
+}
