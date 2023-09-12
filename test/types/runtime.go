@@ -210,8 +210,8 @@ type FileAccessInfo struct {
 type Cgroup struct {
 	// Name is the full path name of the cgroup.
 	Name string `json:"name"`
-	// Value is the integer files in the cgroup file.
-	Value *int `json:"value,omitempty"`
+	// Value is the string value in the cgroup file.
+	Value *string `json:"value,omitempty"`
 	// ReadOnly is true if the cgroup was not writable.
 	ReadOnly *bool `json:"readOnly,omitempty"`
 	// Error is the String representation of the error returned obtaining the information.
