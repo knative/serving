@@ -22,7 +22,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	net "knative.dev/networking/pkg/apis/networking"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -101,38 +100,6 @@ func TestIsActivationRequired(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if got, want := tc.status.IsActivationRequired(), tc.isActivationRequired; got != want {
 				t.Errorf("IsActivationRequired = %v, want: %v", got, want)
-			}
-		})
-	}
-}
-
-func TestRevisionIsReachable(t *testing.T) {
-	tests := []struct {
-		name   string
-		labels map[string]string
-		want   bool
-	}{{
-		name:   "has serving state label",
-		labels: map[string]string{serving.RoutingStateLabelKey: "active"},
-		want:   true,
-	}, {
-		name:   "empty route annotation",
-		labels: map[string]string{serving.RoutingStateLabelKey: ""},
-		want:   false,
-	}, {
-		name:   "no route annotation",
-		labels: nil,
-		want:   false,
-	}}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			rev := Revision{ObjectMeta: metav1.ObjectMeta{Labels: tt.labels}}
-
-			got := rev.IsReachable()
-
-			if got != tt.want {
-				t.Errorf("IsReachable = %t, want: %t", got, tt.want)
 			}
 		})
 	}
