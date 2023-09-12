@@ -115,7 +115,7 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 			continue
 		}
 		if cgroup.Name == "/sys/fs/cgroup/cpu.max" {
-			// The format is like 'max 100000' so trim the front "max".
+			// The format is like 'max 100000'.
 			maxV2 = strings.Split(*cgroup.Value, " ")[0]
 			periodV2 = strings.Split(*cgroup.Value, " ")[1]
 		}
