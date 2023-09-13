@@ -900,6 +900,7 @@ func TestRevisionDefaulting(t *testing.T) {
 						ReadinessProbe: defaultProbe,
 						Resources:      defaultResources,
 						SecurityContext: &corev1.SecurityContext{
+							RunAsNonRoot:             ptr.Bool(true),
 							AllowPrivilegeEscalation: ptr.Bool(false),
 							SeccompProfile: &corev1.SeccompProfile{
 								Type: corev1.SeccompProfileTypeRuntimeDefault,
@@ -913,6 +914,7 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name:      "sidecar",
 						Resources: defaultResources,
 						SecurityContext: &corev1.SecurityContext{
+							RunAsNonRoot:             ptr.Bool(true),
 							AllowPrivilegeEscalation: ptr.Bool(false),
 							SeccompProfile: &corev1.SeccompProfile{
 								Type: corev1.SeccompProfileTypeRuntimeDefault,
@@ -925,6 +927,7 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name:      "special-sidecar",
 						Resources: defaultResources,
 						SecurityContext: &corev1.SecurityContext{
+							RunAsNonRoot:             ptr.Bool(true),
 							AllowPrivilegeEscalation: ptr.Bool(true),
 							SeccompProfile: &corev1.SeccompProfile{
 								Type: corev1.SeccompProfileTypeRuntimeDefault,
@@ -938,6 +941,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					InitContainers: []corev1.Container{{
 						Name: "special-init",
 						SecurityContext: &corev1.SecurityContext{
+							RunAsNonRoot:             ptr.Bool(true),
 							AllowPrivilegeEscalation: ptr.Bool(true),
 							SeccompProfile: &corev1.SeccompProfile{
 								Type:             corev1.SeccompProfileTypeLocalhost,
@@ -1000,6 +1004,7 @@ func TestRevisionDefaulting(t *testing.T) {
 						ReadinessProbe: defaultProbe,
 						Resources:      defaultResources,
 						SecurityContext: &corev1.SecurityContext{
+							RunAsNonRoot:             ptr.Bool(true),
 							AllowPrivilegeEscalation: ptr.Bool(false),
 							Capabilities: &corev1.Capabilities{
 								Drop: []corev1.Capability{"ALL"},
@@ -1009,6 +1014,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					InitContainers: []corev1.Container{{
 						Name: "init",
 						SecurityContext: &corev1.SecurityContext{
+							RunAsNonRoot:             ptr.Bool(true),
 							AllowPrivilegeEscalation: ptr.Bool(false),
 							Capabilities: &corev1.Capabilities{
 								Drop: []corev1.Capability{"ALL"},
