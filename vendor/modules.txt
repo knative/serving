@@ -247,11 +247,6 @@ github.com/gogo/protobuf/sortkeys
 # github.com/golang-jwt/jwt/v4 v4.4.2
 ## explicit; go 1.16
 github.com/golang-jwt/jwt/v4
-# github.com/golang/glog v1.1.0
-## explicit; go 1.18
-github.com/golang/glog
-github.com/golang/glog/internal/logsink
-github.com/golang/glog/internal/stackdump
 # github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 ## explicit
 github.com/golang/groupcache/lru
@@ -311,26 +306,10 @@ github.com/google/go-containerregistry/pkg/authn/k8schain
 # github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20230209165335-3624968304fd
 ## explicit; go 1.18
 github.com/google/go-containerregistry/pkg/authn/kubernetes
-# github.com/google/go-github/v27 v27.0.6
-## explicit
-github.com/google/go-github/v27/github
-# github.com/google/go-querystring v1.0.0
-## explicit
-github.com/google/go-querystring/query
 # github.com/google/gofuzz v1.2.0
 ## explicit; go 1.12
 github.com/google/gofuzz
 github.com/google/gofuzz/bytesource
-# github.com/google/mako v0.0.0-20190821191249-122f8dcef9e3
-## explicit; go 1.12
-github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto
-github.com/google/mako/clients/proto/analyzers/utest_analyzer_go_proto
-github.com/google/mako/clients/proto/analyzers/window_deviation_go_proto
-github.com/google/mako/go/quickstore
-github.com/google/mako/internal/go/common
-github.com/google/mako/internal/quickstore_microservice/proto/quickstore_go_proto
-github.com/google/mako/proto/quickstore/quickstore_go_proto
-github.com/google/mako/spec/proto/mako_go_proto
 # github.com/google/s2a-go v0.1.7
 ## explicit; go 1.19
 github.com/google/s2a-go
@@ -559,7 +538,6 @@ go.uber.org/zap/zapcore
 go.uber.org/zap/zaptest
 # golang.org/x/crypto v0.13.0
 ## explicit; go 1.17
-golang.org/x/crypto/cast5
 golang.org/x/crypto/chacha20
 golang.org/x/crypto/chacha20poly1305
 golang.org/x/crypto/cryptobyte
@@ -567,12 +545,6 @@ golang.org/x/crypto/cryptobyte/asn1
 golang.org/x/crypto/hkdf
 golang.org/x/crypto/internal/alias
 golang.org/x/crypto/internal/poly1305
-golang.org/x/crypto/openpgp
-golang.org/x/crypto/openpgp/armor
-golang.org/x/crypto/openpgp/elgamal
-golang.org/x/crypto/openpgp/errors
-golang.org/x/crypto/openpgp/packet
-golang.org/x/crypto/openpgp/s2k
 golang.org/x/crypto/pkcs12
 golang.org/x/crypto/pkcs12/internal/rc2
 # golang.org/x/mod v0.12.0
@@ -1444,27 +1416,18 @@ knative.dev/pkg/system
 knative.dev/pkg/system/testing
 knative.dev/pkg/test
 knative.dev/pkg/test/environment
-knative.dev/pkg/test/ghutil
 knative.dev/pkg/test/ha
 knative.dev/pkg/test/helpers
 knative.dev/pkg/test/ingress
 knative.dev/pkg/test/logging
 knative.dev/pkg/test/logstream
 knative.dev/pkg/test/logstream/v2
-knative.dev/pkg/test/mako
-knative.dev/pkg/test/mako/alerter
-knative.dev/pkg/test/mako/alerter/github
-knative.dev/pkg/test/mako/alerter/slack
-knative.dev/pkg/test/mako/config
-knative.dev/pkg/test/mako/stub-sidecar
 knative.dev/pkg/test/migrate
 knative.dev/pkg/test/monitoring
-knative.dev/pkg/test/slackutil
 knative.dev/pkg/test/spoof
 knative.dev/pkg/test/upgrade
 knative.dev/pkg/test/vegeta/pacers
 knative.dev/pkg/test/zipkin
-knative.dev/pkg/third_party/mako/proto/quickstore_go_proto
 knative.dev/pkg/tracing
 knative.dev/pkg/tracing/config
 knative.dev/pkg/tracing/propagation
