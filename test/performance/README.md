@@ -111,5 +111,5 @@ The tests expect to be configured with certain environment variables:
 Check out what the [script](./performance-tests.sh) does. Basically just run:
 
 ```bash
-sed "s|@SYSTEM_NAMESPACE@|$SYSTEM_NAMESPACE|g" <your-benchmark-job.yaml> | sed "s|@KO_DOCKER_REPO@|$KO_DOCKER_REPO|g" | ko apply --sbom=none -Bf -
+  envsubst < your-benchmark-job.yaml | ko apply --sbom=none -Bf -
 ```

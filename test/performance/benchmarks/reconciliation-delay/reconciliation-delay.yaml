@@ -54,9 +54,9 @@ spec:
             cpu: 100m
         env:
           - name: KO_DOCKER_REPO
-            value: @KO_DOCKER_REPO@
+            value: $KO_DOCKER_REPO
           - name: SYSTEM_NAMESPACE
-            value: @SYSTEM_NAMESPACE@
+            value: $SYSTEM_NAMESPACE
           - name: INFLUX_URL
             valueFrom:
               secretKeyRef:
