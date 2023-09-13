@@ -142,7 +142,7 @@ func processResults(ctx context.Context, results <-chan *vegeta.Result, reporter
 		case ds := <-deploymentStatus:
 			// Add a sample point for the deployment status
 			reporter.AddDataPoint(benchmarkName,
-				map[string]interface{}{"ready-replicas": float64(ds.ReadyReplicas), "desired-replicas": float64(ds.DesiredReplicas)})
+				map[string]interface{}{"ready-replicas": ds.ReadyReplicas, "desired-replicas": ds.DesiredReplicas})
 
 		case sksm := <-sksMode:
 			// Add a sample point for the serverless service mode
@@ -151,7 +151,7 @@ func processResults(ctx context.Context, results <-chan *vegeta.Result, reporter
 				mode = 1.0
 			}
 			reporter.AddDataPoint(benchmarkName,
-				map[string]interface{}{"sks": mode, "num-activators": float64(sksm.NumActivators)})
+				map[string]interface{}{"sks": mode, "num-activators": sksm.NumActivators})
 		}
 	}
 }

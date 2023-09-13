@@ -175,11 +175,11 @@ LOOP:
 			if strings.Contains(ds.DeploymentName, firstRev) {
 				// Add a sample point for the deployment status.
 				influxReporter.AddDataPoint(benchmarkName,
-					map[string]interface{}{"desired-pods": float64(ds.DesiredReplicas), "available-pods": float64(ds.ReadyReplicas)})
+					map[string]interface{}{"desired-pods": ds.DesiredReplicas, "available-pods": ds.ReadyReplicas})
 			} else if secondRev != "" && strings.Contains(ds.DeploymentName, secondRev) {
 				// Otherwise report the pods for the new deployment.
 				influxReporter.AddDataPoint(benchmarkName,
-					map[string]interface{}{"desired-pods-new": float64(ds.DesiredReplicas), "available-pods-new": float64(ds.ReadyReplicas)})
+					map[string]interface{}{"desired-pods-new": ds.DesiredReplicas, "available-pods-new": ds.ReadyReplicas})
 				// Ignore all other revisions' deployments if there are, since
 				// they are from previous test run iterations, and we don't care about
 				// their reported scale values (should be 0 & 100 depending on which

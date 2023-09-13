@@ -140,7 +140,7 @@ LOOP:
 
 		case ds := <-deploymentStatus:
 			// Report number of ready activators.
-			influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"activator-pod-count": float64(ds.ReadyReplicas)})
+			influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"activator-pod-count": ds.ReadyReplicas})
 
 		case res, ok := <-results:
 			if ok {

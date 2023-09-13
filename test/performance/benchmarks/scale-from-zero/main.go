@@ -272,7 +272,7 @@ func parallelScaleFromZero(ctx context.Context, clients *test.Clients, objs []*v
 			} else {
 				// Add 1 to the error metric whenever there is an error.
 				reporter.AddDataPoint(benchmarkName, map[string]interface{}{
-					"errors": float64(1),
+					"errors": 1,
 				})
 			}
 		}()
