@@ -19,7 +19,6 @@ package handlers
 import (
 	"log"
 	"os"
-	"strconv"
 	"strings"
 
 	"knative.dev/serving/test/types"
@@ -69,15 +68,6 @@ func cgroups(paths ...string) []*types.Cgroup {
 		}
 
 		cs := strings.Trim(string(bc), "\n")
-		if path == "/sys/fs/cgroup/cpu.max" {
-			// The format is like 'max 100000' so trim the front "max".
-			cs = strings.Split(cs, " ")[1]
-		}
-		ic, err := strconv.Atoi(cs)
-		if err != nil {
-			cgroups = append(cgroups, &types.Cgroup{Name: path, Error: err.Error()})
-			continue
-		}
 
 		// Try to write to the Cgroup. We expect this to fail as a cheap
 		// method for read-only validation
@@ -85,9 +75,9 @@ func cgroups(paths ...string) []*types.Cgroup {
 		// #nosec G306
 		err = os.WriteFile(path, newValue, 0644)
 		if err != nil {
-			cgroups = append(cgroups, &types.Cgroup{Name: path, Value: &ic, ReadOnly: &yes})
+			cgroups = append(cgroups, &types.Cgroup{Name: path, Value: &cs, ReadOnly: &yes})
 		} else {
-			cgroups = append(cgroups, &types.Cgroup{Name: path, Value: &ic, ReadOnly: &no})
+			cgroups = append(cgroups, &types.Cgroup{Name: path, Value: &cs, ReadOnly: &no})
 		}
 	}
 	return cgroups
