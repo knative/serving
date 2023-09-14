@@ -208,6 +208,10 @@ func (rs *RevisionSpec) defaultSecurityContext(psc *corev1.PodSecurityContext, c
 		}
 	}
 
+	if psc.RunAsNonRoot == nil {
+		updatedSC.RunAsNonRoot = ptr.Bool(true)
+	}
+
 	if *updatedSC != (corev1.SecurityContext{}) {
 		container.SecurityContext = updatedSC
 	}
