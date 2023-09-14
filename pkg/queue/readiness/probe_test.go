@@ -21,8 +21,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/health/grpc_health_v1"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -33,6 +31,8 @@ import (
 
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
@@ -659,11 +659,23 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 }
 
 func TestGRPCSuccess(t *testing.T) {
-	port := 12345
-	if err := newTestGRPCServer(t, port); err != nil {
-		t.Errorf("Failed to create test grpc server: %v", err)
+	t.Helper()
+	// use ephemeral port to prevent port conflict
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to listen: %v", err)
 	}
 
+	s := grpc.NewServer()
+	grpc_health_v1.RegisterHealthServer(s, &grpcHealthServer{})
+
+	go func() {
+		if err := s.Serve(lis); err != nil {
+			t.Fatalf("Failed to run gRPC test server %v", err)
+		}
+	}()
+
+	assignedPort := lis.Addr().(*net.TCPAddr).Port
 	pb := NewProbe(&corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   5,
@@ -671,7 +683,7 @@ func TestGRPCSuccess(t *testing.T) {
 		FailureThreshold: 1,
 		ProbeHandler: corev1.ProbeHandler{
 			GRPC: &corev1.GRPCAction{
-				Port:    int32(port),
+				Port:    int32(assignedPort),
 				Service: nil,
 			},
 		},
@@ -680,6 +692,7 @@ func TestGRPCSuccess(t *testing.T) {
 	if !pb.ProbeContainer() {
 		t.Error("Probe failed. Expected success.")
 	}
+	t.Cleanup(s.Stop)
 }
 
 func newTestServer(t *testing.T, h http.HandlerFunc) *url.URL {
@@ -694,27 +707,6 @@ func newTestServer(t *testing.T, h http.HandlerFunc) *url.URL {
 	}
 
 	return u
-}
-
-func newTestGRPCServer(t *testing.T, port int) error {
-	t.Helper()
-	grpcAddr := fmt.Sprintf("127.0.0.1:%d", port)
-	lis, err := net.Listen("tcp", grpcAddr)
-	if err != nil {
-		t.Fatalf("failed to listen: %v", err)
-	}
-
-	s := grpc.NewServer()
-	grpc_health_v1.RegisterHealthServer(s, &grpcHealthServer{})
-
-	go func() {
-		if err := s.Serve(lis); err != nil {
-			t.Fatalf("Failed to run gRPC test server %v", err)
-		}
-	}()
-	t.Cleanup(s.Stop)
-
-	return nil
 }
 
 type grpcHealthServer struct {
