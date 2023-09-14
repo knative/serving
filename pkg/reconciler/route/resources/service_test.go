@@ -419,7 +419,7 @@ func testConfig() *config.Config {
 			DefaultIngressClass: "test-ingress-class",
 			DomainTemplate:      netcfg.DefaultDomainTemplate,
 			TagTemplate:         netcfg.DefaultTagTemplate,
-			DataplaneTrust:      netcfg.TrustDisabled,
+			KnativeInternalTLS:  netcfg.EncryptionEnabled,
 		},
 		Features: &apiConfig.Features{
 			MultiContainer:               apiConfig.Disabled,
