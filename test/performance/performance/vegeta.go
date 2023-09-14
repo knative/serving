@@ -34,7 +34,7 @@ type VegetaReporter struct {
 func NewVegetaReporter() *VegetaReporter {
 	reporter := &VegetaReporter{
 		metrics: &vegeta.Metrics{},
-		results: make(chan *vegeta.Result),
+		results: make(chan *vegeta.Result, 1000),
 		stop:    make(chan bool),
 	}
 

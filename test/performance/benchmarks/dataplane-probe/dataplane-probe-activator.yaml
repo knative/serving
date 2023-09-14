@@ -49,8 +49,6 @@ spec:
           image: ko://knative.dev/serving/test/performance/benchmarks/dataplane-probe
           args: ["-target=activator", "--duration=3m"]
           env:
-            - name: KO_DOCKER_REPO
-              value: $KO_DOCKER_REPO
             - name: SYSTEM_NAMESPACE
               value: $SYSTEM_NAMESPACE
             - name: INFLUX_URL

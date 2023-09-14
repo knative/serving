@@ -40,17 +40,6 @@ ns="default"
 
 initialize --num-nodes=10 --cluster-version=1.25 "$@"
 
-env
-
-function scale_activator() {
-  local replicas=$1
-
-  echo "Setting activator replicas to ${replicas}"
-  kubectl -n "${SYSTEM_NAMESPACE}" patch hpa activator --patch "{\"spec\":{\"minReplicas\": ${replicas}, \"maxReplicas\": ${replicas} }}"
-
-  # Wait for HPA to do the scaling
-  sleep 30
-}
 
 function run_job() {
   local name=$1
@@ -76,6 +65,7 @@ function run_job() {
   kubectl delete "job/$name" -n "$ns" --ignore-not-found=true
   kubectl wait --for=delete "job/$name" --timeout=60s -n "$ns"
 }
+
 
 if ((IS_PROW)); then
   export INFLUX_URL=$(cat /etc/influx-url-secret-volume/influxdb-url)
@@ -106,16 +96,8 @@ kubectl create secret generic performance-test-config -n "$ns" \
   --from-literal=jobname="${JOB_NAME}" \
   --from-literal=buildid="${BUILD_ID}"
 
-# Tweak configuration for performance tests
-scale_activator 10
-toggle_feature rollout-duration 240 config-network
-toggle_feature scale-to-zero-grace-period 10s config-autoscaler
-toggle_feature kubernetes.podspec-init-containers enabled config-features # necessary for the real traffic test
-
-echo ">> Upload the test images"
-ko resolve --sbom=none -RBf test/test_images/autoscale > /dev/null
-ko resolve --sbom=none -RBf test/test_images/helloworld > /dev/null
-ko resolve --sbom=none -RBf test/test_images/slowstart > /dev/null
+echo "Enabling init-containers for the real-traffic test"
+toggle_feature kubernetes.podspec-init-containers enabled config-features
 
 # grafana expects time in milliseconds
 start=$(($(date +%s%N)/1000000))
