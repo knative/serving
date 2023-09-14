@@ -67,6 +67,7 @@ aliases:
   - Vishal-Chdhry
   - creydr
   - csantanapr
+  - davidhadas
   - dprotaso
   - dsimansk
   - knative-automation
@@ -160,6 +161,7 @@ aliases:
   - puerco
   - salaboy
   technical-oversight-committee:
+  - davidhadas
   - dprotaso
   - dsimansk
   - kvmware
