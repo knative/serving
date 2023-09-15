@@ -326,7 +326,6 @@ func revision(namespace, name string) *v1.Revision {
 func setupConfigStore(t testing.TB, logger *zap.SugaredLogger) *activatorconfig.Store {
 	configStore := activatorconfig.NewStore(logger)
 	configStore.OnConfigChanged(tracingConfig(false))
-	configStore.OnConfigChanged(networkConfig(false))
 	return configStore
 }
 
