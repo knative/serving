@@ -106,7 +106,9 @@ func TestInternalEncryption(t *testing.T) {
 	req := clients.KubeClient.CoreV1().Pods(activatorPod.Namespace).GetLogs(activatorPod.Name, &corev1.PodLogOptions{})
 	_, activatorNoTLSCount, err = getPodLogs(req)
 
-	if activatorNoTLSCount > 0 {
+	if err != nil {
+		t.Fatalf("Failed checking activator logs: %s", err)
+	} else if activatorNoTLSCount > 0 {
 		t.Fatal("TLS not used on requests to activator")
 	}
 
@@ -121,7 +123,9 @@ func TestInternalEncryption(t *testing.T) {
 	req = clients.KubeClient.CoreV1().Pods(helloWorldPod.Namespace).GetLogs(helloWorldPod.Name, &corev1.PodLogOptions{})
 	_, queueNoTLSCount, err = getPodLogs(req)
 
-	if queueNoTLSCount > 0 {
+	if err != nil {
+		t.Fatalf("Failed checking queue-proxy logs: %s", err)
+	} else if queueNoTLSCount > 0 {
 		t.Fatal("TLS not used on requests to queue-proxy")
 	}
 }
