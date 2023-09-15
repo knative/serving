@@ -92,6 +92,8 @@ func TestInternalEncryption(t *testing.T) {
 		t.Fatalf("Got revision label service=%q, want=%q", val, names.Service)
 	}
 
+	activatorNoTLSCount, queueNoTLSCount := 0, 0
+
 	// Check on the logs for the activator
 	pods, err := clients.KubeClient.CoreV1().Pods("knative-serving").List(context.TODO(), v1.ListOptions{
 		LabelSelector: "app=activator",
@@ -102,9 +104,9 @@ func TestInternalEncryption(t *testing.T) {
 	activatorPod := pods.Items[0]
 
 	req := clients.KubeClient.CoreV1().Pods(activatorPod.Namespace).GetLogs(activatorPod.Name, &corev1.PodLogOptions{})
-	_, nilCount, err := getPodLogs(req)
+	_, activatorNoTLSCount, err = getPodLogs(req)
 
-	if nilCount > 0 {
+	if activatorNoTLSCount > 0 {
 		t.Fatal("TLS not used on requests to activator")
 	}
 
@@ -117,9 +119,9 @@ func TestInternalEncryption(t *testing.T) {
 	}
 	helloWorldPod := pods.Items[0]
 	req = clients.KubeClient.CoreV1().Pods(helloWorldPod.Namespace).GetLogs(helloWorldPod.Name, &corev1.PodLogOptions{})
-	_, nilCount, err = getPodLogs(req)
+	_, queueNoTLSCount, err = getPodLogs(req)
 
-	if nilCount > 0 {
+	if queueNoTLSCount > 0 {
 		t.Fatal("TLS not used on requests to queue-proxy")
 	}
 }
@@ -129,7 +131,7 @@ func getPodLogs(req *rest.Request) (tlsCount int, nilCount int, err error) {
 
 	podLogs, err := req.Stream(context.Background())
 	if err != nil {
-		err = fmt.Errorf("Failed to stream activator logs: %v", err)
+		err = fmt.Errorf("Failed to stream activator logs: %w", err)
 		return
 	}
 
@@ -137,7 +139,7 @@ func getPodLogs(req *rest.Request) (tlsCount int, nilCount int, err error) {
 	_, err = io.Copy(buf, podLogs)
 	podLogs.Close()
 	if err != nil {
-		err = fmt.Errorf("Failed to read activator logs from buffer: %v", err)
+		err = fmt.Errorf("Failed to read activator logs from buffer: %w", err)
 		return
 	}
 
@@ -146,16 +148,16 @@ func getPodLogs(req *rest.Request) (tlsCount int, nilCount int, err error) {
 		log.Printf("log: %s", scanner.Text())
 		if strings.Contains(scanner.Text(), "TLS") {
 			if strings.Contains(scanner.Text(), "TLS: <nil>") {
-				nilCount += 1
+				nilCount++
 
 			} else if strings.Contains(scanner.Text(), "TLS: [") {
-				tlsCount += 1
+				tlsCount++
 			}
 		}
 	}
 
 	if err = scanner.Err(); err != nil {
-		err = fmt.Errorf("Failed to scan activator logs: %v", err)
+		err = fmt.Errorf("Failed to scan activator logs: %w", err)
 		return
 	}
 
