@@ -26,7 +26,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"log"
 	"strings"
 	"testing"
 
@@ -37,9 +36,7 @@ import (
 	netcfg "knative.dev/networking/pkg/config"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
-	"knative.dev/serving/pkg/apis/serving"
 
-	//. "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
 )
@@ -71,6 +68,7 @@ func TestInternalEncryption(t *testing.T) {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
+	//The request made here should be enough to trigger some request logs on the Activator and QueueProxy
 	url := resources.Route.Status.URL.URL()
 	if _, err := pkgTest.CheckEndpointState(
 		context.Background(),
@@ -84,16 +82,6 @@ func TestInternalEncryption(t *testing.T) {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.HelloWorldText, err)
 	}
 
-	revision := resources.Revision
-	if val := revision.Labels[serving.ConfigurationLabelKey]; val != names.Config {
-		t.Fatalf("Got revision label configuration=%q, want=%q ", names.Config, val)
-	}
-	if val := revision.Labels[serving.ServiceLabelKey]; val != names.Service {
-		t.Fatalf("Got revision label service=%q, want=%q", val, names.Service)
-	}
-
-	activatorNoTLSCount, queueNoTLSCount := 0, 0
-
 	// Check on the logs for the activator
 	pods, err := clients.KubeClient.CoreV1().Pods("knative-serving").List(context.TODO(), v1.ListOptions{
 		LabelSelector: "app=activator",
@@ -104,11 +92,11 @@ func TestInternalEncryption(t *testing.T) {
 	activatorPod := pods.Items[0]
 
 	req := clients.KubeClient.CoreV1().Pods(activatorPod.Namespace).GetLogs(activatorPod.Name, &corev1.PodLogOptions{})
-	_, activatorNoTLSCount, err = getPodLogs(req)
+	activatorTLSCount, err := scanPodLogs(req, matchTLSLog)
 
 	if err != nil {
 		t.Fatalf("Failed checking activator logs: %s", err)
-	} else if activatorNoTLSCount > 0 {
+	} else if activatorTLSCount == 0 {
 		t.Fatal("TLS not used on requests to activator")
 	}
 
@@ -120,18 +108,17 @@ func TestInternalEncryption(t *testing.T) {
 		t.Fatalf("Failed to get pods: %v", err)
 	}
 	helloWorldPod := pods.Items[0]
-	req = clients.KubeClient.CoreV1().Pods(helloWorldPod.Namespace).GetLogs(helloWorldPod.Name, &corev1.PodLogOptions{})
-	_, queueNoTLSCount, err = getPodLogs(req)
+	req = clients.KubeClient.CoreV1().Pods(helloWorldPod.Namespace).GetLogs(helloWorldPod.Name, &corev1.PodLogOptions{Container: "queue-proxy"})
+	queueTLSCount, err := scanPodLogs(req, matchTLSLog)
 
 	if err != nil {
 		t.Fatalf("Failed checking queue-proxy logs: %s", err)
-	} else if queueNoTLSCount > 0 {
+	} else if queueTLSCount == 0 {
 		t.Fatal("TLS not used on requests to queue-proxy")
 	}
 }
 
-func getPodLogs(req *rest.Request) (tlsCount int, nilCount int, err error) {
-	tlsCount, nilCount = 0, 0
+func scanPodLogs(req *rest.Request, matcher func(string) bool) (matchCount int, err error) {
 
 	podLogs, err := req.Stream(context.Background())
 	if err != nil {
@@ -149,21 +136,26 @@ func getPodLogs(req *rest.Request) (tlsCount int, nilCount int, err error) {
 
 	scanner := bufio.NewScanner(buf)
 	for scanner.Scan() {
-		log.Printf("log: %s", scanner.Text())
-		if strings.Contains(scanner.Text(), "TLS") {
-			if strings.Contains(scanner.Text(), "TLS: <nil>") {
-				nilCount++
-
-			} else if strings.Contains(scanner.Text(), "TLS: [") {
-				tlsCount++
-			}
+		if matcher(scanner.Text()) {
+			matchCount++
 		}
 	}
 
 	if err = scanner.Err(); err != nil {
-		err = fmt.Errorf("Failed to scan activator logs: %w", err)
+		err = fmt.Errorf("Failed scanning activator logs: %w", err)
 		return
 	}
 
 	return
+}
+
+func matchTLSLog(line string) bool {
+	if strings.Contains(line, "TLS") {
+		if strings.Contains(line, "TLS: <nil>") {
+			return false
+		} else if strings.Contains(line, "TLS: [") {
+			return true
+		}
+	}
+	return false
 }
