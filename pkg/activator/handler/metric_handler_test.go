@@ -26,15 +26,10 @@ import (
 	"testing"
 
 	"go.opencensus.io/resource"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	netcfg "knative.dev/networking/pkg/config"
-	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics/metricstest"
 	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/serving/pkg/activator"
-	activatorconfig "knative.dev/serving/pkg/activator/config"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/metrics"
 )
@@ -113,19 +108,13 @@ func TestRequestMetricHandler(t *testing.T) {
 					metrics.LabelContainerName:     activator.Name,
 					metrics.LabelResponseCode:      strconv.Itoa(labelCode),
 					metrics.LabelResponseCodeClass: strconv.Itoa(labelCode/100) + "xx",
-					metrics.LabelSecurityMode:      string(netcfg.TrustDisabled),
 				}
 
 				metricstest.AssertMetric(t, metricstest.IntMetric(requestCountM.Name(), 1, wantTags).WithResource(wantResource))
 				metricstest.AssertMetricExists(t, responseTimeInMsecM.Name())
 			}()
 
-			cm := networkConfig(false)
-
 			reqCtx := WithRevisionAndID(context.Background(), rev, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
-			configStore := activatorconfig.NewStore(logging.FromContext(reqCtx))
-			configStore.OnConfigChanged(cm)
-			reqCtx = configStore.ToContext(reqCtx)
 			handler.ServeHTTP(resp, req.WithContext(reqCtx))
 		})
 	}
@@ -158,17 +147,4 @@ func BenchmarkMetricHandler(b *testing.B) {
 			}
 		})
 	})
-}
-
-func networkConfig(internalTLSEnabled bool) *corev1.ConfigMap {
-	cm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: netcfg.ConfigMapName,
-		},
-		Data: map[string]string{},
-	}
-	if internalTLSEnabled {
-		cm.Data["dataplane-trust"] = string(netcfg.TrustEnabled)
-	}
-	return cm
 }

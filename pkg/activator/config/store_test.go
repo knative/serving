@@ -41,7 +41,7 @@ var networkingConfig = &corev1.ConfigMap{
 		Name: netcfg.ConfigMapName,
 	},
 	Data: map[string]string{
-		"dataplane-trust": "Disabled",
+		"ingress-class": "random.ingress.networking.knative.dev",
 	},
 }
 
@@ -57,8 +57,8 @@ func TestStore(t *testing.T) {
 	if got, want := cfg.Tracing.Backend, tracingconfig.None; got != want {
 		t.Fatalf("Tracing.Backend = %v, want %v", got, want)
 	}
-	if got, want := cfg.Network.DataplaneTrust, netcfg.TrustDisabled; got != want {
-		t.Fatalf("Networking.DataplaneTrust = %v, want %v", got, want)
+	if got, want := cfg.Network.DefaultIngressClass, "random.ingress.networking.knative.dev"; got != want {
+		t.Fatalf("Networking.In = %v, want %v", got, want)
 	}
 
 	newConfig := &corev1.ConfigMap{

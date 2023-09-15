@@ -61,9 +61,6 @@ const (
 	// LabelResponseTimeout is the label timeout.
 	LabelResponseTimeout = metricskey.LabelResponseTimeout
 
-	// LabelSecurityMode is the label for Security Mode Knative is configured to use (see dataplane-trust in config-networking).
-	LabelSecurityMode = "security_mode"
-
 	// ValueUnknown is the default value if the field is unknown, e.g. project will be unknown if Knative
 	// is not running on GKE.
 	ValueUnknown = metricskey.ValueUnknown
@@ -80,5 +77,4 @@ var (
 	ResponseCodeKey      = tag.MustNewKey(LabelResponseCode)
 	ResponseCodeClassKey = tag.MustNewKey(LabelResponseCodeClass)
 	RouteTagKey          = tag.MustNewKey(LabelRouteTag)
-	SecurityMode         = tag.MustNewKey(LabelSecurityMode)
 )

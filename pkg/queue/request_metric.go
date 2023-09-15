@@ -25,7 +25,6 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 
-	netcfg "knative.dev/networking/pkg/config"
 	netheader "knative.dev/networking/pkg/http/header"
 	pkgmetrics "knative.dev/pkg/metrics"
 	pkghttp "knative.dev/serving/pkg/http"
@@ -63,9 +62,8 @@ var (
 )
 
 type requestMetricsHandler struct {
-	next         http.Handler
-	statsCtx     context.Context
-	securityMode netcfg.Trust
+	next     http.Handler
+	statsCtx context.Context
 }
 
 type appRequestMetricsHandler struct {
@@ -76,8 +74,8 @@ type appRequestMetricsHandler struct {
 
 // NewRequestMetricsHandler creates an http.Handler that emits request metrics.
 func NewRequestMetricsHandler(next http.Handler,
-	ns, service, config, rev, pod string, securityMode netcfg.Trust) (http.Handler, error) {
-	keys := []tag.Key{metrics.PodKey, metrics.ContainerKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey, metrics.RouteTagKey, metrics.SecurityMode}
+	ns, service, config, rev, pod string) (http.Handler, error) {
+	keys := []tag.Key{metrics.PodKey, metrics.ContainerKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey, metrics.RouteTagKey}
 	if err := pkgmetrics.RegisterResourceView(
 		&view.View{
 			Description: "The number of requests that are routed to queue-proxy",
@@ -101,17 +99,14 @@ func NewRequestMetricsHandler(next http.Handler,
 	}
 
 	return &requestMetricsHandler{
-		next:         next,
-		statsCtx:     ctx,
-		securityMode: securityMode,
+		next:     next,
+		statsCtx: ctx,
 	}, nil
 }
 
 func (h *requestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rr := pkghttp.NewResponseRecorder(w, http.StatusOK)
 	startTime := time.Now()
-
-	ctx, _ := tag.New(h.statsCtx, tag.Upsert(metrics.SecurityMode, string(h.securityMode)))
 
 	defer func() {
 		// Filter probe requests for revision metrics.
@@ -124,13 +119,13 @@ func (h *requestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		latency := time.Since(startTime)
 		routeTag := GetRouteTagNameFromRequest(r)
 		if err != nil {
-			ctx = metrics.AugmentWithResponseAndRouteTag(ctx,
+			ctx := metrics.AugmentWithResponseAndRouteTag(h.statsCtx,
 				http.StatusInternalServerError, routeTag)
 			pkgmetrics.RecordBatch(ctx, requestCountM.M(1),
 				responseTimeInMsecM.M(float64(latency.Milliseconds())))
 			panic(err)
 		}
-		ctx = metrics.AugmentWithResponseAndRouteTag(ctx,
+		ctx := metrics.AugmentWithResponseAndRouteTag(h.statsCtx,
 			rr.ResponseCode, routeTag)
 		pkgmetrics.RecordBatch(ctx, requestCountM.M(1),
 			responseTimeInMsecM.M(float64(latency.Milliseconds())))

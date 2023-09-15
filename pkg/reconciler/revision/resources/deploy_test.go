@@ -43,7 +43,6 @@ import (
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/queue"
 
-	netcfg "knative.dev/networking/pkg/config"
 	_ "knative.dev/pkg/metrics/testing"
 	. "knative.dev/serving/pkg/testing/v1"
 )
@@ -189,9 +188,6 @@ var (
 		}, {
 			Name:  "ENABLE_HTTP2_AUTO_DETECTION",
 			Value: "false",
-		}, {
-			Name:  "SECURITY_MODE",
-			Value: "",
 		}, {
 			Name:  "ROOT_CA",
 			Value: "",
@@ -543,7 +539,6 @@ func TestMakePodSpec(t *testing.T) {
 		defaults *apicfg.Defaults
 		dc       deployment.Config
 		fc       apicfg.Features
-		nc       netcfg.Config
 		want     *corev1.PodSpec
 	}{{
 		name: "user-defined user port, queue proxy have PORT env",
@@ -1384,7 +1379,6 @@ func TestMakePodSpec(t *testing.T) {
 			cfg.Observability = &test.oc
 			cfg.Deployment = &test.dc
 			cfg.Features = &test.fc
-			cfg.Network = &test.nc
 			if test.defaults != nil {
 				cfg.Defaults = test.defaults
 			}
