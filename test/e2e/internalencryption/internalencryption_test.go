@@ -20,28 +20,38 @@ limitations under the License.
 package internalencryption
 
 import (
+	"bufio"
 	"bytes"
 	"context"
-	"encoding/json"
+	"crypto/tls"
 	"fmt"
 	"io"
-	"net/http"
+	"log"
+	"strings"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"k8s.io/client-go/rest"
 	netcfg "knative.dev/networking/pkg/config"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
+	"knative.dev/serving/pkg/apis/serving"
 
 	//. "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
-	"knative.dev/serving/test/test_images/metricsreader/helpers"
 	v1test "knative.dev/serving/test/v1"
 )
 
 var (
 	ExpectedSecurityMode = netcfg.TrustEnabled
 )
+
+type RequestLog struct {
+	RequestURL string              `json:"requestUrl"`
+	TLS        tls.ConnectionState `json:"tls"`
+}
 
 // TestInitContainers tests init containers support.
 func TestInternalEncryption(t *testing.T) {
@@ -50,7 +60,7 @@ func TestInternalEncryption(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   test.MetricsReader,
+		Image:   test.HelloWorld,
 	}
 
 	test.EnsureTearDown(t, clients, &names)
@@ -67,79 +77,87 @@ func TestInternalEncryption(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		url,
-		spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.MetricsReaderText)),
-		"MetricsReaderText",
+		spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.HelloWorldText)),
+		"HelloWorldText",
 		test.ServingFlags.ResolvableDomain,
 	); err != nil {
-		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.MetricsReaderText, err)
+		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.HelloWorldText, err)
 	}
 
-	pods, err := clients.KubeClient.CoreV1().Pods("serving-tests").List(context.TODO(), v1.ListOptions{
-		LabelSelector: fmt.Sprintf("serving.knative.dev/configuration=%s", names.Config),
-	})
-	if err != nil {
-		t.Fatalf("Failed to get pods: %v", err)
+	revision := resources.Revision
+	if val := revision.Labels[serving.ConfigurationLabelKey]; val != names.Config {
+		t.Fatalf("Got revision label configuration=%q, want=%q ", names.Config, val)
 	}
-	var postData helpers.PostData
-
-	if len(pods.Items) > 0 {
-		postData.QueueIP = pods.Items[0].Status.PodIP
+	if val := revision.Labels[serving.ServiceLabelKey]; val != names.Service {
+		t.Fatalf("Got revision label service=%q, want=%q", val, names.Service)
 	}
 
-	pods, err = clients.KubeClient.CoreV1().Pods("knative-serving").List(context.TODO(), v1.ListOptions{
+	// Check on the logs for the activator
+	pods, err := clients.KubeClient.CoreV1().Pods("knative-serving").List(context.TODO(), v1.ListOptions{
 		LabelSelector: "app=activator",
 	})
 	if err != nil {
 		t.Fatalf("Failed to get pods: %v", err)
 	}
-	if len(pods.Items) > 0 {
-		postData.ActivatorIP = pods.Items[0].Status.PodIP
+	activatorPod := pods.Items[0]
+
+	req := clients.KubeClient.CoreV1().Pods(activatorPod.Namespace).GetLogs(activatorPod.Name, &corev1.PodLogOptions{})
+	_, nilCount, err := getPodLogs(req)
+
+	if nilCount > 0 {
+		t.Fatal("TLS not used on requests to activator")
 	}
 
-	initialCounts, err := getTLSCounts(url.String(), &postData)
+	// Check on the logs for the queue-proxy
+	pods, err = clients.KubeClient.CoreV1().Pods("serving-tests").List(context.TODO(), v1.ListOptions{
+		LabelSelector: fmt.Sprintf("serving.knative.dev/configuration=%s", names.Config),
+	})
 	if err != nil {
-		t.Fatalf("Failed to get initial TLS Connection Counts: %v", err)
+		t.Fatalf("Failed to get pods: %v", err)
 	}
-	t.Logf("Initial Counts: %#v", initialCounts)
+	helloWorldPod := pods.Items[0]
+	req = clients.KubeClient.CoreV1().Pods(helloWorldPod.Namespace).GetLogs(helloWorldPod.Name, &corev1.PodLogOptions{})
+	_, nilCount, err = getPodLogs(req)
 
-	updatedCounts, err := getTLSCounts(url.String(), &postData)
-	if err != nil {
-		t.Fatalf("Failed to get updated TLS Connection Counts: %v", err)
+	if nilCount > 0 {
+		t.Fatal("TLS not used on requests to queue-proxy")
 	}
-	t.Logf("Updated Counts: %#v", updatedCounts)
-
-	if updatedCounts.Activator[ExpectedSecurityMode] <= initialCounts.Activator[ExpectedSecurityMode] {
-		t.Fatalf("Connection Count with SecurityMode (%s) at Activator pod failed to increase", ExpectedSecurityMode)
-	}
-
-	if updatedCounts.Queue[ExpectedSecurityMode] <= initialCounts.Queue[ExpectedSecurityMode] {
-		t.Fatalf("Connection Count with SecurityMode (%s) at QueueProxy pod failed to increase", ExpectedSecurityMode)
-	}
-
 }
 
-func getTLSCounts(url string, d *helpers.PostData) (*helpers.ResponseData, error) {
-	counts := &helpers.ResponseData{}
+func getPodLogs(req *rest.Request) (tlsCount int, nilCount int, err error) {
+	tlsCount, nilCount = 0, 0
 
-	jsonPostData, err := json.Marshal(d)
+	podLogs, err := req.Stream(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal post data request to JSON:\n  %#v\n  %w", *d, err)
-	}
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonPostData))
-	if err != nil {
-		return nil, fmt.Errorf("failed to make POST request to %s: %w", url, err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to read response body from %s: %w", url, err)
+		err = fmt.Errorf("Failed to stream activator logs: %v", err)
+		return
 	}
 
-	err = json.Unmarshal(body, &counts)
+	buf := new(bytes.Buffer)
+	_, err = io.Copy(buf, podLogs)
+	podLogs.Close()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to unmarshal response body:\n  body: %s\n  err: %w", string(body), err)
+		err = fmt.Errorf("Failed to read activator logs from buffer: %v", err)
+		return
 	}
 
-	return counts, nil
+	scanner := bufio.NewScanner(buf)
+	for scanner.Scan() {
+		log.Printf("log: %s", scanner.Text())
+		if strings.Contains(scanner.Text(), "TLS") {
+			if strings.Contains(scanner.Text(), "TLS: <nil>") {
+				nilCount += 1
+
+			} else if strings.Contains(scanner.Text(), "TLS: [") {
+				tlsCount += 1
+			}
+		}
+	}
+
+	if err = scanner.Err(); err != nil {
+		err = fmt.Errorf("Failed to scan activator logs: %v", err)
+		return
+	}
+
+	return
 }
