@@ -52,6 +52,14 @@ type RequestLog struct {
 
 // TestInitContainers tests init containers support.
 func TestInternalEncryption(t *testing.T) {
+	if !test.ServingFlags.EnableAlphaFeatures {
+		t.Skip("Alpha features not enabled")
+	}
+
+	if !(strings.Contains(test.ServingFlags.IngressClass, "kourier") || strings.Contains(test.ServingFlags.IngressClass, "contour")) {
+		t.Skip("Skip this test for non-kourier or non-contour ingress.")
+	}
+
 	t.Parallel()
 	clients := test.Setup(t)
 
