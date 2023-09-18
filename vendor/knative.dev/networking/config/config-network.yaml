@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: networking
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "3550d56a"
+    knative.dev/example-checksum: "cfad3b9a"
 data:
   _example: |
     ################################
@@ -121,7 +121,7 @@ data:
     auto-tls: "Disabled"
 
     # Controls the behavior of the HTTP endpoint for the Knative ingress.
-    # It requires autoTLS to be enabled.
+    # It requires auto-tls to be enabled.
     # 1. Enabled: The Knative ingress will be able to serve HTTP connection.
     # 2. Redirected: The Knative ingress will send a 301 redirect for all
     # http connections, asking the clients to use HTTPS.
@@ -167,7 +167,7 @@ data:
     #  - "disabled": always use Pod IPs and do not fall back to Cluster IP on failure.
     mesh-compatibility-mode: "auto"
 
-    # Defines the scheme used for external URLs if autoTLS is not enabled.
+    # Defines the scheme used for external URLs if auto-tls is not enabled.
     # This can be used for making Knative report all URLs as "HTTPS" for example, if you're
     # fronting Knative with an external loadbalancer that deals with TLS termination and
     # Knative doesn't know about that otherwise.
