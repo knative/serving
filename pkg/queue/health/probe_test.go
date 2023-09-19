@@ -18,7 +18,6 @@ package health
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -272,13 +271,22 @@ func TestHTTPProbeResponseErrorFailure(t *testing.T) {
 }
 
 func TestGRPCProbeSuccessWithDefaultServiceName(t *testing.T) {
-	port := 12345
-
-	if err := newTestGRPCServer(t, port); err != nil {
-		t.Errorf("Failed to create test grpc server: %v", err)
+	// use ephemeral port to prevent port conflict
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to listen: %v", err)
 	}
 
-	gRPCAction := newGRPCAction(t, port, "")
+	s := grpc.NewServer()
+	grpc_health_v1.RegisterHealthServer(s, &grpcHealthServer{})
+
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- s.Serve(lis)
+	}()
+
+	assignedPort := lis.Addr().(*net.TCPAddr).Port
+	gRPCAction := newGRPCAction(t, assignedPort, "")
 	config := GRPCProbeConfigOptions{
 		Timeout:    time.Second,
 		GRPCAction: gRPCAction,
@@ -287,6 +295,14 @@ func TestGRPCProbeSuccessWithDefaultServiceName(t *testing.T) {
 	if err := GRPCProbe(config); err != nil {
 		t.Error("Expected probe to succeed but it failed with", err)
 	}
+
+	// explicitly stop grpc server
+	s.Stop()
+
+	if grpcServerErr := <-errChan; grpcServerErr != nil {
+		t.Fatalf("Failed to run gRPC test server %v", grpcServerErr)
+	}
+	close(errChan)
 }
 
 func newH2cTestServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
@@ -308,27 +324,6 @@ func newTestServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
 	t.Cleanup(server.Close)
 
 	return server
-}
-
-func newTestGRPCServer(t *testing.T, port int) error {
-	t.Helper()
-	grpcAddr := fmt.Sprintf("127.0.0.1:%d", port)
-	lis, err := net.Listen("tcp", grpcAddr)
-	if err != nil {
-		t.Fatalf("failed to listen: %v", err)
-	}
-
-	s := grpc.NewServer()
-	grpc_health_v1.RegisterHealthServer(s, &grpcHealthServer{})
-
-	go func() {
-		if err := s.Serve(lis); err != nil {
-			t.Fatalf("Failed to run gRPC test server %v", err)
-		}
-	}()
-	t.Cleanup(s.Stop)
-
-	return nil
 }
 
 func newHTTPGetAction(t *testing.T, serverURL string) *corev1.HTTPGetAction {
