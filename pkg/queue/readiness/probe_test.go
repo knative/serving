@@ -669,10 +669,9 @@ func TestGRPCSuccess(t *testing.T) {
 	s := grpc.NewServer()
 	grpc_health_v1.RegisterHealthServer(s, &grpcHealthServer{})
 
+	errChan := make(chan error, 1)
 	go func() {
-		if err := s.Serve(lis); err != nil {
-			t.Fatalf("Failed to run gRPC test server %v", err)
-		}
+		errChan <- s.Serve(lis)
 	}()
 
 	assignedPort := lis.Addr().(*net.TCPAddr).Port
@@ -692,7 +691,14 @@ func TestGRPCSuccess(t *testing.T) {
 	if !pb.ProbeContainer() {
 		t.Error("Probe failed. Expected success.")
 	}
-	t.Cleanup(s.Stop)
+
+	// explicitly stop grpc server
+	s.Stop()
+
+	if grpcServerErr := <-errChan; grpcServerErr != nil {
+		t.Fatalf("Failed to run gRPC test server %v", grpcServerErr)
+	}
+	close(errChan)
 }
 
 func newTestServer(t *testing.T, h http.HandlerFunc) *url.URL {
