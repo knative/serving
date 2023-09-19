@@ -1588,40 +1588,40 @@ func TestRouteDomain(t *testing.T) {
 	}
 }
 
-func TestAutoTLSEnabled(t *testing.T) {
+func TestExternalDomainTLSEnabled(t *testing.T) {
 	tests := []struct {
-		name                  string
-		configAutoTLSEnabled  bool
-		tlsDisabledAnnotation string
-		wantAutoTLSEnabled    bool
+		name                           string
+		configExternalDomainTLSEnabled bool
+		tlsDisabledAnnotation          string
+		wantExternalDomainTLSEnabled   bool
 	}{{
-		name:                 "AutoTLS enabled by config, not disabled by annotation",
-		configAutoTLSEnabled: true,
-		wantAutoTLSEnabled:   true,
+		name:                           "ExternalDomainTLS enabled by config, not disabled by annotation",
+		configExternalDomainTLSEnabled: true,
+		wantExternalDomainTLSEnabled:   true,
 	}, {
-		name:                  "AutoTLS enabled by config, disabled by annotation",
-		configAutoTLSEnabled:  true,
-		tlsDisabledAnnotation: "true",
-		wantAutoTLSEnabled:    false,
+		name:                           "ExternalDomainTLS enabled by config, disabled by annotation",
+		configExternalDomainTLSEnabled: true,
+		tlsDisabledAnnotation:          "true",
+		wantExternalDomainTLSEnabled:   false,
 	}, {
-		name:                 "AutoTLS disabled by config, not disabled by annotation",
-		configAutoTLSEnabled: false,
-		wantAutoTLSEnabled:   false,
+		name:                           "ExternalDomainTLS disabled by config, not disabled by annotation",
+		configExternalDomainTLSEnabled: false,
+		wantExternalDomainTLSEnabled:   false,
 	}, {
-		name:                  "AutoTLS disabled by config, disabled by annotation",
-		configAutoTLSEnabled:  false,
-		tlsDisabledAnnotation: "true",
-		wantAutoTLSEnabled:    false,
+		name:                           "ExternalDomainTLS disabled by config, disabled by annotation",
+		configExternalDomainTLSEnabled: false,
+		tlsDisabledAnnotation:          "true",
+		wantExternalDomainTLSEnabled:   false,
 	}, {
-		name:                  "AutoTLS enabled by config, invalid annotation",
-		configAutoTLSEnabled:  true,
-		tlsDisabledAnnotation: "foo",
-		wantAutoTLSEnabled:    true,
+		name:                           "ExternalDomainTLS enabled by config, invalid annotation",
+		configExternalDomainTLSEnabled: true,
+		tlsDisabledAnnotation:          "foo",
+		wantExternalDomainTLSEnabled:   true,
 	}, {
-		name:                  "AutoTLS disabled by config, invalid annotation",
-		configAutoTLSEnabled:  false,
-		tlsDisabledAnnotation: "foo",
-		wantAutoTLSEnabled:    false,
+		name:                           "ExternalDomainTLS disabled by config, invalid annotation",
+		configExternalDomainTLSEnabled: false,
+		tlsDisabledAnnotation:          "foo",
+		wantExternalDomainTLSEnabled:   false,
 	}}
 
 	r := Route("test-ns", "test-route")
@@ -1632,14 +1632,14 @@ func TestAutoTLSEnabled(t *testing.T) {
 			ctx := logtesting.TestContextWithLogger(t)
 			ctx = config.ToContext(ctx, &config.Config{
 				Network: &netcfg.Config{
-					AutoTLS: test.configAutoTLSEnabled,
+					ExternalDomainTLS: test.configExternalDomainTLSEnabled,
 				},
 			})
 
-			r.Annotations[networking.DisableAutoTLSAnnotationKey] = test.tlsDisabledAnnotation
+			r.Annotations[networking.DisableExternalDomainTLSAnnotationKey] = test.tlsDisabledAnnotation
 
-			if got := autoTLSEnabled(ctx, r); got != test.wantAutoTLSEnabled {
-				t.Errorf("autoTLSEnabled = %t, want %t", got, test.wantAutoTLSEnabled)
+			if got := externalDomainTLSEnabled(ctx, r); got != test.wantExternalDomainTLSEnabled {
+				t.Errorf("externalDomainTLSEnabled = %t, want %t", got, test.wantExternalDomainTLSEnabled)
 			}
 		})
 	}

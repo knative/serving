@@ -173,11 +173,11 @@ func WithInitRouteConditions(rt *v1.Route) {
 	rt.Status.InitializeConditions()
 }
 
-// WithRouteConditionsAutoTLSDisabled calls MarkTLSNotEnabled with AutoTLSNotEnabledMessage
+// WithRouteConditionsExternalDomainTLSDisabled calls MarkTLSNotEnabled with ExternalDomainTLSNotEnabledMessage
 // after initialized the Service's conditions.
-func WithRouteConditionsAutoTLSDisabled(rt *v1.Route) {
+func WithRouteConditionsExternalDomainTLSDisabled(rt *v1.Route) {
 	rt.Status.InitializeConditions()
-	rt.Status.MarkTLSNotEnabled(v1.AutoTLSNotEnabledMessage)
+	rt.Status.MarkTLSNotEnabled(v1.ExternalDomainTLSNotEnabledMessage)
 }
 
 // WithRouteConditionsTLSNotEnabledForClusterLocalMessage calls

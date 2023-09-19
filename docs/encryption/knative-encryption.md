@@ -25,7 +25,7 @@ The different parts are independent of each other and (can) use different Certif
 * These certificates are either [provided manually](https://knative.dev/docs/serving/using-a-tls-cert/) or by using an implementation to the [Knative Certificate abstraction](https://github.com/knative/networking/blob/main/pkg/apis/networking/v1alpha1/certificate_types.go#L34). Currently, we support two implementations:
   * [net-certmanager](https://github.com/knative-extensions/net-certmanager) 
   * [net-http01](https://github.com/knative-extensions/net-http01)
-* Please refer to the [documentation](https://knative.dev/docs/serving/using-auto-tls/) for more information.
+* Please refer to the [documentation](https://knative.dev/docs/serving/using-external-domain-tls/) for more information.
 
 
 ### (2) Cluster-local certificates

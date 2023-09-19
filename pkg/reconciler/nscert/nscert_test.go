@@ -99,8 +99,8 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			"domain-template": defaultDomainTemplate,
-			"auto-tls":        "true",
+			"domain-template":     defaultDomainTemplate,
+			"external-domain-tls": "true",
 			// Apply to all namespaces
 			"namespace-wildcard-cert-selector": "{}",
 		},
@@ -323,7 +323,7 @@ func TestUpdateDomainTemplate(t *testing.T) {
 		},
 		Data: map[string]string{
 			"namespace-wildcard-cert-selector": "{}",
-			"auto-tls":                         "Enabled",
+			"external-domain-tls":              "Enabled",
 		},
 	}
 	ctx, cancel, certEvents, watcher := newTestSetup(t, netCfg)
@@ -348,7 +348,7 @@ func TestUpdateDomainTemplate(t *testing.T) {
 		Data: map[string]string{
 			"domain-template":                  "{{.Name}}-suffix.{{.Namespace}}.{{.Domain}}",
 			"namespace-wildcard-cert-selector": "{}",
-			"auto-tls":                         "Enabled",
+			"external-domain-tls":              "Enabled",
 		},
 	}
 	watcher.OnChange(netCfg)
@@ -369,7 +369,7 @@ func TestUpdateDomainTemplate(t *testing.T) {
 		Data: map[string]string{
 			"domain-template":                  "{{.Name}}.subdomain.{{.Namespace}}.{{.Domain}}",
 			"namespace-wildcard-cert-selector": `{}`,
-			"auto-tls":                         "Enabled",
+			"external-domain-tls":              "Enabled",
 		},
 	}
 	watcher.OnChange(netCfg)
@@ -389,8 +389,8 @@ func TestUpdateDomainTemplate(t *testing.T) {
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			"domain-template": "{{.Namespace}}.{{.Name}}.{{.Domain}}",
-			"auto-tls":        "Enabled",
+			"domain-template":     "{{.Namespace}}.{{.Name}}.{{.Domain}}",
+			"external-domain-tls": "Enabled",
 		},
 	}
 	watcher.OnChange(netCfg)
@@ -416,7 +416,7 @@ func TestChangeDefaultDomain(t *testing.T) {
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			"auto-tls":                         "Enabled",
+			"external-domain-tls":              "Enabled",
 			"namespace-wildcard-cert-selector": "{}",
 		},
 	}
@@ -472,7 +472,7 @@ func TestDomainConfigDomain(t *testing.T) {
 		name:      "no domainmapping without config",
 		domainCfg: map[string]string{},
 		netCfg: map[string]string{
-			"auto-tls": "Enabled",
+			"external-domain-tls": "Enabled",
 		},
 	}, {
 		name: "default domain",
@@ -480,7 +480,7 @@ func TestDomainConfigDomain(t *testing.T) {
 			"other.com": "selector:\n app: dev",
 		},
 		netCfg: map[string]string{
-			"auto-tls":                         "Enabled",
+			"external-domain-tls":              "Enabled",
 			"namespace-wildcard-cert-selector": "{}",
 		},
 		wantCertName: "testns.svc.cluster.local",
@@ -491,7 +491,7 @@ func TestDomainConfigDomain(t *testing.T) {
 			"default.com": "",
 		},
 		netCfg: map[string]string{
-			"auto-tls":                         "Enabled",
+			"external-domain-tls":              "Enabled",
 			"namespace-wildcard-cert-selector": "{}",
 		},
 		wantCertName: "testns.default.com",
@@ -614,7 +614,7 @@ func kubeNamespaceWithLabelValue(name string, labels map[string]string) *corev1.
 func networkConfig() *netcfg.Config {
 	return &netcfg.Config{
 		DomainTemplate:                defaultDomainTemplate,
-		AutoTLS:                       true,
+		ExternalDomainTLS:             true,
 		DefaultCertificateClass:       testCertClass,
 		NamespaceWildcardCertSelector: &metav1.LabelSelector{},
 	}

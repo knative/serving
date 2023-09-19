@@ -16,17 +16,17 @@
 
 source $(dirname "$0")/e2e-common.sh
 
-function setup_auto_tls_env_variables() {
+function setup_external_domain_tls_env_variables() {
   # DNS zone for the testing domain.
-  export AUTO_TLS_TEST_DNS_ZONE="knative-e2e"
+  export EXTERNAL_DOMAIN_TLS_TEST_DNS_ZONE="knative-e2e"
   # Google Cloud project that hosts the DNS server for the testing domain `kn-e2e.dev`
-  export AUTO_TLS_TEST_CLOUD_DNS_PROJECT="knative-e2e-dns"
+  export EXTERNAL_DOMAIN_TLS_TEST_CLOUD_DNS_PROJECT="knative-e2e-dns"
   # The service account credential file used to access the DNS server.
-  export AUTO_TLS_TEST_CLOUD_DNS_SERVICE_ACCOUNT_KEY_FILE="${GOOGLE_APPLICATION_CREDENTIALS}"
+  export EXTERNAL_DOMAIN_TLS_TEST_CLOUD_DNS_SERVICE_ACCOUNT_KEY_FILE="${GOOGLE_APPLICATION_CREDENTIALS}"
 
-  export AUTO_TLS_TEST_DOMAIN_NAME="kn-e2e.dev"
+  export EXTERNAL_DOMAIN_TLS_TEST_DOMAIN_NAME="kn-e2e.dev"
 
-  export CUSTOM_DOMAIN_SUFFIX="$(($RANDOM % 10000)).${E2E_PROJECT_ID}.${AUTO_TLS_TEST_DOMAIN_NAME}"
+  export CUSTOM_DOMAIN_SUFFIX="$(($RANDOM % 10000)).${E2E_PROJECT_ID}.${EXTERNAL_DOMAIN_TLS_TEST_DOMAIN_NAME}"
 
   export TLS_TEST_NAMESPACE="tls"
 
@@ -39,11 +39,11 @@ function setup_auto_tls_env_variables() {
     INGRESS_SERVICE="istio-ingressgateway"
   fi
   local IP=$(kubectl get svc -n ${INGRESS_NAMESPACE} ${INGRESS_SERVICE} -o jsonpath="{.status.loadBalancer.ingress[0].ip}")
-  export AUTO_TLS_TEST_INGRESS_IP=${IP}
+  export EXTERNAL_DOMAIN_TLS_TEST_INGRESS_IP=${IP}
 }
 
 function setup_custom_domain() {
-  echo ">> Configuring custom domain for Auto TLS tests: ${CUSTOM_DOMAIN_SUFFIX}"
+  echo ">> Configuring custom domain for External Domain TLS tests: ${CUSTOM_DOMAIN_SUFFIX}"
   cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: ConfigMap
@@ -62,59 +62,59 @@ function cleanup_custom_domain() {
   kubectl delete ConfigMap config-domain -n ${SYSTEM_NAMESPACE}
 }
 
-function setup_auto_tls_common() {
-  setup_auto_tls_env_variables
+function setup_external_domain_tls_common() {
+  setup_external_domain_tls_env_variables
 
   setup_custom_domain
 
-  toggle_feature auto-tls Enabled config-network
+  toggle_feature external-domain-tls Enabled config-network
   toggle_feature autocreate-cluster-domain-claims true config-network
 }
 
-function cleanup_auto_tls_common() {
+function cleanup_external_domain_tls_common() {
   cleanup_custom_domain
 
-  toggle_feature auto-tls Disabled config-network
+  toggle_feature external-domain-tls Disabled config-network
   toggle_feature autocreate-cluster-domain-claims false config-network
   toggle_feature namespace-wildcard-cert-selector "" config-network
   kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
 }
 
-function setup_http01_auto_tls() {
+function setup_http01_external_domain_tls() {
     # The name of the test, lowercase to avoid hyphenation of the test name.
-  export AUTO_TLS_TEST_NAME="http01"
+  export EXTERNAL_DOMAIN_TLS_TEST_NAME="http01"
   # Rely on the built-in naming (for logstream)
   unset TLS_SERVICE_NAME
   # The full host name of the Knative Service. This is used to configure the DNS record.
-  export AUTO_TLS_TEST_FULL_HOST_NAME="*.${CUSTOM_DOMAIN_SUFFIX}"
+  export EXTERNAL_DOMAIN_TLS_TEST_FULL_HOST_NAME="*.${CUSTOM_DOMAIN_SUFFIX}"
 
   kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
 
   if [[ -z "${MESH}" ]]; then
     echo "Install cert-manager no-mesh ClusterIssuer"
-    kubectl apply -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/http01/issuer.yaml
+    kubectl apply -f "${E2E_YAML_DIR}"/test/config/externaldomaintls/certmanager/http01/issuer.yaml
   else
     echo "Install cert-manager mesh ClusterIssuer"
-    kubectl apply -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/http01/mesh-issuer.yaml
+    kubectl apply -f "${E2E_YAML_DIR}"/test/config/externaldomaintls/certmanager/http01/mesh-issuer.yaml
   fi
-  kubectl apply -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/http01/config-certmanager.yaml
+  kubectl apply -f "${E2E_YAML_DIR}"/test/config/externaldomaintls/certmanager/http01/config-certmanager.yaml
   setup_dns_record
 }
 
-function setup_selfsigned_per_ksvc_auto_tls() {
+function setup_selfsigned_per_ksvc_external_domain_tls() {
   # The name of the test.
-  export AUTO_TLS_TEST_NAME="SelfSignedPerKsvc"
-  # The name of the Knative Service deployed in Auto TLS E2E test.
+  export EXTERNAL_DOMAIN_TLS_TEST_NAME="SelfSignedPerKsvc"
+  # The name of the Knative Service deployed in External Domain TLS E2E test.
   export TLS_SERVICE_NAME="self-per-ksvc"
 
   kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
-  kubectl apply -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/selfsigned/
+  kubectl apply -f ${E2E_YAML_DIR}/test/config/externaldomaintls/certmanager/selfsigned/
 }
 
-function setup_selfsigned_per_namespace_auto_tls() {
+function setup_selfsigned_per_namespace_external_domain_tls() {
   # The name of the test.
-  export AUTO_TLS_TEST_NAME="SelfSignedPerNamespace"
-  # The name of the Knative Service deployed in Auto TLS E2E test.
+  export EXTERNAL_DOMAIN_TLS_TEST_NAME="SelfSignedPerNamespace"
+  # The name of the Knative Service deployed in External Domain TLS E2E test.
   export TLS_SERVICE_NAME="self-per-namespace"
 
   kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
@@ -127,19 +127,19 @@ function setup_selfsigned_per_namespace_auto_tls() {
   "
   toggle_feature namespace-wildcard-cert-selector "$selector" config-network
 
-  kubectl apply -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/selfsigned/
+  kubectl apply -f ${E2E_YAML_DIR}/test/config/externaldomaintls/certmanager/selfsigned/
 
 }
 
-function cleanup_per_selfsigned_namespace_auto_tls() {
+function cleanup_per_selfsigned_namespace_external_domain_tls() {
   # Disable namespace cert for all namespaces
   toggle_feature namespace-wildcard-cert-selector "" config-network
 
-  kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/selfsigned/ --ignore-not-found=true
+  kubectl delete -f ${E2E_YAML_DIR}/test/config/externaldomaintls/certmanager/selfsigned/ --ignore-not-found=true
 }
 
 function setup_dns_record() {
-  go run ./test/e2e/autotls/config/dnssetup/
+  go run ./test/e2e/externaldomaintls/config/dnssetup/
   if [ $? -eq 0 ]; then
     echo "Successfully set up DNS record"
   else
@@ -149,7 +149,7 @@ function setup_dns_record() {
 }
 
 function delete_dns_record() {
-  go run ./test/e2e/autotls/config/dnscleanup/
+  go run ./test/e2e/externaldomaintls/config/dnscleanup/
   if [ $? -eq 0 ]; then
     echo "Successfully tore down DNS record"
   else
@@ -175,38 +175,38 @@ if [[ -z "${INGRESS_CLASS}" \
   alpha="--enable-alpha"
 fi
 
-AUTO_TLS_TEST_OPTIONS="${AUTO_TLS_TEST_OPTIONS:-${alpha} --enable-beta}"
+EXTERNAL_DOMAIN_TLS_TEST_OPTIONS="${EXTERNAL_DOMAIN_TLS_TEST_OPTIONS:-${alpha} --enable-beta}"
 
-# Auto TLS E2E tests mutate the cluster and must be ran separately
-# because they need auto-tls and cert-manager specific configurations
-subheader "Setup auto tls"
-setup_auto_tls_common
-add_trap "cleanup_auto_tls_common" EXIT SIGKILL SIGTERM SIGQUIT
+# External Domain TLS E2E tests mutate the cluster and must be ran separately
+# because they need external-domain-tls and cert-manager specific configurations
+subheader "Setup external-domain tls"
+setup_external_domain_tls_common
+add_trap "cleanup_external_domain_tls_common" EXIT SIGKILL SIGTERM SIGQUIT
 
-subheader "Auto TLS test for per-ksvc certificate provision using self-signed CA"
-setup_selfsigned_per_ksvc_auto_tls
-go_test_e2e -timeout=10m ./test/e2e/autotls/ ${AUTO_TLS_TEST_OPTIONS} || failed=1
-kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/selfsigned/
+subheader "External Domain TLS test for per-ksvc certificate provision using self-signed CA"
+setup_selfsigned_per_ksvc_external_domain_tls
+go_test_e2e -timeout=10m ./test/e2e/externaldomaintls/ ${EXTERNAL_DOMAIN_TLS_TEST_OPTIONS} || failed=1
+kubectl delete -f ${E2E_YAML_DIR}/test/config/externaldomaintls/certmanager/selfsigned/
 
-subheader "Auto TLS test for per-namespace certificate provision using self-signed CA"
-setup_selfsigned_per_namespace_auto_tls
-add_trap "cleanup_per_selfsigned_namespace_auto_tls" SIGKILL SIGTERM SIGQUIT
-go_test_e2e -timeout=10m ./test/e2e/autotls/ ${AUTO_TLS_TEST_OPTIONS} || failed=1
-cleanup_per_selfsigned_namespace_auto_tls
+subheader "External Domain TLS test for per-namespace certificate provision using self-signed CA"
+setup_selfsigned_per_namespace_external_domain_tls
+add_trap "cleanup_per_selfsigned_namespace_external_domain_tls" SIGKILL SIGTERM SIGQUIT
+go_test_e2e -timeout=10m ./test/e2e/externaldomaintls/ ${EXTERNAL_DOMAIN_TLS_TEST_OPTIONS} || failed=1
+cleanup_per_selfsigned_namespace_external_domain_tls
 
-if [[ ${RUN_HTTP01_AUTO_TLS_TESTS} -eq 1 ]]; then
-  subheader "Auto TLS test for per-ksvc certificate provision using HTTP01 challenge"
-  setup_http01_auto_tls
+if [[ ${RUN_HTTP01_EXTERNAL_DOMAIN_TLS_TESTS} -eq 1 ]]; then
+  subheader "External Domain TLS test for per-ksvc certificate provision using HTTP01 challenge"
+  setup_http01_external_domain_tls
   add_trap "delete_dns_record" SIGKILL SIGTERM SIGQUIT
-  go_test_e2e -timeout=10m ./test/e2e/autotls/ ${AUTO_TLS_TEST_OPTIONS} || failed=1
-  kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/http01/
+  go_test_e2e -timeout=10m ./test/e2e/externaldomaintls/ ${EXTERNAL_DOMAIN_TLS_TEST_OPTIONS} || failed=1
+  kubectl delete -f ${E2E_YAML_DIR}/test/config/externaldomaintls/certmanager/http01/
   delete_dns_record
 fi
 
 (( failed )) && fail_test
 
-subheader "Cleanup auto tls"
-cleanup_auto_tls_common
+subheader "Cleanup external domain tls"
+cleanup_external_domain_tls_common
 
 # Remove the kail log file if the test flow passes.
 # This is for preventing too many large log files to be uploaded to GCS in CI.

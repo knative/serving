@@ -30,7 +30,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"knative.dev/serving/test/e2e/autotls/config"
+	"knative.dev/serving/test/e2e/externaldomaintls/config"
 )
 
 var env config.EnvConfig

@@ -138,8 +138,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 		logger.Debug("Revision meta: " + spew.Sdump(rev.ObjectMeta))
 	}
 
-	// Deploy certificate when internal-encryption is enabled.
-	if config.FromContext(ctx).Network.InternalTLSEnabled() {
+	// Deploy certificate when knative-internal-tls is enabled.
+	if config.FromContext(ctx).Network.KnativeInternalTLSEnabled() {
 		if err := c.reconcileSecret(ctx, rev); err != nil {
 			return err
 		}

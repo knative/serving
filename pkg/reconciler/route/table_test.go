@@ -73,7 +73,7 @@ type key int
 const (
 	rolloutDurationKey key = iota
 	externalSchemeKey
-	enableAutoTLSKey
+	enableExternalDomainTLSKey
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -177,7 +177,7 @@ func TestReconcile(t *testing.T) {
 			Object: Route("default", "becomes-ready", WithConfigTarget("ing-unknown"),
 				WithRouteUID("12-34"), WithRouteGeneration(1955), WithRouteObservedGeneration,
 				// Populated by reconciliation when all traffic has been assigned.
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled,
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "ing-unknown-00001",
@@ -222,7 +222,7 @@ func TestReconcile(t *testing.T) {
 			Object: Route("default", "ingress-failed", WithConfigTarget("config"),
 				WithRouteUID("12-34"), WithRouteGeneration(1), WithRouteObservedGeneration,
 				// Populated by reconciliation when all traffic has been assigned.
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithInitRouteConditions,
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled, WithInitRouteConditions,
 				MarkTrafficAssigned,
 				WithStatusTraffic(
 					v1.TrafficTarget{
@@ -273,7 +273,7 @@ func TestReconcile(t *testing.T) {
 				WithRouteUID("12-34"), WithIngressClass("custom-ingress-class"),
 				WithRouteGeneration(1), WithRouteObservedGeneration,
 				// Populated by reconciliation when all traffic has been assigned.
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled,
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -329,7 +329,7 @@ func TestReconcile(t *testing.T) {
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
 				WithRouteUID("65-23"), WithRouteGeneration(1), WithRouteObservedGeneration,
 				// Populated by reconciliation when all traffic has been assigned.
-				WithLocalDomain, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				WithLocalDomain, WithAddress, WithRouteConditionsExternalDomainTLSDisabled,
 				WithRouteLabel(map[string]string{netapi.VisibilityLabelKey: "cluster-local"}),
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
 					v1.TrafficTarget{
@@ -376,7 +376,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
 				// Populated by reconciliation when the route becomes ready.
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled,
 				WithRouteGeneration(2009), WithRouteObservedGeneration,
 				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
 					v1.TrafficTarget{
@@ -475,7 +475,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
 				// Populated by reconciliation when the route becomes ready.
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled,
 				WithRouteGeneration(2009), WithRouteObservedGeneration,
 				MarkTrafficAssigned, MarkInRollout, WithStatusTraffic(
 					v1.TrafficTarget{
@@ -559,7 +559,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
 				// Populated by reconciliation when the route becomes ready.
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled,
 				WithRouteGeneration(2009), WithRouteObservedGeneration,
 				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(
 					v1.TrafficTarget{
@@ -660,7 +660,7 @@ func TestReconcile(t *testing.T) {
 				WithRouteFinalizer, WithRouteGeneration(1),
 				MarkIngressNotConfigured, WithRouteObservedGeneration,
 				// Populated by reconciliation when we fail to create the ingress.
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled,
 				MarkTrafficAssigned, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -678,7 +678,7 @@ func TestReconcile(t *testing.T) {
 		Name: "steady state",
 		Objects: []runtime.Object{
 			Route("default", "steady-state", WithConfigTarget("config"),
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled,
 				MarkTrafficAssigned, MarkIngressReady, WithRouteGeneration(1), WithRouteObservedGeneration,
 				WithRouteFinalizer, WithStatusTraffic(
 					v1.TrafficTarget{
@@ -717,7 +717,7 @@ func TestReconcile(t *testing.T) {
 		WantErr: true,
 		Objects: []runtime.Object{
 			Route("default", "unhappy-owner", WithConfigTarget("config"),
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled, WithRouteGeneration(1),
 				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithRouteFinalizer, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName: "config-00001",
@@ -734,7 +734,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "unhappy-owner", WithConfigTarget("config"),
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled, WithRouteGeneration(1),
 				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithRouteFinalizer, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -756,7 +756,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			Route("default", "different-domain", WithConfigTarget("config"),
 				WithAnotherDomain, WithAddress, WithRouteGeneration(1), WithRouteObservedGeneration,
-				WithRouteConditionsAutoTLSDisabled, MarkTrafficAssigned, MarkIngressReady,
+				WithRouteConditionsExternalDomainTLSDisabled, MarkTrafficAssigned, MarkIngressReady,
 				WithRouteFinalizer, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -813,7 +813,7 @@ func TestReconcile(t *testing.T) {
 		Name: "new latest created revision",
 		Objects: []runtime.Object{
 			Route("default", "new-latest-created", WithConfigTarget("config"),
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled, WithRouteGeneration(1),
 				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithRouteFinalizer, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -852,7 +852,7 @@ func TestReconcile(t *testing.T) {
 		Ctx:  context.WithValue(context.Background(), rolloutDurationKey, 120),
 		Objects: []runtime.Object{
 			Route("default", "new-latest-ready", WithConfigTarget("config"),
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled, WithRouteGeneration(1),
 				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithRouteFinalizer, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName: "config-00001",
@@ -923,7 +923,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "new-latest-ready", WithConfigTarget("config"),
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled, WithRouteGeneration(1),
 				MarkTrafficAssigned, MarkInRollout, WithRouteObservedGeneration, WithRouteFinalizer, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -941,7 +941,7 @@ func TestReconcile(t *testing.T) {
 		Name: "new latest ready revision, rollout disabled",
 		Objects: []runtime.Object{
 			Route("default", "new-latest-ready", WithConfigTarget("config"),
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled, WithRouteGeneration(1),
 				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithRouteFinalizer, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName: "config-00001",
@@ -995,7 +995,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "new-latest-ready", WithConfigTarget("config"),
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled, WithRouteGeneration(1),
 				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithRouteFinalizer, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00002",
@@ -1058,7 +1058,7 @@ func TestReconcile(t *testing.T) {
 			Object: Route("default", "becomes-local", WithConfigTarget("config"),
 				WithRouteUID("65-23"), WithRouteGeneration(1), WithRouteObservedGeneration,
 				MarkTrafficAssigned, MarkIngressNotConfigured,
-				WithLocalDomain, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				WithLocalDomain, WithAddress, WithRouteConditionsExternalDomainTLSDisabled,
 				WithRouteLabel(map[string]string{netapi.VisibilityLabelKey: "cluster-local"}),
 				WithStatusTraffic(
 					v1.TrafficTarget{
@@ -1120,7 +1120,7 @@ func TestReconcile(t *testing.T) {
 			Object: Route("default", "becomes-public", WithConfigTarget("config"),
 				WithRouteUID("65-23"), WithRouteGeneration(1), WithRouteObservedGeneration,
 				MarkTrafficAssigned, MarkIngressNotConfigured,
-				WithAddress, WithRouteConditionsAutoTLSDisabled, WithURL,
+				WithAddress, WithRouteConditionsExternalDomainTLSDisabled, WithURL,
 				WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -1138,7 +1138,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Objects: []runtime.Object{
 			Route("default", "update-ci-failure", WithConfigTarget("config"),
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled, WithRouteGeneration(1),
 				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithRouteFinalizer, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName: "config-00001",
@@ -1191,7 +1191,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "update-ci-failure", WithConfigTarget("config"),
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled, WithRouteGeneration(1),
 				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithRouteFinalizer, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00002",
@@ -1207,7 +1207,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile service mutation",
 		Objects: []runtime.Object{
 			Route("default", "svc-mutation", WithConfigTarget("config"),
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled, WithRouteGeneration(1),
 				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithRouteFinalizer, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -1252,7 +1252,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Objects: []runtime.Object{
 			Route("default", "svc-mutation", WithConfigTarget("config"), WithRouteFinalizer,
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled, WithRouteGeneration(1),
 				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -1298,7 +1298,7 @@ func TestReconcile(t *testing.T) {
 		Name: "drop cluster ip",
 		Objects: []runtime.Object{
 			Route("default", "cluster-ip", WithConfigTarget("config"), WithRouteFinalizer,
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled, WithRouteGeneration(1),
 				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -1339,7 +1339,7 @@ func TestReconcile(t *testing.T) {
 		Name: "preserve the cluster ip of the service on steady state",
 		Objects: []runtime.Object{
 			Route("default", "preserve-cluster-ip", WithConfigTarget("config"), WithRouteFinalizer,
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled, WithRouteGeneration(1),
 				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -1397,7 +1397,7 @@ func TestReconcile(t *testing.T) {
 		Name: "fix external name",
 		Objects: []runtime.Object{
 			Route("default", "external-name", WithConfigTarget("config"), WithRouteFinalizer,
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled, WithRouteGeneration(1),
 				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -1437,7 +1437,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile ingress mutation",
 		Objects: []runtime.Object{
 			Route("default", "ingress-mutation", WithConfigTarget("config"), WithRouteFinalizer,
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled, WithRouteGeneration(1),
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled, WithRouteGeneration(1),
 				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -1561,7 +1561,7 @@ func TestReconcile(t *testing.T) {
 			Object: Route("default", "pinned-becomes-ready",
 				// Use the Revision name from the config
 				WithRevTarget("config-00001"), WithRouteFinalizer, WithRouteGeneration(1),
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled,
 				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
@@ -1643,7 +1643,7 @@ func TestReconcile(t *testing.T) {
 					ConfigurationName: "green",
 					Percent:           ptr.Int64(50),
 				}), WithRouteUID("34-78"),
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled,
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "blue-00001",
@@ -1780,7 +1780,7 @@ func TestReconcile(t *testing.T) {
 						RevisionName: "gray-00001",
 						Percent:      ptr.Int64(50),
 					}), WithRouteUID("1-2"), WithRouteFinalizer,
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled,
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
 					v1.TrafficTarget{
 						Tag:            "gray",
@@ -1815,7 +1815,7 @@ func TestReconcile(t *testing.T) {
 		// Start from a steady state referencing "blue", and modify the route spec to point to "green" instead.
 		Objects: []runtime.Object{
 			Route("default", "switch-configs", WithConfigTarget("green"),
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled,
 				MarkTrafficAssigned, MarkIngressReady, WithRouteGeneration(1984), WithRouteObservedGeneration,
 				WithStatusTraffic(
 					v1.TrafficTarget{
@@ -1872,7 +1872,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "switch-configs", WithConfigTarget("green"),
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled,
 				WithRouteGeneration(1984), MarkTrafficAssigned, MarkIngressReady,
 				WithRouteObservedGeneration, WithStatusTraffic(
 					v1.TrafficTarget{
@@ -1939,7 +1939,7 @@ func TestReconcile(t *testing.T) {
 		Name: "deletes service when route no longer references service",
 		Objects: []runtime.Object{
 			Route("default", "my-route", WithConfigTarget("config"),
-				WithURL, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled,
 				MarkTrafficAssigned, MarkIngressReady,
 				WithRouteGeneration(1), WithRouteObservedGeneration,
 				WithRouteFinalizer,
@@ -2057,7 +2057,7 @@ func TestReconcile(t *testing.T) {
 		Ctx:  context.WithValue(context.Background(), externalSchemeKey, "https"),
 		Objects: []runtime.Object{
 			Route("default", "steady-state", WithConfigTarget("config"),
-				WithHTTPSDomain, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				WithHTTPSDomain, WithAddress, WithRouteConditionsExternalDomainTLSDisabled,
 				MarkTrafficAssigned, MarkIngressReady, WithRouteGeneration(1), WithRouteObservedGeneration,
 				WithRouteFinalizer, WithStatusTraffic(
 					v1.TrafficTarget{
@@ -2097,7 +2097,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			Route("default", "steady-state", WithConfigTarget("config"),
 				WithRouteLabel(map[string]string{netapi.VisibilityLabelKey: serving.VisibilityClusterLocal}),
-				WithLocalDomain, WithAddress, WithRouteConditionsAutoTLSDisabled,
+				WithLocalDomain, WithAddress, WithRouteConditionsExternalDomainTLSDisabled,
 				MarkTrafficAssigned, MarkIngressReady, WithRouteGeneration(1), WithRouteObservedGeneration,
 				WithRouteFinalizer, WithStatusTraffic(
 					v1.TrafficTarget{
@@ -2150,7 +2150,7 @@ func TestReconcile_ServiceLifecycle(t *testing.T) {
 		WithRouteUID("12-34"),
 		WithAddress,
 		WithURL,
-		WithRouteConditionsAutoTLSDisabled,
+		WithRouteConditionsExternalDomainTLSDisabled,
 		MarkTrafficAssigned,
 		MarkIngressReady,
 		WithRouteObservedGeneration,
@@ -2342,7 +2342,7 @@ func TestReconcile_ServiceLifecycle(t *testing.T) {
 	table.Test(t, MakeFactory(NewTestReconciler))
 }
 
-func TestReconcileEnableAutoTLS(t *testing.T) {
+func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 	table := TableTest{{
 		Name: "check that existing wildcard cert is used when creating a Route",
 		Objects: []runtime.Object{
@@ -3121,8 +3121,8 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 		}},
 		Key: "default/becomes-ready",
 	}, {
-		// This test is a same with "public becomes cluster local" above, but confirm it does not create certs with auto-tls for cluster-local.
-		Name: "public becomes cluster local w/ auto-tls",
+		// This test is a same with "public becomes cluster local" above, but confirm it does not create certs with external-domain-tls for cluster-local.
+		Name: "public becomes cluster local w/ external-domain-tls",
 		Objects: []runtime.Object{
 			Route("default", "becomes-local", WithConfigTarget("config"), WithRouteGeneration(1),
 				WithRouteLabel(map[string]string{netapi.VisibilityLabelKey: serving.VisibilityClusterLocal}),
@@ -3192,7 +3192,7 @@ func TestReconcileEnableAutoTLS(t *testing.T) {
 		if row.Ctx == nil {
 			row.Ctx = context.Background()
 		}
-		table[i].Ctx = context.WithValue(row.Ctx, enableAutoTLSKey, true)
+		table[i].Ctx = context.WithValue(row.Ctx, enableExternalDomainTLSKey, true)
 	}
 	table.Test(t, MakeFactory(NewTestReconciler))
 }
@@ -3214,8 +3214,8 @@ func NewTestReconciler(ctx context.Context, listers *Listers, cmw configmap.Watc
 	}
 
 	cfg := reconcilerTestConfig()
-	if v := ctx.Value(enableAutoTLSKey); v != nil {
-		cfg.Network.AutoTLS = v.(bool)
+	if v := ctx.Value(enableExternalDomainTLSKey); v != nil {
+		cfg.Network.ExternalDomainTLS = v.(bool)
 	}
 	if v := ctx.Value(rolloutDurationKey); v != nil {
 		cfg.Network.RolloutDurationSecs = v.(int)

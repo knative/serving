@@ -171,18 +171,18 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, dm *v1beta1.DomainMapping
 	return r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Delete(ctx, dm.Name, metav1.DeleteOptions{})
 }
 
-func autoTLSEnabled(ctx context.Context, dm *v1beta1.DomainMapping) bool {
-	if !config.FromContext(ctx).Network.AutoTLS {
+func externalDomainTLSEnabled(ctx context.Context, dm *v1beta1.DomainMapping) bool {
+	if !config.FromContext(ctx).Network.ExternalDomainTLS {
 		return false
 	}
-	annotationValue := netapi.GetDisableAutoTLS(dm.Annotations)
+	annotationValue := netapi.GetDisableExternalDomainTLS(dm.Annotations)
 	disabledByAnnotation, err := strconv.ParseBool(annotationValue)
 	if annotationValue != "" && err != nil {
 		logger := logging.FromContext(ctx)
 		// Validation should've caught an invalid value here.
 		// If we have one anyway, assume not disabled and log a warning.
 		logger.Warnf("DM.Annotations[%s] = %q is invalid",
-			netapi.DisableAutoTLSAnnotationKey, annotationValue)
+			netapi.DisableExternalDomainTLSAnnotation, annotationValue)
 	}
 
 	return !disabledByAnnotation
@@ -203,8 +203,8 @@ func (r *Reconciler) tls(ctx context.Context, dm *v1beta1.DomainMapping) ([]netv
 		}}, nil, nil
 	}
 
-	if !autoTLSEnabled(ctx, dm) {
-		dm.Status.MarkTLSNotEnabled(v1.AutoTLSNotEnabledMessage)
+	if !externalDomainTLSEnabled(ctx, dm) {
+		dm.Status.MarkTLSNotEnabled(v1.ExternalDomainTLSNotEnabledMessage)
 		return nil, nil, nil
 	}
 

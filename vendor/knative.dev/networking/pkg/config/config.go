@@ -70,17 +70,12 @@ const (
 	// ServingInternalCertName is the name of secret contains certificates in serving
 	// system namespace.
 	//
-	// Deprecated: ServingInternalCertName is deprecated.
-	// (use ServingControlCertName or ServingRoutingCertName instead)
+	// Deprecated: ServingInternalCertName is deprecated. Use ServingRoutingCertName instead.
 	ServingInternalCertName = "knative-serving-certs"
 
 	// ServingRoutingCertName is the name of secret contains certificates for Routing data in serving
 	// system namespace. (Used by Ingress GWs and Activator)
 	ServingRoutingCertName = "routing-serving-certs"
-
-	// ServingControlCertName is the name of secret contains certificates for Control data in serving
-	// system namespace. (Used by Autoscaler and Ingress control for example)
-	ServingControlCertName = "control-serving-certs"
 )
 
 // Config Keys

@@ -21,13 +21,13 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 
-	"knative.dev/serving/test/e2e/autotls/config"
+	"knative.dev/serving/test/e2e/externaldomaintls/config"
 )
 
 var env config.EnvConfig
 
 func main() {
-	if err := envconfig.Process("auto_tls_test", &env); err != nil {
+	if err := envconfig.Process("external_domain_tls_test", &env); err != nil {
 		log.Fatalf("Failed to process environment variable: %v.", err)
 	}
 	record := &config.DNSRecord{

@@ -128,7 +128,7 @@ func initialScaleZeroASConfig() *autoscalerconfig.Config {
 
 func activatorCertsNetConfig() *netcfg.Config {
 	nc, _ := netcfg.NewConfigFromMap(map[string]string{
-		netcfg.KnativeInternalTLSKey: "enabled",
+		netcfg.KnativeInternalTLSKey: string(netcfg.EncryptionEnabled),
 	})
 	return nc
 }
@@ -140,7 +140,7 @@ func defaultConfig() *config.Config {
 		deployment.ProgressDeadlineKey:  progressDeadline.String(),
 	})
 	networkConfig, _ := netcfg.NewConfigFromMap(map[string]string{
-		netcfg.KnativeInternalTLSKey: "disabled",
+		netcfg.KnativeInternalTLSKey: string(netcfg.EncryptionDisabled),
 	})
 
 	return &config.Config{
