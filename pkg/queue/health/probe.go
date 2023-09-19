@@ -18,6 +18,7 @@ package health
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -252,7 +253,7 @@ func GRPCProbe(config GRPCProbeConfigOptions) error {
 	conn, err := grpc.DialContext(ctx, addr, opts...)
 
 	if err != nil {
-		if err == context.DeadlineExceeded {
+		if errors.Is(err, context.DeadlineExceeded) {
 			return fmt.Errorf("failed to connect service %q within %v: %w", addr, config.Timeout, err)
 		} else {
 			return fmt.Errorf("failed to connect service at %q: %w", addr, err)
