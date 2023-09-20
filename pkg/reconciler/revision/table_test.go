@@ -277,19 +277,19 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			Revision("foo", "pa-not-ready",
 				WithLogURL,
-				WithRoutingState(v1.RoutingStateReserve, fc),
+				WithRoutingState(v1.RoutingStateActive, fc),
 				MarkRevisionReady, WithRevisionObservedGeneration(1)),
 			pa("foo", "pa-not-ready",
 				WithPAStatusService("its-not-confidential"),
 				WithBufferedTraffic,
-				WithReachabilityUnreachable),
+				WithReachabilityReachable),
 			readyDeploy(deploy(t, "foo", "pa-not-ready")),
 			image("foo", "pa-not-ready"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Revision("foo", "pa-not-ready",
 				WithLogURL, MarkRevisionReady, withDefaultContainerStatuses(),
-				WithRoutingState(v1.RoutingStateReserve, fc),
+				WithRoutingState(v1.RoutingStateActive, fc),
 				// When we reconcile a ready state and our pa is in an activating
 				// state, we should see the following mutation.
 				MarkActivating("Queued", "Requests to the target are being buffered as resources are provisioned."),
