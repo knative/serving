@@ -68,6 +68,8 @@ github.com/Azure/go-autorest/tracing v0.6.0/go.mod h1:+vhtPC754Xsa23ID7GlGsrdKBp
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
+github.com/ReToCode/networking v0.0.0-20230919082843-4f7ae729628f h1:vzFd/um5Y5eWFQnd49QL3EZH4Ah+2gxdBDWsfHA6GmI=
+github.com/ReToCode/networking v0.0.0-20230919082843-4f7ae729628f/go.mod h1:t5rGgqqJ55N1KdGcaT/S/3mVJfttqQx0xa/wxcLC09w=
 github.com/Shopify/sarama v1.19.0/go.mod h1:FVkBWblsNy7DGZRfXLU0O9RCGt5g3g3yEuWXgklEdEo=
 github.com/Shopify/toxiproxy v2.1.4+incompatible/go.mod h1:OXgGpZ6Cli1/URJOF1DMxUHB2q5Ap20/P/eIdh4G0pI=
 github.com/ahmetb/gen-crd-api-reference-docs v0.3.1-0.20210609063737-0067dc6dcea2 h1:t/ces1/q8tuApSb+T5ajsu3wqkofUT43U1gpDYTPYME=
@@ -932,8 +934,6 @@ knative.dev/caching v0.0.0-20230914013713-ad1892e0aa0a h1:Bz5C8tw7uphOSnHIg8zFZ1
 knative.dev/caching v0.0.0-20230914013713-ad1892e0aa0a/go.mod h1:wWX1QRP0iTH4e6otIPwZJv8IqgrtQOqdumYQy3seDT4=
 knative.dev/hack v0.0.0-20230919151801-38316f28f0bf h1:Hyyc838y8572zTWTuL2ymWAiAhL2ujz7OLlB/KMtHF0=
 knative.dev/hack v0.0.0-20230919151801-38316f28f0bf/go.mod h1:dx0YG3YWqJu653e9tjcT0Q1ZdS9JJXLKbUhzr4EB0g8=
-knative.dev/networking v0.0.0-20230918152419-6feaf0cf4a0e h1:53Z4C003PKNKQGgfWIfKkveo7J0y6eRxN18K1TAgqaQ=
-knative.dev/networking v0.0.0-20230918152419-6feaf0cf4a0e/go.mod h1:t5rGgqqJ55N1KdGcaT/S/3mVJfttqQx0xa/wxcLC09w=
 knative.dev/pkg v0.0.0-20230918163324-7fe699e4f743 h1:AI7nF2yLlbzifEYbNpyQFqqnI2cvUVwxeLeTckD+/Fg=
 knative.dev/pkg v0.0.0-20230918163324-7fe699e4f743/go.mod h1:zIkWt0Gh4IZF4lWyU2UN46f+8icvkkjZBVP7Kfhz4oA=
 pgregory.net/rapid v1.0.0 h1:iQaM2w5PZ6xvt6x7hbd7tiDS+nk7YPp5uCaEba+T/F4=
