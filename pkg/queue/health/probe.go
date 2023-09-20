@@ -255,9 +255,8 @@ func GRPCProbe(config GRPCProbeConfigOptions) error {
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return fmt.Errorf("failed to connect service %q within %v: %w", addr, config.Timeout, err)
-		} else {
-			return fmt.Errorf("failed to connect service at %q: %w", addr, err)
 		}
+		return fmt.Errorf("failed to connect service at %q: %w", addr, err)
 	}
 
 	defer func() {
