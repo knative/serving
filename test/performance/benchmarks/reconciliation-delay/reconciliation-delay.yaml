@@ -1,0 +1,88 @@
+# Copyright 2022 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: reconciliation-delay
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: service-creator
+  namespace: default
+subjects:
+  - kind: ServiceAccount
+    name: reconciliation-delay
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: reconciliation-delay
+  namespace: default
+spec:
+  parallelism: 1
+  backoffLimit: 0
+  template:
+    spec:
+      serviceAccountName: reconciliation-delay
+      containers:
+      - name: probe
+        image: ko://knative.dev/serving/test/performance/benchmarks/reconciliation-delay
+        args:
+        - "-duration=15m"
+        - "-frequency=5s"
+        resources:
+          requests:
+            cpu: 100m
+        env:
+          - name: KO_DOCKER_REPO
+            value: $KO_DOCKER_REPO
+          - name: SYSTEM_NAMESPACE
+            value: $SYSTEM_NAMESPACE
+          - name: INFLUX_URL
+            valueFrom:
+              secretKeyRef:
+                name: performance-test-config
+                key: influxurl
+          - name: INFLUX_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: performance-test-config
+                key: influxtoken
+          - name: JOB_NAME
+            valueFrom:
+              secretKeyRef:
+                name: performance-test-config
+                key: jobname
+          - name: BUILD_ID
+            valueFrom:
+              secretKeyRef:
+                name: performance-test-config
+                key: buildid
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_UID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+      restartPolicy: Never

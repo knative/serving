@@ -54,6 +54,7 @@ const (
 	Timeout             = "timeout"
 	Volumes             = "volumes"
 	WorkingDir          = "workingdir"
+	SlowStart           = "slowstart"
 
 	// Constants for test image output.
 	PizzaPlanetText1 = "What a spaceport!"

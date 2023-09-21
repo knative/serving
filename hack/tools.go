@@ -34,9 +34,6 @@ import (
 	// Migration job.
 	_ "knative.dev/pkg/apiextensions/storageversion/cmd/migrate"
 
-	// Mako stub
-	_ "knative.dev/pkg/test/mako/stub-sidecar"
-
 	_ "k8s.io/code-generator/cmd/client-gen"
 	_ "k8s.io/code-generator/cmd/deepcopy-gen"
 	_ "k8s.io/code-generator/cmd/defaulter-gen"
