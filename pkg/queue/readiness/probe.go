@@ -134,6 +134,8 @@ func (p *Probe) probeContainerImpl() bool {
 		err = p.httpProbe()
 	case p.TCPSocket != nil:
 		err = p.tcpProbe()
+	case p.GRPC != nil:
+		err = p.grpcProbe()
 	case p.Exec != nil:
 		// Should never be reachable. Exec probes to be translated to
 		// TCP probes when container is built.
@@ -218,5 +220,17 @@ func (p *Probe) httpProbe() error {
 	return p.doProbe(func(to time.Duration) error {
 		config.Timeout = to
 		return health.HTTPProbe(config)
+	})
+}
+
+// grpcProbe function executes gRPC probe
+func (p *Probe) grpcProbe() error {
+	config := health.GRPCProbeConfigOptions{
+		GRPCAction: p.GRPC,
+	}
+
+	return p.doProbe(func(to time.Duration) error {
+		config.Timeout = to
+		return health.GRPCProbe(config)
 	})
 }

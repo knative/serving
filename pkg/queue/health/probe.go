@@ -17,16 +17,27 @@ limitations under the License.
 package health
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
+	"syscall"
 	"time"
 
+	"golang.org/x/sys/unix"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	grpchealth "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"
 	netheader "knative.dev/networking/pkg/http/header"
 	pkgnet "knative.dev/pkg/network"
+	"knative.dev/pkg/ptr"
 )
 
 // HTTPProbeConfigOptions holds the HTTP probe config options
@@ -42,6 +53,14 @@ type HTTPProbeConfigOptions struct {
 type TCPProbeConfigOptions struct {
 	SocketTimeout time.Duration
 	Address       string
+}
+
+// GRPCProbeConfigOptions holds the gRPC probe config options
+type GRPCProbeConfigOptions struct {
+	Timeout time.Duration
+	*corev1.GRPCAction
+	KubeMajor string
+	KubeMinor string
 }
 
 // TCPProbe checks that a TCP socket to the address can be opened.
@@ -203,4 +222,69 @@ func isHTTPProbeUpgradingToH2C(res *http.Response) bool {
 func isHTTPProbeReady(res *http.Response) bool {
 	// response status code between 200-399 indicates success
 	return res.StatusCode >= 200 && res.StatusCode < 400
+}
+
+// GRPCProbe checks that gRPC connection can be established to the address.
+func GRPCProbe(config GRPCProbeConfigOptions) error {
+
+	// Use k8s.io/kubernetes/pkg/probe/dialer_others.go to correspond to OSs other than Windows
+	dialer := &net.Dialer{
+		Control: func(network, address string, c syscall.RawConn) error {
+			return c.Control(func(fd uintptr) {
+				unix.SetsockoptLinger(int(fd), syscall.SOL_SOCKET, syscall.SO_LINGER, &unix.Linger{Onoff: 1, Linger: 1})
+			})
+		},
+	}
+
+	opts := []grpc.DialOption{
+		grpc.WithUserAgent(netheader.KubeProbeUAPrefix + config.KubeMajor + "/" + config.KubeMinor),
+		grpc.WithBlock(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()), // credentials are currently not supported
+		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+			return dialer.DialContext(ctx, "tcp", addr)
+		}),
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
+
+	defer cancel()
+
+	addr := net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", config.Port))
+	conn, err := grpc.DialContext(ctx, addr, opts...)
+
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return fmt.Errorf("failed to connect service %q within %v: %w", addr, config.Timeout, err)
+		}
+		return fmt.Errorf("failed to connect service at %q: %w", addr, err)
+	}
+
+	defer func() {
+		_ = conn.Close()
+	}()
+
+	client := grpchealth.NewHealthClient(conn)
+
+	resp, err := client.Check(metadata.NewOutgoingContext(ctx, make(metadata.MD)), &grpchealth.HealthCheckRequest{
+		Service: ptr.StringValue(config.Service),
+	})
+
+	if err != nil {
+		stat, ok := status.FromError(err)
+		if ok {
+			switch stat.Code() {
+			case codes.Unimplemented:
+				return fmt.Errorf("this server does not implement the grpc health protocol (grpc.health.v1.Health) %w", err)
+			case codes.DeadlineExceeded:
+				return fmt.Errorf("health rpc did not complete within %v: %w", config.Timeout, err)
+			}
+		}
+		return fmt.Errorf("health rpc probe failed: %w", err)
+	}
+
+	if resp.GetStatus() != grpchealth.HealthCheckResponse_SERVING {
+		return fmt.Errorf("service unhealthy (responded with %q)", resp.GetStatus().String())
+	}
+
+	return nil
 }

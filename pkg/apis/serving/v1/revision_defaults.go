@@ -143,8 +143,13 @@ func (*RevisionSpec) applyProbes(container *corev1.Container) {
 	}
 	if container.ReadinessProbe.TCPSocket == nil &&
 		container.ReadinessProbe.HTTPGet == nil &&
-		container.ReadinessProbe.Exec == nil {
+		container.ReadinessProbe.Exec == nil &&
+		container.ReadinessProbe.GRPC == nil {
 		container.ReadinessProbe.TCPSocket = &corev1.TCPSocketAction{}
+	}
+
+	if container.ReadinessProbe.GRPC != nil && container.ReadinessProbe.GRPC.Service == nil {
+		container.ReadinessProbe.GRPC.Service = ptr.String("")
 	}
 
 	if container.ReadinessProbe.SuccessThreshold == 0 {

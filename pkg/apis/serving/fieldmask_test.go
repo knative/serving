@@ -318,6 +318,7 @@ func TestHandlerMask(t *testing.T) {
 		Exec:      &corev1.ExecAction{},
 		HTTPGet:   &corev1.HTTPGetAction{},
 		TCPSocket: &corev1.TCPSocketAction{},
+		GRPC:      &corev1.GRPCAction{},
 	}
 	in := want
 
@@ -418,6 +419,33 @@ func TestTCPSocketActionMask(t *testing.T) {
 
 	if got = TCPSocketActionMask(nil); got != nil {
 		t.Errorf("TCPSocketActionMask(nil) = %v, want: nil", got)
+	}
+}
+
+func TestGRPCActionMask(t *testing.T) {
+	want := &corev1.GRPCAction{
+		Port:    42,
+		Service: ptr.String("foo"),
+	}
+	in := &corev1.GRPCAction{
+		Port:    42,
+		Service: ptr.String("foo"),
+	}
+
+	got := GRPCActionMask(in)
+
+	if &want == &got {
+		t.Error("Input and output share addresses. Want different addresses")
+	}
+
+	if diff, err := kmp.SafeDiff(want, got); err != nil {
+		t.Error("Got error comparing output, err =", err)
+	} else if diff != "" {
+		t.Error("GRPCActionMask (-want, +got):", diff)
+	}
+
+	if got = GRPCActionMask(nil); got != nil {
+		t.Errorf("GRPCActionMask(nil) = %v, want: nil", got)
 	}
 }
 

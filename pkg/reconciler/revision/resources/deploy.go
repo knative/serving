@@ -267,8 +267,8 @@ func makeServingContainer(servingContainer corev1.Container, rev *v1.Revision) c
 	servingContainer.Env = append(servingContainer.Env, buildUserPortEnv(userPortStr))
 	container := makeContainer(servingContainer, rev)
 	if container.ReadinessProbe != nil {
-		if container.ReadinessProbe.HTTPGet != nil || container.ReadinessProbe.TCPSocket != nil {
-			// HTTP and TCP ReadinessProbes are executed by the queue-proxy directly against the
+		if container.ReadinessProbe.HTTPGet != nil || container.ReadinessProbe.TCPSocket != nil || container.ReadinessProbe.GRPC != nil {
+			// HTTP, TCP and gRPC ReadinessProbes are executed by the queue-proxy directly against the
 			// user-container instead of via kubelet.
 			container.ReadinessProbe = nil
 		}

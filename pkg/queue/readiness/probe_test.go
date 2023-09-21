@@ -18,6 +18,7 @@ package readiness
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -30,6 +31,8 @@ import (
 
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
@@ -655,6 +658,49 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 	}
 }
 
+func TestGRPCSuccess(t *testing.T) {
+	t.Helper()
+	// use ephemeral port to prevent port conflict
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to listen: %v", err)
+	}
+
+	s := grpc.NewServer()
+	grpc_health_v1.RegisterHealthServer(s, &grpcHealthServer{})
+
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- s.Serve(lis)
+	}()
+
+	assignedPort := lis.Addr().(*net.TCPAddr).Port
+	pb := NewProbe(&corev1.Probe{
+		PeriodSeconds:    1,
+		TimeoutSeconds:   5,
+		SuccessThreshold: 1,
+		FailureThreshold: 1,
+		ProbeHandler: corev1.ProbeHandler{
+			GRPC: &corev1.GRPCAction{
+				Port:    int32(assignedPort),
+				Service: nil,
+			},
+		},
+	})
+
+	if !pb.ProbeContainer() {
+		t.Error("Probe failed. Expected success.")
+	}
+
+	// explicitly stop grpc server
+	s.Stop()
+
+	if grpcServerErr := <-errChan; grpcServerErr != nil {
+		t.Fatalf("Failed to run gRPC test server %v", grpcServerErr)
+	}
+	close(errChan)
+}
+
 func newTestServer(t *testing.T, h http.HandlerFunc) *url.URL {
 	t.Helper()
 
@@ -667,4 +713,12 @@ func newTestServer(t *testing.T, h http.HandlerFunc) *url.URL {
 	}
 
 	return u
+}
+
+type grpcHealthServer struct {
+	grpc_health_v1.UnimplementedHealthServer
+}
+
+func (s *grpcHealthServer) Check(_ context.Context, _ *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
+	return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVING}, nil
 }
