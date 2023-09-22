@@ -33,7 +33,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20221012153701-172d655c2280
 	k8s.io/utils v0.0.0-20221108210102-8e77b1f39fe2
 	knative.dev/caching v0.0.0-20230920131814-94468139a072
-	knative.dev/hack v0.0.0-20230919151801-38316f28f0bf
+	knative.dev/hack v0.0.0-20230921145603-c4a34c34512e
 	knative.dev/networking v0.0.0-20230921070414-6aa88055400d
 	knative.dev/pkg v0.0.0-20230920131713-8761ceb9297f
 	sigs.k8s.io/yaml v1.3.0
