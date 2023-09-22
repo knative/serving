@@ -128,7 +128,7 @@ func initialScaleZeroASConfig() *autoscalerconfig.Config {
 
 func activatorCertsNetConfig() *netcfg.Config {
 	nc, _ := netcfg.NewConfigFromMap(map[string]string{
-		netcfg.DataplaneTrustKey: "minimal",
+		netcfg.SystemInternalTLSKey: "enabled",
 	})
 	return nc
 }
@@ -140,7 +140,7 @@ func defaultConfig() *config.Config {
 		deployment.ProgressDeadlineKey:  progressDeadline.String(),
 	})
 	networkConfig, _ := netcfg.NewConfigFromMap(map[string]string{
-		netcfg.DataplaneTrustKey: "disabled",
+		netcfg.SystemInternalTLSKey: "disabled",
 	})
 
 	return &config.Config{
