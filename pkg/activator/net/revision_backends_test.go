@@ -1589,7 +1589,7 @@ func TestProbePodIPs(t *testing.T) {
 			},
 		},
 		{
-			name: "ready pods skipped without mesh auto",
+			name: "ready pods skipped with mesh disabled",
 			input: input{
 				current: dests{
 					ready:    sets.NewString("10.10.1.1"),
@@ -1762,29 +1762,26 @@ func TestProbePodIPs(t *testing.T) {
 		},
 	}
 
-	fakeRT := activatortest.FakeRoundTripper{
-		ExpectHost: testRevision,
-		ProbeResponses: []activatortest.FakeResponse{{
-			Code: http.StatusOK,
-			Body: queue.Name,
-		}},
-	}
-
-	// Minimally constructed revisionWatcher just to have what is needed for probing
-	rw := &revisionWatcher{
-		rev:       types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-		logger:    TestLogger(t),
-		transport: pkgnetwork.RoundTripperFunc(fakeRT.RT),
-	}
-
 	// Helper function to run the test and validate the results
 	testFunc := func(testName string, input input, expected expected) {
-		rw.enableProbeOptimisation = input.enableProbeOptimization
-		rw.meshMode = input.meshMode
-		rw.healthyPods = input.healthy
+		fakeRT := activatortest.FakeRoundTripper{
+			ExpectHost: testRevision,
+			ProbeResponses: []activatortest.FakeResponse{{
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+			ProbeHostResponses: input.hostResponses,
+		}
 
-		fakeRT.ProbeHostResponses = input.hostResponses
-		fakeRT.NumProbes.Store(0)
+		// Minimally constructed revisionWatcher just to have what is needed for probing
+		rw := &revisionWatcher{
+			rev:                     types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+			logger:                  TestLogger(t),
+			transport:               pkgnetwork.RoundTripperFunc(fakeRT.RT),
+			enableProbeOptimisation: input.enableProbeOptimization,
+			meshMode:                input.meshMode,
+			healthyPods:             input.healthy,
+		}
 
 		healthy, noop, notMesh, err := rw.probePodIPs(input.current.ready, input.current.notReady)
 		if !healthy.Equal(expected.healthy) {
