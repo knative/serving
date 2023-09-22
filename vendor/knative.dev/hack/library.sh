@@ -731,26 +731,22 @@ function __go_update_deps_for_module() {
   fi
   eval "$orig_pipefail_opt"
 
-  if ! [[ "${FORCE_VENDOR:-false}" == "true" ]] && ! [ -d vendor ]; then
-    return 0
+  if [[ "${FORCE_VENDOR:-false}" == "true" ]] || [ -d vendor ]; then
+    group "Removing unwanted vendor files"
+    find vendor/ \( -name "OWNERS" \
+      -o -name "OWNERS_ALIASES" \
+      -o -name "BUILD" \
+      -o -name "BUILD.bazel" \
+      -o -name "*_test.go" \) -exec rm -f {} +
+
+    export GOFLAGS=-mod=vendor
+
+    group "Removing broken symlinks"
+    remove_broken_symlinks ./vendor
   fi
-
-  group "Removing unwanted vendor files"
-
-  # Remove unwanted vendor files
-  find vendor/ \( -name "OWNERS" \
-    -o -name "OWNERS_ALIASES" \
-    -o -name "BUILD" \
-    -o -name "BUILD.bazel" \
-    -o -name "*_test.go" \) -exec rm -f {} +
-
-  export GOFLAGS=-mod=vendor
 
   group "Updating licenses"
   update_licenses third_party/VENDOR-LICENSE "./..."
-
-  group "Removing broken symlinks"
-  remove_broken_symlinks ./vendor
   )
 }
 
