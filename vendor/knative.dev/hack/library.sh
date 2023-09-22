@@ -672,7 +672,30 @@ function foreach_go_module() {
 # global env var: FLOATING_DEPS
 # --upgrade will set GOPROXY to direct unless it is already set.
 function go_update_deps() {
+  # The go.work.sum will be truncated if it exists. This is to allow the
+  # `go mod tidy` to resolve the dependencies, without the influence of the
+  # sums from the workspace.
+  __clean_goworksum_if_exists
   foreach_go_module __go_update_deps_for_module "$@"
+  __remove_goworksum_if_empty
+}
+
+function __clean_goworksum_if_exists() {
+  if [ -f "$REPO_ROOT_DIR/go.work.sum" ]; then
+    echo "=== Cleaning the go.work.sum file"
+    true > "$REPO_ROOT_DIR/go.work.sum"
+  fi
+}
+
+function __remove_goworksum_if_empty() {
+  if [ -f "$REPO_ROOT_DIR/go.work" ]; then
+    echo "=== Syncing the go workspace"
+    go work sync
+  fi
+  if ! [ -s "$REPO_ROOT_DIR/go.work.sum" ]; then
+    echo "=== Removing empty go.work.sum"
+    rm -f "$REPO_ROOT_DIR/go.work.sum"
+  fi
 }
 
 function __go_update_deps_for_module() {
