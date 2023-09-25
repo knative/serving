@@ -163,8 +163,9 @@ func (r *URIResolver) AddressableFromDestinationV1(ctx context.Context, dest duc
 			return nil, fmt.Errorf("URI is not absolute (both scheme and host should be non-empty): %q", dest.URI.String())
 		}
 		return &duckv1.Addressable{
-			URL:     dest.URI,
-			CACerts: dest.CACerts,
+			URL:      dest.URI,
+			CACerts:  dest.CACerts,
+			Audience: dest.Audience,
 		}, nil
 	}
 
@@ -188,9 +189,10 @@ func (r *URIResolver) addressableFromDestinationRef(ctx context.Context, dest du
 		handled, url, err := resolver(ctx, or)
 		if handled {
 			return &duckv1.Addressable{
-				Name:    dest.Ref.Address,
-				URL:     url,
-				CACerts: dest.CACerts,
+				Name:     dest.Ref.Address,
+				URL:      url,
+				CACerts:  dest.CACerts,
+				Audience: dest.Audience,
 			}, err
 		}
 
@@ -229,9 +231,10 @@ func (r *URIResolver) addressableFromDestinationRef(ctx context.Context, dest du
 			url.Scheme = "https"
 		}
 		return &duckv1.Addressable{
-			Name:    dest.Ref.Address,
-			URL:     url,
-			CACerts: dest.CACerts,
+			Name:     dest.Ref.Address,
+			URL:      url,
+			CACerts:  dest.CACerts,
+			Audience: dest.Audience,
 		}, nil
 	}
 
@@ -256,6 +259,11 @@ func (r *URIResolver) addressableFromDestinationRef(ctx context.Context, dest du
 
 	if addr.CACerts == nil {
 		addr.CACerts = dest.CACerts
+	}
+
+	if dest.Audience != nil && *dest.Audience != "" {
+		// destinations audience takes preference
+		addr.Audience = dest.Audience
 	}
 
 	return addr, nil
