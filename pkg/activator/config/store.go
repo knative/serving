@@ -58,6 +58,10 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 		if tracing != nil {
 			c.Tracing = tracing.(*tracingconfig.Config).DeepCopy()
 		}
+		// this allows dynamic updating of the config-network
+		// this is necessary for not requiring activator restart for system-internal-tls in the future
+		// however, current implementation is not there yet.
+		// see https://github.com/knative/serving/issues/13754
 		network := s.UntypedLoad(netcfg.ConfigMapName)
 		if network != nil {
 			c.Network = network.(*netcfg.Config).DeepCopy()

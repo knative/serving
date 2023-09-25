@@ -2,7 +2,7 @@
 // +build e2e
 
 /*
-Copyright 2021 The Knative Authors
+Copyright 2023 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -31,12 +31,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"k8s.io/client-go/rest"
 	netcfg "knative.dev/networking/pkg/config"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
-
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
 )
@@ -86,6 +84,7 @@ func TestInternalEncryption(t *testing.T) {
 		spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.HelloWorldText)),
 		"HelloWorldText",
 		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.HelloWorldText, err)
 	}

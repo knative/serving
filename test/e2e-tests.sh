@@ -84,7 +84,7 @@ go_test_e2e -timeout=2m ./test/e2e/domainmapping ${E2E_TEST_FLAGS} || failed=1
 toggle_feature dataplane-trust enabled config-network || fail_test
 toggle_feature "logging.enable-request-log" true config-observability || fail_test
 toggle_feature "logging.request-log-template" 'TLS: {{.Request.TLS}}' config-observability || fail_test
-# with the current implementation, Activator is always in the request path, and needs to be restarted after configuring dataplane-trust
+# with current implementaiton, Activator must be restarted when configuring system-internal-tls. See https://github.com/knative/serving/issues/13754
 restart_pod ${SYSTEM_NAMESPACE} "app=activator"
 go_test_e2e -timeout=2m ./test/e2e/internalencryption ${TEST_OPTIONS} || failed=1
 toggle_feature dataplane-trust disabled config-network || fail_test
