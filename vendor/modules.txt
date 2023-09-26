@@ -621,7 +621,7 @@ golang.org/x/tools/internal/typesinternal
 # gomodules.xyz/jsonpatch/v2 v2.4.0
 ## explicit; go 1.20
 gomodules.xyz/jsonpatch/v2
-# google.golang.org/api v0.141.0
+# google.golang.org/api v0.142.0
 ## explicit; go 1.19
 google.golang.org/api/dns/v1
 google.golang.org/api/googleapi
@@ -654,12 +654,12 @@ google.golang.org/genproto/protobuf/field_mask
 # google.golang.org/genproto/googleapis/api v0.0.0-20230803162519-f966b187b2e5
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/api/httpbody
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20230911183012-2d3300fd4832
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20230913181813-007df8e322eb
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/rpc/code
 google.golang.org/genproto/googleapis/rpc/errdetails
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.58.1
+# google.golang.org/grpc v1.58.2
 ## explicit; go 1.19
 google.golang.org/grpc
 google.golang.org/grpc/attributes
@@ -1284,7 +1284,7 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/hack v0.0.0-20230922134855-34850cddd60a
+# knative.dev/hack v0.0.0-20230925170847-403114ff3229
 ## explicit; go 1.18
 knative.dev/hack
 knative.dev/hack/shell
@@ -1327,7 +1327,7 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20230925085724-0efc1bce35a9
+# knative.dev/pkg v0.0.0-20230925150118-51a826d4917e
 ## explicit; go 1.18
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
