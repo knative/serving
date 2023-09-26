@@ -16,7 +16,9 @@ limitations under the License.
 
 package hack
 
-import "embed"
+import (
+	"embed"
+)
 
 //go:embed *.sh
 var Scripts embed.FS
