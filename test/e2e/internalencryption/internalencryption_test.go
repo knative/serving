@@ -48,7 +48,7 @@ type RequestLog struct {
 	TLS        tls.ConnectionState `json:"tls"`
 }
 
-// TestInitContainers tests init containers support.
+// TestInternalEncrytion tests the TLS connections between system components.
 func TestInternalEncryption(t *testing.T) {
 	if !test.ServingFlags.EnableAlphaFeatures {
 		t.Skip("Alpha features not enabled")

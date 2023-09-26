@@ -86,7 +86,7 @@ toggle_feature "logging.enable-request-log" true config-observability || fail_te
 toggle_feature "logging.request-log-template" 'TLS: {{.Request.TLS}}' config-observability || fail_test
 # with current implementation, Activator must be restarted when configuring system-internal-tls. See https://github.com/knative/serving/issues/13754
 restart_pod ${SYSTEM_NAMESPACE} "app=activator"
-go_test_e2e -timeout=2m ./test/e2e/internalencryption ${TEST_OPTIONS} || failed=1
+go_test_e2e -timeout=2m ./test/e2e/internalencryption ${E2E_TEST_FLAGS} || failed=1
 toggle_feature dataplane-trust disabled config-network || fail_test
 toggle_feature enable-request-log false config-observability || fail_test
 toggle_feature request-log-template '' config-observability || fail_test
