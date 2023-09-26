@@ -28,7 +28,7 @@
 source $(dirname $0)/e2e-common.sh
 
 # Script entry point.
-initialize --num-nodes=4 --enable-ha --cluster-version=1.25 "$@"
+initialize --num-nodes=4 --enable-ha --cluster-version=1.26 "$@"
 
 # Run the tests
 header "Running tests"
