@@ -51,7 +51,7 @@ func TestVolumeMask(t *testing.T) {
 	}
 }
 
-func TestCapabilitiesMask_SecureEnabled(t *testing.T) {
+func TestCapabilitiesMask_SecurePodDefaultsEnabled(t *testing.T) {
 	// Ensures users can only add NET_BIND_SERVICE or nil capabilities
 	tests := []struct {
 		name string
@@ -66,7 +66,7 @@ func TestCapabilitiesMask_SecureEnabled(t *testing.T) {
 			Add: nil,
 		},
 	}, {
-		name: "allow NET_BIND_SERVICE capability",
+		name: "allows NET_BIND_SERVICE capability",
 		in: &corev1.Capabilities{
 			Add: []corev1.Capability{"NET_BIND_SERVICE"},
 		},
@@ -876,7 +876,8 @@ func TestPodSecurityContextMask_FeatureEnabled(t *testing.T) {
 	}
 }
 
-func TestPodSecurityContextMask_SecureEnabled(t *testing.T) {
+func TestPodSecurityContextMask_SecurePodDefaultsEnabled(t *testing.T) {
+
 	// Ensure that users can opt out of better security by explicitly
 	// requesting the Kubernetes default, which is "Unconfined".
 	want := &corev1.PodSecurityContext{
