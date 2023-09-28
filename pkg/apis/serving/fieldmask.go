@@ -725,8 +725,14 @@ func CapabilitiesMask(ctx context.Context, in *corev1.Capabilities) *corev1.Capa
 	// Allowed fields
 	out.Drop = in.Drop
 
-	if config.FromContextOrDefaults(ctx).Features.ContainerSpecAddCapabilities != config.Disabled {
+	if config.FromContextOrDefaults(ctx).Features.ContainerSpecAddCapabilities == config.Enabled {
 		out.Add = in.Add
+	} else if config.FromContextOrDefaults(ctx).Features.SecurePodDefaults == config.Enabled {
+		if len(in.Add) == 1 && in.Add[0] == "NET_BIND_SERVICE" {
+			out.Add = in.Add
+		} else {
+			out.Add = nil
+		}
 	}
 
 	return out
