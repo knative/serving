@@ -245,6 +245,9 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 		// This is further validated in ValidatePodSecurityContext.
 		out.SecurityContext = in.SecurityContext
 	}
+	if cfg.Features.PodSpecShareProcessNamespace != config.Disabled {
+		out.ShareProcessNamespace = in.ShareProcessNamespace
+	}
 	if cfg.Features.PodSpecPriorityClassName != config.Disabled {
 		out.PriorityClassName = in.PriorityClassName
 	}
@@ -270,7 +273,6 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	out.HostNetwork = false
 	out.HostPID = false
 	out.HostIPC = false
-	out.ShareProcessNamespace = nil
 	out.Hostname = ""
 	out.Subdomain = ""
 	out.Priority = nil

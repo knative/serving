@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "eb70e734"
+    knative.dev/example-checksum: "f2fc138e"
 data:
   _example: |-
     ################################
@@ -125,6 +125,12 @@ data:
     # WARNING: Cannot safely be disabled once enabled.
     # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-security-context
     kubernetes.podspec-securitycontext: "disabled"
+
+    # Indicated whether sharing the process namespace via ShareProcessNamespace pod spec is allowed.
+    # This can be especially useful for sharing data from images directly between sidecars
+    #
+    # See: https://knative.dev/docs/serving/configuration/feature-flags/#kubernetes-share-process-namespace
+    kubernetes.podspec-shareprocessnamespace: "disabled"
 
     # Indicates whether Kubernetes PriorityClassName support is enabled
     #
