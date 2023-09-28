@@ -130,6 +130,14 @@ type revisionWatcher struct {
 	// cover the revision's ready conditions, for example when an exec probe is
 	// being used.
 	enableProbeOptimisation bool
+
+	// start is the time the watcher was created. Used with delay to wait
+	// for initialDelaySeconds before probing, if present.
+	start time.Time
+
+	// delay represents the value of initialDelaySeconds on the readiness probe
+	// of a Revision. Checked against time since 'start'.
+	delay time.Duration
 }
 
 func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol pkgnet.ProtocolType,
@@ -137,7 +145,8 @@ func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol 
 	transport http.RoundTripper, serviceLister corev1listers.ServiceLister,
 	usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode,
 	enableProbeOptimisation bool,
-	logger *zap.SugaredLogger) *revisionWatcher {
+	logger *zap.SugaredLogger,
+	delay time.Duration) *revisionWatcher {
 	ctx, cancel := context.WithCancel(ctx)
 	return &revisionWatcher{
 		stopCh:                  ctx.Done(),
@@ -154,6 +163,8 @@ func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol 
 		meshMode:                meshMode,
 		enableProbeOptimisation: enableProbeOptimisation,
 		logger:                  logger.With(zap.String(logkey.Key, rev.String())),
+		start:                   time.Now(),
+		delay:                   delay,
 	}
 }
 
@@ -320,6 +331,11 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 		return
 	}
 
+	if time.Since(rw.start) < rw.delay {
+		rw.logger.Debugf("have not reached Revision's InitialDelaySeconds of (%s), skipping probe...", rw.delay)
+		return
+	}
+
 	// If we have discovered (or have been told via meshMode) that this revision
 	// cannot be probed directly do not spend time trying.
 	if rw.podsAddressable && rw.meshMode != netcfg.MeshCompatibilityModeEnabled {
@@ -409,7 +425,7 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 	}
 }
 
-func (rw *revisionWatcher) run(probeFrequency time.Duration, initialDelay time.Duration) {
+func (rw *revisionWatcher) run(probeFrequency time.Duration) {
 	defer close(rw.done)
 
 	var curDests, prevDests dests
@@ -417,10 +433,6 @@ func (rw *revisionWatcher) run(probeFrequency time.Duration, initialDelay time.D
 	defer timer.Stop()
 
 	var tickCh <-chan time.Time
-	if initialDelay > 0 {
-		rw.logger.Debugf("Revision contains InitialDelaySeconds, waiting (%s) to probe...", initialDelay)
-		time.Sleep(initialDelay)
-	}
 
 	for {
 		// If we have at least one pod and either there are pods that have not been
@@ -539,19 +551,19 @@ func (rbm *revisionBackendsManager) getOrCreateRevisionWatcher(revID types.Names
 			return nil, err
 		}
 
-		initialDelay := int32(0)
+		initialDelaySeconds := int32(0)
 		enableProbeOptimisation := true
 		if rp := rev.Spec.GetContainer().ReadinessProbe; rp != nil {
 			if rp.Exec != nil {
 				enableProbeOptimisation = false
 			}
-			initialDelay = rp.InitialDelaySeconds
+			initialDelaySeconds = rp.InitialDelaySeconds
 		}
 
 		destsCh := make(chan dests)
-		rw := newRevisionWatcher(rbm.ctx, revID, rev.GetProtocol(), rbm.updateCh, destsCh, rbm.transport, rbm.serviceLister, rbm.usePassthroughLb, rbm.meshMode, enableProbeOptimisation, rbm.logger)
+		rw := newRevisionWatcher(rbm.ctx, revID, rev.GetProtocol(), rbm.updateCh, destsCh, rbm.transport, rbm.serviceLister, rbm.usePassthroughLb, rbm.meshMode, enableProbeOptimisation, rbm.logger, time.Duration(initialDelaySeconds)*time.Second)
 		rbm.revisionWatchers[revID] = rw
-		go rw.run(rbm.probeFrequency, time.Duration(initialDelay)*time.Second)
+		go rw.run(rbm.probeFrequency)
 		return rw, nil
 	}
 

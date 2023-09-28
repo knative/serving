@@ -58,6 +58,7 @@ const (
 	updateTimeout = 16 * probeFreq
 
 	meshErrorStatusCode = http.StatusServiceUnavailable
+	defaultInitialDelay = time.Duration(0)
 )
 
 // revisionCC1 - creates a revision with concurrency == 1.
@@ -553,7 +554,8 @@ func TestRevisionWatcher(t *testing.T) {
 				tc.usePassthroughLb, // usePassthroughLb
 				tc.meshMode,
 				true,
-				logger)
+				logger,
+				defaultInitialDelay)
 			rw.clusterIPHealthy = tc.initialClusterIPState
 
 			var wg sync.WaitGroup
@@ -1353,6 +1355,102 @@ func TestCheckDestsSwinging(t *testing.T) {
 		}
 	default:
 		t.Error("Expected update but it never went out.")
+	}
+}
+
+func TestCheckDestsDelay(t *testing.T) {
+	// This test verifies the edge behaviour when a pod
+	// speficies an InitialDelaySeconds
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+
+	svc := privateSKSService(
+		types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+		"129.0.0.1",
+		[]corev1.ServicePort{{Name: "http", Port: 1234}},
+	)
+	fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(ctx, svc, metav1.CreateOptions{})
+	si := fakeserviceinformer.Get(ctx)
+	si.Informer().GetIndexer().Add(svc)
+
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, si.Informer())
+	if err != nil {
+		t.Fatal("Failed to start informers:", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
+
+	fakeRT := activatortest.FakeRoundTripper{
+		ExpectHost: testRevision,
+		ProbeHostResponses: map[string][]activatortest.FakeResponse{
+			"10.10.1.1": {{
+				Err: errors.New("clusterIP transport error"),
+			}, {
+				// Finally!
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+		},
+	}
+
+	// Make it buffered,so that we can make the test linear.
+	uCh := make(chan revisionDestsUpdate, 1)
+	dCh := make(chan struct{})
+	rw := &revisionWatcher{
+		clusterIPHealthy:        true,
+		podsAddressable:         true,
+		rev:                     types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+		updateCh:                uCh,
+		serviceLister:           si.Lister(),
+		logger:                  TestLogger(t),
+		stopCh:                  dCh,
+		transport:               pkgnetwork.RoundTripperFunc(fakeRT.RT),
+		meshMode:                netcfg.MeshCompatibilityModeAuto,
+		enableProbeOptimisation: true,
+	}
+
+	// Initial state. Both are ready.
+	cur := dests{
+		ready:    sets.NewString(),
+		notReady: sets.NewString("10.10.1.1"),
+	}
+
+	start := time.Now()
+	delay := 5 * time.Second
+	rw.delay = delay
+	rw.start = start
+	updates := 0
+
+	timer := time.NewTicker(defaultProbeFrequency)
+	defer timer.Stop()
+	tickCh := timer.C
+
+	prev := emptyDests()
+
+	rw.checkDests(cur, prev)
+
+	for {
+		select {
+		case <-tickCh:
+			rw.checkDests(cur, prev)
+		case x := <-rw.destsCh:
+			prev, cur = cur, x
+		case u := <-uCh:
+			if time.Since(start) < delay {
+				t.Fatal("Did not expect to see an update prior to delay.")
+			} else if got, want := len(u.Dests), 1; got != want {
+				if updates < 2 {
+					updates++
+					continue
+				} else {
+					t.Fatalf("NumReady = %d, want: %d, update.Dests = %v", got, want, u.Dests)
+				}
+			} else {
+				return
+			}
+		}
+
 	}
 }
 
