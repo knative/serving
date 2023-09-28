@@ -608,6 +608,10 @@ spec:
                 serviceAccountName:
                   description: 'ServiceAccountName is the name of the ServiceAccount to use to run this pod. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/'
                   type: string
+                shareProcessNamespace:
+                  description: This is accessible behind a feature flag - kubernetes.podspec-shareproccessnamespace
+                  type: boolean
+                  x-kubernetes-preserve-unknown-fields: true
                 timeoutSeconds:
                   description: TimeoutSeconds is the maximum duration in seconds that the request instance is allowed to respond to a request. If unspecified, a system default will be provided.
                   type: integer
