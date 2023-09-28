@@ -33,6 +33,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	netcfg "knative.dev/networking/pkg/config"
+	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/test"
@@ -90,11 +91,14 @@ func TestInternalEncryption(t *testing.T) {
 	}
 
 	// Check on the logs for the activator
-	pods, err := clients.KubeClient.CoreV1().Pods("knative-serving").List(context.TODO(), v1.ListOptions{
+	pods, err := clients.KubeClient.CoreV1().Pods(system.Namespace()).List(context.TODO(), v1.ListOptions{
 		LabelSelector: "app=activator",
 	})
 	if err != nil {
 		t.Fatalf("Failed to get pods: %v", err)
+	}
+	if len(pods.Items) == 0 {
+		t.Fatalf("No pods detected for activator: %v", err)
 	}
 	activatorPod := pods.Items[0]
 
@@ -113,6 +117,9 @@ func TestInternalEncryption(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("Failed to get pods: %v", err)
+	}
+	if len(pods.Items) == 0 {
+		t.Fatalf("No pods detected for test app: %v", err)
 	}
 	helloWorldPod := pods.Items[0]
 	req = clients.KubeClient.CoreV1().Pods(helloWorldPod.Namespace).GetLogs(helloWorldPod.Name, &corev1.PodLogOptions{Container: "queue-proxy"})
