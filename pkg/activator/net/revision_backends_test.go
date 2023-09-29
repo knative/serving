@@ -1442,7 +1442,6 @@ func TestCheckDestsDelay(t *testing.T) {
 			} else if got, want := len(u.Dests), 1; got != want {
 				if updates < 2 {
 					updates++
-					continue
 				} else {
 					t.Fatalf("NumReady = %d, want: %d, update.Dests = %v", got, want, u.Dests)
 				}
