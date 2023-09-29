@@ -29,6 +29,7 @@ export GATEWAY_API_VERSION=${GATEWAY_API_VERSION:-""}
 export CERTIFICATE_CLASS=${CERTIFICATE_CLASS:-""}
 # Only build linux/amd64 bit images
 export KO_FLAGS="${KO_FLAGS:---platform=linux/amd64}"
+export ENABLE_GKE_TELEMETRY=true
 
 export RUN_HTTP01_AUTO_TLS_TESTS=${RUN_HTTP01_AUTO_TLS_TESTS:-0}
 export HTTPS=${HTTPS:-0}
