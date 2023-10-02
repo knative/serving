@@ -76,6 +76,7 @@ func TestInternalEncryption(t *testing.T) {
 	}
 
 	//The request made here should be enough to trigger some request logs on the Activator and QueueProxy
+	t.Log("Checking Endpoint state")
 	url := resources.Route.Status.URL.URL()
 	if _, err := pkgTest.CheckEndpointState(
 		context.Background(),
@@ -90,7 +91,7 @@ func TestInternalEncryption(t *testing.T) {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.HelloWorldText, err)
 	}
 
-	// Check on the logs for the activator
+	t.Log("Checking Activator logs")
 	pods, err := clients.KubeClient.CoreV1().Pods(system.Namespace()).List(context.TODO(), v1.ListOptions{
 		LabelSelector: "app=activator",
 	})
@@ -111,7 +112,7 @@ func TestInternalEncryption(t *testing.T) {
 		t.Fatal("TLS not used on requests to activator")
 	}
 
-	// Check on the logs for the queue-proxy
+	t.Log("Checking Queue-Proxy logs")
 	pods, err = clients.KubeClient.CoreV1().Pods("serving-tests").List(context.TODO(), v1.ListOptions{
 		LabelSelector: fmt.Sprintf("serving.knative.dev/configuration=%s", names.Config),
 	})
@@ -167,7 +168,7 @@ func matchTLSLog(line string) bool {
 	if strings.Contains(line, "TLS") {
 		if strings.Contains(line, "TLS: <nil>") {
 			return false
-		} else if strings.Contains(line, "TLS: [") {
+		} else if strings.Contains(line, "TLS: {") {
 			return true
 		}
 	}
