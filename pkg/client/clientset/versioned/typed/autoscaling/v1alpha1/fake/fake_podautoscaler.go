@@ -23,7 +23,6 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -36,9 +35,9 @@ type FakePodAutoscalers struct {
 	ns   string
 }
 
-var podautoscalersResource = schema.GroupVersionResource{Group: "autoscaling.internal.knative.dev", Version: "v1alpha1", Resource: "podautoscalers"}
+var podautoscalersResource = v1alpha1.SchemeGroupVersion.WithResource("podautoscalers")
 
-var podautoscalersKind = schema.GroupVersionKind{Group: "autoscaling.internal.knative.dev", Version: "v1alpha1", Kind: "PodAutoscaler"}
+var podautoscalersKind = v1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler")
 
 // Get takes name of the podAutoscaler, and returns the corresponding podAutoscaler object, and an error if there is any.
 func (c *FakePodAutoscalers) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.PodAutoscaler, err error) {
