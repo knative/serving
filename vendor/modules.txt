@@ -1301,7 +1301,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 ## explicit; go 1.18
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/networking v0.0.0-20230927121431-c1cae210daec
+# knative.dev/networking v0.0.0-20231002132535-463dc388389e
 ## explicit; go 1.18
 knative.dev/networking/config
 knative.dev/networking/pkg
