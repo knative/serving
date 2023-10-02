@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: networking
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "cfad3b9a"
+    knative.dev/example-checksum: "b2698fe8"
 data:
   _example: |
     ################################
@@ -73,7 +73,7 @@ data:
     #   namespace-wildcard-cert-selector: {}
     #
     # Useful labels include the "kubernetes.io/metadata.name" label to
-    # avoid provisioning a certifcate for the "kube-system" namespaces.
+    # avoid provisioning a certificate for the "kube-system" namespaces.
     # Use the following selector to match pre-1.0 behavior of using
     # "networking.knative.dev/disableWildcardCert" to exclude namespaces:
     #
@@ -114,16 +114,45 @@ data:
     # domain-template above to determine the full URL for the tag.
     tag-template: "{{.Tag}}-{{.Name}}"
 
-    # Controls whether TLS certificates are automatically provisioned and
-    # installed in the Knative ingress to terminate external TLS connection.
-    # 1. Enabled: enabling auto-TLS feature.
-    # 2. Disabled: disabling auto-TLS feature.
+    # auto-tls is deprecated and replaced by external-domain-tls
     auto-tls: "Disabled"
+
+    # Controls whether TLS certificates are automatically provisioned and
+    # installed in the Knative ingress to terminate TLS connections
+    # for cluster external domains (like: app.example.com)
+    # - Enabled: enables the TLS certificate provisioning feature for cluster external domains.
+    # - Disabled: disables the TLS certificate provisioning feature for cluster external domains.
+    external-domain-tls: "Disabled"
+
+    # Controls weather TLS certificates are automatically provisioned and
+    # installed in the Knative ingress to terminate TLS connections
+    # for cluster local domains (like: app.namespace.svc.cluster.local)
+    # - Enabled: enables the TLS certificate provisioning feature for cluster cluster-local domains.
+    # - Disabled: disables the TLS certificate provisioning feature for cluster cluster local domains.
+    # NOTE: This flag is in an alpha state and is mostly here to enable internal testing
+    #       for now. Use with caution.
+    cluster-local-domain-tls: "Disabled"
+
+    # internal-encryption is deprecated and replaced by system-internal-tls
+    internal-encryption: "false"
+
+    # system-internal-tls controls weather TLS encryption is used for connections between
+    # the internal components of Knative:
+    # - ingress to activator
+    # - ingress to queue-proxy
+    # - activator to queue-proxy
+    #
+    # Possible values for this flag are:
+    # - Enabled: enables the TLS certificate provisioning feature for cluster cluster-local domains.
+    # - Disabled: disables the TLS certificate provisioning feature for cluster cluster local domains.
+    # NOTE: This flag is in an alpha state and is mostly here to enable internal testing
+    #       for now. Use with caution.
+    system-internal-tls: "Disabled"
 
     # Controls the behavior of the HTTP endpoint for the Knative ingress.
     # It requires auto-tls to be enabled.
-    # 1. Enabled: The Knative ingress will be able to serve HTTP connection.
-    # 2. Redirected: The Knative ingress will send a 301 redirect for all
+    # - Enabled: The Knative ingress will be able to serve HTTP connection.
+    # - Redirected: The Knative ingress will send a 301 redirect for all
     # http connections, asking the clients to use HTTPS.
     #
     # "Disabled" option is deprecated.
@@ -172,35 +201,3 @@ data:
     # fronting Knative with an external loadbalancer that deals with TLS termination and
     # Knative doesn't know about that otherwise.
     default-external-scheme: "http"
-
-    # internal-encryption is deprecated and replaced by dataplane-trust and controlplane-trust
-    # internal-encryption indicates whether internal traffic is encrypted or not.
-    #
-    # NOTE: This flag is in an alpha state and is mostly here to enable internal testing
-    #       for now. Use with caution.
-    internal-encryption: "false"
-
-    # dataplane-trust indicates the level of trust established in the knative data-plane.
-    # dataplane-trust = "disabled" (the default) - uses no encryption for internal data plane traffic
-    # Using any other value ensures that the following traffic is encrypted using TLS:
-    #  - ingress to activator
-    #  - ingress to queue-proxy
-    #  - activator to queue-proxy
-    #
-    # dataplane-trust = "minimal" ensures data messages are encrypted, Kingress authenticate that the receiver is a Ksvc
-    # dataplane-trust = "enabled" same as "minimal" and in addition, Kingress authenticate that Ksvc is at the correct namespace
-    # dataplane-trust = "mutual" same as "enabled" and in addition, Ksvc authenticate that the messages come from the Kingress
-    # dataplane-trust = "identity" same as "mutual" with Kingress adding a trusted sender identity to the message
-    #
-    # NOTE: This flag is in an alpha state and is mostly here to enable internal testing for now. Use with caution.
-    dataplane-trust: "disabled"
-
-    # controlplane-trust indicates the level of trust established in the knative control-plane.
-    # controlplane-trust = "disabled" (the default) - uses no encryption for internal control plane traffic
-    # Using any other value ensures that control traffic is encrypted using TLS.
-    #
-    # controlplane-trust = "enabled" ensures control messages are encrypted using TLS (client authenticate the server)
-    # controlplane-trust = "mutual" ensures control messages are encrypted using mTLS (client and server authenticate each other)
-    #
-    # NOTE: This flag is in an alpha state and is mostly here to enable internal testing for now. Use with caution.
-    controlplane-trust: "disabled"

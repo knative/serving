@@ -70,10 +70,16 @@ const (
 
 	// DisableAutoTLSAnnotationKey is the annotation key attached to a Knative Service/DomainMapping
 	// to indicate that AutoTLS should not be enabled for it.
+	// Deprecated: use DisableExternalDomainTLSAnnotationKey instead.
 	DisableAutoTLSAnnotationKey = PublicGroupName + "/disableAutoTLS"
 
 	// DisableAutoTLSAnnotationAltKey is an alternative casing to DisableAutoTLSAnnotationKey
+	// Deprecated: use DisableExternalDomainTLSAnnotationKey instead.
 	DisableAutoTLSAnnotationAltKey = PublicGroupName + "/disable-auto-tls"
+
+	// DisableExternalDomainTLSAnnotationKey is the annotation key attached to a Knative Service/DomainMapping
+	// to indicate that external-domain-tls should not be enabled for it.
+	DisableExternalDomainTLSAnnotationKey = PublicGroupName + "/disable-external-domain-tls"
 
 	// HTTPOptionAnnotationKey is the annotation key attached to a Knative Service/DomainMapping
 	// to indicate the HTTP option of it.
@@ -130,9 +136,15 @@ var (
 		CertificateClassAnnotationAltKey,
 	}
 
-	DisableAutoTLSAnnotation = kmap.KeyPriority{
+	// Deprecated: use DisableExternalDomainTLSAnnotation instead.
+	DisableAutoTLSAnnotation = DisableExternalDomainTLSAnnotation
+
+	DisableExternalDomainTLSAnnotation = kmap.KeyPriority{
+		// backward compatibility
 		DisableAutoTLSAnnotationKey,
 		DisableAutoTLSAnnotationAltKey,
+
+		DisableExternalDomainTLSAnnotationKey,
 	}
 
 	HTTPProtocolAnnotation = kmap.KeyPriority{
@@ -153,6 +165,9 @@ func GetHTTPProtocol(annotations map[string]string) (val string) {
 	return HTTPProtocolAnnotation.Value(annotations)
 }
 
-func GetDisableAutoTLS(annotations map[string]string) (val string) {
-	return DisableAutoTLSAnnotation.Value(annotations)
+// Deprecated: use GetDisableExternalDomainTLS instead.
+var GetDisableAutoTLS = GetDisableExternalDomainTLS
+
+func GetDisableExternalDomainTLS(annotations map[string]string) (val string) {
+	return DisableExternalDomainTLSAnnotation.Value(annotations)
 }

@@ -20,41 +20,39 @@ import "strings"
 
 const (
 	Organization = "knative.dev"
-	//nolint:all
-	LegacyFakeDnsName = "data-plane." + Organization
-	//nolint:all
-	// Deprecated: FakeDnsName is deprecated. Please use the DataPlaneRoutingName or DataPlaneUserName function.
-	FakeDnsName            = LegacyFakeDnsName
-	dataPlaneUserPrefix    = "kn-user-"
-	dataPlaneRoutingPrefix = "kn-routing-"
-	ControlPlaneName       = "kn-control"
 
-	//These keys are meant to line up with cert-manager, see
-	//https://cert-manager.io/docs/usage/certificate/#additional-certificate-output-formats
+	// nolint:all
+	LegacyFakeDnsName = "data-plane." + Organization
+
+	// nolint:all
+	// Deprecated: FakeDnsName is deprecated.
+	// Please use the DataPlaneRoutingSAN for calls to the Activator
+	// and the DataPlaneUserSAN function for calls to a Knative-Service via Queue-Proxy.
+	FakeDnsName = LegacyFakeDnsName
+
+	dataPlaneUserPrefix = "kn-user-"
+	DataPlaneRoutingSAN = "kn-routing"
+
+	// These keys are meant to line up with cert-manager, see
+	// https://cert-manager.io/docs/usage/certificate/#additional-certificate-output-formats
 	CaCertName     = "ca.crt"
 	CertName       = "tls.crt"
 	PrivateKeyName = "tls.key"
 
-	//These should be able to be deprecated some time in the future when the new names are fully adopted
+	// These should be able to be deprecated some time in the future when the new names are fully adopted
 	// #nosec
+	// Deprecated: please use CaCertName instead.
 	SecretCaCertKey = "ca-cert.pem"
 	// #nosec
+	// Deprecated: please use CertName instead.
 	SecretCertKey = "public-cert.pem"
 	// #nosec
+	// Deprecated: please use PrivateKeyName instead.
 	SecretPKKey = "private-key.pem"
 )
 
-// DataPlaneRoutingName constructs a san for a data-plane-routing certificate
-// Accepts a routingId  - a unique identifier used as part of the san (default is "0" used when an empty routingId is provided)
-func DataPlaneRoutingName(routingID string) string {
-	if routingID == "" {
-		routingID = "0"
-	}
-	return dataPlaneRoutingPrefix + strings.ToLower(routingID)
-}
-
-// DataPlaneUserName constructs a san for a data-plane-user certificate
-// Accepts a namespace  - the namespace for which the certificate was created
-func DataPlaneUserName(namespace string) string {
+// DataPlaneUserSAN constructs a SAN for a data-plane-user certificate in the
+// target namespace of a Knative Service.
+func DataPlaneUserSAN(namespace string) string {
 	return dataPlaneUserPrefix + strings.ToLower(namespace)
 }

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package sample
+package reconciler
 
 import (
 	"context"
@@ -38,7 +38,6 @@ import (
 const (
 	caSecretNamePostfix    = "-ctrl-ca"
 	secretLabelNamePostfix = "-ctrl"
-	secretRoutingID        = "routing-id"
 )
 
 // NewControllerFactory generates a ControllerConstructor for the control certificates reconciler.
