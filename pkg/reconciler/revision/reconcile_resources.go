@@ -74,7 +74,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 		// The autoscaler mutates the deployment pretty often, which would cause us
 		// to flip back and forth between Ready and Unknown every time we scale up
 		// or down.
-		// If the replicaset is failing we asume its an error we have to surface
+		// If the replicaset is failing we assume its an error we have to surface
 		if !rev.Status.IsActivationRequired() || rev.Status.IsReplicaSetFailure(&deployment.Status) {
 			rev.Status.PropagateDeploymentStatus(&deployment.Status)
 		}
