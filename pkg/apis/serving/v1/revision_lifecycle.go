@@ -55,7 +55,6 @@ const (
 var revisionCondSet = apis.NewLivingConditionSet(
 	RevisionConditionResourcesAvailable,
 	RevisionConditionContainerHealthy,
-	RevisionConditionActive,
 )
 
 // GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
