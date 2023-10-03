@@ -131,7 +131,6 @@ type DialTLSContextFunc func(ctx context.Context, network, addr string) (net.Con
 
 func newHTTPSTransport(disableKeepAlives, disableCompression bool, maxIdle, maxIdlePerHost int, tlsContext DialTLSContextFunc) http.RoundTripper {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.DialContext = DialWithBackOff
 	transport.DisableKeepAlives = disableKeepAlives
 	transport.MaxIdleConns = maxIdle
 	transport.MaxIdleConnsPerHost = maxIdlePerHost
