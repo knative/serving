@@ -175,7 +175,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	}
 
 	// TODO: Remove this when "activator always stay in path" is eliminated.
-	if systemInternalTLS, ok := cm.Data[netcfg.SystemInternalTLSKey]; ok && !strings.EqualFold(systemInternalTLS, string(netcfg.EncryptionDisabled)) {
+	if strings.EqualFold(cm.Data[netcfg.SystemInternalTLSKey], string(netcfg.EncryptionEnabled)) {
 		t.Skip("Skipping TestTargetBurstCapacity as activator always stay in path.")
 	}
 
