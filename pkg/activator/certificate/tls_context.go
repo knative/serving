@@ -40,11 +40,11 @@ func (cr *CertCache) dialTLSContext(ctx context.Context, network, addr string) (
 
 // dialTLSContext handles verify SAN before calling DialTLSWithBackOff.
 func dialTLSContext(ctx context.Context, network, addr string, cr *CertCache) (net.Conn, error) {
-	cr.certificatesMux.Lock()
+	cr.certificatesMux.RLock()
 	// Clone the certificate Pool such that the one used by the client will be different from the one that will get updated is CA is replaced.
 	tlsConf := cr.TLSConf.Clone()
 	tlsConf.RootCAs = tlsConf.RootCAs.Clone()
-	cr.certificatesMux.Unlock()
+	cr.certificatesMux.RUnlock()
 
 	revID := handler.RevIDFrom(ctx)
 	san := certificates.DataPlaneUserName(revID.Namespace)
