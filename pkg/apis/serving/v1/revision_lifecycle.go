@@ -51,10 +51,10 @@ const (
 	ReasonProgressDeadlineExceeded = "ProgressDeadlineExceeded"
 )
 
+// RevisionConditionActive is not part of the Revision Condition set because we can have Inactive Ready Revisions (scale to zero)
 var revisionCondSet = apis.NewLivingConditionSet(
 	RevisionConditionResourcesAvailable,
 	RevisionConditionContainerHealthy,
-	RevisionConditionActive,
 )
 
 // GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
