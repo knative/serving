@@ -56,13 +56,13 @@ func dialTLSContext(ctx context.Context, network, addr string, cr *CertCache) (n
 func verifySAN(san string) func(tls.ConnectionState) error {
 	return func(cs tls.ConnectionState) error {
 		if len(cs.PeerCertificates) == 0 {
-			return errors.New("No PeerCertificates provided")
+			return errors.New("no PeerCertificates provided")
 		}
 		for _, name := range cs.PeerCertificates[0].DNSNames {
 			if name == san {
 				return nil
 			}
 		}
-		return fmt.Errorf("SAN %q does not have a matching name in %v", san, cs.PeerCertificates[0].DNSNames)
+		return fmt.Errorf("san %q does not have a matching name in %v", san, cs.PeerCertificates[0].DNSNames)
 	}
 }
