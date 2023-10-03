@@ -53,7 +53,9 @@ func SetupFakeContextWithCancel(t testing.TB, fs ...func(context.Context) contex
 	for _, f := range fs {
 		ctx = f(ctx)
 	}
-	ctx, is := injection.Fake.SetupInformers(ctx, &rest.Config{})
+	ctx = injection.WithConfig(ctx, &rest.Config{})
+
+	ctx, is := injection.Fake.SetupInformers(ctx, injection.GetConfig(ctx))
 	return ctx, c, is
 }
 
