@@ -257,7 +257,7 @@ func (r *URIResolver) addressableFromDestinationRef(ctx context.Context, dest du
 		return nil, apierrs.NewBadRequest(fmt.Sprintf("hostname missing in address of %s", dest.Ref))
 	}
 
-	if addr.CACerts == nil {
+	if dest.CACerts != nil && *dest.CACerts != "" {
 		addr.CACerts = dest.CACerts
 	}
 

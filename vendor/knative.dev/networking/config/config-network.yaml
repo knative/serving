@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: networking
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "b2698fe8"
+    knative.dev/example-checksum: "0573e07d"
 data:
   _example: |
     ################################
@@ -126,7 +126,7 @@ data:
 
     # Controls weather TLS certificates are automatically provisioned and
     # installed in the Knative ingress to terminate TLS connections
-    # for cluster local domains (like: app.namespace.svc.cluster.local)
+    # for cluster local domains (like: app.namespace.svc.<your-cluster-domain>)
     # - Enabled: enables the TLS certificate provisioning feature for cluster cluster-local domains.
     # - Disabled: disables the TLS certificate provisioning feature for cluster cluster local domains.
     # NOTE: This flag is in an alpha state and is mostly here to enable internal testing

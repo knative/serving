@@ -1276,7 +1276,7 @@ k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20231002150103-808ee92ee6f2
+# knative.dev/caching v0.0.0-20231003123851-6c2d45f61892
 ## explicit; go 1.18
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -1301,7 +1301,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 ## explicit; go 1.18
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/networking v0.0.0-20231002150856-97dab159e185
+# knative.dev/networking v0.0.0-20231004065302-53ba1f44ef7a
 ## explicit; go 1.18
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1340,7 +1340,7 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20231002131630-294e777acf1a
+# knative.dev/pkg v0.0.0-20231003141102-833dd976f13d
 ## explicit; go 1.18
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
