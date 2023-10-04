@@ -51,7 +51,8 @@ const (
 	ReasonProgressDeadlineExceeded = "ProgressDeadlineExceeded"
 )
 
-// RevisionConditionActive is not part of the Revision Condition set because we can have Inactive Ready Revisions (scale to zero)
+// RevisionConditionActive is not part of the RevisionConditionSet because we can have Inactive Ready Revisions (scale to zero)
+// TODO: add to the revisionCondSet or at least initialize RevisionConditionActive and deal with the edge cases
 var revisionCondSet = apis.NewLivingConditionSet(
 	RevisionConditionResourcesAvailable,
 	RevisionConditionContainerHealthy,
@@ -172,7 +173,6 @@ func (rs *RevisionStatus) PropagateDeploymentStatus(original *appsv1.DeploymentS
 func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *autoscalingv1alpha1.PodAutoscalerStatus) {
 	// Reflect the PA status in our own.
 	cond := ps.GetCondition(autoscalingv1alpha1.PodAutoscalerConditionReady)
-
 	rs.ActualReplicas = nil
 	if ps.ActualScale != nil && *ps.ActualScale >= 0 {
 		rs.ActualReplicas = ps.ActualScale
