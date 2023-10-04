@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package sample
+package reconciler
 
 import (
 	"bytes"
@@ -42,9 +42,6 @@ const (
 	caExpirationInterval = time.Hour * 24 * 365 * 10 // 10 years
 	expirationInterval   = time.Hour * 24 * 30       // 30 days
 	rotationThreshold    = 24 * time.Hour
-
-	// certificates used by control elements such as autoscaler, ingress controller
-	controlPlaneSecretType = "control-plane"
 
 	// certificates used by trusted data routing elements such as activator, ingress gw
 	dataPlaneRoutingSecretType = "data-plane-routing"
@@ -105,14 +102,10 @@ func (r *reconciler) ReconcileKind(ctx context.Context, secret *corev1.Secret) p
 	// Reconcile the provided secret
 	var sans []string
 	switch secret.Labels[r.secretTypeLabelName] {
-	case controlPlaneSecretType:
-		sans = []string{certificates.ControlPlaneName, certificates.LegacyFakeDnsName}
 	case dataPlaneRoutingSecretType:
-		routingID := secret.Labels[secretRoutingID]
-		san := certificates.DataPlaneRoutingName(routingID)
-		sans = []string{san, certificates.LegacyFakeDnsName}
+		sans = []string{certificates.DataPlaneRoutingSAN, certificates.LegacyFakeDnsName}
 	case dataPlaneUserSecretType:
-		sans = []string{certificates.DataPlaneUserName(secret.Namespace), certificates.LegacyFakeDnsName}
+		sans = []string{certificates.DataPlaneUserSAN(secret.Namespace), certificates.LegacyFakeDnsName}
 	case dataPlaneDeprecatedSecretType:
 		sans = []string{certificates.LegacyFakeDnsName}
 	default:
