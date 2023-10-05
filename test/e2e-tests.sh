@@ -50,6 +50,7 @@ fi
 
 if (( HTTPS )); then
   E2E_TEST_FLAGS+=" -https"
+  GO_TEST_FLAGS+=" -parallel 1"
   toggle_feature auto-tls Enabled config-network
   kubectl apply -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/caissuer/
   add_trap "kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
