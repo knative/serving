@@ -17,13 +17,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package internalencryption
+package systeminternaltls
 
 import (
 	"bufio"
 	"bytes"
 	"context"
-	"crypto/tls"
 	"fmt"
 	"io"
 	"strings"
@@ -32,22 +31,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
-	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
 )
-
-var (
-	ExpectedSecurityMode = netcfg.TrustEnabled
-)
-
-type RequestLog struct {
-	RequestURL string              `json:"requestUrl"`
-	TLS        tls.ConnectionState `json:"tls"`
-}
 
 // TestInternalEncrytion tests the TLS connections between system components.
 func TestInternalEncryption(t *testing.T) {

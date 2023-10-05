@@ -1,8 +1,8 @@
-# Internal Encryption E2E Tests
+# System Internal TLS E2E Tests
 
-In order to test Internal Encryption, this test turns enables request logging and sets the request log template to `TLS: {{.Request.TLS}}`.
+In order to test System Internal TLS, this test turns enables request logging and sets the request log template to `TLS: {{.Request.TLS}}`.
 
-The test setup will enable Internal Encryption, and then configure the logging settings.
+The test setup will enable System Internal TLS, and then configure the logging settings.
 
 The test then deploys and attempts to reach the HelloWorld test image.
 
