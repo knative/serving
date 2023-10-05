@@ -19,6 +19,7 @@ package readiness
 import (
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"sync"
 	"time"
@@ -49,6 +50,8 @@ type Probe struct {
 	// When the probe finishes the `gv` will be reset to nil.
 	mu sync.RWMutex
 	gv *gateValue
+
+	StopCh chan struct{}
 }
 
 // gateValue is a write-once boolean impl.
@@ -79,11 +82,34 @@ func (gv *gateValue) read() bool {
 
 // NewProbe returns a pointer to a new Probe.
 func NewProbe(v1p *corev1.Probe) *Probe {
-	return &Probe{
+	p := &Probe{
 		Probe:       v1p,
 		pollTimeout: PollTimeout,
 		out:         os.Stderr,
+		StopCh:      make(chan struct{}),
 	}
+
+	go func() {
+		// I don't think we want the queue-proxy to probe that aggressively?
+		probeTicker := time.NewTicker(time.Duration(math.Max(float64(p.PeriodSeconds), 1)))
+
+		defer func() {
+			// Clean up.
+			probeTicker.Stop()
+		}()
+
+		for {
+			// Wait for next probe tick.
+			select {
+			case <-p.StopCh:
+				return
+			case <-probeTicker.C:
+				p.probeContainer()
+			}
+		}
+	}()
+
+	return p
 }
 
 // NewProbeWithHTTP2AutoDetection returns a pointer to a new Probe that has HTTP2
@@ -102,8 +128,20 @@ func (p *Probe) shouldProbeAggressively() bool {
 	return p.PeriodSeconds == 0
 }
 
-// ProbeContainer executes the defined Probe against the user-container
+// GetLatestProbeResult
 func (p *Probe) ProbeContainer() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	// If gateValue exists (i.e. right now something is probing, attach to that probe).
+	if p.gv != nil {
+		return p.gv.read()
+	}
+	return false
+
+}
+
+// ProbeContainer executes the defined Probe against the user-container
+func (p *Probe) probeContainer() {
 	gv, writer := func() (*gateValue, bool) {
 		p.mu.Lock()
 		defer p.mu.Unlock()
@@ -121,9 +159,8 @@ func (p *Probe) ProbeContainer() bool {
 		p.mu.Lock()
 		defer p.mu.Unlock()
 		p.gv = nil
-		return res
+		return
 	}
-	return gv.read()
 }
 
 func (p *Probe) probeContainerImpl() bool {

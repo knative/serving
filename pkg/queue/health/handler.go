@@ -54,6 +54,14 @@ func ProbeHandler(prober func() bool, tracingEnabled bool) http.HandlerFunc {
 			return
 		}
 
+		/*
+			- upon starting the queue, fire up the probe, use the periodseconds on the probe, or a default of 10
+			- upon probe handler request, read from chan for latest probe result
+			- when probe gets a success, stop probing
+
+			what to do when periodSeconds is zero? I guess just probe agressively right away?
+
+		*/
 		if !prober() {
 			probeSpan.Annotate([]trace.Attribute{
 				trace.StringAttribute("queueproxy.probe.error", "container not ready")}, "error")
