@@ -221,6 +221,30 @@ If you want to choose another Ingress solution, you can follow the instructions 
 [Knative installation doc](https://knative.dev/docs/admin/install/serving/install-serving-with-yaml/#install-a-networking-layer)
 to pick up an alternative Ingress solution and install it.
 
+Fetch the External IP address or CNAME by running the command:
+
+```
+kubectl --namespace kourier-system get service kourier
+
+```
+
+## Configure DNS 
+You can configure DNS to prevent the need to run curl commands with a host header.
+
+Knative supports variety of DNS Configuration for simplicity you can just run the following command to configure Magic DNS(sslip.io).
+```
+kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.11.1/serving-default-domain.yaml
+
+```
+
+If you want to choose another DNS Configuration, you can follow the instructions in the
+[Knative installation doc](https://knative.dev/docs/install/yaml-install/serving/install-serving-with-yaml/#configure-dns)
+to pick up an alternative DNS Configuration.
+
+## Install optional Serving extensions
+
+Refer to the instructions in the[Knative installation doc](https://knative.dev/docs/install/yaml-install/serving/install-serving-with-yaml/#install-optional-serving-extensions) to install optional serving extensions.
+
 ## Iterating
 
 As you make changes to the code-base, there are several special cases to be aware
