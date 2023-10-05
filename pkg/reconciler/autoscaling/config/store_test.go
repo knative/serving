@@ -66,7 +66,7 @@ func TestStoreImmutableConfig(t *testing.T) {
 	config := store.Load()
 	config.Autoscaler.MaxScaleUpRate = 100.0
 	config.Deployment.ProgressDeadline = 3 * time.Minute
-	config.Network.DataplaneTrust = netcfg.TrustMinimal
+	config.Network.SystemInternalTLS = netcfg.EncryptionEnabled
 	newConfig := store.Load()
 
 	if newConfig.Autoscaler.MaxScaleUpRate == 100.0 {
@@ -76,7 +76,7 @@ func TestStoreImmutableConfig(t *testing.T) {
 		t.Error("Deployment config is not immutable")
 	}
 
-	if newConfig.Network.DataplaneTrust != netcfg.TrustDisabled {
+	if newConfig.Network.SystemInternalTLS != netcfg.EncryptionDisabled {
 		t.Error("Network config is not immutable")
 	}
 }

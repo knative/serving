@@ -23,7 +23,6 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -35,9 +34,9 @@ type FakeDomains struct {
 	Fake *FakeNetworkingV1alpha1
 }
 
-var domainsResource = schema.GroupVersionResource{Group: "networking.internal.knative.dev", Version: "v1alpha1", Resource: "domains"}
+var domainsResource = v1alpha1.SchemeGroupVersion.WithResource("domains")
 
-var domainsKind = schema.GroupVersionKind{Group: "networking.internal.knative.dev", Version: "v1alpha1", Kind: "Domain"}
+var domainsKind = v1alpha1.SchemeGroupVersion.WithKind("Domain")
 
 // Get takes name of the domain, and returns the corresponding domain object, and an error if there is any.
 func (c *FakeDomains) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Domain, err error) {
