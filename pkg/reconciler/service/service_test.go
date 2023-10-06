@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"errors"
-	"knative.dev/serving/pkg/reconciler/extension"
 	"testing"
 	"time"
 
@@ -43,6 +42,7 @@ import (
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	ksvcreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/service"
 	configresources "knative.dev/serving/pkg/reconciler/configuration/resources"
+	"knative.dev/serving/pkg/reconciler/extension"
 	"knative.dev/serving/pkg/reconciler/service/resources"
 
 	corev1 "k8s.io/api/core/v1"

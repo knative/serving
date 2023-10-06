@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"knative.dev/serving/pkg/reconciler/extension"
 	"math/rand"
 	"testing"
 	"time"
@@ -37,6 +36,7 @@ import (
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
+	"knative.dev/serving/pkg/reconciler/extension"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"

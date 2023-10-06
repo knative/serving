@@ -45,6 +45,7 @@ import (
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
+	"knative.dev/serving/pkg/reconciler/extension"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 
@@ -716,6 +717,8 @@ func TestReconcile(t *testing.T) {
 			imageLister:         listers.GetImageLister(),
 			deploymentLister:    listers.GetDeploymentLister(),
 			resolver:            &nopResolver{},
+
+			extension: extension.NoExtension(),
 		}
 
 		return revisionreconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
