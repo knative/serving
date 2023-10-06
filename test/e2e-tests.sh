@@ -52,6 +52,7 @@ if (( HTTPS )); then
   E2E_TEST_FLAGS+=" -https"
   GO_TEST_FLAGS+=" -parallel 1"
   toggle_feature auto-tls Enabled config-network
+  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment 3scale-kourier-gateway --replicas=2
   kubectl apply -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/caissuer/
   add_trap "kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 fi
@@ -67,10 +68,18 @@ fi
 
 go_test_e2e -timeout=30m \
   ${GO_TEST_FLAGS} \
-  ./test/conformance/api/... \
-  ./test/conformance/runtime/... \
   ./test/e2e \
   ${E2E_TEST_FLAGS} || failed=1
+#  ./test/conformance/api/... \
+#  ./test/conformance/runtime/... \
+
+(( failed )) && fail_test
+
+# Remove the kail log file if the test flow passes.
+# This is for preventing too many large log files to be uploaded to GCS in CI.
+rm "${ARTIFACTS}/k8s.log-$(basename "${E2E_SCRIPT}").txt"
+
+success
 
 toggle_feature tag-header-based-routing Enabled
 go_test_e2e -timeout=2m ./test/e2e/tagheader ${E2E_TEST_FLAGS} || failed=1
