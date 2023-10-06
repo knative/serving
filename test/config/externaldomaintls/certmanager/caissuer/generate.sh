@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script generates test/config/autotls/certmanager/caissuer/secret.yaml.
+# This script generates test/config/externaldomaintls/certmanager/caissuer/secret.yaml.
 
 openssl genrsa -out rootCAKey.pem 2048
 openssl req -x509 -sha256 -new -nodes -key rootCAKey.pem -days 36500 -out rootCACert.pem  -subj '/CN=example.com/O=Knative Community/C=US'

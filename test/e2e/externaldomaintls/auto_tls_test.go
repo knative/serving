@@ -17,7 +17,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package autotls
+package externaldomaintls
 
 import (
 	"context"
@@ -45,8 +45,8 @@ type config struct {
 	// It is not required for self-signed CA or for the HTTP01 challenge when wildcard domain
 	// is mapped to the Ingress IP.
 	TLSServiceName string `envconfig:"tls_service_name" required:"false"`
-	// AutoTLSTestName is the name of the auto tls. It is not required for local test.
-	AutoTLSTestName string `envconfig:"auto_tls_test_name" required:"false" default:"TestAutoTLS"`
+	// ExternalDomainTLSTestName is the name of the external domain tls test. It is not required for local test.
+	ExternalDomainTLSTestName string `envconfig:"external_domain_tls_test_name" required:"false" default:"TestExternalDomainTLS"`
 }
 
 var env config
@@ -55,7 +55,7 @@ func TestTLS(t *testing.T) {
 	if err := envconfig.Process("", &env); err != nil {
 		t.Fatalf("Failed to process environment variable: %v.", err)
 	}
-	t.Run(env.AutoTLSTestName, testAutoTLS)
+	t.Run(env.ExternalDomainTLSTestName, testExternalDomainTLS)
 }
 
 func TestTLSDisabledWithAnnotation(t *testing.T) {
@@ -67,7 +67,7 @@ func TestTLSDisabledWithAnnotation(t *testing.T) {
 	}
 	test.EnsureTearDown(t, clients, &names)
 
-	objects, err := v1test.CreateServiceReady(t, clients, &names, rtesting.WithServiceAnnotations(map[string]string{networking.DisableAutoTLSAnnotationKey: "true"}))
+	objects, err := v1test.CreateServiceReady(t, clients, &names, rtesting.WithServiceAnnotations(map[string]string{networking.DisableExternalDomainTLSAnnotationKey: "true"}))
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
@@ -84,7 +84,7 @@ func TestTLSDisabledWithAnnotation(t *testing.T) {
 	RuntimeRequest(context.Background(), t, httpClient, objects.Route.Status.URL.String())
 }
 
-func testAutoTLS(t *testing.T) {
+func testExternalDomainTLS(t *testing.T) {
 	clients := test.Setup(t, test.Options{Namespace: test.ServingFlags.TLSTestNamespace})
 
 	names := test.ResourceNames{

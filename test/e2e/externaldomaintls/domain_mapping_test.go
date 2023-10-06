@@ -17,7 +17,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package autotls
+package externaldomaintls
 
 import (
 	"context"
@@ -26,6 +26,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/networking/pkg/apis/networking"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -45,7 +46,7 @@ type dmConfig struct {
 	CustomDomainSuffix string `envconfig:"custom_domain_suffix" required:"false"`
 }
 
-func TestDomainMappingAutoTLS(t *testing.T) {
+func TestDomainMappingExternalDomainTLS(t *testing.T) {
 	if !test.ServingFlags.EnableBetaFeatures {
 		t.Skip("Beta features not enabled")
 	}
@@ -75,7 +76,7 @@ func TestDomainMappingAutoTLS(t *testing.T) {
 	// Set up initial Service.
 	svc, err := v1test.CreateServiceReady(t, clients, &names,
 		func(service *v1.Service) {
-			service.Annotations = map[string]string{"networking.knative.dev/disableAutoTLS": "True"}
+			service.Annotations = map[string]string{networking.DisableExternalDomainTLSAnnotationKey: "true"}
 		})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %q: %v", names.Service, err)

@@ -30,7 +30,7 @@ export CERTIFICATE_CLASS=${CERTIFICATE_CLASS:-""}
 # Only build linux/amd64 bit images
 export KO_FLAGS="${KO_FLAGS:---platform=linux/amd64}"
 
-export RUN_HTTP01_AUTO_TLS_TESTS=${RUN_HTTP01_AUTO_TLS_TESTS:-0}
+export RUN_HTTP01_EXTERNAL_DOMAIN_TLS_TESTS=${RUN_HTTP01_EXTERNAL_DOMAIN_TLS_TESTS:-0}
 export HTTPS=${HTTPS:-0}
 export SHORT=${SHORT:-0}
 export ENABLE_HA=${ENABLE_HA:-0}
@@ -118,8 +118,14 @@ function parse_flags() {
       readonly CERTIFICATE_CLASS="cert-manager.certificate.networking.knative.dev"
       return 2
       ;;
+# BEGIN: reverse compatibility - drop this after updating knative/infra
     --run-http01-auto-tls-tests)
-      readonly RUN_HTTP01_AUTO_TLS_TESTS=1
+      readonly RUN_HTTP01_EXTERNAL_DOMAIN_TLS_TESTS=1
+      return 1
+      ;;
+# END
+    --run-http01-external-domain-tls-tests)
+      readonly RUN_HTTP01_EXTERNAL_DOMAIN_TLS_TESTS=1
       return 1
       ;;
     --mesh)
