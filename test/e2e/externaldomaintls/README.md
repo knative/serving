@@ -1,6 +1,6 @@
 This is the instruction about how to run External Domain TLS E2E test under different
 configurations to test different use cases. For more details about External Domain TLS
-feature, check out the [External Domain TLS](https://knative.dev/docs/serving/using-external-domain-tls/) 
+feature, check out the [External Domain TLS](https://knative.dev/docs/serving/using-external-domain-tls/)
 feature documentation.
 
 # Prerequisites
