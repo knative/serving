@@ -25,13 +25,19 @@ import (
 
 // Extension enables pluggable extensive features added into the controller
 type Extension interface {
+	// TransformRevision transforms the existing revision.
 	TransformRevision(*v1.Revision) *v1.Revision
+	// PostRevisionReconcile implements a custom reconcile loop the after the revision is created.
 	PostRevisionReconcile(context.Context, *autoscalingv1alpha1.PodAutoscaler, *autoscalingv1alpha1.PodAutoscaler) error
+	// PostConfigurationReconcile implements a custom reconcile loop after the configuration is created.
 	PostConfigurationReconcile(context.Context, *v1.Service, *v1.Configuration) error
+	// TransformService transforms the existing service.
 	TransformService(*v1.Service) *v1.Service
+	// UpdateExtensionStatus updates the status of the custom resources in the extension.
 	UpdateExtensionStatus(context.Context, *v1.Service) (bool, error)
 }
 
+// NoExtension means an empty Extension
 func NoExtension() Extension {
 	return &nilExtension{}
 }
@@ -39,22 +45,27 @@ func NoExtension() Extension {
 type nilExtension struct {
 }
 
+// TransformRevision return the same revision without any changes.
 func (nilExtension) TransformRevision(revision *v1.Revision) *v1.Revision {
 	return revision
 }
 
+// PostRevisionReconcile does nothing as an empty extension.
 func (nilExtension) PostRevisionReconcile(context.Context, *autoscalingv1alpha1.PodAutoscaler, *autoscalingv1alpha1.PodAutoscaler) error {
 	return nil
 }
 
+// PostConfigurationReconcile does nothing as an empty extension.
 func (nilExtension) PostConfigurationReconcile(context.Context, *v1.Service, *v1.Configuration) error {
 	return nil
 }
 
+// TransformService return the same service without any changes.
 func (nilExtension) TransformService(service *v1.Service) *v1.Service {
 	return service
 }
 
+// UpdateExtensionStatus does nothing as an empty extension.
 func (nilExtension) UpdateExtensionStatus(context.Context, *v1.Service) (bool, error) {
 	return true, nil
 }

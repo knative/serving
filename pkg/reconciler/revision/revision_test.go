@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"knative.dev/serving/pkg/reconciler/extension"
 	"math/rand"
 	"testing"
 	"time"
@@ -92,7 +93,7 @@ func newTestController(t *testing.T, configs []*corev1.ConfigMap, opts ...reconc
 	opts = append([]reconcilerOption{func(r *Reconciler) {
 		r.resolver = &nopResolver{}
 	}}, opts...)
-	controller := newControllerWithOptions(ctx, configMapWatcher, opts...)
+	controller := newControllerWithOptions(ctx, configMapWatcher, extension.NoExtension(), opts...)
 
 	for _, cm := range append([]*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{

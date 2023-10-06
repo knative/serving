@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"errors"
+	"knative.dev/serving/pkg/reconciler/extension"
 	"testing"
 	"time"
 
@@ -780,6 +781,7 @@ func TestReconcile(t *testing.T) {
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
 			routeLister:         listers.GetRouteLister(),
+			extension:           extension.NoExtension(),
 		}
 
 		return ksvcreconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),

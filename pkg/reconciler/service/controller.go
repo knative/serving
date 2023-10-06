@@ -18,7 +18,6 @@ package service
 
 import (
 	"context"
-	"knative.dev/serving/pkg/reconciler/extension"
 
 	cfgmap "knative.dev/serving/pkg/apis/config"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
@@ -27,6 +26,7 @@ import (
 	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route"
 	kserviceinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/service"
 	ksvcreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/service"
+	"knative.dev/serving/pkg/reconciler/extension"
 
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
