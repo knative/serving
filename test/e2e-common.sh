@@ -453,12 +453,20 @@ function wait_for_leader_controller() {
   return 1
 }
 
+function restart_pod() {
+  local namespace="$1"
+  local label="$2"
+  echo -n "Deleting pod in ${namespace} with label ${label}"
+  kubectl -n ${namespace} delete pod -l ${label}
+}
+
 function toggle_feature() {
   local FEATURE="$1"
   local STATE="$2"
   local CONFIG="${3:-config-features}"
   echo -n "Setting feature ${FEATURE} to ${STATE}"
-  kubectl patch cm "${CONFIG}" -n "${SYSTEM_NAMESPACE}" -p '{"data":{"'${FEATURE}'":"'${STATE}'"}}'
+  local PATCH="{\"data\":{\"${FEATURE}\":\"${STATE}\"}}"
+  kubectl patch cm "${CONFIG}" -n "${SYSTEM_NAMESPACE}" -p "${PATCH}"
   # We don't have a good mechanism for positive handoff so sleep :(
   echo "Waiting 30s for change to get picked up."
   sleep 30

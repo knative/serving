@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"go.uber.org/atomic"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/configmap"
 	tracingconfig "knative.dev/pkg/tracing/config"
 )
@@ -29,6 +30,7 @@ type cfgKey struct{}
 // Config is the configuration for the activator.
 type Config struct {
 	Tracing *tracingconfig.Config
+	Network *netcfg.Config
 }
 
 // FromContext obtains a Config injected into the passed context.
@@ -51,15 +53,27 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 	// Append an update function to run after a ConfigMap has updated to update the
 	// current state of the Config.
 	onAfterStore = append(onAfterStore, func(_ string, _ interface{}) {
-		s.current.Store(&Config{
-			Tracing: s.UntypedLoad(tracingconfig.ConfigName).(*tracingconfig.Config).DeepCopy(),
-		})
+		c := &Config{}
+		tracing := s.UntypedLoad(tracingconfig.ConfigName)
+		if tracing != nil {
+			c.Tracing = tracing.(*tracingconfig.Config).DeepCopy()
+		}
+		// this allows dynamic updating of the config-network
+		// this is necessary for not requiring activator restart for system-internal-tls in the future
+		// however, current implementation is not there yet.
+		// see https://github.com/knative/serving/issues/13754
+		network := s.UntypedLoad(netcfg.ConfigMapName)
+		if network != nil {
+			c.Network = network.(*netcfg.Config).DeepCopy()
+		}
+		s.current.Store(c)
 	})
 	s.UntypedStore = configmap.NewUntypedStore(
 		"activator",
 		logger,
 		configmap.Constructors{
 			tracingconfig.ConfigName: tracingconfig.NewTracingConfigFromConfigMap,
+			netcfg.ConfigMapName:     netcfg.NewConfigFromConfigMap,
 		},
 		onAfterStore...,
 	)

@@ -22,6 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	netcfg "knative.dev/networking/pkg/config"
 	ltesting "knative.dev/pkg/logging/testing"
 	tracingconfig "knative.dev/pkg/tracing/config"
 )
@@ -35,16 +36,29 @@ var tracingConfig = &corev1.ConfigMap{
 	},
 }
 
+var networkingConfig = &corev1.ConfigMap{
+	ObjectMeta: metav1.ObjectMeta{
+		Name: netcfg.ConfigMapName,
+	},
+	Data: map[string]string{
+		"ingress-class": "random.ingress.networking.knative.dev",
+	},
+}
+
 func TestStore(t *testing.T) {
 	logger := ltesting.TestLogger(t)
 	store := NewStore(logger)
 	store.OnConfigChanged(tracingConfig)
+	store.OnConfigChanged(networkingConfig)
 
 	ctx := store.ToContext(context.Background())
 	cfg := FromContext(ctx)
 
 	if got, want := cfg.Tracing.Backend, tracingconfig.None; got != want {
 		t.Fatalf("Tracing.Backend = %v, want %v", got, want)
+	}
+	if got, want := cfg.Network.DefaultIngressClass, "random.ingress.networking.knative.dev"; got != want {
+		t.Fatalf("Networking.In = %v, want %v", got, want)
 	}
 
 	newConfig := &corev1.ConfigMap{
