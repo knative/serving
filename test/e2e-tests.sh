@@ -65,6 +65,7 @@ if (( SHORT )); then
   GO_TEST_FLAGS+=" -short"
 fi
 
+sleep 300
 
 go_test_e2e -timeout=30m \
   ${GO_TEST_FLAGS} \
