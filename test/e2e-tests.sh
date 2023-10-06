@@ -50,9 +50,7 @@ fi
 
 if (( HTTPS )); then
   E2E_TEST_FLAGS+=" -https"
-  GO_TEST_FLAGS+=" -parallel 1"
   toggle_feature auto-tls Enabled config-network
-  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment 3scale-kourier-gateway --replicas=2
   kubectl apply -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/caissuer/
   add_trap "kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 fi
@@ -69,10 +67,10 @@ sleep 300
 
 go_test_e2e -timeout=30m \
   ${GO_TEST_FLAGS} \
+  ./test/conformance/api/... \
+  ./test/conformance/runtime/... \
   ./test/e2e \
   ${E2E_TEST_FLAGS} || failed=1
-#  ./test/conformance/api/... \
-#  ./test/conformance/runtime/... \
 
 (( failed )) && fail_test
 
