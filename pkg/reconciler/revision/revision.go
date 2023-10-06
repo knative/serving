@@ -41,6 +41,7 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/reconciler/extension"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 )
 
@@ -61,7 +62,8 @@ type Reconciler struct {
 	imageLister         cachinglisters.ImageLister
 	deploymentLister    appsv1listers.DeploymentLister
 
-	resolver resolver
+	resolver  resolver
+	extension extension.Extension
 }
 
 // Check that our Reconciler implements the necessary interfaces.

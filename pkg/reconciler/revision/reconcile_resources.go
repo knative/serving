@@ -149,10 +149,11 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 	logger := logging.FromContext(ctx)
 	logger.Info("Reconciling PA: ", paName)
 
+	revC := c.extension.TransformRevision(rev)
 	pa, err := c.podAutoscalerLister.PodAutoscalers(ns).Get(paName)
 	if apierrs.IsNotFound(err) {
 		// PA does not exist. Create it.
-		pa, err = c.createPA(ctx, rev)
+		pa, err = c.createPA(ctx, revC)
 		if err != nil {
 			return fmt.Errorf("failed to create PA %q: %w", paName, err)
 		}
@@ -167,7 +168,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 
 	// Perhaps tha PA spec changed underneath ourselves?
 	// We no longer require immutability, so need to reconcile PA each time.
-	tmpl := resources.MakePA(rev)
+	tmpl := resources.MakePA(revC)
 	logger.Debugf("Desired PASpec: %#v", tmpl.Spec)
 	if !equality.Semantic.DeepEqual(tmpl.Spec, pa.Spec) {
 		diff, _ := kmp.SafeDiff(tmpl.Spec, pa.Spec) // Can't realistically fail on PASpec.
@@ -178,6 +179,11 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 		if pa, err = c.client.AutoscalingV1alpha1().PodAutoscalers(ns).Update(ctx, want, metav1.UpdateOptions{}); err != nil {
 			return fmt.Errorf("failed to update PA %q: %w", paName, err)
 		}
+	}
+
+	err = c.extension.PostRevisionReconcile(ctx, tmpl, pa)
+	if err != nil {
+		return err
 	}
 
 	logger.Debugf("Observed PA Status=%#v", pa.Status)

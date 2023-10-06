@@ -44,6 +44,7 @@ import (
 	apisconfig "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/reconciler/extension"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 )
 
@@ -58,7 +59,7 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
-	return newControllerWithOptions(ctx, cmw)
+	return newControllerWithOptions(ctx, cmw, extension.NoExtension())
 }
 
 type reconcilerOption func(*Reconciler)
@@ -66,6 +67,7 @@ type reconcilerOption func(*Reconciler)
 func newControllerWithOptions(
 	ctx context.Context,
 	cmw configmap.Watcher,
+	extension extension.Extension,
 	opts ...reconcilerOption,
 ) *controller.Impl {
 	logger := logging.FromContext(ctx)
@@ -82,6 +84,8 @@ func newControllerWithOptions(
 		podAutoscalerLister: paInformer.Lister(),
 		imageLister:         imageInformer.Lister(),
 		deploymentLister:    deploymentInformer.Lister(),
+
+		extension: extension,
 	}
 
 	impl := revisionreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {

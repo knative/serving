@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"knative.dev/serving/pkg/reconciler/extension"
 
 	cfgmap "knative.dev/serving/pkg/apis/config"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
@@ -36,9 +37,16 @@ import (
 
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events
-func NewController(
+func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+	return newControllerWithOptions(ctx, cmw, extension.NoExtension())
+}
+
+// newControllerWithOptions initializes the controller and is called by the generated code
+// Registers eventhandlers to enqueue events
+func newControllerWithOptions(
 	ctx context.Context,
 	cmw configmap.Watcher,
+	extension extension.Extension,
 ) *controller.Impl {
 	logger := logging.FromContext(ctx)
 	serviceInformer := kserviceinformer.Get(ctx)
@@ -54,11 +62,14 @@ func NewController(
 		configurationLister: configurationInformer.Lister(),
 		revisionLister:      revisionInformer.Lister(),
 		routeLister:         routeInformer.Lister(),
+
+		extension: extension,
 	}
 	opts := func(*controller.Impl) controller.Options {
 		return controller.Options{ConfigStore: configStore}
 	}
 	impl := ksvcreconciler.NewImpl(ctx, c, opts)
+	c.enqueueAfter = impl.EnqueueAfter
 
 	serviceInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
