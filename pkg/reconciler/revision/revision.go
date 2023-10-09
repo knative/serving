@@ -63,7 +63,7 @@ type Reconciler struct {
 	deploymentLister    appsv1listers.DeploymentLister
 
 	resolver  resolver
-	extension extension.Extension
+	extension extension.ServingExtension
 }
 
 // Check that our Reconciler implements the necessary interfaces.

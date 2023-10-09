@@ -67,7 +67,7 @@ type reconcilerOption func(*Reconciler)
 func newControllerWithOptions(
 	ctx context.Context,
 	cmw configmap.Watcher,
-	extension extension.Extension,
+	extension extension.ServingExtension,
 	opts ...reconcilerOption,
 ) *controller.Impl {
 	logger := logging.FromContext(ctx)

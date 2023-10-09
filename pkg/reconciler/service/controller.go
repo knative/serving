@@ -46,7 +46,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 func newControllerWithOptions(
 	ctx context.Context,
 	cmw configmap.Watcher,
-	extension extension.Extension,
+	extension extension.ServingExtension,
 ) *controller.Impl {
 	logger := logging.FromContext(ctx)
 	serviceInformer := kserviceinformer.Get(ctx)

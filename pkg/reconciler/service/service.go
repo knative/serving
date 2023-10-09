@@ -54,7 +54,7 @@ type Reconciler struct {
 	routeLister         listers.RouteLister
 
 	enqueueAfter func(interface{}, time.Duration)
-	extension    extension.Extension
+	extension    extension.ServingExtension
 }
 
 // Check that our Reconciler implements ksvcreconciler.Interface

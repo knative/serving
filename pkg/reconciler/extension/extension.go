@@ -23,8 +23,8 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
-// Extension enables pluggable extensive features added into the controller
-type Extension interface {
+// ServingExtension enables pluggable extensive features added into the controller
+type ServingExtension interface {
 	// TransformRevision transforms the existing revision.
 	TransformRevision(*v1.Revision) *v1.Revision
 	// PostRevisionReconcile implements a custom reconcile loop the after the revision is created.
@@ -37,8 +37,8 @@ type Extension interface {
 	UpdateExtensionStatus(context.Context, *v1.Service) (bool, error)
 }
 
-// NoExtension means an empty Extension
-func NoExtension() Extension {
+// NoExtension means an empty ServingExtension
+func NoExtension() ServingExtension {
 	return &nilExtension{}
 }
 
