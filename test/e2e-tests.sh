@@ -58,8 +58,6 @@ if (( HTTPS )); then
   kubectl wait --timeout=60s clusterissuer --for=condition=Ready ca-issuer
 fi
 
-sleep 300
-
 if (( MESH )); then
   GO_TEST_FLAGS+=" -parallel 1"
 fi
