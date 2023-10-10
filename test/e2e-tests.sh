@@ -66,20 +66,13 @@ if (( SHORT )); then
   GO_TEST_FLAGS+=" -short"
 fi
 
+
 go_test_e2e -timeout=30m \
   ${GO_TEST_FLAGS} \
   ./test/conformance/api/... \
   ./test/conformance/runtime/... \
   ./test/e2e \
   ${E2E_TEST_FLAGS} || failed=1
-
-(( failed )) && fail_test
-
-# Remove the kail log file if the test flow passes.
-# This is for preventing too many large log files to be uploaded to GCS in CI.
-rm "${ARTIFACTS}/k8s.log-$(basename "${E2E_SCRIPT}").txt"
-
-success
 
 toggle_feature tag-header-based-routing Enabled
 go_test_e2e -timeout=2m ./test/e2e/tagheader ${E2E_TEST_FLAGS} || failed=1
