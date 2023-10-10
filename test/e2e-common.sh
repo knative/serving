@@ -323,10 +323,6 @@ function install() {
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/tls/cert-secret.yaml")
   fi
 
-  if (( HTTPS )); then
-    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/autotls/certmanager/caissuer")
-  fi
-
   local ytt_result=$(mktemp)
   local ytt_post_install_result=$(mktemp)
   local ytt_flags=""
