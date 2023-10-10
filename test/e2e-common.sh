@@ -140,6 +140,7 @@ function parse_flags() {
       ;;
     --https)
       readonly HTTPS=1
+      readonly INGRESS_CLASS="kourier.ingress.networking.knative.dev"
       return 1
       ;;
     --short)
