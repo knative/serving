@@ -18,8 +18,9 @@ package installation
 
 import (
 	"os"
+	"testing"
 
-	"knative.dev/hack/shell"
+	"knative.dev/pkg/test/shell"
 	pkgupgrade "knative.dev/pkg/test/upgrade"
 )
 
@@ -36,19 +37,20 @@ func LatestRelease() pkgupgrade.Operation {
 func install(installName, shellFunc string) pkgupgrade.Operation {
 	return pkgupgrade.NewOperation(installName, func(c pkgupgrade.Context) {
 		c.Log.Info("Running shell function: ", shellFunc)
-		if err := callShellFunction(shellFunc); err != nil {
+		if err := callShellFunction(shellFunc, c.T); err != nil {
 			c.T.Error(err)
 		}
 	})
 }
 
-func callShellFunction(funcName string) error {
+func callShellFunction(funcName string, t *testing.T) error {
 	loc, err := shell.NewProjectLocation("../../..")
 	if err != nil {
 		return err
 	}
 	exec := shell.NewExecutor(shell.ExecutorConfig{
 		ProjectLocation: loc,
+		Streams:         shell.TestingTStreams(t),
 		Environ:         os.Environ(),
 	})
 	fn := shell.Function{
