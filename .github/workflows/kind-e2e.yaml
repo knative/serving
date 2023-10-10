@@ -95,6 +95,7 @@ jobs:
         - kourier
         - kourier-tls
         - istio
+        - istio-tls
         - istio-ambient
         - contour
         # Disabled due to consistent failures
@@ -117,6 +118,11 @@ jobs:
 
         - ingress: istio
           namespace-resources: virtualservices
+
+        - ingress: istio-tls
+          ingress-class: istio
+          namespace-resources: virtualservices
+          enable-tls: 1
 
         - ingress: istio-ambient
           namespace-resources: virtualservices
