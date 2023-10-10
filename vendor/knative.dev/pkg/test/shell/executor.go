@@ -17,11 +17,13 @@ limitations under the License.
 package shell
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"testing"
 	"time"
 )
 
@@ -39,6 +41,15 @@ func NewExecutor(config ExecutorConfig) Executor {
 	configureDefaultValues(&config)
 	return &streamingExecutor{
 		ExecutorConfig: config,
+	}
+}
+
+// TestingTStreams returns Streams which writes to t.Log and marks
+// the test as failed if anything is written to Streams.Err.
+func TestingTStreams(t testing.TB) Streams {
+	return Streams{
+		Out: testingWriter{t: t},
+		Err: testingWriter{t: t, markFailed: true},
 	}
 }
 
@@ -149,10 +160,10 @@ func withTempScript(contents string, fn func(bin string) error) error {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		// clean up
-		_ = os.Remove(tmpfile.Name())
-	}()
+	//defer func() {
+	//	// clean up
+	//	_ = os.Remove(tmpfile.Name())
+	//}()
 
 	return fn(tmpfile.Name())
 }
@@ -185,4 +196,18 @@ func quoteArgs(args []string) string {
 		quoted[i] = "\"" + strings.ReplaceAll(arg, "\"", "\\\"") + "\""
 	}
 	return strings.Join(quoted, " ")
+}
+
+func (w testingWriter) Write(p []byte) (n int, err error) {
+	n = len(p)
+
+	// Strip trailing newline because t.Log always adds one.
+	p = bytes.TrimRight(p, "\n")
+
+	w.t.Logf("%s", p)
+	if w.markFailed {
+		w.t.Fail()
+	}
+
+	return n, nil
 }

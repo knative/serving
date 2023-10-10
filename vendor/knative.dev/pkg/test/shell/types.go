@@ -16,7 +16,10 @@ limitations under the License.
 
 package shell
 
-import "io"
+import (
+	"io"
+	"testing"
+)
 
 // ProjectLocation represents a project location on a file system.
 type ProjectLocation interface {
@@ -42,6 +45,15 @@ type ExecutorConfig struct {
 	Streams
 	Labels
 	Environ []string
+}
+
+// testingWriter writes to the given testing.TB.
+type testingWriter struct {
+	t testing.TB
+
+	// If true, the test will be marked as failed if this testingWriter is
+	// ever used.
+	markFailed bool
 }
 
 // StreamType represets either output or error stream.

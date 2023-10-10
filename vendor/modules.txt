@@ -1436,6 +1436,7 @@ knative.dev/pkg/test/logstream
 knative.dev/pkg/test/logstream/v2
 knative.dev/pkg/test/migrate
 knative.dev/pkg/test/monitoring
+knative.dev/pkg/test/shell
 knative.dev/pkg/test/spoof
 knative.dev/pkg/test/upgrade
 knative.dev/pkg/test/vegeta/pacers
@@ -1470,3 +1471,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
+# knative.dev/pkg => github.com/mgencur/pkg v0.0.0-20231010091720-974d18ba37f9
