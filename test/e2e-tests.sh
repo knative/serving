@@ -54,6 +54,7 @@ if (( HTTPS )); then
   kubectl apply -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/caissuer/
   add_trap "kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
   kubectl wait --timeout=60s certificate -n cert-manager --for=condition=Ready knative-internal-encryption-ca
+  kubectl wait --timeout=60s clusterissuer --for=condition=Ready ca-issuer
 fi
 
 sleep 300
