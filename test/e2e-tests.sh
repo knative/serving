@@ -53,6 +53,7 @@ if (( HTTPS )); then
   toggle_feature auto-tls Enabled config-network
   kubectl apply -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/caissuer/
   add_trap "kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+  kubectl wait --timeout=60s certificate -n cert-manager --for=condition=Ready knative-internal-encryption-ca
 fi
 
 if (( MESH )); then
@@ -62,8 +63,6 @@ fi
 if (( SHORT )); then
   GO_TEST_FLAGS+=" -short"
 fi
-
-sleep 300
 
 go_test_e2e -timeout=30m \
   ${GO_TEST_FLAGS} \
