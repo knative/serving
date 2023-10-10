@@ -57,6 +57,8 @@ if (( HTTPS )); then
   kubectl wait --timeout=60s certificate -n cert-manager --for=condition=Ready knative-internal-encryption-ca
 fi
 
+sleep 300
+
 if (( MESH )); then
   GO_TEST_FLAGS+=" -parallel 1"
 fi
