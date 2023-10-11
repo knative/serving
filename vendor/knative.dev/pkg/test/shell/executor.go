@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,7 +23,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"testing"
 	"time"
 )
 
@@ -44,12 +43,12 @@ func NewExecutor(config ExecutorConfig) Executor {
 	}
 }
 
-// TestingTStreams returns Streams which writes to t.Log and marks
-// the test as failed if anything is written to Streams.Err.
-func TestingTStreams(t testing.TB) Streams {
+// TestingTStreams returns Streams which writes to test log.
+func TestingTStreams(t TestingT) Streams {
+	tWriter := testingWriter{t: t}
 	return Streams{
-		Out: testingWriter{t: t},
-		Err: testingWriter{t: t, markFailed: true},
+		Out: tWriter,
+		Err: tWriter,
 	}
 }
 
@@ -160,10 +159,10 @@ func withTempScript(contents string, fn func(bin string) error) error {
 	if err != nil {
 		return err
 	}
-	//defer func() {
-	//	// clean up
-	//	_ = os.Remove(tmpfile.Name())
-	//}()
+	defer func() {
+		// clean up
+		_ = os.Remove(tmpfile.Name())
+	}()
 
 	return fn(tmpfile.Name())
 }
@@ -205,9 +204,6 @@ func (w testingWriter) Write(p []byte) (n int, err error) {
 	p = bytes.TrimRight(p, "\n")
 
 	w.t.Logf("%s", p)
-	if w.markFailed {
-		w.t.Fail()
-	}
 
 	return n, nil
 }

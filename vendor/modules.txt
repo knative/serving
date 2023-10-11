@@ -1301,8 +1301,12 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 # knative.dev/hack v0.0.0-20231010131532-fc76874b28c6
 ## explicit; go 1.18
 knative.dev/hack
+<<<<<<< HEAD
 knative.dev/hack/shell
 # knative.dev/networking v0.0.0-20231012062439-c0863403c83b
+=======
+# knative.dev/networking v0.0.0-20231010132642-13dbe2012208
+>>>>>>> c129b3284 (Update deps)
 ## explicit; go 1.18
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1471,4 +1475,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# knative.dev/pkg => github.com/mgencur/pkg v0.0.0-20231010091720-974d18ba37f9
+# knative.dev/pkg => github.com/mgencur/pkg v0.0.0-20231011073333-7e238a11a09e

@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,7 +18,6 @@ package shell
 
 import (
 	"io"
-	"testing"
 )
 
 // ProjectLocation represents a project location on a file system.
@@ -47,13 +46,14 @@ type ExecutorConfig struct {
 	Environ []string
 }
 
-// testingWriter writes to the given testing.TB.
-type testingWriter struct {
-	t testing.TB
+// TestingT is used by testingWriter and allows passing testing.T.
+type TestingT interface {
+	Logf(format string, args ...any)
+}
 
-	// If true, the test will be marked as failed if this testingWriter is
-	// ever used.
-	markFailed bool
+// testingWriter implements io.Writer and writes to given testing.T log.
+type testingWriter struct {
+	t TestingT
 }
 
 // StreamType represets either output or error stream.
