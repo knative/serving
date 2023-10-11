@@ -19,9 +19,9 @@ require (
 	go.uber.org/atomic v1.9.0
 	go.uber.org/automaxprocs v1.5.3
 	go.uber.org/zap v1.26.0
-	golang.org/x/net v0.15.0
+	golang.org/x/net v0.16.0
 	golang.org/x/sync v0.3.0
-	golang.org/x/sys v0.12.0
+	golang.org/x/sys v0.13.0
 	golang.org/x/time v0.3.0
 	google.golang.org/api v0.143.0
 	google.golang.org/grpc v1.58.2
@@ -32,10 +32,10 @@ require (
 	k8s.io/code-generator v0.27.6
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f
 	k8s.io/utils v0.0.0-20230209194617-a36077c30491
-	knative.dev/caching v0.0.0-20231006131800-b6ff195c42da
-	knative.dev/hack v0.0.0-20231006131420-158898889ae8
-	knative.dev/networking v0.0.0-20231006133103-cf57a576247c
-	knative.dev/pkg v0.0.0-20231009134048-bae23eb35759
+	knative.dev/caching v0.0.0-20231010131903-c1133f73da2f
+	knative.dev/hack v0.0.0-20231010131532-fc76874b28c6
+	knative.dev/networking v0.0.0-20231010132642-13dbe2012208
+	knative.dev/pkg v0.0.0-20231010144348-ca8c009405dd
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -132,10 +132,10 @@ require (
 	github.com/tsenart/go-tsz v0.0.0-20180814235614-0bd30b3df1c3 // indirect
 	github.com/vbatts/tar-split v0.11.2 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
-	golang.org/x/crypto v0.13.0 // indirect
+	golang.org/x/crypto v0.14.0 // indirect
 	golang.org/x/mod v0.12.0 // indirect
-	golang.org/x/oauth2 v0.12.0 // indirect
-	golang.org/x/term v0.12.0 // indirect
+	golang.org/x/oauth2 v0.13.0 // indirect
+	golang.org/x/term v0.13.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/tools v0.13.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
