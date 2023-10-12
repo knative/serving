@@ -31,7 +31,7 @@ var (
 	// ErrCallerNotAllowed is raised when user tries to use this shell-out package
 	// outside of allowed places. This package is deprecated from start and was
 	// introduced to allow rewriting of shell code to Golang in small chunks.
-	ErrCallerNotAllowed = errors.New("don't try use knative.dev/pkg/test/shell package outside of allowed places")
+	ErrCallerNotAllowed = errors.New("don't try use knative.dev/pkg/test/upgrade/shell package outside of allowed places")
 )
 
 // NewProjectLocation creates a ProjectLocation that is used to calculate
@@ -68,7 +68,7 @@ type callerLocation struct {
 func isCallsiteAllowed(funcName string) error {
 	validPaths := []string{
 		"knative.+/test/upgrade",
-		"knative(:?\\.dev/|-)pkg/test/shell",
+		"knative(:?\\.dev/|-)pkg/test/upgrade/shell",
 	}
 	for _, validPath := range validPaths {
 		r := regexp.MustCompile(validPath)

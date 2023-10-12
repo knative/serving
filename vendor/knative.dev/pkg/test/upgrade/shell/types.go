@@ -20,6 +20,9 @@ import (
 	"io"
 )
 
+// Option overrides configuration options in ExecutorConfig.
+type Option func(*ExecutorConfig)
+
 // ProjectLocation represents a project location on a file system.
 type ProjectLocation interface {
 	RootPath() string
@@ -38,7 +41,7 @@ type Function struct {
 	FunctionName string
 }
 
-// ExecutorConfig holds a executor configuration options.
+// ExecutorConfig holds executor configuration options.
 type ExecutorConfig struct {
 	ProjectLocation
 	Streams

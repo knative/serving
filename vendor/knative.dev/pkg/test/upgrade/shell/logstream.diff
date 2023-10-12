@@ -1,0 +1,79 @@
+diff --git a/test/shell/executor.go b/test/shell/executor.go
+index f347321a..03da568d 100644
+--- a/test/shell/executor.go
++++ b/test/shell/executor.go
+@@ -24,6 +24,8 @@ import (
+ 	"os/exec"
+ 	"strings"
+ 	"time"
++
++	"knative.dev/pkg/test/logging"
+ )
+ 
+ const (
+@@ -43,13 +45,12 @@ func NewExecutor(config ExecutorConfig) Executor {
+ 	}
+ }
+ 
+-// TestingTStreams returns Streams which writes to t.Log and marks
+-// the test as failed if anything is written to Streams.Err.
+-func TestingTStreams(t TestingT) Streams {
+-	tWriter := testingWriter{t: t}
++// LogStreams returns Streams which writes to given FormatLogger.
++func LogStreams(logFn logging.FormatLogger) Streams {
++	writer := logWriter{logf: logFn}
+ 	return Streams{
+-		Out: tWriter,
+-		Err: tWriter,
++		Out: writer,
++		Err: writer,
+ 	}
+ }
+ 
+@@ -198,13 +199,13 @@ func quoteArgs(args []string) string {
+ 	return strings.Join(quoted, " ")
+ }
+ 
+-func (w testingWriter) Write(p []byte) (n int, err error) {
++func (w logWriter) Write(p []byte) (n int, err error) {
+ 	n = len(p)
+ 
+ 	// Strip trailing newline because t.Log always adds one.
+ 	p = bytes.TrimRight(p, "\n")
+ 
+-	w.t.Logf("%s", p)
++	w.logf("%s", p)
+ 
+ 	return n, nil
+ }
+diff --git a/test/shell/types.go b/test/shell/types.go
+index fb6e2a19..2dda1996 100644
+--- a/test/shell/types.go
++++ b/test/shell/types.go
+@@ -18,6 +18,8 @@ package shell
+ 
+ import (
+ 	"io"
++
++	"knative.dev/pkg/test/logging"
+ )
+ 
+ // ProjectLocation represents a project location on a file system.
+@@ -46,14 +48,9 @@ type ExecutorConfig struct {
+ 	Environ []string
+ }
+ 
+-// TestingT is used by testingWriter and allows passing testing.T.
+-type TestingT interface {
+-	Logf(format string, args ...any)
+-}
+-
+-// testingWriter writes to the given testing.TB.
+-type testingWriter struct {
+-	t TestingT
++// logWriter implements io.Writer and writes to the given logf.
++type logWriter struct {
++	logf logging.FormatLogger
+ }
+ 
+ // StreamType represets either output or error stream.

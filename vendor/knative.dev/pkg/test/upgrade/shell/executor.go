@@ -35,16 +35,23 @@ const (
 // ErrNoProjectLocation is returned if user didnt provided the project location.
 var ErrNoProjectLocation = errors.New("project location isn't provided")
 
-// NewExecutor creates a new executor from given config.
-func NewExecutor(config ExecutorConfig) Executor {
-	configureDefaultValues(&config)
+// NewExecutor creates a new executor.
+func NewExecutor(t TestingT, loc ProjectLocation, opts ...Option) Executor {
+	config := &ExecutorConfig{
+		ProjectLocation: loc,
+		Streams:         testingTStreams(t),
+	}
+	for _, opt := range opts {
+		opt(config)
+	}
+	configureDefaultValues(config)
 	return &streamingExecutor{
-		ExecutorConfig: config,
+		ExecutorConfig: *config,
 	}
 }
 
-// TestingTStreams returns Streams which writes to test log.
-func TestingTStreams(t TestingT) Streams {
+// testingTStreams returns Streams which writes to test log.
+func testingTStreams(t TestingT) Streams {
 	tWriter := testingWriter{t: t}
 	return Streams{
 		Out: tWriter,
@@ -88,12 +95,6 @@ func validate(config ExecutorConfig) error {
 }
 
 func configureDefaultValues(config *ExecutorConfig) {
-	if config.Out == nil {
-		config.Out = os.Stdout
-	}
-	if config.Err == nil {
-		config.Err = os.Stderr
-	}
 	if config.LabelOut == "" {
 		config.LabelOut = defaultLabelOut
 	}
