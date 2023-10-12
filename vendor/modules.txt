@@ -1256,7 +1256,7 @@ knative.dev/control-protocol/pkg/certificates/reconciler
 ## explicit; go 1.18
 knative.dev/hack
 knative.dev/hack/shell
-# knative.dev/networking v0.0.0-20230419144338-e5d04e805e50
+# knative.dev/networking v0.0.0-20231012063223-0b0f2107abef
 ## explicit; go 1.18
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1293,7 +1293,7 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20230418073056-dfad48eaa5d0
+# knative.dev/pkg v0.0.0-20231011201526-df28feae6d34
 ## explicit; go 1.18
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
