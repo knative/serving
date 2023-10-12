@@ -17,11 +17,10 @@ limitations under the License.
 package installation
 
 import (
-	"os"
 	"testing"
 
-	"knative.dev/pkg/test/shell"
 	pkgupgrade "knative.dev/pkg/test/upgrade"
+	"knative.dev/pkg/test/upgrade/shell"
 )
 
 // Head installs Knative Serving from the HEAD of the default branch.
@@ -48,11 +47,7 @@ func callShellFunction(funcName string, t *testing.T) error {
 	if err != nil {
 		return err
 	}
-	exec := shell.NewExecutor(shell.ExecutorConfig{
-		ProjectLocation: loc,
-		Streams:         shell.TestingTStreams(t),
-		Environ:         os.Environ(),
-	})
+	exec := shell.NewExecutor(t, loc)
 	fn := shell.Function{
 		Script: shell.Script{
 			Label:      funcName,
