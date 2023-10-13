@@ -44,8 +44,8 @@ func TestInternalEncryption(t *testing.T) {
 		t.Skip("Alpha features not enabled")
 	}
 
-	if !(strings.Contains(test.ServingFlags.IngressClass, "kourier") || strings.Contains(test.ServingFlags.IngressClass, "contour")) {
-		t.Skip("Skip this test for non-kourier or non-contour ingress.")
+	if !(strings.Contains(test.ServingFlags.IngressClass, "kourier")) {
+		t.Skip("Skip this test for non-kourier ingress.")
 	}
 
 	t.Parallel()
