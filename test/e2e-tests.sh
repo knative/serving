@@ -58,8 +58,6 @@ if (( HTTPS )); then
   kubectl wait --timeout=60s clusterissuer --for=condition=Ready ca-issuer
 fi
 
-sleep 300
-
 if (( MESH )); then
   GO_TEST_FLAGS+=" -parallel 1"
 fi
@@ -71,9 +69,9 @@ fi
 
 go_test_e2e -timeout=30m \
   ${GO_TEST_FLAGS} \
+  ./test/e2e \
   ./test/conformance/api/... \
   ./test/conformance/runtime/... \
-  ./test/e2e \
   ${E2E_TEST_FLAGS} || failed=1
 
 toggle_feature tag-header-based-routing Enabled
