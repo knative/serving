@@ -185,9 +185,7 @@ func (w testingWriter) Write(p []byte) (n int, err error) {
 	// Strip trailing newline because t.Log always adds one.
 	p = bytes.TrimRight(p, "\n")
 
-	for _, line := range strings.Split(string(p), "\n") {
-		w.t.Logf(line)
-	}
+	w.t.Logf("%s", p)
 
 	return n, nil
 }
