@@ -18,7 +18,6 @@ package shell
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -31,9 +30,6 @@ const (
 	defaultLabelErr = "[ERR]"
 	executeMode     = 0700
 )
-
-// ErrNoProjectLocation is returned if user didnt provided the project location.
-var ErrNoProjectLocation = errors.New("project location isn't provided")
 
 // NewExecutor creates a new executor.
 func NewExecutor(t TestingT, loc ProjectLocation, opts ...Option) Executor {
@@ -61,10 +57,6 @@ func testingTStreams(t TestingT) Streams {
 
 // RunScript executes a shell script with args.
 func (s *streamingExecutor) RunScript(script Script, args ...string) error {
-	err := validate(s.ExecutorConfig)
-	if err != nil {
-		return err
-	}
 	cnt := script.scriptContent(s.ProjectLocation, args)
 	return withTempScript(cnt, func(bin string) error {
 		return stream(bin, s.ExecutorConfig, script.Label)
@@ -73,10 +65,6 @@ func (s *streamingExecutor) RunScript(script Script, args ...string) error {
 
 // RunFunction executes a shell function with args.
 func (s *streamingExecutor) RunFunction(fn Function, args ...string) error {
-	err := validate(s.ExecutorConfig)
-	if err != nil {
-		return err
-	}
 	cnt := fn.scriptContent(s.ProjectLocation, args)
 	return withTempScript(cnt, func(bin string) error {
 		return stream(bin, s.ExecutorConfig, fn.Label)
@@ -85,13 +73,6 @@ func (s *streamingExecutor) RunFunction(fn Function, args ...string) error {
 
 type streamingExecutor struct {
 	ExecutorConfig
-}
-
-func validate(config ExecutorConfig) error {
-	if config.ProjectLocation == nil {
-		return ErrNoProjectLocation
-	}
-	return nil
 }
 
 func configureDefaultValues(config *ExecutorConfig) {

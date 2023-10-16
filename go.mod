@@ -153,5 +153,3 @@ require (
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )
-
-replace knative.dev/pkg => github.com/mgencur/pkg v0.0.0-20231012064552-b0c1be67cae4
