@@ -496,7 +496,7 @@ function install_head_reuse_ingress() {
   header "Installing Knative head release and reusing ingress"
   # Keep the existing ingress and do not upgrade it. The ingress upgrade
   # makes ongoing requests fail.
-  install-nonexistent HEAD latest-release \
+  install HEAD latest-release \
     || fail_test "Knative head release installation failed"
 }
 
