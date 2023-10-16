@@ -6,7 +6,7 @@ require (
 	github.com/ahmetb/gen-crd-api-reference-docs v0.3.1-0.20210609063737-0067dc6dcea2
 	github.com/davecgh/go-spew v1.1.1
 	github.com/gogo/protobuf v1.3.2
-	github.com/google/go-cmp v0.5.9
+	github.com/google/go-cmp v0.6.0
 	github.com/google/go-containerregistry v0.13.0
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20230209165335-3624968304fd
 	github.com/google/gofuzz v1.2.0
@@ -23,8 +23,8 @@ require (
 	golang.org/x/sync v0.4.0
 	golang.org/x/sys v0.13.0
 	golang.org/x/time v0.3.0
-	google.golang.org/api v0.145.0
-	google.golang.org/grpc v1.58.2
+	google.golang.org/api v0.147.0
+	google.golang.org/grpc v1.58.3
 	k8s.io/api v0.27.6
 	k8s.io/apiextensions-apiserver v0.27.6
 	k8s.io/apimachinery v0.27.6
@@ -35,7 +35,7 @@ require (
 	knative.dev/caching v0.0.0-20231012110827-8551914fdf65
 	knative.dev/hack v0.0.0-20231010131532-fc76874b28c6
 	knative.dev/networking v0.0.0-20231012062439-c0863403c83b
-	knative.dev/pkg v0.0.0-20231012104454-9051a454f03f
+	knative.dev/pkg v0.0.0-20231016092905-cf06733aa47b
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -133,16 +133,16 @@ require (
 	github.com/vbatts/tar-split v0.11.2 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/crypto v0.14.0 // indirect
-	golang.org/x/mod v0.12.0 // indirect
+	golang.org/x/mod v0.13.0 // indirect
 	golang.org/x/oauth2 v0.13.0 // indirect
 	golang.org/x/term v0.13.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
-	golang.org/x/tools v0.13.0 // indirect
+	golang.org/x/tools v0.14.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20230913181813-007df8e322eb // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20230913181813-007df8e322eb // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20230920204549-e6e6cdab5c13 // indirect
+	google.golang.org/genproto v0.0.0-20231002182017-d307bd883b97 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20231002182017-d307bd883b97 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20231009173412-8bfb1ae86b6c // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
