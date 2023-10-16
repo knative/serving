@@ -934,7 +934,6 @@ knative.dev/networking v0.0.0-20231012062439-c0863403c83b/go.mod h1:uEvP4spV82HG
 knative.dev/pkg v0.0.0-20231012104454-9051a454f03f h1:flYmL48DIXsEw2wIEcDB69cw3Ju+aAlANUGmNrGitYs=
 knative.dev/pkg v0.0.0-20231012104454-9051a454f03f/go.mod h1:0HqD8pZppFF34znDJnN6fGzuFq9ulJnelX64ciHD+PE=
 pgregory.net/rapid v1.1.0 h1:CMa0sjHSru3puNx+J0MIAuiiEV4N0qj8/cMWGBBCsjw=
-pgregory.net/rapid v1.0.0 h1:iQaM2w5PZ6xvt6x7hbd7tiDS+nk7YPp5uCaEba+T/F4=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 rsc.io/quote/v3 v3.1.0/go.mod h1:yEA65RcK8LyAZtP9Kv3t0HmxON59tX3rD+tICJqUlj0=
 rsc.io/sampler v1.3.0/go.mod h1:T1hPZKmBbMNahiBKFy5HrXp6adAjACjK9JXDnKaTXpA=
