@@ -82,7 +82,9 @@ func statFromProto(body io.Reader) (Stat, error) {
 	b := pool.Get().(*bytes.Buffer)
 	b.Reset()
 	defer pool.Put(b)
-	_, err := b.ReadFrom(body)
+	// 6 8-byte fields (+2 bytes marshalling), one hostname, 20 bytes extra space
+	r := io.LimitedReader{R: body, N: 6*10 + 256 + 20}
+	_, err := b.ReadFrom(&r)
 	if err != nil {
 		return emptyStat, fmt.Errorf("reading body failed: %w", err)
 	}
