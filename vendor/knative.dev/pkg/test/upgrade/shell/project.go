@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,7 +31,7 @@ var (
 	// ErrCallerNotAllowed is raised when user tries to use this shell-out package
 	// outside of allowed places. This package is deprecated from start and was
 	// introduced to allow rewriting of shell code to Golang in small chunks.
-	ErrCallerNotAllowed = errors.New("don't try use knative.dev/hack/shell package outside of allowed places")
+	ErrCallerNotAllowed = errors.New("don't try use knative.dev/pkg/test/upgrade/shell package outside of allowed places")
 )
 
 // NewProjectLocation creates a ProjectLocation that is used to calculate
@@ -68,7 +68,7 @@ type callerLocation struct {
 func isCallsiteAllowed(funcName string) error {
 	validPaths := []string{
 		"knative.+/test/upgrade",
-		"knative(:?\\.dev/|-)hack/shell",
+		"knative(:?\\.dev/|-)pkg/test/upgrade/shell",
 	}
 	for _, validPath := range validPaths {
 		r := regexp.MustCompile(validPath)

@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,12 @@ limitations under the License.
 
 package shell
 
-import "io"
+import (
+	"io"
+)
+
+// Option overrides configuration options in ExecutorConfig.
+type Option func(*ExecutorConfig)
 
 // ProjectLocation represents a project location on a file system.
 type ProjectLocation interface {
@@ -36,12 +41,22 @@ type Function struct {
 	FunctionName string
 }
 
-// ExecutorConfig holds a executor configuration options.
+// ExecutorConfig holds executor configuration options.
 type ExecutorConfig struct {
 	ProjectLocation
 	Streams
 	Labels
 	Environ []string
+}
+
+// TestingT is used by testingWriter and allows passing testing.T.
+type TestingT interface {
+	Logf(format string, args ...any)
+}
+
+// testingWriter implements io.Writer and writes to given testing.T log.
+type testingWriter struct {
+	t TestingT
 }
 
 // StreamType represets either output or error stream.

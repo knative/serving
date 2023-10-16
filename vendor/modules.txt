@@ -1301,7 +1301,6 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 # knative.dev/hack v0.0.0-20231010131532-fc76874b28c6
 ## explicit; go 1.18
 knative.dev/hack
-knative.dev/hack/shell
 # knative.dev/networking v0.0.0-20231012062439-c0863403c83b
 ## explicit; go 1.18
 knative.dev/networking/config
@@ -1438,6 +1437,7 @@ knative.dev/pkg/test/migrate
 knative.dev/pkg/test/monitoring
 knative.dev/pkg/test/spoof
 knative.dev/pkg/test/upgrade
+knative.dev/pkg/test/upgrade/shell
 knative.dev/pkg/test/vegeta/pacers
 knative.dev/pkg/test/zipkin
 knative.dev/pkg/tracing

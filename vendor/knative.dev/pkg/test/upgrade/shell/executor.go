@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,7 +17,7 @@ limitations under the License.
 package shell
 
 import (
-	"errors"
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -31,23 +31,32 @@ const (
 	executeMode     = 0700
 )
 
-// ErrNoProjectLocation is returned if user didnt provided the project location.
-var ErrNoProjectLocation = errors.New("project location isn't provided")
-
-// NewExecutor creates a new executor from given config.
-func NewExecutor(config ExecutorConfig) Executor {
-	configureDefaultValues(&config)
+// NewExecutor creates a new executor.
+func NewExecutor(t TestingT, loc ProjectLocation, opts ...Option) Executor {
+	config := &ExecutorConfig{
+		ProjectLocation: loc,
+		Streams:         testingTStreams(t),
+	}
+	for _, opt := range opts {
+		opt(config)
+	}
+	configureDefaultValues(config)
 	return &streamingExecutor{
-		ExecutorConfig: config,
+		ExecutorConfig: *config,
+	}
+}
+
+// testingTStreams returns Streams which writes to test log.
+func testingTStreams(t TestingT) Streams {
+	tWriter := testingWriter{t: t}
+	return Streams{
+		Out: tWriter,
+		Err: tWriter,
 	}
 }
 
 // RunScript executes a shell script with args.
 func (s *streamingExecutor) RunScript(script Script, args ...string) error {
-	err := validate(s.ExecutorConfig)
-	if err != nil {
-		return err
-	}
 	cnt := script.scriptContent(s.ProjectLocation, args)
 	return withTempScript(cnt, func(bin string) error {
 		return stream(bin, s.ExecutorConfig, script.Label)
@@ -56,10 +65,6 @@ func (s *streamingExecutor) RunScript(script Script, args ...string) error {
 
 // RunFunction executes a shell function with args.
 func (s *streamingExecutor) RunFunction(fn Function, args ...string) error {
-	err := validate(s.ExecutorConfig)
-	if err != nil {
-		return err
-	}
 	cnt := fn.scriptContent(s.ProjectLocation, args)
 	return withTempScript(cnt, func(bin string) error {
 		return stream(bin, s.ExecutorConfig, fn.Label)
@@ -70,20 +75,7 @@ type streamingExecutor struct {
 	ExecutorConfig
 }
 
-func validate(config ExecutorConfig) error {
-	if config.ProjectLocation == nil {
-		return ErrNoProjectLocation
-	}
-	return nil
-}
-
 func configureDefaultValues(config *ExecutorConfig) {
-	if config.Out == nil {
-		config.Out = os.Stdout
-	}
-	if config.Err == nil {
-		config.Err = os.Stderr
-	}
 	if config.LabelOut == "" {
 		config.LabelOut = defaultLabelOut
 	}
@@ -185,4 +177,15 @@ func quoteArgs(args []string) string {
 		quoted[i] = "\"" + strings.ReplaceAll(arg, "\"", "\\\"") + "\""
 	}
 	return strings.Join(quoted, " ")
+}
+
+func (w testingWriter) Write(p []byte) (n int, err error) {
+	n = len(p)
+
+	// Strip trailing newline because t.Log always adds one.
+	p = bytes.TrimRight(p, "\n")
+
+	w.t.Logf("%s", p)
+
+	return n, nil
 }
