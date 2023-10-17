@@ -145,7 +145,7 @@ func (rs *RevisionStatus) IsActivationRequired() bool {
 	return c != nil && c.Status != corev1.ConditionTrue
 }
 
-// IsReplicaSetFailure returns true if the deployment replicaset is failing to create
+// IsReplicaSetFailure returns true if the deployment replicaset failed to create
 func (rs *RevisionStatus) IsReplicaSetFailure(deploymentStatus *appsv1.DeploymentStatus) bool {
 	ds := serving.TransformDeploymentStatus(deploymentStatus)
 	return ds != nil && ds.GetCondition(serving.DeploymentConditionReplicaSetReady).IsFalse()
