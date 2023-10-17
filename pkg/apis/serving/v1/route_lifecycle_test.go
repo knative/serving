@@ -463,7 +463,7 @@ func TestCertificateNotReadyWithBubbledUpMessage(t *testing.T) {
 	r.InitializeConditions()
 	r.MarkCertificateNotReady(cert)
 
-	expectedCertMessage := "Certificate Message: CommonName Too Long"
+	expectedCertMessage := "CommonName Too Long"
 	certMessage := r.Status.GetCondition("Ready").Message
 	if !strings.Contains(certMessage, expectedCertMessage) {
 		t.Errorf("Literal %q not found in status message: %q", expectedCertMessage, certMessage)

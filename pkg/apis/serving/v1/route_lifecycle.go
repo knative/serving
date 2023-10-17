@@ -178,7 +178,7 @@ func (rs *RouteStatus) MarkCertificateNotReady(c *v1alpha1.Certificate) {
 	certificateCondition := c.Status.GetCondition("Ready")
 	routeCondSet.Manage(rs).MarkUnknown(RouteConditionCertificateProvisioned,
 		"CertificateNotReady",
-		"Certificate %s is not ready. Certificate Message: %s", c.Name, certificateCondition.GetReason())
+		"Certificate %s is not ready: %s", c.Name, certificateCondition.GetReason())
 }
 
 // MarkCertificateNotOwned changes the RouteConditionCertificateProvisioned
