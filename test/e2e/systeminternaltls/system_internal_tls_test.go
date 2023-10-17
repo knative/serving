@@ -38,8 +38,8 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-// TestInternalEncrytion tests the TLS connections between system components.
-func TestInternalEncryption(t *testing.T) {
+// TestSystemInternalTLS tests the TLS connections between system components.
+func TestSystemInternalTLS(t *testing.T) {
 	if !test.ServingFlags.EnableAlphaFeatures {
 		t.Skip("Alpha features not enabled")
 	}
@@ -127,7 +127,7 @@ func scanPodLogs(req *rest.Request, matcher func(string) bool) (matchCount int, 
 
 	podLogs, err := req.Stream(context.Background())
 	if err != nil {
-		err = fmt.Errorf("Failed to stream activator logs: %w", err)
+		err = fmt.Errorf("failed to stream activator logs: %w", err)
 		return
 	}
 
@@ -135,7 +135,7 @@ func scanPodLogs(req *rest.Request, matcher func(string) bool) (matchCount int, 
 	_, err = io.Copy(buf, podLogs)
 	podLogs.Close()
 	if err != nil {
-		err = fmt.Errorf("Failed to read activator logs from buffer: %w", err)
+		err = fmt.Errorf("failed to read activator logs from buffer: %w", err)
 		return
 	}
 
@@ -147,7 +147,7 @@ func scanPodLogs(req *rest.Request, matcher func(string) bool) (matchCount int, 
 	}
 
 	if err = scanner.Err(); err != nil {
-		err = fmt.Errorf("Failed scanning activator logs: %w", err)
+		err = fmt.Errorf("failed scanning activator logs: %w", err)
 		return
 	}
 
