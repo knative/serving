@@ -47,7 +47,7 @@ func dialTLSContext(ctx context.Context, network, addr string, cr *CertCache) (n
 	cr.certificatesMux.RUnlock()
 
 	revID := handler.RevIDFrom(ctx)
-	san := certificates.DataPlaneUserName(revID.Namespace)
+	san := certificates.DataPlaneUserSAN(revID.Namespace)
 
 	tlsConf.VerifyConnection = verifySAN(san)
 	return pkgnet.DialTLSWithBackOff(ctx, network, addr, tlsConf)
