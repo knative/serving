@@ -52,7 +52,6 @@ const (
 )
 
 // RevisionConditionActive is not part of the RevisionConditionSet because we can have Inactive Ready Revisions (scale to zero)
-// TODO: add to the revisionCondSet or at least initialize RevisionConditionActive and deal with the edge cases
 var revisionCondSet = apis.NewLivingConditionSet(
 	RevisionConditionResourcesAvailable,
 	RevisionConditionContainerHealthy,
