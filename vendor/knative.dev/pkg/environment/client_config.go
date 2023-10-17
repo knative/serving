@@ -44,12 +44,8 @@ func (c *ClientConfig) InitFlags(fs *flag.FlagSet) {
 	fs.StringVar(&c.ServerURL, "server", "",
 		"The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 
-	if f := fs.Lookup("kubeconfig"); f != nil {
-		c.Kubeconfig = f.Value.String()
-	} else {
-		fs.StringVar(&c.Kubeconfig, "kubeconfig", os.Getenv("KUBECONFIG"),
-			"Path to a kubeconfig. Only required if out-of-cluster.")
-	}
+	fs.StringVar(&c.Kubeconfig, "kubeconfig", os.Getenv("KUBECONFIG"),
+		"Path to a kubeconfig. Only required if out-of-cluster.")
 
 	fs.IntVar(&c.Burst, "kube-api-burst", int(envVarOrDefault("KUBE_API_BURST", 0)), "Maximum burst for throttle.")
 
