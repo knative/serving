@@ -472,6 +472,24 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/deploy-timeout",
 	}, {
+		Name: "revision failure because replicaset and deployment failed",
+		// Test just define a Revision so when an error creating the replicaset happens
+		// this is the state that we want to have, everything been but failing due to Revision ReplicaSetFailure
+		Objects: []runtime.Object{
+			Revision("foo", "deploy-replicaset-failure",
+				WithLogURL, MarkActivating("Deploying", ""),
+				WithRoutingState(v1.RoutingStateActive, fc),
+				withDefaultContainerStatuses(),
+				WithRevisionObservedGeneration(1),
+				MarkResourcesUnavailable("FailedCreate", "I ReplicaSet failed!"),
+				MarkContainerHealthyUnknown("Deploying"),
+			),
+			pa("foo", "deploy-replicaset-failure", WithReachabilityUnreachable),
+			replicaFailureDeploy(deploy(t, "foo", "deploy-replicaset-failure"), "I ReplicaSet failed!"),
+			image("foo", "deploy-replicaset-failure"),
+		},
+		Key: "foo/deploy-replicaset-failure",
+	}, {
 		Name: "surface replica failure",
 		// Test the propagation of FailedCreate from Deployment.
 		// This initializes the world to the stable state after its first reconcile,
