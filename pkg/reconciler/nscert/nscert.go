@@ -88,13 +88,35 @@ func (c *reconciler) ReconcileKind(ctx context.Context, ns *corev1.Namespace) pk
 		return c.deleteNamespaceCerts(ctx, ns, existingCerts)
 	}
 
-	// Only create wildcard certs for the default domain
-	defaultDomain := cfg.Domain.LookupDomainForLabels(nil /* labels */)
+	// Process the domains which should have wildcard certs
+	err = nil
+	for k, v := range cfg.Domain.Domains {
+		if !v.Wildcard {
+			continue
+		}
+		certErr := c.createUpdateWildcardCert(ctx, ns, existingCerts, k)
+		// Update err if only if nil to return the first error encountered
+		if err == nil {
+			err = certErr
+		}
+	}
 
-	dnsName, err := wildcardDomain(cfg.Network.DomainTemplate, defaultDomain, ns.Name)
+	return err
+}
+
+// Create or update a wildcard cert for the given domain in the given namespace.
+func (c *reconciler) createUpdateWildcardCert(
+	ctx context.Context,
+	ns *corev1.Namespace,
+	existingCerts []*v1alpha1.Certificate,
+	domain string,
+) error {
+	cfg := config.FromContext(ctx)
+
+	dnsName, err := wildcardDomain(cfg.Network.DomainTemplate, domain, ns.Name)
 	if err != nil {
 		return fmt.Errorf("failed to apply domain template %s to domain %s and namespace %s: %w",
-			cfg.Network.DomainTemplate, defaultDomain, ns.Name, err)
+			cfg.Network.DomainTemplate, domain, ns.Name, err)
 	}
 
 	// If any labeled cert has been issued for our DNSName then there's nothing to do
@@ -104,11 +126,11 @@ func (c *reconciler) ReconcileKind(ctx context.Context, ns *corev1.Namespace) pk
 	}
 	recorder := controller.GetEventRecorder(ctx)
 
-	desiredCert := resources.MakeWildcardCertificate(ns, dnsName, defaultDomain, certClass(ctx, ns))
+	desiredCert := resources.MakeWildcardCertificate(ns, dnsName, domain, certClass(ctx, ns))
 
 	// If there is no matching cert find one previously created by this reconciler which may
 	// need to be updated.
-	existingCert, err := findNamespaceCert(ns, existingCerts)
+	existingCert, err := findNamespaceCert(ns, dnsName, existingCerts)
 	if apierrs.IsNotFound(err) {
 		cert, err := c.client.NetworkingV1alpha1().Certificates(ns.Name).Create(ctx, desiredCert, metav1.CreateOptions{})
 		if err != nil {
@@ -190,9 +212,12 @@ func findMatchingCert(domain string, certs []*v1alpha1.Certificate) *v1alpha1.Ce
 	return nil
 }
 
-func findNamespaceCert(ns *corev1.Namespace, certs []*v1alpha1.Certificate) (*v1alpha1.Certificate, error) {
+func findNamespaceCert(ns *corev1.Namespace, domain string, certs []*v1alpha1.Certificate) (*v1alpha1.Certificate, error) {
 	for _, cert := range certs {
-		if metav1.IsControlledBy(cert, ns) {
+		if !metav1.IsControlledBy(cert, ns) {
+			continue
+		}
+		if dnsNames := sets.NewString(cert.Spec.DNSNames...); dnsNames.Has(domain) {
 			return cert, nil
 		}
 	}

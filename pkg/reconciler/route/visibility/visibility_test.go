@@ -42,7 +42,7 @@ func getContext(domainSuffix string) context.Context {
 	}
 	return config.ToContext(context.Background(), &config.Config{
 		Domain: &config.Domain{
-			Domains: map[string]*config.LabelSelector{
+			Domains: map[string]config.DomainConfig{
 				domainSuffix: {},
 			},
 		},

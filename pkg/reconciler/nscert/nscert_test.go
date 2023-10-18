@@ -622,7 +622,7 @@ func networkConfig() *netcfg.Config {
 
 func domainConfig() *routecfg.Domain {
 	domainConfig := &routecfg.Domain{
-		Domains: map[string]*routecfg.LabelSelector{
+		Domains: map[string]routecfg.DomainConfig{
 			"example.com": {},
 		},
 	}

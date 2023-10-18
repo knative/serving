@@ -1358,7 +1358,7 @@ func TestMakeIngressFailToGenerateDomain(t *testing.T) {
 
 	// Create a context that has a bad domain template.
 	badContext := testContext()
-	config.FromContext(badContext).Domain = &config.Domain{Domains: map[string]*config.LabelSelector{"example.com": {}}}
+	config.FromContext(badContext).Domain = &config.Domain{Domains: map[string]config.DomainConfig{"example.com": {}}}
 	config.FromContext(badContext).Network = &netcfg.Config{
 		DefaultIngressClass: "test-ingress-class",
 		DomainTemplate:      "{{.UnknownField}}.{{.NonExistentField}}.{{.BadField}}",
@@ -1395,7 +1395,7 @@ func TestMakeIngressFailToGenerateTagHost(t *testing.T) {
 
 	// Create a context that has a bad domain template.
 	badContext := testContext()
-	config.FromContext(badContext).Domain = &config.Domain{Domains: map[string]*config.LabelSelector{"example.com": {}}}
+	config.FromContext(badContext).Domain = &config.Domain{Domains: map[string]config.DomainConfig{"example.com": {}}}
 	config.FromContext(badContext).Network = &netcfg.Config{
 		DefaultIngressClass: "test-ingress-class",
 		DomainTemplate:      netcfg.DefaultDomainTemplate,

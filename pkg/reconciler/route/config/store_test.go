@@ -88,8 +88,8 @@ func TestStoreImmutableConfig(t *testing.T) {
 
 	config := store.Load()
 
-	config.Domain.Domains = map[string]*LabelSelector{
-		"mutated": nil,
+	config.Domain.Domains = map[string]DomainConfig{
+		"mutated": {Selector: &LabelSelector{Selector: nil}},
 	}
 
 	newConfig := store.Load()
