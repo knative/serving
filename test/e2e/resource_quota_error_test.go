@@ -40,11 +40,9 @@ func TestResourceQuotaError(t *testing.T) {
 
 	clients := test.Setup(t, test.Options{Namespace: "rq-test"})
 	const (
-		errorReason       = "RevisionFailed"
-		containerCreating = "ContainerCreating"
-		errorMsgScale     = "Initial scale was never achieved"
-		errorMsgQuota     = "forbidden: exceeded quota"
-		revisionReason    = "ProgressDeadlineExceeded"
+		errorReason    = "RevisionFailed"
+		errorMsgQuota  = "forbidden: exceeded quota"
+		revisionReason = "RevisionFailed"
 	)
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
@@ -81,13 +79,6 @@ func TestResourceQuotaError(t *testing.T) {
 	err = v1test.WaitForServiceState(clients.ServingClient, names.Service, func(r *v1.Service) (bool, error) {
 		cond = r.Status.GetCondition(v1.ServiceConditionConfigurationsReady)
 		if cond != nil && !cond.IsUnknown() {
-			// Can fail with either a progress deadline exceeded error or an exceeded resource quota error
-			if strings.Contains(cond.Message, errorMsgScale) && cond.IsFalse() {
-				return true, nil
-			}
-			if strings.Contains(cond.Message, errorMsgQuota) && cond.IsFalse() {
-				return true, nil
-			}
 			if cond.Reason == errorReason && cond.IsFalse() {
 				return true, nil
 			}
@@ -117,15 +108,11 @@ func TestResourceQuotaError(t *testing.T) {
 	err = v1test.CheckRevisionState(clients.ServingClient, revisionName, func(r *v1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1.RevisionConditionReady)
 		if cond != nil {
-			// Can fail with either a progress deadline exceeded error, container creating status, waiting for the revision to fail or an exceeded resource quota error
-			if (cond.Reason == revisionReason || cond.Reason == containerCreating) && cond.IsFalse() {
-				return true, nil
-			}
 			if strings.Contains(cond.Message, errorMsgQuota) && cond.IsFalse() {
 				return true, nil
 			}
 			return true, fmt.Errorf("the revision %s was not marked with expected error condition (Reason=%q, Message=%q), but with (Reason=%q, Message=%q)",
-				revisionName, revisionReason, errorMsgScale, cond.Reason, cond.Message)
+				revisionName, revisionReason, errorMsgQuota, cond.Reason, cond.Message)
 		}
 		return false, nil
 	})
