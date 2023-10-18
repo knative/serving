@@ -66,6 +66,9 @@ if (( SHORT )); then
   GO_TEST_FLAGS+=" -short"
 fi
 
+toggle_feature tag-header-based-routing Enabled
+go_test_e2e -timeout=2m ./test/e2e/tagheader ${E2E_TEST_FLAGS} || failed=1
+toggle_feature tag-header-based-routing Disabled
 
 go_test_e2e -timeout=30m \
   ${GO_TEST_FLAGS} \
@@ -73,10 +76,6 @@ go_test_e2e -timeout=30m \
   ./test/conformance/api/... \
   ./test/conformance/runtime/... \
   ${E2E_TEST_FLAGS} || failed=1
-
-toggle_feature tag-header-based-routing Enabled
-go_test_e2e -timeout=2m ./test/e2e/tagheader ${E2E_TEST_FLAGS} || failed=1
-toggle_feature tag-header-based-routing Disabled
 
 toggle_feature allow-zero-initial-scale true config-autoscaler || fail_test
 go_test_e2e -timeout=2m ./test/e2e/initscale ${E2E_TEST_FLAGS} || failed=1
