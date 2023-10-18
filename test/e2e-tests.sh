@@ -72,9 +72,9 @@ toggle_feature tag-header-based-routing Disabled
 
 go_test_e2e -timeout=30m \
   ${GO_TEST_FLAGS} \
-  ./test/e2e \
   ./test/conformance/api/... \
   ./test/conformance/runtime/... \
+  ./test/e2e \
   ${E2E_TEST_FLAGS} || failed=1
 
 toggle_feature allow-zero-initial-scale true config-autoscaler || fail_test
