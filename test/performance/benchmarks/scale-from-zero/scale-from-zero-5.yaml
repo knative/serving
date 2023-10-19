@@ -76,5 +76,17 @@ spec:
             requests:
               cpu: 1000m
               memory: 3Gi
+            limits:
+              cpu: 1000m
+              memory: 3Gi
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
       restartPolicy: Never
 ---
