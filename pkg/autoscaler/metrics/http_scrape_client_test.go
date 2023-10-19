@@ -95,6 +95,21 @@ func TestHTTPScrapeClientScrapeProtoErrorCases(t *testing.T) {
 		responseCode: http.StatusOK,
 		responseType: "text/html",
 		expectedErr:  errUnsupportedMetricType.Error(),
+	}, {
+		name:         "LongStat",
+		responseCode: http.StatusOK,
+		responseType: "application/protobuf",
+		stat: Stat{
+			// We don't expect PodName to be 600 characters long
+			PodName:                          strings.Repeat("a123456789", 60),
+			AverageConcurrentRequests:        1.1,
+			AverageProxiedConcurrentRequests: 1.1,
+			RequestCount:                     33.2,
+			ProxiedRequestCount:              33.2,
+			ProcessUptime:                    12345.678,
+			Timestamp:                        1697431278,
+		},
+		expectedErr: "unmarshalling failed: unexpected EOF",
 	}}
 
 	for _, test := range testCases {
