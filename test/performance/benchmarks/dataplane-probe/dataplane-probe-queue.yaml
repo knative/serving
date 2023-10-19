@@ -75,9 +75,6 @@ spec:
             requests:
               cpu: 1000m
               memory: 3Gi
-            limits:
-              cpu: 1000m
-              memory: 3Gi
           securityContext:
             seccompProfile:
               type: RuntimeDefault
@@ -87,3 +84,4 @@ spec:
             capabilities:
               drop:
                 - ALL
+---
