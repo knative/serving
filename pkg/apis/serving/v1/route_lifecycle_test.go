@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -438,9 +439,35 @@ func TestCertificateReady(t *testing.T) {
 func TestCertificateNotReady(t *testing.T) {
 	r := &RouteStatus{}
 	r.InitializeConditions()
-	r.MarkCertificateNotReady("cert")
+	r.MarkCertificateNotReady(&netv1alpha1.Certificate{})
 
 	apistest.CheckConditionOngoing(r, RouteConditionCertificateProvisioned, t)
+}
+
+func TestCertificateNotReadyWithBubbledUpMessage(t *testing.T) {
+	cert := &netv1alpha1.Certificate{
+		Status: netv1alpha1.CertificateStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{
+					{
+						Type:   "Ready",
+						Status: "False",
+						Reason: "CommonName Too Long",
+					},
+				},
+			},
+		},
+	}
+
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	r.MarkCertificateNotReady(cert)
+
+	expectedCertMessage := "CommonName Too Long"
+	certMessage := r.Status.GetCondition("Ready").Message
+	if !strings.Contains(certMessage, expectedCertMessage) {
+		t.Errorf("Literal %q not found in status message: %q", expectedCertMessage, certMessage)
+	}
 }
 
 func TestCertificateProvisionFailed(t *testing.T) {
