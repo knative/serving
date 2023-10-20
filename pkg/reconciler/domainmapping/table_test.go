@@ -1251,7 +1251,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 					Network: &netcfg.Config{
 						DefaultIngressClass:     "the-ingress-class",
 						DefaultCertificateClass: "the-cert-class",
-						AutoTLS:                 true,
+						ExternalDomainTLS:       true,
 						HTTPProtocol:            netcfg.HTTPRedirected,
 						DefaultExternalScheme:   "http",
 					},
@@ -1318,7 +1318,7 @@ func TestReconcileTLSEnabledButDowngraded(t *testing.T) {
 					Network: &netcfg.Config{
 						DefaultIngressClass:     "the-ingress-class",
 						DefaultCertificateClass: "the-cert-class",
-						AutoTLS:                 true,
+						ExternalDomainTLS:       true,
 						HTTPProtocol:            netcfg.HTTPEnabled,
 						DefaultExternalScheme:   "http",
 					},
@@ -1425,7 +1425,7 @@ func withInitDomainMappingConditions(dm *v1beta1.DomainMapping) {
 }
 
 func withTLSNotEnabled(dm *v1beta1.DomainMapping) {
-	dm.Status.MarkTLSNotEnabled(servingv1.AutoTLSNotEnabledMessage)
+	dm.Status.MarkTLSNotEnabled(servingv1.ExternalDomainTLSNotEnabledMessage)
 }
 
 func withCertificateNotReady(dm *v1beta1.DomainMapping) {

@@ -71,7 +71,7 @@ func TestDomainClaimConditions(t *testing.T) {
 	dms := &DomainMappingStatus{}
 
 	dms.InitializeConditions()
-	dms.MarkTLSNotEnabled("AutoTLS not yet available for DomainMapping")
+	dms.MarkTLSNotEnabled("external-domain-tls not yet available for DomainMapping")
 	apistest.CheckConditionOngoing(dms, DomainMappingConditionDomainClaimed, t)
 	apistest.CheckConditionOngoing(dms, DomainMappingConditionReady, t)
 
@@ -103,7 +103,7 @@ func TestReferenceResolvedCondition(t *testing.T) {
 	dms := &DomainMappingStatus{}
 
 	dms.InitializeConditions()
-	dms.MarkTLSNotEnabled("AutoTLS not yet available for DomainMapping")
+	dms.MarkTLSNotEnabled("external-domain-tls not yet available for DomainMapping")
 	apistest.CheckConditionOngoing(dms, DomainMappingConditionReferenceResolved, t)
 	apistest.CheckConditionOngoing(dms, DomainMappingConditionReady, t)
 
@@ -157,10 +157,10 @@ func TestDomainMappingNotOwnCertificate(t *testing.T) {
 	apistest.CheckConditionFailed(dms, DomainMappingConditionCertificateProvisioned, t)
 }
 
-func TestDomainMappingAutoTLSNotEnabled(t *testing.T) {
+func TestDomainMappingExternalDomainTLSNotEnabled(t *testing.T) {
 	dms := &DomainMappingStatus{}
 	dms.InitializeConditions()
-	dms.MarkTLSNotEnabled(AutoTLSNotEnabledMessage)
+	dms.MarkTLSNotEnabled(ExternalDomainTLSNotEnabledMessage)
 
 	apistest.CheckConditionSucceeded(dms, DomainMappingConditionCertificateProvisioned, t)
 }
@@ -177,7 +177,7 @@ func TestPropagateIngressStatus(t *testing.T) {
 	dms := &DomainMappingStatus{}
 
 	dms.InitializeConditions()
-	dms.MarkTLSNotEnabled("AutoTLS not yet available for DomainMapping")
+	dms.MarkTLSNotEnabled("external-domain-tls not yet available for DomainMapping")
 	apistest.CheckConditionOngoing(dms, DomainMappingConditionIngressReady, t)
 	apistest.CheckConditionOngoing(dms, DomainMappingConditionReady, t)
 

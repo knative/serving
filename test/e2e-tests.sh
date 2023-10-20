@@ -50,9 +50,9 @@ fi
 
 if (( HTTPS )); then
   E2E_TEST_FLAGS+=" -https"
-  toggle_feature auto-tls Enabled config-network
-  kubectl apply -f "${E2E_YAML_DIR}"/test/config/autotls/certmanager/caissuer/
-  add_trap "kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+  toggle_feature external-domain-tls Enabled config-network
+  kubectl apply -f "${E2E_YAML_DIR}"/test/config/externaldomaintls/certmanager/caissuer/
+  add_trap "kubectl delete -f ${E2E_YAML_DIR}/test/config/externaldomaintls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 fi
 
 if (( MESH )); then
@@ -138,8 +138,8 @@ go_test_e2e -timeout=25m -failfast -parallel=1 ./test/ha \
   -spoofinterval="10ms" || failed=1
 
 if (( HTTPS )); then
-  kubectl delete -f ${E2E_YAML_DIR}/test/config/autotls/certmanager/caissuer/ --ignore-not-found
-  toggle_feature auto-tls Disabled config-network
+  kubectl delete -f ${E2E_YAML_DIR}/test/config/externaldomaintls/certmanager/caissuer/ --ignore-not-found
+  toggle_feature external-domain-tls Disabled config-network
 fi
 
 (( failed )) && fail_test
