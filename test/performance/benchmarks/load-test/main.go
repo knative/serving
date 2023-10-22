@@ -104,7 +104,7 @@ func main() {
 	influxReporter.AddDataPointsForMetrics(metricResults, benchmarkName)
 	_ = vegeta.NewTextReporter(metricResults).Report(os.Stdout)
 
-	if err := checkSLA(metricResults); err != nil {
+	if err := checkSLA(metricResults, pacers, durations); err != nil {
 		// make sure to still write the stats
 		influxReporter.FlushAndShutdown()
 		log.Fatalf(err.Error())
@@ -156,7 +156,7 @@ func processResults(ctx context.Context, results <-chan *vegeta.Result, reporter
 	}
 }
 
-func checkSLA(results *vegeta.Metrics) error {
+func checkSLA(results *vegeta.Metrics, pacers []vegeta.Pacer, durations []time.Duration) error {
 	// SLA 1: the p95 latency has to be over the 0->3k stepped burst
 	// falls in the +15ms range (we sleep 100 ms, so 100-115ms).
 	// This includes a mix of cold-starts and steady state (once the autoscaling decisions have leveled off).
@@ -181,6 +181,20 @@ func checkSLA(results *vegeta.Metrics) error {
 		log.Println("SLA 3 passed. No errors occurred")
 	} else {
 		return fmt.Errorf("SLA 3 failed. Errors occurred: %d", len(results.Errors))
+	}
+
+	// SLA 4: making sure the defined vegeta total requests is met
+	if len(pacers) != len(durations) {
+		return fmt.Errorf("SLA 4 failed. len(pacers)= %d, len(durations)= %d ", len(pacers), len(durations))
+	}
+	var expectedRequests uint64
+	for i := 0; i < len(pacers); i++ {
+		expectedRequests = expectedRequests + uint64(pacers[i].Rate(durations[i]))
+	}
+	if results.Requests == expectedRequests {
+		log.Printf("SLA 4 passed. total requests is %d", results.Requests)
+	} else {
+		return fmt.Errorf("SLA 4 failed. total requests is %d, expected total requests is %d", results.Requests, expectedRequests)
 	}
 
 	return nil

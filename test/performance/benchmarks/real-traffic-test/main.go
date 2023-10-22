@@ -182,7 +182,7 @@ LOOP:
 	influxReporter.AddDataPointsForMetrics(metricResults, benchmarkName)
 	_ = vegeta.NewTextReporter(metricResults).Report(os.Stdout)
 
-	if err := checkSLA(metricResults); err != nil {
+	if err := checkSLA(metricResults, rate); err != nil {
 		cleanup()
 		influxReporter.FlushAndShutdown()
 		log.Fatal(err.Error())
@@ -289,12 +289,19 @@ func getRandomBool() bool {
 	return rand.Intn(2) == 1
 }
 
-func checkSLA(results *vegeta.Metrics) error {
+func checkSLA(results *vegeta.Metrics, rate vegeta.ConstantPacer) error {
 	// SLA 1: All requests should pass successfully.
 	if len(results.Errors) == 0 {
 		log.Println("SLA 1 passed. No errors occurred")
 	} else {
 		return fmt.Errorf("SLA 1 failed. Errors occurred: %d", len(results.Errors))
+	}
+
+	// SLA 2: making sure the defined vegeta rates is met
+	if results.Rate == rate.Rate(time.Second) {
+		log.Printf("SLA 2 passed. vegeta rate is %f", rate.Rate(time.Second))
+	} else {
+		return fmt.Errorf("SLA 2 failed. vegeta rate is %f, expected Rate is %f", results.Rate, rate.Rate(time.Second))
 	}
 
 	return nil

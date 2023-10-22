@@ -166,7 +166,7 @@ func main() {
 	_ = vegeta.NewTextReporter(metricResults).Report(os.Stdout)
 
 	sla := slas[*parallelCount]
-	if err := checkSLA(metricResults, sla.p95min, sla.p95max, sla.latencyMax); err != nil {
+	if err := checkSLA(metricResults, sla.p95min, sla.p95max, sla.latencyMax, *parallelCount); err != nil {
 		// make sure to still write the stats
 		influxReporter.FlushAndShutdown()
 		log.Fatalf(err.Error())
@@ -345,7 +345,7 @@ func runScaleFromZero(ctx context.Context, clients *test.Clients, idx int, ro *v
 	}
 }
 
-func checkSLA(results *vegeta.Metrics, p95min time.Duration, p95max time.Duration, latencyMax time.Duration) error {
+func checkSLA(results *vegeta.Metrics, p95min time.Duration, p95max time.Duration, latencyMax time.Duration, parallel int) error {
 	// SLA 1: The p95 latency hitting the target has to be between the range defined
 	if results.Latencies.P95 >= p95min && results.Latencies.P95 <= p95max {
 		log.Printf("SLA 1 passed. P95 latency is in %d-%dms time range", p95min, p95max)
@@ -358,6 +358,13 @@ func checkSLA(results *vegeta.Metrics, p95min time.Duration, p95max time.Duratio
 		log.Printf("SLA 2 passed. Max latency is below or equal to %dms", latencyMax)
 	} else {
 		return fmt.Errorf("SLA 2 failed. Max latency is higher than %dms: %s", latencyMax, results.Latencies.Max)
+	}
+
+	// SLA 3: making sure the defined vegeta total requests is met
+	if results.Requests == uint64(parallel) {
+		log.Printf("SLA 3 passed. total requests is %d", results.Requests)
+	} else {
+		return fmt.Errorf("SLA 3 failed. total requests is %d", results.Requests)
 	}
 
 	return nil

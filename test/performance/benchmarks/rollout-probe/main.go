@@ -103,7 +103,7 @@ func main() {
 		log.Fatalf("Failed to get target ready for attacking: %v", err)
 	}
 
-	// Send 1k QPS for the given duration with a 30s request timeout.
+	// Send 3600 QPS for the given duration with a 30s request timeout.
 	rate := vegeta.Rate{Freq: 3600, Per: time.Second}
 	targeter := vegeta.NewStaticTargeter(t.target)
 	attacker := vegeta.NewAttacker(vegeta.Timeout(30 * time.Second))
@@ -210,7 +210,7 @@ LOOP:
 	influxReporter.AddDataPointsForMetrics(metricResults, benchmarkName)
 	_ = vegeta.NewTextReporter(metricResults).Report(os.Stdout)
 
-	if err := checkSLA(metricResults); err != nil {
+	if err := checkSLA(metricResults, rate); err != nil {
 		// make sure to still write the stats
 		influxReporter.FlushAndShutdown()
 		log.Fatalf(err.Error())
@@ -219,7 +219,7 @@ LOOP:
 	log.Println("Load test finished")
 }
 
-func checkSLA(results *vegeta.Metrics) error {
+func checkSLA(results *vegeta.Metrics, rate vegeta.ConstantPacer) error {
 	// SLA 1: The p95 latency hitting a Knative Service
 	// going through either JUST the queue-proxy or BOTH the activator and queue-proxy
 	// falls in the +10ms range. Given that we sleep 100ms, the SLA is between 100-110ms.
@@ -227,6 +227,13 @@ func checkSLA(results *vegeta.Metrics) error {
 		log.Println("SLA 1 passed. P95 latency is in 100-110ms time range")
 	} else {
 		return fmt.Errorf("SLA 1 failed. P95 latency is not in 100-110ms time range: %s", results.Latencies.P95)
+	}
+
+	// SLA 2: making sure the defined vegeta rates is met
+	if results.Rate == rate.Rate(time.Second) {
+		log.Printf("SLA 2 passed. vegeta rate is %f", rate.Rate(time.Second))
+	} else {
+		return fmt.Errorf("SLA 2 failed. vegeta rate is %f, expected Rate is %f", results.Rate, rate.Rate(time.Second))
 	}
 
 	return nil
