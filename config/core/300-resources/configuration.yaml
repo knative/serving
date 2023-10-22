@@ -248,7 +248,7 @@ spec:
                                     type: integer
                                     format: int32
                                   grpc:
-                                    description: GRPC specifies an action involving a GRPC port. This is a beta field and requires enabling GRPCContainerProbe feature gate.
+                                    description: GRPC specifies an action involving a GRPC port.
                                     type: object
                                     required:
                                       - port
@@ -369,7 +369,7 @@ spec:
                                     type: integer
                                     format: int32
                                   grpc:
-                                    description: GRPC specifies an action involving a GRPC port. This is a beta field and requires enabling GRPCContainerProbe feature gate.
+                                    description: GRPC specifies an action involving a GRPC port.
                                     type: object
                                     required:
                                       - port
@@ -474,7 +474,7 @@ spec:
                                         - type: string
                                       x-kubernetes-int-or-string: true
                                   requests:
-                                    description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                                    description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. Requests cannot exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                     type: object
                                     additionalProperties:
                                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
@@ -629,6 +629,10 @@ spec:
                         serviceAccountName:
                           description: 'ServiceAccountName is the name of the ServiceAccount to use to run this pod. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/'
                           type: string
+                        shareProcessNamespace:
+                          description: This is accessible behind a feature flag - kubernetes.podspec-shareproccessnamespace
+                          type: boolean
+                          x-kubernetes-preserve-unknown-fields: true
                         timeoutSeconds:
                           description: TimeoutSeconds is the maximum duration in seconds that the request instance is allowed to respond to a request. If unspecified, a system default will be provided.
                           type: integer

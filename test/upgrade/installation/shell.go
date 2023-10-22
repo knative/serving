@@ -17,10 +17,10 @@ limitations under the License.
 package installation
 
 import (
-	"os"
+	"testing"
 
-	"knative.dev/hack/shell"
 	pkgupgrade "knative.dev/pkg/test/upgrade"
+	"knative.dev/pkg/test/upgrade/shell"
 )
 
 // Head installs Knative Serving from the HEAD of the default branch.
@@ -36,21 +36,18 @@ func LatestRelease() pkgupgrade.Operation {
 func install(installName, shellFunc string) pkgupgrade.Operation {
 	return pkgupgrade.NewOperation(installName, func(c pkgupgrade.Context) {
 		c.Log.Info("Running shell function: ", shellFunc)
-		if err := callShellFunction(shellFunc); err != nil {
+		if err := callShellFunction(shellFunc, c.T); err != nil {
 			c.T.Error(err)
 		}
 	})
 }
 
-func callShellFunction(funcName string) error {
+func callShellFunction(funcName string, t *testing.T) error {
 	loc, err := shell.NewProjectLocation("../../..")
 	if err != nil {
 		return err
 	}
-	exec := shell.NewExecutor(shell.ExecutorConfig{
-		ProjectLocation: loc,
-		Environ:         os.Environ(),
-	})
+	exec := shell.NewExecutor(t, loc)
 	fn := shell.Function{
 		Script: shell.Script{
 			Label:      funcName,

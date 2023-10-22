@@ -5,4 +5,4 @@
 ---
 #@overlay/match-child-defaults missing_ok=True
 data:
-  progressDeadline: "120s"
+  progress-deadline: "120s"

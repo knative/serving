@@ -59,6 +59,7 @@ func defaultFeaturesConfig() *Features {
 		PodSpecNodeSelector:              Disabled,
 		PodSpecRuntimeClassName:          Disabled,
 		PodSpecSecurityContext:           Disabled,
+		PodSpecShareProcessNamespace:     Disabled,
 		PodSpecPriorityClassName:         Disabled,
 		PodSpecSchedulerName:             Disabled,
 		ContainerSpecAddCapabilities:     Disabled,
@@ -91,6 +92,7 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag("kubernetes.podspec-nodeselector", &nc.PodSpecNodeSelector),
 		asFlag("kubernetes.podspec-runtimeclassname", &nc.PodSpecRuntimeClassName),
 		asFlag("kubernetes.podspec-securitycontext", &nc.PodSpecSecurityContext),
+		asFlag("kubernetes.podspec-shareprocessnamespace", &nc.PodSpecShareProcessNamespace),
 		asFlag("kubernetes.podspec-priorityclassname", &nc.PodSpecPriorityClassName),
 		asFlag("kubernetes.podspec-schedulername", &nc.PodSpecSchedulerName),
 		asFlag("kubernetes.containerspec-addcapabilities", &nc.ContainerSpecAddCapabilities),
@@ -127,6 +129,7 @@ type Features struct {
 	PodSpecNodeSelector              Flag
 	PodSpecRuntimeClassName          Flag
 	PodSpecSecurityContext           Flag
+	PodSpecShareProcessNamespace     Flag
 	PodSpecPriorityClassName         Flag
 	PodSpecSchedulerName             Flag
 	ContainerSpecAddCapabilities     Flag

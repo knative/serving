@@ -69,6 +69,7 @@ k8s.io/api/core/v1.PodSpec:
     - RuntimeClassName
     - SchedulerName
     - SecurityContext
+    - ShareProcessNamespace
     - Tolerations
     - TopologySpreadConstraints
   fieldOverrides:
@@ -130,9 +131,15 @@ k8s.io/api/core/v1.PodSpec:
     SecurityContext:
       description: "This is accessible behind a feature flag - kubernetes.podspec-securitycontext"
       additionalMarkers:
-      # Part of a feature flag - so we want to omit the schema and preserve unknown fields
-      - kubebuilder:validation:DropProperties
-      - kubebuilder:pruning:PreserveUnknownFields
+        # Part of a feature flag - so we want to omit the schema and preserve unknown fields
+        - kubebuilder:validation:DropProperties
+        - kubebuilder:pruning:PreserveUnknownFields
+    ShareProcessNamespace:
+      description: "This is accessible behind a feature flag - kubernetes.podspec-shareproccessnamespace"
+      additionalMarkers:
+        # Part of a feature flag - so we want to omit the schema and preserve unknown fields
+        - kubebuilder:validation:DropProperties
+        - kubebuilder:pruning:PreserveUnknownFields
     Tolerations:
       description: "This is accessible behind a feature flag - kubernetes.podspec-tolerations"
       itemOverride:

@@ -51,6 +51,68 @@ func TestVolumeMask(t *testing.T) {
 	}
 }
 
+func TestCapabilitiesMask_SecurePodDefaultsEnabled(t *testing.T) {
+	// Ensures users can only add NET_BIND_SERVICE or nil capabilities
+	tests := []struct {
+		name string
+		in   *corev1.Capabilities
+		want *corev1.Capabilities
+	}{{
+		name: "empty",
+		in: &corev1.Capabilities{
+			Add: nil,
+		},
+		want: &corev1.Capabilities{
+			Add: nil,
+		},
+	}, {
+		name: "allows NET_BIND_SERVICE capability",
+		in: &corev1.Capabilities{
+			Add: []corev1.Capability{"NET_BIND_SERVICE"},
+		},
+		want: &corev1.Capabilities{
+			Add: []corev1.Capability{"NET_BIND_SERVICE"},
+		},
+	}, {
+		name: "prevents restricted fields",
+		in: &corev1.Capabilities{
+			Add: []corev1.Capability{"CHOWN"},
+		},
+		want: &corev1.Capabilities{
+			Add: nil,
+		},
+	}}
+
+	for _, test := range tests {
+		ctx := config.ToContext(context.Background(),
+			&config.Config{
+				Features: &config.Features{
+					SecurePodDefaults: config.Enabled,
+				},
+			},
+		)
+
+		t.Run(test.name, func(t *testing.T) {
+			got := CapabilitiesMask(ctx, test.in)
+
+			if &test.want == &got {
+				t.Error("Input and output share addresses. Want different addresses")
+			}
+
+			if diff, err := kmp.SafeDiff(test.want, got); err != nil {
+				t.Error("Got error comparing output, err =", err)
+			} else if diff != "" {
+				t.Error("CapabilitiesMask (-want, +got):", diff)
+			}
+
+			if got = CapabilitiesMask(ctx, nil); got != nil {
+				t.Errorf("CapabilitiesMask = %v, want: nil", got)
+			}
+		})
+	}
+
+}
+
 func TestVolumeSourceMask(t *testing.T) {
 	want := &corev1.VolumeSource{
 		Secret:    &corev1.SecretVolumeSource{},
@@ -814,7 +876,8 @@ func TestPodSecurityContextMask_FeatureEnabled(t *testing.T) {
 	}
 }
 
-func TestPodSecurityContextMask_SecureEnabled(t *testing.T) {
+func TestPodSecurityContextMask_SecurePodDefaultsEnabled(t *testing.T) {
+
 	// Ensure that users can opt out of better security by explicitly
 	// requesting the Kubernetes default, which is "Unconfined".
 	want := &corev1.PodSecurityContext{

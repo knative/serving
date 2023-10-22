@@ -87,14 +87,15 @@ jobs:
       fail-fast: false # Keep running if one leg fails.
       matrix:
         k8s-version:
-        - v1.25.x
         - v1.26.x
         - v1.27.x
+        - v1.28.x
 
         ingress:
         - kourier
         - kourier-tls
         - istio
+        - istio-tls
         - istio-ambient
         - contour
         # Disabled due to consistent failures
@@ -117,6 +118,11 @@ jobs:
 
         - ingress: istio
           namespace-resources: virtualservices
+
+        - ingress: istio-tls
+          ingress-class: istio
+          namespace-resources: virtualservices
+          enable-tls: 1
 
         - ingress: istio-ambient
           namespace-resources: virtualservices

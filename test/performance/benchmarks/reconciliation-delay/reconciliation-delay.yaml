@@ -49,9 +49,6 @@ spec:
         args:
         - "-duration=15m"
         - "-frequency=5s"
-        resources:
-          requests:
-            cpu: 100m
         env:
           - name: KO_DOCKER_REPO
             value: $KO_DOCKER_REPO
@@ -85,4 +82,20 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.uid
+        resources:
+          requests:
+            cpu: 100m
+            memory: 500Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        securityContext:
+          seccompProfile:
+            type: RuntimeDefault
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+              - ALL
       restartPolicy: Never

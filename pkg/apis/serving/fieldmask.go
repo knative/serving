@@ -245,6 +245,9 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 		// This is further validated in ValidatePodSecurityContext.
 		out.SecurityContext = in.SecurityContext
 	}
+	if cfg.Features.PodSpecShareProcessNamespace != config.Disabled {
+		out.ShareProcessNamespace = in.ShareProcessNamespace
+	}
 	if cfg.Features.PodSpecPriorityClassName != config.Disabled {
 		out.PriorityClassName = in.PriorityClassName
 	}
@@ -270,7 +273,6 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	out.HostNetwork = false
 	out.HostPID = false
 	out.HostIPC = false
-	out.ShareProcessNamespace = nil
 	out.Hostname = ""
 	out.Subdomain = ""
 	out.Priority = nil
@@ -725,8 +727,14 @@ func CapabilitiesMask(ctx context.Context, in *corev1.Capabilities) *corev1.Capa
 	// Allowed fields
 	out.Drop = in.Drop
 
-	if config.FromContextOrDefaults(ctx).Features.ContainerSpecAddCapabilities != config.Disabled {
+	if config.FromContextOrDefaults(ctx).Features.ContainerSpecAddCapabilities == config.Enabled {
 		out.Add = in.Add
+	} else if config.FromContextOrDefaults(ctx).Features.SecurePodDefaults == config.Enabled {
+		if len(in.Add) == 1 && in.Add[0] == "NET_BIND_SERVICE" {
+			out.Add = in.Add
+		} else {
+			out.Add = nil
+		}
 	}
 
 	return out

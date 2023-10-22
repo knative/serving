@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -253,7 +254,7 @@ func TestTypicalRouteFlow(t *testing.T) {
 	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
 
 	r.MarkTrafficAssigned()
-	r.MarkTLSNotEnabled(AutoTLSNotEnabledMessage)
+	r.MarkTLSNotEnabled(ExternalDomainTLSNotEnabledMessage)
 	apistest.CheckConditionSucceeded(r, RouteConditionAllTrafficAssigned, t)
 	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
 	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
@@ -367,7 +368,7 @@ func TestIngressFailureRecovery(t *testing.T) {
 	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
 
 	r.MarkTrafficAssigned()
-	r.MarkTLSNotEnabled(AutoTLSNotEnabledMessage)
+	r.MarkTLSNotEnabled(ExternalDomainTLSNotEnabledMessage)
 	r.PropagateIngressStatus(netv1alpha1.IngressStatus{
 		Status: duckv1.Status{
 			Conditions: duckv1.Conditions{{
@@ -438,9 +439,35 @@ func TestCertificateReady(t *testing.T) {
 func TestCertificateNotReady(t *testing.T) {
 	r := &RouteStatus{}
 	r.InitializeConditions()
-	r.MarkCertificateNotReady("cert")
+	r.MarkCertificateNotReady(&netv1alpha1.Certificate{})
 
 	apistest.CheckConditionOngoing(r, RouteConditionCertificateProvisioned, t)
+}
+
+func TestCertificateNotReadyWithBubbledUpMessage(t *testing.T) {
+	cert := &netv1alpha1.Certificate{
+		Status: netv1alpha1.CertificateStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{
+					{
+						Type:   "Ready",
+						Status: "False",
+						Reason: "CommonName Too Long",
+					},
+				},
+			},
+		},
+	}
+
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	r.MarkCertificateNotReady(cert)
+
+	expectedCertMessage := "CommonName Too Long"
+	certMessage := r.Status.GetCondition("Ready").Message
+	if !strings.Contains(certMessage, expectedCertMessage) {
+		t.Errorf("Literal %q not found in status message: %q", expectedCertMessage, certMessage)
+	}
 }
 
 func TestCertificateProvisionFailed(t *testing.T) {
@@ -467,10 +494,10 @@ func TestEndpointNotOwned(t *testing.T) {
 	apistest.CheckConditionFailed(r, RouteConditionIngressReady, t)
 }
 
-func TestRouteAutoTLSNotEnabled(t *testing.T) {
+func TestRouteExternalDomainTLSNotEnabled(t *testing.T) {
 	r := &RouteStatus{}
 	r.InitializeConditions()
-	r.MarkTLSNotEnabled(AutoTLSNotEnabledMessage)
+	r.MarkTLSNotEnabled(ExternalDomainTLSNotEnabledMessage)
 
 	apistest.CheckConditionSucceeded(r, RouteConditionCertificateProvisioned, t)
 }

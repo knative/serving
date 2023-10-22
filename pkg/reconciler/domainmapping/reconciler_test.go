@@ -25,65 +25,65 @@ import (
 	"knative.dev/serving/pkg/reconciler/domainmapping/config"
 )
 
-func TestAutoTLSEnabled(t *testing.T) {
+func TestExternalDomainTLSEnabled(t *testing.T) {
 	dm := domainMapping("test-ns", "test-route")
 
 	for _, tc := range []struct {
-		name                  string
-		configAutoTLSEnabled  bool
-		tlsDisabledAnnotation string
-		wantAutoTLSEnabled    bool
+		name                           string
+		configExternalDomainTLSEnabled bool
+		tlsDisabledAnnotation          string
+		wantExternalDomainTLSEnabled   bool
 	}{{
-		name:                 "AutoTLS enabled by config, not disabled by annotation",
-		configAutoTLSEnabled: true,
-		wantAutoTLSEnabled:   true,
+		name:                           "ExternalDomainTLS enabled by config, not disabled by annotation",
+		configExternalDomainTLSEnabled: true,
+		wantExternalDomainTLSEnabled:   true,
 	}, {
-		name:                  "AutoTLS enabled by config, disabled by annotation",
-		configAutoTLSEnabled:  true,
-		tlsDisabledAnnotation: "true",
-		wantAutoTLSEnabled:    false,
+		name:                           "ExternalDomainTLS enabled by config, disabled by annotation",
+		configExternalDomainTLSEnabled: true,
+		tlsDisabledAnnotation:          "true",
+		wantExternalDomainTLSEnabled:   false,
 	}, {
-		name:                 "AutoTLS disabled by config, not disabled by annotation",
-		configAutoTLSEnabled: false,
-		wantAutoTLSEnabled:   false,
+		name:                           "ExternalDomainTLS disabled by config, not disabled by annotation",
+		configExternalDomainTLSEnabled: false,
+		wantExternalDomainTLSEnabled:   false,
 	}, {
-		name:                  "AutoTLS disabled by config, disabled by annotation",
-		configAutoTLSEnabled:  false,
-		tlsDisabledAnnotation: "true",
-		wantAutoTLSEnabled:    false,
+		name:                           "ExternalDomainTLS disabled by config, disabled by annotation",
+		configExternalDomainTLSEnabled: false,
+		tlsDisabledAnnotation:          "true",
+		wantExternalDomainTLSEnabled:   false,
 	}, {
-		name:                  "AutoTLS enabled by config, invalid annotation",
-		configAutoTLSEnabled:  true,
-		tlsDisabledAnnotation: "foo",
-		wantAutoTLSEnabled:    true,
+		name:                           "ExternalDomainTLS enabled by config, invalid annotation",
+		configExternalDomainTLSEnabled: true,
+		tlsDisabledAnnotation:          "foo",
+		wantExternalDomainTLSEnabled:   true,
 	}, {
-		name:                  "AutoTLS disabled by config, invalid annotation",
-		configAutoTLSEnabled:  false,
-		tlsDisabledAnnotation: "foo",
-		wantAutoTLSEnabled:    false,
+		name:                           "ExternalDomainTLS disabled by config, invalid annotation",
+		configExternalDomainTLSEnabled: false,
+		tlsDisabledAnnotation:          "foo",
+		wantExternalDomainTLSEnabled:   false,
 	}, {
-		name:                 "AutoTLS disabled by config nil annotations",
-		configAutoTLSEnabled: false,
-		wantAutoTLSEnabled:   false,
+		name:                           "ExternalDomainTLS disabled by config nil annotations",
+		configExternalDomainTLSEnabled: false,
+		wantExternalDomainTLSEnabled:   false,
 	}, {
-		name:                 "AutoTLS enabled by config, nil annotations",
-		configAutoTLSEnabled: true,
-		wantAutoTLSEnabled:   true,
+		name:                           "ExternalDomainTLS enabled by config, nil annotations",
+		configExternalDomainTLSEnabled: true,
+		wantExternalDomainTLSEnabled:   true,
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := logtesting.TestContextWithLogger(t)
 			ctx = config.ToContext(ctx, &config.Config{
 				Network: &netcfg.Config{
-					AutoTLS: tc.configAutoTLSEnabled,
+					ExternalDomainTLS: tc.configExternalDomainTLSEnabled,
 				},
 			})
 			if tc.tlsDisabledAnnotation != "" {
 				dm.Annotations = map[string]string{
-					netapi.DisableAutoTLSAnnotationKey: tc.tlsDisabledAnnotation,
+					netapi.DisableExternalDomainTLSAnnotationKey: tc.tlsDisabledAnnotation,
 				}
 			}
-			if got := autoTLSEnabled(ctx, dm); got != tc.wantAutoTLSEnabled {
-				t.Errorf("autoTLSEnabled = %t, want %t", got, tc.wantAutoTLSEnabled)
+			if got := externalDomainTLSEnabled(ctx, dm); got != tc.wantExternalDomainTLSEnabled {
+				t.Errorf("externalDomainTLSEnabled = %t, want %t", got, tc.wantExternalDomainTLSEnabled)
 			}
 		})
 	}

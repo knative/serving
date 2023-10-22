@@ -23,7 +23,6 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -36,9 +35,9 @@ type FakeMetrics struct {
 	ns   string
 }
 
-var metricsResource = schema.GroupVersionResource{Group: "autoscaling.internal.knative.dev", Version: "v1alpha1", Resource: "metrics"}
+var metricsResource = v1alpha1.SchemeGroupVersion.WithResource("metrics")
 
-var metricsKind = schema.GroupVersionKind{Group: "autoscaling.internal.knative.dev", Version: "v1alpha1", Kind: "Metric"}
+var metricsKind = v1alpha1.SchemeGroupVersion.WithKind("Metric")
 
 // Get takes name of the metric, and returns the corresponding metric object, and an error if there is any.
 func (c *FakeMetrics) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Metric, err error) {

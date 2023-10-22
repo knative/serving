@@ -173,11 +173,11 @@ func WithInitRouteConditions(rt *v1.Route) {
 	rt.Status.InitializeConditions()
 }
 
-// WithRouteConditionsAutoTLSDisabled calls MarkTLSNotEnabled with AutoTLSNotEnabledMessage
+// WithRouteConditionsExternalDomainTLSDisabled calls MarkTLSNotEnabled with ExternalDomainTLSNotEnabledMessage
 // after initialized the Service's conditions.
-func WithRouteConditionsAutoTLSDisabled(rt *v1.Route) {
+func WithRouteConditionsExternalDomainTLSDisabled(rt *v1.Route) {
 	rt.Status.InitializeConditions()
-	rt.Status.MarkTLSNotEnabled(v1.AutoTLSNotEnabledMessage)
+	rt.Status.MarkTLSNotEnabled(v1.ExternalDomainTLSNotEnabledMessage)
 }
 
 // WithRouteConditionsTLSNotEnabledForClusterLocalMessage calls
@@ -208,7 +208,7 @@ func MarkUnknownTrafficError(msg string) RouteOption {
 
 // MarkCertificateNotReady calls the method of the same name on .Status
 func MarkCertificateNotReady(r *v1.Route) {
-	r.Status.MarkCertificateNotReady(routenames.Certificate(r))
+	r.Status.MarkCertificateNotReady(&netv1alpha1.Certificate{})
 }
 
 // MarkCertificateNotOwned calls the method of the same name on .Status

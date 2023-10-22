@@ -30,7 +30,7 @@ export CERTIFICATE_CLASS=${CERTIFICATE_CLASS:-""}
 # Only build linux/amd64 bit images
 export KO_FLAGS="${KO_FLAGS:---platform=linux/amd64}"
 
-export RUN_HTTP01_AUTO_TLS_TESTS=${RUN_HTTP01_AUTO_TLS_TESTS:-0}
+export RUN_HTTP01_EXTERNAL_DOMAIN_TLS_TESTS=${RUN_HTTP01_EXTERNAL_DOMAIN_TLS_TESTS:-0}
 export HTTPS=${HTTPS:-0}
 export SHORT=${SHORT:-0}
 export ENABLE_HA=${ENABLE_HA:-0}
@@ -118,8 +118,14 @@ function parse_flags() {
       readonly CERTIFICATE_CLASS="cert-manager.certificate.networking.knative.dev"
       return 2
       ;;
+# BEGIN: reverse compatibility - drop this after updating knative/infra
     --run-http01-auto-tls-tests)
-      readonly RUN_HTTP01_AUTO_TLS_TESTS=1
+      readonly RUN_HTTP01_EXTERNAL_DOMAIN_TLS_TESTS=1
+      return 1
+      ;;
+# END
+    --run-http01-external-domain-tls-tests)
+      readonly RUN_HTTP01_EXTERNAL_DOMAIN_TLS_TESTS=1
       return 1
       ;;
     --mesh)
@@ -376,7 +382,7 @@ function install() {
 
   if (( ENABLE_TLS )); then
     echo "Patch to config-network to enable internal encryption"
-    toggle_feature dataplane-trust minimal config-network
+    toggle_feature system-internal-tls Enabled config-network
     if [[ "$INGRESS_CLASS" == "kourier.ingress.networking.knative.dev" ]]; then
       echo "Point Kourier local gateway to custom server certificates"
       toggle_feature cluster-cert-secret server-certs config-kourier
@@ -453,12 +459,20 @@ function wait_for_leader_controller() {
   return 1
 }
 
+function restart_pod() {
+  local namespace="$1"
+  local label="$2"
+  echo -n "Deleting pod in ${namespace} with label ${label}"
+  kubectl -n ${namespace} delete pod -l ${label}
+}
+
 function toggle_feature() {
   local FEATURE="$1"
   local STATE="$2"
   local CONFIG="${3:-config-features}"
   echo -n "Setting feature ${FEATURE} to ${STATE}"
-  kubectl patch cm "${CONFIG}" -n "${SYSTEM_NAMESPACE}" -p '{"data":{"'${FEATURE}'":"'${STATE}'"}}'
+  local PATCH="{\"data\":{\"${FEATURE}\":\"${STATE}\"}}"
+  kubectl patch cm "${CONFIG}" -n "${SYSTEM_NAMESPACE}" -p "${PATCH}"
   # We don't have a good mechanism for positive handoff so sleep :(
   echo "Waiting 30s for change to get picked up."
   sleep 30

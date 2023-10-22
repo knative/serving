@@ -30,11 +30,11 @@ aliases:
   docs-writers:
   - csantanapr
   - nak3
-  - psschwei
   - retocode
   - skonto
   - snneji
   eventing-reviewers:
+  - Leo6Leo
   - aslom
   - cali0707
   - creydr
@@ -64,7 +64,8 @@ aliases:
   - lkingland
   - salaboy
   knative-admin:
-  - Vishal-Chdhry
+  - Cali0707
+  - ReToCode
   - creydr
   - csantanapr
   - davidhadas
@@ -88,7 +89,8 @@ aliases:
   - upodroid
   - xtreme-sameer-vohra
   knative-release-leads:
-  - Vishal-Chdhry
+  - Cali0707
+  - ReToCode
   - creydr
   - dsimansk
   - pierDipi
@@ -123,7 +125,6 @@ aliases:
   productivity-writers:
   - cardil
   - kvmware
-  - psschwei
   - upodroid
   security-wg-leads:
   - davidhadas
@@ -171,6 +172,12 @@ aliases:
   - smoser-ibm
   - xtreme-sameer-vohra
   ux-wg-leads:
-  - snneji
+  - cali0707
+  - leo6leo
+  - mmejia02
+  - zainabhusain227
   ux-writers:
-  - snneji
+  - cali0707
+  - leo6leo
+  - mmejia02
+  - zainabhusain227

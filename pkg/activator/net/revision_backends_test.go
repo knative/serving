@@ -1522,67 +1522,293 @@ func TestServiceMoreThanOne(t *testing.T) {
 
 // More focused test around the probing of pods and the handling of different behaviors
 func TestProbePodIPs(t *testing.T) {
-	fakeRT := activatortest.FakeRoundTripper{
-		ExpectHost: testRevision,
-		ProbeHostResponses: map[string][]activatortest.FakeResponse{
-			"10.10.1.1": {{
-				Code: http.StatusInternalServerError,
-				Err:  errors.New("podIP transport error"),
-			}},
-			"10.10.1.2": {{
-				Code:  http.StatusOK,
-				Body:  queue.Name,
-				Delay: 250 * time.Millisecond,
-			}},
-			"10.10.1.3": {{
-				Code: http.StatusOK,
-				Body: queue.Name,
-			}},
+	type input struct {
+		current                 dests
+		healthy                 sets.String
+		meshMode                netcfg.MeshCompatibilityMode
+		enableProbeOptimization bool
+		hostResponses           map[string][]activatortest.FakeResponse
+	}
+
+	type expected struct {
+		healthy   sets.String
+		noop      bool
+		notMesh   bool
+		success   bool
+		numProbes int32
+	}
+
+	type test struct {
+		name     string
+		input    input
+		expected expected
+	}
+
+	tests := []test{
+		{
+			name: "all healthy", // Test skipping probes when all endpoints are healthy
+			input: input{
+				current: dests{
+					ready:    sets.NewString("10.10.1.1"),
+					notReady: sets.NewString("10.10.1.2"),
+				},
+				healthy: sets.NewString("10.10.1.1", "10.10.1.2"),
+			},
+			expected: expected{
+				healthy:   sets.NewString("10.10.1.1", "10.10.1.2"),
+				noop:      true,
+				notMesh:   false,
+				success:   true,
+				numProbes: 0,
+			},
+		},
+		{
+			name: "one pod fails probe", // Test that we probe all pods when one fails
+			input: input{
+				current: dests{
+					notReady: sets.NewString("10.10.1.1", "10.10.1.2", "10.10.1.3"),
+				},
+				hostResponses: map[string][]activatortest.FakeResponse{
+					"10.10.1.1": {{
+						Err: errors.New("podIP transport error"),
+					}},
+					"10.10.1.2": {{
+						Code:  http.StatusOK,
+						Body:  queue.Name,
+						Delay: 250 * time.Millisecond,
+					}},
+				},
+				enableProbeOptimization: true,
+			},
+			expected: expected{
+				healthy:   sets.NewString("10.10.1.2", "10.10.1.3"),
+				noop:      false,
+				notMesh:   true,
+				success:   false,
+				numProbes: 3,
+			},
+		},
+		{
+			name: "ready pods skipped with mesh disabled",
+			input: input{
+				current: dests{
+					ready:    sets.NewString("10.10.1.1"),
+					notReady: sets.NewString("10.10.1.2"),
+				},
+				enableProbeOptimization: true,
+				meshMode:                netcfg.MeshCompatibilityModeDisabled,
+			},
+			expected: expected{
+				healthy:   sets.NewString("10.10.1.1", "10.10.1.2"),
+				noop:      false,
+				notMesh:   true,
+				success:   true,
+				numProbes: 1,
+			},
+		},
+		{
+			name: "ready pods not skipped with mesh auto",
+			input: input{
+				current: dests{
+					ready:    sets.NewString("10.10.1.1"),
+					notReady: sets.NewString("10.10.1.2"),
+				},
+				enableProbeOptimization: true,
+				meshMode:                netcfg.MeshCompatibilityModeAuto,
+			},
+			expected: expected{
+				healthy:   sets.NewString("10.10.1.1", "10.10.1.2"),
+				noop:      false,
+				notMesh:   true,
+				success:   true,
+				numProbes: 2,
+			},
+		},
+		{
+			name: "only ready pods healthy without probe optimization", // NOTE: prior test is effectively this one with probe optimization
+			input: input{
+				current: dests{
+					ready:    sets.NewString("10.10.1.1"),
+					notReady: sets.NewString("10.10.1.2"),
+				},
+				enableProbeOptimization: false,
+				meshMode:                netcfg.MeshCompatibilityModeAuto,
+			},
+			expected: expected{
+				healthy:   sets.NewString("10.10.1.1"),
+				noop:      false,
+				notMesh:   true,
+				success:   true,
+				numProbes: 2,
+			},
+		},
+		{
+			name: "removes non-existent pods from healthy",
+			input: input{
+				current: dests{
+					ready:    sets.NewString("10.10.1.1"),
+					notReady: sets.NewString("10.10.1.2"),
+				},
+				healthy:                 sets.NewString("10.10.1.1", "10.10.1.2", "10.10.1.3"),
+				enableProbeOptimization: true,
+				meshMode:                netcfg.MeshCompatibilityModeDisabled,
+			},
+			expected: expected{
+				healthy:   sets.NewString("10.10.1.1", "10.10.1.2"),
+				noop:      false,
+				notMesh:   false,
+				success:   true,
+				numProbes: 0,
+			},
+		},
+		{
+			name: "non-probe additions count as changes", // Testing case where ready pods are added but probes do not add more
+			input: input{
+				current: dests{
+					ready:    sets.NewString("10.10.1.1", "10.10.1.2"),
+					notReady: sets.NewString("10.10.1.3"),
+				},
+				healthy:                 sets.NewString("10.10.1.1"),
+				enableProbeOptimization: false,
+				meshMode:                netcfg.MeshCompatibilityModeDisabled,
+			},
+			expected: expected{
+				healthy:   sets.NewString("10.10.1.1", "10.10.1.2"),
+				noop:      false,
+				notMesh:   true,
+				success:   true,
+				numProbes: 1,
+			},
+		},
+		{
+			name: "non-probe removals count as changes", // Testing case where non-existent pods are removed with no probe changes
+			input: input{
+				current: dests{
+					ready:    sets.NewString("10.10.1.1"),
+					notReady: sets.NewString("10.10.1.3"),
+				},
+				healthy:                 sets.NewString("10.10.1.1", "10.10.1.2"),
+				enableProbeOptimization: false,
+				meshMode:                netcfg.MeshCompatibilityModeDisabled,
+			},
+			expected: expected{
+				healthy:   sets.NewString("10.10.1.1"),
+				noop:      false,
+				notMesh:   true,
+				success:   true,
+				numProbes: 1,
+			},
+		},
+		{
+			name: "no changes with probes",
+			input: input{
+				current: dests{
+					ready:    sets.NewString("10.10.1.1"),
+					notReady: sets.NewString("10.10.1.3"),
+				},
+				healthy:                 sets.NewString("10.10.1.1"),
+				enableProbeOptimization: false,
+				meshMode:                netcfg.MeshCompatibilityModeDisabled,
+			},
+			expected: expected{
+				healthy:   sets.NewString("10.10.1.1"),
+				noop:      true,
+				notMesh:   true,
+				success:   true,
+				numProbes: 1,
+			},
+		},
+		{
+			name: "no changes without probes",
+			input: input{
+				current: dests{
+					ready: sets.NewString("10.10.1.1", "10.10.1.3"),
+				},
+				healthy:                 sets.NewString("10.10.1.1", "10.10.1.3"),
+				enableProbeOptimization: false,
+				meshMode:                netcfg.MeshCompatibilityModeDisabled,
+			},
+			expected: expected{
+				healthy:   sets.NewString("10.10.1.1", "10.10.1.3"),
+				noop:      true,
+				notMesh:   false,
+				success:   true,
+				numProbes: 0,
+			},
+		},
+		{
+			name: "mesh probe error",
+			input: input{
+				current: dests{
+					ready:    sets.NewString("10.10.1.1"),
+					notReady: sets.NewString("10.10.1.3"),
+				},
+				healthy:                 sets.NewString("10.10.1.1"),
+				enableProbeOptimization: true,
+				meshMode:                netcfg.MeshCompatibilityModeAuto,
+				hostResponses: map[string][]activatortest.FakeResponse{
+					"10.10.1.3": {{
+						Code: http.StatusServiceUnavailable,
+					}},
+				},
+			},
+			expected: expected{
+				healthy:   sets.NewString("10.10.1.1"),
+				noop:      true,
+				notMesh:   false,
+				success:   false,
+				numProbes: 1,
+			},
 		},
 	}
 
-	// Minimally constructed revisionWatcher just to have what is needed for probing
-	rw := &revisionWatcher{
-		clusterIPHealthy:        true,
-		podsAddressable:         true,
-		rev:                     types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-		logger:                  TestLogger(t),
-		transport:               pkgnetwork.RoundTripperFunc(fakeRT.RT),
-		meshMode:                netcfg.MeshCompatibilityModeAuto,
-		enableProbeOptimisation: true,
+	// Helper function to run the test and validate the results
+	testFunc := func(testName string, input input, expected expected) {
+		fakeRT := activatortest.FakeRoundTripper{
+			ExpectHost: testRevision,
+			ProbeResponses: []activatortest.FakeResponse{{
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+			ProbeHostResponses: input.hostResponses,
+		}
+
+		// Minimally constructed revisionWatcher just to have what is needed for probing
+		rw := &revisionWatcher{
+			rev:                     types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+			logger:                  TestLogger(t),
+			transport:               pkgnetwork.RoundTripperFunc(fakeRT.RT),
+			enableProbeOptimisation: input.enableProbeOptimization,
+			meshMode:                input.meshMode,
+			healthyPods:             input.healthy,
+		}
+
+		healthy, noop, notMesh, err := rw.probePodIPs(input.current.ready, input.current.notReady)
+		if !healthy.Equal(expected.healthy) {
+			t.Errorf("%s: Healthy does not match, got %v, want %v diff: %s",
+				testName, healthy, expected.healthy, cmp.Diff(healthy, expected.healthy))
+		}
+		if noop != expected.noop {
+			t.Errorf("%s: Unexpected value for noop, got %t, want %t", testName, noop, expected.noop)
+		}
+		if notMesh != expected.notMesh {
+			t.Errorf("%s: Unexpected value for notMesh, got %t, want %t",
+				testName, notMesh, expected.notMesh)
+		}
+		if err != nil && expected.success {
+			t.Errorf("%s: Unexpected error, got %v, want nil", testName, err)
+		} else if err == nil && !expected.success {
+			t.Errorf("%s: Unexpected error, got %v, want non-nil", testName, err)
+		}
+		if numProbes := fakeRT.NumProbes.Load(); numProbes != expected.numProbes {
+			t.Errorf("%s: Unexpected number of probes, got %d, want %d",
+				testName, numProbes, expected.numProbes)
+		}
 	}
 
-	// Initial state for tests
-	cur := dests{
-		ready:    sets.NewString("10.10.1.3", "10.10.1.2"),
-		notReady: sets.NewString("10.10.1.1"),
-	}
-
-	// Test all pods healthy (skips probes)
-	rw.healthyPods = cur.ready.Union(cur.notReady)
-	healthy, noop, notMesh, err := rw.probePodIPs(cur.ready, cur.notReady)
-	if !healthy.Equal(rw.healthyPods) {
-		t.Errorf("Healthy does not match, got %#v, want %#v diff: %s", healthy, rw.healthyPods, cmp.Diff(healthy, cur.ready))
-	}
-	if !noop || notMesh || err != nil {
-		t.Errorf("Unexpected values: noop=%t (true), notMesh=%t (false), err=%s (nil)", noop, notMesh, err)
-	}
-	if numProbes := fakeRT.NumProbes.Load(); numProbes != 0 {
-		t.Errorf("Unexpected number of probes, got %d, want %d", numProbes, 0)
-	}
-
-	// Test one pod probe errors (using mesh compatibly auto and probe optimization), even if one
-	// pod errors all probes should still be completed
-	fakeRT.NumProbes.Store(0)
-	rw.healthyPods = sets.NewString()
-	healthy, noop, notMesh, err = rw.probePodIPs(cur.ready, cur.notReady)
-	if !healthy.Equal(cur.ready) {
-		t.Errorf("Healthy does not match, got %#v, want %#v diff: %s", healthy, cur.ready, cmp.Diff(healthy, cur.ready))
-	}
-	if noop || !notMesh || err == nil {
-		t.Errorf("Unexpected values: noop=%t (false), notMesh=%t (true), err=%s (non-nil)", noop, notMesh, err)
-	}
-	if numProbes := fakeRT.NumProbes.Load(); numProbes != 3 {
-		t.Errorf("Unexpected number of probes, got %d, want %d", numProbes, 3)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			testFunc(t.Name(), test.input, test.expected)
+		})
 	}
 }

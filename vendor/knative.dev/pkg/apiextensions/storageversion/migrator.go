@@ -68,6 +68,11 @@ func (m *Migrator) Migrate(ctx context.Context, gr schema.GroupResource) error {
 		return fmt.Errorf("unable to determine storage version for %s", gr)
 	}
 
+	// don't migrate storage version if CRD has a single valid storage in its status
+	if len(crd.Status.StoredVersions) == 1 && crd.Status.StoredVersions[0] == version {
+		return nil
+	}
+
 	if err := m.migrateResources(ctx, gr.WithVersion(version)); err != nil {
 		return err
 	}

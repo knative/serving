@@ -193,7 +193,7 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 		extraVolumes = append(extraVolumes, *tokenVolume)
 	}
 
-	if cfg.Network.InternalTLSEnabled() {
+	if cfg.Network.SystemInternalTLSEnabled() {
 		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varCertVolumeMount)
 		extraVolumes = append(extraVolumes, certVolume(networking.ServingCertName))
 	}

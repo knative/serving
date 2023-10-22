@@ -153,10 +153,22 @@ Kubernetes cluster in your designated environment, if necessary.
 
 ### Deploy Knative Serving
 
-This step includes building Knative Serving, creating and pushing developer
-images, and deploying them to your Kubernetes cluster. If you're developing
-locally, set `KO_DOCKER_REPO=ko.local` (or `KO_DOCKER_REPO=kind.local` respectively)
-to avoid needing to push your images to an off-machine registry.
+- This step includes building Knative Serving, creating and pushing developer
+  images, and deploying them to your Kubernetes cluster. If you're developing
+  locally, set `KO_DOCKER_REPO=ko.local` (or `KO_DOCKER_REPO=kind.local` respectively)
+  to avoid needing to push your images to an off-machine registry.
+
+- By default, `ko` will build container images for the architecture of your local machine, 
+  but if you need to build images for a different platform (OS and architecture), 
+  you can provide `--platform` flag as follows: 
+
+  ```shell
+  # Synopsis
+  ko apply -f FILENAME [flags]
+
+  # Usage
+  ko apply --selector knative.dev/crd-install=true -Rf config/core/ --platform linux/arm64
+  ```
 
 Run:
 

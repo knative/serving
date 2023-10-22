@@ -184,8 +184,8 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 	logger := logging.FromContext(ctx)
 
 	tls := []netv1alpha1.IngressTLS{}
-	if !autoTLSEnabled(ctx, r) {
-		r.Status.MarkTLSNotEnabled(v1.AutoTLSNotEnabledMessage)
+	if !externalDomainTLSEnabled(ctx, r) {
+		r.Status.MarkTLSNotEnabled(v1.ExternalDomainTLSNotEnabledMessage)
 		return tls, nil, nil
 	}
 
@@ -265,10 +265,10 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 			tls = append(tls, resources.MakeIngressTLS(cert, dnsNames.List()))
 		} else {
 			acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
-			r.Status.MarkCertificateNotReady(cert.Name)
+			r.Status.MarkCertificateNotReady(cert)
 			// When httpProtocol is enabled, downgrade http scheme.
 			// Explicitly not using the override settings here as to not to muck with
-			// AutoTLS semantics.
+			// external-domain-tls semantics.
 			if config.FromContext(ctx).Network.HTTPProtocol == netcfg.HTTPEnabled {
 				if dnsNames.Has(host) {
 					r.Status.URL = &apis.URL{
@@ -491,20 +491,20 @@ func setTargetsScheme(rs *v1.RouteStatus, dnsNames []string, scheme string) {
 	}
 }
 
-func autoTLSEnabled(ctx context.Context, r *v1.Route) bool {
-	if !config.FromContext(ctx).Network.AutoTLS {
+func externalDomainTLSEnabled(ctx context.Context, r *v1.Route) bool {
+	if !config.FromContext(ctx).Network.ExternalDomainTLS {
 		return false
 	}
 
 	logger := logging.FromContext(ctx)
-	annotationValue := networking.GetDisableAutoTLS(r.Annotations)
+	annotationValue := networking.GetDisableExternalDomainTLS(r.Annotations)
 
 	disabledByAnnotation, err := strconv.ParseBool(annotationValue)
 	if annotationValue != "" && err != nil {
 		// validation should've caught an invalid value here.
-		// if we have one anyways, assume not disabled and log a warning.
+		// if we have one anyway, assume not disabled and log a warning.
 		logger.Warnf("Invalid annotation value for %q. Value: %q",
-			networking.DisableAutoTLSAnnotationKey, annotationValue)
+			networking.DisableExternalDomainTLSAnnotationKey, annotationValue)
 	}
 
 	return !disabledByAnnotation

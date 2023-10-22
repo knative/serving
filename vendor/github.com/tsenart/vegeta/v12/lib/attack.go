@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"math/rand"
 	"net"
@@ -335,13 +334,14 @@ func DNSCaching(ttl time.Duration) func(*Attacker) {
 				for i := 0; i < len(ips) && j < 2; i++ {
 					ip := net.ParseIP(ips[i])
 					switch {
-					case len(ip.To4()) == net.IPv4len && j == 0:
+					case len(ip) == net.IPv4len && (j == 0 || len(ips[j-1]) == net.IPv6len):
 						fallthrough
-					case len(ip) == net.IPv6len && j == 1:
+					case len(ip) == net.IPv6len && (j == 0 || len(ips[j-1]) == net.IPv4len):
 						ips[j] = ips[i]
 						j++
 					}
 				}
+
 				ips = ips[:j]
 
 				type result struct {
@@ -541,9 +541,9 @@ func (a *Attacker) hit(tr Targeter, atk *attack) *Result {
 		body = io.LimitReader(r.Body, a.maxBody)
 	}
 
-	if res.Body, err = ioutil.ReadAll(body); err != nil {
+	if res.Body, err = io.ReadAll(body); err != nil {
 		return &res
-	} else if _, err = io.Copy(ioutil.Discard, r.Body); err != nil {
+	} else if _, err = io.Copy(io.Discard, r.Body); err != nil {
 		return &res
 	}
 
