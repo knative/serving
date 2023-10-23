@@ -23,7 +23,6 @@ package handler
 
 import (
 	"context"
-
 	"k8s.io/apimachinery/pkg/types"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -53,4 +52,12 @@ func RevisionFrom(ctx context.Context) *v1.Revision {
 // RevIDFrom retrieves the the revisionID from the context.
 func RevIDFrom(ctx context.Context) types.NamespacedName {
 	return ctx.Value(revCtxKey{}).(*revCtx).revID
+}
+
+func RevAnnotations(ctx context.Context, annotation string) string {
+	rev := ctx.Value(revCtxKey{}).(*revCtx).revision
+	if rev != nil && rev.GetAnnotations() != nil {
+		return rev.GetAnnotations()[annotation]
+	}
+	return ""
 }

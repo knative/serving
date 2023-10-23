@@ -189,6 +189,9 @@ var (
 			Name:  "ENABLE_HTTP2_AUTO_DETECTION",
 			Value: "false",
 		}, {
+			Name:  "ENABLE_HTTP_FULL_DUPLEX",
+			Value: "false",
+		}, {
 			Name:  "ROOT_CA",
 			Value: "",
 		}},

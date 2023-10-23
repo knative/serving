@@ -37,6 +37,7 @@ import (
 	"knative.dev/pkg/tracing/propagation/tracecontextb3"
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
+	apicfg "knative.dev/serving/pkg/apis/config"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
@@ -86,14 +87,15 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	revID := RevIDFrom(r.Context())
+	revEnableHTTP1FullDuplex := RevAnnotations(r.Context(), apicfg.AllowHTTPFullDuplexFeatureKey) == "Enabled"
+
 	if err := a.throttler.Try(tryContext, revID, func(dest string) error {
 		trySpan.End()
-
 		proxyCtx, proxySpan := r.Context(), (*trace.Span)(nil)
 		if tracingEnabled {
 			proxyCtx, proxySpan = trace.StartSpan(r.Context(), "activator_proxy")
 		}
-		a.proxyRequest(revID, w, r.WithContext(proxyCtx), dest, tracingEnabled, a.usePassthroughLb)
+		a.proxyRequest(revID, revEnableHTTP1FullDuplex, w, r.WithContext(proxyCtx), dest, tracingEnabled, a.usePassthroughLb)
 		proxySpan.End()
 
 		return nil
@@ -112,7 +114,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.ResponseWriter,
+func (a *activationHandler) proxyRequest(revID types.NamespacedName, enableHTTP1FullDuplex bool, w http.ResponseWriter,
 	r *http.Request, target string, tracingEnabled bool, usePassthroughLb bool) {
 	netheader.RewriteHostIn(r)
 	r.Header.Set(netheader.ProxyKey, activator.Name)
@@ -124,10 +126,25 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 	}
 
 	var proxy *httputil.ReverseProxy
+	var proxyHandler http.Handler
 	if a.tls {
 		proxy = pkghttp.NewHeaderPruningReverseProxy(useSecurePort(target), hostOverride, activator.RevisionHeaders, true /* uss HTTPS */)
 	} else {
 		proxy = pkghttp.NewHeaderPruningReverseProxy(target, hostOverride, activator.RevisionHeaders, false /* use HTTPS */)
+	}
+
+	if enableHTTP1FullDuplex {
+		proxyWithFullDuplex := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			rc := http.NewResponseController(w)
+			_ = rc.EnableFullDuplex()
+			proxy.ServeHTTP(w, r)
+		})
+		tmpHandler := struct{ http.Handler }{}
+		tmpHandler.Handler = proxyWithFullDuplex
+		proxyHandler = tmpHandler
+
+	} else {
+		proxyHandler = proxy
 	}
 
 	proxy.BufferPool = a.bufferPool
@@ -140,7 +157,7 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 		pkghandler.Error(a.logger.With(zap.String(logkey.Key, revID.String())))(w, req, err)
 	}
 
-	proxy.ServeHTTP(w, r)
+	proxyHandler.ServeHTTP(w, r)
 }
 
 // useSecurePort replaces the default port with HTTPS port (8112).

@@ -209,7 +209,7 @@ func main() {
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	ah := activatorhandler.New(ctx, throttler, transport, networkConfig.EnableMeshPodAddressability, logger, tlsEnabled)
-	ah = handler.NewTimeoutHandler(ah, "activator request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
+	ah = wrapActivatorHandlerWithFullDuplex(handler.NewTimeoutHandler(ah, "activator request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
 		if rev := activatorhandler.RevisionFrom(r.Context()); rev != nil {
 			var responseStartTimeout = 0 * time.Second
 			if rev.Spec.ResponseStartTimeoutSeconds != nil {
@@ -224,7 +224,7 @@ func main() {
 		return apiconfig.DefaultRevisionTimeoutSeconds * time.Second,
 			apiconfig.DefaultRevisionResponseStartTimeoutSeconds * time.Second,
 			apiconfig.DefaultRevisionIdleTimeoutSeconds * time.Second
-	})
+	}))
 	ah = concurrencyReporter.Handler(ah)
 	ah = activatorhandler.NewTracingHandler(ah)
 	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",
@@ -236,7 +236,7 @@ func main() {
 
 	// NOTE: MetricHandler is being used as the outermost handler of the meaty bits. We're not interested in measuring
 	// the healthchecks or probes.
-	ah = activatorhandler.NewMetricHandler(env.PodName, ah)
+	ah = wrapActivatorHandlerWithFullDuplex(activatorhandler.NewMetricHandler(env.PodName, ah))
 	ah = activatorhandler.NewContextHandler(ctx, ah, configStore)
 
 	// Network probe handlers.
@@ -338,4 +338,15 @@ func flush(logger *zap.SugaredLogger) {
 	os.Stdout.Sync()
 	os.Stderr.Sync()
 	metrics.FlushExporter()
+}
+
+func wrapActivatorHandlerWithFullDuplex(h http.Handler) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		revEnableHTTP1FullDuplex := activatorhandler.RevAnnotations(r.Context(), apiconfig.AllowHTTPFullDuplexFeatureKey) == "Enabled"
+		if revEnableHTTP1FullDuplex {
+			rc := http.NewResponseController(w)
+			_ = rc.EnableFullDuplex()
+		}
+		h.ServeHTTP(w, r)
+	})
 }
