@@ -187,13 +187,13 @@ jobs:
         echo "::endgroup::"
 
         echo "::group:: install kapp ${KAPP_VERSION}"
-        curl -Lo ./kapp https://github.com/vmware-tanzu/carvel-kapp/releases/download/v${KAPP_VERSION}/kapp-linux-amd64
+        curl -Lo ./kapp https://github.com/carvel-dev/kapp/releases/download/v${KAPP_VERSION}/kapp-linux-amd64
         chmod +x ./kapp
         sudo mv kapp /usr/local/bin
         echo "::endgroup::"
 
         echo "::group:: install ytt ${YTT_VERSION}"
-        curl -Lo ./ytt https://github.com/vmware-tanzu/carvel-ytt/releases/download/v${YTT_VERSION}/ytt-linux-amd64
+        curl -Lo ./ytt https://github.com/carvel-dev/ytt/releases/download/v${YTT_VERSION}/ytt-linux-amd64
         chmod +x ./ytt
         sudo mv ytt /usr/local/bin
         echo "::endgroup::"
