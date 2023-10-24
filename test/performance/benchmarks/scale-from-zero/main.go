@@ -360,11 +360,11 @@ func checkSLA(results *vegeta.Metrics, p95min time.Duration, p95max time.Duratio
 		return fmt.Errorf("SLA 2 failed. Max latency is higher than %dms: %s", latencyMax, results.Latencies.Max)
 	}
 
-	// SLA 3: making sure the defined vegeta total requests is met
+	// SLA 3: making sure the defined vegeta total requests is met, the defined vegeta total requests should equal the count of ksvcs we want to run scale-from-zero in parallel
 	if results.Requests == uint64(parallel) {
 		log.Printf("SLA 3 passed. total requests is %d", results.Requests)
 	} else {
-		return fmt.Errorf("SLA 3 failed. total requests is %d", results.Requests)
+		return fmt.Errorf("SLA 3 failed. total requests is %d, expected total requests is %d", results.Requests, uint64(parallel))
 	}
 
 	return nil
