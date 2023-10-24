@@ -186,7 +186,7 @@ var (
 				FieldRef: &corev1.ObjectFieldSelector{APIVersion: "v1", FieldPath: "status.hostIP"},
 			},
 		}, {
-			Name:  "ENABLE_HTTP2_AUTO_DETECTION",
+			Name:  "ENABLE_HTTP_AUTO_DETECTION",
 			Value: "false",
 		}, {
 			Name:  "ROOT_CA",

@@ -86,7 +86,7 @@ type config struct {
 	RevisionIdleTimeoutSeconds          int    `split_words:"true"` // optional
 	ServingReadinessProbe               string `split_words:"true"` // optional
 	EnableProfiling                     bool   `split_words:"true"` // optional
-	EnableHTTP2AutoDetection            bool   `split_words:"true"` // optional
+	EnableHTTPAutoDetection             bool   `split_words:"true"` // optional
 
 	// Logging configuration
 	ServingLoggingConfig         string `split_words:"true" required:"true"`
@@ -225,7 +225,7 @@ func Main(opts ...Option) error {
 	// Setup probe to run for checking user-application healthiness.
 	probe := func() bool { return true }
 	if env.ServingReadinessProbe != "" {
-		probe = buildProbe(logger, env.ServingReadinessProbe, env.EnableHTTP2AutoDetection).ProbeContainer
+		probe = buildProbe(logger, env.ServingReadinessProbe, env.EnableHTTPAutoDetection).ProbeContainer
 	}
 
 	// Enable TLS when certificate is mounted.

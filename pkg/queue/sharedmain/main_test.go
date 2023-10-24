@@ -27,6 +27,7 @@ import (
 
 	"go.opencensus.io/plugin/ochttp"
 
+	"github.com/kelseyhightower/envconfig"
 	netheader "knative.dev/networking/pkg/http/header"
 	netstats "knative.dev/networking/pkg/http/stats"
 	pkgnet "knative.dev/pkg/network"
@@ -187,5 +188,78 @@ func TestQueueTraceSpans(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+type UnsupportedEnvConfig struct {
+	EnableHTTP2AutoDetection bool `split_words:"true"` // optional
+}
+
+func TestEnv(t *testing.T) {
+	envVars := []struct {
+		name  string
+		value string
+	}{{
+		"ENABLE_HTT_P2_AUTO_DETECTION",
+		"true",
+	}, {
+		"ENABLE_HTTP_AUTO_DETECTION",
+		"true",
+	}, {
+		"CONTAINER_CONCURRENCY",
+		"10",
+	}, {
+		"QUEUE_SERVING_PORT",
+		"8080",
+	}, {
+		"QUEUE_SERVING_TLS_PORT",
+		"443",
+	}, {
+		"REVISION_TIMEOUT_SECONDS",
+		"1000",
+	}, {
+		"USER_PORT",
+		"8081",
+	}, {
+		"SERVING_LOGGING_CONFIG",
+		"",
+	}, {
+		"SERVING_LOGGING_LEVEL",
+		"info",
+	}, {
+		"SERVING_NAMESPACE",
+		"knative-serving",
+	}, {
+		"SERVING_CONFIGURATION",
+		"",
+	}, {
+		"SERVING_REVISION",
+		"rev",
+	}, {
+		"SERVING_POD",
+		"pod",
+	}, {
+		"SERVING_POD_IP",
+		"1.1.1.1",
+	}}
+
+	for _, v := range envVars {
+		t.Setenv(v.name, v.value)
+	}
+	var env config
+	if err := envconfig.Process("", &env); err != nil {
+		t.Fatal("Got unexpected error processing env:", err)
+	}
+	if !env.EnableHTTPAutoDetection {
+		t.Fatal("Flag ENABLE_HTTP_AUTO_DETECTION should be set to true")
+	}
+	var uEnv UnsupportedEnvConfig
+	if err := envconfig.Process("", &uEnv); err != nil {
+		t.Fatal("Got unexpected error processing env:", err)
+	}
+	// Splitting should have been ENABLE_HTTP2_AUTO_DETECTION
+	// Keeping this here as a warning
+	if !uEnv.EnableHTTP2AutoDetection {
+		t.Fatal("Flag ENABLE_HTT_P2_AUTO_DETECTION should be set to true")
 	}
 }
