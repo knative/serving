@@ -360,8 +360,18 @@ spec:
                         disableMergeSlashes:
                           description: "DisableMergeSlashes disables Envoy's non-standard merge_slashes path transformation option which strips duplicate slashes from request URL paths. \n Contour's default is false."
                           type: boolean
+                        httpMaxConcurrentStreams:
+                          description: Defines the value for SETTINGS_MAX_CONCURRENT_STREAMS Envoy will advertise in the SETTINGS frame in HTTP/2 connections and the limit for concurrent streams allowed for a peer on a single HTTP/2 connection. It is recommended to not set this lower than 100 but this field can be used to bound resource usage by HTTP/2 connections and mitigate attacks like CVE-2023-44487. The default value when this is not set is unlimited.
+                          format: int32
+                          minimum: 1
+                          type: integer
                         maxRequestsPerConnection:
                           description: Defines the maximum requests for downstream connections. If not specified, there is no limit. see https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/protocol.proto#envoy-v3-api-msg-config-core-v3-httpprotocoloptions for more information.
+                          format: int32
+                          minimum: 1
+                          type: integer
+                        maxRequestsPerIOCycle:
+                          description: Defines the limit on number of HTTP requests that Envoy will process from a single connection in a single I/O cycle. Requests over this limit are processed in subsequent I/O cycles. Can be used as a mitigation for CVE-2023-44487 when abusive traffic is detected. Configures the http.max_requests_per_io_cycle Envoy runtime setting. The default value when this is not set is no limit.
                           format: int32
                           minimum: 1
                           type: integer
@@ -2428,8 +2438,18 @@ spec:
                             disableMergeSlashes:
                               description: "DisableMergeSlashes disables Envoy's non-standard merge_slashes path transformation option which strips duplicate slashes from request URL paths. \n Contour's default is false."
                               type: boolean
+                            httpMaxConcurrentStreams:
+                              description: Defines the value for SETTINGS_MAX_CONCURRENT_STREAMS Envoy will advertise in the SETTINGS frame in HTTP/2 connections and the limit for concurrent streams allowed for a peer on a single HTTP/2 connection. It is recommended to not set this lower than 100 but this field can be used to bound resource usage by HTTP/2 connections and mitigate attacks like CVE-2023-44487. The default value when this is not set is unlimited.
+                              format: int32
+                              minimum: 1
+                              type: integer
                             maxRequestsPerConnection:
                               description: Defines the maximum requests for downstream connections. If not specified, there is no limit. see https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/protocol.proto#envoy-v3-api-msg-config-core-v3-httpprotocoloptions for more information.
+                              format: int32
+                              minimum: 1
+                              type: integer
+                            maxRequestsPerIOCycle:
+                              description: Defines the limit on number of HTTP requests that Envoy will process from a single connection in a single I/O cycle. Requests over this limit are processed in subsequent I/O cycles. Can be used as a mitigation for CVE-2023-44487 when abusive traffic is detected. Configures the http.max_requests_per_io_cycle Envoy runtime setting. The default value when this is not set is no limit.
                               format: int32
                               minimum: 1
                               type: integer
@@ -5346,7 +5366,7 @@ rules:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: contour-certgen-v1-26-0
+  name: contour-certgen-v1-26-1
   namespace: contour-external
   labels:
     networking.knative.dev/ingress-provider: contour
@@ -5358,7 +5378,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: ghcr.io/projectcontour/contour:v1.26.0
+          image: ghcr.io/projectcontour/contour:v1.26.1
           imagePullPolicy: IfNotPresent
           command:
             - contour
@@ -5593,7 +5613,7 @@ spec:
             - --config-path=/config/contour.yaml
           command:
             - contour
-          image: ghcr.io/projectcontour/contour:v1.26.0
+          image: ghcr.io/projectcontour/contour:v1.26.1
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -5682,7 +5702,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: ghcr.io/projectcontour/contour:v1.26.0
+          image: ghcr.io/projectcontour/contour:v1.26.1
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -5710,7 +5730,7 @@ spec:
             - --log-level info
           command:
             - envoy
-          image: docker.io/envoyproxy/envoy:v1.27.0
+          image: docker.io/envoyproxy/envoy:v1.27.2
           imagePullPolicy: IfNotPresent
           name: envoy
           env:
@@ -5772,7 +5792,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: ghcr.io/projectcontour/contour:v1.26.0
+          image: ghcr.io/projectcontour/contour:v1.26.1
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
@@ -6071,7 +6091,7 @@ rules:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: contour-certgen-v1-26-0
+  name: contour-certgen-v1-26-1
   namespace: contour-internal
   labels:
     networking.knative.dev/ingress-provider: contour
@@ -6083,7 +6103,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: ghcr.io/projectcontour/contour:v1.26.0
+          image: ghcr.io/projectcontour/contour:v1.26.1
           imagePullPolicy: IfNotPresent
           command:
             - contour
@@ -6236,7 +6256,7 @@ spec:
             - --config-path=/config/contour.yaml
           command:
             - contour
-          image: ghcr.io/projectcontour/contour:v1.26.0
+          image: ghcr.io/projectcontour/contour:v1.26.1
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -6325,7 +6345,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: ghcr.io/projectcontour/contour:v1.26.0
+          image: ghcr.io/projectcontour/contour:v1.26.1
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -6353,7 +6373,7 @@ spec:
             - --log-level info
           command:
             - envoy
-          image: docker.io/envoyproxy/envoy:v1.27.0
+          image: docker.io/envoyproxy/envoy:v1.27.2
           imagePullPolicy: IfNotPresent
           name: envoy
           env:
@@ -6415,7 +6435,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: ghcr.io/projectcontour/contour:v1.26.0
+          image: ghcr.io/projectcontour/contour:v1.26.1
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
