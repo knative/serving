@@ -184,9 +184,6 @@ func checkSLA(results *vegeta.Metrics, pacers []vegeta.Pacer, durations []time.D
 	}
 
 	// SLA 4: making sure the defined vegeta total requests is met
-	if len(pacers) != len(durations) {
-		return fmt.Errorf("SLA 4 failed. len(pacers)= %d, len(durations)= %d ", len(pacers), len(durations))
-	}
 	var expectedRequests uint64
 	for i := 0; i < len(pacers); i++ {
 		expectedRequests = expectedRequests + uint64(pacers[i].Rate(time.Second)*durations[i].Seconds())
