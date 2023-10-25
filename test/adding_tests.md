@@ -176,7 +176,7 @@ reach the desired state.
 The `WaitFor*` functions use the kubernetes
 [`wait` package](https://godoc.org/k8s.io/apimachinery/pkg/util/wait). To poll
 they use
-[`PollImmediate`](https://godoc.org/k8s.io/apimachinery/pkg/util/wait#PollImmediate)
+[`PollUntilContextTimeout`](https://pkg.go.dev/k8s.io/apimachinery/pkg/util/wait#PollUntilContextTimeout)
 and the return values of the function you provide behave the same as
 [`ConditionFunc`](https://godoc.org/k8s.io/apimachinery/pkg/util/wait#ConditionFunc):
 a `bool` to indicate if the function should stop or continue polling, and an

@@ -93,7 +93,7 @@ func TestDomainMappingWebsocket(t *testing.T) {
 		clients.ServingBetaClient.DomainMappings.Delete(ctx, dm.Name, metav1.DeleteOptions{})
 	})
 
-	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
+	waitErr := wait.PollUntilContextTimeout(ctx, test.PollInterval, test.PollTimeout, true, func(context.Context) (bool, error) {
 		var err error
 		dm, err := clients.ServingBetaClient.DomainMappings.Get(ctx, dm.Name, metav1.GetOptions{})
 		if err != nil {

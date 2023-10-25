@@ -66,7 +66,7 @@ func connect(t *testing.T, clients *test.Clients, domain, timeout string) (*webs
 	}
 
 	var conn *websocket.Conn
-	waitErr := wait.PollImmediate(connectRetryInterval, connectTimeout, func() (bool, error) {
+	waitErr := wait.PollUntilContextTimeout(context.Background(), connectRetryInterval, connectTimeout, true, func(context.Context) (bool, error) {
 		t.Logf("Connecting using websocket: url=%s, host=%s", u.String(), domain)
 		dialer := &websocket.Dialer{
 			Proxy:            http.ProxyFromEnvironment,

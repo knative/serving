@@ -129,7 +129,7 @@ func TestBYOCertificate(t *testing.T) {
 		clients.ServingBetaClient.DomainMappings.Delete(ctx, dm.Name, metav1.DeleteOptions{})
 	})
 
-	err = wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
+	err = wait.PollUntilContextTimeout(ctx, test.PollInterval, test.PollTimeout, true, func(context.Context) (bool, error) {
 		dm, err := clients.ServingBetaClient.DomainMappings.Get(ctx, dm.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err

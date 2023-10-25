@@ -123,7 +123,7 @@ func TestDomainMappingExternalDomainTLS(t *testing.T) {
 	})
 
 	// Wait for DomainMapping to go Ready.
-	if waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
+	if waitErr := wait.PollUntilContextTimeout(ctx, test.PollInterval, test.PollTimeout, true, func(context.Context) (bool, error) {
 		state, err := clients.ServingBetaClient.DomainMappings.Get(ctx, dm.Name, metav1.GetOptions{})
 
 		// DomainMapping can go Ready if only http is available.

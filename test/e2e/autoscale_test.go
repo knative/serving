@@ -338,7 +338,7 @@ func TestFastScaleToZero(t *testing.T) {
 	// test allows for up to a minute). The 15s delay is based upon maximum
 	// of 20 runs (11s) + 4s of buffer for reliability.
 	st := time.Now()
-	if err := wait.PollImmediate(1*time.Second, cfg.ScaleToZeroGracePeriod+15*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, cfg.ScaleToZeroGracePeriod+15*time.Second, true, func(context.Context) (bool, error) {
 		eps, err := ctx.clients.KubeClient.CoreV1().Endpoints(test.ServingFlags.TestNamespace).Get(context.Background(), epsN, metav1.GetOptions{})
 		if err != nil {
 			return false, err

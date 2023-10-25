@@ -94,7 +94,7 @@ func TestDomainMapping(t *testing.T) {
 	})
 
 	// Wait for DomainMapping to go Ready.
-	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
+	waitErr := wait.PollUntilContextTimeout(ctx, test.PollInterval, test.PollTimeout, true, func(context.Context) (bool, error) {
 		var err error
 		dm, err = clients.ServingBetaClient.DomainMappings.Get(context.Background(), dm.Name, metav1.GetOptions{})
 		if err != nil {
@@ -162,7 +162,7 @@ func TestDomainMapping(t *testing.T) {
 	})
 
 	// Second domain mapping should go to DomainMappingConditionDomainClaimed=false state.
-	waitErr = wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
+	waitErr = wait.PollUntilContextTimeout(ctx, test.PollInterval, test.PollTimeout, true, func(context.Context) (bool, error) {
 		state, err := altClients.ServingBetaClient.DomainMappings.Get(context.Background(), dm.Name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
@@ -196,7 +196,7 @@ func TestDomainMapping(t *testing.T) {
 	}
 
 	// The second DomainMapping should now be able to claim the domain.
-	waitErr = wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
+	waitErr = wait.PollUntilContextTimeout(ctx, test.PollInterval, test.PollTimeout, true, func(context.Context) (bool, error) {
 		var err error
 		altDm, err = altClients.ServingBetaClient.DomainMappings.Get(context.Background(), altDm.Name, metav1.GetOptions{})
 		if err != nil {

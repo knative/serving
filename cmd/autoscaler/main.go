@@ -93,7 +93,7 @@ func main() {
 
 	// We sometimes startup faster than we can reach kube-api. Poll on failure to prevent us terminating
 	var err error
-	if perr := wait.PollImmediate(time.Second, 60*time.Second, func() (bool, error) {
+	if perr := wait.PollUntilContextTimeout(ctx, time.Second, 60*time.Second, true, func(context.Context) (bool, error) {
 		if err = version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
 			log.Print("Failed to get k8s version ", err)
 		}

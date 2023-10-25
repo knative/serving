@@ -80,7 +80,7 @@ func assertServiceEventuallyWorks(t *testing.T, clients *test.Clients, names tes
 func waitForEndpointsState(client kubernetes.Interface, svcName, svcNamespace string, inState func(*corev1.Endpoints) (bool, error)) error {
 	endpointsService := client.CoreV1().Endpoints(svcNamespace)
 
-	return wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
+	return wait.PollUntilContextTimeout(context.Background(), test.PollInterval, test.PollTimeout, true, func(context.Context) (bool, error) {
 		endpoint, err := endpointsService.Get(context.Background(), svcName, metav1.GetOptions{})
 		if err != nil {
 			return false, err

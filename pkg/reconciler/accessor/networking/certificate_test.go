@@ -98,7 +98,7 @@ func TestReconcileCertificateCreate(t *testing.T) {
 	ReconcileCertificate(ctx, ownerObj, desired, accessor)
 
 	lister := fakecertinformer.Get(ctx).Lister()
-	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
 		cert, err := lister.Certificates(desired.Namespace).Get(desired.Name)
 		if errors.IsNotFound(err) {
 			return false, nil
@@ -121,7 +121,7 @@ func TestReconcileCertificateUpdate(t *testing.T) {
 	ReconcileCertificate(ctx, ownerObj, desired, accessor)
 
 	lister := fakecertinformer.Get(ctx).Lister()
-	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
 		cert, err := lister.Certificates(desired.Namespace).Get(desired.Name)
 		if errors.IsNotFound(err) {
 			return false, nil

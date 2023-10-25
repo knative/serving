@@ -555,7 +555,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			if *cc != 0 {
 				wantCapacity = dests * int(*cc)
 			}
-			if err := wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
+			if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 3*time.Second, true, func(context.Context) (bool, error) {
 				rt.mux.RLock()
 				defer rt.mux.RUnlock()
 				if *cc != 0 {
@@ -770,7 +770,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 
 	// Verify capacity gets updated. This is the very last thing we update
 	// so we now know that the rest is set statically.
-	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, time.Second, true, func(context.Context) (bool, error) {
 		// Capacity doesn't exceed 1 in this test.
 		return rt.breaker.Capacity() == 1, nil
 	}); err != nil {
@@ -795,7 +795,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 	endpoints.Informer().GetIndexer().Update(publicEp)
 
 	// Verify the index was computed.
-	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, time.Second, true, func(context.Context) (bool, error) {
 		return rt.numActivators.Load() == 1 &&
 			rt.activatorIndex.Load() == 0, nil
 	}); err != nil {
@@ -867,7 +867,7 @@ func TestMultipleActivators(t *testing.T) {
 	// Verify capacity gets updated. This is the very last thing we update
 	// so we now know that we got and processed both the activator endpoints
 	// and the application endpoints.
-	if err := wait.PollImmediate(10*time.Millisecond, time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, time.Second, true, func(context.Context) (bool, error) {
 		return rt.breaker.Capacity() == 1, nil
 	}); err != nil {
 		t.Fatal("Timed out waiting for the capacity to be updated")

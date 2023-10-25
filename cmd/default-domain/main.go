@@ -124,7 +124,7 @@ func findGatewayAddress(ctx context.Context, kubeclient kubernetes.Interface, cl
 	defer client.NetworkingV1alpha1().Ingresses(system.Namespace()).Delete(ctx, ing.Name, metav1.DeleteOptions{})
 
 	// Wait for the Ingress to be Ready.
-	if err := wait.PollImmediate(pollInterval, waitTimeout, func() (done bool, err error) {
+	if err := wait.PollUntilContextTimeout(ctx, pollInterval, waitTimeout, true, func(context.Context) (done bool, err error) {
 		ing, err = client.NetworkingV1alpha1().Ingresses(system.Namespace()).Get(
 			ctx, ing.Name, metav1.GetOptions{})
 		if err != nil {
@@ -149,7 +149,7 @@ func findGatewayAddress(ctx context.Context, kubeclient kubernetes.Interface, cl
 
 	// Wait for the Ingress Service to have an external IP.
 	var svc *corev1.Service
-	if err := wait.PollImmediate(pollInterval, waitTimeout, func() (done bool, err error) {
+	if err := wait.PollUntilContextTimeout(ctx, pollInterval, waitTimeout, true, func(context.Context) (done bool, err error) {
 		svc, err = kubeclient.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
