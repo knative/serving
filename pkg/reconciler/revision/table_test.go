@@ -473,21 +473,31 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/deploy-timeout",
 	}, {
 		Name: "revision failure because replicaset and deployment failed",
-		// Test just define a Revision so when an error creating the replicaset happens
-		// this is the state that we want to have, everything been but failing due to Revision ReplicaSetFailure
+		// This test defines a Revision InProgress with status Deploying but with a
+		// Deployment with a ReplicaSet failure, so the wanted status update is for
+		// the Deployment FailedCreate error to bubble up to the Revision
 		Objects: []runtime.Object{
 			Revision("foo", "deploy-replicaset-failure",
 				WithLogURL, MarkActivating("Deploying", ""),
 				WithRoutingState(v1.RoutingStateActive, fc),
 				withDefaultContainerStatuses(),
 				WithRevisionObservedGeneration(1),
-				MarkResourcesUnavailable("FailedCreate", "I ReplicaSet failed!"),
 				MarkContainerHealthyUnknown("Deploying"),
 			),
 			pa("foo", "deploy-replicaset-failure", WithReachabilityUnreachable),
 			replicaFailureDeploy(deploy(t, "foo", "deploy-replicaset-failure"), "I ReplicaSet failed!"),
 			image("foo", "deploy-replicaset-failure"),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Revision("foo", "deploy-replicaset-failure",
+				WithLogURL, MarkResourcesUnavailable("FailedCreate", "I ReplicaSet failed!"),
+				withDefaultContainerStatuses(),
+				WithRoutingState(v1.RoutingStateActive, fc),
+				MarkContainerHealthyUnknown("Deploying"),
+				WithRevisionObservedGeneration(1),
+				MarkActivating("Deploying", ""),
+			),
+		}},
 		Key: "foo/deploy-replicaset-failure",
 	}, {
 		Name: "surface replica failure",
