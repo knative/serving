@@ -79,7 +79,7 @@ func mainHandler(
 	}
 	// Create queue handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
-	var composedHandler http.Handler = proxyHandler
+	composedHandler := proxyHandler
 
 	metricsSupported := supportsMetrics(ctx, logger, env)
 	if metricsSupported {
