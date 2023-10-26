@@ -21,6 +21,7 @@ package e2e
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"testing"
@@ -255,9 +256,9 @@ func ensureDesiredScale(clients *test.Clients, t *testing.T, serviceName string,
 
 		return false, nil
 	})
-	if err.Error() != "context deadline exceeded" {
+	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Log("PollError =", err)
 	}
 
-	return latestReady, err.Error() == "context deadline exceeded"
+	return latestReady, errors.Is(err, context.DeadlineExceeded)
 }

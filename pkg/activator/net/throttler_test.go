@@ -329,7 +329,7 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 
 	// Eventually it should now fail.
 	var lastError error
-	wait.PollInfinite(10*time.Millisecond, func() (bool, error) {
+	wait.PollUntilContextCancel(ctx, 10*time.Millisecond, false, func(context.Context) (bool, error) {
 		lastError = throttler.Try(ctx, revID, func(string) error { return nil })
 		return lastError != nil, nil
 	})

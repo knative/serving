@@ -17,6 +17,7 @@ limitations under the License.
 package certificate
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"os"
@@ -70,7 +71,7 @@ func TestCertificateRotation(t *testing.T) {
 
 	// CertWatcher should return the new certificate
 	// Give CertWatcher some time to update the certificate
-	if err := wait.Poll(1*time.Second, 60*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, 60*time.Second, true, func(context.Context) (bool, error) {
 		c, err = cw.GetCertificate(nil)
 		if err != nil {
 			return false, err
