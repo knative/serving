@@ -17,6 +17,7 @@ limitations under the License.
 package readiness
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -163,7 +164,7 @@ func (p *Probe) doProbe(probe func(time.Duration) error) error {
 
 	var failCount int
 	var lastProbeErr error
-	pollErr := wait.PollImmediate(retryInterval, p.pollTimeout, func() (bool, error) {
+	pollErr := wait.PollUntilContextTimeout(context.Background(), retryInterval, p.pollTimeout, true, func(context.Context) (bool, error) {
 		if err := probe(aggressiveProbeTimeout); err != nil {
 			// Reset count of consecutive successes to zero.
 			p.count = 0

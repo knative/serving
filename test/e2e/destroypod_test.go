@@ -202,7 +202,7 @@ func TestDestroyPodTimely(t *testing.T) {
 	clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).Delete(context.Background(), podToDelete, metav1.DeleteOptions{})
 
 	var latestPodState *corev1.Pod
-	if err := wait.PollImmediate(1*time.Second, revisionTimeout, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, revisionTimeout, true, func(context.Context) (bool, error) {
 		pod, err := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).Get(context.Background(), podToDelete, metav1.GetOptions{})
 		if apierrs.IsNotFound(err) {
 			// The podToDelete must be deleted.

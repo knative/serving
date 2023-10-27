@@ -502,7 +502,7 @@ func TestGlobalResyncOnDefaultCMChange(t *testing.T) {
 
 	revClient.Create(ctx, rev, metav1.CreateOptions{})
 	revL := fakerevisioninformer.Get(ctx).Lister()
-	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
 		// The only error we're getting in the test reasonably is NotFound.
 		r, _ := revL.Revisions(rev.Namespace).Get(rev.Name)
 		return r != nil && r.Status.ObservedGeneration == r.Generation, nil
@@ -513,7 +513,7 @@ func TestGlobalResyncOnDefaultCMChange(t *testing.T) {
 
 	// Ensure initial PA is in the informers.
 	paL := fakepainformer.Get(ctx).Lister().PodAutoscalers(rev.Namespace)
-	if ierr := wait.PollImmediate(50*time.Millisecond, 6*time.Second, func() (bool, error) {
+	if ierr := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 6*time.Second, true, func(context.Context) (bool, error) {
 		_, err = paL.Get(rev.Name)
 		return err == nil, nil
 	}); ierr != nil {
@@ -549,7 +549,7 @@ func TestGlobalResyncOnDefaultCMChange(t *testing.T) {
 
 		pa, err := paL.Get(rev.Name)
 		t.Logf("Initial PA: %#v GetErr: %v", pa, err)
-		if ierr := wait.PollImmediate(50*time.Millisecond, 2*time.Second, func() (bool, error) {
+		if ierr := wait.PollUntilContextTimeout(ctx, 50*time.Millisecond, 2*time.Second, true, func(context.Context) (bool, error) {
 			pa, err = paL.Get(rev.Name)
 			return pa != nil && pa.Spec.ContainerConcurrency == pos, nil
 		}); ierr == nil { // err==nil!
@@ -586,7 +586,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 
 	revClient.Create(ctx, rev, metav1.CreateOptions{})
 	revL := fakerevisioninformer.Get(ctx).Lister()
-	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
 		// The only error we're getting in the test reasonably is NotFound.
 		r, _ := revL.Revisions(rev.Namespace).Get(rev.Name)
 		// We only create a single revision, but make sure it is reconciled.
@@ -608,7 +608,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 	})
 
 	want := "http://new-logging.test.com?filter=" + string(rev.UID)
-	if ierr := wait.PollImmediate(50*time.Millisecond, 5*time.Second, func() (bool, error) {
+	if ierr := wait.PollUntilContextTimeout(ctx, 50*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
 		r, _ := revL.Revisions(rev.Namespace).Get(rev.Name)
 		return r != nil && r.Status.LogURL == want, nil
 	}); ierr != nil {
@@ -664,7 +664,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 
 	revClient.Create(ctx, rev, metav1.CreateOptions{})
 	revL := fakerevisioninformer.Get(ctx).Lister().Revisions(rev.Namespace)
-	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
 		// The only error we're getting in the test reasonably is NotFound.
 		r, _ := revL.Get(rev.Name)
 		// We only create a single revision, but make sure it is reconciled.
@@ -677,7 +677,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 	watcher.OnChange(configMapToUpdate)
 
 	depL := fakedeploymentinformer.Get(ctx).Lister().Deployments(rev.Namespace)
-	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
 		dep, _ := depL.Get(names.Deployment(rev))
 		return dep != nil && checkF(dep), nil
 	}); err != nil {
@@ -713,7 +713,7 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	}
 
 	// Poll to see PA object to be created.
-	if err := wait.PollImmediate(25*time.Millisecond, 3*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 3*time.Second, true, func(context.Context) (bool, error) {
 		pa, _ := servingClient.AutoscalingV1alpha1().PodAutoscalers(rev.Namespace).Get(
 			ctx, rev.Name, metav1.GetOptions{})
 		return pa != nil, nil
@@ -723,7 +723,7 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 
 	// Poll to see if the deployment is created. This should _already_ be there.
 	depL := fakedeploymentinformer.Get(ctx).Lister().Deployments(rev.Namespace)
-	if err := wait.PollImmediate(10*time.Millisecond, 1*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 1*time.Second, true, func(context.Context) (bool, error) {
 		dep, _ := depL.Get(names.Deployment(rev))
 		return dep != nil, nil
 	}); err != nil {

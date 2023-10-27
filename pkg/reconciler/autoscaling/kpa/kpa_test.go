@@ -1377,7 +1377,7 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 	fakenetworkingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(ctx, sks, metav1.CreateOptions{})
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(ctx, kpa, metav1.CreateOptions{})
 
-	wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
 		_, err := fakepainformer.Get(ctx).Lister().PodAutoscalers(testNamespace).Get(kpa.Name)
 		if err != nil && apierrors.IsNotFound(err) {
 			return false, nil
@@ -1399,7 +1399,7 @@ func TestReconcileDeciderCreatesAndDeletes(t *testing.T) {
 
 	// The ReconcileKind call hasn't finished yet at the point where the Decider is created,
 	// so give it more time to finish before checking the PA for IsReady().
-	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
 		newKPA, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
 			ctx, kpa.Name, metav1.GetOptions{})
 		if err != nil && apierrors.IsNotFound(err) {
@@ -1665,7 +1665,7 @@ func TestScaleFailure(t *testing.T) {
 }
 
 func pollDeciders(deciders *testDeciders, namespace, name string, cond func(*scaling.Decider) bool) (decider *scaling.Decider, err error) {
-	wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
+	wait.PollUntilContextTimeout(context.Background(), 10*time.Millisecond, 3*time.Second, true, func(context.Context) (bool, error) {
 		decider, err = deciders.Get(context.Background(), namespace, name)
 		if err != nil {
 			return false, nil

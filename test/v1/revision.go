@@ -39,7 +39,7 @@ func WaitForRevisionState(client *test.ServingClients, name string, inState func
 	defer span.End()
 
 	var lastState *v1.Revision
-	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
+	waitErr := wait.PollUntilContextTimeout(context.Background(), test.PollInterval, test.PollTimeout, true, func(context.Context) (bool, error) {
 		var err error
 		lastState, err = client.Revisions.Get(context.Background(), name, metav1.GetOptions{})
 		if err != nil {

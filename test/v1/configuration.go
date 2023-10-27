@@ -161,7 +161,7 @@ func WaitForConfigurationState(client *test.ServingClients, name string, inState
 	defer span.End()
 
 	var lastState *v1.Configuration
-	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
+	waitErr := wait.PollUntilContextTimeout(context.Background(), test.PollInterval, test.PollTimeout, true, func(context.Context) (bool, error) {
 		err := reconciler.RetryTestErrors(func(int) (err error) {
 			lastState, err = client.Configs.Get(context.Background(), name, metav1.GetOptions{})
 			return err

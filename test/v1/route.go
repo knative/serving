@@ -90,7 +90,7 @@ func WaitForRouteState(client *test.ServingClients, name string, inState func(r 
 	defer span.End()
 
 	var lastState *v1.Route
-	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
+	waitErr := wait.PollUntilContextTimeout(context.Background(), test.PollInterval, test.PollTimeout, true, func(context.Context) (bool, error) {
 		err := reconciler.RetryTestErrors(func(int) (err error) {
 			lastState, err = client.Routes.Get(context.Background(), name, metav1.GetOptions{})
 			return err

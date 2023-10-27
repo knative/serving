@@ -125,7 +125,7 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	}
 
 	// Actively wait for the endpoints to change their value.
-	if err := wait.PollImmediate(25*time.Millisecond, 5*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, 25*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
 		ep, err := epsInformer.Lister().Endpoints(ns1).Get(sks1)
 		if err != nil && apierrors.IsNotFound(err) {
 			return false, nil
@@ -142,7 +142,7 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 }
 
 func waitForObservedGen(ctx context.Context, client networkingv1alpha1.NetworkingV1alpha1Interface, ns, name string, generation int64) error {
-	return wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (bool, error) {
+	return wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 10*time.Second, true, func(context.Context) (bool, error) {
 		sks, err := client.ServerlessServices(ns).Get(ctx, name, metav1.GetOptions{})
 
 		if err != nil && apierrors.IsNotFound(err) {

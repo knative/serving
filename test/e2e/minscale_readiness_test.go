@@ -211,7 +211,7 @@ func latestRevisionName(t *testing.T, clients *test.Clients, configName, oldRevN
 func privateServiceName(t *testing.T, clients *test.Clients, revisionName string) string {
 	var privateServiceName string
 
-	if err := wait.PollImmediate(time.Second, 1*time.Minute, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(context.Background(), time.Second, 1*time.Minute, true, func(context.Context) (bool, error) {
 		sks, err := clients.NetworkingClient.ServerlessServices.Get(context.Background(), revisionName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
@@ -231,7 +231,7 @@ func waitForDesiredScale(clients *test.Clients, serviceName string, cond func(in
 	endpoints := clients.KubeClient.CoreV1().Endpoints(test.ServingFlags.TestNamespace)
 
 	// See https://github.com/knative/serving/issues/7727#issuecomment-706772507 for context.
-	return latestReady, wait.PollImmediate(250*time.Millisecond, 3*time.Minute, func() (bool, error) {
+	return latestReady, wait.PollUntilContextTimeout(context.Background(), 250*time.Millisecond, 3*time.Minute, true, func(context.Context) (bool, error) {
 		endpoint, err := endpoints.Get(context.Background(), serviceName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
@@ -244,7 +244,7 @@ func waitForDesiredScale(clients *test.Clients, serviceName string, cond func(in
 func ensureDesiredScale(clients *test.Clients, t *testing.T, serviceName string, cond func(int) bool) (latestReady int, observed bool) {
 	endpoints := clients.KubeClient.CoreV1().Endpoints(test.ServingFlags.TestNamespace)
 
-	err := wait.PollImmediate(250*time.Millisecond, 10*time.Second, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), 250*time.Millisecond, 10*time.Second, true, func(context.Context) (bool, error) {
 		endpoint, err := endpoints.Get(context.Background(), serviceName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
@@ -256,9 +256,9 @@ func ensureDesiredScale(clients *test.Clients, t *testing.T, serviceName string,
 
 		return false, nil
 	})
-	if !errors.Is(err, wait.ErrWaitTimeout) {
+	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Log("PollError =", err)
 	}
 
-	return latestReady, errors.Is(err, wait.ErrWaitTimeout)
+	return latestReady, errors.Is(err, context.DeadlineExceeded)
 }

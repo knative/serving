@@ -81,7 +81,7 @@ func TestRevisionGC(t *testing.T) {
 
 	// Poll for a minute to see not_found on the original revision.
 	var originalRevision *v1.Revision
-	err = wait.PollImmediate(5*time.Second, time.Minute, func() (bool, error) {
+	err = wait.PollUntilContextTimeout(context.Background(), 5*time.Second, time.Minute, true, func(context.Context) (bool, error) {
 		originalRevision, err = clients.ServingClient.Revisions.Get(context.Background(), revision.GetName(), metav1.GetOptions{})
 		if apierrs.IsNotFound(err) {
 			return true, nil

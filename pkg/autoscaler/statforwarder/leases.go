@@ -202,7 +202,7 @@ func (f *leaseTracker) leaseUpdated(obj interface{}) {
 
 func (f *leaseTracker) createService(ctx context.Context, ns, n string) error {
 	var lastErr error
-	if err := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, retryInterval, retryTimeout, true, func(context.Context) (bool, error) {
 		_, lastErr = f.kc.CoreV1().Services(ns).Create(ctx, &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      n,
@@ -247,7 +247,7 @@ func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n string
 
 	exists := true
 	var lastErr error
-	if err := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, retryInterval, retryTimeout, true, func(context.Context) (bool, error) {
 		e, err := f.endpointsLister.Endpoints(ns).Get(n)
 		if apierrs.IsNotFound(err) {
 			exists = false
@@ -281,7 +281,7 @@ func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n string
 		return nil
 	}
 
-	if err := wait.PollImmediate(retryInterval, retryTimeout, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, retryInterval, retryTimeout, true, func(context.Context) (bool, error) {
 		_, lastErr = f.kc.CoreV1().Endpoints(ns).Create(ctx, &corev1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      n,

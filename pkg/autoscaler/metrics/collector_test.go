@@ -17,6 +17,7 @@ limitations under the License.
 package metrics
 
 import (
+	"context"
 	"errors"
 	"math"
 	"testing"
@@ -185,7 +186,7 @@ func TestMetricCollectorScraperMovingTime(t *testing.T) {
 	}
 	var gotRPS, gotConcurrency, panicRPS, panicConcurrency float64
 	// Poll to see that the async loop completed.
-	wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+	wait.PollUntilContextTimeout(context.Background(), 10*time.Millisecond, 2*time.Second, true, func(context.Context) (bool, error) {
 		gotConcurrency, panicConcurrency, _ = coll.StableAndPanicConcurrency(metricKey, now)
 		gotRPS, panicRPS, _ = coll.StableAndPanicRPS(metricKey, now)
 		return gotConcurrency == wantConcurrency &&
@@ -256,7 +257,7 @@ func TestMetricCollectorScraper(t *testing.T) {
 	}
 	var gotRPS, gotConcurrency, panicRPS, panicConcurrency float64
 	// Poll to see that the async loop completed.
-	wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+	wait.PollUntilContextTimeout(context.Background(), 10*time.Millisecond, 2*time.Second, true, func(context.Context) (bool, error) {
 		gotConcurrency, panicConcurrency, _ = coll.StableAndPanicConcurrency(metricKey, now)
 		gotRPS, panicRPS, _ = coll.StableAndPanicRPS(metricKey, now)
 		return gotConcurrency == wantConcurrency &&
@@ -289,7 +290,7 @@ func TestMetricCollectorScraper(t *testing.T) {
 	mtp.Channel <- now
 
 	// Wait for async loop to finish.
-	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(context.Background(), 10*time.Millisecond, 2*time.Second, true, func(context.Context) (bool, error) {
 		gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now.Add(defaultMetric.Spec.StableWindow).Add(-5*time.Second))
 		gotRPS, _, _ = coll.StableAndPanicRPS(metricKey, now.Add(defaultMetric.Spec.StableWindow).Add(-5*time.Second))
 		return gotConcurrency == reportConcurrency*5 && gotRPS == reportRPS*5, nil
