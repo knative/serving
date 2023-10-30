@@ -40,6 +40,8 @@ import (
 )
 
 func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) error {
+	fmt.Printf("andrew>>> !!!WWWWXYZz\n")
+	// fmt.Println("andrew reconcileDeployment")
 	ns := rev.Namespace
 	deploymentName := resourcenames.Deployment(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
@@ -80,6 +82,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 	}
 
 	// If a container keeps crashing (no active pods in the deployment although we want some)
+	fmt.Printf("andrew rev.GetRoutingState() %v  for %s-----------------\n", rev.GetRoutingState(), deploymentName)
 	if *deployment.Spec.Replicas > 0 && deployment.Status.AvailableReplicas == 0 {
 		pods, err := c.kubeclient.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(deployment.Spec.Selector)})
 		if err != nil {
@@ -94,6 +97,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 			// If pod cannot be scheduled then we expect the container status to be empty.
 			for _, cond := range pod.Status.Conditions {
 				if cond.Type == corev1.PodScheduled && cond.Status == corev1.ConditionFalse {
+					fmt.Printf("andrew cond  %+v %+v %+v\n", cond.Type, cond.Status, cond.Reason)
 					rev.Status.MarkResourcesAvailableFalse(cond.Reason, cond.Message)
 					break
 				}
@@ -101,7 +105,10 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 
 			for _, status := range pod.Status.ContainerStatuses {
 				if status.Name == rev.Spec.GetContainer().Name {
+					fmt.Printf("andrew status.RestartCount %+v %+v\n", status.RestartCount, status.Name)
 					if t := status.LastTerminationState.Terminated; t != nil {
+						fmt.Printf("andrew  marking exiting with: %d/%s\n", t.ExitCode, t.Message)
+						fmt.Printf("andrew>>>>>>>>>>>>>>>>> !!!Terminated\n")
 						logger.Infof("marking exiting with: %d/%s", t.ExitCode, t.Message)
 						if t.ExitCode == 0 && t.Message == "" {
 							// In cases where there is no error message, we should still provide some exit message in the status
@@ -110,13 +117,23 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 						} else {
 							rev.Status.MarkContainerHealthyFalse(v1.ExitCodeReason(t.ExitCode), v1.RevisionContainerExitingMessage(t.Message))
 						}
+						return nil
 					} else if w := status.State.Waiting; w != nil && hasDeploymentTimedOut(deployment) {
+						fmt.Printf("andrew  marking resources unavailable with: %s: %s\n", w.Reason, w.Message)
 						logger.Infof("marking resources unavailable with: %s: %s", w.Reason, w.Message)
 						rev.Status.MarkResourcesAvailableFalse(w.Reason, w.Message)
+						return nil
 					}
 					break
 				}
 			}
+			// logger.Infof("andrew here")
+			// fmt.Printf("andrew here2 \n")
+			// for _, cond := range deployment.Status.Conditions {
+			// 	// fmt.Printf("\n",s.)
+			// }
+			// rev.Status.MarkContainerHealthyFalse("TESTING7",
+			// 	v1.RevisionContainerExitingMessage("container exited with no error"))
 		}
 	}
 

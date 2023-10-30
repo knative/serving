@@ -18,6 +18,7 @@ package revision
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -113,6 +114,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) (boo
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgreconciler.Event {
+	fmt.Printf("andrew>>> !!!wwwwwwwwwwwwwwwwwwwwwwwwwwwww\n")
 	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
 	defer cancel()
 
@@ -145,8 +147,12 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 		}
 	}
 
+	if err := c.reconcileDeployment(ctx, rev); err != nil {
+		fmt.Printf("andrew reconcileDeployment err %v\n", err)
+		return err
+	}
+
 	for _, phase := range []func(context.Context, *v1.Revision) error{
-		c.reconcileDeployment,
 		c.reconcileImageCache,
 		c.reconcilePA,
 	} {

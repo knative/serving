@@ -24,25 +24,28 @@ import (
 
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 	cachingclient "knative.dev/caching/pkg/client/injection/client"
 	imageinformer "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/changeset"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
-	servingclient "knative.dev/serving/pkg/client/injection/client"
-	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
-	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
-
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
-	netcfg "knative.dev/networking/pkg/config"
+	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	apisconfig "knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	servingclient "knative.dev/serving/pkg/client/injection/client"
+	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
+	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 )
@@ -73,6 +76,9 @@ func newControllerWithOptions(
 	deploymentInformer := deploymentinformer.Get(ctx)
 	imageInformer := imageinformer.Get(ctx)
 	paInformer := painformer.Get(ctx)
+
+	podsInformer := podinformer.Get(ctx)
+	logger.Infof("andrew	podsInformer2>>>>>>> %+v", podsInformer)
 
 	c := &Reconciler{
 		kubeclient:    kubeclient.Get(ctx),
@@ -132,6 +138,34 @@ func newControllerWithOptions(
 	deploymentInformer.Informer().AddEventHandler(handleMatchingControllers)
 	paInformer.Informer().AddEventHandler(handleMatchingControllers)
 
+	podsFilter := cache.FilteringResourceEventHandler{
+		FilterFunc: func(obj interface{}) bool {
+
+			tempFunc := pkgreconciler.LabelExistsFilterFunc(serving.RevisionLabelKey)
+
+			temp := tempFunc(obj)
+			// logger.Infof("andrew >>>>  podsFilter LabelExistsFilterFunc = %v", temp)
+
+			if temp {
+				// logger.Infof("andrew >>>>  podsFilter type: %+v", reflect.TypeOf(obj))
+
+				// logger.Infof("andrew >>>>  podsFilter obj: %+v", obj)
+
+				if pod, ok := obj.(*corev1.Pod); ok {
+					logger.Infof("andrew >>>>  podsFilter It's a Pod: %+v", pod.Name)
+				} else {
+					logger.Infof("andrew >>>>  podsFilter Not a Pod.")
+				}
+
+			}
+
+			return temp
+		},
+		Handler: controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)),
+	}
+	podsInformer.Informer().AddEventHandler(podsFilter)
+
+	logger.Infof("andrew >>>>  podsInformer2.Informer().AddEventHandler podsFilter = %v", podsFilter)
 	// We don't watch for changes to Image because we don't incorporate any of its
 	// properties into our own status and should work completely in the absence of
 	// a functioning Image controller.
