@@ -340,7 +340,7 @@ func (c *Reconciler) clusterLocalDomainTLS(ctx context.Context, r *v1.Route, tc 
 			r.Status.MarkCertificateReady(cert.Name)
 			tls = append(tls, resources.MakeIngressTLS(cert, localDomains.List(), netv1alpha1.IngressVisibilityClusterLocal))
 		} else {
-			r.Status.MarkCertificateNotReady(cert.Name)
+			r.Status.MarkCertificateNotReady(cert)
 		}
 
 		for s, _ := range localDomains {

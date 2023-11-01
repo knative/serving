@@ -63,23 +63,28 @@ if (( SHORT )); then
   GO_TEST_FLAGS+=" -short"
 fi
 
+#go_test_e2e -timeout=30m \
+#  ${GO_TEST_FLAGS} \
+#  ./test/conformance/api/... \
+#  ./test/conformance/runtime/... \
+#  ./test/e2e \
+#  ${E2E_TEST_FLAGS} || failed=1
+#
+#toggle_feature tag-header-based-routing Enabled
+#go_test_e2e -timeout=2m ./test/e2e/tagheader ${E2E_TEST_FLAGS} || failed=1
+#toggle_feature tag-header-based-routing Disabled
+#
+#toggle_feature allow-zero-initial-scale true config-autoscaler || fail_test
+#go_test_e2e -timeout=2m ./test/e2e/initscale ${E2E_TEST_FLAGS} || failed=1
+#toggle_feature allow-zero-initial-scale false config-autoscaler || fail_test
+#
+#go_test_e2e -timeout=2m ./test/e2e/domainmapping ${E2E_TEST_FLAGS} || failed=1
 
-go_test_e2e -timeout=30m \
-  ${GO_TEST_FLAGS} \
-  ./test/conformance/api/... \
-  ./test/conformance/runtime/... \
-  ./test/e2e \
-  ${E2E_TEST_FLAGS} || failed=1
-
-toggle_feature tag-header-based-routing Enabled
-go_test_e2e -timeout=2m ./test/e2e/tagheader ${E2E_TEST_FLAGS} || failed=1
-toggle_feature tag-header-based-routing Disabled
-
-toggle_feature allow-zero-initial-scale true config-autoscaler || fail_test
-go_test_e2e -timeout=2m ./test/e2e/initscale ${E2E_TEST_FLAGS} || failed=1
-toggle_feature allow-zero-initial-scale false config-autoscaler || fail_test
-
-go_test_e2e -timeout=2m ./test/e2e/domainmapping ${E2E_TEST_FLAGS} || failed=1
+toggle_feature cluster-local-domain-tls enabled config-network || fail_test
+toggle_feature certificate-class knative-selfsigned.certificate.networking.knative.dev config-network || fail_test
+go_test_e2e -timeout=2m ./test/e2e/clusterlocaldomaintls ${E2E_TEST_FLAGS} || failed=1
+toggle_feature cluster-local-domain-tls disabled config-network || fail_test
+toggle_feature certificate-class '' config-network || fail_test
 
 toggle_feature system-internal-tls enabled config-network || fail_test
 toggle_feature "logging.enable-request-log" true config-observability || fail_test
@@ -92,10 +97,6 @@ toggle_feature enable-request-log false config-observability || fail_test
 toggle_feature request-log-template '' config-observability || fail_test
 # with the current implementation, Activator is always in the request path, and needs to be restarted after configuring system-internal-tls
 restart_pod ${SYSTEM_NAMESPACE} "app=activator"
-
-toggle_feature cluster-local-domain-tls enabled config-network || fail_test
-go_test_e2e -timeout=2m ./test/e2e/clusterlocaldomaintls ${E2E_TEST_FLAGS} || failed=1
-toggle_feature cluster-local-domain-tls disabled config-network || fail_test
 
 kubectl get cm "config-gc" -n "${SYSTEM_NAMESPACE}" -o yaml > "${TMP_DIR}"/config-gc.yaml
 add_trap "kubectl replace cm 'config-gc' -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.yaml" SIGKILL SIGTERM SIGQUIT

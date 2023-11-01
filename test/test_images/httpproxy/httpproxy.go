@@ -103,19 +103,12 @@ func newTLSEnabledTransport() http.RoundTripper {
 		}
 		transport.TLSClientConfig = &tls.Config{
 			RootCAs: rootCAs,
-			// If SERVER_NAME is not set the empty value will make the
-			// TLS client infer the ServerName from the hostname.
-			ServerName: os.Getenv("SERVER_NAME"),
 		}
 	}
 	return transport
 }
 
-func createRootCAs(caCertFile string) (*x509.CertPool, error) {
-	pemData, err := os.ReadFile(caCertFile)
-	if err != nil {
-		return nil, err
-	}
+func createRootCAs(caCert string) (*x509.CertPool, error) {
 	rootCAs, err := x509.SystemCertPool()
 	if rootCAs == nil || err != nil {
 		if err != nil {
@@ -123,7 +116,7 @@ func createRootCAs(caCertFile string) (*x509.CertPool, error) {
 		}
 		rootCAs = x509.NewCertPool()
 	}
-	if !rootCAs.AppendCertsFromPEM(pemData) {
+	if !rootCAs.AppendCertsFromPEM([]byte(caCert)) {
 		return nil, errors.New("failed to add the certificate to the root CA")
 	}
 	return rootCAs, nil

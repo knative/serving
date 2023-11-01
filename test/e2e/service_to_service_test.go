@@ -101,6 +101,13 @@ func TestServiceToServiceCall(t *testing.T) {
 	}
 	t.Logf("helloworld internal domain is %s.", resources.Route.Status.URL.Host)
 
+	// if cluster-local-domain-tls is enabled, this will return the CA used to sign the certificates.
+	// TestProxyToHelloworld will use this CA to verify the https connection
+	secret, err := GetCASecret(clients)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
 	// helloworld app and its route are ready. Running the test cases now.
 	for _, tc := range testCases {
 		helloworldURL := &url.URL{
@@ -115,7 +122,7 @@ func TestServiceToServiceCall(t *testing.T) {
 				cancel := logstream.Start(t)
 				defer cancel()
 			}
-			TestProxyToHelloworld(t, clients, helloworldURL, true /*inject*/, false /*accessible externally*/)
+			TestProxyToHelloworld(t, clients, helloworldURL, true, false, secret)
 		})
 	}
 }
@@ -151,8 +158,15 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 		t.Fatal("Never got Activator endpoints in the service:", err)
 	}
 
+	// if cluster-local-domain-tls is enabled, this will return the CA used to sign the certificates.
+	// TestProxyToHelloworld will use this CA to verify the https connection
+	secret, err := GetCASecret(clients)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
 	// Send request to helloworld app via httpproxy service
-	TestProxyToHelloworld(t, clients, resources.Route.Status.URL.URL(), injectA, false /*accessible externally*/)
+	TestProxyToHelloworld(t, clients, resources.Route.Status.URL.URL(), injectA, false, secret)
 }
 
 // Same test as TestServiceToServiceCall but before sending requests
@@ -212,6 +226,13 @@ func TestCallToPublicService(t *testing.T) {
 		{"external_address", resources.Route.Status.URL.URL(), true},
 	}
 
+	// if cluster-local-domain-tls is enabled, this will return the CA used to sign the certificates.
+	// TestProxyToHelloworld will use this CA to verify the https connection
+	secret, err := GetCASecret(clients)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
 	for _, tc := range gatewayTestCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
@@ -220,7 +241,7 @@ func TestCallToPublicService(t *testing.T) {
 				cancel := logstream.Start(t)
 				defer cancel()
 			}
-			TestProxyToHelloworld(t, clients, tc.url, false /*inject*/, tc.accessibleExternally)
+			TestProxyToHelloworld(t, clients, tc.url, false, tc.accessibleExternally, secret)
 		})
 	}
 }

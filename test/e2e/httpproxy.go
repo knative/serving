@@ -5,12 +5,11 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
-	"knative.dev/pkg/ptr"
+	"knative.dev/networking/pkg/certificates"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/spoof"
@@ -23,11 +22,9 @@ const (
 	targetHostEnv      = "TARGET_HOST"
 	gatewayHostEnv     = "GATEWAY_HOST"
 	helloworldResponse = "Hello World! How about some tasty noodles?"
-	caCertDirectory    = "/var/lib/knative/ca"
-	caCertPath         = caCertDirectory + "/ca.crt"
 )
 
-func TestProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *url.URL, inject bool, accessibleExternal bool) {
+func TestProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *url.URL, inject bool, accessibleExternal bool, caSecret *corev1.Secret) {
 	// Create envVars to be used in httpproxy app.
 	envVars := []corev1.EnvVar{{
 		Name:  targetHostEnv,
@@ -47,14 +44,9 @@ func TestProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 		})
 	}
 
-	caSecretName := os.Getenv("CA_CERT")
-
-	// External services use different TLS certificates than cluster-local services.
-	// Not passing CA_CERT will make the httpproxy use plain http to connect to the
-	// target service.
-	if caSecretName != "" && !accessibleExternal {
-		envVars = append(envVars, []corev1.EnvVar{{Name: "CA_CERT", Value: caCertPath},
-			{Name: "SERVER_NAME", Value: os.Getenv("SERVER_NAME")}}...)
+	// HTTPProxy needs to trust the CA that signed the cluster-local-domain certificates of the target service
+	if caSecret != nil && !accessibleExternal {
+		envVars = append(envVars, []corev1.EnvVar{{Name: "CA_CERT", Value: string(caSecret.Data[certificates.CertName])}}...)
 	}
 
 	// Set up httpproxy app.
@@ -71,15 +63,6 @@ func TestProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 		rtesting.WithConfigAnnotations(map[string]string{
 			"sidecar.istio.io/inject": strconv.FormatBool(inject),
 		}),
-	}
-
-	if caSecretName != "" && !accessibleExternal {
-		serviceOptions = append(serviceOptions, rtesting.WithVolume("ca-certs", caCertDirectory, corev1.VolumeSource{
-			Secret: &corev1.SecretVolumeSource{
-				SecretName: caSecretName,
-				Optional:   ptr.Bool(false),
-			}}),
-		)
 	}
 
 	resources, err := v1test.CreateServiceReady(t, clients, &names, serviceOptions...)

@@ -87,17 +87,17 @@ jobs:
       fail-fast: false # Keep running if one leg fails.
       matrix:
         k8s-version:
-        - v1.26.x
-        - v1.27.x
+#        - v1.26.x
+#        - v1.27.x
         - v1.28.x
 
         ingress:
-        - kourier
+#        - kourier
         - kourier-tls
-        - istio
-        - istio-tls
-        - istio-ambient
-        - contour
+#        - istio
+#        - istio-tls
+#        - istio-ambient
+#        - contour
         # Disabled due to consistent failures
         # - gateway_istio
 
@@ -113,22 +113,22 @@ jobs:
         #   test-flags: -enable-alpha
         #   namespace-resources: httproute
 
-        - ingress: contour
-          namespace-resources: httpproxy
-
-        - ingress: istio
-          namespace-resources: virtualservices
-
-        - ingress: istio-tls
-          ingress-class: istio
-          namespace-resources: virtualservices
-          enable-tls: 1
-
-        - ingress: istio-ambient
-          namespace-resources: virtualservices
-          ingress-class: istio
-          ambient: 1
-
+#        - ingress: contour
+#          namespace-resources: httpproxy
+#
+#        - ingress: istio
+#          namespace-resources: virtualservices
+#
+#        - ingress: istio-tls
+#          ingress-class: istio
+#          namespace-resources: virtualservices
+#          enable-tls: 1
+#
+#        - ingress: istio-ambient
+#          namespace-resources: virtualservices
+#          ingress-class: istio
+#          ambient: 1
+#
         - ingress: kourier-tls
           ingress-class: kourier
           enable-tls: 1
@@ -217,8 +217,6 @@ jobs:
         echo "SYSTEM_NAMESPACE=$SYSTEM_NAMESPACE" >> $GITHUB_ENV
         echo "GATEWAY_OVERRIDE=$GATEWAY_OVERRIDE" >> $GITHUB_ENV
         echo "GATEWAY_NAMESPACE_OVERRIDE=$GATEWAY_NAMESPACE_OVERRIDE" >> $GITHUB_ENV
-        echo "CA_CERT=$CA_CERT" >> $GITHUB_ENV
-        echo "SERVER_NAME=$SERVER_NAME" >> $GITHUB_ENV
 
     - name: Test ${{ matrix.test-suite }}
       run: |

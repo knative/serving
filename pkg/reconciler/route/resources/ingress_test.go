@@ -1228,6 +1228,7 @@ func TestMakeIngressTLS(t *testing.T) {
 		Hosts:           []string{"test.default.example.com", "v1.test.default.example.com"},
 		SecretName:      "route-1234",
 		SecretNamespace: system.Namespace(),
+		Visibility:      netv1alpha1.IngressVisibilityExternalIP,
 	}
 	hostNames := []string{"test.default.example.com", "v1.test.default.example.com"}
 	got := MakeIngressTLS(cert, hostNames, netv1alpha1.IngressVisibilityExternalIP)

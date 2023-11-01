@@ -22,13 +22,10 @@ package clusterlocaldomaintls
 import (
 	"context"
 	"net/url"
-	"os"
 	"strings"
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	netapi "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/certificates"
 	"knative.dev/pkg/system"
@@ -39,8 +36,6 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-const knativeCASecretName = "serving-certs-cluster-local-domain-ca"
-
 var dnsVariants = []struct {
 	name   string
 	suffix string
@@ -50,15 +45,6 @@ var dnsVariants = []struct {
 	{"shortest", ".svc.cluster.local"},
 }
 
-var testNamespaceCASecretName = test.AppendRandomString("ca-secret")
-
-// cluster-local-domain-tls enabled
-// matrix with:
-// - cert-manager
-// - knative-selfsigned-issuer
-// matrix with:
-//   - net-kourier
-//     ... later others
 func TestClusterLocalDomainTLSClusterLocalVisibility(t *testing.T) {
 	if !test.ServingFlags.EnableAlphaFeatures {
 		t.Skip("Alpha features not enabled")
@@ -77,7 +63,6 @@ func TestClusterLocalDomainTLSClusterLocalVisibility(t *testing.T) {
 
 	test.EnsureTearDown(t, clients, &names)
 
-	ctx := context.Background()
 	withInternalVisibility := rtesting.WithServiceLabel(netapi.VisibilityLabelKey, serving.VisibilityClusterLocal)
 	t.Log("Creating a new service with cluster-local visibility")
 	resources, err := v1test.CreateServiceReady(t, clients, &names, withInternalVisibility)
@@ -86,9 +71,11 @@ func TestClusterLocalDomainTLSClusterLocalVisibility(t *testing.T) {
 	}
 
 	// After the service is created, we need to wait for the CA to be populated,
-	// then copy the CA to the testing namespace for the ProxyImage to be used
-	copyCASecretToTestNamespace(t, err, clients, ctx)
-	os.Setenv("CA_CERT", testNamespaceCASecretName)
+	// then use that secret in the ProxyImage to trust the cluster-local https connection
+	secret, err := e2e.GetCASecret(clients)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
 	svcUrl := resources.Route.Status.URL.URL()
 	if svcUrl.Scheme != "https" {
@@ -104,7 +91,7 @@ func TestClusterLocalDomainTLSClusterLocalVisibility(t *testing.T) {
 		}
 		t.Run(dns.name, func(t *testing.T) {
 			t.Parallel()
-			e2e.TestProxyToHelloworld(t, clients, helloworldURL, false, false)
+			e2e.TestProxyToHelloworld(t, clients, helloworldURL, false, false, secret)
 		})
 	}
 }
@@ -127,8 +114,6 @@ func TestClusterLocalDomainTLSClusterExternalVisibility(t *testing.T) {
 
 	test.EnsureTearDown(t, clients, &names)
 
-	ctx := context.Background()
-
 	t.Log("Creating a new service with external visibility")
 	resources, err := v1test.CreateServiceReady(t, clients, &names)
 	if err != nil {
@@ -136,9 +121,11 @@ func TestClusterLocalDomainTLSClusterExternalVisibility(t *testing.T) {
 	}
 
 	// After the service is created, we need to wait for the CA to be populated,
-	// then copy the CA to the testing namespace for the ProxyImage to be used
-	copyCASecretToTestNamespace(t, err, clients, ctx)
-	os.Setenv("CA_CERT", testNamespaceCASecretName)
+	// then use that secret in the ProxyImage to trust the cluster-local https connection
+	secret, err := e2e.GetCASecret(clients)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
 	externalURL := resources.Route.Status.URL.URL()
 	internalURL := resources.Route.Status.Address.URL
@@ -154,7 +141,7 @@ func TestClusterLocalDomainTLSClusterExternalVisibility(t *testing.T) {
 	// Check normal access on external domain
 	t.Run("external-access", func(t *testing.T) {
 		t.Parallel()
-		e2e.TestProxyToHelloworld(t, clients, externalURL, false, true)
+		e2e.TestProxyToHelloworld(t, clients, externalURL, false, true, secret)
 	})
 
 	// Check access via https on all cluster-local-domains
@@ -166,44 +153,8 @@ func TestClusterLocalDomainTLSClusterExternalVisibility(t *testing.T) {
 		}
 		t.Run(dns.name, func(t *testing.T) {
 			t.Parallel()
-			e2e.TestProxyToHelloworld(t, clients, helloworldURL, false, false)
+			e2e.TestProxyToHelloworld(t, clients, helloworldURL, false, false, secret)
 		})
-	}
-}
-
-func copyCASecretToTestNamespace(t *testing.T, err error, clients *test.Clients, ctx context.Context) {
-	err = wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		caSecret, err := clients.KubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, knativeCASecretName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		// CA not yet populated
-		if len(caSecret.Data[certificates.CertName]) == 0 {
-			return false, nil
-		}
-		// Create a secret with the CAs public key contents, that is read by the httpproxy image
-		secret, err := clients.KubeClient.CoreV1().Secrets(test.ServingFlags.TestNamespace).Create(ctx, &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: testNamespaceCASecretName,
-			},
-			Data: map[string][]byte{
-				certificates.CaCertName: caSecret.Data[certificates.CertName],
-			},
-		}, metav1.CreateOptions{})
-		if err != nil {
-			t.Fatalf("Could not create CA secret in test-namespace: %v", err)
-		}
-		test.EnsureCleanup(t, func() {
-			err = clients.KubeClient.CoreV1().Secrets(secret.Namespace).Delete(ctx, secret.Name, metav1.DeleteOptions{})
-			if err != nil {
-				// This error is allowed to occur, as we call this method twice
-				t.Logf("Secret %s/%s could not be deleted: %v", secret.Namespace, secret.Name, err)
-			}
-		})
-		return true, nil
-	})
-	if err != nil {
-		t.Fatalf("Waiting for Knative selfsigned CA to be populated and copying it to test-namespace failed: %v", err)
 	}
 }
 
@@ -233,9 +184,11 @@ func TestClusterLocalDomainTLSCARotation(t *testing.T) {
 	}
 
 	// After the service is created, we need to wait for the CA to be populated,
-	// then copy the CA to the testing namespace for the ProxyImage to be used
-	copyCASecretToTestNamespace(t, err, clients, ctx)
-	os.Setenv("CA_CERT", testNamespaceCASecretName)
+	// then use that secret in the ProxyImage to trust the cluster-local https connection
+	secret, err := e2e.GetCASecret(clients)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
 	// Check access via https on all cluster-local-domains
 	svcUrl := resources.Route.Status.URL.URL()
@@ -246,14 +199,15 @@ func TestClusterLocalDomainTLSCARotation(t *testing.T) {
 			Path:   svcUrl.Path,
 		}
 		t.Run(dns.name+"-old-ca", func(t *testing.T) {
-			e2e.TestProxyToHelloworld(t, clients, helloworldURL, false, false)
+			e2e.TestProxyToHelloworld(t, clients, helloworldURL, false, false, secret)
 		})
 	}
 
+	// TODO: move this to encryption.go
 	// Trigger a CA rotation by modifying the CA secret in SYSTEM_NAMESPACE
-	caSecret, err := clients.KubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, knativeCASecretName, metav1.GetOptions{})
+	caSecret, err := clients.KubeClient.CoreV1().Secrets(system.Namespace()).Get(ctx, e2e.KnativeCASecretName, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get existing Knative self-signed CA secret %s/%s: %v", system.Namespace(), knativeCASecretName, err)
+		t.Fatalf("Failed to get existing Knative self-signed CA secret %s/%s: %v", system.Namespace(), e2e.KnativeCASecretName, err)
 	}
 
 	// dropping the values will re-populate them and fire the reconciler for all KnativeCertificates
@@ -262,17 +216,15 @@ func TestClusterLocalDomainTLSCARotation(t *testing.T) {
 
 	_, err = clients.KubeClient.CoreV1().Secrets(system.Namespace()).Update(ctx, caSecret, metav1.UpdateOptions{})
 	if err != nil {
-		t.Fatalf("Could not update CA secret %s/%s: %v", system.Namespace(), knativeCASecretName, err)
+		t.Fatalf("Could not update CA secret %s/%s: %v", system.Namespace(), e2e.KnativeCASecretName, err)
 	}
 
-	// Delete the old CA secret in the test namespace
-	err = clients.KubeClient.CoreV1().Secrets(test.ServingFlags.TestNamespace).Delete(ctx, testNamespaceCASecretName, metav1.DeleteOptions{})
+	// After the service is created, we need to wait for the CA to be populated,
+	// then use that secret in the ProxyImage to trust the cluster-local https connection
+	newSecret, err := e2e.GetCASecret(clients)
 	if err != nil {
-		t.Fatalf("Could not delete CA secret %s/%s: %v", test.ServingFlags.TestNamespace, testNamespaceCASecretName, err)
+		t.Fatal(err.Error())
 	}
-
-	// Copy the new CA secret to the test namespace
-	copyCASecretToTestNamespace(t, err, clients, ctx)
 
 	// Re-run the access test via https on all cluster-local-domains
 	// using the new CA to verify trust to the backing service
@@ -283,7 +235,7 @@ func TestClusterLocalDomainTLSCARotation(t *testing.T) {
 			Path:   svcUrl.Path,
 		}
 		t.Run(dns.name+"-new-ca", func(t *testing.T) {
-			e2e.TestProxyToHelloworld(t, clients, helloworldURL, false, false)
+			e2e.TestProxyToHelloworld(t, clients, helloworldURL, false, false, newSecret)
 		})
 	}
 }
