@@ -334,7 +334,6 @@ func TestIdleTimeoutHandler(t *testing.T) {
 
 func TestTimeoutHandler(t *testing.T) {
 	const (
-		noTimeout        = 0 * time.Millisecond
 		immediateTimeout = 1 * time.Millisecond
 		shortTimeout     = 100 * time.Millisecond
 		longTimeout      = 1 * time.Minute

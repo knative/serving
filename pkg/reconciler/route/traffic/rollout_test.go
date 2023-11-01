@@ -1011,9 +1011,7 @@ func TestObserveReady(t *testing.T) {
 	const (
 		now         = 200620092020 + 1982
 		oldenDays   = 198219841988
-		oldenStep   = float64(now-oldenDays) / float64(time.Second)
 		ancientDays = 14921812
-		ancientStep = float64(now-ancientDays) / float64(time.Second)
 		duration    = 120.
 	)
 	ro := Rollout{
