@@ -254,12 +254,6 @@ func WithRevisionPVC() RevisionOption {
 	}
 }
 
-func WithRevisionReplicaSetFailure(reason, message string) RevisionOption {
-	return func(r *v1.Revision) {
-		r.Status.MarkResourcesAvailableFalse(reason, message)
-	}
-}
-
 // Revision creates a revision object with given ns/name and options.
 func Revision(namespace, name string, ro ...RevisionOption) *v1.Revision {
 	r := &v1.Revision{
