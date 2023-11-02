@@ -31,5 +31,5 @@ export GOBIN=${GOPATH}/bin # Set GOBIN explicitly as deepcopy-gen is installed b
 export CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
 export KNATIVE_CODEGEN_PKG=${KNATIVE_CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 ./vendor/knative.dev/pkg 2>/dev/null || echo "${REPO_ROOT_DIR}")}
 
-chmod +x ${CODEGEN_PKG}/generate-groups.sh
-chmod +x ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh
+[ -x ${CODEGEN_PKG}/generate-groups.sh ] || chmod +x ${CODEGEN_PKG}/generate-groups.sh
+[ -x ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh ] || chmod +x ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh

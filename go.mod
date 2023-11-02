@@ -23,8 +23,8 @@ require (
 	golang.org/x/sync v0.4.0
 	golang.org/x/sys v0.13.0
 	golang.org/x/time v0.3.0
-	google.golang.org/api v0.147.0
-	google.golang.org/grpc v1.58.3
+	google.golang.org/api v0.148.0
+	google.golang.org/grpc v1.59.0
 	k8s.io/api v0.27.6
 	k8s.io/apiextensions-apiserver v0.27.6
 	k8s.io/apimachinery v0.27.6
@@ -32,11 +32,11 @@ require (
 	k8s.io/code-generator v0.27.6
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f
 	k8s.io/utils v0.0.0-20230209194617-a36077c30491
-	knative.dev/caching v0.0.0-20231017130712-54d0758671ef
-	knative.dev/hack v0.0.0-20231016131700-2c938d4918da
-	knative.dev/networking v0.0.0-20231017124814-2a7676e912b7
-	knative.dev/pkg v0.0.0-20231023151236-29775d7c9e5c
-	sigs.k8s.io/yaml v1.3.0
+	knative.dev/caching v0.0.0-20231101191025-c6425778e5ba
+	knative.dev/hack v0.0.0-20231025074238-d4af42e9b222
+	knative.dev/networking v0.0.0-20231102061026-3bd0f7d578ab
+	knative.dev/pkg v0.0.0-20231102061027-a6c730fd81f7
+	sigs.k8s.io/yaml v1.4.0
 )
 
 require (
@@ -99,7 +99,7 @@ require (
 	github.com/google/gnostic v0.6.9 // indirect
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20230209165335-3624968304fd // indirect
 	github.com/google/s2a-go v0.1.7 // indirect
-	github.com/google/uuid v1.3.1 // indirect
+	github.com/google/uuid v1.4.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.1 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.11.3 // indirect
@@ -111,7 +111,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.16.6 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
+	github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
@@ -122,7 +122,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.17.0 // indirect
 	github.com/prometheus/client_model v0.4.1-0.20230718164431-9a2bf3000d16 // indirect
-	github.com/prometheus/common v0.44.0 // indirect
+	github.com/prometheus/common v0.45.0 // indirect
 	github.com/prometheus/procfs v0.11.1 // indirect
 	github.com/prometheus/statsd_exporter v0.22.7 // indirect
 	github.com/rs/dnscache v0.0.0-20211102005908-e0241e321417 // indirect
@@ -142,7 +142,7 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20231002182017-d307bd883b97 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20231002182017-d307bd883b97 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20231009173412-8bfb1ae86b6c // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20231012201019-e917dd12ba7a // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
