@@ -741,10 +741,10 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 	}()
 
 	possibleDests := sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234")
-	updateCh <- (revisionDestsUpdate{
+	updateCh <- revisionDestsUpdate{
 		Rev:   revID,
 		Dests: possibleDests,
-	})
+	}
 
 	// Add activator endpoint with 2 activators.
 	publicEp := &corev1.Endpoints{
@@ -837,10 +837,10 @@ func TestMultipleActivators(t *testing.T) {
 
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 	possibleDests := sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234")
-	updateCh <- (revisionDestsUpdate{
+	updateCh <- revisionDestsUpdate{
 		Rev:   revID,
 		Dests: possibleDests,
-	})
+	}
 
 	// Add activator endpoint with 2 activators.
 	publicEp := &corev1.Endpoints{
