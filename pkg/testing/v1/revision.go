@@ -158,12 +158,6 @@ func MarkContainerHealthyUnknown(reason string) RevisionOption {
 	}
 }
 
-func MarkRevisionActiveUnknown(reason string) RevisionOption {
-	return func(r *v1.Revision) {
-		r.Status.MarkActiveUnknown(reason, "")
-	}
-}
-
 // MarkProgressDeadlineExceeded calls the method of the same name on the Revision
 // with the message we expect the Revision Reconciler to pass.
 func MarkProgressDeadlineExceeded(message string) RevisionOption {
@@ -257,12 +251,6 @@ func WithRevisionPVC() RevisionOption {
 			Name:      "claimvolume",
 			MountPath: "/data",
 		}}
-	}
-}
-
-func WithRevisionReplicaSetFailure(reason, message string) RevisionOption {
-	return func(r *v1.Revision) {
-		r.Status.MarkResourcesAvailableFalse(reason, message)
 	}
 }
 
