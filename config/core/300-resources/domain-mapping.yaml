@@ -263,16 +263,6 @@ spec:
                 url:
                   description: URL is the URL of this DomainMapping.
                   type: string
-      additionalPrinterColumns:
-        - name: URL
-          type: string
-          jsonPath: .status.url
-        - name: Ready
-          type: string
-          jsonPath: ".status.conditions[?(@.type=='Ready')].status"
-        - name: Reason
-          type: string
-          jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
   names:
     kind: DomainMapping
     plural: domainmappings
