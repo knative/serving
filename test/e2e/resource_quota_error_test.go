@@ -41,6 +41,7 @@ func TestResourceQuotaError(t *testing.T) {
 	clients := test.Setup(t, test.Options{Namespace: "rq-test"})
 	const (
 		errorReason    = "RevisionFailed"
+		waitReason     = "ContainerCreating"
 		errorMsgQuota  = "forbidden: exceeded quota"
 		revisionReason = "RevisionFailed"
 	)
@@ -110,6 +111,10 @@ func TestResourceQuotaError(t *testing.T) {
 		if cond != nil {
 			if strings.Contains(cond.Message, errorMsgQuota) && cond.IsFalse() {
 				return true, nil
+			}
+			// wait for the container creation
+			if cond.Reason == waitReason {
+				return false, nil
 			}
 			return true, fmt.Errorf("the revision %s was not marked with expected error condition (Reason=%q, Message=%q), but with (Reason=%q, Message=%q)",
 				revisionName, revisionReason, errorMsgQuota, cond.Reason, cond.Message)
