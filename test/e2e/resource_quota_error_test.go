@@ -84,7 +84,6 @@ func TestResourceQuotaError(t *testing.T) {
 			if cond.Reason == errorReason && cond.IsFalse() {
 				return true, nil
 			}
-			if cond.Reason == 
 			t.Logf("Reason: %s ; Message: %s ; Status: %s", cond.Reason, cond.Message, cond.Status)
 			return true, fmt.Errorf("the service %s was not marked with expected error condition (Reason=%q, Message=%q, Status=%q), but with (Reason=%q, Message=%q, Status=%q)",
 				names.Config, errorReason, "", "False", cond.Reason, cond.Message, cond.Status)
