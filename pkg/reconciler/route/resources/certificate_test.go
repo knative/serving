@@ -19,7 +19,9 @@ package resources
 import (
 	"testing"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/networking/pkg/apis/networking"
+	"knative.dev/networking/pkg/config"
 	"knative.dev/serving/pkg/apis/serving"
 
 	"knative.dev/pkg/kmeta"
@@ -37,8 +39,9 @@ var (
 		"v1.default.example.com":         "",
 		"v1-current.default.example.com": "current",
 	}
-	domain = "example.com"
-	route  = Route("default", "route", WithRouteUID("12345"))
+	domain       = "example.com"
+	localDomains = sets.NewString("hello.namespace", "hello.namespace.svc", "hello.namespace.svc.cluster.local")
+	route        = Route("default", "route", WithRouteUID("12345"))
 )
 
 func TestMakeCertificates(t *testing.T) {
@@ -52,7 +55,8 @@ func TestMakeCertificates(t *testing.T) {
 					networking.CertificateClassAnnotationKey: "foo-cert",
 				},
 				Labels: map[string]string{
-					serving.RouteLabelKey: "route",
+					serving.RouteLabelKey:              "route",
+					networking.CertificateTypeLabelKey: string(config.CertificateExternalDomain),
 				},
 			},
 			Spec: netv1alpha1.CertificateSpec{
@@ -70,7 +74,8 @@ func TestMakeCertificates(t *testing.T) {
 					networking.CertificateClassAnnotationKey: "foo-cert",
 				},
 				Labels: map[string]string{
-					serving.RouteLabelKey: "route",
+					serving.RouteLabelKey:              "route",
+					networking.CertificateTypeLabelKey: string(config.CertificateExternalDomain),
 				},
 			},
 			Spec: netv1alpha1.CertificateSpec{
@@ -99,7 +104,8 @@ func TestMakeCertificates_FilterLastAppliedAnno(t *testing.T) {
 					networking.CertificateClassAnnotationKey: "passdown-cert",
 				},
 				Labels: map[string]string{
-					serving.RouteLabelKey: "route",
+					serving.RouteLabelKey:              "route",
+					networking.CertificateTypeLabelKey: string(config.CertificateExternalDomain),
 				},
 			},
 			Spec: netv1alpha1.CertificateSpec{
@@ -117,7 +123,8 @@ func TestMakeCertificates_FilterLastAppliedAnno(t *testing.T) {
 					networking.CertificateClassAnnotationKey: "passdown-cert",
 				},
 				Labels: map[string]string{
-					serving.RouteLabelKey: "route",
+					serving.RouteLabelKey:              "route",
+					networking.CertificateTypeLabelKey: string(config.CertificateExternalDomain),
 				},
 			},
 			Spec: netv1alpha1.CertificateSpec{
@@ -128,6 +135,58 @@ func TestMakeCertificates_FilterLastAppliedAnno(t *testing.T) {
 		},
 	}
 	got := MakeCertificates(orgRoute, dnsNameTagMap, "default-cert", domain)
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Error("MakeCertificate (-want, +got) =", diff)
+	}
+}
+
+func TestMakeClusterLocalCertificateNoTag(t *testing.T) {
+	want := &netv1alpha1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "route-12345-local",
+			Namespace:       "default",
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
+			Annotations: map[string]string{
+				networking.CertificateClassAnnotationKey: "cert-class",
+			},
+			Labels: map[string]string{
+				serving.RouteLabelKey:              "route",
+				networking.CertificateTypeLabelKey: string(config.CertificateClusterLocalDomain),
+			},
+		},
+		Spec: netv1alpha1.CertificateSpec{
+			DNSNames:   localDomains.List(),
+			Domain:     "svc.cluster.local",
+			SecretName: "route-12345-local",
+		},
+	}
+	got := MakeClusterLocalCertificate(route, "", localDomains, "cert-class")
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Error("MakeCertificate (-want, +got) =", diff)
+	}
+}
+
+func TestMakeClusterLocalCertificateWithTag(t *testing.T) {
+	want := &netv1alpha1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "route-12345-73204161-local",
+			Namespace:       "default",
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
+			Annotations: map[string]string{
+				networking.CertificateClassAnnotationKey: "cert-class",
+			},
+			Labels: map[string]string{
+				serving.RouteLabelKey:              "route",
+				networking.CertificateTypeLabelKey: string(config.CertificateClusterLocalDomain),
+			},
+		},
+		Spec: netv1alpha1.CertificateSpec{
+			DNSNames:   localDomains.List(),
+			Domain:     "svc.cluster.local",
+			SecretName: "route-12345-73204161-local",
+		},
+	}
+	got := MakeClusterLocalCertificate(route, "test", localDomains, "cert-class")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Error("MakeCertificate (-want, +got) =", diff)
 	}

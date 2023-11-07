@@ -28,6 +28,7 @@ import (
 	"go.uber.org/zap"
 	fakecachingclient "knative.dev/caching/pkg/client/injection/client/fake"
 	fakeimageinformer "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake"
+	_ "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakedeploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap/fake"

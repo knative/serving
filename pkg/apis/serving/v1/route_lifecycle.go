@@ -195,11 +195,6 @@ const (
 	// RouteConditionCertificateProvisioned condition when it is set to True
 	// because external-domain-tls was not enabled.
 	ExternalDomainTLSNotEnabledMessage = "external-domain-tls is not enabled"
-
-	// TLSNotEnabledForClusterLocalMessage is the message which is set on the
-	// RouteConditionCertificateProvisioned condition when it is set to True
-	// because the domain is cluster-local.
-	TLSNotEnabledForClusterLocalMessage = "TLS is not enabled for cluster-local"
 )
 
 // MarkTLSNotEnabled sets RouteConditionCertificateProvisioned to true when

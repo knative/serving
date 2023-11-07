@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"sync"
 
 	"go.uber.org/zap"
@@ -47,8 +48,8 @@ type CertCache struct {
 	certificatesMux sync.RWMutex
 }
 
-// NewCertCache starts secretInformer.
-func NewCertCache(ctx context.Context) *CertCache {
+// NewCertCache creates and starts the certificate cache that watches Activators certificate.
+func NewCertCache(ctx context.Context) (*CertCache, error) {
 	secretInformer := secretinformer.Get(ctx)
 
 	cr := &CertCache{
@@ -58,8 +59,8 @@ func NewCertCache(ctx context.Context) *CertCache {
 
 	secret, err := cr.secretInformer.Lister().Secrets(system.Namespace()).Get(netcfg.ServingRoutingCertName)
 	if err != nil {
-		cr.logger.Warnw("failed to get secret", zap.Error(err))
-		return nil
+		return nil, fmt.Errorf("failed to get activator certificate, secret %s/%s was not found: %w. Enabling system-internal-tls requires the secret to be present and populated with a valid certificate and CA",
+			system.Namespace(), netcfg.ServingRoutingCertName, err)
 	}
 
 	cr.updateCache(secret)
@@ -72,7 +73,7 @@ func NewCertCache(ctx context.Context) *CertCache {
 		},
 	})
 
-	return cr
+	return cr, nil
 }
 
 func (cr *CertCache) handleCertificateAdd(added interface{}) {

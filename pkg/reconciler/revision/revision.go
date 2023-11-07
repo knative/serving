@@ -25,17 +25,20 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	cachingclientset "knative.dev/caching/pkg/client/clientset/versioned"
+	networkingclientset "knative.dev/networking/pkg/client/clientset/versioned"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
+
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
 
 	cachinglisters "knative.dev/caching/pkg/client/listers/caching/v1alpha1"
+	networkinglisters "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
+
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
@@ -52,14 +55,16 @@ type resolver interface {
 
 // Reconciler implements controller.Reconciler for Revision resources.
 type Reconciler struct {
-	kubeclient    kubernetes.Interface
-	client        clientset.Interface
-	cachingclient cachingclientset.Interface
+	kubeclient       kubernetes.Interface
+	client           clientset.Interface
+	networkingclient networkingclientset.Interface
+	cachingclient    cachingclientset.Interface
 
 	// lister indexes properties about Revision
 	podAutoscalerLister palisters.PodAutoscalerLister
 	imageLister         cachinglisters.ImageLister
 	deploymentLister    appsv1listers.DeploymentLister
+	certificateLister   networkinglisters.CertificateLister
 
 	resolver resolver
 }
@@ -138,9 +143,9 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 		logger.Debug("Revision meta: " + spew.Sdump(rev.ObjectMeta))
 	}
 
-	// Deploy certificate when system-internal-tls is enabled.
+	// Deploy Knative Certificate for queue-proxy when system-internal-tls is enabled.
 	if config.FromContext(ctx).Network.SystemInternalTLSEnabled() {
-		if err := c.reconcileSecret(ctx, rev); err != nil {
+		if err := c.reconcileQueueProxyCertificate(ctx, rev); err != nil {
 			return err
 		}
 	}
@@ -183,4 +188,12 @@ func (c *Reconciler) updateRevisionLoggingURL(ctx context.Context, rev *v1.Revis
 func (c *Reconciler) ObserveDeletion(ctx context.Context, key types.NamespacedName) error {
 	c.resolver.Forget(key)
 	return nil
+}
+
+func (c *Reconciler) GetNetworkingClient() networkingclientset.Interface {
+	return c.networkingclient
+}
+
+func (c *Reconciler) GetCertificateLister() networkinglisters.CertificateLister {
+	return c.certificateLister
 }

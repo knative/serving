@@ -21,7 +21,11 @@ import (
 	"hash/adler32"
 	"sort"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/networking/pkg/apis/networking"
+	"knative.dev/networking/pkg/config"
+	"knative.dev/pkg/kmap"
+	"knative.dev/pkg/network"
 	"knative.dev/serving/pkg/apis/serving"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +33,10 @@ import (
 	"knative.dev/pkg/kmeta"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/resources/names"
+)
+
+const (
+	localDomainSuffix = "-local"
 )
 
 // MakeCertificate creates a Certificate, inheriting the certClass
@@ -45,7 +53,8 @@ func MakeCertificate(owner kmeta.OwnerRefableAccessor, ownerLabelKey string, dns
 				networking.CertificateClassAnnotationKey: certClass,
 			}, owner.GetAnnotations()), ExcludedAnnotations.Has),
 			Labels: map[string]string{
-				ownerLabelKey: owner.GetName(),
+				ownerLabelKey:                      owner.GetName(),
+				networking.CertificateTypeLabelKey: string(config.CertificateExternalDomain),
 			},
 		},
 		Spec: networkingv1alpha1.CertificateSpec{
@@ -72,17 +81,53 @@ func MakeCertificates(route *v1.Route, domainTagMap map[string]string, certClass
 	certs := make([]*networkingv1alpha1.Certificate, 0, len(order))
 	for _, dnsName := range order {
 		tag := domainTagMap[dnsName]
-
-		// k8s supports cert name only up to 63 chars and so is constructed as route-[UID]-[tag digest]
-		// where route-[UID] will take 42 characters and leaves 20 characters for tag digest (need to include `-`).
-		// We use https://golang.org/pkg/hash/adler32/#Checksum to compute the digest which returns a uint32.
-		// We represent the digest in unsigned integer format with maximum value of 4,294,967,295 which are 10 digits.
-		// The "-[tag digest]" is computed only if there's a tag
-		certName := names.Certificate(route)
-		if tag != "" {
-			certName += fmt.Sprint("-", adler32.Checksum([]byte(tag)))
-		}
-		certs = append(certs, MakeCertificate(route, serving.RouteLabelKey, dnsName, certName, certClass, domain))
+		certs = append(certs, MakeCertificate(route, serving.RouteLabelKey, dnsName, certNameFromRouteAndTag(route, tag), certClass, domain))
 	}
 	return certs
+}
+
+// MakeClusterLocalCertificate creates a Knative Certificate
+// for cluster-local-domain-tls.
+func MakeClusterLocalCertificate(route *v1.Route, tag string, domains sets.String, certClass string) *networkingv1alpha1.Certificate {
+	domainsOrdered := make(sort.StringSlice, 0, len(domains))
+	for dnsName := range domains {
+		domainsOrdered = append(domainsOrdered, dnsName)
+	}
+	domainsOrdered.Sort()
+
+	certName := certNameFromRouteAndTag(route, tag) + localDomainSuffix
+
+	return &networkingv1alpha1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            certName,
+			Namespace:       route.GetNamespace(),
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
+			Annotations: kmap.Filter(kmap.Union(map[string]string{
+				networking.CertificateClassAnnotationKey: certClass,
+			}, route.GetAnnotations()), ExcludedAnnotations.Has),
+			Labels: map[string]string{
+				serving.RouteLabelKey:              route.GetName(),
+				networking.CertificateTypeLabelKey: string(config.CertificateClusterLocalDomain),
+			},
+		},
+		Spec: networkingv1alpha1.CertificateSpec{
+			DNSNames:   domainsOrdered,
+			Domain:     "svc." + network.GetClusterDomainName(),
+			SecretName: certName,
+		},
+	}
+}
+
+// certNameFromRouteAndTag returns a possibly shortended certName as
+// k8s supports cert name only up to 63 chars and so is constructed as route-[UID]-[tag digest]
+// where route-[UID] will take 42 characters and leaves 20 characters for tag digest (need to include `-`).
+// We use https://golang.org/pkg/hash/adler32/#Checksum to compute the digest which returns a uint32.
+// We represent the digest in unsigned integer format with maximum value of 4,294,967,295 which are 10 digits.
+// The "-[tag digest]" is computed only if there's a tag
+func certNameFromRouteAndTag(route *v1.Route, tag string) string {
+	certName := names.Certificate(route)
+	if tag != "" {
+		certName += fmt.Sprint("-", adler32.Checksum([]byte(tag)))
+	}
+	return certName
 }

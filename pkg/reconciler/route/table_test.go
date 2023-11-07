@@ -2526,7 +2526,8 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 						netapi.CertificateClassAnnotationKey: netcfg.CertManagerCertificateClassName,
 					},
 					Labels: map[string]string{
-						serving.RouteLabelKey: "becomes-ready",
+						serving.RouteLabelKey:          "becomes-ready",
+						netapi.CertificateTypeLabelKey: string(netcfg.CertificateExternalDomain),
 					},
 				},
 				Spec: netv1alpha1.CertificateSpec{
@@ -2611,7 +2612,8 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
 						Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")))},
 					Labels: map[string]string{
-						serving.RouteLabelKey: "becomes-ready",
+						serving.RouteLabelKey:          "becomes-ready",
+						netapi.CertificateTypeLabelKey: string(netcfg.CertificateExternalDomain),
 					},
 					Annotations: map[string]string{
 						netapi.CertificateClassAnnotationKey: netcfg.CertManagerCertificateClassName,
@@ -2631,7 +2633,8 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
 						Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")))},
 					Labels: map[string]string{
-						serving.RouteLabelKey: "becomes-ready",
+						serving.RouteLabelKey:          "becomes-ready",
+						netapi.CertificateTypeLabelKey: string(netcfg.CertificateExternalDomain),
 					},
 					Annotations: map[string]string{
 						netapi.CertificateClassAnnotationKey: netcfg.CertManagerCertificateClassName,
@@ -2651,7 +2654,8 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
 						Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")))},
 					Labels: map[string]string{
-						serving.RouteLabelKey: "becomes-ready",
+						serving.RouteLabelKey:          "becomes-ready",
+						netapi.CertificateTypeLabelKey: string(netcfg.CertificateExternalDomain),
 					},
 					Annotations: map[string]string{
 						netapi.CertificateClassAnnotationKey: netcfg.CertManagerCertificateClassName,
@@ -2741,7 +2745,8 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 						netapi.CertificateClassAnnotationKey: netcfg.CertManagerCertificateClassName,
 					},
 					Labels: map[string]string{
-						serving.RouteLabelKey: "becomes-ready",
+						serving.RouteLabelKey:          "becomes-ready",
+						netapi.CertificateTypeLabelKey: string(netcfg.CertificateExternalDomain),
 					},
 				},
 				Spec: netv1alpha1.CertificateSpec{
@@ -2863,7 +2868,8 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 						netapi.CertificateClassAnnotationKey: netcfg.CertManagerCertificateClassName,
 					},
 					Labels: map[string]string{
-						serving.RouteLabelKey: "becomes-ready",
+						serving.RouteLabelKey:          "becomes-ready",
+						netapi.CertificateTypeLabelKey: string(netcfg.CertificateExternalDomain),
 					},
 				},
 				Spec: netv1alpha1.CertificateSpec{
@@ -3053,7 +3059,8 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
 						Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")))},
 					Labels: map[string]string{
-						serving.RouteLabelKey: "becomes-ready",
+						serving.RouteLabelKey:          "becomes-ready",
+						netapi.CertificateTypeLabelKey: string(netcfg.CertificateExternalDomain),
 					},
 					Annotations: map[string]string{
 						netapi.CertificateClassAnnotationKey: netcfg.CertManagerCertificateClassName,
@@ -3175,7 +3182,7 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 			Object: Route("default", "becomes-local", WithConfigTarget("config"),
 				WithRouteUID("65-23"),
 				WithRouteGeneration(1), WithRouteObservedGeneration,
-				MarkTrafficAssigned, MarkIngressNotConfigured, WithRouteConditionsTLSNotEnabledForClusterLocalMessage,
+				MarkTrafficAssigned, MarkIngressNotConfigured,
 				WithLocalDomain, WithAddress, WithInitRouteConditions,
 				WithRouteLabel(map[string]string{netapi.VisibilityLabelKey: serving.VisibilityClusterLocal}),
 				WithStatusTraffic(

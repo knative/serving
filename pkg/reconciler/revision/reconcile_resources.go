@@ -21,6 +21,8 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
+	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
+	networkingaccessor "knative.dev/serving/pkg/reconciler/accessor/networking"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -28,6 +30,7 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	networkingApi "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/certificates"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/kmp"
@@ -35,6 +38,7 @@ import (
 	"knative.dev/pkg/logging/logkey"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/networking"
+	"knative.dev/serving/pkg/reconciler/revision/config"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 )
@@ -206,31 +210,39 @@ func hasDeploymentTimedOut(deployment *appsv1.Deployment) bool {
 	return false
 }
 
-func (c *Reconciler) reconcileSecret(ctx context.Context, rev *v1.Revision) error {
+func (c *Reconciler) reconcileQueueProxyCertificate(ctx context.Context, rev *v1.Revision) error {
 	ns := rev.Namespace
 	logger := logging.FromContext(ctx)
-	logger.Info("Reconciling Secret for system-internal-tls: ", networking.ServingCertName, " at namespace: ", ns)
+	logger.Infof("Reconciling queue-proxy Knative Certificate for system-internal-tls: %s/%s", ns, networking.ServingCertName)
 
+	certClass := config.FromContext(ctx).Network.DefaultCertificateClass
+	if class := networkingApi.GetCertificateClass(rev.Annotations); class != "" {
+		certClass = class
+	}
+
+	desiredCert := resources.MakeQueueProxyCertificate(rev, certClass)
+
+	_, err := networkingaccessor.ReconcileCertificate(ctx, rev, desiredCert, c)
+	if kaccessor.IsNotOwned(err) {
+		logger.Debugf("Skipping reconciling Knative certificate %s/%s as it already exists (from another Knative Service in the same namespace)",
+			ns, networking.ServingCertName)
+	} else if err != nil {
+		return fmt.Errorf("failed to reconcile Knative certificate %s/%s: %w", ns, networking.ServingCertName, err)
+	}
+
+	// Verify the secret is created and has been added the certificates
 	secret, err := c.kubeclient.CoreV1().Secrets(ns).Get(ctx, networking.ServingCertName, metav1.GetOptions{})
 	if apierrs.IsNotFound(err) {
-		namespace, err := c.kubeclient.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
-		if err != nil {
-			return fmt.Errorf("failed to get Namespace %s: %w", ns, err)
-		}
-		if secret, err = c.createSecret(ctx, namespace); err != nil {
-			return fmt.Errorf("failed to create Secret %s/%s: %w", networking.ServingCertName, ns, err)
-		}
-		logger.Info("Created Secret: ", networking.ServingCertName, "at namespace: ", ns)
+		return fmt.Errorf("secret %s/%s is not ready yet: secret could not be found", ns, networking.ServingCertName)
 	} else if err != nil {
-		return fmt.Errorf("failed to get secret %s/%s: %w", networking.ServingCertName, ns, err)
+		return fmt.Errorf("secret %s/%s is not ready yet: %w", ns, networking.ServingCertName, err)
 	}
 
-	// Verify if secret has been added the data.
 	if _, ok := secret.Data[certificates.CertName]; !ok {
-		return fmt.Errorf("public cert in the secret is not ready yet")
+		return fmt.Errorf("certificate in secret %s/%s is not ready yet: public cert not found", ns, networking.ServingCertName)
 	}
 	if _, ok := secret.Data[certificates.PrivateKeyName]; !ok {
-		return fmt.Errorf("private key in the secret is not ready yet")
+		return fmt.Errorf("certificate in secret %s/%s is not ready yet: private key not found", ns, networking.ServingCertName)
 	}
 
 	return nil

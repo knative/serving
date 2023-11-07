@@ -25,15 +25,16 @@ import (
 
 	// Inject the informers this controller depends on.
 	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
+	fakecertificateinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 	fakeingressinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
+	fakeserviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakecfginformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	fakerouteinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
 
-	_ "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
-	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/sync/errgroup"
@@ -1642,5 +1643,151 @@ func TestExternalDomainTLSEnabled(t *testing.T) {
 				t.Errorf("externalDomainTLSEnabled = %t, want %t", got, test.wantExternalDomainTLSEnabled)
 			}
 		})
+	}
+}
+
+func TestCreateRouteWithClusterLocalDomainTLSEnabled(t *testing.T) {
+	ctx, _, ctl, watcher, cf := newTestSetup(t)
+	defer cf()
+
+	// Enable cluster-local-domain-tls
+	watcher.OnChange(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      netcfg.ConfigMapName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{
+			"cluster-local-domain-tls": "enabled",
+		},
+	})
+
+	fakeRecorder := controller.GetEventRecorder(ctx).(*record.FakeRecorder)
+
+	rev := Revision(testNamespace, "test-rev", MarkRevisionReady)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(ctx, rev, metav1.CreateOptions{})
+	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
+
+	// A route targeting the revision
+	route := Route(testNamespace, "test-route", WithSpecTraffic(v1.TrafficTarget{
+		RevisionName:      "test-rev",
+		ConfigurationName: "test-config",
+		Percent:           ptr.Int64(100),
+	}), WithRouteLabel(map[string]string{"route": "test-route"}))
+	fakeservingclient.Get(ctx).ServingV1().Routes(testNamespace).Create(ctx, route, metav1.CreateOptions{})
+	// Since Reconcile looks in the lister, we need to add it to the informer
+	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
+
+	// reconcile once to get certificate object
+	ctl.Reconciler.Reconcile(ctx, KeyOrDie(route))
+
+	// mark the certificate as ready
+	cert, _ := fakenetworkingclient.Get(ctx).NetworkingV1alpha1().Certificates(testNamespace).Get(ctx, "route--local", metav1.GetOptions{})
+	cert.Status.MarkReady()
+	fakenetworkingclient.Get(ctx).NetworkingV1alpha1().Certificates(testNamespace).Update(ctx, cert, metav1.UpdateOptions{})
+	fakecertificateinformer.Get(ctx).Informer().GetIndexer().Add(cert)
+
+	// Since Reconcile looks in the lister, we need to add the created objects to the informers to avoid "already exists" errors
+	svc, _ := fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).List(ctx, metav1.ListOptions{})
+	for _, s := range svc.Items {
+		fakeserviceinformer.Get(ctx).Informer().GetIndexer().Add(&s)
+	}
+	ing, _ := fakenetworkingclient.Get(ctx).NetworkingV1alpha1().Ingresses(testNamespace).List(ctx, metav1.ListOptions{})
+	for _, i := range ing.Items {
+		fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(&i)
+	}
+
+	// reconcile again as now certificate is ready
+	ctl.Reconciler.Reconcile(ctx, KeyOrDie(route))
+
+	ci := getRouteIngressFromClient(ctx, t, route)
+
+	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
+	hosts := []string{"test-route.test", "test-route.test.svc", pkgnet.GetServiceHostname("test-route", "test")}
+
+	expectedSpec := v1alpha1.IngressSpec{
+		HTTPOption: v1alpha1.HTTPOptionEnabled,
+		TLS: []v1alpha1.IngressTLS{{
+			Hosts:           hosts,
+			SecretName:      "route--local",
+			SecretNamespace: testNamespace,
+		},
+		},
+		Rules: []v1alpha1.IngressRule{{
+			Hosts:      hosts,
+			Visibility: v1alpha1.IngressVisibilityClusterLocal,
+			HTTP: &v1alpha1.HTTPIngressRuleValue{
+				Paths: []v1alpha1.HTTPIngressPath{{
+					Splits: []v1alpha1.IngressBackendSplit{{
+						IngressBackend: v1alpha1.IngressBackend{
+							ServiceNamespace: testNamespace,
+							ServiceName:      rev.Name,
+							ServicePort:      intstr.FromInt(80),
+						},
+						Percent: 100,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  "test-rev",
+							"Knative-Serving-Namespace": testNamespace,
+						},
+					}},
+				}},
+			},
+		}, {
+			Hosts: []string{
+				domain,
+			},
+			Visibility: v1alpha1.IngressVisibilityExternalIP,
+			HTTP: &v1alpha1.HTTPIngressRuleValue{
+				Paths: []v1alpha1.HTTPIngressPath{{
+					Splits: []v1alpha1.IngressBackendSplit{{
+						IngressBackend: v1alpha1.IngressBackend{
+							ServiceNamespace: testNamespace,
+							ServiceName:      rev.Name,
+							ServicePort:      intstr.FromInt(80),
+						},
+						Percent: 100,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  "test-rev",
+							"Knative-Serving-Namespace": testNamespace,
+						},
+					}},
+				}},
+			},
+		}},
+	}
+	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
+		t.Error("Unexpected rule spec diff (-want +got):", diff)
+	}
+
+	fakeingressinformer.Get(ctx).Informer().GetIndexer().Update(ci)
+	ctl.Reconciler.Reconcile(ctx, KeyOrDie(route))
+
+	// Look for the events. Events are delivered asynchronously so we need to use
+	// hooks here. Each hook tests for a specific event.
+	select {
+	case got := <-fakeRecorder.Events:
+		const want = `Normal Created Created placeholder service "test-route"`
+		if got != want {
+			t.Errorf("<-Events = %s wanted %s", got, want)
+		}
+	case <-time.After(3 * time.Second):
+		t.Error("Timed out waiting for expected events.")
+	}
+	select {
+	case got := <-fakeRecorder.Events:
+		const wantPrefix = `Normal Created Created Certificate test/route--local`
+		if !strings.HasPrefix(got, wantPrefix) {
+			t.Errorf("<-Events = %s wanted prefix %s", got, wantPrefix)
+		}
+	case <-time.After(3 * time.Second):
+		t.Error("Timed out waiting for expected events.")
+	}
+	select {
+	case got := <-fakeRecorder.Events:
+		const wantPrefix = `Normal Created Created Ingress "test-route"`
+		if !strings.HasPrefix(got, wantPrefix) {
+			t.Errorf("<-Events = %s wanted prefix %s", got, wantPrefix)
+		}
+	case <-time.After(3 * time.Second):
+		t.Error("Timed out waiting for expected events.")
 	}
 }

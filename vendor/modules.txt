@@ -1341,7 +1341,6 @@ knative.dev/networking/pkg
 knative.dev/networking/pkg/apis/networking
 knative.dev/networking/pkg/apis/networking/v1alpha1
 knative.dev/networking/pkg/certificates
-knative.dev/networking/pkg/certificates/reconciler
 knative.dev/networking/pkg/client/clientset/versioned
 knative.dev/networking/pkg/client/clientset/versioned/fake
 knative.dev/networking/pkg/client/clientset/versioned/scheme
@@ -1409,7 +1408,6 @@ knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered
 knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered/fake
 knative.dev/pkg/client/injection/kube/informers/core/v1/secret
 knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake
-knative.dev/pkg/client/injection/kube/informers/core/v1/secret/filtered
 knative.dev/pkg/client/injection/kube/informers/core/v1/service
 knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake
 knative.dev/pkg/client/injection/kube/informers/factory
