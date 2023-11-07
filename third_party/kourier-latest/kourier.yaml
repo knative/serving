@@ -20,7 +20,7 @@ metadata:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20231102-1930e146"
+    app.kubernetes.io/version: "20231107-6e4d79d3"
 
 ---
 # Copyright 2020 The Knative Authors
@@ -45,7 +45,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20231102-1930e146"
+    app.kubernetes.io/version: "20231107-6e4d79d3"
     app.kubernetes.io/name: knative-serving
 data:
   envoy-bootstrap.yaml: |
@@ -168,7 +168,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20231102-1930e146"
+    app.kubernetes.io/version: "20231107-6e4d79d3"
     app.kubernetes.io/name: knative-serving
 data:
   _example: |
@@ -248,7 +248,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20231102-1930e146"
+    app.kubernetes.io/version: "20231107-6e4d79d3"
     app.kubernetes.io/name: knative-serving
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -258,7 +258,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20231102-1930e146"
+    app.kubernetes.io/version: "20231107-6e4d79d3"
     app.kubernetes.io/name: knative-serving
 rules:
   - apiGroups: [""]
@@ -287,7 +287,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20231102-1930e146"
+    app.kubernetes.io/version: "20231107-6e4d79d3"
     app.kubernetes.io/name: knative-serving
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -321,7 +321,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20231102-1930e146"
+    app.kubernetes.io/version: "20231107-6e4d79d3"
     app.kubernetes.io/name: knative-serving
 spec:
   strategy:
@@ -343,7 +343,7 @@ spec:
         app: net-kourier-controller
     spec:
       containers:
-        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:f79c3befc15db6e0ab1890a9488fabe6e31e1158e762922ffa56ecb72d6771fe
+        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:081ec69693b10b23ea1fa2b94bdb1743d689934c5f8c5a18026de60c509f5594
           name: controller
           env:
             - name: CERTS_SECRET_NAMESPACE
@@ -395,7 +395,7 @@ spec:
               cpu: 200m
               memory: 200Mi
             limits:
-              cpu: 500m
+              cpu: "1"
               memory: 500Mi
       restartPolicy: Always
       serviceAccountName: net-kourier
@@ -408,7 +408,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20231102-1930e146"
+    app.kubernetes.io/version: "20231107-6e4d79d3"
     app.kubernetes.io/name: knative-serving
 spec:
   ports:
@@ -443,7 +443,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20231102-1930e146"
+    app.kubernetes.io/version: "20231107-6e4d79d3"
     app.kubernetes.io/name: knative-serving
 spec:
   strategy:
@@ -552,7 +552,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20231102-1930e146"
+    app.kubernetes.io/version: "20231107-6e4d79d3"
     app.kubernetes.io/name: knative-serving
 spec:
   ports:
@@ -576,7 +576,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20231102-1930e146"
+    app.kubernetes.io/version: "20231107-6e4d79d3"
     app.kubernetes.io/name: knative-serving
 spec:
   ports:
@@ -600,7 +600,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20231102-1930e146"
+    app.kubernetes.io/version: "20231107-6e4d79d3"
     app.kubernetes.io/name: knative-serving
 spec:
   minReplicas: 1
@@ -626,7 +626,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20231102-1930e146"
+    app.kubernetes.io/version: "20231107-6e4d79d3"
     app.kubernetes.io/name: knative-serving
 spec:
   minAvailable: 80%
