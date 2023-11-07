@@ -10,7 +10,7 @@ require (
 	github.com/google/go-containerregistry v0.13.0
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20230209165335-3624968304fd
 	github.com/google/gofuzz v1.2.0
-	github.com/gorilla/websocket v1.5.0
+	github.com/gorilla/websocket v1.5.1
 	github.com/hashicorp/golang-lru v1.0.2
 	github.com/influxdata/influxdb-client-go/v2 v2.9.0
 	github.com/kelseyhightower/envconfig v1.4.0
@@ -20,10 +20,10 @@ require (
 	go.uber.org/automaxprocs v1.5.3
 	go.uber.org/zap v1.26.0
 	golang.org/x/net v0.17.0
-	golang.org/x/sync v0.4.0
+	golang.org/x/sync v0.5.0
 	golang.org/x/sys v0.13.0
 	golang.org/x/time v0.3.0
-	google.golang.org/api v0.148.0
+	google.golang.org/api v0.149.0
 	google.golang.org/grpc v1.59.0
 	k8s.io/api v0.27.6
 	k8s.io/apiextensions-apiserver v0.27.6
@@ -33,14 +33,14 @@ require (
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f
 	k8s.io/utils v0.0.0-20230209194617-a36077c30491
 	knative.dev/caching v0.0.0-20231101191025-c6425778e5ba
-	knative.dev/hack v0.0.0-20231025074238-d4af42e9b222
-	knative.dev/networking v0.0.0-20231102061026-3bd0f7d578ab
-	knative.dev/pkg v0.0.0-20231102061027-a6c730fd81f7
+	knative.dev/hack v0.0.0-20231102183416-0d99b7ee9d63
+	knative.dev/networking v0.0.0-20231103063604-18529fd26a8b
+	knative.dev/pkg v0.0.0-20231106073528-acf0a2d2dea9
 	sigs.k8s.io/yaml v1.4.0
 )
 
 require (
-	cloud.google.com/go/compute v1.23.0 // indirect
+	cloud.google.com/go/compute v1.23.1 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20200907061046-05415f1de66d // indirect
 	contrib.go.opencensus.io/exporter/prometheus v0.4.2 // indirect
@@ -100,7 +100,7 @@ require (
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20230209165335-3624968304fd // indirect
 	github.com/google/s2a-go v0.1.7 // indirect
 	github.com/google/uuid v1.4.0 // indirect
-	github.com/googleapis/enterprise-certificate-proxy v0.3.1 // indirect
+	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.11.3 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
@@ -140,9 +140,9 @@ require (
 	golang.org/x/tools v0.14.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20231002182017-d307bd883b97 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20231002182017-d307bd883b97 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20231012201019-e917dd12ba7a // indirect
+	google.golang.org/genproto v0.0.0-20231016165738-49dd2c1f3d0b // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20231016165738-49dd2c1f3d0b // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20231016165738-49dd2c1f3d0b // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
@@ -153,3 +153,6 @@ require (
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )
+
+// TODO: https://github.com/knative/serving/issues/14597
+replace github.com/gorilla/websocket => github.com/gorilla/websocket v1.5.0
