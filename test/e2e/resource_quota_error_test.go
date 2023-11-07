@@ -41,6 +41,7 @@ func TestResourceQuotaError(t *testing.T) {
 	clients := test.Setup(t, test.Options{Namespace: "rq-test"})
 	const (
 		errorReason    = "RevisionFailed"
+		progressDeadlineReason = "ProgressDeadlineExceeded"
 		waitReason     = "ContainerCreating"
 		errorMsgQuota  = "forbidden: exceeded quota"
 		revisionReason = "RevisionFailed"
@@ -83,6 +84,7 @@ func TestResourceQuotaError(t *testing.T) {
 			if cond.Reason == errorReason && cond.IsFalse() {
 				return true, nil
 			}
+			if cond.Reason == 
 			t.Logf("Reason: %s ; Message: %s ; Status: %s", cond.Reason, cond.Message, cond.Status)
 			return true, fmt.Errorf("the service %s was not marked with expected error condition (Reason=%q, Message=%q, Status=%q), but with (Reason=%q, Message=%q, Status=%q)",
 				names.Config, errorReason, "", "False", cond.Reason, cond.Message, cond.Status)
@@ -110,6 +112,10 @@ func TestResourceQuotaError(t *testing.T) {
 		cond := r.Status.GetCondition(v1.RevisionConditionReady)
 		if cond != nil {
 			if strings.Contains(cond.Message, errorMsgQuota) && cond.IsFalse() {
+				return true, nil
+			}
+			// Can fail with either a progress deadline exceeded error
+			if cond.Reason == progressDeadlineReason {
 				return true, nil
 			}
 			// wait for the container creation
