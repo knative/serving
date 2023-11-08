@@ -40,11 +40,11 @@ func TestResourceQuotaError(t *testing.T) {
 
 	clients := test.Setup(t, test.Options{Namespace: "rq-test"})
 	const (
-		errorReason    = "RevisionFailed"
+		errorReason            = "RevisionFailed"
 		progressDeadlineReason = "ProgressDeadlineExceeded"
-		waitReason     = "ContainerCreating"
-		errorMsgQuota  = "forbidden: exceeded quota"
-		revisionReason = "RevisionFailed"
+		waitReason             = "ContainerCreating"
+		errorMsgQuota          = "forbidden: exceeded quota"
+		revisionReason         = "RevisionFailed"
 	)
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
