@@ -1298,7 +1298,7 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/hack v0.0.0-20231102183416-0d99b7ee9d63
+# knative.dev/hack v0.0.0-20231107173840-883479423aaa
 ## explicit; go 1.18
 knative.dev/hack
 # knative.dev/networking v0.0.0-20231103063604-18529fd26a8b
@@ -1340,7 +1340,7 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20231106073528-acf0a2d2dea9
+# knative.dev/pkg v0.0.0-20231107094615-5c9b7a8d8265
 ## explicit; go 1.18
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
