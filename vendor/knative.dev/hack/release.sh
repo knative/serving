@@ -652,6 +652,7 @@ function publish_artifacts() {
   fi
   [[ -n "${RELEASE_GCS_BUCKET}" ]] && publish_to_gcs "${ARTIFACTS_TO_PUBLISH}"
   publish_to_github "${ARTIFACTS_TO_PUBLISH}"
+  set_latest_to_highest_semver
   banner "New release published successfully"
 }
 
@@ -664,12 +665,13 @@ function set_latest_to_highest_semver() {
   fi
   
   local release_id # don't combine with the line below, or $? will be 0
-  release_id="$(hub_tool api /repos/${ORG_NAME}/${REPO_NAME}/releases/tags/knative-${last_version} | jq .id)"
+  release_id="$(hub_tool api "/repos/${ORG_NAME}/${REPO_NAME}/releases/tags/knative-${last_version}" | jq .id)"
   if [[ $? -ne 0 ]]; then
     abort "cannot get relase id from github"
   fi
   
-  hub_tool api --method PATCH /repos/knative/serving/releases/$release_id -F make_latest=true > /dev/null || abort "error settomg $last_version to 'latest'"
+  hub_tool api --method PATCH "/repos/knative/serving/releases/$release_id" \
+    -F make_latest=true > /dev/null || abort "error settomg $last_version to 'latest'"
   echo "Github release ${last_version} set as 'latest'"
 }
 
@@ -745,7 +747,6 @@ function main() {
   done
   echo "New release built successfully"
   publish_artifacts
-  set_latest_to_highest_semver
 }
 
 # Publishes a new release on GitHub, also git tagging it (unless this is not a versioned release).
