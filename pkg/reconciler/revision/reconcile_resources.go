@@ -79,6 +79,12 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 		}
 	}
 
+	// If the replicaset is failing we assume its an error we have to surface
+	if rev.Status.IsReplicaSetFailure(&deployment.Status) {
+		rev.Status.PropagateDeploymentStatus(&deployment.Status)
+		return nil
+	}
+
 	// If a container keeps crashing (no active pods in the deployment although we want some)
 	if *deployment.Spec.Replicas > 0 && deployment.Status.AvailableReplicas == 0 {
 		pods, err := c.kubeclient.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(deployment.Spec.Selector)})

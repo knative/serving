@@ -19,6 +19,7 @@ package v1
 import (
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	net "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/kmeta"
@@ -142,4 +143,10 @@ func (r *Revision) GetProtocol() net.ProtocolType {
 func (rs *RevisionStatus) IsActivationRequired() bool {
 	c := revisionCondSet.Manage(rs).GetCondition(RevisionConditionActive)
 	return c != nil && c.Status != corev1.ConditionTrue
+}
+
+// IsReplicaSetFailure returns true if the deployment replicaset failed to create
+func (rs *RevisionStatus) IsReplicaSetFailure(deploymentStatus *appsv1.DeploymentStatus) bool {
+	ds := serving.TransformDeploymentStatus(deploymentStatus)
+	return ds != nil && ds.GetCondition(serving.DeploymentConditionReplicaSetReady).IsFalse()
 }
