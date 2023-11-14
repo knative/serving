@@ -51,7 +51,7 @@ type backgroundResolver struct {
 // resolveResult is the overall result for a particular revision. We create a
 // workItem for each container we need to resolve for the overall result.
 type resolveResult struct {
-	// these fields are immutable afer creation, so can be accessed without a lock.
+	// these fields are immutable after creation, so can be accessed without a lock.
 	opt                k8schain.Options
 	registriesToSkip   sets.String
 	completionCallback func()
