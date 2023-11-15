@@ -52,6 +52,18 @@ type Reconciler struct {
 	routeLister         listers.RouteLister
 }
 
+// NewReconciler creates the reference to the Reconciler based on clientset.Interface, listers.ConfigurationLister,
+// listers.RevisionLister and listers.RouteLister.
+func NewReconciler(client clientset.Interface, configurationLister listers.ConfigurationLister,
+	revisionLister listers.RevisionLister, routeLister listers.RouteLister) *Reconciler {
+	return &Reconciler{
+		client:              client,
+		configurationLister: configurationLister,
+		revisionLister:      revisionLister,
+		routeLister:         routeLister,
+	}
+}
+
 // Check that our Reconciler implements ksvcreconciler.Interface
 var _ ksvcreconciler.Interface = (*Reconciler)(nil)
 
