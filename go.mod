@@ -19,11 +19,11 @@ require (
 	go.uber.org/atomic v1.9.0
 	go.uber.org/automaxprocs v1.5.3
 	go.uber.org/zap v1.26.0
-	golang.org/x/net v0.17.0
+	golang.org/x/net v0.18.0
 	golang.org/x/sync v0.5.0
-	golang.org/x/sys v0.13.0
+	golang.org/x/sys v0.14.0
 	golang.org/x/time v0.3.0
-	google.golang.org/api v0.149.0
+	google.golang.org/api v0.150.0
 	google.golang.org/grpc v1.59.0
 	k8s.io/api v0.27.6
 	k8s.io/apiextensions-apiserver v0.27.6
@@ -32,10 +32,10 @@ require (
 	k8s.io/code-generator v0.27.6
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f
 	k8s.io/utils v0.0.0-20230209194617-a36077c30491
-	knative.dev/caching v0.0.0-20231108204433-b3781bc47aeb
+	knative.dev/caching v0.0.0-20231109234001-c2b2543ace4a
 	knative.dev/hack v0.0.0-20231109190034-5deaddeb51a7
-	knative.dev/networking v0.0.0-20231108061732-e0bee342a97e
-	knative.dev/pkg v0.0.0-20231108014432-35011d423d4b
+	knative.dev/networking v0.0.0-20231109233957-8f3c5211035b
+	knative.dev/pkg v0.0.0-20231115001034-97c7258e3a98
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -132,17 +132,17 @@ require (
 	github.com/tsenart/go-tsz v0.0.0-20180814235614-0bd30b3df1c3 // indirect
 	github.com/vbatts/tar-split v0.11.2 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
-	golang.org/x/crypto v0.14.0 // indirect
-	golang.org/x/mod v0.13.0 // indirect
-	golang.org/x/oauth2 v0.13.0 // indirect
-	golang.org/x/term v0.13.0 // indirect
-	golang.org/x/text v0.13.0 // indirect
-	golang.org/x/tools v0.14.0 // indirect
+	golang.org/x/crypto v0.15.0 // indirect
+	golang.org/x/mod v0.14.0 // indirect
+	golang.org/x/oauth2 v0.14.0 // indirect
+	golang.org/x/term v0.14.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/tools v0.15.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20231016165738-49dd2c1f3d0b // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20231016165738-49dd2c1f3d0b // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20231016165738-49dd2c1f3d0b // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20231030173426-d783a09b4405 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
