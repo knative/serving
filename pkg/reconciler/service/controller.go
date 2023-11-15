@@ -49,8 +49,12 @@ func NewController(
 	configStore := cfgmap.NewStore(logger.Named("config-store"))
 	configStore.WatchConfigs(cmw)
 
-	c := NewReconciler(servingclient.Get(ctx), configurationInformer.Lister(),
-		revisionInformer.Lister(), routeInformer.Lister())
+	c := NewReconciler(
+		servingclient.Get(ctx),
+		configurationInformer.Lister(),
+		revisionInformer.Lister(),
+		routeInformer.Lister(),
+	)
 	opts := func(*controller.Impl) controller.Options {
 		return controller.Options{ConfigStore: configStore}
 	}
