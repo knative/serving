@@ -148,7 +148,8 @@ jobs:
       KIND: 1
       INGRESS_CLASS: ${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
       ENABLE_TLS: ${{ matrix.enable-tls || 0 }}
-      AMBIENT: ${{ matrix.ambient || 0 }}
+      # Disabled due to flakiness: https://github.com/knative/serving/issues/14637
+      # AMBIENT: ${{ matrix.ambient || 0 }}
 
     steps:
     - name: Set up Go 1.21.x
