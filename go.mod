@@ -1,6 +1,6 @@
 module knative.dev/serving
 
-go 1.18
+go 1.21
 
 require (
 	github.com/ahmetb/gen-crd-api-reference-docs v0.3.1-0.20210609063737-0067dc6dcea2
