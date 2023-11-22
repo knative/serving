@@ -96,6 +96,40 @@ func TestRevisionDefaulting(t *testing.T) {
 			},
 		},
 	}, {
+		name: "all revision timeouts set",
+		in:   &Revision{Spec: RevisionSpec{PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}}}},
+		wc: func(ctx context.Context) context.Context {
+			s := config.NewStore(logger)
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
+			s.OnConfigChanged(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: config.DefaultsConfigName,
+				},
+				Data: map[string]string{
+					"revision-timeout-seconds":                "423",
+					"revision-idle-timeout-seconds":           "100",
+					"revision-response-start-timeout-seconds": "50",
+				},
+			})
+			return s.ToContext(ctx)
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				ContainerConcurrency:        ptr.Int64(0),
+				TimeoutSeconds:              ptr.Int64(423),
+				ResponseStartTimeoutSeconds: ptr.Int64(50),
+				IdleTimeoutSeconds:          ptr.Int64(100),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:           config.DefaultUserContainerName,
+						Resources:      defaultResources,
+						ReadinessProbe: defaultProbe,
+					}},
+				},
+			},
+		},
+	}, {
 		name: "with context, in create, expect ESL set",
 		in:   &Revision{Spec: RevisionSpec{PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}}}},
 		wc: func(ctx context.Context) context.Context {
