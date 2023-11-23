@@ -64,8 +64,8 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 	// Default ResponseStartTimeoutSeconds only in case we have a non-zero default and the latter is not larger than the revision timeout.
 	// A zero default or a zero value set from the user or a nil value skips timer setup at the QP side.
 	if rs.ResponseStartTimeoutSeconds == nil {
-		if cfg.Defaults.RevisionRequestStartTimeoutSeconds < *rs.TimeoutSeconds && cfg.Defaults.RevisionRequestStartTimeoutSeconds != 0 {
-			rs.ResponseStartTimeoutSeconds = ptr.Int64(cfg.Defaults.RevisionRequestStartTimeoutSeconds)
+		if cfg.Defaults.RevisionResponseStartTimeoutSeconds < *rs.TimeoutSeconds && cfg.Defaults.RevisionResponseStartTimeoutSeconds != 0 {
+			rs.ResponseStartTimeoutSeconds = ptr.Int64(cfg.Defaults.RevisionResponseStartTimeoutSeconds)
 		}
 	}
 
