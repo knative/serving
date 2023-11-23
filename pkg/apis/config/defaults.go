@@ -79,16 +79,16 @@ var (
 
 func defaultDefaultsConfig() *Defaults {
 	return &Defaults{
-		RevisionTimeoutSeconds:             DefaultRevisionTimeoutSeconds,
-		MaxRevisionTimeoutSeconds:          DefaultMaxRevisionTimeoutSeconds,
+		RevisionTimeoutSeconds:              DefaultRevisionTimeoutSeconds,
+		MaxRevisionTimeoutSeconds:           DefaultMaxRevisionTimeoutSeconds,
 		RevisionResponseStartTimeoutSeconds: DefaultRevisionResponseStartTimeoutSeconds,
-		RevisionIdleTimeoutSeconds:         DefaultRevisionIdleTimeoutSeconds,
-		InitContainerNameTemplate:          DefaultInitContainerNameTemplate,
-		UserContainerNameTemplate:          DefaultUserContainerNameTemplate,
-		ContainerConcurrency:               DefaultContainerConcurrency,
-		ContainerConcurrencyMaxLimit:       DefaultMaxRevisionContainerConcurrency,
-		AllowContainerConcurrencyZero:      DefaultAllowContainerConcurrencyZero,
-		EnableServiceLinks:                 ptr.Bool(false),
+		RevisionIdleTimeoutSeconds:          DefaultRevisionIdleTimeoutSeconds,
+		InitContainerNameTemplate:           DefaultInitContainerNameTemplate,
+		UserContainerNameTemplate:           DefaultUserContainerNameTemplate,
+		ContainerConcurrency:                DefaultContainerConcurrency,
+		ContainerConcurrencyMaxLimit:        DefaultMaxRevisionContainerConcurrency,
+		AllowContainerConcurrencyZero:       DefaultAllowContainerConcurrencyZero,
+		EnableServiceLinks:                  ptr.Bool(false),
 	}
 }
 
