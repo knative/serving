@@ -138,3 +138,10 @@ func WithConfigRevisionIdleTimeoutSeconds(revisionIdleTimeoutSeconds int64) Conf
 		cfg.Spec.Template.Spec.IdleTimeoutSeconds = ptr.Int64(revisionIdleTimeoutSeconds)
 	}
 }
+
+// WithConfigRevisionIdleTimeoutSeconds sets revision idle timeout
+func WithConfigTEST(key, value string) ConfigOption {
+	return func(cfg *v1.Configuration) {
+		cfg.Spec.Template.ObjectMeta.Annotations[key] = value
+	}
+}

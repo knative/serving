@@ -328,7 +328,11 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 
 	if desiredScale < 0 && !pa.Status.IsActivating() {
 		logger.Debug("Metrics are not yet being collected.")
-		return desiredScale, nil
+
+		// if the target is unreachable and has no metrics. we still want to be able to scale it to 0
+		if !pa.IsUnreachable() {
+			return desiredScale, nil
+		}
 	}
 
 	min, max := pa.ScaleBounds(asConfig)

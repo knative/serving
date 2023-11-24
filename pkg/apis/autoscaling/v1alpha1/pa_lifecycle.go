@@ -187,6 +187,14 @@ func (pa *PodAutoscaler) IsReady() bool {
 		pas.GetCondition(PodAutoscalerConditionReady).IsTrue()
 }
 
+func (pa *PodAutoscaler) IsUnreachable() bool {
+	return pa.Spec.Reachability == ReachabilityUnreachable
+}
+
+func (pa *PodAutoscaler) IsReachable() bool {
+	return pa.Spec.Reachability == ReachabilityReachable
+}
+
 // IsActive returns true if the pod autoscaler has finished scaling.
 func (pas *PodAutoscalerStatus) IsActive() bool {
 	return pas.GetCondition(PodAutoscalerConditionActive).IsTrue()

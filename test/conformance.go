@@ -53,6 +53,7 @@ const (
 	Timeout             = "timeout"
 	Volumes             = "volumes"
 	SlowStart           = "slowstart"
+	DeadStart           = "deadstart"
 
 	// Constants for test image output.
 	PizzaPlanetText1 = "What a spaceport!"

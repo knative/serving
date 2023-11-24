@@ -409,6 +409,27 @@ func TestScaler(t *testing.T) {
 		wantScaling:   false,
 		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
 			paMarkInactive(k, time.Now())
+			WithReachabilityReachable(k)
+		},
+	}, {
+		label:         "negative scale, to zero if unreachable with no metrics",
+		startReplicas: 1,
+		scaleTo:       -1,
+		wantReplicas:  0,
+		wantScaling:   true,
+		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-time.Hour))
+			WithReachabilityUnreachable(k)
+		},
+	}, {
+		label:         "negative scale does not to zero if reachable with no metrics",
+		startReplicas: 1,
+		scaleTo:       -1,
+		wantReplicas:  -1,
+		wantScaling:   false,
+		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-time.Hour))
+			WithReachabilityReachable(k)
 		},
 	}, {
 		label:         "scales up from zero to desired one",
@@ -430,6 +451,7 @@ func TestScaler(t *testing.T) {
 		wantScaling:   false,
 		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
 			paMarkActive(k, time.Now())
+			WithReachabilityReachable(k)
 		},
 	}, {
 		label:         "initial scale attained, but now time to scale down",

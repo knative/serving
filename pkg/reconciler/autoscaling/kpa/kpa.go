@@ -270,6 +270,7 @@ func computeActiveCondition(ctx context.Context, pa *autoscalingv1alpha1.PodAuto
 
 	// If the service is not created yet, it is either queued or inctive if initial scale zero.
 	if !isServiceCreated {
+
 		if minReady == 0 {
 			pa.Status.MarkInactive(noTrafficReason, "The target is not receiving traffic.")
 		} else {
@@ -281,8 +282,12 @@ func computeActiveCondition(ctx context.Context, pa *autoscalingv1alpha1.PodAuto
 
 	// If the target is not initialized, it will be queued.
 	if !pa.Status.IsScaleTargetInitialized() {
-		pa.Status.MarkActivating(
-			"Queued", "Requests to the target are being buffered as resources are provisioned.")
+		if pa.IsUnreachable() {
+			pa.Status.MarkInactive("Unreachable", "The target does not have an active routing state.")
+		} else {
+			pa.Status.MarkActivating(
+				"Queued", "Requests to the target are being buffered as resources are provisioned.")
+		}
 		return
 	}
 
