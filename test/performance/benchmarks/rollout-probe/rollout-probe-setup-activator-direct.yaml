@@ -34,7 +34,7 @@ spec:
             cpu: 20m
             memory: 20Mi
           limits:
-            cpu: 50m
-            memory: 50Mi
-      containerConcurrency: 5
+            cpu: 200m
+            memory: 200Mi
+      containerConcurrency: 20
 ---
