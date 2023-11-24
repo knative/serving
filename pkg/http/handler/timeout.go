@@ -163,6 +163,10 @@ type timeoutWriter struct {
 	lastWriteTime time.Time
 }
 
+func (tw *timeoutWriter) Unwrap() http.ResponseWriter {
+	return tw.w
+}
+
 var _ http.Flusher = (*timeoutWriter)(nil)
 var _ http.ResponseWriter = (*timeoutWriter)(nil)
 

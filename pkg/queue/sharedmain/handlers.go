@@ -47,20 +47,6 @@ func mainHandler(
 	target := net.JoinHostPort("127.0.0.1", env.UserPort)
 
 	httpProxy := pkghttp.NewHeaderPruningReverseProxy(target, pkghttp.NoHostOverride, activator.RevisionHeaders, false /* use HTTP */)
-	var proxyHandler http.Handler
-	if env.EnableHTTPFullDuplex {
-		proxyWithFullDuplex := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			rc := http.NewResponseController(w)
-			_ = rc.EnableFullDuplex()
-			httpProxy.ServeHTTP(w, r)
-		})
-		tmpHandler := struct{ http.Handler }{}
-		tmpHandler.Handler = proxyWithFullDuplex
-		proxyHandler = tmpHandler
-	} else {
-		proxyHandler = httpProxy
-	}
-
 	httpProxy.Transport = transport
 	httpProxy.ErrorHandler = pkghandler.Error(logger)
 	httpProxy.BufferPool = netproxy.NewBufferPool()
@@ -79,24 +65,26 @@ func mainHandler(
 	}
 	// Create queue handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
-	composedHandler := proxyHandler
+	var composedHandler http.Handler = httpProxy
 
 	metricsSupported := supportsMetrics(ctx, logger, env)
 	if metricsSupported {
-		composedHandler = wrapQPHandlerWithFullDuplex(requestAppMetricsHandler(logger, composedHandler, breaker, env), env.EnableHTTPFullDuplex)
+		composedHandler = requestAppMetricsHandler(logger, composedHandler, breaker, env)
 	}
 	composedHandler = queue.ProxyHandler(breaker, stats, false, composedHandler)
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
-	composedHandler = wrapQPHandlerWithFullDuplex(handler.NewTimeoutHandler(composedHandler, "request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
+	composedHandler = handler.NewTimeoutHandler(composedHandler, "request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
 		return timeout, responseStartTimeout, idleTimeout
-	}), env.EnableHTTPFullDuplex)
+	})
 
 	if metricsSupported {
-		composedHandler = wrapQPHandlerWithFullDuplex(requestMetricsHandler(logger, composedHandler, env), env.EnableHTTPFullDuplex)
+		composedHandler = requestMetricsHandler(logger, composedHandler, env)
 	}
 	if tracingEnabled {
 		composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
 	}
+
+	composedHandler = wrapQPHandlerWithFullDuplex(composedHandler, env.EnableHTTPFullDuplex, logger)
 
 	drainer := &pkghandler.Drainer{
 		QuietPeriod: drainSleepDuration,
@@ -139,11 +127,13 @@ func adminHandler(ctx context.Context, logger *zap.SugaredLogger, drainer *pkgha
 	return mux
 }
 
-func wrapQPHandlerWithFullDuplex(h http.Handler, enableFullDuplex bool) http.HandlerFunc {
+func wrapQPHandlerWithFullDuplex(h http.Handler, enableFullDuplex bool, logger *zap.SugaredLogger) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if enableFullDuplex {
 			rc := http.NewResponseController(w)
-			_ = rc.EnableFullDuplex()
+			if err := rc.EnableFullDuplex(); err != nil {
+				logger.Errorw("Unable to enable full duplex", zap.Error(err))
+			}
 		}
 		h.ServeHTTP(w, r)
 	})
