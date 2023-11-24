@@ -67,12 +67,6 @@ const (
 	// Certificate reconciler.
 	CertManagerCertificateClassName = "cert-manager.certificate.networking.knative.dev"
 
-	// ServingInternalCertName is the name of secret contains certificates in serving
-	// system namespace.
-	//
-	// Deprecated: ServingInternalCertName is deprecated. Use ServingRoutingCertName instead.
-	ServingInternalCertName = "knative-serving-certs"
-
 	// ServingRoutingCertName is the name of secret contains certificates for Routing data in serving
 	// system namespace. (Used by Ingress GWs and Activator)
 	ServingRoutingCertName = "routing-serving-certs"
@@ -146,6 +140,20 @@ const (
 	// SystemInternalTLSKey is the name of the configuration whether
 	// traffic between Knative system components is encrypted or not.
 	SystemInternalTLSKey = "system-internal-tls"
+)
+
+// CertificateType indicates the type of Knative Certificate.
+type CertificateType string
+
+const (
+	// CertificateSystemInternal defines a certificate used for `system-internal-tls`.
+	CertificateSystemInternal CertificateType = "system-internal"
+
+	// CertificateClusterLocalDomain defines a certificate used for `cluster-local-domain-tls`.
+	CertificateClusterLocalDomain CertificateType = "cluster-local-domain"
+
+	// CertificateExternalDomain defines a cerificate used for `external-domain-tls`.
+	CertificateExternalDomain CertificateType = "external-domain"
 )
 
 // EncryptionConfig indicates the encryption configuration
