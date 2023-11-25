@@ -163,12 +163,13 @@ type timeoutWriter struct {
 	lastWriteTime time.Time
 }
 
+var _ http.Flusher = (*timeoutWriter)(nil)
+var _ http.ResponseWriter = (*timeoutWriter)(nil)
+
+// Unwrap returns the underlying writer
 func (tw *timeoutWriter) Unwrap() http.ResponseWriter {
 	return tw.w
 }
-
-var _ http.Flusher = (*timeoutWriter)(nil)
-var _ http.ResponseWriter = (*timeoutWriter)(nil)
 
 func (tw *timeoutWriter) Flush() {
 	// The inner handler of timeoutHandler can call Flush at any time including after

@@ -37,6 +37,7 @@ import (
 	"knative.dev/pkg/tracing/propagation/tracecontextb3"
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
+	apiconfig "knative.dev/serving/pkg/apis/config"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
@@ -149,4 +150,17 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 func useSecurePort(target string) string {
 	target = strings.Split(target, ":")[0]
 	return target + ":" + strconv.Itoa(networking.BackendHTTPSPort)
+}
+
+func WrapActivatorHandlerWithFullDuplex(h http.Handler, logger *zap.SugaredLogger) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		revEnableHTTP1FullDuplex := strings.EqualFold(RevAnnotation(r.Context(), apiconfig.AllowHTTPFullDuplexFeatureKey), "Enabled")
+		if revEnableHTTP1FullDuplex {
+			rc := http.NewResponseController(w)
+			if err := rc.EnableFullDuplex(); err != nil {
+				logger.Errorw("Unable to enable full duplex", zap.Error(err))
+			}
+		}
+		h.ServeHTTP(w, r)
+	})
 }

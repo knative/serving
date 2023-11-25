@@ -25,7 +25,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -238,6 +237,8 @@ func main() {
 	// NOTE: MetricHandler is being used as the outermost handler of the meaty bits. We're not interested in measuring
 	// the healthchecks or probes.
 	ah = activatorhandler.NewMetricHandler(env.PodName, ah)
+	// We need the context handler to run first so ctx gets the revision info.
+	ah = activatorhandler.WrapActivatorHandlerWithFullDuplex(ah, logger)
 	ah = activatorhandler.NewContextHandler(ctx, ah, configStore)
 
 	// Network probe handlers.
@@ -247,8 +248,6 @@ func main() {
 	sigCtx := signals.NewContext()
 	hc := newHealthCheck(sigCtx, logger, statSink)
 	ah = &activatorhandler.HealthHandler{HealthCheck: hc, NextHandler: ah, Logger: logger}
-
-	ah = wrapActivatorHandlerWithFullDuplex(ah, logger)
 
 	profilingHandler := profiling.NewHandler(logger, false)
 	// Watch the logging config map and dynamically update logging levels.
@@ -340,17 +339,4 @@ func flush(logger *zap.SugaredLogger) {
 	os.Stdout.Sync()
 	os.Stderr.Sync()
 	metrics.FlushExporter()
-}
-
-func wrapActivatorHandlerWithFullDuplex(h http.Handler, logger *zap.SugaredLogger) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		revEnableHTTP1FullDuplex := strings.EqualFold(activatorhandler.RevAnnotation(r.Context(), apiconfig.AllowHTTPFullDuplexFeatureKey), "Enabled")
-		if revEnableHTTP1FullDuplex {
-			rc := http.NewResponseController(w)
-			if err := rc.EnableFullDuplex(); err != nil {
-				logger.Errorw("Unable to enable full duplex", zap.Error(err))
-			}
-		}
-		h.ServeHTTP(w, r)
-	})
 }
