@@ -124,6 +124,7 @@ func BenchmarkHandlerChain(b *testing.B) {
 func TestProxyWithChainHandler(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	rev := revision(testNamespace, testRevName)
+	defer reset()
 	rev.Annotations = map[string]string{apiconfig.AllowHTTPFullDuplexFeatureKey: "Enabled"}
 	t.Cleanup(cancel)
 
