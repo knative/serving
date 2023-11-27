@@ -82,11 +82,11 @@ type config struct {
 	QueueServingTLSPort                 string `split_words:"true" required:"true"`
 	UserPort                            string `split_words:"true" required:"true"`
 	RevisionTimeoutSeconds              int    `split_words:"true" required:"true"`
-	RevisionResponseStartTimeoutSeconds int    `split_words:"true"` // optional
-	RevisionIdleTimeoutSeconds          int    `split_words:"true"` // optional
-	ServingReadinessProbe               string `split_words:"true"` // optional
-	EnableProfiling                     bool   `split_words:"true"` // optional
-	EnableHTTPAutoDetection             bool   `split_words:"true"` // optional
+	RevisionResponseStartTimeoutSeconds int    `split_words:"true"`                      // optional
+	RevisionIdleTimeoutSeconds          int    `split_words:"true"`                      // optional
+	ServingReadinessProbe               string `split_words:"true"`                      // optional
+	EnableProfiling                     bool   `split_words:"true"`                      // optional
+	EnableHTTP2AutoDetection            bool   `envconfig:"ENABLE_HTTP2_AUTO_DETECTION"` // optional
 
 	// Logging configuration
 	ServingLoggingConfig         string `split_words:"true" required:"true"`
@@ -225,7 +225,7 @@ func Main(opts ...Option) error {
 	// Setup probe to run for checking user-application healthiness.
 	probe := func() bool { return true }
 	if env.ServingReadinessProbe != "" {
-		probe = buildProbe(logger, env.ServingReadinessProbe, env.EnableHTTPAutoDetection).ProbeContainer
+		probe = buildProbe(logger, env.ServingReadinessProbe, env.EnableHTTP2AutoDetection).ProbeContainer
 	}
 
 	// Enable TLS when certificate is mounted.

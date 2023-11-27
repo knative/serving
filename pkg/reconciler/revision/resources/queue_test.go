@@ -387,7 +387,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
-				"ENABLE_HTTP_AUTO_DETECTION": "true",
+				"ENABLE_HTTP2_AUTO_DETECTION": "true",
 			})
 		}),
 	}, {
@@ -414,7 +414,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
-				"ENABLE_HTTP_AUTO_DETECTION": "false",
+				"ENABLE_HTTP2_AUTO_DETECTION": "false",
 			})
 		}),
 	}}
@@ -1040,7 +1040,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 
 var defaultEnv = map[string]string{
 	"CONTAINER_CONCURRENCY":                            "0",
-	"ENABLE_HTTP_AUTO_DETECTION":                       "false",
+	"ENABLE_HTTP2_AUTO_DETECTION":                      "false",
 	"ENABLE_PROFILING":                                 "false",
 	"METRICS_DOMAIN":                                   metrics.Domain(),
 	"METRICS_COLLECTOR_ADDRESS":                        "",
