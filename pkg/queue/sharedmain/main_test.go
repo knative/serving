@@ -208,11 +208,11 @@ func TestEnv(t *testing.T) {
 		"ContainerConcurrency",
 	}, {
 		"QUEUE_SERVING_PORT",
-		8080,
+		"8080",
 		"QueueServingPort ",
 	}, {
 		"QUEUE_SERVING_TLS_PORT",
-		443,
+		"443",
 		"QueueServingTLSPort  ",
 	}, {
 		"REVISION_TIMEOUT_SECONDS",
@@ -220,8 +220,8 @@ func TestEnv(t *testing.T) {
 		"RevisionTimeoutSeconds ",
 	}, {
 		"USER_PORT",
-		8081,
-		"UserPor",
+		"8081",
+		"UserPort",
 	}, {
 		"SERVING_LOGGING_CONFIG",
 		"",
@@ -229,11 +229,11 @@ func TestEnv(t *testing.T) {
 	}, {
 		"SERVING_LOGGING_LEVEL",
 		"info",
-		"",
+		"ServingLoggingLevel",
 	}, {
 		"SERVING_NAMESPACE",
 		"knative-serving",
-		"ServingLoggingLevel  ",
+		"ServingNamespace",
 	}, {
 		"SERVING_CONFIGURATION",
 		"",
@@ -273,7 +273,7 @@ func TestEnv(t *testing.T) {
 	}
 
 	for _, envVar := range envVars {
-		value := getField(&env, envVar.fieldName)
+		value := getFieldValue(&env, envVar.fieldName)
 		switch value.Kind() {
 		case reflect.Bool:
 			if value.Bool() != envVar.value.(bool) {
@@ -291,8 +291,9 @@ func TestEnv(t *testing.T) {
 	}
 }
 
-func getField(v *config, field string) reflect.Value {
-	r := reflect.ValueOf(v)
-	f := reflect.Indirect(r).FieldByName(field)
+// getFieldValue extracts the value of a field in env config
+func getFieldValue(cfg *config, fieldName string) reflect.Value {
+	rVal := reflect.ValueOf(cfg)
+	f := reflect.Indirect(rVal).FieldByName(fieldName)
 	return f
 }
