@@ -28,4 +28,5 @@ For documentation on the Knative Serving specification, see the
 repository.
 
 If you are interested in contributing, see [CONTRIBUTING.md](./CONTRIBUTING.md)
-and [DEVELOPMENT.md](./DEVELOPMENT.md).
+and [DEVELOPMENT.md](./DEVELOPMENT.md). For a list of all help wanted issues
+across Knative, take a look at [CLOTRIBUTOR](https://clotributor.dev/search?project=knative&page=1).
