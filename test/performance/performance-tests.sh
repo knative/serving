@@ -84,6 +84,8 @@ if [[ -z "${INFLUX_TOKEN}" ]]; then
   exit 1
 fi
 
+echo "Serving ns: ${SYSTEM_NAMESPACE}"
+
 echo "Running load test with BUILD_ID: ${BUILD_ID}, JOB_NAME: ${JOB_NAME}, reporting results to: ${INFLUX_URL}"
 
 ###############################################################################################
@@ -207,15 +209,15 @@ header "Rollout probe: activator direct"
 # make sure activator does not add to latency due to scaling up and down
 echo "Patching hpa activator"
 kubectl patch hpa activator \
-  -n knative-serving \
+  -n "${SYSTEM_NAMESPACE}" \
   --type merge \
   -p '{"spec":{"minReplicas": 10, "maxReplicas": 10}}'
 
-kubectl wait deploy/activator -n knative-serving --for condition=available
+kubectl wait deploy/activator -n "${SYSTEM_NAMESPACE}" --for condition=available
 
 echo "Patching configmap autoscaler"
 kubectl patch configmap/config-autoscaler \
-  -n knative-serving \
+  -n "${SYSTEM_NAMESPACE}" \
   --type merge \
   -p '{"data":{"scale-to-zero-grace-period":"10s"}}'
 
