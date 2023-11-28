@@ -26,6 +26,7 @@ spec:
         # Always hook the activator in.
         autoscaling.knative.dev/targetBurstCapacity: "-1"
         autoscaling.knative.dev/metricAggregationAlgorithm: "weightedExponential"
+        serving.knative.dev/rollout-duration: "240s"
     spec:
       containers:
       - image: ko://knative.dev/serving/test/test_images/autoscale
@@ -36,5 +37,5 @@ spec:
           limits:
             cpu: 250m
             memory: 250Mi
-      containerConcurrency: 30
+      containerConcurrency: 10
 ---
