@@ -215,14 +215,6 @@ kubectl patch hpa activator \
 
 kubectl wait deploy/activator -n "${SYSTEM_NAMESPACE}" --for condition=available
 
-echo "Patching hpa 3scale-kourier-gateway"
-kubectl patch hpa 3scale-kourier-gateway \
-  -n kourier-system \
-  --type merge \
-  -p '{"spec":{"minReplicas": 10, "maxReplicas": 10}}'
-
-kubectl wait deploy/3scale-kourier-gateway -n kourier-system --for condition=available
-
 echo "Patching configmap autoscaler"
 kubectl patch configmap/config-autoscaler \
   -n "${SYSTEM_NAMESPACE}" \
