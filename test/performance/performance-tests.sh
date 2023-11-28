@@ -205,12 +205,19 @@ kubectl wait --for=delete ksvc/load-test-200 --timeout=60s -n "$ns"
 header "Rollout probe: activator direct"
 
 # make sure activator does not add to latency due to scaling up and down
+echo "Patching hpa activator"
 kubectl patch hpa activator \
   -n knative-serving \
   --type merge \
   -p '{"spec":{"minReplicas": 10, "maxReplicas": 10}}'
 
 kubectl wait deploy/activator -n knative-serving --for condition=available
+
+echo "Patching configmap autoscaler"
+kubectl patch configmap/config-autoscaler \
+  -n knative-serving \
+  --type merge \
+  -p '{"data":{"scale-to-zero-grace-period":"10s"}}'
 
 ko apply --sbom=none -Bf "${REPO_ROOT_DIR}/test/performance/benchmarks/rollout-probe/rollout-probe-setup-activator-direct.yaml"
 kubectl wait --timeout=800s --for=condition=ready ksvc -n "$ns" --all
