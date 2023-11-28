@@ -18,15 +18,18 @@ package sharedmain
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
+	"reflect"
 	"testing"
 	"time"
 
 	"go.opencensus.io/plugin/ochttp"
 
+	"github.com/kelseyhightower/envconfig"
 	netheader "knative.dev/networking/pkg/http/header"
 	netstats "knative.dev/networking/pkg/http/stats"
 	pkgnet "knative.dev/pkg/network"
@@ -188,4 +191,109 @@ func TestQueueTraceSpans(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestEnv(t *testing.T) {
+	envVars := []struct {
+		name      string
+		value     any
+		fieldName string
+	}{{
+		"ENABLE_HTTP2_AUTO_DETECTION",
+		true,
+		"EnableHTTP2AutoDetection",
+	}, {
+		"CONTAINER_CONCURRENCY",
+		10,
+		"ContainerConcurrency",
+	}, {
+		"QUEUE_SERVING_PORT",
+		"8080",
+		"QueueServingPort ",
+	}, {
+		"QUEUE_SERVING_TLS_PORT",
+		"443",
+		"QueueServingTLSPort  ",
+	}, {
+		"REVISION_TIMEOUT_SECONDS",
+		1000,
+		"RevisionTimeoutSeconds ",
+	}, {
+		"USER_PORT",
+		"8081",
+		"UserPort",
+	}, {
+		"SERVING_LOGGING_CONFIG",
+		"",
+		"ServingLoggingConfig ",
+	}, {
+		"SERVING_LOGGING_LEVEL",
+		"info",
+		"ServingLoggingLevel",
+	}, {
+		"SERVING_NAMESPACE",
+		"knative-serving",
+		"ServingNamespace",
+	}, {
+		"SERVING_CONFIGURATION",
+		"",
+		"ServingConfiguration",
+	}, {
+		"SERVING_REVISION",
+		"rev",
+		"ServingRevision",
+	}, {
+		"SERVING_POD",
+		"pod",
+		"ServingPod",
+	}, {
+		"SERVING_POD_IP",
+		"1.1.1.1",
+		"ServingPodIP",
+	}}
+
+	for _, v := range envVars {
+		var str string
+		switch tp := v.value.(type) {
+		case int:
+			str = fmt.Sprintf("%d", v.value)
+		case bool:
+			str = fmt.Sprintf("%t", v.value)
+		case string:
+			str = v.value.(string)
+		default:
+			t.Fatalf("Unexpected type: %v", tp)
+		}
+
+		t.Setenv(v.name, str)
+	}
+	var env config
+	if err := envconfig.Process("", &env); err != nil {
+		t.Fatal("Got unexpected error processing env:", err)
+	}
+
+	for _, envVar := range envVars {
+		value := getFieldValue(&env, envVar.fieldName)
+		switch value.Kind() {
+		case reflect.Bool:
+			if value.Bool() != envVar.value.(bool) {
+				t.Fatalf("Env value for %s is %v, want %v", envVar.name, value.Bool(), envVar.value.(bool))
+			}
+		case reflect.String:
+			if value.String() != envVar.value.(string) {
+				t.Fatalf("Env value for %s is %v, want %v", envVar.name, value.String(), envVar.value.(string))
+			}
+		case reflect.Int:
+			if int(value.Int()) != envVar.value.(int) {
+				t.Fatalf("Env value for %s is %v, want %v", envVar.name, value.Int(), envVar.value.(int))
+			}
+		}
+	}
+}
+
+// getFieldValue extracts the value of a field in env config
+func getFieldValue(cfg *config, fieldName string) reflect.Value {
+	rVal := reflect.ValueOf(cfg)
+	f := reflect.Indirect(rVal).FieldByName(fieldName)
+	return f
 }
