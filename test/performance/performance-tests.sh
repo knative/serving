@@ -215,11 +215,11 @@ header "Rollout probe: activator direct"
 
 #kubectl wait deploy/activator -n "${SYSTEM_NAMESPACE}" --for condition=available
 #
-#echo "Patching configmap autoscaler"
-#kubectl patch configmap/config-autoscaler \
-#  -n "${SYSTEM_NAMESPACE}" \
-#  --type merge \
-#  -p '{"data":{"scale-to-zero-grace-period":"10s"}}'
+echo "Patching configmap autoscaler"
+kubectl patch configmap/config-autoscaler \
+  -n "${SYSTEM_NAMESPACE}" \
+  --type merge \
+  -p '{"data":{"scale-to-zero-grace-period":"10s"}}'
 
 ko apply --sbom=none -Bf "${REPO_ROOT_DIR}/test/performance/benchmarks/rollout-probe/rollout-probe-setup-activator-direct.yaml"
 kubectl wait --timeout=800s --for=condition=ready ksvc -n "$ns" --all

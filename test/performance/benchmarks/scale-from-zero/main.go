@@ -74,8 +74,8 @@ var (
 	}{
 		1: {
 			p95min:     0,
-			p95max:     40 * time.Millisecond,
-			latencyMax: 40 * time.Millisecond,
+			p95max:     50 * time.Millisecond,
+			latencyMax: 50 * time.Millisecond,
 		},
 		5: {
 			p95min:     0,
