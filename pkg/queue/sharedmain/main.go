@@ -82,13 +82,13 @@ type config struct {
 	QueueServingTLSPort                 string `split_words:"true" required:"true"`
 	UserPort                            string `split_words:"true" required:"true"`
 	RevisionTimeoutSeconds              int    `split_words:"true" required:"true"`
-	RevisionResponseStartTimeoutSeconds int    `split_words:"true"`                      // optional
-	RevisionIdleTimeoutSeconds          int    `split_words:"true"`                      // optional
-	ServingReadinessProbe               string `split_words:"true"`                      // optional
-	EnableProfiling                     bool   `split_words:"true"`                      // optional
-	EnableHTTPFullDuplex                bool   `split_words:"true"`                      // optional
-	EnableHTTP2AutoDetection            bool   `envconfig:"ENABLE_HTTP2_AUTO_DETECTION"` // optional
+	RevisionResponseStartTimeoutSeconds int    `split_words:"true"` // optional
+	RevisionIdleTimeoutSeconds          int    `split_words:"true"` // optional
+	ServingReadinessProbe               string `split_words:"true"` // optional
+	EnableProfiling                     bool   `split_words:"true"` // optional
 	// See https://github.com/knative/serving/issues/12387
+	EnableHTTPFullDuplex     bool `split_words:"true"`                      // optional
+	EnableHTTP2AutoDetection bool `envconfig:"ENABLE_HTTP2_AUTO_DETECTION"` // optional
 
 	// Logging configuration
 	ServingLoggingConfig         string `split_words:"true" required:"true"`
