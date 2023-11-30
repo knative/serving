@@ -73,20 +73,19 @@ func TestClusterLocalDomainTLSClusterLocalVisibility(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	svcUrl := resources.Route.Status.URL.URL()
-	if svcUrl.Scheme != "https" {
+	svcURL := resources.Route.Status.URL.URL()
+	if svcURL.Scheme != "https" {
 		t.Fatalf("URL scheme of service %v was not https", names.Service)
 	}
 
 	// Check access via https on all cluster-local-domains
 	for _, dns := range dnsVariants {
 		helloworldURL := &url.URL{
-			Scheme: svcUrl.Scheme,
-			Host:   strings.TrimSuffix(svcUrl.Host, dns.suffix),
-			Path:   svcUrl.Path,
+			Scheme: svcURL.Scheme,
+			Host:   strings.TrimSuffix(svcURL.Host, dns.suffix),
+			Path:   svcURL.Path,
 		}
 		t.Run(dns.name, func(t *testing.T) {
-			t.Parallel()
 			e2e.TestProxyToHelloworld(t, clients, helloworldURL, false, false, secret)
 		})
 	}
@@ -136,7 +135,6 @@ func TestClusterLocalDomainTLSClusterExternalVisibility(t *testing.T) {
 
 	// Check normal access on external domain
 	t.Run("external-access", func(t *testing.T) {
-		t.Parallel()
 		e2e.TestProxyToHelloworld(t, clients, externalURL, false, true, secret)
 	})
 
@@ -148,7 +146,6 @@ func TestClusterLocalDomainTLSClusterExternalVisibility(t *testing.T) {
 			Path:   internalURL.Path,
 		}
 		t.Run(dns.name, func(t *testing.T) {
-			t.Parallel()
 			e2e.TestProxyToHelloworld(t, clients, helloworldURL, false, false, secret)
 		})
 	}
