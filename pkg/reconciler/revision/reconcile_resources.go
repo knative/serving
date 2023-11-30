@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
-	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 	networkingaccessor "knative.dev/serving/pkg/reconciler/accessor/networking"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -220,13 +219,18 @@ func (c *Reconciler) reconcileQueueProxyCertificate(ctx context.Context, rev *v1
 		certClass = class
 	}
 
-	desiredCert := resources.MakeQueueProxyCertificate(rev, certClass)
+	// As all Knative services in the same namespace share one QP-certificate, so the owning resource
+	// is the namespace, not the revision. This results in the first created revision to trigger
+	// the creation of the Certificate, each revision update (potentially) refreshes the certificate and
+	// the deletion of the Certificate is bound to the namespace deletion.
+	owningNs, err := c.kubeclient.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
 
-	_, err := networkingaccessor.ReconcileCertificate(ctx, rev, desiredCert, c)
-	if kaccessor.IsNotOwned(err) {
-		logger.Debugf("Skipping reconciling Knative certificate %s/%s as it already exists (from another Knative Service in the same namespace)",
-			ns, networking.ServingCertName)
-	} else if err != nil {
+	desiredCert := resources.MakeQueueProxyCertificate(owningNs, certClass)
+	_, err = networkingaccessor.ReconcileCertificate(ctx, owningNs, desiredCert, c)
+	if err != nil {
 		return fmt.Errorf("failed to reconcile Knative certificate %s/%s: %w", ns, networking.ServingCertName, err)
 	}
 

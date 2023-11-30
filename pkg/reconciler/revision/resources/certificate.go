@@ -17,23 +17,22 @@ limitations under the License.
 package resources
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/networking/pkg/certificates"
 	"knative.dev/networking/pkg/config"
-	"knative.dev/pkg/kmeta"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingnetworking "knative.dev/serving/pkg/networking"
 )
 
 // MakeQueueProxyCertificate creates a KnativeCertificate to be used by Queue-Proxy for system-internal-tls.
-func MakeQueueProxyCertificate(rev *v1.Revision, certClass string) *v1alpha1.Certificate {
+func MakeQueueProxyCertificate(namespace *corev1.Namespace, certClass string) *v1alpha1.Certificate {
 	return &v1alpha1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            servingnetworking.ServingCertName,
-			Namespace:       rev.Namespace,
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
+			Namespace:       namespace.Name,
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(namespace, corev1.SchemeGroupVersion.WithKind("Namespace"))},
 			Annotations: map[string]string{
 				networking.CertificateClassAnnotationKey: certClass,
 			},
@@ -43,7 +42,7 @@ func MakeQueueProxyCertificate(rev *v1.Revision, certClass string) *v1alpha1.Cer
 		},
 		Spec: v1alpha1.CertificateSpec{
 			DNSNames: []string{
-				certificates.DataPlaneUserSAN(rev.Namespace),
+				certificates.DataPlaneUserSAN(namespace.Name),
 				// added for reverse-compatibility with net-* implementations that do not work with multi-SANs
 				certificates.LegacyFakeDnsName,
 			},

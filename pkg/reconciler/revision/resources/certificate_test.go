@@ -20,13 +20,12 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/networking/pkg/certificates"
 	"knative.dev/networking/pkg/config"
-	"knative.dev/pkg/kmeta"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingnetworking "knative.dev/serving/pkg/networking"
 )
 
@@ -37,15 +36,15 @@ const (
 )
 
 func TestMakeQueueProxyCertificate(t *testing.T) {
-	rev := &v1.Revision{
-		ObjectMeta: metav1.ObjectMeta{Namespace: namespace},
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: namespace},
 	}
 
 	want := &v1alpha1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            servingnetworking.ServingCertName,
 			Namespace:       namespace,
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(ns, corev1.SchemeGroupVersion.WithKind("Namespace"))},
 			Annotations: map[string]string{
 				networking.CertificateClassAnnotationKey: config.CertManagerCertificateClassName,
 			},
@@ -59,7 +58,7 @@ func TestMakeQueueProxyCertificate(t *testing.T) {
 		},
 	}
 
-	got := MakeQueueProxyCertificate(rev, config.CertManagerCertificateClassName)
+	got := MakeQueueProxyCertificate(ns, config.CertManagerCertificateClassName)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Error("MakeQueueProxyCertificate (-want, +got) =", diff)
 	}
