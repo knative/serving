@@ -40,7 +40,6 @@ ns="default"
 
 initialize --num-nodes=10 --cluster-version=1.27 "$@"
 
-
 function run_job() {
   local name=$1
   local file=$2
@@ -66,7 +65,6 @@ function run_job() {
   kubectl wait --for=delete "job/$name" --timeout=60s -n "$ns"
 }
 
-
 if ((IS_PROW)); then
   export INFLUX_URL=$(cat /etc/influx-url-secret-volume/influxdb-url)
   export INFLUX_TOKEN=$(cat /etc/influx-token-secret-volume/influxdb-token)
@@ -83,8 +81,6 @@ if [[ -z "${INFLUX_TOKEN}" ]]; then
   echo "env variable 'INFLUX_TOKEN' not specified!"
   exit 1
 fi
-
-echo "Serving ns: ${SYSTEM_NAMESPACE}"
 
 echo "Running load test with BUILD_ID: ${BUILD_ID}, JOB_NAME: ${JOB_NAME}, reporting results to: ${INFLUX_URL}"
 
@@ -206,20 +202,7 @@ kubectl wait --for=delete ksvc/load-test-200 --timeout=60s -n "$ns"
 ###############################################################################################
 header "Rollout probe: activator direct"
 
-# make sure activator does not add to latency due to scaling up and down
-#echo "Patching hpa activator"
-#kubectl patch hpa activator \
-#  -n "${SYSTEM_NAMESPACE}" \
-#  --type merge \
-#  -p '{"spec":{"minReplicas": 10, "maxReplicas": 10}}'
-
-#kubectl wait deploy/activator -n "${SYSTEM_NAMESPACE}" --for condition=available
-#
-echo "Patching configmap autoscaler"
-kubectl patch configmap/config-autoscaler \
-  -n "${SYSTEM_NAMESPACE}" \
-  --type merge \
-  -p '{"data":{"scale-to-zero-grace-period":"10s"}}'
+toggle_feature scale-to-zero-grace-period 10s config-autoscaler
 
 ko apply --sbom=none -Bf "${REPO_ROOT_DIR}/test/performance/benchmarks/rollout-probe/rollout-probe-setup-activator-direct.yaml"
 kubectl wait --timeout=800s --for=condition=ready ksvc -n "$ns" --all
