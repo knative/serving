@@ -29,11 +29,11 @@ linters:
 
 linters-settings:
   depguard:
-    include-go-root: true
-    packages:
-      - sync/atomic
-    packages-with-error-message:
-      - sync/atomic: "please use type-safe atomics from go.uber.org/atomic"
+    rules:
+      main:
+        deny:
+          - pkg: sync/atomic
+            desc: "please use type-safe atomics from go.uber.org/atomic"
   importas:
     no-unaliased: true
     alias:
