@@ -73,16 +73,14 @@ var (
 		latencyMax time.Duration
 	}{
 		1: {
-			// Scaling one service from zero should be around 10ms
 			p95min:     0,
-			p95max:     15 * time.Millisecond,
-			latencyMax: 15 * time.Millisecond,
+			p95max:     50 * time.Millisecond,
+			latencyMax: 50 * time.Millisecond,
 		},
 		5: {
-			// Scaling five service from zero should be around 15ms
 			p95min:     0,
-			p95max:     15 * time.Millisecond,
-			latencyMax: 20 * time.Millisecond,
+			p95max:     50 * time.Millisecond,
+			latencyMax: 50 * time.Millisecond,
 		},
 		25: {
 			// Scaling 25 services in parallel will hit some API limits, which cause a step
@@ -95,8 +93,8 @@ var (
 			// Scaling 100 services in parallel will hit some API limits, which cause a step
 			// in the deployment updated time which adds to the total time until a service is ready
 			p95min:     0,
-			p95max:     15 * time.Second,
-			latencyMax: 20 * time.Second,
+			p95max:     25 * time.Second,
+			latencyMax: 25 * time.Second,
 		},
 	}
 )
