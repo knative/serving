@@ -343,7 +343,7 @@ spec:
         app: net-kourier-controller
     spec:
       containers:
-        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:dc6333a24d9e005ad3cfa40315260440ba569b7c93d9838cc24634319db6e86e
+        - image: docker.io/skonto/kourier-b74c3918b7eee585f87df62ccd297dc8@sha256:d60dd722cdb6424655cda1163c82403ea097db34c0865c4719016f9643d9fb58
           name: controller
           env:
             - name: CERTS_SECRET_NAMESPACE
