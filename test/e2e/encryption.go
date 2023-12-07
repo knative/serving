@@ -40,8 +40,6 @@ const (
 )
 
 // GetCASecret returns the Secret that is used by the CA to issue KnativeCertificates.
-// Note: this process can be omitted when https://github.com/knative/serving/issues/14196 is implemented,
-// then httpproxy.go should get the CA to trust from the Addressable.
 func GetCASecret(clients *test.Clients) (*corev1.Secret, error) {
 	cm, err := clients.KubeClient.CoreV1().ConfigMaps(system.Namespace()).
 		Get(context.Background(), netcfg.ConfigMapName, metav1.GetOptions{})
