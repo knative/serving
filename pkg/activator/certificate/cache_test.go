@@ -20,20 +20,21 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/pem"
 	"reflect"
 	"testing"
 	"time"
 
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
+	"knative.dev/networking/pkg/apis/networking"
+	"knative.dev/pkg/reconciler"
 
 	"knative.dev/networking/pkg/certificates"
 	netcfg "knative.dev/networking/pkg/config"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
+	fakeconfigmapinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap/fake"
 	fakesecretinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -43,12 +44,14 @@ import (
 
 func fakeCertCache(ctx context.Context) *CertCache {
 	secretInformer := fakesecretinformer.Get(ctx)
+	configmapInformer := fakeconfigmapinformer.Get(ctx)
 
 	cr := &CertCache{
-		secretInformer: secretInformer,
-		certificate:    nil,
-		TLSConf:        tls.Config{},
-		logger:         logging.FromContext(ctx),
+		secretInformer:    secretInformer,
+		configmapInformer: configmapInformer,
+		certificate:       nil,
+		TLSConf:           tls.Config{},
+		logger:            logging.FromContext(ctx),
 	}
 
 	secretInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -59,10 +62,19 @@ func fakeCertCache(ctx context.Context) *CertCache {
 		},
 	})
 
+	configmapInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: reconciler.ChainFilterFuncs(
+			reconciler.LabelExistsFilterFunc(networking.TrustBundleLabelKey),
+		),
+		Handler: controller.HandleAll(func(obj interface{}) {
+			cr.updateTrustPool()
+		}),
+	})
+
 	return cr
 }
 
-func TestReconcile(t *testing.T) {
+func TestReconcileSecret(t *testing.T) {
 	ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
 	cr := fakeCertCache(ctx)
 
@@ -76,18 +88,6 @@ func TestReconcile(t *testing.T) {
 		waitInformers()
 	})
 
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      netcfg.ServingRoutingCertName,
-			Namespace: system.Namespace(),
-		},
-		Data: map[string][]byte{
-			certificates.CaCertName:     ca,
-			certificates.PrivateKeyName: tlsKey,
-			certificates.CertName:       tlsCrt,
-		},
-	}
-
 	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Create(ctx, secret, metav1.CreateOptions{})
 	fakesecretinformer.Get(ctx).Informer().GetIndexer().Add(secret)
 
@@ -97,7 +97,8 @@ func TestReconcile(t *testing.T) {
 		cr.certificatesMux.RLock()
 		defer cr.certificatesMux.RUnlock()
 		cert, _ := cr.GetCertificate(nil)
-		return cert != nil, nil
+		expectedPool := getPoolWithCerts(secret.Data[certificates.CaCertName])
+		return cert != nil && cr.TLSConf.RootCAs.Equal(expectedPool), nil
 	}); err != nil {
 		t.Fatal("timeout to get the secret:", err)
 	}
@@ -121,28 +122,96 @@ func TestReconcile(t *testing.T) {
 	// Update CA, now the error is gone.
 	secret.Data[certificates.CaCertName] = newCA
 
-	pool := x509.NewCertPool()
-	block, _ := pem.Decode(secret.Data[certificates.CaCertName])
-	ca, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		cr.logger.Warnw("Failed to parse CA: %v", zap.Error(err))
-		return
-	}
-
-	pool.AddCert(ca)
+	expectedPool := getPoolWithCerts(secret.Data[certificates.CaCertName])
 
 	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
 	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 10*time.Second, true, func(context.Context) (bool, error) {
 		// To access cr.TLSConf.RootCAs, take a lock.
 		cr.certificatesMux.RLock()
 		defer cr.certificatesMux.RUnlock()
-		return err == nil && pool.Equal(cr.TLSConf.RootCAs), nil
+		return cr.TLSConf.RootCAs.Equal(expectedPool), nil
 	}); err != nil {
 		t.Fatalf("timeout to update the cert: %v", err)
 	}
 }
 
-var ca = []byte(
+func TestReconcileConfigmaps(t *testing.T) {
+	ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
+	cr := fakeCertCache(ctx)
+
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, informers...)
+	if err != nil {
+		cancel()
+		t.Fatal("failed to start informers:", err)
+	}
+	t.Cleanup(func() {
+		cancel()
+		waitInformers()
+	})
+
+	// Valid CA in Configmap, no CA in Secret
+	s := secret.DeepCopy()
+	delete(s.Data, certificates.CaCertName)
+	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Create(ctx, s, metav1.CreateOptions{})
+	fakesecretinformer.Get(ctx).Informer().GetIndexer().Add(s)
+	fakekubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Create(ctx, validConfigmap, metav1.CreateOptions{})
+	fakeconfigmapinformer.Get(ctx).Informer().GetIndexer().Add(validConfigmap)
+
+	// Wait for the resources to be created and the handler is called.
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 2*time.Second, true, func(context.Context) (bool, error) {
+		// To access cert pool, take a lock.
+		cr.certificatesMux.RLock()
+		defer cr.certificatesMux.RUnlock()
+		expectedPool := getPoolWithCerts(configmapCA)
+		return cr.TLSConf.RootCAs.Equal(expectedPool), nil
+	}); err != nil {
+		t.Fatal("CA pool did not match the expected pool: ", err)
+	}
+
+	// Valid CA, CA in Secret
+	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
+	fakesecretinformer.Get(ctx).Informer().GetIndexer().Update(secret)
+	fakekubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Create(ctx, validConfigmap, metav1.CreateOptions{})
+	fakeconfigmapinformer.Get(ctx).Informer().GetIndexer().Add(validConfigmap)
+
+	// Wait for the resources to be created and the handler is called.
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 10*time.Second, true, func(context.Context) (bool, error) {
+		// To access cert pool, take a lock.
+		cr.certificatesMux.RLock()
+		defer cr.certificatesMux.RUnlock()
+		expectedPool := getPoolWithCerts(secretCA, configmapCA)
+		return cr.TLSConf.RootCAs.Equal(expectedPool), nil
+	}); err != nil {
+		t.Fatal("CA pool did not match the expected pool:", err)
+	}
+
+	// Invalid CA in Configmap
+	fakekubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Delete(ctx, validConfigmap.Name, metav1.DeleteOptions{})
+	fakeconfigmapinformer.Get(ctx).Informer().GetIndexer().Delete(validConfigmap)
+	fakekubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Create(ctx, invalidConfigmap, metav1.CreateOptions{})
+	fakeconfigmapinformer.Get(ctx).Informer().GetIndexer().Add(invalidConfigmap)
+
+	// Wait for the resources to be created and the handler is called.
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 2*time.Second, true, func(context.Context) (bool, error) {
+		// To access cert pool, take a lock.
+		cr.certificatesMux.RLock()
+		defer cr.certificatesMux.RUnlock()
+		expectedPool := getPoolWithCerts(secretCA)
+		return cr.TLSConf.RootCAs.Equal(expectedPool), nil
+	}); err != nil {
+		t.Fatal("CA pool did not match the expected pool:", err)
+	}
+}
+
+func getPoolWithCerts(certs ...[]byte) *x509.CertPool {
+	pool := x509.NewCertPool()
+	for _, c := range certs {
+		pool.AppendCertsFromPEM(c)
+	}
+	return pool
+}
+
+var secretCA = []byte(
 	`-----BEGIN CERTIFICATE-----
 MIIDRzCCAi+gAwIBAgIQQo5HxzWURsnoOnFP1U2vKjANBgkqhkiG9w0BAQsFADAu
 MRQwEgYDVQQKEwtrbmF0aXZlLmRldjEWMBQGA1UEAxMNY29udHJvbC1wbGFuZTAe
@@ -162,6 +231,27 @@ ehGaU9eIWWS9swIR+sQxO2yPjJ/mNLI+MQH9E2Q0rY4b6669oCMtenXJ3kDl2x/V
 stXnfHpI3C14v4t00tZ9JHVNIeyGapXmKpq8rys5bnDWoUv62I+W/s4Kx3jUx2pO
 7aXrDONR1fhKKHu7k1lJHfa6t34YeYTfZZk0viLF50pvPbrbAFHHZ00EyQGA1Zur
 yycz8WDCfsgD/kiJ3GiITxBH8oHotFZdjFnF
+-----END CERTIFICATE-----`)
+
+var configmapCA = []byte(
+	`-----BEGIN CERTIFICATE-----
+MIIDDTCCAfWgAwIBAgIQMQuip05h7NLQq2TB+j9ZmTANBgkqhkiG9w0BAQsFADAW
+MRQwEgYDVQQDEwtrbmF0aXZlLmRldjAeFw0yMzExMjIwOTAwNDhaFw0yNDAyMjAw
+OTAwNDhaMBYxFDASBgNVBAMTC2tuYXRpdmUuZGV2MIIBIjANBgkqhkiG9w0BAQEF
+AAOCAQ8AMIIBCgKCAQEA3clC3CV7sy0TpUKNuTku6QmP9z8JUCbLCPCLACCUc1zG
+FEokqOva6TakgvAntXLkB3TEsbdCJlNm6qFbbko6DBfX6rEggqZs40x3/T+KH66u
+4PvMT3fzEtaMJDK/KQOBIvVHrKmPkvccUYK/qWY7rgBjVjjLVSJrCn4dKaEZ2JNr
+Fd0KNnaaW/dP9/FvviLqVJvHnTMHH5qyRRr1kUGTrc8njRKwpHcnUdauiDoWRKxo
+Zlyy+MhQfdbbyapX984WsDjCvrDXzkdGgbRNAf+erl6yUm6pHpQhyFFo/zndx6Uq
+QXA7jYvM2M3qCnXmaFowidoLDsDyhwoxD7WT8zur/QIDAQABo1cwVTAOBgNVHQ8B
+Af8EBAMCAgQwEwYDVR0lBAwwCgYIKwYBBQUHAwEwDwYDVR0TAQH/BAUwAwEB/zAd
+BgNVHQ4EFgQU7p4VuECNOcnrP9ulOjc4J37Q2VUwDQYJKoZIhvcNAQELBQADggEB
+AAv26Vnk+ptQrppouF7yHV8fZbfnehpm07HIZkmnXO2vAP+MZJDNrHjy8JAVzXjt
++OlzqAL0cRQLsUptB0btoJuw23eq8RXgJo05OLOPQ2iGNbAATQh2kLwBWd/CMg+V
+KJ4EIEpF4dmwOohsNR6xa/JoArIYH0D7gh2CwjrdGZr/tq1eMSL+uZcuX5OiE44A
+2oXF9/jsqerOcH7QUMejSnB8N7X0LmUvH4jAesQgr7jo1JTOBs7GF6wb+U76NzFa
+8ms2iAWhoplQ+EHR52wffWb0k6trXspq4O6v/J+nq9Ky3vC36so+G1ZFkMhCdTVJ
+ZmrBsSMWeT2l07qeei2UFRU=
 -----END CERTIFICATE-----`)
 
 var tlsCrt = []byte(
@@ -288,3 +378,41 @@ uNLDuUL4EPGk084uoa/rwQxUDwWQ05aw81c/Q0ssPeyekgLNfet4HX4lzBDJWZEQ
 FUu9LuwG/tVRBIecvo/IcUuQ1/UObbRAXpp0Y8aO56UVeBvOb9bG2/wjRJmrgR+1
 vCCFsBlglA==
 -----END CERTIFICATE-----`)
+
+var secret = &corev1.Secret{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      netcfg.ServingRoutingCertName,
+		Namespace: system.Namespace(),
+	},
+	Data: map[string][]byte{
+		certificates.CaCertName:     secretCA,
+		certificates.PrivateKeyName: tlsKey,
+		certificates.CertName:       tlsCrt,
+	},
+}
+
+var validConfigmap = &corev1.ConfigMap{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "valid",
+		Namespace: system.Namespace(),
+		Labels: map[string]string{
+			networking.TrustBundleLabelKey: "true",
+		},
+	},
+	Data: map[string]string{
+		certificates.CertName: string(configmapCA),
+	},
+}
+
+var invalidConfigmap = &corev1.ConfigMap{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "invalid",
+		Namespace: system.Namespace(),
+		Labels: map[string]string{
+			networking.TrustBundleLabelKey: "true",
+		},
+	},
+	Data: map[string]string{
+		certificates.CertName: "not a CA",
+	},
+}
