@@ -2227,7 +2227,7 @@ func getCommonContainerValidationTestCases() []containerValidationTestCase {
 			c: corev1.Container{
 				Image: "foo",
 				VolumeMounts: []corev1.VolumeMount{{
-					MountPath: "//var//log//",
+					MountPath: "//dev//",
 					Name:      "the-name",
 					ReadOnly:  true,
 				}},
@@ -2245,7 +2245,7 @@ func getCommonContainerValidationTestCases() []containerValidationTestCase {
 				},
 			},
 			want: (&apis.FieldError{
-				Message: `mountPath "/var/log" is a reserved path`,
+				Message: `mountPath "/dev" is a reserved path`,
 				Paths:   []string{"mountPath"},
 			}).ViaFieldIndex("volumeMounts", 0),
 		}, {
