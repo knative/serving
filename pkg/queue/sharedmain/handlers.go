@@ -84,7 +84,7 @@ func mainHandler(
 		composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
 	}
 
-	composedHandler = wrapQPHandlerWithFullDuplex(composedHandler, env.EnableHTTPFullDuplex, logger)
+	composedHandler = withFullDuplex(composedHandler, env.EnableHTTPFullDuplex, logger)
 
 	drainer := &pkghandler.Drainer{
 		QuietPeriod: drainSleepDuration,
@@ -127,13 +127,14 @@ func adminHandler(ctx context.Context, logger *zap.SugaredLogger, drainer *pkgha
 	return mux
 }
 
-func wrapQPHandlerWithFullDuplex(h http.Handler, enableFullDuplex bool, logger *zap.SugaredLogger) http.HandlerFunc {
+func withFullDuplex(h http.Handler, enableFullDuplex bool, logger *zap.SugaredLogger) http.Handler {
+	if !enableFullDuplex {
+		return h
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if enableFullDuplex {
-			rc := http.NewResponseController(w)
-			if err := rc.EnableFullDuplex(); err != nil {
-				logger.Errorw("Unable to enable full duplex", zap.Error(err))
-			}
+		rc := http.NewResponseController(w)
+		if err := rc.EnableFullDuplex(); err != nil {
+			logger.Errorw("Unable to enable full duplex", zap.Error(err))
 		}
 		h.ServeHTTP(w, r)
 	})

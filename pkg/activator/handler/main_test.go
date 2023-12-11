@@ -121,7 +121,11 @@ func BenchmarkHandlerChain(b *testing.B) {
 	})
 }
 
-func TestProxyWithChainHandler(t *testing.T) {
+// TestActivatorChainHandlerWithFullDuplex tests activator's chain handler with the new http1 full duplex support against the issue
+// https://github.com/golang/go/issues/40747, where reverse proxy failed with read errors.
+// The test uses the reproducer in https://github.com/golang/go/issues/40747#issuecomment-733552061.
+// We enable full duplex by setting the annotation `features.knative.dev/http-full-duplex` at the revision level.
+func TestActivatorChainHandlerWithFullDuplex(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	rev := revision(testNamespace, testRevName)
 	defer reset()
