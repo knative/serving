@@ -23,7 +23,7 @@ require (
 	golang.org/x/sync v0.5.0
 	golang.org/x/sys v0.15.0
 	golang.org/x/time v0.5.0
-	google.golang.org/api v0.152.0
+	google.golang.org/api v0.153.0
 	google.golang.org/grpc v1.59.0
 	k8s.io/api v0.27.6
 	k8s.io/apiextensions-apiserver v0.27.6
@@ -32,10 +32,10 @@ require (
 	k8s.io/code-generator v0.27.6
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f
 	k8s.io/utils v0.0.0-20230209194617-a36077c30491
-	knative.dev/caching v0.0.0-20231201014223-982e39cbff09
+	knative.dev/caching v0.0.0-20231205203817-17bfe1a02478
 	knative.dev/hack v0.0.0-20231201014241-7030d5bf584d
-	knative.dev/networking v0.0.0-20231201014832-2274702ccc5f
-	knative.dev/pkg v0.0.0-20231204120332-9386ad6703ee
+	knative.dev/networking v0.0.0-20231204135118-c52ad92c6e13
+	knative.dev/pkg v0.0.0-20231211072236-4914c472e81a
 	sigs.k8s.io/yaml v1.4.0
 )
 
