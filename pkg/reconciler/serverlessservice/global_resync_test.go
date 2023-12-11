@@ -109,11 +109,11 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	}
 
 	// Wait for the SKSs to be reconciled
-	if err := waitForObservedGen(ctx, networking, ns1, sks1, 1); err != nil {
+	if err := waitForObservedGen(ctx, networking, ns1, sks1); err != nil {
 		t.Fatalf("failed to observe generation change for %q: %v", sks1, err)
 	}
 
-	if err := waitForObservedGen(ctx, networking, ns2, sks2, 1); err != nil {
+	if err := waitForObservedGen(ctx, networking, ns2, sks2); err != nil {
 		t.Fatalf("failed to observe generation change for %q: %v", sks2, err)
 	}
 
@@ -141,7 +141,7 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	}
 }
 
-func waitForObservedGen(ctx context.Context, client networkingv1alpha1.NetworkingV1alpha1Interface, ns, name string, generation int64) error {
+func waitForObservedGen(ctx context.Context, client networkingv1alpha1.NetworkingV1alpha1Interface, ns, name string) error {
 	return wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 10*time.Second, true, func(context.Context) (bool, error) {
 		sks, err := client.ServerlessServices(ns).Get(ctx, name, metav1.GetOptions{})
 

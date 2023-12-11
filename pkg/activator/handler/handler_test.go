@@ -130,7 +130,7 @@ func TestActivationHandler(t *testing.T) {
 			req.Host = "test-host"
 
 			// Set up config store to populate context.
-			configStore := setupConfigStore(t, logging.FromContext(ctx))
+			configStore := setupConfigStore(logging.FromContext(ctx))
 			ctx = configStore.ToContext(ctx)
 			ctx = WithRevisionAndID(ctx, nil, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
 
@@ -168,7 +168,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 
 	// Set up config store to populate context.
-	configStore := setupConfigStore(t, logging.FromContext(ctx))
+	configStore := setupConfigStore(logging.FromContext(ctx))
 	ctx = configStore.ToContext(req.Context())
 	ctx = WithRevisionAndID(ctx, nil, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
 
@@ -279,7 +279,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 			handler := New(ctx, fakeThrottler{}, rt, false /*usePassthroughLb*/, logging.FromContext(ctx), false /* TLS */)
 
 			// Set up config store to populate context.
-			configStore := setupConfigStore(t, logging.FromContext(ctx))
+			configStore := setupConfigStore(logging.FromContext(ctx))
 			// Update the store with our "new" config explicitly.
 			configStore.OnConfigChanged(cm)
 			sendRequest(testNamespace, testRevName, handler, configStore)
@@ -323,7 +323,7 @@ func revision(namespace, name string) *v1.Revision {
 	}
 }
 
-func setupConfigStore(t testing.TB, logger *zap.SugaredLogger) *activatorconfig.Store {
+func setupConfigStore(logger *zap.SugaredLogger) *activatorconfig.Store {
 	configStore := activatorconfig.NewStore(logger)
 	configStore.OnConfigChanged(tracingConfig(false))
 	return configStore
@@ -332,7 +332,7 @@ func setupConfigStore(t testing.TB, logger *zap.SugaredLogger) *activatorconfig.
 func BenchmarkHandler(b *testing.B) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(b)
 	b.Cleanup(cancel)
-	configStore := setupConfigStore(b, logging.FromContext(ctx))
+	configStore := setupConfigStore(logging.FromContext(ctx))
 
 	// bodyLength is in Kilobytes.
 	for _, bodyLength := range [5]int{2, 16, 32, 64, 128} {

@@ -66,7 +66,7 @@ func NewStore(ctx context.Context, onAfterStore ...func(name string, value inter
 			"configuration",
 			logging.FromContext(ctx),
 			configmap.Constructors{
-				gc.ConfigName:                gc.NewConfigFromConfigMapFunc(ctx),
+				gc.ConfigName:                gc.NewConfigFromConfigMapFunc(),
 				apiconfig.FeaturesConfigName: apiconfig.NewFeaturesConfigFromConfigMap,
 			},
 			onAfterStore...,

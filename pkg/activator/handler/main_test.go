@@ -40,7 +40,7 @@ func BenchmarkHandlerChain(b *testing.B) {
 	b.Cleanup(cancel)
 
 	logger := logging.FromContext(ctx)
-	configStore := setupConfigStore(b, logger)
+	configStore := setupConfigStore(logger)
 	revision := revision(testNamespace, testRevName)
 	revisionInformer(ctx, revision)
 

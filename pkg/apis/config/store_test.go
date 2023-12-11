@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	logtesting "knative.dev/pkg/logging/testing"
 
-	. "knative.dev/pkg/configmap/testing"
+	configtest "knative.dev/pkg/configmap/testing"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 )
 
@@ -36,9 +36,9 @@ var ignoreStuff = cmp.Options{
 func TestStoreLoadWithContext(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
 
-	defaultsConfig := ConfigMapFromTestFile(t, DefaultsConfigName)
-	featuresConfig := ConfigMapFromTestFile(t, FeaturesConfigName)
-	autoscalerConfig := ConfigMapFromTestFile(t, autoscalerconfig.ConfigName)
+	defaultsConfig := configtest.ConfigMapFromTestFile(t, DefaultsConfigName)
+	featuresConfig := configtest.ConfigMapFromTestFile(t, FeaturesConfigName)
+	autoscalerConfig := configtest.ConfigMapFromTestFile(t, autoscalerconfig.ConfigName)
 
 	store.OnConfigChanged(defaultsConfig)
 	store.OnConfigChanged(featuresConfig)
@@ -69,9 +69,9 @@ func TestStoreLoadWithContext(t *testing.T) {
 }
 
 func TestStoreLoadWithContextOrDefaults(t *testing.T) {
-	defaultsConfig := ConfigMapFromTestFile(t, DefaultsConfigName)
-	featuresConfig := ConfigMapFromTestFile(t, FeaturesConfigName)
-	autoscalerConfig := ConfigMapFromTestFile(t, autoscalerconfig.ConfigName)
+	defaultsConfig := configtest.ConfigMapFromTestFile(t, DefaultsConfigName)
+	featuresConfig := configtest.ConfigMapFromTestFile(t, FeaturesConfigName)
+	autoscalerConfig := configtest.ConfigMapFromTestFile(t, autoscalerconfig.ConfigName)
 	config := FromContextOrDefaults(context.Background())
 
 	t.Run("defaults", func(t *testing.T) {
@@ -99,9 +99,9 @@ func TestStoreLoadWithContextOrDefaults(t *testing.T) {
 func TestStoreImmutableConfig(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
 
-	store.OnConfigChanged(ConfigMapFromTestFile(t, DefaultsConfigName))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, FeaturesConfigName))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, autoscalerconfig.ConfigName))
+	store.OnConfigChanged(configtest.ConfigMapFromTestFile(t, DefaultsConfigName))
+	store.OnConfigChanged(configtest.ConfigMapFromTestFile(t, FeaturesConfigName))
+	store.OnConfigChanged(configtest.ConfigMapFromTestFile(t, autoscalerconfig.ConfigName))
 
 	config := store.Load()
 

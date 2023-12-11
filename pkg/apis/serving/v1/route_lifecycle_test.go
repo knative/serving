@@ -431,7 +431,7 @@ func TestRouteNotOwnedStuff(t *testing.T) {
 func TestCertificateReady(t *testing.T) {
 	r := &RouteStatus{}
 	r.InitializeConditions()
-	r.MarkCertificateReady("cert")
+	r.MarkCertificateReady()
 
 	apistest.CheckConditionSucceeded(r, RouteConditionCertificateProvisioned, t)
 }

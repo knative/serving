@@ -26,14 +26,14 @@ import (
 	netcfg "knative.dev/networking/pkg/config"
 	logtesting "knative.dev/pkg/logging/testing"
 
-	. "knative.dev/pkg/configmap/testing"
+	configtest "knative.dev/pkg/configmap/testing"
 )
 
 func TestStoreLoadWithContext(t *testing.T) {
 	ctx := logtesting.TestContextWithLogger(t)
 	store := NewStore(ctx)
 
-	networkConfig := ConfigMapFromTestFile(t, netcfg.ConfigMapName)
+	networkConfig := configtest.ConfigMapFromTestFile(t, netcfg.ConfigMapName)
 	store.OnConfigChanged(networkConfig)
 
 	config := FromContext(store.ToContext(context.Background()))

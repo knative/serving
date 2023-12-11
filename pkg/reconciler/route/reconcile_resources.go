@@ -71,38 +71,37 @@ func (c *Reconciler) reconcileIngress(
 		return ingress, tc.BuildRollout(), nil
 	} else if err != nil {
 		return nil, nil, err
-	} else {
-		// Ingress exists. We need to compute the rollout spec diff.
-		effectiveRO = c.reconcileRollout(ctx, r, tc, ingress)
-		desired, err := resources.MakeIngressWithRollout(ctx, r, tc, effectiveRO,
-			tls, ingressClass, acmeChallenges...)
+	}
+	// Ingress exists. We need to compute the rollout spec diff.
+	effectiveRO = c.reconcileRollout(ctx, r, tc, ingress)
+	desired, err := resources.MakeIngressWithRollout(ctx, r, tc, effectiveRO,
+		tls, ingressClass, acmeChallenges...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if !equality.Semantic.DeepEqual(ingress.Spec, desired.Spec) ||
+		!equality.Semantic.DeepEqual(ingress.Annotations, desired.Annotations) ||
+		!equality.Semantic.DeepEqual(ingress.Labels, desired.Labels) {
+
+		// It is notable that one reason for differences here may be defaulting.
+		// When that is the case, the Update will end up being a nop because the
+		// webhook will bring them into alignment and no new reconciliation will occur.
+		// Also, compare annotation and label in case ingress.Class or parent route's labels
+		// is updated.
+
+		// Don't modify the informers copy.
+		origin := ingress.DeepCopy()
+		origin.Spec = desired.Spec
+		origin.Annotations = desired.Annotations
+		origin.Labels = desired.Labels
+
+		updated, err := c.netclient.NetworkingV1alpha1().Ingresses(origin.Namespace).Update(
+			ctx, origin, metav1.UpdateOptions{})
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("failed to update Ingress: %w", err)
 		}
-
-		if !equality.Semantic.DeepEqual(ingress.Spec, desired.Spec) ||
-			!equality.Semantic.DeepEqual(ingress.Annotations, desired.Annotations) ||
-			!equality.Semantic.DeepEqual(ingress.Labels, desired.Labels) {
-
-			// It is notable that one reason for differences here may be defaulting.
-			// When that is the case, the Update will end up being a nop because the
-			// webhook will bring them into alignment and no new reconciliation will occur.
-			// Also, compare annotation and label in case ingress.Class or parent route's labels
-			// is updated.
-
-			// Don't modify the informers copy.
-			origin := ingress.DeepCopy()
-			origin.Spec = desired.Spec
-			origin.Annotations = desired.Annotations
-			origin.Labels = desired.Labels
-
-			updated, err := c.netclient.NetworkingV1alpha1().Ingresses(origin.Namespace).Update(
-				ctx, origin, metav1.UpdateOptions{})
-			if err != nil {
-				return nil, nil, fmt.Errorf("failed to update Ingress: %w", err)
-			}
-			return updated, effectiveRO, nil
-		}
+		return updated, effectiveRO, nil
 	}
 
 	return ingress, effectiveRO, err
@@ -189,14 +188,14 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 
 		// Check if we have endpoints for this service
 		endpoints, err := c.endpointsLister.Endpoints(ns).Get(desiredService.Name)
-		if apierrs.IsNotFound(err) {
-			// noop
-		} else if err != nil {
-			return nil, err
-		} else if !metav1.IsControlledBy(endpoints, route) {
-			// Surface an error in the route's status, and return an error.
-			route.Status.MarkEndpointNotOwned(desiredService.Name)
-			return nil, fmt.Errorf("route: %q does not own Endpoints: %q", route.Name, desiredService.Name)
+		if !apierrs.IsNotFound(err) {
+			if err != nil {
+				return nil, err
+			} else if !metav1.IsControlledBy(endpoints, route) {
+				// Surface an error in the route's status, and return an error.
+				route.Status.MarkEndpointNotOwned(desiredService.Name)
+				return nil, fmt.Errorf("route: %q does not own Endpoints: %q", route.Name, desiredService.Name)
+			}
 		}
 
 		services = append(services, resources.ServicePair{
@@ -287,7 +286,8 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 					}
 				}
 			} else if from.Endpoints == nil && to.Endpoints == nil {
-				// noop
+				//noop
+				return nil
 			} else if from.Endpoints == nil {
 				if _, err := c.kubeclient.CoreV1().Endpoints(ns).Create(ctx, to.Endpoints, metav1.CreateOptions{}); err != nil {
 					return err

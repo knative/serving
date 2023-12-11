@@ -17,7 +17,6 @@ limitations under the License.
 package autoscaling
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -51,7 +50,7 @@ func getIntGE0(m map[string]string, key kmap.KeyPriority) (int32, *apis.FieldErr
 }
 
 // ValidateAnnotations verifies the autoscaling annotations.
-func ValidateAnnotations(ctx context.Context, config *autoscalerconfig.Config, anns map[string]string) *apis.FieldError {
+func ValidateAnnotations(config *autoscalerconfig.Config, anns map[string]string) *apis.FieldError {
 	return validateClass(anns).
 		Also(validateMinMaxScale(config, anns)).
 		Also(validateFloats(anns)).

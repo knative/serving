@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	clocktest "k8s.io/utils/clock/testing"
 
-	. "knative.dev/pkg/logging/testing"
+	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -57,7 +57,7 @@ var (
 )
 
 func TestMetricCollectorCRUD(t *testing.T) {
-	logger := TestLogger(t)
+	logger := logtesting.TestLogger(t)
 
 	scraper := &testScraper{
 		s: func() (Stat, error) {
@@ -140,7 +140,7 @@ func TestMetricCollectorCRUD(t *testing.T) {
 }
 
 func TestMetricCollectorScraperMovingTime(t *testing.T) {
-	logger := TestLogger(t)
+	logger := logtesting.TestLogger(t)
 
 	mtp := &fake.ManualTickProvider{
 		Channel: make(chan time.Time),
@@ -216,7 +216,7 @@ func TestMetricCollectorScraperMovingTime(t *testing.T) {
 }
 
 func TestMetricCollectorScraper(t *testing.T) {
-	logger := TestLogger(t)
+	logger := logtesting.TestLogger(t)
 
 	mtp := &fake.ManualTickProvider{
 		Channel: make(chan time.Time),
@@ -315,7 +315,7 @@ func TestMetricCollectorScraper(t *testing.T) {
 }
 
 func TestMetricCollectorNoScraper(t *testing.T) {
-	logger := TestLogger(t)
+	logger := logtesting.TestLogger(t)
 
 	mtp := &fake.ManualTickProvider{
 		Channel: make(chan time.Time),
@@ -392,7 +392,7 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 }
 
 func TestMetricCollectorNoDataError(t *testing.T) {
-	logger := TestLogger(t)
+	logger := logtesting.TestLogger(t)
 
 	now := time.Now()
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
@@ -423,7 +423,7 @@ func TestMetricCollectorNoDataError(t *testing.T) {
 }
 
 func TestMetricCollectorRecord(t *testing.T) {
-	logger := TestLogger(t)
+	logger := logtesting.TestLogger(t)
 
 	now := time.Now()
 	oldTime := now.Add(-70 * time.Second)
@@ -471,7 +471,7 @@ func TestMetricCollectorRecord(t *testing.T) {
 	// After this the concurrencies are calculated correctly.
 	coll.Record(metricKey, oldTime, outdatedStat)
 	coll.Record(metricKey, now, stat)
-	stable, panic, err := coll.StableAndPanicConcurrency(metricKey, now)
+	stableConcurrency, panicConcurrency, err := coll.StableAndPanicConcurrency(metricKey, now)
 	if err != nil {
 		t.Fatal("StableAndPanicConcurrency:", err)
 	}
@@ -481,15 +481,15 @@ func TestMetricCollectorRecord(t *testing.T) {
 		wantP     = want
 		tolerance = 0.001
 	)
-	if math.Abs(stable-wantS) > tolerance || math.Abs(panic-wantP) > tolerance {
-		t.Errorf("StableAndPanicConcurrency() = %v, %v; want %v, %v, nil", stable, panic, wantS, wantP)
+	if math.Abs(stableConcurrency-wantS) > tolerance || math.Abs(panicConcurrency-wantP) > tolerance {
+		t.Errorf("StableAndPanicConcurrency() = %v, %v; want %v, %v, nil", stableConcurrency, panicConcurrency, wantS, wantP)
 	}
-	stable, panic, err = coll.StableAndPanicRPS(metricKey, now)
+	stableConcurrency, panicConcurrency, err = coll.StableAndPanicRPS(metricKey, now)
 	if err != nil {
 		t.Fatal("StableAndPanicRPS:", err)
 	}
-	if math.Abs(stable-wantS) > tolerance || math.Abs(panic-wantP) > tolerance {
-		t.Errorf("StableAndPanicRPS() = %v, %v; want %v, %v", stable, panic, wantS, wantP)
+	if math.Abs(stableConcurrency-wantS) > tolerance || math.Abs(panicConcurrency-wantP) > tolerance {
+		t.Errorf("StableAndPanicRPS() = %v, %v; want %v, %v", stableConcurrency, panicConcurrency, wantS, wantP)
 	}
 }
 
@@ -499,7 +499,7 @@ func TestDoubleWatch(t *testing.T) {
 			t.Error("Expected panic")
 		}
 	}()
-	logger := TestLogger(t)
+	logger := logtesting.TestLogger(t)
 	factory := scraperFactory(nil, nil)
 	coll := NewMetricCollector(factory, logger)
 	coll.Watch(func(types.NamespacedName) {})
@@ -552,7 +552,7 @@ func TestMetricCollectorError(t *testing.T) {
 		expectedError: errOther,
 	}}
 
-	logger := TestLogger(t)
+	logger := logtesting.TestLogger(t)
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			factory := scraperFactory(test.scraper, nil)

@@ -261,7 +261,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 					acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
 				}
 			}
-			r.Status.MarkCertificateReady(cert.Name)
+			r.Status.MarkCertificateReady()
 			tls = append(tls, resources.MakeIngressTLS(cert, dnsNames.List()))
 		} else {
 			acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)

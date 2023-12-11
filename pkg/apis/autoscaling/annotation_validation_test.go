@@ -17,7 +17,6 @@ limitations under the License.
 package autoscaling
 
 import (
-	"context"
 	"reflect"
 	"testing"
 
@@ -380,8 +379,7 @@ func TestValidateAnnotations(t *testing.T) {
 			if c.configMutator != nil {
 				c.configMutator(cfg)
 			}
-			ctx := context.Background()
-			if got, want := ValidateAnnotations(ctx, cfg, c.annotations).Error(), c.expectErr; !reflect.DeepEqual(got, want) {
+			if got, want := ValidateAnnotations(cfg, c.annotations).Error(), c.expectErr; !reflect.DeepEqual(got, want) {
 				t.Errorf("\nErr = %q,\nwant: %q, diff(-want,+got):\n%s", got, want, cmp.Diff(want, got))
 			}
 		})

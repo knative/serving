@@ -27,7 +27,7 @@ type fakeResponseWriter struct{}
 
 func (w *fakeResponseWriter) Header() http.Header         { return http.Header{"item1": []string{"value1"}} }
 func (w *fakeResponseWriter) Write(p []byte) (int, error) { return len(p), nil }
-func (w *fakeResponseWriter) WriteHeader(code int)        {}
+func (w *fakeResponseWriter) WriteHeader(_ int)           {}
 func (w *fakeResponseWriter) Flush()                      {}
 
 var defaultHeader = http.Header{"item1": {"value1"}}

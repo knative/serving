@@ -202,7 +202,7 @@ func newConfigurationAccessor(
 }
 
 // list implements Accessor
-func (c *configurationAccessor) list(ns, routeName string, state v1.RoutingState) ([]kmeta.Accessor, error) {
+func (c *configurationAccessor) list(ns, routeName string, _ v1.RoutingState) ([]kmeta.Accessor, error) {
 	kl := make([]kmeta.Accessor, 0, 1)
 	filter := func(m interface{}) {
 		c := m.(*v1.Configuration)

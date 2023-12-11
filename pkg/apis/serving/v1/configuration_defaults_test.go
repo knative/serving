@@ -175,7 +175,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 }
 
 func TestBYORevisionName(t *testing.T) {
-	new := &Configuration{
+	newspec := &Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "thing",
 			Annotations: map[string]string{"annotated": "yes"},
@@ -196,21 +196,21 @@ func TestBYORevisionName(t *testing.T) {
 		},
 	}
 
-	old := new.DeepCopy()
-	old.ObjectMeta.Annotations = map[string]string{}
+	oldspec := newspec.DeepCopy()
+	oldspec.ObjectMeta.Annotations = map[string]string{}
 
-	want := new.DeepCopy()
+	want := newspec.DeepCopy()
 
-	ctx := apis.WithinUpdate(context.Background(), old)
-	new.SetDefaults(ctx)
+	ctx := apis.WithinUpdate(context.Background(), oldspec)
+	newspec.SetDefaults(ctx)
 
-	if diff := cmp.Diff(want, new); diff != "" {
+	if diff := cmp.Diff(want, newspec); diff != "" {
 		t.Errorf("SetDefaults (-want, +got) = %v", diff)
 	}
 
-	new.SetDefaults(context.Background())
-	if cmp.Equal(want, new, ignoreUnexportedResources) {
-		t.Errorf("Expected diff, got none! object: %v", new)
+	newspec.SetDefaults(context.Background())
+	if cmp.Equal(want, newspec, ignoreUnexportedResources) {
+		t.Errorf("Expected diff, got none! object: %v", newspec)
 	}
 }
 

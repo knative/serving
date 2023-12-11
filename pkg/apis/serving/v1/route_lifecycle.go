@@ -168,7 +168,7 @@ func (rs *RouteStatus) MarkCertificateProvisionFailed(name string) {
 
 // MarkCertificateReady marks the RouteConditionCertificateProvisioned
 // condition to indicate that the Certificate is ready.
-func (rs *RouteStatus) MarkCertificateReady(name string) {
+func (rs *RouteStatus) MarkCertificateReady() {
 	routeCondSet.Manage(rs).MarkTrue(RouteConditionCertificateProvisioned)
 }
 

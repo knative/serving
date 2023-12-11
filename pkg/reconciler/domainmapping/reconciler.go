@@ -227,7 +227,7 @@ func (r *Reconciler) tls(ctx context.Context, dm *v1beta1.DomainMapping) ([]netv
 		}
 	}
 	if cert.IsReady() {
-		dm.Status.MarkCertificateReady(cert.Name)
+		dm.Status.MarkCertificateReady()
 		return []netv1alpha1.IngressTLS{routeresources.MakeIngressTLS(cert, desiredCert.Spec.DNSNames)}, nil, nil
 	}
 	if config.FromContext(ctx).Network.HTTPProtocol == netcfg.HTTPEnabled {

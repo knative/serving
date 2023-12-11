@@ -218,13 +218,13 @@ func MarkCertificateNotOwned(r *v1.Route) {
 
 // MarkCertificateReady calls the method of the same name on .Status
 func MarkCertificateReady(r *v1.Route) {
-	r.Status.MarkCertificateReady(routenames.Certificate(r))
+	r.Status.MarkCertificateReady()
 }
 
 // WithReadyCertificateName marks the certificate specified by name as ready.
-func WithReadyCertificateName(name string) func(*v1.Route) {
+func WithReadyCertificateName() func(*v1.Route) {
 	return func(r *v1.Route) {
-		r.Status.MarkCertificateReady(name)
+		r.Status.MarkCertificateReady()
 	}
 }
 

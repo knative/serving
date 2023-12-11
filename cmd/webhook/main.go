@@ -132,7 +132,7 @@ func newValidationAdmissionController(ctx context.Context, cmw configmap.Watcher
 	)
 }
 
-func newConfigValidationController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+func newConfigValidationController(ctx context.Context, _ configmap.Watcher) *controller.Impl {
 	return configmaps.NewAdmissionController(ctx,
 
 		// Name of the configmap webhook.
@@ -145,7 +145,7 @@ func newConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 		configmap.Constructors{
 			tracingconfig.ConfigName:       tracingconfig.NewTracingConfigFromConfigMap,
 			autoscalerconfig.ConfigName:    autoscalerconfig.NewConfigFromConfigMap,
-			gc.ConfigName:                  gc.NewConfigFromConfigMapFunc(ctx),
+			gc.ConfigName:                  gc.NewConfigFromConfigMapFunc(),
 			netcfg.ConfigMapName:           network.NewConfigFromConfigMap,
 			deployment.ConfigName:          deployment.NewConfigFromConfigMap,
 			apisconfig.FeaturesConfigName:  apisconfig.NewFeaturesConfigFromConfigMap,

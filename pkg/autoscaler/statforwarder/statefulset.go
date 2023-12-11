@@ -24,7 +24,7 @@ import (
 )
 
 // StatefulSetBasedProcessor configured "processors" for each of the statefulset ordinals.
-func StatefulSetBasedProcessor(ctx context.Context, f *Forwarder, accept statProcessor) error {
+func StatefulSetBasedProcessor(_ context.Context, f *Forwarder, accept statProcessor) error {
 	id, bs, err := leaderelection.NewStatefulSetBucketAndSet(len(f.bs.BucketList()))
 	if err != nil {
 		return err

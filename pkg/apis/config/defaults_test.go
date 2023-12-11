@@ -28,12 +28,12 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 
-	. "knative.dev/pkg/configmap/testing"
+	configtest "knative.dev/pkg/configmap/testing"
 	_ "knative.dev/pkg/system/testing"
 )
 
 func TestDefaultsConfigurationFromFile(t *testing.T) {
-	cm, example := ConfigMapsFromTestFile(t, DefaultsConfigName)
+	cm, example := configtest.ConfigMapsFromTestFile(t, DefaultsConfigName)
 
 	if _, err := NewDefaultsConfigFromConfigMap(cm); err != nil {
 		t.Error("NewDefaultsConfigFromConfigMap(actual) =", err)

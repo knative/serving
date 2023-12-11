@@ -308,7 +308,7 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 		assigned := rt.podTrackers
 		if rt.containerConcurrency > 0 {
 			rt.resetTrackers()
-			assigned = assignSlice(rt.podTrackers, ai, ac, rt.containerConcurrency)
+			assigned = assignSlice(rt.podTrackers, ai, ac)
 		}
 		rt.logger.Debugf("Trackers %d/%d: assignment: %v", ai, ac, assigned)
 		// The actual write out of the assigned trackers has to be under lock.
@@ -374,7 +374,7 @@ func pickIndices(numTrackers, selfIndex, numActivators int) (beginIndex, endInde
 // for this Activator instance. This only matters in case of direct
 // to pod IP routing, and is irrelevant, when ClusterIP is used.
 // assignSlice should receive podTrackers sorted by address.
-func assignSlice(trackers []*podTracker, selfIndex, numActivators, cc int) []*podTracker {
+func assignSlice(trackers []*podTracker, selfIndex, numActivators int) []*podTracker {
 	// When we're unassigned, doesn't matter what we return.
 	lt := len(trackers)
 	if selfIndex == -1 || lt <= 1 {

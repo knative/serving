@@ -43,7 +43,7 @@ func pong(req *ping.Request) *ping.Response {
 
 type server struct{}
 
-func (s *server) Ping(ctx context.Context, req *ping.Request) (*ping.Response, error) {
+func (s *server) Ping(_ context.Context, req *ping.Request) (*ping.Response, error) {
 	log.Print("Received ping: ", req.Msg)
 
 	time.Sleep(time.Duration(delay) * time.Millisecond)

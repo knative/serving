@@ -25,7 +25,7 @@ import (
 	"knative.dev/serving/test"
 )
 
-func handler(w http.ResponseWriter, r *http.Request) {
+func handler(w http.ResponseWriter, _ *http.Request) {
 	log.Print("Hello world received a request.")
 	fmt.Fprintln(w, "Hello World! How about some tasty noodles?")
 }

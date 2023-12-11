@@ -23,12 +23,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 
-	. "knative.dev/pkg/configmap/testing"
-	logtesting "knative.dev/pkg/logging/testing"
+	configtest "knative.dev/pkg/configmap/testing"
 )
 
 func TestOurConfig(t *testing.T) {
-	actual, example := ConfigMapsFromTestFile(t, ConfigName)
+	actual, example := configtest.ConfigMapsFromTestFile(t, ConfigName)
 	for _, tt := range []struct {
 		name string
 		fail bool
@@ -133,7 +132,7 @@ func TestOurConfig(t *testing.T) {
 		},
 	}} {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewConfigFromConfigMapFunc(logtesting.TestContextWithLogger(t))(
+			got, err := NewConfigFromConfigMapFunc()(
 				&corev1.ConfigMap{Data: tt.data})
 			if tt.fail != (err != nil) {
 				t.Fatal("Unexpected error value:", err)

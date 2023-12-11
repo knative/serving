@@ -29,7 +29,7 @@ import (
 // VolumeMask performs a _shallow_ copy of the Kubernetes Volume object to a new
 // Kubernetes Volume object bringing over only the fields allowed in the Knative API. This
 // does not validate the contents or the bounds of the provided fields.
-func VolumeMask(ctx context.Context, in *corev1.Volume) *corev1.Volume {
+func VolumeMask(_ context.Context, in *corev1.Volume) *corev1.Volume {
 	if in == nil {
 		return nil
 	}
@@ -683,7 +683,7 @@ func PodSecurityContextMask(ctx context.Context, in *corev1.PodSecurityContext) 
 // SecurityContextMask performs a _shallow_ copy of the Kubernetes SecurityContext object to a new
 // Kubernetes SecurityContext object bringing over only the fields allowed in the Knative API. This
 // does not validate the contents or the bounds of the provided fields.
-func SecurityContextMask(ctx context.Context, in *corev1.SecurityContext) *corev1.SecurityContext {
+func SecurityContextMask(_ context.Context, in *corev1.SecurityContext) *corev1.SecurityContext {
 	if in == nil {
 		return nil
 	}

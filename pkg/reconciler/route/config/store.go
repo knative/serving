@@ -88,7 +88,7 @@ func NewStore(ctx context.Context, onAfterStore ...func(name string, value inter
 			logger,
 			configmap.Constructors{
 				DomainConfigName:          NewDomainFromConfigMap,
-				gc.ConfigName:             gc.NewConfigFromConfigMapFunc(ctx),
+				gc.ConfigName:             gc.NewConfigFromConfigMapFunc(),
 				netcfg.ConfigMapName:      network.NewConfigFromConfigMap,
 				cfgmap.FeaturesConfigName: cfgmap.NewFeaturesConfigFromConfigMap,
 			},

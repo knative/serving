@@ -150,7 +150,7 @@ type fakeRoundTripper struct {
 	responseError error
 }
 
-func (frt fakeRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+func (frt fakeRoundTripper) RoundTrip(_ *http.Request) (*http.Response, error) {
 	return frt.response, frt.responseError
 }
 

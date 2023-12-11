@@ -1437,7 +1437,7 @@ func withHTTPDowngraded(dm *v1beta1.DomainMapping) {
 }
 
 func withCertificateReady(dm *v1beta1.DomainMapping) {
-	dm.Status.MarkCertificateReady(dm.Name)
+	dm.Status.MarkCertificateReady()
 }
 
 func withCertificateFail(dm *v1beta1.DomainMapping) {

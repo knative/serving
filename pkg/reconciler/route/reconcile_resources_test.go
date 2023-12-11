@@ -52,7 +52,7 @@ func TestReconcileIngressInsert(t *testing.T) {
 	defer cancel()
 
 	r := Route("test-ns", "test-route")
-	tc, tls := testIngressParams(t, r)
+	tc, tls := testIngressParams(r)
 	_, ro, err := reconciler.reconcileIngress(updateContext(ctx, 0), r, tc, tls, "foo-ingress")
 	if err != nil {
 		t.Error("Unexpected error:", err)
@@ -82,7 +82,7 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 		t.Run(rds, func(t *testing.T) {
 			r := Route("test-ns-"+rds, "rollout-route")
 
-			tc, tls := testIngressParams(t, r, func(tc *traffic.Config) {
+			tc, tls := testIngressParams(r, func(tc *traffic.Config) {
 				tc.Targets[traffic.DefaultTarget] = traffic.RevisionTargets{{
 					TrafficTarget: v1.TrafficTarget{
 						ConfigurationName: "thor",
@@ -244,7 +244,7 @@ func TestReconcileIngressUpdateReenqueueRolloutAnnotation(t *testing.T) {
 				serving.RolloutDurationKey: rds + "s",
 			}
 
-			tc, tls := testIngressParams(t, r, func(tc *traffic.Config) {
+			tc, tls := testIngressParams(r, func(tc *traffic.Config) {
 				tc.Targets[traffic.DefaultTarget] = traffic.RevisionTargets{{
 					TrafficTarget: v1.TrafficTarget{
 						ConfigurationName: "thor",
@@ -393,7 +393,7 @@ func TestReconcileIngressUpdateNoRollout(t *testing.T) {
 
 	r := Route("test-ns", "test-route")
 
-	tc, tls := testIngressParams(t, r)
+	tc, tls := testIngressParams(r)
 	if _, _, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress"); err != nil {
 		t.Error("Unexpected error:", err)
 	}
@@ -401,7 +401,7 @@ func TestReconcileIngressUpdateNoRollout(t *testing.T) {
 	initial := getRouteIngressFromClient(ctx, t, r)
 	fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(initial)
 
-	tc, tls = testIngressParams(t, r, func(tc *traffic.Config) {
+	tc, tls = testIngressParams(r, func(tc *traffic.Config) {
 		tc.Targets[traffic.DefaultTarget][0].RevisionName = "revision2"
 	})
 	if _, _, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress"); err != nil {
@@ -440,7 +440,7 @@ func TestReconcileIngressUpdate(t *testing.T) {
 
 	r := Route("test-ns", "test-route")
 
-	tc, tls := testIngressParams(t, r)
+	tc, tls := testIngressParams(r)
 	if _, _, err := reconciler.reconcileIngress(updateContext(ctx, 0), r, tc, tls, "foo-ingress"); err != nil {
 		t.Error("Unexpected error:", err)
 	}
@@ -448,7 +448,7 @@ func TestReconcileIngressUpdate(t *testing.T) {
 	initial := getRouteIngressFromClient(ctx, t, r)
 	fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(initial)
 
-	tc, tls = testIngressParams(t, r, func(tc *traffic.Config) {
+	tc, tls = testIngressParams(r, func(tc *traffic.Config) {
 		tc.Targets[traffic.DefaultTarget][0].TrafficTarget.Percent = ptr.Int64(50)
 		tc.Targets[traffic.DefaultTarget] = append(tc.Targets[traffic.DefaultTarget], traffic.RevisionTarget{
 			TrafficTarget: v1.TrafficTarget{
@@ -502,7 +502,7 @@ func TestReconcileIngressRolloutDeserializeFail(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			r := Route("test-ns", "test-route-"+tc.name)
 
-			traffic, tls := testIngressParams(t, r)
+			traffic, tls := testIngressParams(r)
 			ing, err := resources.MakeIngress(ctx, r, traffic, tls, "foo-ingress")
 			if err != nil {
 				t.Fatal("Error creating ingress:", err)
@@ -550,7 +550,7 @@ func newTestRevision(namespace, name string) *v1.Revision {
 	}
 }
 
-func testIngressParams(t *testing.T, r *v1.Route, trafficOpts ...func(tc *traffic.Config)) (*traffic.Config,
+func testIngressParams(_ *v1.Route, trafficOpts ...func(tc *traffic.Config)) (*traffic.Config,
 	[]netv1alpha1.IngressTLS) {
 	tc := &traffic.Config{
 		Targets: map[string]traffic.RevisionTargets{
@@ -595,7 +595,7 @@ func TestReconcileIngressClassAnnotation(t *testing.T) {
 	const expClass = "foo.ingress.networking.knative.dev"
 
 	r := Route("test-ns", "test-route")
-	tc, tls := testIngressParams(t, r)
+	tc, tls := testIngressParams(r)
 	if _, _, err := reconciler.reconcileIngress(updateContext(ctx, 0), r, tc, tls, "foo-ingress"); err != nil {
 		t.Error("Unexpected error:", err)
 	}
