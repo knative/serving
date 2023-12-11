@@ -64,7 +64,7 @@ func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 // Validate implements apis.Validatable
 func (rts *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 	errs := rts.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec")
-	errs = errs.Also(autoscaling.ValidateAnnotations(ctx, config.FromContextOrDefaults(ctx).Autoscaler,
+	errs = errs.Also(autoscaling.ValidateAnnotations(config.FromContextOrDefaults(ctx).Autoscaler,
 		rts.GetAnnotations()).ViaField("metadata.annotations"))
 
 	// If the RevisionTemplateSpec has a name specified, then check that
@@ -150,10 +150,7 @@ func validateRevisionName(ctx context.Context, name, generateName string) *apis.
 		}
 		om := apis.ParentMeta(ctx)
 		prefix := om.Name + "-"
-		if om.Name != "" {
-			// Even if there is GenerateName, allow the use
-			// of Name post-creation.
-		} else if om.GenerateName != "" {
+		if om.Name == "" && om.GenerateName != "" {
 			// We disallow bringing your own name when the parent
 			// resource uses generateName (at creation).
 			return apis.ErrDisallowedFields("metadata.name")

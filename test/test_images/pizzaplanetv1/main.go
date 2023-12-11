@@ -24,7 +24,7 @@ import (
 	"knative.dev/serving/test"
 )
 
-func handler(w http.ResponseWriter, r *http.Request) {
+func handler(w http.ResponseWriter, _ *http.Request) {
 	fmt.Fprint(w, "What a spaceport!")
 }
 

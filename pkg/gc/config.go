@@ -17,7 +17,6 @@ limitations under the License.
 package gc
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -66,7 +65,7 @@ func defaultConfig() *Config {
 }
 
 // NewConfigFromConfigMapFunc creates a Config from the supplied ConfigMap func.
-func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.ConfigMap) (*Config, error) {
+func NewConfigFromConfigMapFunc() func(configMap *corev1.ConfigMap) (*Config, error) {
 	return func(configMap *corev1.ConfigMap) (*Config, error) {
 		c := defaultConfig()
 

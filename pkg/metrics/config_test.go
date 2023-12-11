@@ -23,11 +23,11 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"knative.dev/pkg/metrics"
 
-	. "knative.dev/pkg/configmap/testing"
+	configtest "knative.dev/pkg/configmap/testing"
 )
 
 func TestOurObservability(t *testing.T) {
-	cm, example := ConfigMapsFromTestFile(t, metrics.ConfigMapName())
+	cm, example := configtest.ConfigMapsFromTestFile(t, metrics.ConfigMapName())
 
 	realCfg, err := metrics.NewObservabilityConfigFromConfigMap(cm)
 	if err != nil {

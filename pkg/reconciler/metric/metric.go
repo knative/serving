@@ -60,7 +60,7 @@ func (r *reconciler) ReconcileKind(_ context.Context, metric *autoscalingv1alpha
 	return nil
 }
 
-func (r *reconciler) ObserveDeletion(ctx context.Context, key types.NamespacedName) error {
+func (r *reconciler) ObserveDeletion(_ context.Context, key types.NamespacedName) error {
 	r.collector.Delete(key.Namespace, key.Name)
 	return nil
 }

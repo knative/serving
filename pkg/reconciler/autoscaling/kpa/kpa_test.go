@@ -1702,7 +1702,7 @@ type testDeciders struct {
 	mutex              sync.Mutex
 }
 
-func (km *testDeciders) Get(ctx context.Context, namespace, name string) (*scaling.Decider, error) {
+func (km *testDeciders) Get(_ context.Context, namespace, name string) (*scaling.Decider, error) {
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 
@@ -1712,7 +1712,7 @@ func (km *testDeciders) Get(ctx context.Context, namespace, name string) (*scali
 	return km.decider, nil
 }
 
-func (km *testDeciders) Create(ctx context.Context, decider *scaling.Decider) (*scaling.Decider, error) {
+func (km *testDeciders) Create(_ context.Context, decider *scaling.Decider) (*scaling.Decider, error) {
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 
@@ -1744,7 +1744,7 @@ func (km *testDeciders) Update(ctx context.Context, decider *scaling.Decider) (*
 	return decider, nil
 }
 
-func (km *testDeciders) Watch(fn func(types.NamespacedName)) {}
+func (km *testDeciders) Watch(_ func(types.NamespacedName)) {}
 
 type failingDeciders struct {
 	getErr    error
@@ -1761,7 +1761,7 @@ func (km *failingDeciders) Create(ctx context.Context, decider *scaling.Decider)
 
 func (km *failingDeciders) Delete(ctx context.Context, namespace, name string) {}
 
-func (km *failingDeciders) Watch(fn func(types.NamespacedName)) {
+func (km *failingDeciders) Watch(_ func(types.NamespacedName)) {
 }
 
 func (km *failingDeciders) Update(ctx context.Context, decider *scaling.Decider) (*scaling.Decider, error) {

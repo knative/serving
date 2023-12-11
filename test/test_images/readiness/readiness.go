@@ -100,7 +100,7 @@ func execProbeMain() {
 	os.Exit(0)
 }
 
-func handleStartFailing(w http.ResponseWriter, r *http.Request) {
+func handleStartFailing(w http.ResponseWriter, _ *http.Request) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -108,7 +108,7 @@ func handleStartFailing(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "will now fail readiness")
 }
 
-func handleHealthz(w http.ResponseWriter, r *http.Request) {
+func handleHealthz(w http.ResponseWriter, _ *http.Request) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -126,6 +126,6 @@ func handleQuery(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "no query", http.StatusInternalServerError)
 }
 
-func handleMain(w http.ResponseWriter, r *http.Request) {
+func handleMain(w http.ResponseWriter, _ *http.Request) {
 	fmt.Fprint(w, test.HelloWorldText)
 }

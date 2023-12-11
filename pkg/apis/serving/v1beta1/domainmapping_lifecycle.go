@@ -82,7 +82,7 @@ func (dms *DomainMappingStatus) MarkCertificateNotRequired(msg string) {
 
 // MarkCertificateReady marks the DomainMappingConditionCertificateProvisioned
 // condition to indicate that the Certificate is ready.
-func (dms *DomainMappingStatus) MarkCertificateReady(name string) {
+func (dms *DomainMappingStatus) MarkCertificateReady() {
 	domainMappingCondSet.Manage(dms).MarkTrue(DomainMappingConditionCertificateProvisioned)
 }
 

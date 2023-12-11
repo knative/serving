@@ -462,6 +462,6 @@ func (l *fakeServiceLister) List(selector labels.Selector) ([]*corev1.Service, e
 	return results, nil
 }
 
-func (l *fakeServiceLister) Services(namespace string) listers.ServiceNamespaceLister {
+func (l *fakeServiceLister) Services(_ string) listers.ServiceNamespaceLister {
 	return l
 }

@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	"context"
 
-	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
 )
@@ -37,7 +36,7 @@ func defaultMetric(class string) string {
 
 // SetDefaults sets the default values for the PodAutoscaler.
 func (pa *PodAutoscaler) SetDefaults(ctx context.Context) {
-	pa.Spec.SetDefaults(apis.WithinSpec(ctx))
+	pa.Spec.SetDefaults()
 	config := config.FromContextOrDefaults(ctx)
 	if pa.Annotations == nil {
 		pa.Annotations = make(map[string]string, 2)
@@ -53,4 +52,4 @@ func (pa *PodAutoscaler) SetDefaults(ctx context.Context) {
 }
 
 // SetDefaults sets the default values for the PodAutoscalerSpec.
-func (pa *PodAutoscalerSpec) SetDefaults(ctx context.Context) {}
+func (pa *PodAutoscalerSpec) SetDefaults() {}

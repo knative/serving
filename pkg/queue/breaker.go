@@ -117,7 +117,7 @@ func (b *Breaker) releasePending() {
 // Reserve reserves an execution slot in the breaker, to permit
 // richer semantics in the caller.
 // The caller on success must execute the callback when done with work.
-func (b *Breaker) Reserve(ctx context.Context) (func(), bool) {
+func (b *Breaker) Reserve(_ context.Context) (func(), bool) {
 	if !b.tryAcquirePending() {
 		return nil, false
 	}

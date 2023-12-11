@@ -26,15 +26,15 @@ import (
 	apicfg "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/gc"
 
-	. "knative.dev/pkg/configmap/testing"
+	configtest "knative.dev/pkg/configmap/testing"
 )
 
 func TestStoreLoadWithContext(t *testing.T) {
 	ctx := logtesting.TestContextWithLogger(t)
 	store := NewStore(ctx)
 
-	gcConfig := ConfigMapFromTestFile(t, gc.ConfigName)
-	featuresConfig := ConfigMapFromTestFile(t, apicfg.FeaturesConfigName)
+	gcConfig := configtest.ConfigMapFromTestFile(t, gc.ConfigName)
+	featuresConfig := configtest.ConfigMapFromTestFile(t, apicfg.FeaturesConfigName)
 
 	store.OnConfigChanged(gcConfig)
 	store.OnConfigChanged(featuresConfig)
@@ -42,7 +42,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 	config := FromContext(store.ToContext(context.Background()))
 
 	t.Run("revision-gc", func(t *testing.T) {
-		expected, _ := gc.NewConfigFromConfigMapFunc(ctx)(gcConfig)
+		expected, _ := gc.NewConfigFromConfigMapFunc()(gcConfig)
 		if diff := cmp.Diff(expected, config.RevisionGC); diff != "" {
 			t.Error("Unexpected controller config (-want, +got):", diff)
 		}

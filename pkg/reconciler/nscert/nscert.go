@@ -124,11 +124,11 @@ func (c *reconciler) ReconcileKind(ctx context.Context, ns *corev1.Namespace) pk
 	} else if !metav1.IsControlledBy(existingCert, ns) {
 		return fmt.Errorf("namespace %s does not own Knative Certificate: %s", ns.Name, existingCert.Name)
 	} else if !equality.Semantic.DeepEqual(existingCert.Spec, desiredCert.Spec) {
-		copy := existingCert.DeepCopy()
-		copy.Spec = desiredCert.Spec
-		copy.Labels[networking.WildcardCertDomainLabelKey] = desiredCert.Labels[networking.WildcardCertDomainLabelKey]
+		copycert := existingCert.DeepCopy()
+		copycert.Spec = desiredCert.Spec
+		copycert.Labels[networking.WildcardCertDomainLabelKey] = desiredCert.Labels[networking.WildcardCertDomainLabelKey]
 
-		if _, err := c.client.NetworkingV1alpha1().Certificates(copy.Namespace).Update(ctx, copy, metav1.UpdateOptions{}); err != nil {
+		if _, err := c.client.NetworkingV1alpha1().Certificates(copycert.Namespace).Update(ctx, copycert, metav1.UpdateOptions{}); err != nil {
 			recorder.Eventf(existingCert, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update Knative Certificate %s/%s: %v", existingCert.Namespace, existingCert.Name, err)
 			return fmt.Errorf("failed to update namespace certificate: %w", err)

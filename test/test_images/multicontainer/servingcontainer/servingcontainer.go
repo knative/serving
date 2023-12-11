@@ -26,7 +26,7 @@ import (
 	"knative.dev/serving/test"
 )
 
-func handler(w http.ResponseWriter, r *http.Request) {
+func handler(w http.ResponseWriter, _ *http.Request) {
 	log.Println("serving container received a request.")
 	res, err := http.Get("http://127.0.0.1:8882")
 	if err != nil {

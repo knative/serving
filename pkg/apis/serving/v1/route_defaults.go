@@ -51,7 +51,7 @@ func (rs *RouteSpec) SetDefaults(ctx context.Context) {
 }
 
 // SetDefaults implements apis.Defaultable
-func (tt *TrafficTarget) SetDefaults(ctx context.Context) {
+func (tt *TrafficTarget) SetDefaults(_ context.Context) {
 	if tt.LatestRevision == nil {
 		tt.LatestRevision = ptr.Bool(tt.RevisionName == "")
 	}

@@ -1353,11 +1353,11 @@ type revFakeErrorLister struct {
 	listers.RevisionNamespaceLister
 }
 
-func (l revFakeErrorLister) Get(name string) (*v1.Revision, error) {
+func (l revFakeErrorLister) Get(_ string) (*v1.Revision, error) {
 	return nil, errAPI
 }
 
-func (l revFakeErrorLister) Revisions(namespace string) listers.RevisionNamespaceLister {
+func (l revFakeErrorLister) Revisions(_ string) listers.RevisionNamespaceLister {
 	return l
 }
 

@@ -26,7 +26,7 @@ import (
 	logtesting "knative.dev/pkg/logging/testing"
 	cfgmap "knative.dev/serving/pkg/apis/config"
 
-	. "knative.dev/pkg/configmap/testing"
+	configtest "knative.dev/pkg/configmap/testing"
 )
 
 var ignoreStuff = cmp.Options{
@@ -36,8 +36,8 @@ var ignoreStuff = cmp.Options{
 func TestStoreLoadWithContext(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
 
-	defaultsConfig := ConfigMapFromTestFile(t, cfgmap.DefaultsConfigName)
-	featuresConfig := ConfigMapFromTestFile(t, cfgmap.FeaturesConfigName)
+	defaultsConfig := configtest.ConfigMapFromTestFile(t, cfgmap.DefaultsConfigName)
+	featuresConfig := configtest.ConfigMapFromTestFile(t, cfgmap.FeaturesConfigName)
 
 	store.OnConfigChanged(defaultsConfig)
 	store.OnConfigChanged(featuresConfig)
@@ -60,8 +60,8 @@ func TestStoreLoadWithContext(t *testing.T) {
 }
 
 func TestStoreLoadWithContextOrDefaults(t *testing.T) {
-	defaultsConfig := ConfigMapFromTestFile(t, cfgmap.DefaultsConfigName)
-	featuresConfig := ConfigMapFromTestFile(t, cfgmap.FeaturesConfigName)
+	defaultsConfig := configtest.ConfigMapFromTestFile(t, cfgmap.DefaultsConfigName)
+	featuresConfig := configtest.ConfigMapFromTestFile(t, cfgmap.FeaturesConfigName)
 
 	config := FromContextOrDefaults(context.Background())
 
@@ -83,8 +83,8 @@ func TestStoreLoadWithContextOrDefaults(t *testing.T) {
 func TestStoreImmutableConfig(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
 
-	store.OnConfigChanged(ConfigMapFromTestFile(t, cfgmap.DefaultsConfigName))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, cfgmap.FeaturesConfigName))
+	store.OnConfigChanged(configtest.ConfigMapFromTestFile(t, cfgmap.DefaultsConfigName))
+	store.OnConfigChanged(configtest.ConfigMapFromTestFile(t, cfgmap.FeaturesConfigName))
 
 	config := store.Load()
 

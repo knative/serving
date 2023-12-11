@@ -53,7 +53,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 	})
 
 	t.Run("gc", func(t *testing.T) {
-		expected, err := gc.NewConfigFromConfigMapFunc(ctx)(gcConfig)
+		expected, err := gc.NewConfigFromConfigMapFunc()(gcConfig)
 		if err != nil {
 			t.Error("Parsing configmap:", err)
 		}

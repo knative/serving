@@ -39,7 +39,7 @@ func ValidateObjectMetadata(ctx context.Context, meta metav1.Object, allowAutosc
 	errs := apis.ValidateObjectMetadata(meta)
 
 	if allowAutoscalingAnnotations {
-		errs = errs.Also(autoscaling.ValidateAnnotations(ctx, config.FromContextOrDefaults(ctx).Autoscaler, meta.GetAnnotations()).ViaField("annotations"))
+		errs = errs.Also(autoscaling.ValidateAnnotations(config.FromContextOrDefaults(ctx).Autoscaler, meta.GetAnnotations()).ViaField("annotations"))
 	} else {
 		errs = errs.Also(ValidateHasNoAutoscalingAnnotation(meta.GetAnnotations()).ViaField("annotations"))
 	}

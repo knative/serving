@@ -24,7 +24,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	. "knative.dev/pkg/configmap/testing"
+	configtest "knative.dev/pkg/configmap/testing"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
@@ -95,7 +95,7 @@ func TestNewConfig(t *testing.T) {
 }
 
 func TestOurConfig(t *testing.T) {
-	cm, example := ConfigMapsFromTestFile(t, logging.ConfigMapName())
+	cm, example := configtest.ConfigMapsFromTestFile(t, logging.ConfigMapName())
 
 	if cfg, err := logging.NewConfigFromConfigMap(cm); err != nil {
 		t.Error("Expected no errors. got:", err)

@@ -127,7 +127,7 @@ func fakeRegistryManifestFailure(t *testing.T, repo string) *httptest.Server {
 	}))
 }
 
-func fakeRegistryBlocking(t *testing.T) (ts *httptest.Server, cancel func()) {
+func fakeRegistryBlocking() (ts *httptest.Server, cancel func()) {
 	ch := make(chan struct{})
 	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -351,7 +351,7 @@ func TestResolveWithManifestFailure(t *testing.T) {
 
 func TestResolveTimeout(t *testing.T) {
 	// Stand up a fake registry which blocks until cancelled.
-	server, cancel := fakeRegistryBlocking(t)
+	server, cancel := fakeRegistryBlocking()
 	t.Cleanup(cancel)
 
 	u, err := url.Parse(server.URL)

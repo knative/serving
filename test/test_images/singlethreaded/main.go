@@ -29,7 +29,7 @@ import (
 
 var isLocked = atomic.NewBool(false)
 
-func handler(w http.ResponseWriter, r *http.Request) {
+func handler(w http.ResponseWriter, _ *http.Request) {
 	if isLocked.CAS(false /*was unlocked*/, true /*lock*/) {
 		defer isLocked.Store(false)
 		time.Sleep(500 * time.Millisecond)

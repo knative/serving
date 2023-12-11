@@ -35,7 +35,7 @@ import (
 	listers "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
 	"knative.dev/pkg/ptr"
 
-	. "knative.dev/pkg/reconciler/testing"
+	reconciletest "knative.dev/pkg/reconciler/testing"
 )
 
 var (
@@ -139,7 +139,7 @@ func TestReconcileCertificateUpdate(t *testing.T) {
 }
 
 func setup(certs []*v1alpha1.Certificate, t *testing.T) (context.Context, *FakeAccessor) {
-	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	ctx, cancel, informers := reconciletest.SetupFakeContextWithCancel(t)
 
 	fake := fakenetworkingclient.Get(ctx)
 	certInformer := fakecertinformer.Get(ctx)
@@ -149,7 +149,7 @@ func setup(certs []*v1alpha1.Certificate, t *testing.T) (context.Context, *FakeA
 		certInformer.Informer().GetIndexer().Add(cert)
 	}
 
-	waitInformers, err := RunAndSyncInformers(ctx, informers...)
+	waitInformers, err := reconciletest.RunAndSyncInformers(ctx, informers...)
 	if err != nil {
 		t.Fatal("Failed to start informers:", err)
 	}

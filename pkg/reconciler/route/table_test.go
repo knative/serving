@@ -2391,7 +2391,7 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 						RevisionName:   "config-00001",
 						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
-					}), WithReadyCertificateName("default.example.com"), WithHTTPSDomain),
+					}), WithReadyCertificateName(), WithHTTPSDomain),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
@@ -3197,7 +3197,7 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 	table.Test(t, MakeFactory(NewTestReconciler))
 }
 
-func NewTestReconciler(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+func NewTestReconciler(ctx context.Context, listers *Listers, _ configmap.Watcher) controller.Reconciler {
 	r := &Reconciler{
 		kubeclient:          kubeclient.Get(ctx),
 		client:              servingclient.Get(ctx),
@@ -3398,7 +3398,7 @@ func mutateIngress(ci *netv1alpha1.Ingress) *netv1alpha1.Ingress {
 	return ci
 }
 
-func rev(namespace, name string, generation int64, ro ...RevisionOption) *v1.Revision {
+func rev(namespace, name string, _ int64, ro ...RevisionOption) *v1.Revision {
 	r := &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,

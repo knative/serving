@@ -23,12 +23,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 
-	. "knative.dev/pkg/configmap/testing"
+	configtest "knative.dev/pkg/configmap/testing"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 )
 
 func TestNewConfig(t *testing.T) {
-	actual, example := ConfigMapsFromTestFile(t, ConfigName)
+	actual, example := configtest.ConfigMapsFromTestFile(t, ConfigName)
 	tests := []struct {
 		name    string
 		input   map[string]string

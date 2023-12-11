@@ -26,7 +26,7 @@ import (
 
 	network "knative.dev/networking/pkg"
 	netcfg "knative.dev/networking/pkg/config"
-	. "knative.dev/pkg/configmap/testing"
+	configtest "knative.dev/pkg/configmap/testing"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 )
@@ -34,9 +34,9 @@ import (
 func TestStoreLoadWithContext(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
 
-	autoscalerConfig := ConfigMapFromTestFile(t, autoscalerconfig.ConfigName)
-	depConfig := ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey)
-	netConfig := ConfigMapFromTestFile(t, netcfg.ConfigMapName)
+	autoscalerConfig := configtest.ConfigMapFromTestFile(t, autoscalerconfig.ConfigName)
+	depConfig := configtest.ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey)
+	netConfig := configtest.ConfigMapFromTestFile(t, netcfg.ConfigMapName)
 	store.OnConfigChanged(autoscalerConfig)
 	store.OnConfigChanged(depConfig)
 	store.OnConfigChanged(netConfig)
@@ -59,9 +59,9 @@ func TestStoreLoadWithContext(t *testing.T) {
 func TestStoreImmutableConfig(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
 
-	store.OnConfigChanged(ConfigMapFromTestFile(t, autoscalerconfig.ConfigName))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey))
-	store.OnConfigChanged(ConfigMapFromTestFile(t, netcfg.ConfigMapName))
+	store.OnConfigChanged(configtest.ConfigMapFromTestFile(t, autoscalerconfig.ConfigName))
+	store.OnConfigChanged(configtest.ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey))
+	store.OnConfigChanged(configtest.ConfigMapFromTestFile(t, netcfg.ConfigMapName))
 
 	config := store.Load()
 	config.Autoscaler.MaxScaleUpRate = 100.0

@@ -199,9 +199,8 @@ func httpsReady(svc *servingv1.Service) (bool, error) {
 		return ready, err
 	} else if !ready {
 		return false, nil
-	} else {
-		return svc.Status.URL.Scheme == "https", nil
 	}
+	return svc.Status.URL.Scheme == "https", nil
 }
 
 func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *x509.CertPool {

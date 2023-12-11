@@ -35,20 +35,20 @@ import (
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 
-	. "knative.dev/pkg/configmap/testing"
+	configtest "knative.dev/pkg/configmap/testing"
 )
 
 func TestStoreLoadWithContext(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
 
-	deploymentConfig := ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey)
-	networkConfig := ConfigMapFromTestFile(t, netcfg.ConfigMapName)
-	observabilityConfig, observabilityConfigExample := ConfigMapsFromTestFile(t, metrics.ConfigMapName())
-	loggingConfig, loggingConfigExample := ConfigMapsFromTestFile(t, logging.ConfigMapName())
-	tracingConfig, tracingConfigExample := ConfigMapsFromTestFile(t, pkgtracing.ConfigName)
-	defaultConfig := ConfigMapFromTestFile(t, apiconfig.DefaultsConfigName)
-	autoscalerConfig := ConfigMapFromTestFile(t, autoscalerconfig.ConfigName)
-	featuresConfig := ConfigMapFromTestFile(t, apiconfig.FeaturesConfigName)
+	deploymentConfig := configtest.ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey)
+	networkConfig := configtest.ConfigMapFromTestFile(t, netcfg.ConfigMapName)
+	observabilityConfig, observabilityConfigExample := configtest.ConfigMapsFromTestFile(t, metrics.ConfigMapName())
+	loggingConfig, loggingConfigExample := configtest.ConfigMapsFromTestFile(t, logging.ConfigMapName())
+	tracingConfig, tracingConfigExample := configtest.ConfigMapsFromTestFile(t, pkgtracing.ConfigName)
+	defaultConfig := configtest.ConfigMapFromTestFile(t, apiconfig.DefaultsConfigName)
+	autoscalerConfig := configtest.ConfigMapFromTestFile(t, autoscalerconfig.ConfigName)
+	featuresConfig := configtest.ConfigMapFromTestFile(t, apiconfig.FeaturesConfigName)
 
 	watcher := configmap.NewStaticWatcher(
 		featuresConfig,
@@ -157,14 +157,14 @@ func TestStoreLoadWithContext(t *testing.T) {
 func TestStoreImmutableConfig(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
 	watcher := configmap.NewStaticWatcher(
-		ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey),
-		ConfigMapFromTestFile(t, netcfg.ConfigMapName),
-		ConfigMapFromTestFile(t, metrics.ConfigMapName()),
-		ConfigMapFromTestFile(t, logging.ConfigMapName()),
-		ConfigMapFromTestFile(t, pkgtracing.ConfigName),
-		ConfigMapFromTestFile(t, apiconfig.DefaultsConfigName),
-		ConfigMapFromTestFile(t, autoscalerconfig.ConfigName),
-		ConfigMapFromTestFile(t, apiconfig.FeaturesConfigName),
+		configtest.ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey),
+		configtest.ConfigMapFromTestFile(t, netcfg.ConfigMapName),
+		configtest.ConfigMapFromTestFile(t, metrics.ConfigMapName()),
+		configtest.ConfigMapFromTestFile(t, logging.ConfigMapName()),
+		configtest.ConfigMapFromTestFile(t, pkgtracing.ConfigName),
+		configtest.ConfigMapFromTestFile(t, apiconfig.DefaultsConfigName),
+		configtest.ConfigMapFromTestFile(t, autoscalerconfig.ConfigName),
+		configtest.ConfigMapFromTestFile(t, apiconfig.FeaturesConfigName),
 	)
 
 	store.WatchConfigs(watcher)

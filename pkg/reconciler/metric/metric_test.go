@@ -269,12 +269,12 @@ type testCollector struct {
 	deleteCalls atomic.Int32
 }
 
-func (c *testCollector) CreateOrUpdate(metric *autoscalingv1alpha1.Metric) error {
+func (c *testCollector) CreateOrUpdate(_ *autoscalingv1alpha1.Metric) error {
 	c.createOrUpdateCalls.Inc()
 	return c.createOrUpdateError
 }
 
-func (c *testCollector) Delete(namespace, name string) {
+func (c *testCollector) Delete(_, _ string) {
 	c.deleteCalls.Inc()
 }
 

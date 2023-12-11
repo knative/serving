@@ -28,4 +28,4 @@ func (m *Metric) SetDefaults(ctx context.Context) {
 }
 
 // SetDefaults sets defaults on the Metric's Spec if applicable.
-func (ms *MetricSpec) SetDefaults(ctx context.Context) {}
+func (ms *MetricSpec) SetDefaults(_ context.Context) {}

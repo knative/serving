@@ -37,7 +37,7 @@ func TestContextHandler(t *testing.T) {
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevName}
 	revision := revision(revID.Namespace, revID.Name)
 	revisionInformer(ctx, revision)
-	configStore := setupConfigStore(t, logging.FromContext(ctx))
+	configStore := setupConfigStore(logging.FromContext(ctx))
 
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := RevisionFrom(r.Context()); got != revision {
@@ -90,7 +90,7 @@ func TestContextHandlerError(t *testing.T) {
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevName}
 	revision := revision(revID.Namespace, revID.Name)
 	revisionInformer(ctx, revision)
-	configStore := setupConfigStore(t, logging.FromContext(ctx))
+	configStore := setupConfigStore(logging.FromContext(ctx))
 
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 
@@ -125,7 +125,7 @@ func BenchmarkContextHandler(b *testing.B) {
 	defer cancel()
 	revision := revision(testNamespace, testRevName)
 	revisionInformer(ctx, revision)
-	configStore := setupConfigStore(&testing.T{}, logging.FromContext(ctx))
+	configStore := setupConfigStore(logging.FromContext(ctx))
 
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 

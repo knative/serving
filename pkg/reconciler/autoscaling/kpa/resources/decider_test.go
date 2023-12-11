@@ -29,7 +29,7 @@ import (
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/autoscaler/scaling"
-	. "knative.dev/serving/pkg/testing"
+	pkgtest "knative.dev/serving/pkg/testing"
 )
 
 func TestMakeDecider(t *testing.T) {
@@ -76,15 +76,15 @@ func TestMakeDecider(t *testing.T) {
 		},
 	}, {
 		name: "with container concurrency 1",
-		pa:   pa(WithPAContainerConcurrency(1)),
+		pa:   pa(pkgtest.WithPAContainerConcurrency(1)),
 		want: decider(withTarget(1.0), withPanicThreshold(2.0), withTotal(1)),
 	}, {
 		name: "with target annotation 1",
-		pa:   pa(WithTargetAnnotation("1")),
+		pa:   pa(pkgtest.WithTargetAnnotation("1")),
 		want: decider(withTarget(1.0), withTotal(1), withPanicThreshold(2.0), withTargetAnnotation("1")),
 	}, {
 		name: "with container concurrency and tu < 1",
-		pa:   pa(WithPAContainerConcurrency(100)),
+		pa:   pa(pkgtest.WithPAContainerConcurrency(100)),
 		want: decider(withTarget(80), withTotal(100), withPanicThreshold(2.0)),
 		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.ContainerConcurrencyTargetFraction = 0.8
@@ -92,7 +92,7 @@ func TestMakeDecider(t *testing.T) {
 		},
 	}, {
 		name: "with burst capacity set",
-		pa:   pa(WithPAContainerConcurrency(120)),
+		pa:   pa(pkgtest.WithPAContainerConcurrency(120)),
 		want: decider(withTarget(96), withTotal(120), withPanicThreshold(2.0), withTargetBurstCapacity(63)),
 		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.TargetBurstCapacity = 63
@@ -109,7 +109,7 @@ func TestMakeDecider(t *testing.T) {
 		},
 	}, {
 		name: "with burst capacity set on the annotation",
-		pa:   pa(WithPAContainerConcurrency(120), withTBCAnnotation("211")),
+		pa:   pa(pkgtest.WithPAContainerConcurrency(120), withTBCAnnotation("211")),
 		want: decider(withTarget(96), withTotal(120), withPanicThreshold(2.0),
 			withDeciderTBCAnnotation("211"), withTargetBurstCapacity(211)),
 		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
@@ -119,21 +119,21 @@ func TestMakeDecider(t *testing.T) {
 		},
 	}, {
 		name: "with container concurrency greater than target annotation (ok)",
-		pa:   pa(WithPAContainerConcurrency(10), WithTargetAnnotation("1")),
+		pa:   pa(pkgtest.WithPAContainerConcurrency(10), pkgtest.WithTargetAnnotation("1")),
 		want: decider(withTarget(1.0), withTotal(1), withPanicThreshold(2.0), withTargetAnnotation("1")),
 	}, {
 		name: "with target annotation greater than container concurrency (ignore annotation for safety)",
-		pa:   pa(WithPAContainerConcurrency(1), WithTargetAnnotation("10")),
+		pa:   pa(pkgtest.WithPAContainerConcurrency(1), pkgtest.WithTargetAnnotation("10")),
 		want: decider(withTarget(1.0), withTotal(1), withPanicThreshold(2.0), withTargetAnnotation("10")),
 	}, {
 		name: "with higher panic target",
-		pa:   pa(WithTargetAnnotation("10"), WithPanicThresholdPercentageAnnotation("400")),
+		pa:   pa(pkgtest.WithTargetAnnotation("10"), pkgtest.WithPanicThresholdPercentageAnnotation("400")),
 		want: decider(
 			withTarget(10.0), withPanicThreshold(4.0), withTotal(10),
 			withTargetAnnotation("10"), withPanicThresholdPercentageAnnotation("400")),
 	}, {
 		name: "with metric annotation",
-		pa:   pa(WithMetricAnnotation("rps")),
+		pa:   pa(pkgtest.WithMetricAnnotation("rps")),
 		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100), withMetric("rps"), withMetricAnnotation("rps")),
 	}, {
 		name: "with scale down delay from config",
@@ -239,7 +239,7 @@ func TestGetInitialScale(t *testing.T) {
 	}
 }
 
-func pa(options ...PodAutoscalerOption) *autoscalingv1alpha1.PodAutoscaler {
+func pa(options ...pkgtest.PodAutoscalerOption) *autoscalingv1alpha1.PodAutoscaler {
 	p := &autoscalingv1alpha1.PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "test-namespace",
@@ -260,7 +260,7 @@ func pa(options ...PodAutoscalerOption) *autoscalingv1alpha1.PodAutoscaler {
 	return p
 }
 
-func withScaleDownDelayAnnotation(sdd string) PodAutoscalerOption {
+func withScaleDownDelayAnnotation(sdd string) pkgtest.PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Annotations[autoscaling.ScaleDownDelayAnnotationKey] = sdd
 	}
@@ -272,7 +272,7 @@ func withDeciderScaleDownDelayAnnotation(sdd string) deciderOption {
 	}
 }
 
-func withTBCAnnotation(tbc string) PodAutoscalerOption {
+func withTBCAnnotation(tbc string) pkgtest.PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Annotations[autoscaling.TargetBurstCapacityKey] = tbc
 	}

@@ -41,7 +41,7 @@ import (
 // Registers eventhandlers to enqueue events.
 func NewController(
 	ctx context.Context,
-	cmw configmap.Watcher,
+	_ configmap.Watcher,
 ) *controller.Impl {
 
 	logger := logging.FromContext(ctx)

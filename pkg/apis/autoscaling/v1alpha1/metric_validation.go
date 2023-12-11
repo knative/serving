@@ -31,7 +31,7 @@ func (m *Metric) Validate(ctx context.Context) *apis.FieldError {
 }
 
 // Validate validates Metric's Spec.
-func (ms *MetricSpec) Validate(ctx context.Context) *apis.FieldError {
+func (ms *MetricSpec) Validate(_ context.Context) *apis.FieldError {
 	if equality.Semantic.DeepEqual(ms, &MetricSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
