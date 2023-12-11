@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -155,7 +154,7 @@ func TestActivatorChainHandlerWithFullDuplex(t *testing.T) {
 	// The server responding with the sent body.
 	echoServer := httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, req *http.Request) {
-			body, err := ioutil.ReadAll(req.Body)
+			body, err := io.ReadAll(req.Body)
 			if err != nil {
 				log.Printf("error reading body: %v", err)
 				http.Error(w, fmt.Sprintf("error reading body: %v", err), http.StatusInternalServerError)
@@ -254,7 +253,7 @@ func send(client *http.Client, url string, body []byte, rHost string) error {
 
 	bd := io.Reader(resp.Body)
 
-	rec, err := ioutil.ReadAll(bd)
+	rec, err := io.ReadAll(bd)
 
 	if err != nil {
 		return fmt.Errorf("failed to read body: %w", err)
