@@ -214,7 +214,4 @@ func CreateDialContext(ctx context.Context, t *testing.T, ing *v1alpha1.Ingress,
 			return nil, errors.New("service ingress does not contain dialing information")
 		}
 	}
-	t.Fatal("Service does not have a supported shape (not type LoadBalancer? missing --ingressendpoint?).")
-	return nil // Unreachable
-
 }

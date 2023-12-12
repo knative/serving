@@ -188,16 +188,16 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 
 		// Check if we have endpoints for this service
 		endpoints, err := c.endpointsLister.Endpoints(ns).Get(desiredService.Name)
-		if !apierrs.IsNotFound(err) {
-			if err != nil {
-				return nil, err
-			} else if !metav1.IsControlledBy(endpoints, route) {
-				// Surface an error in the route's status, and return an error.
-				route.Status.MarkEndpointNotOwned(desiredService.Name)
-				return nil, fmt.Errorf("route: %q does not own Endpoints: %q", route.Name, desiredService.Name)
-			}
+		// No NewNotFound error is created but err is present
+		if !apierrs.IsNotFound(err) && err != nil {
+			return nil, err
 		}
-
+		//No NewNotFound error is created but endpoint is not controlled by route
+		if !apierrs.IsNotFound(err) && !metav1.IsControlledBy(endpoints, route) {
+			// Surface an error in the route's status, and return an error.
+			route.Status.MarkEndpointNotOwned(desiredService.Name)
+			return nil, fmt.Errorf("route: %q does not own Endpoints: %q", route.Name, desiredService.Name)
+		}
 		services = append(services, resources.ServicePair{
 			Service:   service,
 			Endpoints: endpoints,
