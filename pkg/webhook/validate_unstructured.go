@@ -30,10 +30,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
-// PodSpecDryRunAnnotation gates the podspec dryrun feature and runs with the value 'enabled'
-const PodSpecDryRunAnnotation = "features.knative.dev/podspec-dryrun"
-
-// DryRunMode represents possible values of the PodSpecDryRunAnnotation
+// DryRunMode represents possible values of the config.DryRunFeatureKey annotation
 type DryRunMode string
 
 const (
@@ -62,7 +59,7 @@ func ValidateConfiguration(ctx context.Context, uns *unstructured.Unstructured) 
 func validateRevisionTemplate(ctx context.Context, uns *unstructured.Unstructured) error {
 	content := uns.UnstructuredContent()
 
-	mode := DryRunMode(uns.GetAnnotations()[PodSpecDryRunAnnotation])
+	mode := DryRunMode(uns.GetAnnotations()[config.DryRunFeatureKey])
 	features := config.FromContextOrDefaults(ctx).Features
 	switch features.PodSpecDryRun {
 	case config.Enabled:

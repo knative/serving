@@ -118,12 +118,6 @@ function parse_flags() {
       readonly CERTIFICATE_CLASS="cert-manager.certificate.networking.knative.dev"
       return 2
       ;;
-# BEGIN: reverse compatibility - drop this after updating knative/infra
-    --run-http01-auto-tls-tests)
-      readonly RUN_HTTP01_EXTERNAL_DOMAIN_TLS_TESTS=1
-      return 1
-      ;;
-# END
     --run-http01-external-domain-tls-tests)
       readonly RUN_HTTP01_EXTERNAL_DOMAIN_TLS_TESTS=1
       return 1

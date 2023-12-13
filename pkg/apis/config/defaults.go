@@ -79,16 +79,16 @@ var (
 
 func defaultDefaultsConfig() *Defaults {
 	return &Defaults{
-		RevisionTimeoutSeconds:             DefaultRevisionTimeoutSeconds,
-		MaxRevisionTimeoutSeconds:          DefaultMaxRevisionTimeoutSeconds,
-		RevisionRequestStartTimeoutSeconds: DefaultRevisionResponseStartTimeoutSeconds,
-		RevisionIdleTimeoutSeconds:         DefaultRevisionIdleTimeoutSeconds,
-		InitContainerNameTemplate:          DefaultInitContainerNameTemplate,
-		UserContainerNameTemplate:          DefaultUserContainerNameTemplate,
-		ContainerConcurrency:               DefaultContainerConcurrency,
-		ContainerConcurrencyMaxLimit:       DefaultMaxRevisionContainerConcurrency,
-		AllowContainerConcurrencyZero:      DefaultAllowContainerConcurrencyZero,
-		EnableServiceLinks:                 ptr.Bool(false),
+		RevisionTimeoutSeconds:              DefaultRevisionTimeoutSeconds,
+		MaxRevisionTimeoutSeconds:           DefaultMaxRevisionTimeoutSeconds,
+		RevisionResponseStartTimeoutSeconds: DefaultRevisionResponseStartTimeoutSeconds,
+		RevisionIdleTimeoutSeconds:          DefaultRevisionIdleTimeoutSeconds,
+		InitContainerNameTemplate:           DefaultInitContainerNameTemplate,
+		UserContainerNameTemplate:           DefaultUserContainerNameTemplate,
+		ContainerConcurrency:                DefaultContainerConcurrency,
+		ContainerConcurrencyMaxLimit:        DefaultMaxRevisionContainerConcurrency,
+		AllowContainerConcurrencyZero:       DefaultAllowContainerConcurrencyZero,
+		EnableServiceLinks:                  ptr.Bool(false),
 	}
 }
 
@@ -137,10 +137,10 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	}
 
 	// We default this to what the user has specified
-	nc.RevisionRequestStartTimeoutSeconds = nc.RevisionTimeoutSeconds
+	nc.RevisionResponseStartTimeoutSeconds = nc.RevisionTimeoutSeconds
 
 	if err := cm.Parse(data,
-		cm.AsInt64("revision-response-start-timeout-seconds", &nc.RevisionRequestStartTimeoutSeconds),
+		cm.AsInt64("revision-response-start-timeout-seconds", &nc.RevisionResponseStartTimeoutSeconds),
 	); err != nil {
 		return nil, err
 	}
@@ -148,8 +148,8 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	if nc.RevisionTimeoutSeconds > nc.MaxRevisionTimeoutSeconds {
 		return nil, fmt.Errorf("revision-timeout-seconds (%d) cannot be greater than max-revision-timeout-seconds (%d)", nc.RevisionTimeoutSeconds, nc.MaxRevisionTimeoutSeconds)
 	}
-	if nc.RevisionRequestStartTimeoutSeconds > 0 && nc.RevisionRequestStartTimeoutSeconds > nc.RevisionTimeoutSeconds {
-		return nil, fmt.Errorf("revision-response-start-timeout-seconds (%d) cannot be greater than revision-timeout-seconds (%d)", nc.RevisionRequestStartTimeoutSeconds, nc.RevisionTimeoutSeconds)
+	if nc.RevisionResponseStartTimeoutSeconds > 0 && nc.RevisionResponseStartTimeoutSeconds > nc.RevisionTimeoutSeconds {
+		return nil, fmt.Errorf("revision-response-start-timeout-seconds (%d) cannot be greater than revision-timeout-seconds (%d)", nc.RevisionResponseStartTimeoutSeconds, nc.RevisionTimeoutSeconds)
 	}
 	if nc.RevisionIdleTimeoutSeconds > 0 && nc.RevisionIdleTimeoutSeconds > nc.RevisionTimeoutSeconds {
 		return nil, fmt.Errorf("revision-idle-timeout-seconds (%d) cannot be greater than revision-timeout-seconds (%d)", nc.RevisionIdleTimeoutSeconds, nc.RevisionTimeoutSeconds)
@@ -186,7 +186,7 @@ type Defaults struct {
 
 	// This is  the default number of seconds a request will be allowed to
 	// stay open while waiting to receive any bytes from the user's application
-	RevisionRequestStartTimeoutSeconds int64
+	RevisionResponseStartTimeoutSeconds int64
 
 	// RevisionIdleTimeoutSeconds is the maximum duration in seconds a request
 	// will be allowed to stay open while not receiving any bytes from the user's application.

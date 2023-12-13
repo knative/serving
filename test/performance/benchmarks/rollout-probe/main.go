@@ -103,8 +103,8 @@ func main() {
 		log.Fatalf("Failed to get target ready for attacking: %v", err)
 	}
 
-	// Send 3600 QPS for the given duration with a 30s request timeout.
-	rate := vegeta.Rate{Freq: 3600, Per: time.Second}
+	// Send 1k QPS for the given duration with a 30s request timeout.
+	rate := vegeta.Rate{Freq: 1000, Per: time.Second}
 	targeter := vegeta.NewStaticTargeter(t.target)
 	attacker := vegeta.NewAttacker(vegeta.Timeout(30 * time.Second))
 

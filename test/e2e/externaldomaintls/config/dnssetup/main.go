@@ -84,7 +84,7 @@ func waitForDNSRecordVisible(record *config.DNSRecord) error {
 		return err
 	}
 	var lastErr error
-	if err := wait.PollImmediate(10*time.Second, 300*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(context.Background(), 10*time.Second, 300*time.Second, true, func(context.Context) (bool, error) {
 		for _, ns := range nameservers {
 			nsIP, err := net.LookupHost(ns.Host)
 			if err != nil {

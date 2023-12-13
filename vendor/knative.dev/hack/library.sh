@@ -1031,3 +1031,4 @@ readonly KNATIVE_SERVING_RELEASE_CRDS="$(get_latest_knative_yaml_source "serving
 readonly KNATIVE_SERVING_RELEASE_CORE="$(get_latest_knative_yaml_source "serving" "serving-core")"
 readonly KNATIVE_NET_ISTIO_RELEASE="$(get_latest_knative_yaml_source "net-istio" "net-istio")"
 readonly KNATIVE_EVENTING_RELEASE="$(get_latest_knative_yaml_source "eventing" "eventing")"
+readonly KNATIVE_EVENTING_RELEASE_TLS="$(get_latest_knative_yaml_source "eventing" "eventing-tls-networking")"

@@ -99,7 +99,7 @@ func waitForActivatorEndpoints(ctx *TestContext) error {
 		wantAct      int
 	)
 
-	if rerr := wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
+	if rerr := wait.PollUntilContextTimeout(context.Background(), 250*time.Millisecond, time.Minute, true, func(context.Context) (bool, error) {
 		// We need to fetch the activator endpoints at every check, since it can change.
 		actEps, err := ctx.clients.KubeClient.CoreV1().Endpoints(
 			system.Namespace()).Get(context.Background(), networking.ActivatorServiceName, metav1.GetOptions{})

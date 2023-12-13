@@ -45,7 +45,6 @@ const (
 	InvalidHelloWorld   = "invalidhelloworld" // Not a real image
 	PizzaPlanet1        = "pizzaplanetv1"
 	PizzaPlanet2        = "pizzaplanetv2"
-	Protocols           = "protocols"
 	Readiness           = "readiness"
 	Runtime             = "runtime"
 	ServingContainer    = "servingcontainer"
@@ -53,7 +52,6 @@ const (
 	SingleThreadedImage = "singlethreaded"
 	Timeout             = "timeout"
 	Volumes             = "volumes"
-	WorkingDir          = "workingdir"
 	SlowStart           = "slowstart"
 
 	// Constants for test image output.

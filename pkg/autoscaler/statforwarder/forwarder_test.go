@@ -17,6 +17,7 @@ limitations under the License.
 package statforwarder
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -117,7 +118,7 @@ func TestForwarderReconcile(t *testing.T) {
 
 	var lastErr error
 	// Wait for the resources to be created.
-	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 2*time.Second, true, func(context.Context) (bool, error) {
 		_, lastErr = service.Lister().Services(testNs).Get(bucket1)
 		return lastErr == nil, nil
 	}); err != nil {
@@ -137,7 +138,7 @@ func TestForwarderReconcile(t *testing.T) {
 
 	// Check the endpoints got updated.
 	el := endpoints.Lister().Endpoints(testNs)
-	if err := wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 2*time.Second, true, func(context.Context) (bool, error) {
 		got, err := el.Get(bucket1)
 		if err != nil {
 			lastErr = err
@@ -161,7 +162,7 @@ func TestForwarderReconcile(t *testing.T) {
 
 	// Check that the endpoints got updated.
 	wantSubsets[0].Addresses[0].IP = testIP2
-	if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 10*time.Second, true, func(context.Context) (bool, error) {
 		// Check the endpoints get updated.
 		got, err := el.Get(bucket1)
 		if err != nil {
@@ -445,7 +446,7 @@ func TestProcess(t *testing.T) {
 	kubeClient.CoordinationV1().Leases(testNs).Create(ctx, anotherLease, metav1.CreateOptions{})
 	lease.Informer().GetIndexer().Add(anotherLease)
 
-	if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 10*time.Second, true, func(context.Context) (bool, error) {
 		_, p1owned := f.getProcessor(bucket1).(*localProcessor)
 		_, p2notowned := f.getProcessor(bucket2).(*remoteProcessor)
 		return p1owned && p2notowned, nil

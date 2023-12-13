@@ -280,12 +280,12 @@ func adjustPercentage(goal int, cr *ConfigurationRollout, logger *zap.SugaredLog
 		cr.Revisions = nil // No traffic, no rollout.
 	case diff > 0:
 		logger.Infof("Traffic for config %s increased by %d%%, assigning the difference to the latest revision",
-			cr.ConfigurationName)
+			cr.ConfigurationName, diff)
 		cr.Revisions[len(cr.Revisions)-1].Percent += diff
 	case diff < 0:
 		diff = -diff // To make logic more natural.
 		logger.Infof("Traffic for config %s decreased by %d%%, removing the difference from the oldest revision(s)",
-			cr.ConfigurationName)
+			cr.ConfigurationName, diff)
 		i := 0
 		for diff > 0 && i < len(cr.Revisions) {
 			if cr.Revisions[i].Percent > diff {

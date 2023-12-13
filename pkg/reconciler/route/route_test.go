@@ -1335,7 +1335,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 
 			// Wait initial reconcile to finish.
 			rl := fakerouteinformer.Get(ctx).Lister().Routes(route.Namespace)
-			if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+			if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
 				r, err := rl.Get(route.Name)
 				if err != nil {
 					return false, err
@@ -1369,7 +1369,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 				}
 
 				// Ensure we have the proper version in the informers.
-				if err := wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
+				if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 3*time.Second, true, func(context.Context) (bool, error) {
 					r, err := rl.Get(route.Name)
 					return r != nil && r.Generation == route.Generation, err
 				}); err != nil {
@@ -1383,7 +1383,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 				}
 
 				var gotDomain string
-				if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+				if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
 					r, err := routeClient.Get(ctx, route.Name, metav1.GetOptions{})
 					if err != nil {
 						return false, err
@@ -1498,7 +1498,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			}
 
 			rl := routeInformer.Lister()
-			if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+			if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
 				r, err := rl.Routes(route.Namespace).Get(route.Name)
 				if err != nil && errors.IsNotFound(err) {
 					return false, nil
@@ -1514,7 +1514,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			test.doThings(watcher)
 
 			expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, test.expectedDomainSuffix)
-			if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+			if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
 				r, err := rl.Routes(route.Namespace).Get(route.Name)
 				if err != nil {
 					return false, err

@@ -38,8 +38,7 @@ declare ARTIFACTS
 
 ns="default"
 
-initialize --num-nodes=10 --cluster-version=1.26 "$@"
-
+initialize --num-nodes=10 --cluster-version=1.27 "$@"
 
 function run_job() {
   local name=$1
@@ -65,7 +64,6 @@ function run_job() {
   kubectl delete "job/$name" -n "$ns" --ignore-not-found=true
   kubectl wait --for=delete "job/$name" --timeout=60s -n "$ns"
 }
-
 
 if ((IS_PROW)); then
   export INFLUX_URL=$(cat /etc/influx-url-secret-volume/influxdb-url)
@@ -203,6 +201,8 @@ kubectl wait --for=delete ksvc/load-test-200 --timeout=60s -n "$ns"
 
 ###############################################################################################
 header "Rollout probe: activator direct"
+
+toggle_feature scale-to-zero-grace-period 10s config-autoscaler
 
 ko apply --sbom=none -Bf "${REPO_ROOT_DIR}/test/performance/benchmarks/rollout-probe/rollout-probe-setup-activator-direct.yaml"
 kubectl wait --timeout=800s --for=condition=ready ksvc -n "$ns" --all

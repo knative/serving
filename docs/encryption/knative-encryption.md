@@ -1,6 +1,6 @@
 # Knative Serving Encryption
 
-⛔️ Warning: not everything is implemented, as Knative Serving encryption is still a work-in-progress. Tracking-issue: https://github.com/knative/serving/issues/11906.
+⛔️ Warning: not everything is implemented, as Knative Serving encryption is still a work-in-progress. Tracking project: https://github.com/orgs/knative/projects/63/views/1
 
 ## Overview
 There are three parts to Knative Serving encryption
@@ -22,10 +22,8 @@ The different parts are independent of each other and (can) use different Certif
 * Certificate CN/SAN contains the external domain of a Knative Service, e.g. `myapp-<namespace>.example.com`.
 * The certificates are hosted using SNI by the external endpoint of the ingress-controller.
 * The caller has to trust the (external) CA that signed the certificates (this is out of the scope of Knative).
-* These certificates are either [provided manually](https://knative.dev/docs/serving/using-a-tls-cert/) or by using an implementation to the [Knative Certificate abstraction](https://github.com/knative/networking/blob/main/pkg/apis/networking/v1alpha1/certificate_types.go#L34). Currently, we support two implementations:
-  * [net-certmanager](https://github.com/knative-extensions/net-certmanager) 
-  * [net-http01](https://github.com/knative-extensions/net-http01)
-* Please refer to the [documentation](https://knative.dev/docs/serving/using-external-domain-tls/) for more information.
+* These certificates are either [provided manually](https://knative.dev/docs/serving/using-a-tls-cert/) or by using an implementation to the [Knative Certificate abstraction](https://github.com/knative/networking/blob/main/pkg/apis/networking/v1alpha1/certificate_types.go#L34). Currently, we support the [net-certmanager](https://github.com/knative-extensions/net-certmanager) implementation. 
+* Please refer to the [documentation](https://knative.dev/docs/serving/encryption/enabling-automatic-tls-certificate-provisioning/) for more information.
 
 
 ### (2) Cluster-local certificates
@@ -34,20 +32,13 @@ The different parts are independent of each other and (can) use different Certif
 
 * Certificate CN/SAN contains the cluster-local domain of a Knative Service, e.g. `myapp.namespace.svc.cluster.local`, `myapp.namespace.svc`, `myapp.namespace`.
 * The certificates are hosted using SNI by the cluster-local endpoint of the ingress-controller.
-* The caller has to trust the CA that signed the certificates. Knative exposes the CA certificates in the `status.address.CACerts` field of each `Knative Service` (⛔️ not yet implemented, see https://github.com/knative/serving/issues/14196). Each callee has to make sure that it trusts that CA.
-* These certificates are provided using an implementation to the `Knative Certificate` abstraction with [visibility label](https://github.com/knative-extensions/net-certmanager/blob/main/pkg/reconciler/certificate/resources/cert_manager_certificate.go#L115) `cluster-local`. Currently, we support two implementations:
-  * Knative integrated CA (will be embedded in Serving Controller - ⛔️ not implemented yet)
-  * [net-certmanager](https://github.com/knative-extensions/net-certmanager) (⛔️ not usable yet)
-
+* The caller has to trust the CA that signed the certificates (this is out of the scope of Knative). One option to do this is using [trust-manager](https://cert-manager.io/docs/trust/trust-manager/) from cert-manager.
+* To create the certificates, Knative relies on [cert-manager](https://cert-manager.io/) and our bridging component [net-certmanager](https://github.com/knative-extensions/net-certmanager/). They need to be installed and configured for the feature to work.
 
 ### (3) Knative internal certificates
 
-![Knative internal](./encryption-knative-internal.drawio.svg)
+![Knative system internal](./encryption-system-internal.drawio.svg)
 
-* Certificates for Knative internal components (`ingress-controller`, `activator`, `queue-proxy`) are automatically provided and managed transparently by:
-  * Knative integrated CA (embedded in [Serving Controller](../../cmd/controller/main.go)).
-* Specific SANs are used to verify each connection. 
-* Each component automatically registers and trusts the Knative integrated CA.
-* Note: the Knative integrated CA uses a different CA for cluster-local certificates to not mix internal certificates with the ones that are visible to the user.
-
-
+Knative internal system components (`ingress-controller`, `activator`, `queue-proxy`) are hosting TLS endpoints when this configuration is enabled.
+* To get the certificates, Knative relies on [cert-manager](https://cert-manager.io/) and our bridging component [net-certmanager](https://github.com/knative-extensions/net-certmanager/). They need to be installed and configured for the feature to work.
+* Specific SANs are used to verify each connection. Each component needs to trust the CA (possibly the full chain) that signed the certificates. For this, Knative system components will consume and trust a provided `CABundle`. The CA bundle needs to be provided by the cluster administrator, possibly using [trust-manager](https://cert-manager.io/docs/trust/trust-manager/) from cert-manager.

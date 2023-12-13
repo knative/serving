@@ -53,6 +53,22 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 		rs.TimeoutSeconds = ptr.Int64(cfg.Defaults.RevisionTimeoutSeconds)
 	}
 
+	// Default IdleTimeoutSeconds only in case we have a non-zero default and the latter is not larger than the revision timeout.
+	// A zero default or a zero value set from the user or a nil value skips timer setup at the QP side.
+	if rs.IdleTimeoutSeconds == nil {
+		if cfg.Defaults.RevisionIdleTimeoutSeconds < *rs.TimeoutSeconds && cfg.Defaults.RevisionIdleTimeoutSeconds != 0 {
+			rs.IdleTimeoutSeconds = ptr.Int64(cfg.Defaults.RevisionIdleTimeoutSeconds)
+		}
+	}
+
+	// Default ResponseStartTimeoutSeconds only in case we have a non-zero default and the latter is not larger than the revision timeout.
+	// A zero default or a zero value set from the user or a nil value skips timer setup at the QP side.
+	if rs.ResponseStartTimeoutSeconds == nil {
+		if cfg.Defaults.RevisionResponseStartTimeoutSeconds < *rs.TimeoutSeconds && cfg.Defaults.RevisionResponseStartTimeoutSeconds != 0 {
+			rs.ResponseStartTimeoutSeconds = ptr.Int64(cfg.Defaults.RevisionResponseStartTimeoutSeconds)
+		}
+	}
+
 	// Default ContainerConcurrency based on our configmap.
 	if rs.ContainerConcurrency == nil {
 		rs.ContainerConcurrency = ptr.Int64(cfg.Defaults.ContainerConcurrency)

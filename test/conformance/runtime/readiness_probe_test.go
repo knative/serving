@@ -174,7 +174,7 @@ func TestProbeRuntimeAfterStartup(t *testing.T) {
 			test.EnsureTearDown(t, clients, &names)
 
 			url, client := waitReadyThenStartFailing(t, clients, names, period)
-			if err := wait.PollImmediate(1*time.Second, readinessPropagationTime, func() (bool, error) {
+			if err := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, readinessPropagationTime, true, func(context.Context) (bool, error) {
 				startFailing, err := http.NewRequest(http.MethodGet, url.String(), nil)
 				if err != nil {
 					return false, err

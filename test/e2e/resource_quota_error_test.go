@@ -40,10 +40,11 @@ func TestResourceQuotaError(t *testing.T) {
 
 	clients := test.Setup(t, test.Options{Namespace: "rq-test"})
 	const (
-		errorReason    = "RevisionFailed"
-		errorMsgScale  = "Initial scale was never achieved"
-		errorMsgQuota  = "forbidden: exceeded quota"
-		revisionReason = "ProgressDeadlineExceeded"
+		errorReason            = "RevisionFailed"
+		progressDeadlineReason = "ProgressDeadlineExceeded"
+		waitReason             = "ContainerCreating"
+		errorMsgQuota          = "forbidden: exceeded quota"
+		revisionReason         = "RevisionFailed"
 	)
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
@@ -80,16 +81,12 @@ func TestResourceQuotaError(t *testing.T) {
 	err = v1test.WaitForServiceState(clients.ServingClient, names.Service, func(r *v1.Service) (bool, error) {
 		cond = r.Status.GetCondition(v1.ServiceConditionConfigurationsReady)
 		if cond != nil && !cond.IsUnknown() {
-			// Can fail with either a progress deadline exceeded error or an exceeded resource quota error
-			if strings.Contains(cond.Message, errorMsgScale) && cond.IsFalse() {
-				return true, nil
-			}
-			if strings.Contains(cond.Message, errorMsgQuota) && cond.IsFalse() {
+			if cond.Reason == errorReason && cond.IsFalse() {
 				return true, nil
 			}
 			t.Logf("Reason: %s ; Message: %s ; Status: %s", cond.Reason, cond.Message, cond.Status)
 			return true, fmt.Errorf("the service %s was not marked with expected error condition (Reason=%q, Message=%q, Status=%q), but with (Reason=%q, Message=%q, Status=%q)",
-				names.Config, errorReason, errorMsgScale, "False", cond.Reason, cond.Message, cond.Status)
+				names.Config, errorReason, "", "False", cond.Reason, cond.Message, cond.Status)
 		}
 		return false, nil
 	}, "ContainerUnscheduleable")
@@ -113,15 +110,19 @@ func TestResourceQuotaError(t *testing.T) {
 	err = v1test.CheckRevisionState(clients.ServingClient, revisionName, func(r *v1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1.RevisionConditionReady)
 		if cond != nil {
-			// Can fail with either a progress deadline exceeded error or an exceeded resource quota error
-			if cond.Reason == revisionReason && strings.Contains(cond.Message, errorMsgScale) {
-				return true, nil
-			}
 			if strings.Contains(cond.Message, errorMsgQuota) && cond.IsFalse() {
 				return true, nil
 			}
+			// Can fail with either a progress deadline exceeded error
+			if cond.Reason == progressDeadlineReason {
+				return true, nil
+			}
+			// wait for the container creation
+			if cond.Reason == waitReason {
+				return false, nil
+			}
 			return true, fmt.Errorf("the revision %s was not marked with expected error condition (Reason=%q, Message=%q), but with (Reason=%q, Message=%q)",
-				revisionName, revisionReason, errorMsgScale, cond.Reason, cond.Message)
+				revisionName, revisionReason, errorMsgQuota, cond.Reason, cond.Message)
 		}
 		return false, nil
 	})

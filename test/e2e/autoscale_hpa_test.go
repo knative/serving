@@ -247,7 +247,7 @@ func waitForScaleToOne(t *testing.T, deploymentName string, clients *test.Client
 }
 
 func waitForHPAState(t *testing.T, name, namespace string, clients *test.Clients) error {
-	return wait.PollImmediate(time.Second, 15*time.Minute, func() (bool, error) {
+	return wait.PollUntilContextTimeout(context.Background(), time.Second, 15*time.Minute, true, func(context.Context) (bool, error) {
 		hpa, err := clients.KubeClient.AutoscalingV2().HorizontalPodAutoscalers(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		if err != nil {
 			return false, err

@@ -243,7 +243,7 @@ func TestRateLimitPerItem(t *testing.T) {
 
 		latency := time.Since(start)
 		// no delay on first resolve
-		expected := (time.Duration(math.Pow(2, float64(i-1))) * baseDelay)
+		expected := time.Duration(math.Pow(2, float64(i-1))) * baseDelay
 		if latency < expected {
 			t.Fatalf("latency = %s, want at least %s", latency, expected)
 		}

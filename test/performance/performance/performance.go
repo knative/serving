@@ -62,7 +62,7 @@ func ProbeTargetTillReady(target string, duration time.Duration) error {
 func WaitForScaleToZero(ctx context.Context, namespace string, selector labels.Selector, duration time.Duration) error {
 	pl := podinformer.Get(ctx).Lister()
 	begin := time.Now()
-	return wait.PollImmediate(time.Second, duration, func() (bool, error) {
+	return wait.PollUntilContextTimeout(ctx, time.Second, duration, true, func(context.Context) (bool, error) {
 		pods, err := pl.Pods(namespace).List(selector)
 		if err != nil {
 			return false, err
