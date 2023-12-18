@@ -1,5 +1,6 @@
 module knative.dev/serving
 
+// Bump to fix https://github.com/knative/serving/issues/14732
 go 1.18
 
 require (
