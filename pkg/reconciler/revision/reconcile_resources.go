@@ -95,7 +95,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 			}
 
 			for _, status := range pod.Status.ContainerStatuses {
-				if status.Name == rev.Spec.GetContainer().Name {
+				if status.Name != resources.QueueContainerName {
 					if t := status.LastTerminationState.Terminated; t != nil {
 						logger.Infof("marking exiting with: %d/%s", t.ExitCode, t.Message)
 						if t.ExitCode == 0 && t.Message == "" {
