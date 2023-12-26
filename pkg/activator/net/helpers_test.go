@@ -31,12 +31,12 @@ func TestEndpointsToDests(t *testing.T) {
 		name           string
 		endpoints      corev1.Endpoints
 		protocol       networking.ProtocolType
-		expectReady    sets.String
-		expectNotReady sets.String
+		expectReady    sets.Set[string]
+		expectNotReady sets.Set[string]
 	}{{
 		name:        "no endpoints",
 		endpoints:   corev1.Endpoints{},
-		expectReady: sets.NewString(),
+		expectReady: sets.New[string](),
 	}, {
 		name: "single endpoint single address",
 		endpoints: corev1.Endpoints{
@@ -50,7 +50,7 @@ func TestEndpointsToDests(t *testing.T) {
 				}},
 			}},
 		},
-		expectReady: sets.NewString("128.0.0.1:1234"),
+		expectReady: sets.New("128.0.0.1:1234"),
 	}, {
 		name: "single endpoint multiple address",
 		endpoints: corev1.Endpoints{
@@ -66,7 +66,7 @@ func TestEndpointsToDests(t *testing.T) {
 				}},
 			}},
 		},
-		expectReady: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
+		expectReady: sets.New("128.0.0.1:1234", "128.0.0.2:1234"),
 	}, {
 		name: "single endpoint multiple addresses, including no ready addresses",
 		endpoints: corev1.Endpoints{
@@ -85,8 +85,8 @@ func TestEndpointsToDests(t *testing.T) {
 				}},
 			}},
 		},
-		expectReady:    sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
-		expectNotReady: sets.NewString("128.0.0.3:1234"),
+		expectReady:    sets.New("128.0.0.1:1234", "128.0.0.2:1234"),
+		expectNotReady: sets.New("128.0.0.3:1234"),
 	}, {
 		name: "multiple endpoint filter port",
 		endpoints: corev1.Endpoints{
@@ -108,7 +108,7 @@ func TestEndpointsToDests(t *testing.T) {
 				}},
 			}},
 		},
-		expectReady: sets.NewString("128.0.0.1:1234"),
+		expectReady: sets.New("128.0.0.1:1234"),
 	}, {
 		name:     "multiple endpoint, different protocol",
 		protocol: networking.ProtocolH2C,
@@ -135,7 +135,7 @@ func TestEndpointsToDests(t *testing.T) {
 				}},
 			}},
 		},
-		expectReady: sets.NewString("128.0.0.3:5678", "128.0.0.4:5678"),
+		expectReady: sets.New("128.0.0.3:5678", "128.0.0.4:5678"),
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.protocol == "" {

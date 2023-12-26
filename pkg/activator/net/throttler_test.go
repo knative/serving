@@ -310,7 +310,7 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 	throttler := newTestThrottler(ctx)
 	throttler.handleUpdate(revisionDestsUpdate{
 		Rev:   revID,
-		Dests: sets.NewString("128.0.0.1:1234"),
+		Dests: sets.New("128.0.0.1:1234"),
 	})
 
 	// Make sure it now works.
@@ -361,7 +361,7 @@ func TestThrottlerErrorOneTimesOut(t *testing.T) {
 	throttler.handleUpdate(revisionDestsUpdate{
 		Rev:           revID,
 		ClusterIPDest: "129.0.0.1:1234",
-		Dests:         sets.NewString("128.0.0.1:1234"),
+		Dests:         sets.New("128.0.0.1:1234"),
 	})
 
 	// Send 2 requests, one should time out.
@@ -402,88 +402,88 @@ func TestThrottlerSuccesses(t *testing.T) {
 		revision    *v1.Revision
 		initUpdates []revisionDestsUpdate
 		requests    int
-		wantDests   sets.String
+		wantDests   sets.Set[string]
 	}{{
 		name:     "single healthy podIP",
 		revision: revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1),
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-			Dests: sets.NewString("128.0.0.1:1234"),
+			Dests: sets.New("128.0.0.1:1234"),
 		}, {
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-			Dests: sets.NewString("128.0.0.1:1234"),
+			Dests: sets.New("128.0.0.1:1234"),
 		}},
 		requests:  1,
-		wantDests: sets.NewString("128.0.0.1:1234"),
+		wantDests: sets.New("128.0.0.1:1234"),
 	}, {
 		name:     "single healthy podIP, infinite cc",
 		revision: revision(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1, 0),
 		// Double updates exercise additional paths.
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-			Dests: sets.NewString("128.0.0.2:1234", "128.0.0.32:1212"),
+			Dests: sets.New("128.0.0.2:1234", "128.0.0.32:1212"),
 		}, {
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-			Dests: sets.NewString("128.0.0.1:1234"),
+			Dests: sets.New("128.0.0.1:1234"),
 		}},
 		requests:  1,
-		wantDests: sets.NewString("128.0.0.1:1234"),
+		wantDests: sets.New("128.0.0.1:1234"),
 	}, {
 		name:     "single healthy clusterIP",
 		revision: revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1),
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
+			Dests: sets.New("128.0.0.1:1234", "128.0.0.2:1234"),
 		}, {
 			Rev:           types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 			ClusterIPDest: "129.0.0.1:1234",
-			Dests:         sets.NewString("128.0.0.1:1234"),
+			Dests:         sets.New("128.0.0.1:1234"),
 		}},
 		requests:  1,
-		wantDests: sets.NewString("129.0.0.1:1234"),
+		wantDests: sets.New("129.0.0.1:1234"),
 	}, {
 		name:     "spread podIP load",
 		revision: revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1),
 		initUpdates: []revisionDestsUpdate{{
 			// Double update here exercises some additional paths.
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-			Dests: sets.NewString("128.0.0.3:1234"),
+			Dests: sets.New("128.0.0.3:1234"),
 		}, {
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
+			Dests: sets.New("128.0.0.1:1234", "128.0.0.2:1234"),
 		}},
 		requests:  2,
-		wantDests: sets.NewString("128.0.0.2:1234", "128.0.0.1:1234"),
+		wantDests: sets.New("128.0.0.2:1234", "128.0.0.1:1234"),
 	}, {
 		name:     "clumping test",
 		revision: revision(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1, 3),
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.2:4236", "128.0.0.2:1233", "128.0.0.2:1230"),
+			Dests: sets.New("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.2:4236", "128.0.0.2:1233", "128.0.0.2:1230"),
 		}},
 		requests:  3,
-		wantDests: sets.NewString("128.0.0.1:1234"),
+		wantDests: sets.New("128.0.0.1:1234"),
 	}, {
 		name: "roundrobin test",
 		revision: revision(types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 			pkgnet.ProtocolHTTP1, 5 /*cc >3*/),
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "211.212.213.214"),
+			Dests: sets.New("128.0.0.1:1234", "128.0.0.2:1234", "211.212.213.214"),
 		}},
 		requests: 3,
 		// All three IP addresses should be used if cc>3.
-		wantDests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "211.212.213.214"),
+		wantDests: sets.New("128.0.0.1:1234", "128.0.0.2:1234", "211.212.213.214"),
 	}, {
 		name:     "multiple ClusterIP requests",
 		revision: revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1),
 		initUpdates: []revisionDestsUpdate{{
 			Rev:           types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 			ClusterIPDest: "129.0.0.1:1234",
-			Dests:         sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
+			Dests:         sets.New("128.0.0.1:1234", "128.0.0.2:1234"),
 		}},
 		requests:  2,
-		wantDests: sets.NewString("129.0.0.1:1234"),
+		wantDests: sets.New("129.0.0.1:1234"),
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
@@ -582,13 +582,13 @@ func TestThrottlerSuccesses(t *testing.T) {
 				return nil
 			})
 
-			gotDests := sets.NewString()
+			gotDests := sets.New[string]()
 			for i := 0; i < tc.requests; i++ {
 				result := <-resultChan
 				gotDests.Insert(result.dest)
 			}
 
-			if got, want := gotDests.List(), tc.wantDests.List(); !cmp.Equal(want, got) {
+			if got, want := sets.List(gotDests), sets.List(tc.wantDests); !cmp.Equal(want, got) {
 				t.Errorf("Dests = %v, want: %v, diff: %s", got, want, cmp.Diff(want, got))
 				rt.mux.RLock()
 				defer rt.mux.RUnlock()
@@ -599,8 +599,8 @@ func TestThrottlerSuccesses(t *testing.T) {
 	}
 }
 
-func trackerDestSet(ts []*podTracker) sets.String {
-	ret := sets.NewString()
+func trackerDestSet(ts []*podTracker) sets.Set[string] {
+	ret := sets.New[string]()
 	for _, t := range ts {
 		ret.Insert(t.dest)
 	}
@@ -625,7 +625,7 @@ func TestPodAssignmentFinite(t *testing.T) {
 	update := revisionDestsUpdate{
 		Rev:           revName,
 		ClusterIPDest: "",
-		Dests:         sets.NewString("ip4", "ip3", "ip5", "ip2", "ip1", "ip0"),
+		Dests:         sets.New("ip4", "ip3", "ip5", "ip2", "ip1", "ip0"),
 	}
 	// This should synchronously update throughout the system.
 	// And now we can inspect `rt`.
@@ -634,7 +634,7 @@ func TestPodAssignmentFinite(t *testing.T) {
 		t.Errorf("NumTrackers = %d, want: %d", got, want)
 	}
 	// 6 = 4 * 1 + 2; index 0 and index 1 have 2 pods and others have 1 pod.
-	if got, want := trackerDestSet(rt.assignedTrackers), sets.NewString("ip0", "ip4"); !got.Equal(want) {
+	if got, want := trackerDestSet(rt.assignedTrackers), sets.New("ip0", "ip4"); !got.Equal(want) {
 		t.Errorf("Assigned trackers = %v, want: %v, diff: %s", got, want, cmp.Diff(want, got))
 	}
 	if got, want := rt.breaker.Capacity(), 2*42; got != want {
@@ -675,7 +675,7 @@ func TestPodAssignmentInfinite(t *testing.T) {
 	update := revisionDestsUpdate{
 		Rev:           revName,
 		ClusterIPDest: "",
-		Dests:         sets.NewString("ip3", "ip2", "ip1"),
+		Dests:         sets.New("ip3", "ip2", "ip1"),
 	}
 	// This should synchronously update throughout the system.
 	// And now we can inspect `rt`.
@@ -740,7 +740,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 		waitInformers()
 	}()
 
-	possibleDests := sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234")
+	possibleDests := sets.New("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234")
 	updateCh <- revisionDestsUpdate{
 		Rev:   revID,
 		Dests: possibleDests,
@@ -836,7 +836,7 @@ func TestMultipleActivators(t *testing.T) {
 	}()
 
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
-	possibleDests := sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234")
+	possibleDests := sets.New("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234")
 	updateCh <- revisionDestsUpdate{
 		Rev:   revID,
 		Dests: possibleDests,

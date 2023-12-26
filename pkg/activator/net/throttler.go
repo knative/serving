@@ -626,7 +626,7 @@ func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP st
 	}
 
 	// We are using List to have the IP addresses sorted for consistent results.
-	epsL := epSet.List()
+	epsL := epSet.UnsortedList()
 	newNA, newAI := int32(len(epsL)), int32(inferIndex(epsL, selfIP))
 	if newAI == -1 {
 		// No need to do anything, this activator is not in path.
