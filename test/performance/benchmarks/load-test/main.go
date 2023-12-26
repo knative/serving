@@ -184,10 +184,12 @@ func checkSLA(results *vegeta.Metrics, pacers []vegeta.Pacer, durations []time.D
 	}
 
 	// SLA 4: making sure the defined vegeta total requests is met
+	var expectedSum float64
 	var expectedRequests uint64
 	for i := 0; i < len(pacers); i++ {
-		expectedRequests = expectedRequests + uint64(pacers[i].Rate(time.Second)*durations[i].Seconds())
+		expectedSum = expectedSum + pacers[i].Rate(time.Second)*durations[i].Seconds()
 	}
+	expectedRequests = uint64(expectedSum)
 	if results.Requests == expectedRequests {
 		log.Printf("SLA 4 passed. total requests is %d", results.Requests)
 	} else {
