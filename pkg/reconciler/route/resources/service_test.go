@@ -124,8 +124,9 @@ func TestMakeK8SService(t *testing.T) {
 				IP: "some-ip",
 			}},
 			Ports: []corev1.EndpointPort{{
-				Name: netapi.ServicePortNameH2C,
-				Port: int32(80),
+				Name:        netapi.ServicePortNameH2C,
+				AppProtocol: &netapi.AppProtocolH2C,
+				Port:        int32(80),
 			}},
 		}},
 	}, {
@@ -201,8 +202,9 @@ func TestMakeK8SService(t *testing.T) {
 				IP: "some-ip",
 			}},
 			Ports: []corev1.EndpointPort{{
-				Name: netapi.ServicePortNameH2C,
-				Port: int32(80),
+				Name:        netapi.ServicePortNameH2C,
+				AppProtocol: &netapi.AppProtocolH2C,
+				Port:        int32(80),
 			}},
 		}},
 	}, {
