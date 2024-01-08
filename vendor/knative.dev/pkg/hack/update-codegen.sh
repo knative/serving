@@ -64,6 +64,11 @@ VERSIONED_CLIENTSET_PKG="k8s.io/apiextensions-apiserver/pkg/client/clientset/cli
 
 group "Knative Codegen"
 
+
+# TODO: The following is a temporary workaround for https://github.com/knative/pkg/issues/2927
+# see discussion in https://cloud-native.slack.com/archives/C04LGHDR9K7/p1704710449414709
+chmod +x "${CODEGEN_PKG}/generate-internal-groups.sh"
+
 # Only deepcopy the Duck types, as they are not real resources.
 ${CODEGEN_PKG}/generate-groups.sh "deepcopy" \
   knative.dev/pkg/client knative.dev/pkg/apis \

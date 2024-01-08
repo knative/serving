@@ -60,6 +60,10 @@ ${REPO_ROOT_DIR}/hack/update-checksums.sh
 
 group "Kubernetes Codegen"
 
+# TODO: The following is a temporary workaround for https://github.com/knative/pkg/issues/2927
+# see discussion in https://cloud-native.slack.com/archives/C04LGHDR9K7/p1704710449414709
+chmod +x "${CODEGEN_PKG}/generate-internal-groups.sh"
+
 # generate the code with:
 # --output-base    because this script should also be able to run inside the vendor dir of
 #                  k8s.io/kubernetes. The output-base is needed for the generators to output into the vendor dir
