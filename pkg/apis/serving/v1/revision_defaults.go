@@ -75,7 +75,7 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 	}
 
 	// Avoid clashes with user-supplied names when generating defaults.
-	containerNames := make(sets.String, len(rs.PodSpec.Containers)+len(rs.PodSpec.InitContainers))
+	containerNames := make(sets.Set[string], len(rs.PodSpec.Containers)+len(rs.PodSpec.InitContainers))
 	for idx := range rs.PodSpec.Containers {
 		containerNames.Insert(rs.PodSpec.Containers[idx].Name)
 	}
@@ -139,7 +139,7 @@ func (rs *RevisionSpec) applyDefault(ctx context.Context, container *corev1.Cont
 		rs.PodSpec.EnableServiceLinks = cfg.Defaults.EnableServiceLinks
 	}
 
-	vNames := make(sets.String)
+	vNames := make(sets.Set[string])
 	for _, v := range rs.PodSpec.Volumes {
 		if v.EmptyDir != nil || v.PersistentVolumeClaim != nil {
 			vNames.Insert(v.Name)
@@ -238,7 +238,7 @@ func (rs *RevisionSpec) defaultSecurityContext(psc *corev1.PodSecurityContext, c
 	}
 }
 
-func applyDefaultContainerNames(containers []corev1.Container, containerNames sets.String, defaultContainerName string) {
+func applyDefaultContainerNames(containers []corev1.Container, containerNames sets.Set[string], defaultContainerName string) {
 	// Default container name based on ContainerNameFromTemplate value from configmap.
 	// In multi-container or init-container mode, add a numeric suffix, avoiding clashes with user-supplied names.
 	nextSuffix := 0

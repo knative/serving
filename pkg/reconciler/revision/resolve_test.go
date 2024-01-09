@@ -45,7 +45,7 @@ import (
 	fakeclient "k8s.io/client-go/kubernetes/fake"
 )
 
-var emptyRegistrySet = sets.NewString()
+var emptyRegistrySet = sets.New[string]()
 
 func mustDigest(t *testing.T, img v1.Image) v1.Hash {
 	h, err := img.Digest()
@@ -432,7 +432,7 @@ func TestResolveSkippingRegistry(t *testing.T) {
 		transport: http.DefaultTransport,
 	}
 
-	registriesToSkip := sets.NewString("localhost:5000")
+	registriesToSkip := sets.New("localhost:5000")
 
 	opt := k8schain.Options{
 		Namespace:          ns,

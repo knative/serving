@@ -45,7 +45,7 @@ func AutoscalerBucketName(ordinal, total uint32) string {
 // AutoscalerBucketSet returns a hash.BucketSet consisting of Autoscaler
 // buckets with the given `total` count.
 func AutoscalerBucketSet(total uint32) *hash.BucketSet {
-	names := make(sets.String, total)
+	names := make(sets.Set[string], total)
 	for i := uint32(0); i < total; i++ {
 		names.Insert(AutoscalerBucketName(i, total))
 	}

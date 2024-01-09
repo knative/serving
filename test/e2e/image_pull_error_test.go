@@ -71,7 +71,7 @@ func TestImagePullError(t *testing.T) {
 	}
 
 	t.Log("When the images are not pulled, the revision should have error status.")
-	wantRevReasons := sets.NewString("ImagePullBackOff", "ErrImagePull")
+	wantRevReasons := sets.New("ImagePullBackOff", "ErrImagePull")
 	if err := v1test.CheckRevisionState(clients.ServingClient, revisionName, func(r *v1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1.RevisionConditionReady)
 		if cond != nil {

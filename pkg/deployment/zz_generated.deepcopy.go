@@ -30,7 +30,7 @@ func (in *Config) DeepCopyInto(out *Config) {
 	*out = *in
 	if in.RegistriesSkippingTagResolving != nil {
 		in, out := &in.RegistriesSkippingTagResolving, &out.RegistriesSkippingTagResolving
-		*out = make(sets.String, len(*in))
+		*out = make(sets.Set[string], len(*in))
 		for key, val := range *in {
 			(*out)[key] = val
 		}
@@ -67,7 +67,7 @@ func (in *Config) DeepCopyInto(out *Config) {
 	}
 	if in.QueueSidecarTokenAudiences != nil {
 		in, out := &in.QueueSidecarTokenAudiences, &out.QueueSidecarTokenAudiences
-		*out = make(sets.String, len(*in))
+		*out = make(sets.Set[string], len(*in))
 		for key, val := range *in {
 			(*out)[key] = val
 		}

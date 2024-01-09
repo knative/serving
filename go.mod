@@ -162,3 +162,5 @@ require (
 
 // TODO: https://github.com/knative/serving/issues/14597
 replace github.com/gorilla/websocket => github.com/gorilla/websocket v1.5.0
+
+replace knative.dev/networking => github.com/ReToCode/networking v0.0.0-20240109073627-bc010699726a

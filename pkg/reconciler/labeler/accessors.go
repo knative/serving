@@ -219,12 +219,12 @@ func (c *configurationAccessor) list(ns, routeName string, state v1.RoutingState
 
 // GetListAnnValue finds a given value in a comma-separated annotation.
 // returns the entire annotation value and true if found.
-func GetListAnnValue(annotations map[string]string, key string) sets.String {
+func GetListAnnValue(annotations map[string]string, key string) sets.Set[string] {
 	l := annotations[key]
 	if l == "" {
-		return sets.String{}
+		return sets.Set[string]{}
 	}
-	return sets.NewString(strings.Split(l, ",")...)
+	return sets.New(strings.Split(l, ",")...)
 }
 
 // patch implements Accessor

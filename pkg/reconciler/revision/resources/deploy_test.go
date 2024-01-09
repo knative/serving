@@ -1314,7 +1314,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "qpoption tokens",
 		dc: deployment.Config{
-			QueueSidecarTokenAudiences: sets.NewString("boo-srv"),
+			QueueSidecarTokenAudiences: sets.New("boo-srv"),
 		},
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{

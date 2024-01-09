@@ -91,7 +91,7 @@ func (r *digestResolver) Resolve(
 	ctx context.Context,
 	image string,
 	opt k8schain.Options,
-	registriesToSkip sets.String) (string, error) {
+	registriesToSkip sets.Set[string]) (string, error) {
 	kc, err := k8schain.New(ctx, r.client, opt)
 	if err != nil {
 		return "", fmt.Errorf("failed to initialize authentication: %w", err)

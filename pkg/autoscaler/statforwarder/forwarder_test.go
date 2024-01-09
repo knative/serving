@@ -54,7 +54,7 @@ var (
 	testHolder1 = "autoscaler-1_" + testIP1
 	testHolder2 = "autoscaler-2_" + testIP2
 	testNs      = system.Namespace()
-	testBs      = hash.NewBucketSet(sets.NewString(bucket1))
+	testBs      = hash.NewBucketSet(sets.New(bucket1))
 	testLease   = &coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      bucket1,
@@ -423,7 +423,7 @@ func TestProcess(t *testing.T) {
 		acceptCh <- acceptCount
 	}
 	os.Setenv("POD_IP", testIP1)
-	f := New(ctx, hash.NewBucketSet(sets.NewString(bucket1, bucket2)))
+	f := New(ctx, hash.NewBucketSet(sets.New(bucket1, bucket2)))
 	must(t, LeaseBasedProcessor(ctx, f, accept))
 
 	// A Forward without any leadership information should process with retry.

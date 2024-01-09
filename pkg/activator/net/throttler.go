@@ -24,6 +24,7 @@ import (
 
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -626,7 +627,7 @@ func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP st
 	}
 
 	// We are using List to have the IP addresses sorted for consistent results.
-	epsL := epSet.List()
+	epsL := sets.List(epSet)
 	newNA, newAI := int32(len(epsL)), int32(inferIndex(epsL, selfIP))
 	if newAI == -1 {
 		// No need to do anything, this activator is not in path.

@@ -25,12 +25,12 @@ import (
 )
 
 var (
-	excludeLabels = sets.NewString(
+	excludeLabels = sets.New(
 		serving.RouteLabelKey,
 		serving.RoutingStateLabelKey,
 	)
 
-	excludeAnnotations = sets.NewString(
+	excludeAnnotations = sets.New(
 		serving.RevisionLastPinnedAnnotationKey,
 		serving.RevisionPreservedAnnotationKey,
 		serving.RoutingStateModifiedAnnotationKey,

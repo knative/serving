@@ -639,7 +639,7 @@ func TestOldPodShuffle(t *testing.T) {
 	}
 	// Store and reset.
 	firstRun := client.urls
-	client.urls = sets.NewString()
+	client.urls = sets.New[string]()
 
 	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
@@ -820,7 +820,7 @@ func newTestScrapeClient(stats []Stat, errs []error) *fakeScrapeClient {
 	return &fakeScrapeClient{
 		stats: stats,
 		errs:  errs,
-		urls:  sets.NewString(),
+		urls:  sets.New[string](),
 	}
 }
 
@@ -828,7 +828,7 @@ type fakeScrapeClient struct {
 	curIdx int
 	stats  []Stat
 	errs   []error
-	urls   sets.String
+	urls   sets.Set[string]
 	mutex  sync.Mutex
 }
 

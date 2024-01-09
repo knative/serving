@@ -32,7 +32,7 @@ import (
 
 // imageResolver is an interface used mostly to mock digestResolver for tests.
 type imageResolver interface {
-	Resolve(ctx context.Context, image string, opt k8schain.Options, registriesToSkip sets.String) (string, error)
+	Resolve(ctx context.Context, image string, opt k8schain.Options, registriesToSkip sets.Set[string]) (string, error)
 }
 
 // backgroundResolver performs background downloads of image digests.
@@ -53,7 +53,7 @@ type backgroundResolver struct {
 type resolveResult struct {
 	// these fields are immutable after creation, so can be accessed without a lock.
 	opt                k8schain.Options
-	registriesToSkip   sets.String
+	registriesToSkip   sets.Set[string]
 	completionCallback func()
 	workItems          []workItem
 
@@ -64,7 +64,7 @@ type resolveResult struct {
 	imagesResolved map[string]string
 
 	// imagesToBeResolved keeps unique image names so we can quickly compare with the current number of resolved ones
-	imagesToBeResolved sets.String
+	imagesToBeResolved sets.Set[string]
 
 	err error
 }
@@ -143,7 +143,7 @@ func (r *backgroundResolver) Start(stop <-chan struct{}, maxInFlight int) (done 
 // If this method returns `nil, nil` this implies a resolve was triggered or is
 // already in progress, so the reconciler should exit and wait for the revision
 // to be re-enqueued when the result is ready.
-func (r *backgroundResolver) Resolve(logger *zap.SugaredLogger, rev *v1.Revision, opt k8schain.Options, registriesToSkip sets.String, timeout time.Duration) (initContainerStatuses []v1.ContainerStatus, statuses []v1.ContainerStatus, error error) {
+func (r *backgroundResolver) Resolve(logger *zap.SugaredLogger, rev *v1.Revision, opt k8schain.Options, registriesToSkip sets.Set[string], timeout time.Duration) (initContainerStatuses []v1.ContainerStatus, statuses []v1.ContainerStatus, error error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -194,13 +194,13 @@ func (r *backgroundResolver) Resolve(logger *zap.SugaredLogger, rev *v1.Revision
 
 // addWorkItems adds a digest resolve item to the queue for each container in the revision.
 // This is expected to be called with the mutex locked.
-func (r *backgroundResolver) addWorkItems(rev *v1.Revision, name types.NamespacedName, opt k8schain.Options, registriesToSkip sets.String, timeout time.Duration) {
+func (r *backgroundResolver) addWorkItems(rev *v1.Revision, name types.NamespacedName, opt k8schain.Options, registriesToSkip sets.Set[string], timeout time.Duration) {
 	totalNumOfContainers := len(rev.Spec.Containers) + len(rev.Spec.InitContainers)
 	r.results[name] = &resolveResult{
 		opt:                opt,
 		registriesToSkip:   registriesToSkip,
 		imagesResolved:     make(map[string]string),
-		imagesToBeResolved: sets.String{},
+		imagesToBeResolved: sets.Set[string]{},
 		workItems:          make([]workItem, 0, totalNumOfContainers),
 		completionCallback: func() {
 			r.enqueue(name)

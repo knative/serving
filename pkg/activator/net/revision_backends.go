@@ -64,15 +64,15 @@ import (
 type revisionDestsUpdate struct {
 	Rev           types.NamespacedName
 	ClusterIPDest string
-	Dests         sets.String
+	Dests         sets.Set[string]
 }
 
 type dests struct {
-	ready    sets.String
-	notReady sets.String
+	ready    sets.Set[string]
+	notReady sets.Set[string]
 }
 
-func (d dests) becameNonReady(prev dests) sets.String {
+func (d dests) becameNonReady(prev dests) sets.Set[string] {
 	return prev.ready.Intersection(d.notReady)
 }
 
@@ -102,7 +102,7 @@ type revisionWatcher struct {
 	done     chan struct{}
 
 	// Stores the list of pods that have been successfully probed.
-	healthyPods sets.String
+	healthyPods sets.Set[string]
 	// Stores whether the service ClusterIP has been seen as healthy.
 	clusterIPHealthy bool
 
@@ -227,7 +227,7 @@ func (rw *revisionWatcher) probeClusterIP(dest string) (bool, error) {
 // the ones that are successfully probed, whether the update was a no-op, or an error.
 // If probing fails but not all errors were compatible with being caused by
 // mesh being enabled, being enabled, notMesh will be true.
-func (rw *revisionWatcher) probePodIPs(ready, notReady sets.String) (succeeded sets.String, noop bool, notMesh bool, err error) {
+func (rw *revisionWatcher) probePodIPs(ready, notReady sets.Set[string]) (succeeded sets.Set[string], noop bool, notMesh bool, err error) {
 	dests := ready.Union(notReady)
 
 	// Short circuit case where all the current pods are already known to be healthy.
@@ -296,7 +296,7 @@ func (rw *revisionWatcher) probePodIPs(ready, notReady sets.String) (succeeded s
 	return healthy, unchanged, sawNotMesh.Load(), err
 }
 
-func (rw *revisionWatcher) sendUpdate(clusterIP string, dests sets.String) {
+func (rw *revisionWatcher) sendUpdate(clusterIP string, dests sets.Set[string]) {
 	select {
 	case <-rw.stopCh:
 		return

@@ -143,14 +143,14 @@ type Manager struct {
 
 	// mu guards keys.
 	mu   sync.Mutex
-	keys sets.String
+	keys sets.Set[string]
 }
 
 // New creates a new Manager, that will invoke the given callback when
 // async probing is finished.
 func New(cb Done, transport http.RoundTripper) *Manager {
 	return &Manager{
-		keys:      sets.NewString(),
+		keys:      sets.New[string](),
 		cb:        cb,
 		transport: transport,
 	}

@@ -40,7 +40,7 @@ const (
 )
 
 var (
-	reservedPaths = sets.NewString(
+	reservedPaths = sets.New(
 		"/",
 		"/dev",
 		"/dev/log", // Should be a domain socket
@@ -49,11 +49,11 @@ var (
 		"/var/log",
 	)
 
-	reservedContainerNames = sets.NewString(
+	reservedContainerNames = sets.New(
 		"queue-proxy",
 	)
 
-	reservedEnvVars = sets.NewString(
+	reservedEnvVars = sets.New(
 		"PORT",
 		"K_SERVICE",
 		"K_CONFIGURATION",
@@ -68,13 +68,13 @@ var (
 		networking.UserQueueMetricsPort,
 		profiling.ProfilingPort)
 
-	reservedSidecarEnvVars = reservedEnvVars.Difference(sets.NewString("PORT"))
+	reservedSidecarEnvVars = reservedEnvVars.Difference(sets.New("PORT"))
 
 	// The port is named "user-port" on the deployment, but a user cannot set an arbitrary name on the port
 	// in Configuration. The name field is reserved for content-negotiation. Currently 'h2c' and 'http1' are
 	// allowed.
 	// https://github.com/knative/serving/blob/main/docs/runtime-contract.md#inbound-network-connectivity
-	validPortNames = sets.NewString(
+	validPortNames = sets.New(
 		"h2c",
 		"http1",
 		"",
@@ -82,7 +82,7 @@ var (
 )
 
 // ValidateVolumes validates the Volumes of a PodSpec.
-func ValidateVolumes(ctx context.Context, vs []corev1.Volume, mountedVolumes sets.String) (map[string]corev1.Volume, *apis.FieldError) {
+func ValidateVolumes(ctx context.Context, vs []corev1.Volume, mountedVolumes sets.Set[string]) (map[string]corev1.Volume, *apis.FieldError) {
 	volumes := make(map[string]corev1.Volume, len(vs))
 	var errs *apis.FieldError
 	for i, volume := range vs {
@@ -297,7 +297,7 @@ func validateEnvValueFrom(ctx context.Context, source *corev1.EnvVarSource) *api
 	return apis.CheckDisallowedFields(*source, *EnvVarSourceMask(source, features.PodSpecFieldRef != config.Disabled))
 }
 
-func getReservedEnvVarsPerContainerType(ctx context.Context) sets.String {
+func getReservedEnvVarsPerContainerType(ctx context.Context) sets.Set[string] {
 	if IsInSidecarContainer(ctx) || IsInitContainer(ctx) {
 		return reservedSidecarEnvVars
 	}
@@ -412,7 +412,7 @@ func validateInitContainers(ctx context.Context, containers, otherContainers []c
 		return errs.Also(&apis.FieldError{Message: fmt.Sprintf("pod spec support for init-containers is off, "+
 			"but found %d init containers", len(containers))})
 	}
-	allNames := make(sets.String, len(otherContainers)+len(containers))
+	allNames := make(sets.Set[string], len(otherContainers)+len(containers))
 	for _, ctr := range otherContainers {
 		allNames.Insert(ctr.Name)
 	}
@@ -434,7 +434,7 @@ func validateContainers(ctx context.Context, containers []corev1.Container, volu
 		return errs.Also(&apis.FieldError{Message: fmt.Sprintf("multi-container is off, "+
 			"but found %d containers", len(containers))})
 	}
-	allNames := make(sets.String, len(containers))
+	allNames := make(sets.Set[string], len(containers))
 	for i := range containers {
 		if allNames.Has(containers[i].Name) {
 			errs = errs.Also(&apis.FieldError{
@@ -457,8 +457,8 @@ func validateContainers(ctx context.Context, containers []corev1.Container, volu
 }
 
 // AllMountedVolumes returns all the mounted volumes in all the containers.
-func AllMountedVolumes(containers []corev1.Container) sets.String {
-	volumeNames := sets.NewString()
+func AllMountedVolumes(containers []corev1.Container) sets.Set[string] {
+	volumeNames := sets.New[string]()
 	for _, c := range containers {
 		for _, vm := range c.VolumeMounts {
 			volumeNames.Insert(vm.Name)
@@ -649,8 +649,8 @@ func validateVolumeMounts(mounts []corev1.VolumeMount, volumes map[string]corev1
 	var errs *apis.FieldError
 	// Check that volume mounts match names in "volumes", that "volumes" has 100%
 	// coverage, and the field restrictions.
-	seenName := make(sets.String, len(mounts))
-	seenMountPath := make(sets.String, len(mounts))
+	seenName := make(sets.Set[string], len(mounts))
+	seenMountPath := make(sets.Set[string], len(mounts))
 	for i := range mounts {
 		vm := mounts[i]
 		errs = errs.Also(apis.CheckDisallowedFields(vm, *VolumeMountMask(&vm)).ViaIndex(i))

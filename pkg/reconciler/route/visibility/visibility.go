@@ -71,8 +71,8 @@ func (b *Resolver) routeVisibility(ctx context.Context, route *v1.Route) netv1al
 	return netv1alpha1.IngressVisibilityExternalIP
 }
 
-func trafficNames(route *v1.Route) sets.String {
-	names := sets.NewString(traffic.DefaultTarget)
+func trafficNames(route *v1.Route) sets.Set[string] {
+	names := sets.New(traffic.DefaultTarget)
 	for _, tt := range route.Spec.Traffic {
 		names.Insert(tt.Tag)
 	}

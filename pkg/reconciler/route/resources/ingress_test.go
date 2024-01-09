@@ -854,7 +854,7 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 
 // One active target.
 func TestMakeIngressRuleVanilla(t *testing.T) {
-	domains := sets.NewString("a.com", "b.org")
+	domains := sets.New("a.com", "b.org")
 	targets := traffic.RevisionTargets{{
 		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "config",
@@ -914,7 +914,7 @@ func TestMakeIngressRuleZeroPercentTarget(t *testing.T) {
 			Percent:           ptr.Int64(0),
 		},
 	}}
-	domains := sets.NewString("test.org")
+	domains := sets.New("test.org")
 	tc := &traffic.Config{
 		Targets: map[string]traffic.RevisionTargets{
 			traffic.DefaultTarget: targets,
@@ -970,7 +970,7 @@ func TestMakeIngressRuleTwoTargets(t *testing.T) {
 		},
 	}
 	ro := tc.BuildRollout()
-	domains := sets.NewString("test.org")
+	domains := sets.New("test.org")
 	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP,
 		targets, ro.RolloutsByTag("a-tag"), false /* internal encryption */)
 	expected := netv1alpha1.IngressRule{
