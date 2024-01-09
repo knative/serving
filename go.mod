@@ -32,10 +32,10 @@ require (
 	k8s.io/code-generator v0.27.6
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f
 	k8s.io/utils v0.0.0-20230209194617-a36077c30491
-	knative.dev/caching v0.0.0-20240108125844-750d0821ef08
-	knative.dev/hack v0.0.0-20231201014241-7030d5bf584d
-	knative.dev/networking v0.0.0-20240103144957-a34a5c563a3a
-	knative.dev/pkg v0.0.0-20240108071142-697d66936c81
+	knative.dev/caching v0.0.0-20240108135517-d66e24d0d616
+	knative.dev/hack v0.0.0-20240108153050-3ea694d6dad7
+	knative.dev/networking v0.0.0-20240108134621-7cca4b010b25
+	knative.dev/pkg v0.0.0-20240108152118-de3e9cc204c9
 	sigs.k8s.io/yaml v1.4.0
 )
 
