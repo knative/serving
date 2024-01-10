@@ -165,8 +165,8 @@ func parseAndValidateSecret(secret *corev1.Secret, caCert []byte, sans ...string
 		return nil, nil, err
 	}
 
-	sanSet := sets.NewString(sans...)
-	certSet := sets.NewString(cert.DNSNames...)
+	sanSet := sets.New(sans...)
+	certSet := sets.New(cert.DNSNames...)
 	if !sanSet.Equal(certSet) {
 		return nil, nil, fmt.Errorf("unexpected SANs")
 	}

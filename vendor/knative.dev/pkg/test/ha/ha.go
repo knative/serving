@@ -73,11 +73,11 @@ func GetLeaders(ctx context.Context, t *testing.T, client kubernetes.Interface, 
 
 // WaitForNewLeaders waits until the collection of current leaders consists of "n" leaders
 // which do not include the specified prior leaders.
-func WaitForNewLeaders(ctx context.Context, t *testing.T, client kubernetes.Interface, deploymentName, namespace string, previousLeaders sets.String, n int) (sets.String, error) {
+func WaitForNewLeaders(ctx context.Context, t *testing.T, client kubernetes.Interface, deploymentName, namespace string, previousLeaders sets.Set[string], n int) (sets.Set[string], error) {
 	span := logging.GetEmitableSpan(ctx, "WaitForNewLeaders/"+deploymentName)
 	defer span.End()
 
-	var leaders sets.String
+	var leaders sets.Set[string]
 	err := wait.PollImmediate(time.Second, time.Minute, func() (bool, error) {
 		currLeaders, err := GetLeaders(ctx, t, client, deploymentName, namespace)
 		if err != nil {
@@ -87,7 +87,7 @@ func WaitForNewLeaders(ctx context.Context, t *testing.T, client kubernetes.Inte
 			t.Logf("WaitForNewLeaders[%s] not enough leaders, got: %d, want: %d", deploymentName, len(currLeaders), n)
 			return false, nil
 		}
-		l := sets.NewString(currLeaders...)
+		l := sets.New[string](currLeaders...)
 		if previousLeaders.HasAny(currLeaders...) {
 			t.Logf("WaitForNewLeaders[%s] still see intersection: %v", deploymentName, previousLeaders.Intersection(l))
 			return false, nil
