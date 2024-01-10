@@ -24,7 +24,7 @@ import (
 )
 
 type StringSet struct {
-	Value sets.String
+	Value sets.Set[string]
 }
 
 var _ flag.Value = (*StringSet)(nil)
@@ -35,7 +35,7 @@ func (i *StringSet) String() string {
 
 func (i *StringSet) Set(value string) error {
 	if i.Value == nil {
-		i.Value = make(sets.String, 1)
+		i.Value = make(sets.Set[string], 1)
 	}
 	i.Value.Insert(value)
 	return nil

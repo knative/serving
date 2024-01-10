@@ -32,4 +32,5 @@ export CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 ./vendor/k8s.i
 export KNATIVE_CODEGEN_PKG=${KNATIVE_CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 ./vendor/knative.dev/pkg 2>/dev/null || echo "${REPO_ROOT_DIR}")}
 
 [ -x ${CODEGEN_PKG}/generate-groups.sh ] || chmod +x ${CODEGEN_PKG}/generate-groups.sh
+[ -x ${CODEGEN_PKG}/generate-internal-groups.sh ] || chmod +x ${CODEGEN_PKG}/generate-internal-groups.sh
 [ -x ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh ] || chmod +x ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh

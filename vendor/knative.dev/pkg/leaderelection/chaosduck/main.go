@@ -42,7 +42,7 @@ import (
 )
 
 // components is a mapping from component name to the collection of leader pod names.
-type components map[string]sets.String
+type components map[string]sets.Set[string]
 
 var (
 	disabledComponents      kflag.StringSet
@@ -100,7 +100,7 @@ func buildComponents(ctx context.Context, kc kubernetes.Interface) (components, 
 
 		set, ok := cs[deploymentName]
 		if !ok {
-			set = make(sets.String, 1)
+			set = make(sets.Set[string], 1)
 			cs[deploymentName] = set
 		}
 		set.Insert(pod)
@@ -109,7 +109,7 @@ func buildComponents(ctx context.Context, kc kubernetes.Interface) (components, 
 }
 
 // quack will kill one of the components leader pods.
-func quack(ctx context.Context, kc kubernetes.Interface, component string, leaders sets.String) error {
+func quack(ctx context.Context, kc kubernetes.Interface, component string, leaders sets.Set[string]) error {
 	tribute, ok := leaders.PopAny()
 	if !ok {
 		return errors.New("this should not be possible, since components are only created when they have components")
