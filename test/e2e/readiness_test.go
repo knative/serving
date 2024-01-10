@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	v1opts "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
@@ -121,5 +122,47 @@ func TestReadinessPathAndQuery(t *testing.T) {
 	); err != nil {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.HelloWorldText, err)
 	}
+}
 
+func TestReadinessGRPCProbe(t *testing.T) {
+	t.Parallel()
+
+	clients := Setup(t)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   test.GRPCPing,
+	}
+
+	test.EnsureTearDown(t, clients, &names)
+
+	t.Log("Creating a new Service")
+
+	resources, err := v1test.CreateServiceReady(t, clients, &names,
+		v1opts.WithNamedPort("h2c"),
+		v1opts.WithReadinessProbe(
+			&corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					GRPC: &corev1.GRPCAction{
+						Port: v1.DefaultUserPort,
+					},
+				},
+			}))
+	if err != nil {
+		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
+	}
+
+	url := resources.Route.Status.URL.URL()
+	if _, err := pkgTest.CheckEndpointState(
+		context.Background(),
+		clients.KubeClient,
+		t.Logf,
+		url,
+		spoof.IsStatusOK,
+		"gRPCProbeReady",
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+	); err != nil {
+		t.Fatalf("The endpoint %s for Route %s didn't return success: %v", url, names.Route, err)
+	}
 }

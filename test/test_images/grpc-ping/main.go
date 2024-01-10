@@ -27,6 +27,8 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 
 	"knative.dev/pkg/network"
 	ping "knative.dev/serving/test/test_images/grpc-ping/proto"
@@ -92,6 +94,7 @@ func main() {
 	}
 
 	g := grpc.NewServer()
+	grpc_health_v1.RegisterHealthServer(g, health.NewServer())
 	ping.RegisterPingServiceServer(g, &server{})
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
