@@ -50,7 +50,7 @@ func TestShouldHaveSysctlReadOnly(t *testing.T) {
 			if got, want := mount.Device, "proc"; got != want {
 				t.Errorf("%s has mount.Device = %s, wanted: %s", mount.Path, mount.Device, want)
 			}
-			if !sets.NewString(mount.Options...).Has("ro") {
+			if !sets.New(mount.Options...).Has("ro") {
 				t.Errorf("%s has mount.Options = %v, wanted: ro", mount.Path, mount.Options)
 			}
 		}

@@ -33,8 +33,8 @@ import (
 // syncRoutingMeta makes sure that the revisions and configurations referenced from
 // a Route are labeled with the routingState label and routes annotation.
 func syncRoutingMeta(ctx context.Context, r *v1.Route, cacc *configurationAccessor, racc *revisionAccessor) error {
-	revisions := sets.NewString()
-	configs := sets.NewString()
+	revisions := sets.New[string]()
+	configs := sets.New[string]()
 
 	// Walk the Route's .status.traffic and .spec.traffic and build a list
 	// of revisions and configurations to label
@@ -110,7 +110,7 @@ func clearRoutingMeta(ctx context.Context, r *v1.Route, accs ...accessor) error 
 
 // setMetaForListed uses the accessor to attach the label for this route to every element
 // listed within "names" in the same namespace.
-func setMetaForListed(ctx context.Context, route *v1.Route, acc accessor, names sets.String) error {
+func setMetaForListed(ctx context.Context, route *v1.Route, acc accessor, names sets.Set[string]) error {
 	for name := range names {
 		if err := setRoutingMeta(ctx, acc, route, name, false); err != nil {
 			return fmt.Errorf("failed to add route annotation to Namespace=%s Name=%q: %w", route.Namespace, name, err)
@@ -122,7 +122,7 @@ func setMetaForListed(ctx context.Context, route *v1.Route, acc accessor, names 
 // clearMetaForNotListed uses the accessor to delete the label from any listable entity that is
 // not named within our list.  Unlike setMetaForListed, this function takes ns/name instead of a
 // Route so that it can clean things up when a Route ceases to exist.
-func clearMetaForNotListed(ctx context.Context, r *v1.Route, acc accessor, names sets.String) error {
+func clearMetaForNotListed(ctx context.Context, r *v1.Route, acc accessor, names sets.Set[string]) error {
 	oldList, err := acc.list(r.Namespace, r.Name, v1.RoutingStateActive)
 	if err != nil {
 		return err

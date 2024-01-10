@@ -52,7 +52,7 @@ func TestResolveInBackground(t *testing.T) {
 		wantError                 error
 	}{{
 		name: "success",
-		resolver: func(_ context.Context, img string, _ k8schain.Options, _ sets.String) (string, error) {
+		resolver: func(_ context.Context, img string, _ k8schain.Options, _ sets.Set[string]) (string, error) {
 			return img + "-digest", nil
 		},
 		wantStatuses: []v1.ContainerStatus{{
@@ -68,8 +68,8 @@ func TestResolveInBackground(t *testing.T) {
 		}},
 	}, {
 		name: "passing params",
-		resolver: func(_ context.Context, img string, opt k8schain.Options, skip sets.String) (string, error) {
-			return fmt.Sprintf("%s-%s-%s", img, opt.ServiceAccountName, skip.List()[0]), nil
+		resolver: func(_ context.Context, img string, opt k8schain.Options, skip sets.Set[string]) (string, error) {
+			return fmt.Sprintf("%s-%s-%s", img, opt.ServiceAccountName, sets.List(skip)[0]), nil
 		},
 		wantStatuses: []v1.ContainerStatus{{
 			Name:        "first",
@@ -84,7 +84,7 @@ func TestResolveInBackground(t *testing.T) {
 		}},
 	}, {
 		name: "one slow resolve",
-		resolver: func(_ context.Context, img string, _ k8schain.Options, _ sets.String) (string, error) {
+		resolver: func(_ context.Context, img string, _ k8schain.Options, _ sets.Set[string]) (string, error) {
 			if img == "first-image" {
 				// make the first resolve arrive after the second.
 				time.Sleep(50 * time.Millisecond)
@@ -104,13 +104,13 @@ func TestResolveInBackground(t *testing.T) {
 		}},
 	}, {
 		name: "resolver entirely fails",
-		resolver: func(_ context.Context, img string, _ k8schain.Options, _ sets.String) (string, error) {
+		resolver: func(_ context.Context, img string, _ k8schain.Options, _ sets.Set[string]) (string, error) {
 			return img + "-digest", errDigest
 		},
 		wantError: errDigest,
 	}, {
 		name: "resolver fails one image",
-		resolver: func(_ context.Context, img string, _ k8schain.Options, _ sets.String) (string, error) {
+		resolver: func(_ context.Context, img string, _ k8schain.Options, _ sets.Set[string]) (string, error) {
 			if img == "second-image" {
 				return "", errDigest
 			}
@@ -121,7 +121,7 @@ func TestResolveInBackground(t *testing.T) {
 	}, {
 		name:    "timeout",
 		timeout: ptr.Duration(10 * time.Millisecond),
-		resolver: func(ctx context.Context, img string, _ k8schain.Options, _ sets.String) (string, error) {
+		resolver: func(ctx context.Context, img string, _ k8schain.Options, _ sets.Set[string]) (string, error) {
 			if img == "second-image" {
 				select {
 				case <-time.After(10 * time.Second):
@@ -161,7 +161,7 @@ func TestResolveInBackground(t *testing.T) {
 			for i := 0; i < 2; i++ {
 				t.Run(fmt.Sprint("iteration", i), func(t *testing.T) {
 					logger := logtesting.TestLogger(t)
-					initContainerStatuses, statuses, err := subject.Resolve(logger, fakeRevision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), timeout)
+					initContainerStatuses, statuses, err := subject.Resolve(logger, fakeRevision, k8schain.Options{ServiceAccountName: "san"}, sets.New("skip"), timeout)
 					if err != nil || statuses != nil || initContainerStatuses != nil {
 						// Initial result should be nil, nil, nil since we have nothing in cache.
 						t.Errorf("Resolve() = %v, %v %v, wanted nil, nil, nil", statuses, initContainerStatuses, err)
@@ -201,7 +201,7 @@ func TestResolveInBackground(t *testing.T) {
 func TestRateLimitPerItem(t *testing.T) {
 	logger := logtesting.TestLogger(t)
 
-	var resolver resolveFunc = func(_ context.Context, img string, _ k8schain.Options, _ sets.String) (string, error) {
+	var resolver resolveFunc = func(_ context.Context, img string, _ k8schain.Options, _ sets.Set[string]) (string, error) {
 		if img == "img1" || img == "init" {
 			return "", nil
 		}
@@ -229,14 +229,14 @@ func TestRateLimitPerItem(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		subject.Clear(types.NamespacedName{Name: revision.Name, Namespace: revision.Namespace})
 		start := time.Now()
-		initResolution, resolution, err := subject.Resolve(logger, revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		initResolution, resolution, err := subject.Resolve(logger, revision, k8schain.Options{ServiceAccountName: "san"}, sets.New("skip"), 0)
 		if err != nil || resolution != nil || initResolution != nil {
 			t.Fatalf("Expected Resolve to be nil, nil, nil but got %v, %v, %v", resolution, initResolution, err)
 		}
 
 		<-enqueue
 
-		_, _, err = subject.Resolve(logger, revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		_, _, err = subject.Resolve(logger, revision, k8schain.Options{ServiceAccountName: "san"}, sets.New("skip"), 0)
 		if err == nil {
 			t.Fatalf("Expected Resolve to fail")
 		}
@@ -251,7 +251,7 @@ func TestRateLimitPerItem(t *testing.T) {
 
 	t.Run("Does not affect other revisions", func(t *testing.T) {
 		start := time.Now()
-		_, resolution, err := subject.Resolve(logger, rev("another-revision", "img1", "img2"), k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		_, resolution, err := subject.Resolve(logger, rev("another-revision", "img1", "img2"), k8schain.Options{ServiceAccountName: "san"}, sets.New("skip"), 0)
 		if err != nil || resolution != nil {
 			t.Fatalf("Expected Resolve to be nil, nil but got %v, %v", resolution, err)
 		}
@@ -266,7 +266,7 @@ func TestRateLimitPerItem(t *testing.T) {
 		subject.Forget(types.NamespacedName{Name: revision.Name, Namespace: revision.Namespace})
 
 		start := time.Now()
-		_, resolution, err := subject.Resolve(logger, revision, k8schain.Options{ServiceAccountName: "san"}, sets.NewString("skip"), 0)
+		_, resolution, err := subject.Resolve(logger, revision, k8schain.Options{ServiceAccountName: "san"}, sets.New("skip"), 0)
 		if err != nil || resolution != nil {
 			t.Fatalf("Expected Resolve to be nil, nil but got %v, %v", resolution, err)
 		}
@@ -279,9 +279,9 @@ func TestRateLimitPerItem(t *testing.T) {
 	})
 }
 
-type resolveFunc func(context.Context, string, k8schain.Options, sets.String) (string, error)
+type resolveFunc func(context.Context, string, k8schain.Options, sets.Set[string]) (string, error)
 
-func (r resolveFunc) Resolve(c context.Context, s string, o k8schain.Options, t sets.String) (string, error) {
+func (r resolveFunc) Resolve(c context.Context, s string, o k8schain.Options, t sets.Set[string]) (string, error) {
 	return r(c, s, o, t)
 }
 

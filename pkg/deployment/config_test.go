@@ -40,11 +40,11 @@ func TestMatchingExceptions(t *testing.T) {
 	cfg := defaultConfig()
 
 	if delta := cfg.RegistriesSkippingTagResolving.Difference(shared.DigestResolutionExceptions); delta.Len() > 0 {
-		t.Error("Got extra:", delta.List())
+		t.Error("Got extra:", sets.List(delta))
 	}
 
 	if delta := shared.DigestResolutionExceptions.Difference(cfg.RegistriesSkippingTagResolving); delta.Len() > 0 {
-		t.Error("Didn't get:", delta.List())
+		t.Error("Didn't get:", sets.List(delta))
 	}
 }
 
@@ -83,11 +83,11 @@ func TestControllerConfiguration(t *testing.T) {
 	}{{
 		name: "controller configuration with bad registries",
 		wantConfig: &Config{
-			RegistriesSkippingTagResolving: sets.NewString("ko.local", ""),
+			RegistriesSkippingTagResolving: sets.New("ko.local", ""),
 			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 			QueueSidecarImage:              defaultSidecarImage,
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
-			QueueSidecarTokenAudiences:     sets.NewString("foo", "bar", "boo-srv"),
+			QueueSidecarTokenAudiences:     sets.New("foo", "bar", "boo-srv"),
 			ProgressDeadline:               ProgressDeadlineDefault,
 		},
 		data: map[string]string{
@@ -98,11 +98,11 @@ func TestControllerConfiguration(t *testing.T) {
 	}, {
 		name: "controller configuration good progress deadline",
 		wantConfig: &Config{
-			RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
+			RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
 			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 			QueueSidecarImage:              defaultSidecarImage,
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
-			QueueSidecarTokenAudiences:     sets.NewString(""),
+			QueueSidecarTokenAudiences:     sets.New(""),
 			ProgressDeadline:               444 * time.Second,
 		},
 		data: map[string]string{
@@ -112,11 +112,11 @@ func TestControllerConfiguration(t *testing.T) {
 	}, {
 		name: "controller configuration good digest resolution timeout",
 		wantConfig: &Config{
-			RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
+			RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
 			DigestResolutionTimeout:        60 * time.Second,
 			QueueSidecarImage:              defaultSidecarImage,
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
-			QueueSidecarTokenAudiences:     sets.NewString(""),
+			QueueSidecarTokenAudiences:     sets.New(""),
 			ProgressDeadline:               ProgressDeadlineDefault,
 		},
 		data: map[string]string{
@@ -126,11 +126,11 @@ func TestControllerConfiguration(t *testing.T) {
 	}, {
 		name: "controller configuration with registries",
 		wantConfig: &Config{
-			RegistriesSkippingTagResolving: sets.NewString("ko.local", "ko.dev"),
+			RegistriesSkippingTagResolving: sets.New("ko.local", "ko.dev"),
 			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 			QueueSidecarImage:              defaultSidecarImage,
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
-			QueueSidecarTokenAudiences:     sets.NewString(""),
+			QueueSidecarTokenAudiences:     sets.New(""),
 			ProgressDeadline:               ProgressDeadlineDefault,
 		},
 		data: map[string]string{
@@ -140,7 +140,7 @@ func TestControllerConfiguration(t *testing.T) {
 	}, {
 		name: "controller configuration with custom queue sidecar resource request/limits",
 		wantConfig: &Config{
-			RegistriesSkippingTagResolving:      sets.NewString("kind.local", "ko.local", "dev.local"),
+			RegistriesSkippingTagResolving:      sets.New("kind.local", "ko.local", "dev.local"),
 			DigestResolutionTimeout:             digestResolutionTimeoutDefault,
 			QueueSidecarImage:                   defaultSidecarImage,
 			ProgressDeadline:                    ProgressDeadlineDefault,
@@ -150,7 +150,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPULimit:                quantity("987M"),
 			QueueSidecarMemoryLimit:             quantity("654m"),
 			QueueSidecarEphemeralStorageLimit:   quantity("321M"),
-			QueueSidecarTokenAudiences:          sets.NewString(""),
+			QueueSidecarTokenAudiences:          sets.New(""),
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:                   defaultSidecarImage,
@@ -219,14 +219,14 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarImage:                   "1",
 			ProgressDeadline:                    2 * time.Second,
 			DigestResolutionTimeout:             3 * time.Second,
-			RegistriesSkippingTagResolving:      sets.NewString("4"),
+			RegistriesSkippingTagResolving:      sets.New("4"),
 			QueueSidecarCPURequest:              quantity("5m"),
 			QueueSidecarCPULimit:                quantity("6m"),
 			QueueSidecarMemoryRequest:           quantity("7M"),
 			QueueSidecarMemoryLimit:             quantity("8M"),
 			QueueSidecarEphemeralStorageRequest: quantity("9M"),
 			QueueSidecarEphemeralStorageLimit:   quantity("10M"),
-			QueueSidecarTokenAudiences:          sets.NewString(""),
+			QueueSidecarTokenAudiences:          sets.New(""),
 		},
 	}, {
 		name: "newer key case takes priority",
@@ -260,14 +260,14 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarImage:                   "12",
 			ProgressDeadline:                    13 * time.Second,
 			DigestResolutionTimeout:             14 * time.Second,
-			RegistriesSkippingTagResolving:      sets.NewString("15"),
+			RegistriesSkippingTagResolving:      sets.New("15"),
 			QueueSidecarCPURequest:              quantity("16m"),
 			QueueSidecarCPULimit:                quantity("17m"),
 			QueueSidecarMemoryRequest:           quantity("18M"),
 			QueueSidecarMemoryLimit:             quantity("19M"),
 			QueueSidecarEphemeralStorageRequest: quantity("20M"),
 			QueueSidecarEphemeralStorageLimit:   quantity("21M"),
-			QueueSidecarTokenAudiences:          sets.NewString("foo"),
+			QueueSidecarTokenAudiences:          sets.New("foo"),
 		},
 	}}
 

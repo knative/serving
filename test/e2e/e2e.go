@@ -95,7 +95,7 @@ func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clien
 // waitForActivatorEndpoints waits for the Service endpoints to match that of activator.
 func waitForActivatorEndpoints(ctx *TestContext) error {
 	var (
-		aset, svcSet sets.String
+		aset, svcSet sets.Set[string]
 		wantAct      int
 	)
 
@@ -118,13 +118,13 @@ func waitForActivatorEndpoints(ctx *TestContext) error {
 		}
 
 		wantAct = int(sks.Spec.NumActivators)
-		aset = make(sets.String, wantAct)
+		aset = make(sets.Set[string], wantAct)
 		for _, ss := range actEps.Subsets {
 			for i := 0; i < len(ss.Addresses); i++ {
 				aset.Insert(ss.Addresses[i].IP)
 			}
 		}
-		svcSet = make(sets.String, wantAct)
+		svcSet = make(sets.Set[string], wantAct)
 		for _, ss := range svcEps.Subsets {
 			for i := 0; i < len(ss.Addresses); i++ {
 				svcSet.Insert(ss.Addresses[i].IP)
@@ -144,7 +144,7 @@ func waitForActivatorEndpoints(ctx *TestContext) error {
 		ctx.t.Logf("Did not see activator endpoints in public service for %s."+
 			"Last received values: Activator: %v "+
 			"PubSvc: %v, WantActivators %d",
-			ctx.resources.Revision.Name, aset.List(), svcSet.List(), wantAct)
+			ctx.resources.Revision.Name, sets.List(aset), sets.List(svcSet), wantAct)
 		return rerr
 	}
 	return nil

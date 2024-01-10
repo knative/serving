@@ -183,7 +183,7 @@ func wildcardDomain(tmpl, domain, namespace string) (string, error) {
 
 func findMatchingCert(domain string, certs []*v1alpha1.Certificate) *v1alpha1.Certificate {
 	for _, cert := range certs {
-		if dnsNames := sets.NewString(cert.Spec.DNSNames...); dnsNames.Has(domain) {
+		if dnsNames := sets.New(cert.Spec.DNSNames...); dnsNames.Has(domain) {
 			return cert
 		}
 	}

@@ -45,7 +45,7 @@ import (
 )
 
 type resolver interface {
-	Resolve(*zap.SugaredLogger, *v1.Revision, k8schain.Options, sets.String, time.Duration) ([]v1.ContainerStatus, []v1.ContainerStatus, error)
+	Resolve(*zap.SugaredLogger, *v1.Revision, k8schain.Options, sets.Set[string], time.Duration) ([]v1.ContainerStatus, []v1.ContainerStatus, error)
 	Clear(types.NamespacedName)
 	Forget(types.NamespacedName)
 }

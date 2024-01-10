@@ -73,13 +73,13 @@ func InsertProbe(ing *v1alpha1.Ingress) (string, error) {
 
 // HostsPerVisibility takes an Ingress and a map from visibility levels to a set of string keys,
 // it then returns a map from that key space to the hosts under that visibility.
-func HostsPerVisibility(ing *v1alpha1.Ingress, visibilityToKey map[v1alpha1.IngressVisibility]sets.String) map[string]sets.String {
-	output := make(map[string]sets.String, 2) // We currently have public and internal.
+func HostsPerVisibility(ing *v1alpha1.Ingress, visibilityToKey map[v1alpha1.IngressVisibility]sets.Set[string]) map[string]sets.Set[string] {
+	output := make(map[string]sets.Set[string], 2) // We currently have public and internal.
 	for _, rule := range ing.Spec.Rules {
-		for host := range ExpandedHosts(sets.NewString(rule.Hosts...)) {
+		for host := range ExpandedHosts(sets.New(rule.Hosts...)) {
 			for key := range visibilityToKey[rule.Visibility] {
 				if _, ok := output[key]; !ok {
-					output[key] = make(sets.String, len(rule.Hosts))
+					output[key] = make(sets.Set[string], len(rule.Hosts))
 				}
 				output[key].Insert(host)
 			}
@@ -89,15 +89,15 @@ func HostsPerVisibility(ing *v1alpha1.Ingress, visibilityToKey map[v1alpha1.Ingr
 }
 
 // ExpandedHosts sets up hosts for the short-names for cluster DNS names.
-func ExpandedHosts(hosts sets.String) sets.String {
+func ExpandedHosts(hosts sets.Set[string]) sets.Set[string] {
 	allowedSuffixes := []string{
 		"",
 		"." + network.GetClusterDomainName(),
 		".svc." + network.GetClusterDomainName(),
 	}
 	// Optimistically pre-alloc.
-	expanded := make(sets.String, len(hosts)*len(allowedSuffixes))
-	for _, h := range hosts.List() {
+	expanded := make(sets.Set[string], len(hosts)*len(allowedSuffixes))
+	for _, h := range sets.List(hosts) {
 		for _, suffix := range allowedSuffixes {
 			if th := strings.TrimSuffix(h, suffix); suffix == "" || len(th) < len(h) {
 				if isValidTopLevelDomain(th) {

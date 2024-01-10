@@ -81,9 +81,9 @@ func TestReportStats(t *testing.T) {
 				statNames = append(statNames, m.ToStatMessage().Key.Name)
 			}
 		}
-		want := sets.NewString("first-a", "first-b", "second-a", "second-b")
-		if got := sets.NewString(statNames...); !got.Equal(want) {
-			t.Error("Expected to receive all stats (-want, +got):", cmp.Diff(want.List(), got.List()))
+		want := sets.New("first-a", "first-b", "second-a", "second-b")
+		if got := sets.New(statNames...); !got.Equal(want) {
+			t.Error("Expected to receive all stats (-want, +got):", cmp.Diff(sets.List(want), sets.List(got)))
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("Did not receive results after 2 seconds")

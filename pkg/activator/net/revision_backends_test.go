@@ -133,13 +133,13 @@ func TestRevisionWatcher(t *testing.T) {
 		meshMode              netcfg.MeshCompatibilityMode
 	}{{
 		name:  "single healthy podIP",
-		dests: dests{ready: sets.NewString("128.0.0.1:1234")},
+		dests: dests{ready: sets.New("128.0.0.1:1234")},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []revisionDestsUpdate{{Dests: sets.NewString("128.0.0.1:1234")}},
+		expectUpdates: []revisionDestsUpdate{{Dests: sets.New("128.0.0.1:1234")}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"128.0.0.1:1234": {{
 				Code: http.StatusOK,
@@ -148,13 +148,13 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 	}, {
 		name:  "single not ready but healthy podIP",
-		dests: dests{notReady: sets.NewString("128.0.0.1:1234")},
+		dests: dests{notReady: sets.New("128.0.0.1:1234")},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []revisionDestsUpdate{{Dests: sets.NewString("128.0.0.1:1234")}},
+		expectUpdates: []revisionDestsUpdate{{Dests: sets.New("128.0.0.1:1234")}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"128.0.0.1:1234": {{
 				Code: http.StatusOK,
@@ -163,14 +163,14 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 	}, {
 		name:     "single http2 podIP",
-		dests:    dests{ready: sets.NewString("128.0.0.1:1234")},
+		dests:    dests{ready: sets.New("128.0.0.1:1234")},
 		protocol: pkgnet.ProtocolH2C,
 		clusterPort: corev1.ServicePort{
 			Name: "http2",
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []revisionDestsUpdate{{Dests: sets.NewString("128.0.0.1:1234")}},
+		expectUpdates: []revisionDestsUpdate{{Dests: sets.New("128.0.0.1:1234")}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"129.0.0.1:1234": {{
 				Err: errors.New("clusterIP transport error"),
@@ -182,7 +182,7 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 	}, {
 		name:     "single http2 clusterIP",
-		dests:    dests{ready: sets.NewString("128.0.0.1:1234"), notReady: sets.NewString("128.0.0.2:1234")},
+		dests:    dests{ready: sets.New("128.0.0.1:1234"), notReady: sets.New("128.0.0.2:1234")},
 		protocol: pkgnet.ProtocolH2C,
 		clusterPort: corev1.ServicePort{
 			Name: "http2",
@@ -190,7 +190,7 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 		clusterIP:           "129.0.0.1",
 		noPodAddressability: true,
-		expectUpdates:       []revisionDestsUpdate{{ClusterIPDest: "129.0.0.1:1234", Dests: sets.NewString("128.0.0.1:1234")}},
+		expectUpdates:       []revisionDestsUpdate{{ClusterIPDest: "129.0.0.1:1234", Dests: sets.New("128.0.0.1:1234")}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"129.0.0.1:1234": {{
 				Code: http.StatusOK,
@@ -214,7 +214,7 @@ func TestRevisionWatcher(t *testing.T) {
 		initialClusterIPState: true,
 	}, {
 		name:  "single unavailable podIP",
-		dests: dests{ready: sets.NewString("128.0.0.1:1234")},
+		dests: dests{ready: sets.New("128.0.0.1:1234")},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 1234,
@@ -230,7 +230,7 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 	}, {
 		name:  "single error podIP",
-		dests: dests{ready: sets.NewString("128.0.0.1:1234")},
+		dests: dests{ready: sets.New("128.0.0.1:1234")},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 1234,
@@ -246,13 +246,13 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 	}, {
 		name:  "podIP slow ready",
-		dests: dests{ready: sets.NewString("128.0.0.1:1234")},
+		dests: dests{ready: sets.New("128.0.0.1:1234")},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []revisionDestsUpdate{{Dests: sets.NewString("128.0.0.1:1234")}},
+		expectUpdates: []revisionDestsUpdate{{Dests: sets.New("128.0.0.1:1234")}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"129.0.0.1:1234": {{
 				Err: errors.New("clusterIP transport error"),
@@ -266,13 +266,13 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 	}, {
 		name:  "multiple healthy podIP",
-		dests: dests{ready: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"), notReady: sets.NewString("128.0.0.3:1234")},
+		dests: dests{ready: sets.New("128.0.0.1:1234", "128.0.0.2:1234"), notReady: sets.New("128.0.0.3:1234")},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []revisionDestsUpdate{{Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.3:1234")}},
+		expectUpdates: []revisionDestsUpdate{{Dests: sets.New("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.3:1234")}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"128.0.0.1:1234": {{
 				Code: http.StatusOK,
@@ -289,13 +289,13 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 	}, {
 		name:  "one healthy one unhealthy podIP",
-		dests: dests{ready: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234")},
+		dests: dests{ready: sets.New("128.0.0.1:1234", "128.0.0.2:1234")},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []revisionDestsUpdate{{Dests: sets.NewString("128.0.0.2:1234")}},
+		expectUpdates: []revisionDestsUpdate{{Dests: sets.New("128.0.0.2:1234")}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"128.0.0.1:1234": {{
 				Err: errors.New("clusterIP transport error"),
@@ -307,15 +307,15 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 	}, {
 		name:  "one healthy one unhealthy podIP then both healthy",
-		dests: dests{ready: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234")},
+		dests: dests{ready: sets.New("128.0.0.1:1234", "128.0.0.2:1234")},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 4321,
 		},
 		clusterIP: "129.0.0.1",
 		expectUpdates: []revisionDestsUpdate{
-			{Dests: sets.NewString("128.0.0.2:1234")},
-			{Dests: sets.NewString("128.0.0.2:1234", "128.0.0.1:1234")},
+			{Dests: sets.New("128.0.0.2:1234")},
+			{Dests: sets.New("128.0.0.2:1234", "128.0.0.1:1234")},
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"128.0.0.1:1234": {{
@@ -334,7 +334,7 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 	}, {
 		name:  "clusterIP slow ready, no pod addressability",
-		dests: dests{ready: sets.NewString("128.0.0.1:1234")},
+		dests: dests{ready: sets.New("128.0.0.1:1234")},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 1234,
@@ -342,7 +342,7 @@ func TestRevisionWatcher(t *testing.T) {
 		clusterIP: "129.0.0.1",
 		expectUpdates: []revisionDestsUpdate{{
 			ClusterIPDest: "129.0.0.1:1234",
-			Dests:         sets.NewString("128.0.0.1:1234"),
+			Dests:         sets.New("128.0.0.1:1234"),
 		}},
 		noPodAddressability: true,
 		probeHostResponses: map[string][]activatortest.FakeResponse{
@@ -360,7 +360,7 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 	}, {
 		name:  "clusterIP ready, no pod addressability",
-		dests: dests{ready: sets.NewString("128.0.0.1:1234")},
+		dests: dests{ready: sets.New("128.0.0.1:1234")},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 1235,
@@ -369,7 +369,7 @@ func TestRevisionWatcher(t *testing.T) {
 		clusterIP:           "129.0.0.1",
 		expectUpdates: []revisionDestsUpdate{{
 			ClusterIPDest: "129.0.0.1:1235",
-			Dests:         sets.NewString("128.0.0.1:1234"),
+			Dests:         sets.New("128.0.0.1:1234"),
 		}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"129.0.0.1:1234": {{
@@ -382,7 +382,7 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 	}, {
 		name:  "clusterIP ready, pod fails with non-mesh error then succeeds",
-		dests: dests{ready: sets.NewString("128.0.0.1:1234")},
+		dests: dests{ready: sets.New("128.0.0.1:1234")},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 1235,
@@ -390,7 +390,7 @@ func TestRevisionWatcher(t *testing.T) {
 		noPodAddressability: false,
 		clusterIP:           "129.0.0.1",
 		expectUpdates: []revisionDestsUpdate{
-			{Dests: sets.NewString("128.0.0.1:1234")},
+			{Dests: sets.New("128.0.0.1:1234")},
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"129.0.0.1:1234": {{
@@ -407,7 +407,7 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 	}, {
 		name:  "passthrough lb, clusterIP ready but no fallback",
-		dests: dests{ready: sets.NewString("128.0.0.1:1234")},
+		dests: dests{ready: sets.New("128.0.0.1:1234")},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 1235,
@@ -426,7 +426,7 @@ func TestRevisionWatcher(t *testing.T) {
 		usePassthroughLb: true,
 	}, {
 		name:  "mesh mode enabled: pod ready but should still use cluster IP",
-		dests: dests{ready: sets.NewString("128.0.0.1:1234")},
+		dests: dests{ready: sets.New("128.0.0.1:1234")},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 1235,
@@ -434,7 +434,7 @@ func TestRevisionWatcher(t *testing.T) {
 		noPodAddressability: true,
 		clusterIP:           "129.0.0.1",
 		expectUpdates: []revisionDestsUpdate{
-			{ClusterIPDest: "129.0.0.1:1235", Dests: sets.NewString("128.0.0.1:1234")},
+			{ClusterIPDest: "129.0.0.1:1235", Dests: sets.New("128.0.0.1:1234")},
 		},
 		meshMode: netcfg.MeshCompatibilityModeEnabled,
 		probeHostResponses: map[string][]activatortest.FakeResponse{
@@ -450,7 +450,7 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 	}, {
 		name:  "mesh mode disabled: pod initially returns mesh-compatible error, but don't fallback",
-		dests: dests{ready: sets.NewString("128.0.0.1:1234")},
+		dests: dests{ready: sets.New("128.0.0.1:1234")},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 1235,
@@ -458,7 +458,7 @@ func TestRevisionWatcher(t *testing.T) {
 		noPodAddressability: false,
 		clusterIP:           "129.0.0.1",
 		expectUpdates: []revisionDestsUpdate{
-			{Dests: sets.NewString("128.0.0.1:1234")},
+			{Dests: sets.New("128.0.0.1:1234")},
 		},
 		meshMode: netcfg.MeshCompatibilityModeDisabled,
 		probeHostResponses: map[string][]activatortest.FakeResponse{
@@ -478,7 +478,7 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 	}, {
 		name:  "ready pod in k8s api when mesh-compat disabled",
-		dests: dests{ready: sets.NewString("128.0.0.1:1234")},
+		dests: dests{ready: sets.New("128.0.0.1:1234")},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 1235,
@@ -486,7 +486,7 @@ func TestRevisionWatcher(t *testing.T) {
 		noPodAddressability: false,
 		clusterIP:           "129.0.0.1",
 		expectUpdates: []revisionDestsUpdate{
-			{Dests: sets.NewString("128.0.0.1:1234")},
+			{Dests: sets.New("128.0.0.1:1234")},
 		},
 		meshMode: netcfg.MeshCompatibilityModeDisabled,
 		probeHostResponses: map[string][]activatortest.FakeResponse{
@@ -678,7 +678,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		},
 		expectDests: map[types.NamespacedName]revisionDestsUpdate{
 			{Namespace: testNamespace, Name: testRevision}: {
-				Dests: sets.NewString("128.0.0.1:1234"),
+				Dests: sets.New("128.0.0.1:1234"),
 			},
 		},
 		updateCnt: 1,
@@ -706,7 +706,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		},
 		expectDests: map[types.NamespacedName]revisionDestsUpdate{
 			{Namespace: testNamespace, Name: testRevision}: {
-				Dests: sets.NewString("128.0.0.1:1234"),
+				Dests: sets.New("128.0.0.1:1234"),
 			},
 		},
 		updateCnt: 1,
@@ -732,10 +732,10 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		},
 		expectDests: map[types.NamespacedName]revisionDestsUpdate{
 			{Namespace: testNamespace, Name: "test-revision1"}: {
-				Dests: sets.NewString("128.0.0.1:1234"),
+				Dests: sets.New("128.0.0.1:1234"),
 			},
 			{Namespace: testNamespace, Name: "test-revision2"}: {
-				Dests: sets.NewString("128.1.0.2:1235"),
+				Dests: sets.New("128.1.0.2:1235"),
 			},
 		},
 		updateCnt: 2,
@@ -782,7 +782,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		expectDests: map[types.NamespacedName]revisionDestsUpdate{
 			{Namespace: testNamespace, Name: testRevision}: {
 				ClusterIPDest: "129.0.0.1:1234",
-				Dests:         sets.NewString("128.0.0.1:1234"),
+				Dests:         sets.New("128.0.0.1:1234"),
 			},
 		},
 		updateCnt: 1,
@@ -827,7 +827,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		},
 		expectDests: map[types.NamespacedName]revisionDestsUpdate{
 			{Namespace: testNamespace, Name: testRevision}: {
-				Dests: sets.NewString("128.0.0.1:1234"),
+				Dests: sets.New("128.0.0.1:1234"),
 			},
 		},
 		updateCnt: 1,
@@ -885,7 +885,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		},
 		expectDests: map[types.NamespacedName]revisionDestsUpdate{
 			{Namespace: testNamespace, Name: testRevision}: {
-				Dests: sets.NewString("128.0.0.1:1234"),
+				Dests: sets.New("128.0.0.1:1234"),
 			},
 		},
 		updateCnt: 1,
@@ -957,8 +957,8 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 
 func emptyDests() dests {
 	return dests{
-		ready:    sets.NewString(),
-		notReady: sets.NewString(),
+		ready:    sets.New[string](),
+		notReady: sets.New[string](),
 	}
 }
 
@@ -1041,8 +1041,8 @@ func TestCheckDestsReadyToNotReady(t *testing.T) {
 	}
 	// Initial state. Both are ready.
 	cur := dests{
-		ready:    sets.NewString("10.10.1.3", "10.10.1.2"),
-		notReady: sets.NewString("10.10.1.1"),
+		ready:    sets.New("10.10.1.3", "10.10.1.2"),
+		notReady: sets.New("10.10.1.1"),
 	}
 	rw.checkDests(cur, emptyDests())
 	select {
@@ -1066,8 +1066,8 @@ func TestCheckDestsReadyToNotReady(t *testing.T) {
 	prev := cur
 
 	cur = dests{
-		ready:    sets.NewString("10.10.1.2"),
-		notReady: sets.NewString("10.10.1.1", "10.10.1.3"),
+		ready:    sets.New("10.10.1.2"),
+		notReady: sets.New("10.10.1.1", "10.10.1.3"),
 	}
 	rw.checkDests(cur, prev)
 	select {
@@ -1143,8 +1143,8 @@ func TestCheckDests(t *testing.T) {
 		enableProbeOptimisation: true,
 	}
 	rw.checkDests(dests{
-		ready:    sets.NewString("10.1.1.5"),
-		notReady: sets.NewString("10.1.1.6"),
+		ready:    sets.New("10.1.1.5"),
+		notReady: sets.New("10.1.1.6"),
 	}, emptyDests())
 	select {
 	case <-uCh:
@@ -1155,8 +1155,8 @@ func TestCheckDests(t *testing.T) {
 
 	close(dCh)
 	rw.checkDests(dests{
-		ready:    sets.NewString("10.1.1.5"),
-		notReady: sets.NewString("10.1.1.6"),
+		ready:    sets.New("10.1.1.5"),
+		notReady: sets.New("10.1.1.6"),
 	}, emptyDests())
 	select {
 	case <-uCh:
@@ -1246,11 +1246,11 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// First not ready, second good, clusterIP: not ready.
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234")}, emptyDests())
+	rw.checkDests(dests{ready: sets.New("10.0.0.1:1234", "10.0.0.2:1234")}, emptyDests())
 	want := revisionDestsUpdate{
 		Rev:           types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 		ClusterIPDest: "",
-		Dests:         sets.NewString("10.0.0.2:1234"),
+		Dests:         sets.New("10.0.0.2:1234"),
 	}
 
 	select {
@@ -1263,10 +1263,10 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// Second gone, first becomes ready, clusterIP still not ready.
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234")}, emptyDests())
+	rw.checkDests(dests{ready: sets.New("10.0.0.1:1234")}, emptyDests())
 	select {
 	case got := <-uCh:
-		want.Dests = sets.NewString("10.0.0.1:1234")
+		want.Dests = sets.New("10.0.0.1:1234")
 		if !cmp.Equal(got, want) {
 			t.Errorf("Update = %#v, want: %#v, diff: %s", got, want, cmp.Diff(want, got))
 		}
@@ -1275,7 +1275,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// Second is back, but not healthy yet.
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234")}, emptyDests())
+	rw.checkDests(dests{ready: sets.New("10.0.0.1:1234", "10.0.0.2:1234")}, emptyDests())
 	select {
 	case got := <-uCh:
 		// No update should be sent out, since there's only healthy pod, same as above.
@@ -1284,10 +1284,10 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// All pods are happy now.
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234")}, emptyDests())
+	rw.checkDests(dests{ready: sets.New("10.0.0.1:1234", "10.0.0.2:1234")}, emptyDests())
 	select {
 	case got := <-uCh:
-		want.Dests = sets.NewString("10.0.0.2:1234", "10.0.0.1:1234")
+		want.Dests = sets.New("10.0.0.2:1234", "10.0.0.1:1234")
 		if !cmp.Equal(got, want) {
 			t.Errorf("Update = %#v, want: %#v, diff: %s", got, want, cmp.Diff(want, got))
 		}
@@ -1296,7 +1296,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// Make sure we do not send out redundant updates.
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234")}, emptyDests())
+	rw.checkDests(dests{ready: sets.New("10.0.0.1:1234", "10.0.0.2:1234")}, emptyDests())
 	select {
 	case got := <-uCh:
 		t.Errorf("Expected no update, but got %#v", got)
@@ -1306,8 +1306,8 @@ func TestCheckDestsSwinging(t *testing.T) {
 
 	// Add a notReady pod, but it's not ready. No update should be sent.
 	rw.checkDests(dests{
-		ready:    sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"),
-		notReady: sets.NewString("10.0.0.4:1234"),
+		ready:    sets.New("10.0.0.1:1234", "10.0.0.2:1234"),
+		notReady: sets.New("10.0.0.4:1234"),
 	}, emptyDests())
 	select {
 	case got := <-uCh:
@@ -1318,12 +1318,12 @@ func TestCheckDestsSwinging(t *testing.T) {
 
 	// The notReady pod is now ready!
 	rw.checkDests(dests{
-		ready:    sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"),
-		notReady: sets.NewString("10.0.0.4:1234"),
+		ready:    sets.New("10.0.0.1:1234", "10.0.0.2:1234"),
+		notReady: sets.New("10.0.0.4:1234"),
 	}, emptyDests())
 	select {
 	case got := <-uCh:
-		want.Dests = sets.NewString("10.0.0.1:1234", "10.0.0.2:1234", "10.0.0.4:1234")
+		want.Dests = sets.New("10.0.0.1:1234", "10.0.0.2:1234", "10.0.0.4:1234")
 		if !cmp.Equal(got, want) {
 			t.Errorf("Update = %#v, want: %#v, diff: %s", got, want, cmp.Diff(want, got))
 		}
@@ -1332,10 +1332,10 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// Swing to a different pods.
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.3:1234", "10.0.0.2:1234")}, emptyDests())
+	rw.checkDests(dests{ready: sets.New("10.0.0.3:1234", "10.0.0.2:1234")}, emptyDests())
 	select {
 	case got := <-uCh:
-		want.Dests = sets.NewString("10.0.0.2:1234", "10.0.0.3:1234")
+		want.Dests = sets.New("10.0.0.2:1234", "10.0.0.3:1234")
 		if !cmp.Equal(got, want) {
 			t.Errorf("Update = %#v, want: %#v, diff: %s", got, want, cmp.Diff(want, got))
 		}
@@ -1344,10 +1344,10 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// Scale down by 1.
-	rw.checkDests(dests{ready: sets.NewString("10.0.0.2:1234")}, emptyDests())
+	rw.checkDests(dests{ready: sets.New("10.0.0.2:1234")}, emptyDests())
 	select {
 	case got := <-uCh:
-		want.Dests = sets.NewString("10.0.0.2:1234")
+		want.Dests = sets.New("10.0.0.2:1234")
 		if !cmp.Equal(got, want) {
 			t.Errorf("Update = %#v, want: %#v, diff: %s", got, want, cmp.Diff(want, got))
 		}
@@ -1524,14 +1524,14 @@ func TestServiceMoreThanOne(t *testing.T) {
 func TestProbePodIPs(t *testing.T) {
 	type input struct {
 		current                 dests
-		healthy                 sets.String
+		healthy                 sets.Set[string]
 		meshMode                netcfg.MeshCompatibilityMode
 		enableProbeOptimization bool
 		hostResponses           map[string][]activatortest.FakeResponse
 	}
 
 	type expected struct {
-		healthy   sets.String
+		healthy   sets.Set[string]
 		noop      bool
 		notMesh   bool
 		success   bool
@@ -1549,13 +1549,13 @@ func TestProbePodIPs(t *testing.T) {
 			name: "all healthy", // Test skipping probes when all endpoints are healthy
 			input: input{
 				current: dests{
-					ready:    sets.NewString("10.10.1.1"),
-					notReady: sets.NewString("10.10.1.2"),
+					ready:    sets.New("10.10.1.1"),
+					notReady: sets.New("10.10.1.2"),
 				},
-				healthy: sets.NewString("10.10.1.1", "10.10.1.2"),
+				healthy: sets.New("10.10.1.1", "10.10.1.2"),
 			},
 			expected: expected{
-				healthy:   sets.NewString("10.10.1.1", "10.10.1.2"),
+				healthy:   sets.New("10.10.1.1", "10.10.1.2"),
 				noop:      true,
 				notMesh:   false,
 				success:   true,
@@ -1566,7 +1566,7 @@ func TestProbePodIPs(t *testing.T) {
 			name: "one pod fails probe", // Test that we probe all pods when one fails
 			input: input{
 				current: dests{
-					notReady: sets.NewString("10.10.1.1", "10.10.1.2", "10.10.1.3"),
+					notReady: sets.New("10.10.1.1", "10.10.1.2", "10.10.1.3"),
 				},
 				hostResponses: map[string][]activatortest.FakeResponse{
 					"10.10.1.1": {{
@@ -1581,7 +1581,7 @@ func TestProbePodIPs(t *testing.T) {
 				enableProbeOptimization: true,
 			},
 			expected: expected{
-				healthy:   sets.NewString("10.10.1.2", "10.10.1.3"),
+				healthy:   sets.New("10.10.1.2", "10.10.1.3"),
 				noop:      false,
 				notMesh:   true,
 				success:   false,
@@ -1592,14 +1592,14 @@ func TestProbePodIPs(t *testing.T) {
 			name: "ready pods skipped with mesh disabled",
 			input: input{
 				current: dests{
-					ready:    sets.NewString("10.10.1.1"),
-					notReady: sets.NewString("10.10.1.2"),
+					ready:    sets.New("10.10.1.1"),
+					notReady: sets.New("10.10.1.2"),
 				},
 				enableProbeOptimization: true,
 				meshMode:                netcfg.MeshCompatibilityModeDisabled,
 			},
 			expected: expected{
-				healthy:   sets.NewString("10.10.1.1", "10.10.1.2"),
+				healthy:   sets.New("10.10.1.1", "10.10.1.2"),
 				noop:      false,
 				notMesh:   true,
 				success:   true,
@@ -1610,14 +1610,14 @@ func TestProbePodIPs(t *testing.T) {
 			name: "ready pods not skipped with mesh auto",
 			input: input{
 				current: dests{
-					ready:    sets.NewString("10.10.1.1"),
-					notReady: sets.NewString("10.10.1.2"),
+					ready:    sets.New("10.10.1.1"),
+					notReady: sets.New("10.10.1.2"),
 				},
 				enableProbeOptimization: true,
 				meshMode:                netcfg.MeshCompatibilityModeAuto,
 			},
 			expected: expected{
-				healthy:   sets.NewString("10.10.1.1", "10.10.1.2"),
+				healthy:   sets.New("10.10.1.1", "10.10.1.2"),
 				noop:      false,
 				notMesh:   true,
 				success:   true,
@@ -1628,14 +1628,14 @@ func TestProbePodIPs(t *testing.T) {
 			name: "only ready pods healthy without probe optimization", // NOTE: prior test is effectively this one with probe optimization
 			input: input{
 				current: dests{
-					ready:    sets.NewString("10.10.1.1"),
-					notReady: sets.NewString("10.10.1.2"),
+					ready:    sets.New("10.10.1.1"),
+					notReady: sets.New("10.10.1.2"),
 				},
 				enableProbeOptimization: false,
 				meshMode:                netcfg.MeshCompatibilityModeAuto,
 			},
 			expected: expected{
-				healthy:   sets.NewString("10.10.1.1"),
+				healthy:   sets.New("10.10.1.1"),
 				noop:      false,
 				notMesh:   true,
 				success:   true,
@@ -1646,15 +1646,15 @@ func TestProbePodIPs(t *testing.T) {
 			name: "removes non-existent pods from healthy",
 			input: input{
 				current: dests{
-					ready:    sets.NewString("10.10.1.1"),
-					notReady: sets.NewString("10.10.1.2"),
+					ready:    sets.New("10.10.1.1"),
+					notReady: sets.New("10.10.1.2"),
 				},
-				healthy:                 sets.NewString("10.10.1.1", "10.10.1.2", "10.10.1.3"),
+				healthy:                 sets.New("10.10.1.1", "10.10.1.2", "10.10.1.3"),
 				enableProbeOptimization: true,
 				meshMode:                netcfg.MeshCompatibilityModeDisabled,
 			},
 			expected: expected{
-				healthy:   sets.NewString("10.10.1.1", "10.10.1.2"),
+				healthy:   sets.New("10.10.1.1", "10.10.1.2"),
 				noop:      false,
 				notMesh:   false,
 				success:   true,
@@ -1665,15 +1665,15 @@ func TestProbePodIPs(t *testing.T) {
 			name: "non-probe additions count as changes", // Testing case where ready pods are added but probes do not add more
 			input: input{
 				current: dests{
-					ready:    sets.NewString("10.10.1.1", "10.10.1.2"),
-					notReady: sets.NewString("10.10.1.3"),
+					ready:    sets.New("10.10.1.1", "10.10.1.2"),
+					notReady: sets.New("10.10.1.3"),
 				},
-				healthy:                 sets.NewString("10.10.1.1"),
+				healthy:                 sets.New("10.10.1.1"),
 				enableProbeOptimization: false,
 				meshMode:                netcfg.MeshCompatibilityModeDisabled,
 			},
 			expected: expected{
-				healthy:   sets.NewString("10.10.1.1", "10.10.1.2"),
+				healthy:   sets.New("10.10.1.1", "10.10.1.2"),
 				noop:      false,
 				notMesh:   true,
 				success:   true,
@@ -1684,15 +1684,15 @@ func TestProbePodIPs(t *testing.T) {
 			name: "non-probe removals count as changes", // Testing case where non-existent pods are removed with no probe changes
 			input: input{
 				current: dests{
-					ready:    sets.NewString("10.10.1.1"),
-					notReady: sets.NewString("10.10.1.3"),
+					ready:    sets.New("10.10.1.1"),
+					notReady: sets.New("10.10.1.3"),
 				},
-				healthy:                 sets.NewString("10.10.1.1", "10.10.1.2"),
+				healthy:                 sets.New("10.10.1.1", "10.10.1.2"),
 				enableProbeOptimization: false,
 				meshMode:                netcfg.MeshCompatibilityModeDisabled,
 			},
 			expected: expected{
-				healthy:   sets.NewString("10.10.1.1"),
+				healthy:   sets.New("10.10.1.1"),
 				noop:      false,
 				notMesh:   true,
 				success:   true,
@@ -1703,15 +1703,15 @@ func TestProbePodIPs(t *testing.T) {
 			name: "no changes with probes",
 			input: input{
 				current: dests{
-					ready:    sets.NewString("10.10.1.1"),
-					notReady: sets.NewString("10.10.1.3"),
+					ready:    sets.New("10.10.1.1"),
+					notReady: sets.New("10.10.1.3"),
 				},
-				healthy:                 sets.NewString("10.10.1.1"),
+				healthy:                 sets.New("10.10.1.1"),
 				enableProbeOptimization: false,
 				meshMode:                netcfg.MeshCompatibilityModeDisabled,
 			},
 			expected: expected{
-				healthy:   sets.NewString("10.10.1.1"),
+				healthy:   sets.New("10.10.1.1"),
 				noop:      true,
 				notMesh:   true,
 				success:   true,
@@ -1722,14 +1722,14 @@ func TestProbePodIPs(t *testing.T) {
 			name: "no changes without probes",
 			input: input{
 				current: dests{
-					ready: sets.NewString("10.10.1.1", "10.10.1.3"),
+					ready: sets.New("10.10.1.1", "10.10.1.3"),
 				},
-				healthy:                 sets.NewString("10.10.1.1", "10.10.1.3"),
+				healthy:                 sets.New("10.10.1.1", "10.10.1.3"),
 				enableProbeOptimization: false,
 				meshMode:                netcfg.MeshCompatibilityModeDisabled,
 			},
 			expected: expected{
-				healthy:   sets.NewString("10.10.1.1", "10.10.1.3"),
+				healthy:   sets.New("10.10.1.1", "10.10.1.3"),
 				noop:      true,
 				notMesh:   false,
 				success:   true,
@@ -1740,10 +1740,10 @@ func TestProbePodIPs(t *testing.T) {
 			name: "mesh probe error",
 			input: input{
 				current: dests{
-					ready:    sets.NewString("10.10.1.1"),
-					notReady: sets.NewString("10.10.1.3"),
+					ready:    sets.New("10.10.1.1"),
+					notReady: sets.New("10.10.1.3"),
 				},
-				healthy:                 sets.NewString("10.10.1.1"),
+				healthy:                 sets.New("10.10.1.1"),
 				enableProbeOptimization: true,
 				meshMode:                netcfg.MeshCompatibilityModeAuto,
 				hostResponses: map[string][]activatortest.FakeResponse{
@@ -1753,7 +1753,7 @@ func TestProbePodIPs(t *testing.T) {
 				},
 			},
 			expected: expected{
-				healthy:   sets.NewString("10.10.1.1"),
+				healthy:   sets.New("10.10.1.1"),
 				noop:      true,
 				notMesh:   false,
 				success:   false,

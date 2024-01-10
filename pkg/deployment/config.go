@@ -101,13 +101,13 @@ func defaultConfig() *Config {
 	cfg := &Config{
 		ProgressDeadline:               ProgressDeadlineDefault,
 		DigestResolutionTimeout:        digestResolutionTimeoutDefault,
-		RegistriesSkippingTagResolving: sets.NewString("kind.local", "ko.local", "dev.local"),
+		RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
 		QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 	}
 	// The following code is needed for ConfigMap testing.
 	// defaultConfig must match the example in deployment.yaml which includes: `queue-sidecar-token-audiences: ""`
 	if cfg.QueueSidecarTokenAudiences == nil {
-		cfg.QueueSidecarTokenAudiences = sets.NewString("")
+		cfg.QueueSidecarTokenAudiences = sets.New("")
 	}
 
 	return cfg
@@ -179,7 +179,7 @@ type Config struct {
 	QueueSidecarImage string
 
 	// Repositories for which tag to digest resolving should be skipped.
-	RegistriesSkippingTagResolving sets.String
+	RegistriesSkippingTagResolving sets.Set[string]
 
 	// DigestResolutionTimeout is the maximum time allowed for image digest resolution.
 	DigestResolutionTimeout time.Duration
@@ -210,7 +210,7 @@ type Config struct {
 
 	// QueueSidecarTokenAudiences is a set of strings defining required tokens  - each string represent the token audience
 	// used by the queue proxy sidecar container to create tokens for qpoptions.
-	QueueSidecarTokenAudiences sets.String
+	QueueSidecarTokenAudiences sets.Set[string]
 
 	// QueueSidecarRootCA is a root certificate to be trusted by the queue proxy sidecar  qpoptions.
 	QueueSidecarRootCA string

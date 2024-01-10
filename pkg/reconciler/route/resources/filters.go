@@ -30,7 +30,7 @@ func IsClusterLocalService(svc *corev1.Service) bool {
 
 // ExcludedAnnotations is the set of annotations that should not propagate to the
 // Ingress or Certificate Resources
-var ExcludedAnnotations = sets.NewString(
+var ExcludedAnnotations = sets.New[string](
 	corev1.LastAppliedConfigAnnotation,
 
 	// We're probably never going to drop support for the older annotation casing (camelCase)

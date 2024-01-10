@@ -111,7 +111,7 @@ func (c *Reconciler) reconcileIngress(
 func (c *Reconciler) deleteOrphanedServices(ctx context.Context, r *v1.Route, activeServices []resources.ServicePair) error {
 	ns := r.Namespace
 
-	active := make(sets.String, len(activeServices))
+	active := make(sets.Set[string], len(activeServices))
 
 	for _, service := range activeServices {
 		active.Insert(service.Service.Name)
@@ -154,7 +154,7 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 	recorder := controller.GetEventRecorder(ctx)
 	ns := route.Namespace
 	services := make([]resources.ServicePair, 0, len(targets))
-	names := make(sets.String, len(targets))
+	names := make(sets.Set[string], len(targets))
 
 	// Note: this is done in order for the tests to be
 	// deterministic since they assert creations in order
@@ -162,7 +162,7 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 		names.Insert(name)
 	}
 
-	for _, name := range names.List() {
+	for _, name := range sets.List(names) {
 		desiredService, err := resources.MakeK8sPlaceholderService(ctx, route, name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to construct placeholder k8s service: %w", err)

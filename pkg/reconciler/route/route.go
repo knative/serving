@@ -218,7 +218,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 	acmeChallenges := []netv1alpha1.HTTP01Challenge{}
 	desiredCerts := resources.MakeCertificates(r, domainToTagMap, certClass(ctx, r), domain)
 	for _, desiredCert := range desiredCerts {
-		dnsNames := sets.NewString(desiredCert.Spec.DNSNames...)
+		dnsNames := sets.New(desiredCert.Spec.DNSNames...)
 		// Look for a matching wildcard cert before provisioning a new one. This saves the
 		// the time required to provision a new cert and reduces the chances of hitting the
 		// Let's Encrypt API rate limits.
@@ -234,7 +234,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 				}
 				return nil, nil, err
 			}
-			dnsNames = sets.NewString(cert.Spec.DNSNames...)
+			dnsNames = sets.New(cert.Spec.DNSNames...)
 		}
 
 		// r.Status.URL is for the major domain, so only change if the cert is for
@@ -244,7 +244,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 		}
 		// TODO: we should only mark https for the public visible targets when
 		// we are able to configure visibility per target.
-		setTargetsScheme(&r.Status, dnsNames.List(), "https")
+		setTargetsScheme(&r.Status, sets.List(dnsNames), "https")
 
 		if cert.IsReady() {
 			if renewingCondition := cert.Status.GetCondition("Renewing"); renewingCondition != nil {
@@ -262,7 +262,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 				}
 			}
 			r.Status.MarkCertificateReady(cert.Name)
-			tls = append(tls, resources.MakeIngressTLS(cert, dnsNames.List()))
+			tls = append(tls, resources.MakeIngressTLS(cert, sets.List(dnsNames)))
 		} else {
 			acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
 			r.Status.MarkCertificateNotReady(cert)
@@ -276,7 +276,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 						Host:   host,
 					}
 				}
-				setTargetsScheme(&r.Status, dnsNames.List(), "http")
+				setTargetsScheme(&r.Status, sets.List(dnsNames), "http")
 				r.Status.MarkHTTPDowngrade(cert.Name)
 			}
 		}
@@ -520,7 +520,7 @@ func findMatchingWildcardCert(ctx context.Context, domains []string, certs []*ne
 }
 
 func wildcardCertMatches(ctx context.Context, domains []string, cert *netv1alpha1.Certificate) bool {
-	dnsNames := make(sets.String, len(cert.Spec.DNSNames))
+	dnsNames := make(sets.Set[string], len(cert.Spec.DNSNames))
 	logger := logging.FromContext(ctx)
 
 	for _, dns := range cert.Spec.DNSNames {

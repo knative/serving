@@ -39,7 +39,7 @@ import (
 // associated with images that aren't actually published to a registry, but
 // side-loaded into the cluster's container daemon via an operation like
 // `docker load` or `kind load`.
-var DigestResolutionExceptions = sets.NewString("kind.local", "ko.local", "dev.local")
+var DigestResolutionExceptions = sets.New("kind.local", "ko.local", "dev.local")
 
 // ValidateImageDigest validates the image digest.
 func ValidateImageDigest(t *testing.T, imageName string, imageDigest string) (bool, error) {
