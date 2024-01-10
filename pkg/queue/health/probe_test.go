@@ -35,7 +35,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	netheader "knative.dev/networking/pkg/http/header"
-	"knative.dev/pkg/ptr"
 )
 
 func TestTCPProbe(t *testing.T) {
@@ -270,7 +269,7 @@ func TestHTTPProbeResponseErrorFailure(t *testing.T) {
 	}
 }
 
-func TestGRPCProbeSuccessWithDefaultServiceName(t *testing.T) {
+func TestGRPCProbeSuccess(t *testing.T) {
 	// use ephemeral port to prevent port conflict
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -286,7 +285,7 @@ func TestGRPCProbeSuccessWithDefaultServiceName(t *testing.T) {
 	}()
 
 	assignedPort := lis.Addr().(*net.TCPAddr).Port
-	gRPCAction := newGRPCAction(t, assignedPort, "")
+	gRPCAction := newGRPCAction(t, assignedPort)
 	config := GRPCProbeConfigOptions{
 		Timeout:    time.Second,
 		GRPCAction: gRPCAction,
@@ -342,12 +341,11 @@ func newHTTPGetAction(t *testing.T, serverURL string) *corev1.HTTPGetAction {
 	}
 }
 
-func newGRPCAction(t *testing.T, port int, service string) *corev1.GRPCAction {
+func newGRPCAction(t *testing.T, port int) *corev1.GRPCAction {
 	t.Helper()
 
 	return &corev1.GRPCAction{
-		Port:    int32(port),
-		Service: ptr.String(service),
+		Port: int32(port),
 	}
 }
 

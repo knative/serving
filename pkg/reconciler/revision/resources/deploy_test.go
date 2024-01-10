@@ -350,8 +350,7 @@ func withGRPCReadinessProbe(port int) *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			GRPC: &corev1.GRPCAction{
-				Port:    int32(port),
-				Service: nil,
+				Port: int32(port),
 			},
 		}}
 }
