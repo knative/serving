@@ -40,6 +40,11 @@ const (
 	ServicePortNameHTTPS = "https"
 )
 
+var (
+	// AppProtocolH2C is the name of the external port of the service for HTTP/2, from https://github.com/kubernetes/enhancements/tree/master/keps/sig-network/3726-standard-application-protocols#new-standard-protocols
+	AppProtocolH2C = "kubernetes.io/h2c"
+)
+
 // ServicePortName returns the port for the app level protocol.
 func ServicePortName(proto ProtocolType) string {
 	if proto == ProtocolH2C {
@@ -54,4 +59,12 @@ func ServicePort(proto ProtocolType) int {
 		return ServiceHTTP2Port
 	}
 	return ServiceHTTPPort
+}
+
+// AppProtocol returns the value for app level protocol based on the ProtocolType
+func AppProtocol(proto ProtocolType) *string {
+	if proto == ProtocolH2C {
+		return &AppProtocolH2C
+	}
+	return nil
 }
