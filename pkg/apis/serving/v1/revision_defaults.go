@@ -132,7 +132,7 @@ func (rs *RevisionSpec) applyDefault(ctx context.Context, container *corev1.Cont
 	// If there are multiple containers then default probes will be applied to the container where user specified PORT
 	// default probes will not be applied for non serving containers
 	if len(rs.PodSpec.Containers) == 1 || len(container.Ports) != 0 {
-		rs.applyReadinessProbes(container)
+		rs.applyProbesWithDefaults(container)
 		rs.applyGRPCProbeDefaults(container)
 	}
 
@@ -154,7 +154,7 @@ func (rs *RevisionSpec) applyDefault(ctx context.Context, container *corev1.Cont
 	}
 }
 
-func (*RevisionSpec) applyReadinessProbes(container *corev1.Container) {
+func (*RevisionSpec) applyProbesWithDefaults(container *corev1.Container) {
 	if container.ReadinessProbe == nil {
 		container.ReadinessProbe = &corev1.Probe{}
 	}
