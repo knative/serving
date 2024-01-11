@@ -66,7 +66,7 @@ func GetAllDomainsAndTags(ctx context.Context, r *v1.Route, names []string, visi
 }
 
 // GetDomainsForVisibility return all domains for the specified visibility.
-func GetDomainsForVisibility(ctx context.Context, targetName string, r *v1.Route, visibility netv1alpha1.IngressVisibility) (sets.String, error) {
+func GetDomainsForVisibility(ctx context.Context, targetName string, r *v1.Route, visibility netv1alpha1.IngressVisibility) (sets.Set[string], error) {
 	hostname, err := HostnameFromTemplate(ctx, r.Name, targetName)
 	if err != nil {
 		return nil, err
@@ -82,9 +82,9 @@ func GetDomainsForVisibility(ctx context.Context, targetName string, r *v1.Route
 	}
 	domains := []string{domain}
 	if isClusterLocal {
-		domains = ingress.ExpandedHosts(sets.NewString(domains...)).List()
+		domains = sets.List(ingress.ExpandedHosts(sets.New(domains...)))
 	}
-	return sets.NewString(domains...), err
+	return sets.New(domains...), err
 }
 
 // DomainNameFromTemplate generates domain name base on the template specified in the `config-network` ConfigMap.

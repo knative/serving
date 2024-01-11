@@ -281,7 +281,7 @@ func TestGetDomainsForVisibility(t *testing.T) {
 		visibility     v1alpha1.IngressVisibility
 		domainTemplate string
 		tagTemplate    string
-		want           sets.String
+		want           sets.Set[string]
 	}{
 		{
 			name:           "default template - no tag - cluster-local",
@@ -289,7 +289,7 @@ func TestGetDomainsForVisibility(t *testing.T) {
 			visibility:     v1alpha1.IngressVisibilityClusterLocal,
 			domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 			tagTemplate:    "{{.Name}}-{{.Tag}}",
-			want: sets.NewString(
+			want: sets.New(
 				"myroute.default",
 				"myroute.default.svc",
 				"myroute.default.svc.cluster.local",
@@ -300,7 +300,7 @@ func TestGetDomainsForVisibility(t *testing.T) {
 			visibility:     v1alpha1.IngressVisibilityExternalIP,
 			domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 			tagTemplate:    "{{.Name}}-{{.Tag}}",
-			want: sets.NewString(
+			want: sets.New(
 				"myroute.default.example.com",
 			),
 		}, {
@@ -309,7 +309,7 @@ func TestGetDomainsForVisibility(t *testing.T) {
 			visibility:     v1alpha1.IngressVisibilityClusterLocal,
 			domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 			tagTemplate:    "{{.Name}}-{{.Tag}}",
-			want: sets.NewString(
+			want: sets.New(
 				"myroute-test.default",
 				"myroute-test.default.svc",
 				"myroute-test.default.svc.cluster.local",
@@ -320,7 +320,7 @@ func TestGetDomainsForVisibility(t *testing.T) {
 			visibility:     v1alpha1.IngressVisibilityExternalIP,
 			domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 			tagTemplate:    "{{.Name}}-{{.Tag}}",
-			want: sets.NewString(
+			want: sets.New(
 				"myroute-test.default.example.com",
 			),
 		}, {
@@ -329,7 +329,7 @@ func TestGetDomainsForVisibility(t *testing.T) {
 			visibility:     v1alpha1.IngressVisibilityClusterLocal,
 			domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 			tagTemplate:    "{{.Tag}}-{{.Name}}",
-			want: sets.NewString(
+			want: sets.New(
 				"myroute.default",
 				"myroute.default.svc",
 				"myroute.default.svc.cluster.local",
@@ -340,7 +340,7 @@ func TestGetDomainsForVisibility(t *testing.T) {
 			visibility:     v1alpha1.IngressVisibilityExternalIP,
 			domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 			tagTemplate:    "{{.Tag}}-{{.Name}}",
-			want: sets.NewString(
+			want: sets.New(
 				"myroute.default.example.com",
 			),
 		}, {
@@ -349,7 +349,7 @@ func TestGetDomainsForVisibility(t *testing.T) {
 			visibility:     v1alpha1.IngressVisibilityClusterLocal,
 			domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 			tagTemplate:    "{{.Tag}}-{{.Name}}",
-			want: sets.NewString(
+			want: sets.New(
 				"test-myroute.default",
 				"test-myroute.default.svc",
 				"test-myroute.default.svc.cluster.local",
@@ -360,7 +360,7 @@ func TestGetDomainsForVisibility(t *testing.T) {
 			visibility:     v1alpha1.IngressVisibilityExternalIP,
 			domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 			tagTemplate:    "{{.Tag}}-{{.Name}}",
-			want: sets.NewString(
+			want: sets.New(
 				"test-myroute.default.example.com",
 			),
 		},

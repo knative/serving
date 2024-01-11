@@ -40,7 +40,7 @@ var (
 		"v1-current.default.example.com": "current",
 	}
 	domain       = "example.com"
-	localDomains = sets.NewString("hello.namespace", "hello.namespace.svc", "hello.namespace.svc.cluster.local")
+	localDomains = sets.New("hello.namespace", "hello.namespace.svc", "hello.namespace.svc.cluster.local")
 	route        = Route("default", "route", WithRouteUID("12345"))
 )
 
@@ -155,7 +155,7 @@ func TestMakeClusterLocalCertificateNoTag(t *testing.T) {
 			},
 		},
 		Spec: netv1alpha1.CertificateSpec{
-			DNSNames:   localDomains.List(),
+			DNSNames:   sets.List(localDomains),
 			Domain:     "svc.cluster.local",
 			SecretName: "route-12345-local",
 		},
@@ -181,7 +181,7 @@ func TestMakeClusterLocalCertificateWithTag(t *testing.T) {
 			},
 		},
 		Spec: netv1alpha1.CertificateSpec{
-			DNSNames:   localDomains.List(),
+			DNSNames:   sets.List(localDomains),
 			Domain:     "svc.cluster.local",
 			SecretName: "route-12345-73204161-local",
 		},

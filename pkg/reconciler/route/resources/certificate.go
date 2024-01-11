@@ -88,7 +88,7 @@ func MakeCertificates(route *v1.Route, domainTagMap map[string]string, certClass
 
 // MakeClusterLocalCertificate creates a Knative Certificate
 // for cluster-local-domain-tls.
-func MakeClusterLocalCertificate(route *v1.Route, tag string, domains sets.String, certClass string) *networkingv1alpha1.Certificate {
+func MakeClusterLocalCertificate(route *v1.Route, tag string, domains sets.Set[string], certClass string) *networkingv1alpha1.Certificate {
 	domainsOrdered := make(sort.StringSlice, 0, len(domains))
 	for dnsName := range domains {
 		domainsOrdered = append(domainsOrdered, dnsName)
