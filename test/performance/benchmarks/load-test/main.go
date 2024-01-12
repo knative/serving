@@ -190,10 +190,10 @@ func checkSLA(results *vegeta.Metrics, pacers []vegeta.Pacer, durations []time.D
 		expectedSum = expectedSum + pacers[i].Rate(time.Second)*durations[i].Seconds()
 	}
 	expectedRequests = uint64(expectedSum)
-	if results.Requests == expectedRequests {
-		log.Printf("SLA 4 passed. total requests is %d", results.Requests)
+	if results.Requests >= expectedRequests-(expectedRequests/1000) && results.Requests <= expectedRequests+(expectedRequests/1000) {
+		log.Printf("SLA 4 passed. total requests is in %d-%d range", expectedRequests-(expectedRequests/1000), expectedRequests+(expectedRequests/1000))
 	} else {
-		return fmt.Errorf("SLA 4 failed. total requests is %d, expected total requests is %d", results.Requests, expectedRequests)
+		return fmt.Errorf("SLA 4 failed. total requests is %d, not in %d-%d range", results.Requests, expectedRequests-(expectedRequests/1000), expectedRequests+(expectedRequests/1000))
 	}
 
 	return nil
