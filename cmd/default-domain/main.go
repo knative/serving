@@ -81,7 +81,7 @@ func lookupConfigMap(ctx context.Context, kubeClient kubernetes.Interface, name 
 	return kubeClient.CoreV1().ConfigMaps(system.Namespace()).Get(ctx, name, metav1.GetOptions{})
 }
 
-func findGatewayAddress(ctx context.Context, kubeclient kubernetes.Interface, client *netclient.Clientset) (*corev1.LoadBalancerIngress, error) {
+func findGatewayAddress(ctx context.Context, kubeclient kubernetes.Interface, client *netclient.Clientset, logging *zap.SugaredLogger) (*corev1.LoadBalancerIngress, error) {
 	netCM, err := lookupConfigMap(ctx, kubeclient, netcfg.ConfigMapName)
 	if err != nil {
 		return nil, err
@@ -154,6 +154,9 @@ func findGatewayAddress(ctx context.Context, kubeclient kubernetes.Interface, cl
 		if err != nil {
 			return true, err
 		}
+		if len(svc.Status.LoadBalancer.Ingress) == 0 {
+			logging.Warnf("Service %s/%s does not have an ingress IP assigned to its LoadBalancer yet", namespace, name)
+		}
 		return len(svc.Status.LoadBalancer.Ingress) != 0, nil
 	}); err != nil {
 		return nil, err
@@ -196,7 +199,7 @@ func main() {
 	go server.ListenAndServe()
 
 	// Determine the address of the gateway service.
-	address, err := findGatewayAddress(ctx, kubeClient, client)
+	address, err := findGatewayAddress(ctx, kubeClient, client, logger)
 	if err != nil {
 		logger.Fatalw("Error finding gateway address", zap.Error(err))
 	}
