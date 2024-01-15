@@ -159,7 +159,7 @@ LOOP:
 	influxReporter.AddDataPointsForMetrics(metricResults, benchmarkName)
 	_ = vegeta.NewTextReporter(metricResults).Report(os.Stdout)
 
-	if err := checkSLA(metricResults, t.slaMin, t.slaMax); err != nil {
+	if err := checkSLA(metricResults, t.slaMin, t.slaMax, rate, *duration); err != nil {
 		// make sure to still write the stats
 		influxReporter.FlushAndShutdown()
 		log.Fatalf(err.Error())
@@ -168,13 +168,20 @@ LOOP:
 	log.Println("Dataplane probe test finished")
 }
 
-func checkSLA(results *vegeta.Metrics, slaMin time.Duration, slaMax time.Duration) error {
+func checkSLA(results *vegeta.Metrics, slaMin time.Duration, slaMax time.Duration, rate vegeta.ConstantPacer, duration time.Duration) error {
 	// SLA 1: The p95 latency hitting the target has to be between the range defined
 	// in the target map on top.
 	if results.Latencies.P95 >= slaMin && results.Latencies.P95 <= slaMax {
 		log.Printf("SLA 1 passed. P95 latency is in %d-%dms time range", slaMin, slaMax)
 	} else {
 		return fmt.Errorf("SLA 1 failed. P95 latency is not in %d-%dms time range: %s", slaMin, slaMax, results.Latencies.P95)
+	}
+
+	// SLA 2: making sure the defined total request is met
+	if results.Requests == uint64(rate.Rate(time.Second)*duration.Seconds()) {
+		log.Printf("SLA 2 passed. vegeta total request is %d", results.Requests)
+	} else {
+		return fmt.Errorf("SLA 2 failed. vegeta total request is %d, expected total request is %f", results.Requests, rate.Rate(time.Second)*duration.Seconds())
 	}
 
 	return nil
