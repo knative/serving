@@ -44,9 +44,6 @@ var (
 		"/",
 		"/dev",
 		"/dev/log", // Should be a domain socket
-		"/tmp",
-		"/var",
-		"/var/log",
 	)
 
 	reservedContainerNames = sets.New(
