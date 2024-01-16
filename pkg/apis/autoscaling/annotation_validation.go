@@ -60,7 +60,8 @@ func ValidateAnnotations(ctx context.Context, config *autoscalerconfig.Config, a
 		Also(validateScaleDownDelay(anns)).
 		Also(validateMetric(config, anns)).
 		Also(validateAlgorithm(anns)).
-		Also(validateInitialScale(config, anns))
+		Also(validateInitialScale(config, anns)).
+		Also(validateMaxInitialScale(anns))
 }
 
 func validateClass(m map[string]string) *apis.FieldError {
@@ -274,4 +275,29 @@ func validateInitialScale(config *autoscalerconfig.Config, m map[string]string) 
 		}
 	}
 	return nil
+}
+
+func validateMaxInitialScale(m map[string]string) *apis.FieldError {
+
+	max, errs := getIntGE0(m, MaxScaleAnnotation)
+	initial, err := getIntGE0(m, InitialScaleAnnotation)
+
+	if errs != nil && err != nil {
+		errs = errs.Also(err)
+		return errs
+	} else if errs != nil {
+		return errs
+	} else if err != nil {
+		return err
+	}
+
+	if initial > max && max > 0 {
+		return &apis.FieldError{
+			Message: fmt.Sprintf("max-scale=%d is less than initial-scale=%d", max, initial),
+			Paths:   []string{MaxScaleAnnotationKey, InitialScaleAnnotationKey},
+		}
+	}
+
+	return nil
+
 }
