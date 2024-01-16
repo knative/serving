@@ -803,7 +803,6 @@ func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment
 func withHTTP2Priv(svc *corev1.Service) {
 	svc.Spec.Ports[0].Name = "http2"
 	svc.Spec.Ports[0].TargetPort = intstr.FromInt(networking.BackendHTTP2Port)
-	svc.Spec.Ports[0].AppProtocol = &pkgnet.AppProtocolH2C
 
 	svc.Spec.Ports[5].Name = "http2-istio"
 	svc.Spec.Ports[5].Port = networking.BackendHTTP2Port
@@ -813,7 +812,6 @@ func withHTTP2Priv(svc *corev1.Service) {
 func withHTTP2(svc *corev1.Service) {
 	svc.Spec.Ports[0].Port = pkgnet.ServiceHTTP2Port
 	svc.Spec.Ports[0].Name = "http2"
-	svc.Spec.Ports[0].AppProtocol = &pkgnet.AppProtocolH2C
 	svc.Spec.Ports[0].TargetPort = intstr.FromInt(networking.BackendHTTP2Port)
 }
 

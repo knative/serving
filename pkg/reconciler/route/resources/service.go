@@ -60,10 +60,9 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1.Route, tagName str
 			ExternalName:    domainName,
 			SessionAffinity: corev1.ServiceAffinityNone,
 			Ports: []corev1.ServicePort{{
-				Name:        netapi.ServicePortNameH2C,
-				AppProtocol: &netapi.AppProtocolH2C,
-				Port:        int32(80),
-				TargetPort:  intstr.FromInt(80),
+				Name:       netapi.ServicePortNameH2C,
+				Port:       int32(80),
+				TargetPort: intstr.FromInt(80),
 			}},
 		},
 	}, nil
@@ -102,10 +101,9 @@ func MakeK8sService(ctx context.Context, route *v1.Route, tagName string, ingres
 			ObjectMeta: makeServiceObjectMeta(hostname, route),
 			Spec: corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{{
-					Name:        netapi.ServicePortNameH2C,
-					AppProtocol: &netapi.AppProtocolH2C,
-					Port:        int32(80),
-					TargetPort:  intstr.FromInt(80),
+					Name:       netapi.ServicePortNameH2C,
+					Port:       int32(80),
+					TargetPort: intstr.FromInt(80),
 				}},
 			},
 		},
@@ -130,9 +128,8 @@ func MakeK8sService(ctx context.Context, route *v1.Route, tagName string, ingres
 					IP: balancer.IP,
 				}},
 				Ports: []corev1.EndpointPort{{
-					Name:        netapi.ServicePortNameH2C,
-					AppProtocol: &netapi.AppProtocolH2C,
-					Port:        int32(80),
+					Name: netapi.ServicePortNameH2C,
+					Port: int32(80),
 				}},
 			}},
 		}
