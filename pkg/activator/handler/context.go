@@ -54,3 +54,15 @@ func RevisionFrom(ctx context.Context) *v1.Revision {
 func RevIDFrom(ctx context.Context) types.NamespacedName {
 	return ctx.Value(revCtxKey{}).(*revCtx).revID
 }
+
+func RevAnnotation(ctx context.Context, annotation string) string {
+	v := ctx.Value(revCtxKey{})
+	if v == nil {
+		return ""
+	}
+	rev := v.(*revCtx).revision
+	if rev != nil && rev.GetAnnotations() != nil {
+		return rev.GetAnnotations()[annotation]
+	}
+	return ""
+}

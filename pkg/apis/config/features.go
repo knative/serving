@@ -46,6 +46,9 @@ const (
 
 	// DryRunFeatureKey gates the podspec dryrun feature and runs with the value 'enabled'
 	DryRunFeatureKey = "features.knative.dev/podspec-dryrun"
+
+	// AllowHTTPFullDuplexFeatureKey gates the use of http1 full duplex per workload
+	AllowHTTPFullDuplexFeatureKey = "features.knative.dev/http-full-duplex"
 )
 
 func defaultFeaturesConfig() *Features {

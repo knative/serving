@@ -53,6 +53,11 @@ func NewResponseRecorder(w http.ResponseWriter, responseCode int) *ResponseRecor
 	}
 }
 
+// Unwrap returns the underlying writer
+func (rr *ResponseRecorder) Unwrap() http.ResponseWriter {
+	return rr.writer
+}
+
 // Flush flushes the buffer to the client.
 func (rr *ResponseRecorder) Flush() {
 	rr.writer.(http.Flusher).Flush()

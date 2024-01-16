@@ -391,6 +391,16 @@ func TestMakeQueueContainer(t *testing.T) {
 			})
 		}),
 	}, {
+		name: "HTTP1 full duplex enabled",
+		rev: revision("bar", "foo",
+			withContainers(containers),
+			WithRevisionAnnotations(map[string]string{apicfg.AllowHTTPFullDuplexFeatureKey: string(apicfg.Enabled)})),
+		want: queueContainer(func(c *corev1.Container) {
+			c.Env = env(map[string]string{
+				"ENABLE_HTTP_FULL_DUPLEX": "true",
+			})
+		}),
+	}, {
 		name: "set root ca",
 		rev: revision("bar", "foo",
 			withContainers(containers)),
@@ -1041,6 +1051,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 var defaultEnv = map[string]string{
 	"CONTAINER_CONCURRENCY":                            "0",
 	"ENABLE_HTTP2_AUTO_DETECTION":                      "false",
+	"ENABLE_HTTP_FULL_DUPLEX":                          "false",
 	"ENABLE_PROFILING":                                 "false",
 	"METRICS_DOMAIN":                                   metrics.Domain(),
 	"METRICS_COLLECTOR_ADDRESS":                        "",
