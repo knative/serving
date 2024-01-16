@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"runtime"
 	"sync"
 	"testing"
 
@@ -125,6 +126,10 @@ func BenchmarkHandlerChain(b *testing.B) {
 // The test uses the reproducer in https://github.com/golang/go/issues/40747#issuecomment-733552061.
 // We enable full duplex by setting the annotation `features.knative.dev/http-full-duplex` at the revision level.
 func TestActivatorChainHandlerWithFullDuplex(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("Testing this on Mac requires to loosen some restrictions, see https://github.com/knative/serving/pull/14568#issuecomment-1893151202 for more")
+	}
+
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	rev := revision(testNamespace, testRevName)
 	defer reset()
