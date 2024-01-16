@@ -136,6 +136,7 @@ func newControllerWithOptions(
 	}
 	deploymentInformer.Informer().AddEventHandler(handleMatchingControllers)
 	paInformer.Informer().AddEventHandler(handleMatchingControllers)
+	certificateInformer.Informer().AddEventHandler(handleMatchingControllers)
 
 	// We don't watch for changes to Image because we don't incorporate any of its
 	// properties into our own status and should work completely in the absence of

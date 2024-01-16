@@ -73,7 +73,7 @@ func getCertificateClass(cm *corev1.ConfigMap) string {
 
 func getCertManagerCA(clients *test.Clients) (*corev1.Secret, error) {
 	var secret *corev1.Secret
-	err := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), test.PollInterval, test.PollTimeout, true, func(context.Context) (bool, error) {
 		caSecret, err := clients.KubeClient.CoreV1().Secrets(certManagerNamespace).Get(context.Background(), certManagerCASecret, metav1.GetOptions{})
 		if err != nil {
 			return false, err
