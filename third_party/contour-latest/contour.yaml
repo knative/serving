@@ -509,6 +509,11 @@ spec:
                           type: string
                       type: object
                   type: object
+                featureFlags:
+                  description: 'FeatureFlags defines toggle to enable new contour features. Available toggles are: useEndpointSlices - configures contour to fetch endpoint data from k8s endpoint slices. defaults to false and reading endpoint data from the k8s endpoints.'
+                  items:
+                    type: string
+                  type: array
                 gateway:
                   description: Gateway contains parameters for the gateway-api Gateway that Contour is configured to serve traffic.
                   properties:
@@ -2278,6 +2283,10 @@ spec:
                             type: object
                           type: array
                       type: object
+                    overloadMaxHeapSize:
+                      description: 'OverloadMaxHeapSize defines the maximum heap memory of the envoy controlled by the overload manager. When the value is greater than 0, the overload manager is enabled, and when envoy reaches 95% of the maximum heap size, it performs a shrink heap operation, When it reaches 98% of the maximum heap size, Envoy Will stop accepting requests. More info: https://projectcontour.io/docs/main/config/overload-manager/'
+                      format: int64
+                      type: integer
                     podAnnotations:
                       additionalProperties:
                         type: string
@@ -2587,6 +2596,11 @@ spec:
                               type: string
                           type: object
                       type: object
+                    featureFlags:
+                      description: 'FeatureFlags defines toggle to enable new contour features. Available toggles are: useEndpointSlices - configures contour to fetch endpoint data from k8s endpoint slices. defaults to false and reading endpoint data from the k8s endpoints.'
+                      items:
+                        type: string
+                      type: array
                     gateway:
                       description: Gateway contains parameters for the gateway-api Gateway that Contour is configured to serve traffic.
                       properties:
@@ -3954,7 +3968,7 @@ spec:
                             type: object
                         type: object
                       requestHeadersPolicy:
-                        description: The policy for managing request headers during proxying.
+                        description: "The policy for managing request headers during proxying. \n You may dynamically rewrite the Host header to be forwarded upstream to the content of a request header using the below format \"%REQ(X-Header-Name)%\". If the value of the header is empty, it is ignored. \n *NOTE: Pay attention to the potential security implications of using this option. Provided header must come from trusted source. \n **NOTE: The header rewrite is only done while forwarding and has no bearing on the routing decision."
                         properties:
                           remove:
                             description: Remove specifies a list of HTTP header names to remove.
@@ -5366,7 +5380,7 @@ rules:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: contour-certgen-v1-26-1
+  name: contour-certgen-v1-27-0
   namespace: contour-external
   labels:
     networking.knative.dev/ingress-provider: contour
@@ -5378,7 +5392,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: ghcr.io/projectcontour/contour:v1.26.1
+          image: ghcr.io/projectcontour/contour:v1.27.0
           imagePullPolicy: IfNotPresent
           command:
             - contour
@@ -5433,6 +5447,14 @@ rules:
       - namespaces
       - secrets
       - services
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - discovery.k8s.io
+    resources:
+      - endpointslices
     verbs:
       - get
       - list
@@ -5613,7 +5635,7 @@ spec:
             - --config-path=/config/contour.yaml
           command:
             - contour
-          image: ghcr.io/projectcontour/contour:v1.26.1
+          image: ghcr.io/projectcontour/contour:v1.27.0
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -5702,7 +5724,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: ghcr.io/projectcontour/contour:v1.26.1
+          image: ghcr.io/projectcontour/contour:v1.27.0
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -5730,7 +5752,7 @@ spec:
             - --log-level info
           command:
             - envoy
-          image: docker.io/envoyproxy/envoy:v1.27.2
+          image: docker.io/envoyproxy/envoy:v1.28.0
           imagePullPolicy: IfNotPresent
           name: envoy
           env:
@@ -5792,7 +5814,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: ghcr.io/projectcontour/contour:v1.26.1
+          image: ghcr.io/projectcontour/contour:v1.27.0
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
@@ -6091,7 +6113,7 @@ rules:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: contour-certgen-v1-26-1
+  name: contour-certgen-v1-27-0
   namespace: contour-internal
   labels:
     networking.knative.dev/ingress-provider: contour
@@ -6103,7 +6125,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: ghcr.io/projectcontour/contour:v1.26.1
+          image: ghcr.io/projectcontour/contour:v1.27.0
           imagePullPolicy: IfNotPresent
           command:
             - contour
@@ -6256,7 +6278,7 @@ spec:
             - --config-path=/config/contour.yaml
           command:
             - contour
-          image: ghcr.io/projectcontour/contour:v1.26.1
+          image: ghcr.io/projectcontour/contour:v1.27.0
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -6345,7 +6367,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: ghcr.io/projectcontour/contour:v1.26.1
+          image: ghcr.io/projectcontour/contour:v1.27.0
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -6373,7 +6395,7 @@ spec:
             - --log-level info
           command:
             - envoy
-          image: docker.io/envoyproxy/envoy:v1.27.2
+          image: docker.io/envoyproxy/envoy:v1.28.0
           imagePullPolicy: IfNotPresent
           name: envoy
           env:
@@ -6435,7 +6457,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: ghcr.io/projectcontour/contour:v1.26.1
+          image: ghcr.io/projectcontour/contour:v1.27.0
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
