@@ -26,7 +26,7 @@ function stage_gateway_api_resources() {
   mkdir -p "${gateway_dir}"
 
   # TODO: if we switch to istio 1.12 we can reuse stage_istio_head
-  curl -sL https://istio.io/downloadIstioctl | ISTIO_VERSION=1.17.2 sh -
+  curl -sL https://istio.io/downloadIstioctl | ISTIO_VERSION=1.20.2 sh -
 
   local params="--set values.global.proxy.clusterDomain=${CLUSTER_DOMAIN}"
 
