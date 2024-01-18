@@ -54,9 +54,10 @@ var (
 	}
 
 	expectedPorts = []corev1.ServicePort{{
-		Name:       netapi.ServicePortNameH2C,
-		Port:       int32(80),
-		TargetPort: intstr.FromInt(80),
+		Name:        netapi.ServicePortNameH2C,
+		AppProtocol: &netapi.AppProtocolH2C,
+		Port:        int32(80),
+		TargetPort:  intstr.FromInt(80),
 	}}
 )
 
@@ -123,8 +124,9 @@ func TestMakeK8SService(t *testing.T) {
 				IP: "some-ip",
 			}},
 			Ports: []corev1.EndpointPort{{
-				Name: netapi.ServicePortNameH2C,
-				Port: int32(80),
+				Name:        netapi.ServicePortNameH2C,
+				AppProtocol: &netapi.AppProtocolH2C,
+				Port:        int32(80),
 			}},
 		}},
 	}, {
@@ -200,8 +202,9 @@ func TestMakeK8SService(t *testing.T) {
 				IP: "some-ip",
 			}},
 			Ports: []corev1.EndpointPort{{
-				Name: netapi.ServicePortNameH2C,
-				Port: int32(80),
+				Name:        netapi.ServicePortNameH2C,
+				AppProtocol: &netapi.AppProtocolH2C,
+				Port:        int32(80),
 			}},
 		}},
 	}, {
@@ -392,9 +395,10 @@ func TestMakePlaceholderService(t *testing.T) {
 				ExternalName:    tt.expectedExternalName,
 				SessionAffinity: corev1.ServiceAffinityNone,
 				Ports: []corev1.ServicePort{{
-					Name:       netapi.ServicePortNameH2C,
-					Port:       int32(80),
-					TargetPort: intstr.FromInt(80),
+					Name:        netapi.ServicePortNameH2C,
+					AppProtocol: &netapi.AppProtocolH2C,
+					Port:        int32(80),
+					TargetPort:  intstr.FromInt(80),
 				}},
 			}
 
