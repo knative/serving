@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
+	"knative.dev/pkg/tracker"
 	networkingaccessor "knative.dev/serving/pkg/reconciler/accessor/networking"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -229,7 +230,7 @@ func (c *Reconciler) reconcileQueueProxyCertificate(ctx context.Context, rev *v1
 	}
 
 	desiredCert := resources.MakeQueueProxyCertificate(owningNs, certClass)
-	_, err = networkingaccessor.ReconcileCertificate(ctx, owningNs, desiredCert, c)
+	cert, err := networkingaccessor.ReconcileCertificate(ctx, owningNs, desiredCert, c)
 	if err != nil {
 		return fmt.Errorf("failed to reconcile Knative certificate %s/%s: %w", ns, networking.ServingCertName, err)
 	}
@@ -247,6 +248,18 @@ func (c *Reconciler) reconcileQueueProxyCertificate(ctx context.Context, rev *v1
 	}
 	if _, ok := secret.Data[certificates.PrivateKeyName]; !ok {
 		return fmt.Errorf("certificate in secret %s/%s is not ready yet: private key not found", ns, networking.ServingCertName)
+	}
+
+	// Tell our trackers to reconcile Revisions when the KnativeCertificate changes
+	gvk := cert.GetGroupVersionKind()
+	apiVersion, kind := gvk.ToAPIVersionAndKind()
+	if err := c.tracker.TrackReference(tracker.Reference{
+		APIVersion: apiVersion,
+		Kind:       kind,
+		Namespace:  cert.GetNamespace(),
+		Name:       cert.GetName(),
+	}, rev); err != nil {
+		return err
 	}
 
 	return nil

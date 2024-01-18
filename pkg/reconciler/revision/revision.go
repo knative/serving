@@ -32,6 +32,7 @@ import (
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	cachingclientset "knative.dev/caching/pkg/client/clientset/versioned"
 	networkingclientset "knative.dev/networking/pkg/client/clientset/versioned"
+	"knative.dev/pkg/tracker"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
@@ -66,6 +67,7 @@ type Reconciler struct {
 	deploymentLister    appsv1listers.DeploymentLister
 	certificateLister   networkinglisters.CertificateLister
 
+	tracker  tracker.Interface
 	resolver resolver
 }
 
