@@ -110,9 +110,9 @@ func TestNewConfig(t *testing.T) {
 						"version": "beta",
 					},
 				},
-				Wildcard: true,
+				Type: DomainTypeWildcard,
 			},
-			"default.com": {Selector: &LabelSelector{}, Wildcard: true},
+			"default.com": {Selector: &LabelSelector{}, Type: DomainTypeWildcard},
 		},
 	}
 	c, err := NewDomainFromConfigMap(&corev1.ConfigMap{
@@ -121,8 +121,8 @@ func TestNewConfig(t *testing.T) {
 			Name:      DomainConfigName,
 		},
 		Data: map[string]string{
-			"test-domain.foo.com": "selector:\n  app: foo\nwildcard: false",
-			"bar.com":             "selector:\n  app: bar\n  version: beta\nwildcard: true",
+			"test-domain.foo.com": "selector:\n  app: foo\n",
+			"bar.com":             "selector:\n  app: bar\n  version: beta\ntype: wildcard",
 			"default.com":         "",
 		},
 	})
@@ -159,7 +159,7 @@ func TestLookupDomainForLabels(t *testing.T) {
 					},
 				},
 			},
-			"default.com": {Selector: &LabelSelector{}, Wildcard: true},
+			"default.com": {Selector: &LabelSelector{}, Type: DomainTypeWildcard},
 		},
 	}
 

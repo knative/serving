@@ -40,6 +40,7 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/nscert/config"
 	"knative.dev/serving/pkg/reconciler/nscert/resources"
+	domaincfg "knative.dev/serving/pkg/reconciler/route/config"
 )
 
 // Reconciler implements controller.Reconciler for Certificate resources.
@@ -91,10 +92,10 @@ func (c *reconciler) ReconcileKind(ctx context.Context, ns *corev1.Namespace) pk
 	// Process the domains which should have wildcard certs
 	err = nil
 	for k, v := range cfg.Domain.Domains {
-		if !v.Wildcard {
+		if v.Type != domaincfg.DomainTypeWildcard {
 			continue
 		}
-		certErr := c.createUpdateWildcardCert(ctx, ns, existingCerts, k)
+		certErr := c.reconcileWildcardCert(ctx, ns, existingCerts, k)
 		// Update err if only if nil to return the first error encountered
 		if err == nil {
 			err = certErr
@@ -105,7 +106,7 @@ func (c *reconciler) ReconcileKind(ctx context.Context, ns *corev1.Namespace) pk
 }
 
 // Create or update a wildcard cert for the given domain in the given namespace.
-func (c *reconciler) createUpdateWildcardCert(
+func (c *reconciler) reconcileWildcardCert(
 	ctx context.Context,
 	ns *corev1.Namespace,
 	existingCerts []*v1alpha1.Certificate,

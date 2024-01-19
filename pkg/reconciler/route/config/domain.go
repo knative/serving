@@ -31,6 +31,8 @@ import (
 const (
 	// DomainConfigName is the config map name for the domain configuration.
 	DomainConfigName = "config-domain"
+	// Type for domains to generate namespace wildcard certs
+	DomainTypeWildcard = "wildcard"
 )
 
 var (
@@ -78,15 +80,15 @@ type DomainConfig struct {
 	// The label selector for the domain. If a route has labels matching a particular selector, it
 	// will use the corresponding domain. If multiple selectors match, we choose the most specific
 	// selector.
-	Selector *LabelSelector `json:"selector,omitempty"`
-	// If true, the domain will have a wildcard TLS certificate generated.
-	Wildcard bool `json:"wildcard"`
+	Selector *LabelSelector
+	// The type of domain, currently only supports wildcard or unset
+	Type string
 }
 
 // Internal only representation of domain config for unmarshalling, allows backwards compatibility
 type domainInternalConfig struct {
 	Selector map[string]string `json:"selector,omitempty"`
-	Wildcard bool              `json:"wildcard"`
+	Type     string            `json:"type"`
 }
 
 // NewDomainFromConfigMap creates a Domain from the supplied ConfigMap
@@ -104,15 +106,15 @@ func NewDomainFromConfigMap(configMap *corev1.ConfigMap) (*Domain, error) {
 		}
 		if len(internalConfig.Selector) == 0 {
 			hasDefault = true
-			internalConfig.Wildcard = true
+			internalConfig.Type = DomainTypeWildcard
 		}
 		c.Domains[k] = DomainConfig{
 			Selector: &LabelSelector{Selector: internalConfig.Selector},
-			Wildcard: internalConfig.Wildcard,
+			Type:     internalConfig.Type,
 		}
 	}
 	if !hasDefault {
-		c.Domains[DefaultDomain] = DomainConfig{Selector: &LabelSelector{}, Wildcard: true}
+		c.Domains[DefaultDomain] = DomainConfig{Selector: &LabelSelector{}, Type: DomainTypeWildcard}
 	}
 	return &c, nil
 }
