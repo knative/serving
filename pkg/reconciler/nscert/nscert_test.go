@@ -623,7 +623,7 @@ func networkConfig() *netcfg.Config {
 func domainConfig() *routecfg.Domain {
 	domainConfig := &routecfg.Domain{
 		Domains: map[string]routecfg.DomainConfig{
-			"example.com": {},
+			"example.com": {Type: routecfg.DomainTypeWildcard},
 		},
 	}
 	return domainConfig
