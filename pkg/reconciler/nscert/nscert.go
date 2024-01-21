@@ -86,23 +86,27 @@ func (c *reconciler) ReconcileKind(ctx context.Context, ns *corev1.Namespace) pk
 		return fmt.Errorf("invalid label selector for namespaces: %w", err)
 	}
 	if !selector.Matches(kubelabels.Set(ns.ObjectMeta.Labels)) {
-		return c.deleteNamespaceCerts(ctx, ns, existingCerts)
+		return c.deleteNamespaceCerts(ctx, ns, existingCerts, sets.New[string]())
 	}
 
-	// Process the domains which should have wildcard certs
-	err = nil
+	// Collect the domains which should have wildcard certs
+	wildcardDomains := sets.New[string]()
 	for k, v := range cfg.Domain.Domains {
 		if v.Type != domaincfg.DomainTypeWildcard {
 			continue
 		}
-		certErr := c.reconcileWildcardCert(ctx, ns, existingCerts, k)
-		// Update err if only if nil to return the first error encountered
-		if err == nil {
-			err = certErr
+		wildcardDomains.Insert(k)
+	}
+
+	for domain := range wildcardDomains {
+		err := c.reconcileWildcardCert(ctx, ns, existingCerts, domain)
+		if err != nil {
+			return err
 		}
 	}
 
-	return err
+	// Cleanup any certs which should no longer exist
+	return c.deleteNamespaceCerts(ctx, ns, existingCerts, wildcardDomains)
 }
 
 // Create or update a wildcard cert for the given domain in the given namespace.
@@ -164,18 +168,23 @@ func (c *reconciler) reconcileWildcardCert(
 	return nil
 }
 
-func (c *reconciler) deleteNamespaceCerts(ctx context.Context, ns *corev1.Namespace, certs []*v1alpha1.Certificate) error {
+func (c *reconciler) deleteNamespaceCerts(ctx context.Context, ns *corev1.Namespace, certs []*v1alpha1.Certificate, keepDomains sets.Set[string]) error {
 	recorder := controller.GetEventRecorder(ctx)
 	for _, cert := range certs {
-		if metav1.IsControlledBy(cert, ns) {
-			if err := c.client.NetworkingV1alpha1().Certificates(cert.Namespace).Delete(ctx, cert.Name, metav1.DeleteOptions{}); err != nil {
-				recorder.Eventf(cert, corev1.EventTypeNormal, "DeleteFailed",
-					"Failed to delete Knative Certificate %s/%s: %v", cert.Namespace, cert.Name, err)
-				return err
-			}
-			recorder.Eventf(cert, corev1.EventTypeNormal, "Deleted",
-				"Deleted Knative Certificate %s/%s", cert.Namespace, cert.Name)
+		if !metav1.IsControlledBy(cert, ns) {
+			continue
 		}
+		// Skip deleting certs for domains in keepDomains
+		if keepDomains.Has(cert.Labels[networking.WildcardCertDomainLabelKey]) {
+			continue
+		}
+		if err := c.client.NetworkingV1alpha1().Certificates(cert.Namespace).Delete(ctx, cert.Name, metav1.DeleteOptions{}); err != nil {
+			recorder.Eventf(cert, corev1.EventTypeNormal, "DeleteFailed",
+				"Failed to delete Knative Certificate %s/%s: %v", cert.Namespace, cert.Name, err)
+			return err
+		}
+		recorder.Eventf(cert, corev1.EventTypeNormal, "Deleted",
+			"Deleted Knative Certificate %s/%s", cert.Namespace, cert.Name)
 	}
 	return nil
 }
