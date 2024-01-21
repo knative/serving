@@ -135,7 +135,7 @@ func (c *reconciler) reconcileWildcardCert(
 
 	// If there is no matching cert find one previously created by this reconciler which may
 	// need to be updated.
-	existingCert, err := findNamespaceCert(ns, dnsName, existingCerts)
+	existingCert, err := findNamespaceCert(ns, domain, existingCerts)
 	if apierrs.IsNotFound(err) {
 		cert, err := c.client.NetworkingV1alpha1().Certificates(ns.Name).Create(ctx, desiredCert, metav1.CreateOptions{})
 		if err != nil {
@@ -227,7 +227,7 @@ func findNamespaceCert(ns *corev1.Namespace, domain string, certs []*v1alpha1.Ce
 		if !metav1.IsControlledBy(cert, ns) {
 			continue
 		}
-		if dnsNames := sets.NewString(cert.Spec.DNSNames...); dnsNames.Has(domain) {
+		if cert.Labels[networking.WildcardCertDomainLabelKey] == domain {
 			return cert, nil
 		}
 	}
