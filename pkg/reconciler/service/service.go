@@ -74,7 +74,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 
 	logger := logging.FromContext(ctx)
 
-	config, err := c.config(ctx, service)
+	config, err := c.Config(ctx, service)
 	if err != nil {
 		return err
 	}
@@ -125,7 +125,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkg
 	return nil
 }
 
-func (c *Reconciler) config(ctx context.Context, service *v1.Service) (*v1.Configuration, error) {
+func (c *Reconciler) Config(ctx context.Context, service *v1.Service) (*v1.Configuration, error) {
 	recorder := controller.GetEventRecorder(ctx)
 	configName := resourcenames.Configuration(service)
 	config, err := c.configurationLister.Configurations(service.Namespace).Get(configName)
