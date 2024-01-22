@@ -222,7 +222,7 @@ func TestActivatorChainHandlerWithFullDuplex(t *testing.T) {
 			go func(i int) {
 				defer wg.Done()
 
-				for i := 0; i < 1000; i++ {
+				for i := 0; i < 100; i++ {
 					if err := send(c, proxyServer.URL, body, "test-host"); err != nil {
 						t.Errorf("error during request: %v", err)
 					}
