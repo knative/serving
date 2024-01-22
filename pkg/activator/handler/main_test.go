@@ -203,6 +203,8 @@ func TestActivatorChainHandlerWithFullDuplex(t *testing.T) {
 	defer proxyServer.Close()
 
 	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.MaxIdleConnsPerHost = 10
+	transport.MaxIdleConns = 100
 
 	// Turning on this will hide the issue
 	transport.DisableKeepAlives = false
