@@ -52,10 +52,10 @@ aliases:
   - odacremolbap
   - pierDipi
   func-reviewers:
-  - gauron99
   - jrangelramos
   - nainaz
   func-writers:
+  - gauron99
   - jrangelramos
   - lance
   - lkingland
