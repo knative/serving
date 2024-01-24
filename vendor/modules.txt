@@ -1331,7 +1331,7 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/hack v0.0.0-20240111013919-e89096d74d85
+# knative.dev/hack v0.0.0-20240123162936-f3f03ac0ab1a
 ## explicit; go 1.18
 knative.dev/hack
 # knative.dev/networking v0.0.0-20240116081125-ce0738abf051
