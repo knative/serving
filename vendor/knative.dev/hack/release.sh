@@ -675,8 +675,8 @@ function set_latest_to_highest_semver() {
     abort "cannot get relase id from github"
   fi
   
-  hub_tool api --method PATCH "/repos/knative/serving/releases/$release_id" \
-    -F make_latest=true > /dev/null || abort "error settomg $last_version to 'latest'"
+  hub_tool api --method PATCH "/repos/${ORG_NAME}/${REPO_NAME}/releases/$release_id" \
+    -F make_latest=true > /dev/null || abort "error setting $last_version to 'latest'"
   echo "Github release ${last_version} set as 'latest'"
 }
 
