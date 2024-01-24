@@ -559,6 +559,30 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/pull-backoff",
 	}, {
+		Name: "surface ImagePullBackoff when previously scaled ok but now image is missing",
+		Objects: []runtime.Object{
+			Revision("foo", "pull-backoff",
+				WithLogURL,
+				MarkContainerHealthy(),
+				WithRevisionObservedGeneration(1),
+			),
+			pa("foo", "pull-backoff", WithBufferedTrafficAllConditionsSet), // pa can't be ready since deployment times out.
+			pod(t, "foo", "pull-backoff", WithWaitingContainer("pull-backoff", "ImagePullBackoff", "can't pull it")),
+			unAvailableDeploy(deploy(t, "foo", "pull-backoff"), "Timed out!"),
+			image("foo", "pull-backoff"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Revision("foo", "pull-backoff",
+				WithLogURL,
+				MarkContainerHealthy(),
+				MarkActiveUknown("Queued", "Requests to the target are being buffered as resources are provisioned."),
+				MarkResourcesUnavailable("MinimumReplicasUnavailable", "Deployment does not have minimum availability."), withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: pa("foo", "pull-backoff", WithBufferedTrafficAllConditionsSet, WithReachabilityUnreachable),
+		}},
+		Key: "foo/pull-backoff",
+	}, {
 		Name: "surface pod errors",
 		// Test the propagation of the termination state of a Pod into the revision.
 		// This initializes the world to the stable state after its first reconcile,
@@ -780,6 +804,21 @@ func timeoutDeploy(deploy *appsv1.Deployment, message string) *appsv1.Deployment
 		Status:  corev1.ConditionFalse,
 		Reason:  v1.ReasonProgressDeadlineExceeded,
 		Message: message,
+	}}
+	return deploy
+}
+
+func unAvailableDeploy(deploy *appsv1.Deployment, message string) *appsv1.Deployment {
+	deploy.Status.Conditions = []appsv1.DeploymentCondition{{
+		Type:    appsv1.DeploymentAvailable,
+		Status:  corev1.ConditionFalse,
+		Reason:  "MinimumReplicasUnavailable",
+		Message: "Deployment does not have minimum availability.",
+	}, {
+		Type:    appsv1.DeploymentProgressing,
+		Status:  corev1.ConditionTrue,
+		Reason:  "NewReplicaSetAvailable",
+		Message: "ReplicaSet \"helloworld-go-00001-deployment-744c8d56cd\" has successfully progressed.",
 	}}
 	return deploy
 }
