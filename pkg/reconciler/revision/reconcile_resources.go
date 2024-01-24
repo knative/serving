@@ -107,10 +107,13 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 							rev.Status.MarkContainerHealthyFalse(v1.ExitCodeReason(t.ExitCode), v1.RevisionContainerExitingMessage(t.Message))
 							break
 						}
-					} else if w := status.State.Waiting; w != nil && hasDeploymentTimedOut(deployment) {
-						logger.Infof("marking resources unavailable with: %s: %s", w.Reason, w.Message)
-						rev.Status.MarkResourcesAvailableFalse(w.Reason, w.Message)
-						break
+					} else if w := status.State.Waiting; w != nil {
+						if hasDeploymentTimedOut(deployment) {
+							logger.Infof("marking resources unavailable with: %s: %s", w.Reason, w.Message)
+							rev.Status.MarkResourcesAvailableFalse(w.Reason, w.Message)
+						} else {
+							rev.Status.PropagateAvailableStatus(&deployment.Status)
+						}
 					}
 				}
 			}

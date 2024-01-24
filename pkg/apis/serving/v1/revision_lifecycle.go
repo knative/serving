@@ -168,6 +168,23 @@ func (rs *RevisionStatus) PropagateDeploymentStatus(original *appsv1.DeploymentS
 	}
 }
 
+func (rs *RevisionStatus) PropagateAvailableStatus(original *appsv1.DeploymentStatus) {
+	m := revisionCondSet.Manage(rs)
+	for _, cond := range original.Conditions {
+		switch cond.Type {
+		case appsv1.DeploymentAvailable:
+			switch cond.Status {
+			case corev1.ConditionUnknown:
+				m.MarkUnknown(RevisionConditionResourcesAvailable, cond.Reason, cond.Message)
+			case corev1.ConditionTrue:
+				m.MarkTrue(RevisionConditionResourcesAvailable)
+			case corev1.ConditionFalse:
+				m.MarkFalse(RevisionConditionResourcesAvailable, cond.Reason, cond.Message)
+			}
+		}
+	}
+}
+
 // PropagateAutoscalerStatus propagates autoscaler's status to the revision's status.
 func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *autoscalingv1alpha1.PodAutoscalerStatus) {
 	resUnavailable := rs.GetCondition(RevisionConditionResourcesAvailable).IsFalse() || rs.GetCondition(RevisionConditionContainerHealthy).IsFalse()
