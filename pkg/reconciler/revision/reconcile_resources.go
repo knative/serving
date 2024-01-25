@@ -112,7 +112,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 							logger.Infof("marking resources unavailable with: %s: %s", w.Reason, w.Message)
 							rev.Status.MarkResourcesAvailableFalse(w.Reason, w.Message)
 						} else {
-							rev.Status.PropagateAvailableStatus(&deployment.Status)
+							rev.Status.PropagateDeploymentAvailabilityStatusIfFalse(&deployment.Status)
 						}
 					}
 				}

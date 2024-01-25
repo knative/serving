@@ -168,16 +168,19 @@ func (rs *RevisionStatus) PropagateDeploymentStatus(original *appsv1.DeploymentS
 	}
 }
 
-func (rs *RevisionStatus) PropagateAvailableStatus(original *appsv1.DeploymentStatus) {
+func (rs *RevisionStatus) PropagateDeploymentAvailabilityStatusIfFalse(original *appsv1.DeploymentStatus) {
 	m := revisionCondSet.Manage(rs)
+	avCond := m.GetCondition(RevisionConditionResourcesAvailable)
+
+	// Skip if set for other reasons
+	if avCond.Status == corev1.ConditionFalse {
+		return
+	}
+
 	for _, cond := range original.Conditions {
 		switch cond.Type {
 		case appsv1.DeploymentAvailable:
 			switch cond.Status {
-			case corev1.ConditionUnknown:
-				m.MarkUnknown(RevisionConditionResourcesAvailable, cond.Reason, cond.Message)
-			case corev1.ConditionTrue:
-				m.MarkTrue(RevisionConditionResourcesAvailable)
 			case corev1.ConditionFalse:
 				m.MarkFalse(RevisionConditionResourcesAvailable, cond.Reason, cond.Message)
 			}
