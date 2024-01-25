@@ -568,7 +568,7 @@ func TestReconcile(t *testing.T) {
 			),
 			pa("foo", "pull-backoff", WithBufferedTrafficAllConditionsSet), // pa can't be ready since deployment times out.
 			pod(t, "foo", "pull-backoff", WithWaitingContainer("pull-backoff", "ImagePullBackoff", "can't pull it")),
-			unAvailableDeploy(deploy(t, "foo", "pull-backoff"), "Timed out!"),
+			unAvailableDeploy(deploy(t, "foo", "pull-backoff")),
 			image("foo", "pull-backoff"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -808,7 +808,7 @@ func timeoutDeploy(deploy *appsv1.Deployment, message string) *appsv1.Deployment
 	return deploy
 }
 
-func unAvailableDeploy(deploy *appsv1.Deployment, message string) *appsv1.Deployment {
+func unAvailableDeploy(deploy *appsv1.Deployment) *appsv1.Deployment {
 	deploy.Status.Conditions = []appsv1.DeploymentCondition{{
 		Type:    appsv1.DeploymentAvailable,
 		Status:  corev1.ConditionFalse,
