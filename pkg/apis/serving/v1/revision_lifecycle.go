@@ -222,14 +222,6 @@ func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *autoscalingv1alpha1.PodA
 		rs.MarkActiveFalse(cond.Reason, cond.Message)
 	case corev1.ConditionTrue:
 		rs.MarkActiveTrue()
-
-		// Precondition for PA being active is SKS being active and
-		// that implies that |service.endpoints| > 0.
-		//
-		// Note: This is needed for backwards compatibility as we're adding the new
-		// ScaleTargetInitialized condition to gate readiness.
-		rs.MarkResourcesAvailableTrue()
-		rs.MarkContainerHealthyTrue()
 	}
 }
 
