@@ -147,7 +147,7 @@ func TestTransformDeploymentStatus(t *testing.T) {
 				Type:    appsv1.DeploymentReplicaFailure,
 				Status:  corev1.ConditionTrue,
 				Reason:  "ReplicaSetReason",
-				Message: "Something bag happened",
+				Message: "Something bad happened",
 			}},
 		},
 		want: &duckv1.Status{
@@ -158,12 +158,45 @@ func TestTransformDeploymentStatus(t *testing.T) {
 				Type:    DeploymentConditionReplicaSetReady,
 				Status:  corev1.ConditionFalse,
 				Reason:  "ReplicaSetReason",
-				Message: "Something bag happened",
+				Message: "Something bad happened",
 			}, {
 				Type:    DeploymentConditionReady,
 				Status:  corev1.ConditionFalse,
 				Reason:  "ReplicaSetReason",
-				Message: "Something bag happened",
+				Message: "Something bad happened",
+			}},
+		},
+	}, {
+		name: "replica failure has priority over progressing",
+		ds: &appsv1.DeploymentStatus{
+			Conditions: []appsv1.DeploymentCondition{{
+				Type:    appsv1.DeploymentReplicaFailure,
+				Status:  corev1.ConditionTrue,
+				Reason:  "ReplicaSetReason",
+				Message: "Something really bad happened",
+			}, {
+				Type:    appsv1.DeploymentProgressing,
+				Status:  corev1.ConditionFalse,
+				Reason:  "ProgressingReason",
+				Message: "Something bad happened",
+			}},
+		},
+		want: &duckv1.Status{
+			Conditions: []apis.Condition{{
+				Type:    DeploymentConditionProgressing,
+				Status:  corev1.ConditionFalse,
+				Reason:  "ProgressingReason",
+				Message: "Something bad happened",
+			}, {
+				Type:    DeploymentConditionReplicaSetReady,
+				Status:  corev1.ConditionFalse,
+				Reason:  "ReplicaSetReason",
+				Message: "Something really bad happened",
+			}, {
+				Type:    DeploymentConditionReady,
+				Status:  corev1.ConditionFalse,
+				Reason:  "ReplicaSetReason",
+				Message: "Something really bad happened",
 			}},
 		},
 	}}
