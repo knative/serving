@@ -20,7 +20,7 @@ limitations under the License.
 package e2e
 
 import (
-	"fmt"
+	"strings"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -52,13 +52,10 @@ func TestImagePullError(t *testing.T) {
 		cond := r.Status.GetCondition(v1.ConfigurationConditionReady)
 		if cond != nil && !cond.IsUnknown() {
 			if cond.IsFalse() {
-				if cond.Reason == wantCfgReason {
+				if cond.Reason == wantCfgReason && strings.Contains(cond.Message, "Back-off pulling image") {
 					return true, nil
 				}
 			}
-			t.Logf("Reason: %q; Message: %q; Status: %q", cond.Reason, cond.Message, cond.Status)
-			return true, fmt.Errorf("the Config %s ReadyCondition = (Reason=%q, Message=%q, Status=%q), wantReason: %q",
-				names.Config, cond.Reason, cond.Message, cond.Status, wantCfgReason)
 		}
 		return false, nil
 	}, "ContainerUnpullable"); err != nil {
@@ -72,17 +69,15 @@ func TestImagePullError(t *testing.T) {
 
 	t.Log("When the images are not pulled, the revision should have error status.")
 	wantRevReasons := sets.New("ImagePullBackOff", "ErrImagePull")
-	if err := v1test.CheckRevisionState(clients.ServingClient, revisionName, func(r *v1.Revision) (bool, error) {
+	if err := v1test.WaitForRevisionState(clients.ServingClient, revisionName, func(r *v1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1.RevisionConditionReady)
 		if cond != nil {
 			if wantRevReasons.Has(cond.Reason) {
 				return true, nil
 			}
-			return true, fmt.Errorf("the Revision %s ReadyCondition = (Reason=%q, Message=%q), wantReasons: %v",
-				revisionName, cond.Reason, cond.Message, wantRevReasons.UnsortedList())
 		}
 		return false, nil
-	}); err != nil {
+	}, "RevisionWithErrorStatus"); err != nil {
 		t.Fatal("Failed to validate revision state:", err)
 	}
 }
