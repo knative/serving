@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"fmt"
 	"sort"
 	"testing"
 
@@ -582,32 +583,45 @@ func TestPropagateAutoscalerStatus(t *testing.T) {
 	apistest.CheckConditionSucceeded(r, RevisionConditionResourcesAvailable, t)
 }
 
-func TestPAResAvailableNoOverride(t *testing.T) {
-	r := &RevisionStatus{}
-	r.InitializeConditions()
-	apistest.CheckConditionOngoing(r, RevisionConditionReady, t)
+func TestPropagateAutoscalerStatus_NoOverridingResourcesAvailable(t *testing.T) {
+	// Cases to test Ready condition
+	// we fix ScaleTargetInitialized to True
+	cases := []corev1.ConditionStatus{
+		corev1.ConditionTrue,
+		corev1.ConditionFalse,
+		corev1.ConditionUnknown,
+	}
 
-	// Deployment determined that something's wrong, e.g. the only pod
-	// has crashed.
-	r.MarkResourcesAvailableFalse("somehow", "somewhere")
+	for _, tc := range cases {
+		t.Run(fmt.Sprintf("ready is %v", tc), func(t *testing.T) {
 
-	// PodAutoscaler achieved initial scale.
-	r.PropagateAutoscalerStatus(&autoscalingv1alpha1.PodAutoscalerStatus{
-		Status: duckv1.Status{
-			Conditions: duckv1.Conditions{{
-				Type:   autoscalingv1alpha1.PodAutoscalerConditionReady,
-				Status: corev1.ConditionUnknown,
-			}, {
-				Type:   autoscalingv1alpha1.PodAutoscalerConditionScaleTargetInitialized,
-				Status: corev1.ConditionTrue,
-			}},
-		},
-	})
-	// Verify we did not override this.
-	apistest.CheckConditionFailed(r, RevisionConditionResourcesAvailable, t)
-	cond := r.GetCondition(RevisionConditionResourcesAvailable)
-	if got, notWant := cond.Reason, ReasonProgressDeadlineExceeded; got == notWant {
-		t.Error("PA Status propagation overrode the ResourcesAvailable status")
+			r := &RevisionStatus{}
+			r.InitializeConditions()
+			apistest.CheckConditionOngoing(r, RevisionConditionReady, t)
+
+			// Deployment determined that something's wrong, e.g. the only pod
+			// has crashed.
+			r.MarkResourcesAvailableFalse("somehow", "somewhere")
+			r.PropagateAutoscalerStatus(&autoscalingv1alpha1.PodAutoscalerStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{{
+						Type:   autoscalingv1alpha1.PodAutoscalerConditionReady,
+						Status: tc,
+					}, {
+						Type:   autoscalingv1alpha1.PodAutoscalerConditionScaleTargetInitialized,
+						Status: corev1.ConditionTrue,
+					}},
+				},
+			})
+
+			// Verify we did not override this.
+			apistest.CheckConditionFailed(r, RevisionConditionResourcesAvailable, t)
+
+			cond := r.GetCondition(RevisionConditionResourcesAvailable)
+			if got, notWant := cond.Reason, ReasonProgressDeadlineExceeded; got == notWant {
+				t.Error("PodAutoscalerStatus propagation overrode the ResourcesAvailable status")
+			}
+		})
 	}
 }
 
