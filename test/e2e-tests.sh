@@ -81,6 +81,10 @@ toggle_feature allow-zero-initial-scale false config-autoscaler || fail_test
 
 go_test_e2e -timeout=2m ./test/e2e/domainmapping ${E2E_TEST_FLAGS} || failed=1
 
+toggle_feature cluster-local-domain-tls enabled config-network || fail_test
+go_test_e2e -timeout=2m ./test/e2e/clusterlocaldomaintls ${E2E_TEST_FLAGS} || failed=1
+toggle_feature cluster-local-domain-tls disabled config-network || fail_test
+
 toggle_feature system-internal-tls enabled config-network || fail_test
 toggle_feature "logging.enable-request-log" true config-observability || fail_test
 toggle_feature "logging.request-log-template" "TLS: {{.Request.TLS}}" config-observability || fail_test

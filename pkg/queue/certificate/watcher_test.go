@@ -17,9 +17,15 @@ limitations under the License.
 package certificate
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
 	"os"
 	"testing"
 	"time"
@@ -94,26 +100,47 @@ func TestCertificateRotation(t *testing.T) {
 }
 
 func createAndSaveCertificate(san, dir string) error {
-	ca, err := certificates.CreateCACerts(1 * time.Hour)
+	cert := &x509.Certificate{
+		SerialNumber: big.NewInt(2019),
+		Subject: pkix.Name{
+			Organization: []string{"Knative"},
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().AddDate(10, 0, 0),
+		IsCA:                  false,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+	}
+	cert.DNSNames = []string{san}
+
+	pk, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
 		return err
 	}
 
-	caCert, caKey, err := ca.Parse()
+	certBytes, err := x509.CreateCertificate(rand.Reader, cert, cert, &pk.PublicKey, pk)
 	if err != nil {
 		return err
 	}
 
-	cert, err := certificates.CreateCert(caKey, caCert, 1*time.Hour, san)
-	if err != nil {
+	caPEM := new(bytes.Buffer)
+	pem.Encode(caPEM, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certBytes,
+	})
+
+	caPrivKeyPEM := new(bytes.Buffer)
+	pem.Encode(caPrivKeyPEM, &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(pk),
+	})
+
+	if err := os.WriteFile(dir+"/"+certificates.CertName, caPEM.Bytes(), 0644); err != nil {
 		return err
 	}
 
-	if err := os.WriteFile(dir+"/"+certificates.CertName, cert.CertBytes(), 0644); err != nil {
-		return err
-	}
-
-	return os.WriteFile(dir+"/"+certificates.PrivateKeyName, cert.PrivateKeyBytes(), 0644)
+	return os.WriteFile(dir+"/"+certificates.PrivateKeyName, caPrivKeyPEM.Bytes(), 0644)
 }
 
 func getSAN(c *tls.Certificate) (string, error) {

@@ -22,6 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/networking/pkg/config"
 
 	"knative.dev/networking/pkg/apis/networking"
 	networkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -29,7 +30,6 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
-	// . "knative.dev/serving/pkg/testing/v1"
 )
 
 func TestMakeCertificate(t *testing.T) {
@@ -58,7 +58,8 @@ func TestMakeCertificate(t *testing.T) {
 				Namespace:   "the-namespace",
 				Annotations: map[string]string{networking.CertificateClassAnnotationKey: certClass},
 				Labels: map[string]string{
-					serving.DomainMappingUIDLabelKey: "mapping.com",
+					serving.DomainMappingUIDLabelKey:   "mapping.com",
+					networking.CertificateTypeLabelKey: string(config.CertificateExternalDomain),
 				},
 			},
 			Spec: networkingv1alpha1.CertificateSpec{
@@ -96,7 +97,8 @@ func TestMakeCertificate(t *testing.T) {
 					"others":                                 "kept",
 				},
 				Labels: map[string]string{
-					serving.DomainMappingUIDLabelKey: "mapping.com",
+					serving.DomainMappingUIDLabelKey:   "mapping.com",
+					networking.CertificateTypeLabelKey: string(config.CertificateExternalDomain),
 				},
 			},
 			Spec: networkingv1alpha1.CertificateSpec{

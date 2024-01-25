@@ -76,6 +76,13 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 
 	t.Log("helloworld internal domain is ", resources.Route.Status.URL.Host)
 
+	// if cluster-local-domain-tls is enabled, this will return the CA used to sign the certificates.
+	// TestProxyToHelloworld will use this CA to verify the https connection
+	secret, err := GetCASecret(clients)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
 	// helloworld app and its route are ready. Running the test cases now.
 	for _, tc := range testCases {
 		domain := fmt.Sprintf("%s-%s", tag, resources.Route.Status.Address.URL.Host)
@@ -83,7 +90,7 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 		helloworldURL.Host = strings.TrimSuffix(domain, tc.suffix)
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			testProxyToHelloworld(t, clients, helloworldURL, true, false)
+			TestProxyToHelloworld(t, clients, helloworldURL, true, false, secret)
 		})
 	}
 }

@@ -167,8 +167,11 @@ func main() {
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
 	if tlsEnabled {
-		logger.Info("Knative Internal TLS is enabled")
-		certCache = certificate.NewCertCache(ctx)
+		logger.Info("Knative system-internal-tls is enabled")
+		certCache, err = certificate.NewCertCache(ctx)
+		if err != nil {
+			logger.Fatalw("Failed to create certificate cache", zap.Error(err))
+		}
 		transport = pkgnet.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, certCache.TLSContext())
 	}
 

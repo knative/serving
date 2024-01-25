@@ -967,6 +967,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 					},
 					Labels: map[string]string{
 						serving.DomainMappingUIDLabelKey: "becomes.ready.run",
+						netapi.CertificateTypeLabelKey:   string(netcfg.CertificateExternalDomain),
 					},
 				},
 				Spec: netv1alpha1.CertificateSpec{
@@ -1114,6 +1115,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 					},
 					Labels: map[string]string{
 						serving.DomainMappingUIDLabelKey: "challenged.com",
+						netapi.CertificateTypeLabelKey:   string(netcfg.CertificateExternalDomain),
 					},
 				},
 				Spec: netv1alpha1.CertificateSpec{

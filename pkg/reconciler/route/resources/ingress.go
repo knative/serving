@@ -26,11 +26,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"knative.dev/serving/pkg/reconciler/route/domains"
 
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	netheader "knative.dev/networking/pkg/http/header"
-	ingress "knative.dev/networking/pkg/ingress"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/activator"
@@ -39,8 +39,6 @@ import (
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingnetworking "knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/reconciler/route/config"
-	"knative.dev/serving/pkg/reconciler/route/domains"
-	"knative.dev/serving/pkg/reconciler/route/resources/labels"
 	"knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 )
@@ -144,7 +142,7 @@ func makeIngressSpec(
 			visibilities = append(visibilities, netv1alpha1.IngressVisibilityExternalIP)
 		}
 		for _, visibility := range visibilities {
-			domains, err := routeDomain(ctx, name, r, visibility)
+			domains, err := domains.GetDomainsForVisibility(ctx, name, r, visibility)
 			if err != nil {
 				return netv1alpha1.IngressSpec{}, err
 			}
@@ -203,27 +201,6 @@ func makeIngressSpec(
 		TLS:        tls,
 		HTTPOption: httpOption,
 	}, nil
-}
-
-func routeDomain(ctx context.Context, targetName string, r *servingv1.Route, visibility netv1alpha1.IngressVisibility) (sets.Set[string], error) {
-	hostname, err := domains.HostnameFromTemplate(ctx, r.Name, targetName)
-	if err != nil {
-		return nil, err
-	}
-
-	meta := r.ObjectMeta.DeepCopy()
-	isClusterLocal := visibility == netv1alpha1.IngressVisibilityClusterLocal
-	labels.SetVisibility(meta, isClusterLocal)
-
-	domain, err := domains.DomainNameFromTemplate(ctx, *meta, hostname)
-	if err != nil {
-		return nil, err
-	}
-	domains := []string{domain}
-	if isClusterLocal {
-		domains = sets.List(ingress.ExpandedHosts(sets.New(domains...)))
-	}
-	return sets.New(domains...), err
 }
 
 // MakeACMEIngressPaths returns a set of netv1alpha1.HTTPIngressPath

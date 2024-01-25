@@ -26,6 +26,9 @@ import (
 	"golang.org/x/time/rate"
 	cachingclient "knative.dev/caching/pkg/client/injection/client"
 	imageinformer "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image"
+	"knative.dev/networking/pkg/apis/networking/v1alpha1"
+	networkingclient "knative.dev/networking/pkg/client/injection/client"
+	certificateinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate"
 	"knative.dev/pkg/changeset"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
@@ -73,15 +76,18 @@ func newControllerWithOptions(
 	deploymentInformer := deploymentinformer.Get(ctx)
 	imageInformer := imageinformer.Get(ctx)
 	paInformer := painformer.Get(ctx)
+	certificateInformer := certificateinformer.Get(ctx)
 
 	c := &Reconciler{
-		kubeclient:    kubeclient.Get(ctx),
-		client:        servingclient.Get(ctx),
-		cachingclient: cachingclient.Get(ctx),
+		kubeclient:       kubeclient.Get(ctx),
+		client:           servingclient.Get(ctx),
+		networkingclient: networkingclient.Get(ctx),
+		cachingclient:    cachingclient.Get(ctx),
 
 		podAutoscalerLister: paInformer.Lister(),
 		imageLister:         imageInformer.Lister(),
 		deploymentLister:    deploymentInformer.Lister(),
+		certificateLister:   certificateInformer.Lister(),
 	}
 
 	impl := revisionreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
@@ -102,6 +108,8 @@ func newControllerWithOptions(
 		configStore.WatchConfigs(cmw)
 		return controller.Options{ConfigStore: configStore}
 	})
+
+	c.tracker = impl.Tracker
 
 	transport := http.DefaultTransport
 	if rt, err := newResolverTransport(k8sCertPath, digestResolutionWorkers, digestResolutionWorkers); err != nil {
@@ -131,6 +139,15 @@ func newControllerWithOptions(
 	}
 	deploymentInformer.Informer().AddEventHandler(handleMatchingControllers)
 	paInformer.Informer().AddEventHandler(handleMatchingControllers)
+	certificateInformer.Informer().AddEventHandler(controller.HandleAll(
+		// Call the tracker's OnChanged method, but we've seen the objects
+		// coming through this path missing TypeMeta, so ensure it is properly
+		// populated.
+		controller.EnsureTypeMeta(
+			c.tracker.OnChanged,
+			v1alpha1.SchemeGroupVersion.WithKind("Certificate"),
+		),
+	))
 
 	// We don't watch for changes to Image because we don't incorporate any of its
 	// properties into our own status and should work completely in the absence of
