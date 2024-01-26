@@ -50,6 +50,7 @@ func TransformDeploymentStatus(ds *appsv1.DeploymentStatus) *duckv1.Status {
 	// The absence of this condition means no failure has occurred. If we find it
 	// below, we'll overwrite this.
 	depCondSet.Manage(s).MarkTrue(DeploymentConditionReplicaSetReady)
+	depCondSet.Manage(s).MarkUnknown(DeploymentConditionProgressing, "Deploying", "")
 
 	conds := []appsv1.DeploymentConditionType{
 		appsv1.DeploymentProgressing,
