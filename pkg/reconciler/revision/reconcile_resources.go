@@ -49,41 +49,26 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 		// Deployment does not exist. Create it.
 		rev.Status.MarkResourcesAvailableUnknown(v1.ReasonDeploying, "")
 		rev.Status.MarkContainerHealthyUnknown(v1.ReasonDeploying, "")
-		deployment, err = c.createDeployment(ctx, rev)
-		if err != nil {
+		if _, err = c.createDeployment(ctx, rev); err != nil {
 			return fmt.Errorf("failed to create deployment %q: %w", deploymentName, err)
 		}
 		logger.Infof("Created deployment %q", deploymentName)
+		return nil
 	} else if err != nil {
 		return fmt.Errorf("failed to get deployment %q: %w", deploymentName, err)
 	} else if !metav1.IsControlledBy(deployment, rev) {
 		// Surface an error in the revision's status, and return an error.
 		rev.Status.MarkResourcesAvailableFalse(v1.ReasonNotOwned, v1.ResourceNotOwnedMessage("Deployment", deploymentName))
 		return fmt.Errorf("revision: %q does not own Deployment: %q", rev.Name, deploymentName)
-	} else {
-		// The deployment exists, but make sure that it has the shape that we expect.
-		deployment, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
-		if err != nil {
-			return fmt.Errorf("failed to update deployment %q: %w", deploymentName, err)
-		}
-
-		// Now that we have a Deployment, determine whether there is any relevant
-		// status to surface in the Revision.
-		//
-		// TODO(jonjohnsonjr): Should we check Generation != ObservedGeneration?
-		// The autoscaler mutates the deployment pretty often, which would cause us
-		// to flip back and forth between Ready and Unknown every time we scale up
-		// or down.
-		if !rev.Status.IsActivationRequired() {
-			rev.Status.PropagateDeploymentStatus(&deployment.Status)
-		}
 	}
 
-	// If the replicaset is failing we assume its an error we have to surface
-	if rev.Status.IsReplicaSetFailure(&deployment.Status) {
-		rev.Status.PropagateDeploymentStatus(&deployment.Status)
-		return nil
+	// The deployment exists, but make sure that it has the shape that we expect.
+	deployment, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
+	if err != nil {
+		return fmt.Errorf("failed to update deployment %q: %w", deploymentName, err)
 	}
+
+	rev.Status.PropagateDeploymentStatus(&deployment.Status)
 
 	// If a container keeps crashing (no active pods in the deployment although we want some)
 	if *deployment.Spec.Replicas > 0 && deployment.Status.AvailableReplicas == 0 {
@@ -151,6 +136,13 @@ func (c *Reconciler) reconcileImageCache(ctx context.Context, rev *v1.Revision) 
 
 func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 	ns := rev.Namespace
+
+	deploymentName := resourcenames.Deployment(rev)
+	deployment, err := c.deploymentLister.Deployments(ns).Get(deploymentName)
+	if err != nil {
+		return err
+	}
+
 	paName := resourcenames.PA(rev)
 	logger := logging.FromContext(ctx)
 	logger.Info("Reconciling PA: ", paName)
@@ -158,7 +150,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 	pa, err := c.podAutoscalerLister.PodAutoscalers(ns).Get(paName)
 	if apierrs.IsNotFound(err) {
 		// PA does not exist. Create it.
-		pa, err = c.createPA(ctx, rev)
+		pa, err = c.createPA(ctx, rev, deployment)
 		if err != nil {
 			return fmt.Errorf("failed to create PA %q: %w", paName, err)
 		}
@@ -173,7 +165,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 
 	// Perhaps tha PA spec changed underneath ourselves?
 	// We no longer require immutability, so need to reconcile PA each time.
-	tmpl := resources.MakePA(rev)
+	tmpl := resources.MakePA(rev, deployment)
 	logger.Debugf("Desired PASpec: %#v", tmpl.Spec)
 	if !equality.Semantic.DeepEqual(tmpl.Spec, pa.Spec) {
 		diff, _ := kmp.SafeDiff(tmpl.Spec, pa.Spec) // Can't realistically fail on PASpec.

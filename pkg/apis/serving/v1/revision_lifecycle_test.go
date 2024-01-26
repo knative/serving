@@ -537,6 +537,7 @@ func TestPropagateAutoscalerStatus(t *testing.T) {
 
 	// PodAutoscaler becomes ready, making us active.
 	r.PropagateAutoscalerStatus(&autoscalingv1alpha1.PodAutoscalerStatus{
+		ServiceName: "some-service",
 		Status: duckv1.Status{
 			Conditions: duckv1.Conditions{{
 				Type:   autoscalingv1alpha1.PodAutoscalerConditionReady,
@@ -552,6 +553,7 @@ func TestPropagateAutoscalerStatus(t *testing.T) {
 
 	// PodAutoscaler flipping back to Unknown causes Active become ongoing immediately.
 	r.PropagateAutoscalerStatus(&autoscalingv1alpha1.PodAutoscalerStatus{
+		ServiceName: "some-service",
 		Status: duckv1.Status{
 			Conditions: duckv1.Conditions{{
 				Type:   autoscalingv1alpha1.PodAutoscalerConditionReady,
@@ -567,6 +569,7 @@ func TestPropagateAutoscalerStatus(t *testing.T) {
 
 	// PodAutoscaler becoming unready makes Active false, but doesn't affect readiness.
 	r.PropagateAutoscalerStatus(&autoscalingv1alpha1.PodAutoscalerStatus{
+		ServiceName: "some-service",
 		Status: duckv1.Status{
 			Conditions: duckv1.Conditions{{
 				Type:   autoscalingv1alpha1.PodAutoscalerConditionReady,
@@ -685,6 +688,7 @@ func TestPropagateAutoscalerStatusRace(t *testing.T) {
 
 	// The PodAutoscaler might have been ready but it's scaled down already.
 	r.PropagateAutoscalerStatus(&autoscalingv1alpha1.PodAutoscalerStatus{
+		ServiceName: "some-service",
 		Status: duckv1.Status{
 			Conditions: duckv1.Conditions{{
 				Type:   autoscalingv1alpha1.PodAutoscalerConditionReady,

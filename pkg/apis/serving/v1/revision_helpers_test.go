@@ -20,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 
@@ -266,47 +265,5 @@ func TestSetRoutingState(t *testing.T) {
 	rev.Annotations[serving.RoutingStateModifiedAnnotationKey] = "invalid"
 	if got, want := rev.GetRoutingStateModified(), empty; got != want {
 		t.Error("Expected default value for unparsable annotationm but got:", got)
-	}
-}
-
-func TestIsReplicaSetFailure(t *testing.T) {
-	revisionStatus := RevisionStatus{}
-	cases := []struct {
-		name                string
-		status              appsv1.DeploymentStatus
-		IsReplicaSetFailure bool
-	}{{
-		name:   "empty deployment status should not be a failure",
-		status: appsv1.DeploymentStatus{},
-	}, {
-		name: "Ready deployment status should not be a failure",
-		status: appsv1.DeploymentStatus{
-			Conditions: []appsv1.DeploymentCondition{{
-				Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue,
-			}},
-		},
-	}, {
-		name: "ReplicasetFailure true should be a failure",
-		status: appsv1.DeploymentStatus{
-			Conditions: []appsv1.DeploymentCondition{{
-				Type: appsv1.DeploymentReplicaFailure, Status: corev1.ConditionTrue,
-			}},
-		},
-		IsReplicaSetFailure: true,
-	}, {
-		name: "ReplicasetFailure false should not be a failure",
-		status: appsv1.DeploymentStatus{
-			Conditions: []appsv1.DeploymentCondition{{
-				Type: appsv1.DeploymentReplicaFailure, Status: corev1.ConditionFalse,
-			}},
-		},
-	}}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if got, want := revisionStatus.IsReplicaSetFailure(&tc.status), tc.IsReplicaSetFailure; got != want {
-				t.Errorf("IsReplicaSetFailure = %v, want: %v", got, want)
-			}
-		})
 	}
 }

@@ -244,7 +244,9 @@ func TestReconcile(t *testing.T) {
 				WithRoutingState(v1.RoutingStateReserve, fc),
 				withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
 			pa("foo", "stable-deactivation",
-				WithNoTraffic("NoTraffic", "This thing is inactive."), WithReachabilityUnreachable,
+				WithPAStatusService("stable-deactivation"),
+				WithNoTraffic("NoTraffic", "This thing is inactive."),
+				WithReachabilityUnreachable,
 				WithScaleTargetInitialized),
 			deploy(t, "foo", "stable-deactivation"),
 			image("foo", "stable-deactivation"),
@@ -306,6 +308,7 @@ func TestReconcile(t *testing.T) {
 				WithRoutingState(v1.RoutingStateReserve, fc),
 				MarkRevisionReady, WithRevisionObservedGeneration(1)),
 			pa("foo", "pa-inactive",
+				WithPAStatusService("pa-inactive"),
 				WithNoTraffic("NoTraffic", "This thing is inactive."),
 				WithScaleTargetInitialized,
 				WithReachabilityUnreachable),
@@ -350,6 +353,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			Revision("foo", "pa-inactive", allUnknownConditions,
 				WithLogURL,
+				MarkDeploying(v1.ReasonDeploying),
 				WithRevisionObservedGeneration(1)),
 			pa("foo", "pa-inactive",
 				WithNoTraffic("NoTraffic", "This thing is inactive."), WithPAStatusService("")),
@@ -361,6 +365,7 @@ func TestReconcile(t *testing.T) {
 			Object: Revision("foo", "pa-inactive",
 				WithLogURL, withDefaultContainerStatuses(), allUnknownConditions,
 				MarkInactive("NoTraffic", "This thing is inactive."),
+				MarkDeploying(v1.ReasonDeploying),
 				WithRevisionObservedGeneration(1)),
 		}},
 		Key: "foo/pa-inactive",
@@ -398,6 +403,7 @@ func TestReconcile(t *testing.T) {
 		// Protocol type is the only thing that can be changed on PA
 		Objects: []runtime.Object{
 			Revision("foo", "fix-mutated-pa",
+				allUnknownConditions,
 				WithLogURL, MarkRevisionReady,
 				WithRoutingState(v1.RoutingStateActive, fc)),
 			pa("foo", "fix-mutated-pa", WithProtocolType(networking.ProtocolH2C),
@@ -452,6 +458,7 @@ func TestReconcile(t *testing.T) {
 		// status of the Revision.
 		Objects: []runtime.Object{
 			Revision("foo", "deploy-timeout",
+				allUnknownConditions,
 				WithRoutingState(v1.RoutingStateActive, fc),
 				WithLogURL, MarkActive),
 			pa("foo", "deploy-timeout", WithReachabilityReachable),
@@ -507,6 +514,7 @@ func TestReconcile(t *testing.T) {
 		// It then verifies that Reconcile propagates this into the status of the Revision.
 		Objects: []runtime.Object{
 			Revision("foo", "deploy-replica-failure",
+				allUnknownConditions,
 				WithRoutingState(v1.RoutingStateActive, fc),
 				WithLogURL, MarkActive),
 			pa("foo", "deploy-replica-failure", WithReachabilityReachable),
@@ -531,7 +539,8 @@ func TestReconcile(t *testing.T) {
 		// Test the propagation of ImagePullBackoff from user container.
 		Objects: []runtime.Object{
 			Revision("foo", "pull-backoff",
-				WithLogURL, MarkActivating("Deploying", ""),
+				WithLogURL,
+				allUnknownConditions,
 				WithRoutingState(v1.RoutingStateActive, fc),
 			),
 			pa("foo", "pull-backoff", WithReachabilityReachable), // pa can't be ready since deployment times out.
@@ -557,6 +566,7 @@ func TestReconcile(t *testing.T) {
 		// that Reconcile propagates this into the status of the Revision.
 		Objects: []runtime.Object{
 			Revision("foo", "pod-error",
+				allUnknownConditions,
 				WithRoutingState(v1.RoutingStateActive, fc),
 				WithLogURL, allUnknownConditions, MarkActive),
 			pa("foo", "pod-error", WithReachabilityReachable), // PA can't be ready, since no traffic.
@@ -835,7 +845,7 @@ func withInitContainerStatuses() RevisionOption {
 // TODO(mattmoor): Come up with a better name for this.
 func allUnknownConditions(r *v1.Revision) {
 	WithInitRevConditions(r)
-	MarkDeploying("")(r)
+	MarkDeploying("Deploying")(r)
 	MarkActivating("Deploying", "")(r)
 }
 
@@ -893,7 +903,7 @@ func imageInit(namespace, name string, co ...configOption) []runtime.Object {
 
 func pa(namespace, name string, ko ...PodAutoscalerOption) *autoscalingv1alpha1.PodAutoscaler {
 	rev := Revision(namespace, name)
-	k := resources.MakePA(rev)
+	k := resources.MakePA(rev, nil)
 
 	for _, opt := range ko {
 		opt(k)
