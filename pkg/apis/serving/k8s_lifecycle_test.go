@@ -40,12 +40,14 @@ func TestTransformDeploymentStatus(t *testing.T) {
 			Conditions: []apis.Condition{{
 				Type:   DeploymentConditionProgressing,
 				Status: corev1.ConditionUnknown,
+				Reason: "Deploying",
 			}, {
 				Type:   DeploymentConditionReplicaSetReady,
 				Status: corev1.ConditionTrue,
 			}, {
 				Type:   DeploymentConditionReady,
 				Status: corev1.ConditionUnknown,
+				Reason: "Deploying",
 			}},
 		},
 	}, {
