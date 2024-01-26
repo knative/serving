@@ -640,7 +640,7 @@ func TestDisableScaleToZero(t *testing.T) {
 
 func newKPA(ctx context.Context, t *testing.T, servingClient clientset.Interface, revision *v1.Revision) *autoscalingv1alpha1.PodAutoscaler {
 	t.Helper()
-	pa := revisionresources.MakePA(revision)
+	pa := revisionresources.MakePA(revision, nil)
 	pa.Status.InitializeConditions()
 	_, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(ctx, pa, metav1.CreateOptions{})
 	if err != nil {
