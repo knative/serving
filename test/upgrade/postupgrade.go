@@ -42,6 +42,7 @@ func ServingPostUpgradeTests() []pkgupgrade.Operation {
 		CreateNewServicePostUpgradeTest(),
 		InitialScalePostUpgradeTest(),
 		CRDStoredVersionPostUpgradeTest(),
+		DeploymentFailurePostUpgrade(),
 	}
 }
 
