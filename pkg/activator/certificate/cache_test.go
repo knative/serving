@@ -42,6 +42,123 @@ import (
 	"knative.dev/pkg/system"
 )
 
+func TestReconcile(t *testing.T) {
+
+	tests := []struct {
+		name         string
+		secret       *corev1.Secret
+		configMap    *corev1.ConfigMap
+		expectedPool *x509.CertPool
+	}{{
+		name:         "Valid CA only in secret",
+		secret:       secret,
+		configMap:    nil,
+		expectedPool: getPoolWithCerts(secret.Data[certificates.CaCertName]),
+	},
+		{
+			name: "Valid CA only in configmap",
+			secret: func() *corev1.Secret {
+				s := secret.DeepCopy()
+				delete(s.Data, certificates.CaCertName)
+				return s
+			}(),
+			configMap:    validConfigmap,
+			expectedPool: getPoolWithCerts(configmapCA),
+		},
+		{
+			name:         "Valid CA in both configmap and secret",
+			secret:       secret,
+			configMap:    validConfigmap,
+			expectedPool: getPoolWithCerts(secretCA, configmapCA),
+		},
+		{
+			name:         "Invalid CA in configmap",
+			secret:       secret,
+			configMap:    invalidConfigmap,
+			expectedPool: getPoolWithCerts(secretCA),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// Setup
+			ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
+			cr := fakeCertCache(ctx)
+			waitInformers, err := rtesting.RunAndSyncInformers(ctx, informers...)
+			if err != nil {
+				cancel()
+				t.Fatal("failed to start informers:", err)
+			}
+			t.Cleanup(func() {
+				cancel()
+				waitInformers()
+			})
+
+			// Data preparation
+			if test.secret != nil {
+				fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Create(ctx, test.secret, metav1.CreateOptions{})
+				fakesecretinformer.Get(ctx).Informer().GetIndexer().Add(test.secret)
+			}
+			if test.configMap != nil {
+				fakekubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Create(ctx, test.configMap, metav1.CreateOptions{})
+				fakeconfigmapinformer.Get(ctx).Informer().GetIndexer().Add(test.configMap)
+			}
+
+			// Verify
+			if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 2*time.Second, true, func(context.Context) (bool, error) {
+				cr.certificatesMux.RLock()
+				defer cr.certificatesMux.RUnlock()
+				cert, _ := cr.GetCertificate(nil)
+				return cert != nil && cr.TLSConf.RootCAs.Equal(test.expectedPool), nil
+			}); err != nil {
+				t.Fatalf("Did not meet the expected state: %s, err: %v", test.name, err)
+			}
+		})
+	}
+
+	// Additional secret tests
+	ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
+	cr := fakeCertCache(ctx)
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, informers...)
+	if err != nil {
+		cancel()
+		t.Fatal("failed to start informers:", err)
+	}
+	t.Cleanup(func() {
+		cancel()
+		waitInformers()
+	})
+	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Create(ctx, secret, metav1.CreateOptions{})
+	fakesecretinformer.Get(ctx).Informer().GetIndexer().Add(secret)
+
+	// Update cert and key but keep using old CA, then the error is expected.
+	secret.Data[certificates.CertName] = newTLSCrt
+	secret.Data[certificates.PrivateKeyName] = newTLSKey
+	newCert, _ := tls.X509KeyPair(newTLSCrt, newTLSKey)
+
+	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
+		cr.certificatesMux.RLock()
+		defer cr.certificatesMux.RUnlock()
+		cert, err := cr.GetCertificate(nil)
+		return err == nil && reflect.DeepEqual(newCert.Certificate, cert.Certificate), nil
+	}); err != nil {
+		t.Fatalf("timeout to update the cert: %v", err)
+	}
+
+	// Update CA, now the error is gone.
+	secret.Data[certificates.CaCertName] = newCA
+	expectedPool := getPoolWithCerts(secret.Data[certificates.CaCertName])
+	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 10*time.Second, true, func(context.Context) (bool, error) {
+		cr.certificatesMux.RLock()
+		defer cr.certificatesMux.RUnlock()
+		return cr.TLSConf.RootCAs.Equal(expectedPool), nil
+	}); err != nil {
+		t.Fatalf("timeout to update the cert: %v", err)
+	}
+}
+
 func fakeCertCache(ctx context.Context) *CertCache {
 	secretInformer := fakesecretinformer.Get(ctx)
 	configmapInformer := fakeconfigmapinformer.Get(ctx)
@@ -72,119 +189,6 @@ func fakeCertCache(ctx context.Context) *CertCache {
 	})
 
 	return cr
-}
-
-func TestReconcile(t *testing.T) {
-	ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
-	cr := fakeCertCache(ctx)
-
-	waitInformers, err := rtesting.RunAndSyncInformers(ctx, informers...)
-	if err != nil {
-		cancel()
-		t.Fatal("failed to start informers:", err)
-	}
-	t.Cleanup(func() {
-		cancel()
-		waitInformers()
-	})
-
-	// 1) valid secret
-	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Create(ctx, secret, metav1.CreateOptions{})
-	fakesecretinformer.Get(ctx).Informer().GetIndexer().Add(secret)
-
-	// Wait for the resources to be created and the handler is called.
-	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 2*time.Second, true, func(context.Context) (bool, error) {
-		// To access cert.Certificate, take a lock.
-		cr.certificatesMux.RLock()
-		defer cr.certificatesMux.RUnlock()
-		cert, _ := cr.GetCertificate(nil)
-		expectedPool := getPoolWithCerts(secret.Data[certificates.CaCertName])
-		return cert != nil && cr.TLSConf.RootCAs.Equal(expectedPool), nil
-	}); err != nil {
-		t.Fatal("timeout to get the secret:", err)
-	}
-
-	// 2) Update cert and key but keep using old CA, then the error is expected.
-	secret.Data[certificates.CertName] = newTLSCrt
-	secret.Data[certificates.PrivateKeyName] = newTLSKey
-	newCert, _ := tls.X509KeyPair(newTLSCrt, newTLSKey)
-
-	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
-	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
-		// To access cert.Certificate, take a lock.
-		cr.certificatesMux.RLock()
-		defer cr.certificatesMux.RUnlock()
-		cert, err := cr.GetCertificate(nil)
-		return err == nil && reflect.DeepEqual(newCert.Certificate, cert.Certificate), nil
-	}); err != nil {
-		t.Fatalf("timeout to update the cert: %v", err)
-	}
-
-	// 3) Update CA, now the error is gone.
-	secret.Data[certificates.CaCertName] = newCA
-	expectedPool := getPoolWithCerts(secret.Data[certificates.CaCertName])
-	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
-	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 10*time.Second, true, func(context.Context) (bool, error) {
-		// To access cr.TLSConf.RootCAs, take a lock.
-		cr.certificatesMux.RLock()
-		defer cr.certificatesMux.RUnlock()
-		return cr.TLSConf.RootCAs.Equal(expectedPool), nil
-	}); err != nil {
-		t.Fatalf("timeout to update the cert: %v", err)
-	}
-
-	// 4) Valid CA in Configmap, no CA in Secret
-	s := secret.DeepCopy()
-	delete(s.Data, certificates.CaCertName)
-	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Create(ctx, s, metav1.CreateOptions{})
-	fakesecretinformer.Get(ctx).Informer().GetIndexer().Add(s)
-	fakekubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Create(ctx, validConfigmap, metav1.CreateOptions{})
-	fakeconfigmapinformer.Get(ctx).Informer().GetIndexer().Add(validConfigmap)
-
-	// 5) Wait for the resources to be created and the handler is called.
-	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 2*time.Second, true, func(context.Context) (bool, error) {
-		// To access cert pool, take a lock.
-		cr.certificatesMux.RLock()
-		defer cr.certificatesMux.RUnlock()
-		expectedPool := getPoolWithCerts(configmapCA)
-		return cr.TLSConf.RootCAs.Equal(expectedPool), nil
-	}); err != nil {
-		t.Fatal("CA pool did not match the expected pool: ", err)
-	}
-
-	// 6) Valid CA, CA in Secret
-	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
-	fakesecretinformer.Get(ctx).Informer().GetIndexer().Update(secret)
-	fakekubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Create(ctx, validConfigmap, metav1.CreateOptions{})
-	fakeconfigmapinformer.Get(ctx).Informer().GetIndexer().Add(validConfigmap)
-
-	// Wait for the resources to be created and the handler is called.
-	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 10*time.Second, true, func(context.Context) (bool, error) {
-		// To access cert pool, take a lock.
-		cr.certificatesMux.RLock()
-		defer cr.certificatesMux.RUnlock()
-		expectedPool := getPoolWithCerts(secretCA, configmapCA)
-		return cr.TLSConf.RootCAs.Equal(expectedPool), nil
-	}); err != nil {
-		t.Fatal("CA pool did not match the expected pool:", err)
-	}
-
-	// 7) Invalid CA in Configmap
-	fakekubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Delete(ctx, validConfigmap.Name, metav1.DeleteOptions{})
-	fakeconfigmapinformer.Get(ctx).Informer().GetIndexer().Delete(validConfigmap)
-	fakekubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Create(ctx, invalidConfigmap, metav1.CreateOptions{})
-	fakeconfigmapinformer.Get(ctx).Informer().GetIndexer().Add(invalidConfigmap)
-
-	// Wait for the resources to be created and the handler is called.
-	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 2*time.Second, true, func(context.Context) (bool, error) {
-		// To access cert pool, take a lock.
-		cr.certificatesMux.RLock()
-		defer cr.certificatesMux.RUnlock()
-		expectedPool := getPoolWithCerts(secretCA)
-		return cr.TLSConf.RootCAs.Equal(expectedPool), nil
-	}); err != nil {
-		t.Fatal("CA pool did not match the expected pool:", err)
-	}
 }
 
 func getPoolWithCerts(certs ...[]byte) *x509.CertPool {
