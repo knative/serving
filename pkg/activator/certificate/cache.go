@@ -35,9 +35,9 @@ import (
 
 	"knative.dev/networking/pkg/certificates"
 	netcfg "knative.dev/networking/pkg/config"
-	configmapinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap"
 	"knative.dev/pkg/controller"
-	secretinformer "knative.dev/pkg/injection/clients/namespacedkube/informers/core/v1/secret"
+	nsconfigmapinformer "knative.dev/pkg/injection/clients/namespacedkube/informers/core/v1/configmap"
+	nssecretinformer "knative.dev/pkg/injection/clients/namespacedkube/informers/core/v1/secret"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
 )
@@ -56,12 +56,12 @@ type CertCache struct {
 
 // NewCertCache creates and starts the certificate cache that watches Activators certificate.
 func NewCertCache(ctx context.Context) (*CertCache, error) {
-	secretInformer := secretinformer.Get(ctx)
-	configmapInformer := configmapinformer.Get(ctx)
+	nsSecretInformer := nssecretinformer.Get(ctx)
+	nsConfigmapInformer := nsconfigmapinformer.Get(ctx)
 
 	cr := &CertCache{
-		secretInformer:    secretInformer,
-		configmapInformer: configmapInformer,
+		secretInformer:    nsSecretInformer,
+		configmapInformer: nsConfigmapInformer,
 		logger:            logging.FromContext(ctx),
 	}
 
@@ -74,7 +74,7 @@ func NewCertCache(ctx context.Context) (*CertCache, error) {
 	cr.updateCertificate(secret)
 	cr.updateTrustPool()
 
-	secretInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	nsSecretInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.FilterWithNameAndNamespace(system.Namespace(), netcfg.ServingRoutingCertName),
 		Handler: cache.ResourceEventHandlerFuncs{
 			UpdateFunc: cr.handleCertificateUpdate,
@@ -82,7 +82,7 @@ func NewCertCache(ctx context.Context) (*CertCache, error) {
 		},
 	})
 
-	configmapInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	nsConfigmapInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: reconciler.ChainFilterFuncs(
 			reconciler.LabelExistsFilterFunc(networking.TrustBundleLabelKey),
 		),
