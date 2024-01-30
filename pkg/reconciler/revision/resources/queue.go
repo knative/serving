@@ -260,47 +260,81 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 	}
 	ports = append(ports, servingPort, queueHTTPSPort)
 
-	container := rev.Spec.GetContainer()
-
-	var httpProbe, execProbe *corev1.Probe
-	var userProbeJSON string
-	if container.ReadinessProbe != nil {
+	// User container (and queue-proxy) readiness probe
+	userContainer := rev.Spec.GetContainer()
+	var queueProxyReadinessProbe, userContainerReadinessProbe *corev1.Probe
+	if userContainer.ReadinessProbe != nil {
 		probePort := userPort
-		if container.ReadinessProbe.HTTPGet != nil && container.ReadinessProbe.HTTPGet.Port.IntValue() != 0 {
-			probePort = container.ReadinessProbe.HTTPGet.Port.IntVal
+		if userContainer.ReadinessProbe.HTTPGet != nil && userContainer.ReadinessProbe.HTTPGet.Port.IntValue() != 0 {
+			probePort = userContainer.ReadinessProbe.HTTPGet.Port.IntVal
 		}
-		if container.ReadinessProbe.TCPSocket != nil && container.ReadinessProbe.TCPSocket.Port.IntValue() != 0 {
-			probePort = container.ReadinessProbe.TCPSocket.Port.IntVal
+		if userContainer.ReadinessProbe.TCPSocket != nil && userContainer.ReadinessProbe.TCPSocket.Port.IntValue() != 0 {
+			probePort = userContainer.ReadinessProbe.TCPSocket.Port.IntVal
 		}
-		if container.ReadinessProbe.GRPC != nil && container.ReadinessProbe.GRPC.Port > 0 {
-			probePort = container.ReadinessProbe.GRPC.Port
+		if userContainer.ReadinessProbe.GRPC != nil && userContainer.ReadinessProbe.GRPC.Port > 0 {
+			probePort = userContainer.ReadinessProbe.GRPC.Port
 		}
+
 		// The activator attempts to detect readiness itself by checking the Queue
 		// Proxy's health endpoint rather than waiting for Kubernetes to check and
-		// propagate the Ready state. We encode the original probe as JSON in an
+		// propagate the Ready state. We encode the original readiness probes as JSON in an
 		// environment variable for this health endpoint to use.
-		userProbe := container.ReadinessProbe.DeepCopy()
-		applyReadinessProbeDefaultsForExec(userProbe, probePort)
-
-		var err error
-		userProbeJSON, err = readiness.EncodeProbe(userProbe)
-		if err != nil {
-			return nil, fmt.Errorf("failed to serialize readiness probe: %w", err)
-		}
+		userContainerReadinessProbe = userContainer.ReadinessProbe.DeepCopy()
+		applyReadinessProbeDefaults(userContainerReadinessProbe, probePort)
 
 		// After startup we'll directly use the same http health check endpoint the
 		// execprobe would have used (which will then check the user container).
 		// Unlike the StartupProbe, we don't need to override any of the other settings
 		// except period here. See below.
-		httpProbe = container.ReadinessProbe.DeepCopy()
-		httpProbe.ProbeHandler = corev1.ProbeHandler{
+		queueProxyReadinessProbe = userContainer.ReadinessProbe.DeepCopy()
+		queueProxyReadinessProbe.ProbeHandler = corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Port: intstr.FromInt(int(servingPort.ContainerPort)),
+				Port: intstr.FromInt32(servingPort.ContainerPort),
 				HTTPHeaders: []corev1.HTTPHeader{{
 					Name:  netheader.ProbeKey,
 					Value: queue.Name,
 				}},
 			},
+		}
+	}
+
+	// Sidecar readiness probes
+	multiContainerProbingEnabled := cfg.Features.MultiContainerProbing == apicfg.Enabled
+	readinessProbes := []*corev1.Probe{userContainerReadinessProbe}
+	if multiContainerProbingEnabled {
+		for _, sc := range rev.Spec.GetSidecarContainers() {
+			if sc.ReadinessProbe != nil {
+				var probePort int32
+				switch {
+				case sc.ReadinessProbe.HTTPGet != nil && sc.ReadinessProbe.HTTPGet.Port.IntValue() != 0:
+					probePort = sc.ReadinessProbe.HTTPGet.Port.IntVal
+				case sc.ReadinessProbe.TCPSocket != nil && sc.ReadinessProbe.TCPSocket.Port.IntValue() != 0:
+					probePort = sc.ReadinessProbe.TCPSocket.Port.IntVal
+				case sc.ReadinessProbe.GRPC != nil && sc.ReadinessProbe.GRPC.Port > 0:
+					probePort = sc.ReadinessProbe.GRPC.Port
+				default:
+					return nil, fmt.Errorf("sidecar readiness probe does not define probe port on container: %s", sc.Name)
+				}
+				scProbe := sc.ReadinessProbe.DeepCopy()
+				applyReadinessProbeDefaults(scProbe, probePort)
+				readinessProbes = append(readinessProbes, scProbe)
+			}
+		}
+	}
+
+	// encode the readiness probe(s)
+	var readinessProbeJSON string
+	var err error
+	if multiContainerProbingEnabled && readinessProbes != nil && len(readinessProbes) > 0 {
+		readinessProbeJSON, err = readiness.EncodeMultipleProbes(readinessProbes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to serialize multiple readiness probes: %w", err)
+		}
+
+	} else if userContainerReadinessProbe != nil {
+		readinessProbeJSON, err = readiness.EncodeSingleProbe(userContainerReadinessProbe)
+		if err != nil {
+			return nil, fmt.Errorf("failed to serialize single readiness probe: %w", err)
 		}
 	}
 
@@ -310,10 +344,10 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 	c := &corev1.Container{
 		Name:            QueueContainerName,
 		Image:           cfg.Deployment.QueueSidecarImage,
-		Resources:       createQueueResources(cfg.Deployment, rev.GetAnnotations(), container, useQPResourceDefaults),
+		Resources:       createQueueResources(cfg.Deployment, rev.GetAnnotations(), userContainer, useQPResourceDefaults),
 		Ports:           ports,
-		StartupProbe:    execProbe,
-		ReadinessProbe:  httpProbe,
+		StartupProbe:    nil,
+		ReadinessProbe:  queueProxyReadinessProbe,
 		SecurityContext: queueSecurityContext,
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
@@ -400,7 +434,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			Value: metrics.Domain(),
 		}, {
 			Name:  "SERVING_READINESS_PROBE",
-			Value: userProbeJSON,
+			Value: readinessProbeJSON,
 		}, {
 			Name:  "ENABLE_PROFILING",
 			Value: strconv.FormatBool(cfg.Observability.EnableProfiling),
@@ -427,19 +461,22 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		}, {
 			Name:  "ROOT_CA",
 			Value: cfg.Deployment.QueueSidecarRootCA,
+		}, {
+			Name:  "ENABLE_MULTI_CONTAINER_PROBES",
+			Value: strconv.FormatBool(multiContainerProbingEnabled),
 		}},
 	}
 
 	return c, nil
 }
 
-func applyReadinessProbeDefaultsForExec(p *corev1.Probe, port int32) {
+func applyReadinessProbeDefaults(p *corev1.Probe, port int32) {
 	switch {
 	case p == nil:
 		return
 	case p.HTTPGet != nil:
 		p.HTTPGet.Host = localAddress
-		p.HTTPGet.Port = intstr.FromInt(int(port))
+		p.HTTPGet.Port = intstr.FromInt32(port)
 
 		if p.HTTPGet.Scheme == "" {
 			p.HTTPGet.Scheme = corev1.URISchemeHTTP
@@ -451,13 +488,13 @@ func applyReadinessProbeDefaultsForExec(p *corev1.Probe, port int32) {
 		})
 	case p.TCPSocket != nil:
 		p.TCPSocket.Host = localAddress
-		p.TCPSocket.Port = intstr.FromInt(int(port))
+		p.TCPSocket.Port = intstr.FromInt32(port)
 	case p.Exec != nil:
-		// User-defined ExecProbe will still be run on user-container.
+		// User-defined ExecProbe will still be run on user/sidecar-container.
 		// Use TCP probe in queue-proxy.
 		p.TCPSocket = &corev1.TCPSocketAction{
 			Host: localAddress,
-			Port: intstr.FromInt(int(port)),
+			Port: intstr.FromInt32(port),
 		}
 		p.Exec = nil
 	case p.GRPC != nil:

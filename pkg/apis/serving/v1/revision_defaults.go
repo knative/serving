@@ -132,9 +132,10 @@ func (rs *RevisionSpec) applyDefault(ctx context.Context, container *corev1.Cont
 	// If there are multiple containers then default probes will be applied to the container where user specified PORT
 	// default probes will not be applied for non serving containers
 	if len(rs.PodSpec.Containers) == 1 || len(container.Ports) != 0 {
-		rs.applyProbesWithDefaults(container)
-		rs.applyGRPCProbeDefaults(container)
+		rs.applyUserContainerDefaultReadinessProbe(container)
 	}
+	rs.applyReadinessProbeDefaults(container)
+	rs.applyGRPCProbeDefaults(container)
 
 	if rs.PodSpec.EnableServiceLinks == nil && apis.IsInCreate(ctx) {
 		rs.PodSpec.EnableServiceLinks = cfg.Defaults.EnableServiceLinks
@@ -154,7 +155,7 @@ func (rs *RevisionSpec) applyDefault(ctx context.Context, container *corev1.Cont
 	}
 }
 
-func (*RevisionSpec) applyProbesWithDefaults(container *corev1.Container) {
+func (*RevisionSpec) applyUserContainerDefaultReadinessProbe(container *corev1.Container) {
 	if container.ReadinessProbe == nil {
 		container.ReadinessProbe = &corev1.Probe{}
 	}
@@ -163,6 +164,14 @@ func (*RevisionSpec) applyProbesWithDefaults(container *corev1.Container) {
 		container.ReadinessProbe.Exec == nil &&
 		container.ReadinessProbe.GRPC == nil {
 		container.ReadinessProbe.TCPSocket = &corev1.TCPSocketAction{}
+	}
+}
+
+func (*RevisionSpec) applyReadinessProbeDefaults(container *corev1.Container) {
+	if container.ReadinessProbe == nil {
+		// Sidecars are allowed to not have a readiness-probe
+		// we do not want the defaults in that case.
+		return
 	}
 
 	if container.ReadinessProbe.SuccessThreshold == 0 {

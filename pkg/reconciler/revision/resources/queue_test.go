@@ -427,6 +427,20 @@ func TestMakeQueueContainer(t *testing.T) {
 				"ENABLE_HTTP2_AUTO_DETECTION": "false",
 			})
 		}),
+	}, {
+		name: "multi container probing enabled",
+		rev:  revision("bar", "foo", withContainers(containers)),
+		fc: apicfg.Features{
+			MultiContainerProbing: apicfg.Enabled,
+		},
+		dc: deployment.Config{
+			ProgressDeadline: 0 * time.Second,
+		},
+		want: queueContainer(func(c *corev1.Container) {
+			c.Env = env(map[string]string{
+				"ENABLE_MULTI_CONTAINER_PROBES": "true",
+			})
+		}),
 	}}
 
 	for _, test := range tests {
@@ -453,9 +467,13 @@ func TestMakeQueueContainer(t *testing.T) {
 				t.Fatal("makeQueueContainer returned error:", err)
 			}
 
+			expectedProbe := probeJSON(test.rev.Spec.GetContainer())
+			if test.fc.MultiContainerProbing == apicfg.Enabled {
+				expectedProbe = "[" + expectedProbe + "]"
+			}
 			test.want.Env = append(test.want.Env, corev1.EnvVar{
 				Name:  "SERVING_READINESS_PROBE",
-				Value: probeJSON(test.rev.Spec.GetContainer()),
+				Value: expectedProbe,
 			})
 
 			sortEnv(got.Env)
@@ -1078,6 +1096,7 @@ var defaultEnv = map[string]string{
 	"TRACING_CONFIG_ZIPKIN_ENDPOINT":                   "",
 	"USER_PORT":                                        strconv.Itoa(v1.DefaultUserPort),
 	"ROOT_CA":                                          "",
+	"ENABLE_MULTI_CONTAINER_PROBES":                    "false",
 }
 
 func probeJSON(container *corev1.Container) string {

@@ -387,7 +387,7 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 	case 0:
 		errs = errs.Also(apis.ErrMissingField("containers"))
 	case 1:
-		errs = errs.Also(ValidateContainer(ctx, ps.Containers[0], volumes, port).
+		errs = errs.Also(ValidateUserContainer(ctx, ps.Containers[0], volumes, port).
 			ViaFieldIndex("containers", 0))
 	default:
 		errs = errs.Also(validateContainers(ctx, ps.Containers, volumes, port))
@@ -447,7 +447,7 @@ func validateContainers(ctx context.Context, containers []corev1.Container, volu
 			// Note, if we allow readiness/liveness checks on sidecars, we should pass in an *empty* port here, not the main container's port.
 			errs = errs.Also(validateSidecarContainer(WithinSidecarContainer(ctx), containers[i], volumes).ViaFieldIndex("containers", i))
 		} else {
-			errs = errs.Also(ValidateContainer(WithinUserContainer(ctx), containers[i], volumes, port).ViaFieldIndex("containers", i))
+			errs = errs.Also(ValidateUserContainer(WithinUserContainer(ctx), containers[i], volumes, port).ViaFieldIndex("containers", i))
 		}
 	}
 	return errs
@@ -503,14 +503,23 @@ func validateContainersPorts(containers []corev1.Container) (corev1.ContainerPor
 
 // validateSidecarContainer validate fields for non serving containers
 func validateSidecarContainer(ctx context.Context, container corev1.Container, volumes map[string]corev1.Volume) (errs *apis.FieldError) {
-	if container.LivenessProbe != nil {
-		errs = errs.Also(apis.CheckDisallowedFields(*container.LivenessProbe,
-			*ProbeMask(&corev1.Probe{})).ViaField("livenessProbe"))
+	cfg := config.FromContextOrDefaults(ctx)
+	if cfg.Features.MultiContainerProbing != config.Enabled {
+		if container.LivenessProbe != nil {
+			errs = errs.Also(apis.CheckDisallowedFields(*container.LivenessProbe,
+				*ProbeMask(&corev1.Probe{})).ViaField("livenessProbe"))
+		}
+		if container.ReadinessProbe != nil {
+			errs = errs.Also(apis.CheckDisallowedFields(*container.ReadinessProbe,
+				*ProbeMask(&corev1.Probe{})).ViaField("readinessProbe"))
+		}
+	} else if cfg.Features.MultiContainerProbing == config.Enabled {
+		// Liveness Probes
+		errs = errs.Also(validateProbe(container.LivenessProbe, nil, false).ViaField("livenessProbe"))
+		// Readiness Probes
+		errs = errs.Also(validateReadinessProbe(container.ReadinessProbe, nil, false).ViaField("readinessProbe"))
 	}
-	if container.ReadinessProbe != nil {
-		errs = errs.Also(apis.CheckDisallowedFields(*container.ReadinessProbe,
-			*ProbeMask(&corev1.Probe{})).ViaField("readinessProbe"))
-	}
+
 	return errs.Also(validate(ctx, container, volumes))
 }
 
@@ -544,12 +553,12 @@ func validateInitContainer(ctx context.Context, container corev1.Container, volu
 	return errs.Also(validate(WithinInitContainer(ctx), container, volumes))
 }
 
-// ValidateContainer validate fields for serving containers
-func ValidateContainer(ctx context.Context, container corev1.Container, volumes map[string]corev1.Volume, port corev1.ContainerPort) (errs *apis.FieldError) {
+// ValidateUserContainer validate fields for serving containers
+func ValidateUserContainer(ctx context.Context, container corev1.Container, volumes map[string]corev1.Volume, port corev1.ContainerPort) (errs *apis.FieldError) {
 	// Liveness Probes
-	errs = errs.Also(validateProbe(container.LivenessProbe, port).ViaField("livenessProbe"))
+	errs = errs.Also(validateProbe(container.LivenessProbe, &port, true).ViaField("livenessProbe"))
 	// Readiness Probes
-	errs = errs.Also(validateReadinessProbe(container.ReadinessProbe, port).ViaField("readinessProbe"))
+	errs = errs.Also(validateReadinessProbe(container.ReadinessProbe, &port, true).ViaField("readinessProbe"))
 	return errs.Also(validate(ctx, container, volumes))
 }
 
@@ -751,12 +760,12 @@ func validateContainerPortBasic(port corev1.ContainerPort) *apis.FieldError {
 	return errs
 }
 
-func validateReadinessProbe(p *corev1.Probe, port corev1.ContainerPort) *apis.FieldError {
+func validateReadinessProbe(p *corev1.Probe, port *corev1.ContainerPort, isUserContainer bool) *apis.FieldError {
 	if p == nil {
 		return nil
 	}
 
-	errs := validateProbe(p, port)
+	errs := validateProbe(p, port, isUserContainer)
 
 	if p.PeriodSeconds < 0 {
 		errs = errs.Also(apis.ErrOutOfBoundsValue(p.PeriodSeconds, 0, math.MaxInt32, "periodSeconds"))
@@ -798,7 +807,7 @@ func validateReadinessProbe(p *corev1.Probe, port corev1.ContainerPort) *apis.Fi
 	return errs
 }
 
-func validateProbe(p *corev1.Probe, port corev1.ContainerPort) *apis.FieldError {
+func validateProbe(p *corev1.Probe, port *corev1.ContainerPort, isUserContainer bool) *apis.FieldError {
 	if p == nil {
 		return nil
 	}
@@ -813,16 +822,28 @@ func validateProbe(p *corev1.Probe, port corev1.ContainerPort) *apis.FieldError 
 		handlers = append(handlers, "httpGet")
 		errs = errs.Also(apis.CheckDisallowedFields(*h.HTTPGet, *HTTPGetActionMask(h.HTTPGet))).ViaField("httpGet")
 		getPort := h.HTTPGet.Port
-		if getPort.StrVal != "" && getPort.StrVal != port.Name {
-			errs = errs.Also(apis.ErrInvalidValue(getPort.String(), "httpGet.port", "Probe port must match container port"))
+		if isUserContainer {
+			if getPort.StrVal != "" && getPort.StrVal != port.Name {
+				errs = errs.Also(apis.ErrInvalidValue(getPort.String(), "httpGet.port", "Probe port must match container port"))
+			}
+		} else {
+			if getPort.StrVal == "" && getPort.IntVal == 0 {
+				errs = errs.Also(apis.ErrInvalidValue(getPort.String(), "httpGet.port", "Probe port must be specified"))
+			}
 		}
 	}
 	if h.TCPSocket != nil {
 		handlers = append(handlers, "tcpSocket")
 		errs = errs.Also(apis.CheckDisallowedFields(*h.TCPSocket, *TCPSocketActionMask(h.TCPSocket))).ViaField("tcpSocket")
 		tcpPort := h.TCPSocket.Port
-		if tcpPort.StrVal != "" && tcpPort.StrVal != port.Name {
-			errs = errs.Also(apis.ErrInvalidValue(tcpPort.String(), "tcpSocket.port", "Probe port must match container port"))
+		if isUserContainer {
+			if tcpPort.StrVal != "" && tcpPort.StrVal != port.Name {
+				errs = errs.Also(apis.ErrInvalidValue(tcpPort.String(), "tcpSocket.port", "Probe port must match container port"))
+			}
+		} else {
+			if tcpPort.StrVal == "" && tcpPort.IntVal == 0 {
+				errs = errs.Also(apis.ErrInvalidValue(tcpPort.String(), "tcpSocket.port", "Probe port must be specified"))
+			}
 		}
 	}
 	if h.Exec != nil {

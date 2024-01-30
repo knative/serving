@@ -139,13 +139,12 @@ func certVolume(secret string) corev1.Volume {
 	}
 }
 
-func rewriteUserProbe(p *corev1.Probe, userPort int) {
+func addLivenessProbeHeader(p *corev1.Probe) {
 	if p == nil {
 		return
 	}
 	switch {
 	case p.HTTPGet != nil:
-		p.HTTPGet.Port = intstr.FromInt(userPort)
 		// With mTLS enabled, Istio rewrites probes, but doesn't spoof the kubelet
 		// user agent, so we need to inject an extra header to be able to distinguish
 		// between probes and real requests.
@@ -153,6 +152,16 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 			Name:  netheader.KubeletProbeKey,
 			Value: queue.Name,
 		})
+	}
+}
+
+func rewriteUserLivenessProbe(p *corev1.Probe, userPort int) {
+	if p == nil {
+		return
+	}
+	switch {
+	case p.HTTPGet != nil:
+		p.HTTPGet.Port = intstr.FromInt(userPort)
 	case p.TCPSocket != nil:
 		p.TCPSocket.Port = intstr.FromInt(userPort)
 	}
@@ -256,6 +265,19 @@ func makeContainer(container corev1.Container, rev *v1.Revision) corev1.Containe
 	if container.TerminationMessagePolicy == "" {
 		container.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
 	}
+
+	if container.ReadinessProbe != nil {
+		if container.ReadinessProbe.HTTPGet != nil || container.ReadinessProbe.TCPSocket != nil || container.ReadinessProbe.GRPC != nil {
+			// HTTP, TCP and gRPC ReadinessProbes are executed by the queue-proxy directly against the
+			// container instead of via kubelet.
+			container.ReadinessProbe = nil
+		}
+	}
+
+	if container.LivenessProbe != nil {
+		addLivenessProbeHeader(container.LivenessProbe)
+	}
+
 	return container
 }
 
@@ -266,15 +288,8 @@ func makeServingContainer(servingContainer corev1.Container, rev *v1.Revision) c
 	servingContainer.Ports = buildContainerPorts(userPort)
 	servingContainer.Env = append(servingContainer.Env, buildUserPortEnv(userPortStr))
 	container := makeContainer(servingContainer, rev)
-	if container.ReadinessProbe != nil {
-		if container.ReadinessProbe.HTTPGet != nil || container.ReadinessProbe.TCPSocket != nil || container.ReadinessProbe.GRPC != nil {
-			// HTTP, TCP and gRPC ReadinessProbes are executed by the queue-proxy directly against the
-			// user-container instead of via kubelet.
-			container.ReadinessProbe = nil
-		}
-	}
-	// If the client provides probes, we should fill in the port for them.
-	rewriteUserProbe(container.LivenessProbe, int(userPort))
+	// If the user provides a liveness probe, we should rewrite in the port on the user-container for them.
+	rewriteUserLivenessProbe(container.LivenessProbe, int(userPort))
 	return container
 }
 

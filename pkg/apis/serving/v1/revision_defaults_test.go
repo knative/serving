@@ -1063,6 +1063,251 @@ func TestRevisionDefaulting(t *testing.T) {
 				},
 			},
 		},
+	}, {
+		name: "multiple containers with default probes",
+		in: &Revision{
+			Spec: RevisionSpec{
+				ContainerConcurrency: ptr.Int64(1),
+				TimeoutSeconds:       ptr.Int64(99),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "foo",
+						ReadinessProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								TCPSocket: &corev1.TCPSocketAction{
+									Host: "127.0.0.2",
+								},
+							},
+						},
+					}, {
+						Name: "second",
+					}},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				ContainerConcurrency: ptr.Int64(1),
+				TimeoutSeconds:       ptr.Int64(99),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:      "foo",
+						Resources: defaultResources,
+						ReadinessProbe: &corev1.Probe{
+							SuccessThreshold: 1,
+							ProbeHandler: corev1.ProbeHandler{
+								TCPSocket: &corev1.TCPSocketAction{
+									Host: "127.0.0.2",
+								},
+							},
+						},
+					}, {
+						Name:      "second",
+						Resources: defaultResources,
+					}},
+				},
+			},
+		},
+	}, {
+		name: "multiple containers with probes no override",
+		in: &Revision{
+			Spec: RevisionSpec{
+				ContainerConcurrency: ptr.Int64(1),
+				TimeoutSeconds:       ptr.Int64(99),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "foo",
+						ReadinessProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								TCPSocket: &corev1.TCPSocketAction{
+									Host: "127.0.0.2",
+								},
+							},
+						},
+					}, {
+						Name: "second",
+						ReadinessProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								TCPSocket: &corev1.TCPSocketAction{
+									Host: "127.0.0.2",
+								},
+							},
+						},
+					}},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				ContainerConcurrency: ptr.Int64(1),
+				TimeoutSeconds:       ptr.Int64(99),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:      "foo",
+						Resources: defaultResources,
+						ReadinessProbe: &corev1.Probe{
+							SuccessThreshold: 1,
+							ProbeHandler: corev1.ProbeHandler{
+								TCPSocket: &corev1.TCPSocketAction{
+									Host: "127.0.0.2",
+								},
+							},
+						},
+					}, {
+						Name:      "second",
+						Resources: defaultResources,
+						ReadinessProbe: &corev1.Probe{
+							SuccessThreshold: 1,
+							ProbeHandler: corev1.ProbeHandler{
+								TCPSocket: &corev1.TCPSocketAction{
+									Host: "127.0.0.2",
+								},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}, {
+		name: "multiple containers with exec probes no override",
+		in: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						ReadinessProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								Exec: &corev1.ExecAction{
+									Command: []string{"echo", "hi"},
+								},
+							},
+						},
+					}, {
+						ReadinessProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								Exec: &corev1.ExecAction{
+									Command: []string{"echo", "hi"},
+								},
+							},
+						},
+					}},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:      config.DefaultUserContainerName + "-0",
+						Resources: defaultResources,
+						ReadinessProbe: &corev1.Probe{
+							SuccessThreshold: 1,
+							ProbeHandler: corev1.ProbeHandler{
+								Exec: &corev1.ExecAction{
+									Command: []string{"echo", "hi"},
+								},
+							},
+						},
+					}, {
+						Name:      config.DefaultUserContainerName + "-1",
+						Resources: defaultResources,
+						ReadinessProbe: &corev1.Probe{
+							SuccessThreshold: 1,
+							ProbeHandler: corev1.ProbeHandler{
+								Exec: &corev1.ExecAction{
+									Command: []string{"echo", "hi"},
+								},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}, {
+		name: "multiple containers apply k8s defaults when period seconds has a non zero value",
+		in: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 8080,
+						}},
+						ReadinessProbe: &corev1.Probe{
+							// FailureThreshold and TimeoutSeconds missing
+							PeriodSeconds: 10,
+						},
+					}, {
+						ReadinessProbe: &corev1.Probe{
+							// FailureThreshold and TimeoutSeconds missing
+							PeriodSeconds: 10,
+						},
+					}},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: config.DefaultUserContainerName + "-0",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 8080,
+						}},
+						ReadinessProbe: &corev1.Probe{
+							FailureThreshold: 3, // Added as k8s default
+							ProbeHandler:     defaultProbe.ProbeHandler,
+							PeriodSeconds:    10,
+							SuccessThreshold: 1,
+							TimeoutSeconds:   1, // Added as k8s default
+						},
+						Resources: defaultResources,
+					}, {
+						Name: config.DefaultUserContainerName + "-1",
+						ReadinessProbe: &corev1.Probe{
+							FailureThreshold: 3, // Added as k8s default
+							PeriodSeconds:    10,
+							SuccessThreshold: 1,
+							TimeoutSeconds:   1, // Added as k8s default
+						},
+						Resources: defaultResources,
+					}},
+				},
+				TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+			},
+		},
+	}, {
+		name: "multiple containers partially initialized",
+		in: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{Containers: []corev1.Container{{
+					Ports: []corev1.ContainerPort{{
+						ContainerPort: 8080,
+					}},
+				}, {}}},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: config.DefaultUserContainerName + "-0",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 8080,
+						}},
+						Resources:      defaultResources,
+						ReadinessProbe: defaultProbe,
+					}, {
+						Name:           config.DefaultUserContainerName + "-1",
+						Resources:      defaultResources,
+						ReadinessProbe: nil,
+					}},
+				},
+			},
+		},
 	}}
 
 	for _, test := range tests {

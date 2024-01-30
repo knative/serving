@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "f2fc138e"
+    knative.dev/example-checksum: "632d47dd"
 data:
   _example: |-
     ################################
@@ -50,8 +50,14 @@ data:
     # Indicates whether multi container support is enabled
     #
     # WARNING: Cannot safely be disabled once enabled.
-    # See: https://knative.dev/docs/serving/feature-flags/#multi-containers
+    # See: https://knative.dev/docs/serving/configuration/feature-flags/#multiple-containers
     multi-container: "enabled"
+
+    # Indicates whether multi container probing is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
+    # See: https://knative.dev/docs/serving/configuration/feature-flags/#multiple-container-probing
+    multi-container-probing: "disabled"
 
     # Indicates whether Kubernetes affinity support is enabled
     #

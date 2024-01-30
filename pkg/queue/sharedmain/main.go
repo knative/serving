@@ -87,8 +87,9 @@ type config struct {
 	ServingReadinessProbe               string `split_words:"true"` // optional
 	EnableProfiling                     bool   `split_words:"true"` // optional
 	// See https://github.com/knative/serving/issues/12387
-	EnableHTTPFullDuplex     bool `split_words:"true"`                      // optional
-	EnableHTTP2AutoDetection bool `envconfig:"ENABLE_HTTP2_AUTO_DETECTION"` // optional
+	EnableHTTPFullDuplex       bool `split_words:"true"`                      // optional
+	EnableHTTP2AutoDetection   bool `envconfig:"ENABLE_HTTP2_AUTO_DETECTION"` // optional
+	EnableMultiContainerProbes bool `split_words:"true"`
 
 	// Logging configuration
 	ServingLoggingConfig         string `split_words:"true" required:"true"`
@@ -227,7 +228,7 @@ func Main(opts ...Option) error {
 	// Setup probe to run for checking user-application healthiness.
 	probe := func() bool { return true }
 	if env.ServingReadinessProbe != "" {
-		probe = buildProbe(logger, env.ServingReadinessProbe, env.EnableHTTP2AutoDetection).ProbeContainer
+		probe = buildProbe(logger, env.ServingReadinessProbe, env.EnableHTTP2AutoDetection, env.EnableMultiContainerProbes).ProbeContainer
 	}
 
 	// Enable TLS when certificate is mounted.
@@ -331,15 +332,15 @@ func exists(logger *zap.SugaredLogger, filename string) bool {
 	return err == nil
 }
 
-func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 bool) *readiness.Probe {
-	coreProbe, err := readiness.DecodeProbe(encodedProbe)
+func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 bool, multiContainerProbes bool) *readiness.Probe {
+	coreProbes, err := readiness.DecodeProbes(encodedProbe, multiContainerProbes)
 	if err != nil {
 		logger.Fatalw("Queue container failed to parse readiness probe", zap.Error(err))
 	}
 	if autodetectHTTP2 {
-		return readiness.NewProbeWithHTTP2AutoDetection(coreProbe)
+		return readiness.NewProbeWithHTTP2AutoDetection(coreProbes)
 	}
-	return readiness.NewProbe(coreProbe)
+	return readiness.NewProbe(coreProbes)
 }
 
 func buildTransport(env config) http.RoundTripper {
