@@ -59,7 +59,9 @@ func makeLabels(revision *v1.Revision) map[string]string {
 
 func makeAnnotations(revision *v1.Revision) map[string]string {
 	annotations := kmap.Filter(revision.GetAnnotations(), excludeAnnotations.Has)
-	annotations[serving.RevisionTimeoutAnnotation.Key()] = strconv.FormatInt(*revision.Spec.TimeoutSeconds, 10) + "s"
+	if revision.Spec.TimeoutSeconds != nil {
+		annotations[serving.RevisionTimeoutAnnotation.Key()] = strconv.FormatInt(*revision.Spec.TimeoutSeconds, 10) + "s"
+	}
 	return annotations
 }
 

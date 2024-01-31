@@ -47,6 +47,11 @@ import (
 	. "knative.dev/serving/pkg/testing/v1"
 )
 
+const (
+	defaultRevisionTimeout    = 45
+	defaultRevisionTimeoutStr = "45s"
+)
+
 var (
 	servingContainerName         = "serving-container"
 	sidecarContainerName         = "sidecar-container-1"
@@ -195,7 +200,7 @@ var (
 	}
 
 	defaultPodSpec = &corev1.PodSpec{
-		TerminationGracePeriodSeconds: refInt64(45),
+		TerminationGracePeriodSeconds: ptr.Int64(45),
 		EnableServiceLinks:            ptr.Bool(false),
 	}
 
@@ -273,13 +278,9 @@ func defaultRevision() *v1.Revision {
 			UID: "1234",
 		},
 		Spec: v1.RevisionSpec{
-			TimeoutSeconds: ptr.Int64(45),
+			TimeoutSeconds: ptr.Int64(defaultRevisionTimeout),
 		},
 	}
-}
-
-func refInt64(num int64) *int64 {
-	return &num
 }
 
 type containerOption func(*corev1.Container)
@@ -1425,7 +1426,10 @@ func TestMakeDeployment(t *testing.T) {
 			}, {
 				ImageDigest: "ubuntu@sha256:deadbffe",
 			}})),
-		want: appsv1deployment(),
+		want: appsv1deployment(func(deploy *appsv1.Deployment) {
+			deploy.Annotations = map[string]string{serving.RevisionTimeoutAnnotationKey: defaultRevisionTimeoutStr}
+			deploy.Spec.Template.Annotations = map[string]string{serving.RevisionTimeoutAnnotationKey: defaultRevisionTimeoutStr}
+		}),
 	}, {
 		name: "with owner",
 		rev: revision("bar", "foo",
@@ -1439,7 +1443,10 @@ func TestMakeDeployment(t *testing.T) {
 			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}})),
-		want: appsv1deployment(),
+		want: appsv1deployment(func(deploy *appsv1.Deployment) {
+			deploy.Annotations = map[string]string{serving.RevisionTimeoutAnnotationKey: defaultRevisionTimeoutStr}
+			deploy.Spec.Template.Annotations = map[string]string{serving.RevisionTimeoutAnnotationKey: defaultRevisionTimeoutStr}
+		}),
 	}, {
 		name: "with sidecar annotation override",
 		rev: revision("bar", "foo",
@@ -1458,9 +1465,13 @@ func TestMakeDeployment(t *testing.T) {
 			}),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Annotations = kmeta.UnionMaps(deploy.Annotations,
-				map[string]string{sidecarIstioInjectAnnotation: "false"})
+				map[string]string{
+					sidecarIstioInjectAnnotation:         "false",
+					serving.RevisionTimeoutAnnotationKey: defaultRevisionTimeoutStr})
 			deploy.Spec.Template.Annotations = kmeta.UnionMaps(deploy.Spec.Template.Annotations,
-				map[string]string{sidecarIstioInjectAnnotation: "false"})
+				map[string]string{
+					sidecarIstioInjectAnnotation:         "false",
+					serving.RevisionTimeoutAnnotationKey: defaultRevisionTimeoutStr})
 		}),
 	}, {
 		name: "with progress-deadline override",
@@ -1478,6 +1489,8 @@ func TestMakeDeployment(t *testing.T) {
 			}}), withoutLabels),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
+			deploy.Annotations = map[string]string{serving.RevisionTimeoutAnnotationKey: defaultRevisionTimeoutStr}
+			deploy.Spec.Template.Annotations = map[string]string{serving.RevisionTimeoutAnnotationKey: defaultRevisionTimeoutStr}
 		}),
 	}, {
 		name: "with progress-deadline annotation",
@@ -1493,8 +1506,13 @@ func TestMakeDeployment(t *testing.T) {
 			}}), withoutLabels),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
-			deploy.Annotations = map[string]string{serving.ProgressDeadlineAnnotationKey: "42s"}
-			deploy.Spec.Template.Annotations = map[string]string{serving.ProgressDeadlineAnnotationKey: "42s"}
+			deploy.Annotations = map[string]string{
+				serving.ProgressDeadlineAnnotationKey: "42s",
+				serving.RevisionTimeoutAnnotationKey:  defaultRevisionTimeoutStr}
+			deploy.Spec.Template.Annotations = map[string]string{
+				serving.ProgressDeadlineAnnotationKey: "42s",
+				serving.RevisionTimeoutAnnotationKey:  defaultRevisionTimeoutStr}
+
 		}),
 	}, {
 		name: "with ProgressDeadline annotation and configmap override",
@@ -1513,8 +1531,12 @@ func TestMakeDeployment(t *testing.T) {
 			}}), withoutLabels),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
-			deploy.Annotations = map[string]string{serving.ProgressDeadlineAnnotationKey: "42s"}
-			deploy.Spec.Template.Annotations = map[string]string{serving.ProgressDeadlineAnnotationKey: "42s"}
+			deploy.Annotations = map[string]string{
+				serving.ProgressDeadlineAnnotationKey: "42s",
+				serving.RevisionTimeoutAnnotationKey:  defaultRevisionTimeoutStr}
+			deploy.Spec.Template.Annotations = map[string]string{
+				serving.ProgressDeadlineAnnotationKey: "42s",
+				serving.RevisionTimeoutAnnotationKey:  defaultRevisionTimeoutStr}
 		}),
 	}, {
 		name: "cluster initial scale",
@@ -1531,6 +1553,9 @@ func TestMakeDeployment(t *testing.T) {
 		),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.Replicas = ptr.Int32(int32(10))
+			deploy.Annotations = map[string]string{serving.RevisionTimeoutAnnotationKey: defaultRevisionTimeoutStr}
+			deploy.Spec.Template.Annotations = map[string]string{serving.RevisionTimeoutAnnotationKey: defaultRevisionTimeoutStr}
+
 		}),
 	}, {
 		name: "cluster initial scale override by revision initial scale",
@@ -1550,8 +1575,12 @@ func TestMakeDeployment(t *testing.T) {
 		),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.Replicas = ptr.Int32(int32(20))
-			deploy.Spec.Template.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
-			deploy.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
+			deploy.Spec.Template.Annotations = map[string]string{
+				autoscaling.InitialScaleAnnotationKey: "20",
+				serving.RevisionTimeoutAnnotationKey:  defaultRevisionTimeoutStr}
+			deploy.Annotations = map[string]string{
+				autoscaling.InitialScaleAnnotationKey: "20",
+				serving.RevisionTimeoutAnnotationKey:  defaultRevisionTimeoutStr}
 		}),
 	}}
 

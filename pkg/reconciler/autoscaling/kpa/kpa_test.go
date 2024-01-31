@@ -101,6 +101,7 @@ const (
 	paStableWindow           = 45 * time.Second
 	progressDeadline         = 121 * time.Second
 	stableWindow             = 5 * time.Minute
+	defaultRevisionTimeout   = 45
 )
 
 func defaultConfigMapData() map[string]string {
@@ -1782,7 +1783,9 @@ func newTestRevision(namespace, name string) *v1.Revision {
 				serving.ConfigurationLabelKey: "test-service",
 			},
 		},
-		Spec: v1.RevisionSpec{},
+		Spec: v1.RevisionSpec{
+			TimeoutSeconds: ptr.Int64(defaultRevisionTimeout),
+		},
 	}
 }
 
