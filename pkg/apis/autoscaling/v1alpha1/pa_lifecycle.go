@@ -173,6 +173,7 @@ func (pa *PodAutoscaler) ProgressDeadline() (time.Duration, bool) {
 	return pa.annotationDuration(serving.ProgressDeadlineAnnotation)
 }
 
+// RevisionTimeout returns the revision timeout annotation value, or false if not present.
 func (pa *PodAutoscaler) RevisionTimeout() (time.Duration, bool) {
 	return pa.annotationDuration(serving.RevisionTimeoutAnnotation)
 }
@@ -191,6 +192,8 @@ func (pa *PodAutoscaler) IsReady() bool {
 		pas.GetCondition(PodAutoscalerConditionReady).IsTrue()
 }
 
+// CanFailActivationOnUnreachableRevision checks whether the pod autoscaler is Unreachable and has been activating
+// for at least the specified idle period
 func (pa *PodAutoscaler) CanFailActivationOnUnreachableRevision(now time.Time, idlePeriod time.Duration) bool {
 	return pa.Spec.Reachability == ReachabilityUnreachable && pa.Status.CanFailActivation(now, idlePeriod)
 }

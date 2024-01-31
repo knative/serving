@@ -145,6 +145,7 @@ const (
 	// ProgressDeadlineAnnotationKey is the label key for the per revision progress deadline to set for the deployment
 	ProgressDeadlineAnnotationKey = GroupName + "/progress-deadline"
 
+	// RevisionTimeoutAnnotationKey is the label key for the revision timeout to set for the pod autoscaler
 	RevisionTimeoutAnnotationKey = GroupName + "/revision-timeout"
 )
 

@@ -328,6 +328,7 @@ func (ks *scaler) applyScale(ctx context.Context, pa *autoscalingv1alpha1.PodAut
 func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, sks *netv1alpha1.ServerlessService, desiredScale int32) (int32, error) {
 	asConfig := config.FromContext(ctx).Autoscaler
 	logger := logging.FromContext(ctx)
+
 	if desiredScale < 0 && !pa.Status.IsActivating() {
 		logger.Debug("Metrics are not yet being collected.")
 		return desiredScale, nil
