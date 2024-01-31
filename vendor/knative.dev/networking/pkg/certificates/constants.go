@@ -38,17 +38,6 @@ const (
 	CaCertName     = "ca.crt"
 	CertName       = "tls.crt"
 	PrivateKeyName = "tls.key"
-
-	// These should be able to be deprecated some time in the future when the new names are fully adopted
-	// #nosec
-	// Deprecated: please use CaCertName instead.
-	SecretCaCertKey = "ca-cert.pem"
-	// #nosec
-	// Deprecated: please use CertName instead.
-	SecretCertKey = "public-cert.pem"
-	// #nosec
-	// Deprecated: please use PrivateKeyName instead.
-	SecretPKKey = "private-key.pem"
 )
 
 // DataPlaneUserSAN constructs a SAN for a data-plane-user certificate in the
