@@ -144,6 +144,8 @@ const (
 
 	// ProgressDeadlineAnnotationKey is the label key for the per revision progress deadline to set for the deployment
 	ProgressDeadlineAnnotationKey = GroupName + "/progress-deadline"
+
+	RevisionTimeoutAnnotationKey = GroupName + "/revision-timeout"
 )
 
 var (
@@ -201,5 +203,8 @@ var (
 	}
 	ProgressDeadlineAnnotation = kmap.KeyPriority{
 		ProgressDeadlineAnnotationKey,
+	}
+	RevisionTimeoutAnnotation = kmap.KeyPriority{
+		RevisionTimeoutAnnotationKey,
 	}
 )

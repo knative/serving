@@ -19,9 +19,11 @@ package resources
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"knative.dev/pkg/kmap"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"strconv"
 )
 
 var (
@@ -56,7 +58,9 @@ func makeLabels(revision *v1.Revision) map[string]string {
 }
 
 func makeAnnotations(revision *v1.Revision) map[string]string {
-	return kmeta.FilterMap(revision.GetAnnotations(), excludeAnnotations.Has)
+	annotations := kmap.Filter(revision.GetAnnotations(), excludeAnnotations.Has)
+	annotations[serving.RevisionTimeoutAnnotation.Key()] = strconv.FormatInt(*revision.Spec.TimeoutSeconds, 10) + "s"
+	return annotations
 }
 
 // makeSelector constructs the Selector we will apply to K8s resources.

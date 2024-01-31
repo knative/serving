@@ -173,6 +173,10 @@ func (pa *PodAutoscaler) ProgressDeadline() (time.Duration, bool) {
 	return pa.annotationDuration(serving.ProgressDeadlineAnnotation)
 }
 
+func (pa *PodAutoscaler) RevisionTimeout() (time.Duration, bool) {
+	return pa.annotationDuration(serving.RevisionTimeoutAnnotation)
+}
+
 // InitialScale returns the initial scale on the revision if present, or false if not present.
 func (pa *PodAutoscaler) InitialScale() (int32, bool) {
 	// The value is validated in the webhook.
@@ -185,6 +189,10 @@ func (pa *PodAutoscaler) IsReady() bool {
 	pas := pa.Status
 	return pa.Generation == pas.ObservedGeneration &&
 		pas.GetCondition(PodAutoscalerConditionReady).IsTrue()
+}
+
+func (pa *PodAutoscaler) CanFailActivationOnUnreachableRevision(now time.Time, idlePeriod time.Duration) bool {
+	return pa.Spec.Reachability == ReachabilityUnreachable && pa.Status.CanFailActivation(now, idlePeriod)
 }
 
 // IsActive returns true if the pod autoscaler has finished scaling.

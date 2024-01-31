@@ -22,8 +22,6 @@ import (
 	"net/http"
 	"time"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	"knative.dev/pkg/logging"
@@ -189,9 +187,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1
 	}
 	cfgD := cfgs.Deployment
 	var activationTimeout time.Duration
-	if revTimeout, err := ks.revisionTimeout(ctx, pa); err == nil && revTimeout > 0 {
-		activationTimeout = time.Duration(revTimeout) * time.Second
-	} else if progressDeadline, ok := pa.ProgressDeadline(); ok {
+	if progressDeadline, ok := pa.ProgressDeadline(); ok {
 		activationTimeout = progressDeadline + activationTimeoutBuffer
 	} else {
 		activationTimeout = cfgD.ProgressDeadline + activationTimeoutBuffer
@@ -204,6 +200,9 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1
 		// If we are stuck activating for longer than our progress deadline, presume we cannot succeed and scale to 0.
 		if pa.Status.CanFailActivation(now, activationTimeout) {
 			logger.Info("Activation has timed out after ", activationTimeout)
+			return desiredScale, true
+		} else if revTimeout, ok := pa.RevisionTimeout(); ok && pa.CanFailActivationOnUnreachableRevision(now, revTimeout) {
+			logger.Info("Activation has timed out after revision-timeout ", revTimeout)
 			return desiredScale, true
 		}
 		ks.enqueueCB(pa, activationTimeout)
@@ -372,21 +371,4 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
 	return desiredScale, ks.applyScale(ctx, pa, desiredScale, ps)
-}
-func (ks *scaler) revisionTimeout(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler) (int64, error) {
-	gvr := schema.GroupVersionResource{
-		Group:    "serving.knative.dev",
-		Version:  "v1",
-		Resource: "revisions",
-	}
-	uRevision, err := ks.dynamicClient.Resource(gvr).Namespace(pa.Namespace).Get(ctx, pa.Name, metav1.GetOptions{})
-	if err == nil {
-		var timeoutSeconds interface{}
-		var found bool
-		timeoutSeconds, found, err = unstructured.NestedFieldNoCopy(uRevision.Object, "spec", "timeoutSeconds")
-		if err == nil && found {
-			return timeoutSeconds.(int64), nil
-		}
-	}
-	return -1, err
 }
