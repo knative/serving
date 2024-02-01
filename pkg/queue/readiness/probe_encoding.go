@@ -57,7 +57,7 @@ func EncodeSingleProbe(rp *corev1.Probe) (string, error) {
 
 // EncodeMultipleProbes takes []*corev1.Probe slice and returns marshalled slice of Probe JSON string and an error.
 func EncodeMultipleProbes(rps []*corev1.Probe) (string, error) {
-	if rps == nil || len(rps) == 0 {
+	if len(rps) == 0 {
 		return "", errors.New("cannot encode nil or empty probes")
 	}
 

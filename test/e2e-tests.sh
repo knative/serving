@@ -119,6 +119,11 @@ toggle_feature kubernetes.podspec-init-containers Enabled
 go_test_e2e -timeout=2m ./test/e2e/initcontainers ${E2E_TEST_FLAGS} || failed=1
 toggle_feature kubernetes.podspec-init-containers Disabled
 
+# Run multi-container probe tests
+toggle_feature multi-container-probing Enabled
+go_test_e2e -timeout=2m ./test/e2e/multicontainerprobing ${E2E_TEST_FLAGS} || failed=1
+toggle_feature multi-container-probing Disabled
+
 # RUN PVC tests with default storage class.
 toggle_feature kubernetes.podspec-persistent-volume-claim Enabled
 toggle_feature kubernetes.podspec-persistent-volume-write Enabled
