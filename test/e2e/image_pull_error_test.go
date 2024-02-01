@@ -53,7 +53,7 @@ func TestImagePullError(t *testing.T) {
 		cond := r.Status.GetCondition(v1.ConfigurationConditionReady)
 		if cond != nil && !cond.IsUnknown() {
 			if cond.IsFalse() {
-				if cond.Reason == wantCfgReason && (strings.Contains(cond.Message, "Back-off pulling image") || strings.Contains(cond.Message, "manifest unknown")) {
+				if cond.Reason == wantCfgReason && hasPullErrorMsg(cond.Message) {
 					return true, nil
 				}
 			}
@@ -89,4 +89,9 @@ func createLatestConfig(t *testing.T, clients *test.Clients, names test.Resource
 	return v1test.CreateConfiguration(t, clients, names, func(c *v1.Configuration) {
 		c.Spec = *v1test.ConfigurationSpec(names.Image)
 	})
+}
+
+func hasPullErrorMsg(msg string) bool {
+	return strings.Contains(msg, "Back-off pulling image") ||
+		strings.Contains(msg, "manifest unknown") || strings.Contains(msg, "failed to pull and unpack image")
 }
