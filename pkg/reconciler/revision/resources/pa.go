@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -28,7 +29,7 @@ import (
 )
 
 // MakePA makes a Knative Pod Autoscaler resource from a revision.
-func MakePA(rev *v1.Revision) *autoscalingv1alpha1.PodAutoscaler {
+func MakePA(rev *v1.Revision, deployment *appsv1.Deployment) *autoscalingv1alpha1.PodAutoscaler {
 	return &autoscalingv1alpha1.PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            names.PA(rev),
@@ -45,20 +46,27 @@ func MakePA(rev *v1.Revision) *autoscalingv1alpha1.PodAutoscaler {
 				Name:       names.Deployment(rev),
 			},
 			ProtocolType: rev.GetProtocol(),
-			Reachability: reachability(rev),
+			Reachability: reachability(rev, deployment),
 		},
 	}
 }
 
-func reachability(rev *v1.Revision) autoscalingv1alpha1.ReachabilityType {
+func reachability(rev *v1.Revision, deployment *appsv1.Deployment) autoscalingv1alpha1.ReachabilityType {
 	// check infra failures
-	conds := []apis.ConditionType{
+	infraFailure := false
+	for _, cond := range []apis.ConditionType{
 		v1.RevisionConditionResourcesAvailable,
 		v1.RevisionConditionContainerHealthy,
+	} {
+		if c := rev.Status.GetCondition(cond); c != nil && c.IsFalse() {
+			infraFailure = true
+			break
+		}
 	}
 
-	for _, cond := range conds {
-		if c := rev.Status.GetCondition(cond); c != nil && c.IsFalse() {
+	if infraFailure && deployment != nil && deployment.Spec.Replicas != nil {
+		// If we have an infra failure and no ready replicas - then this revision is unreachable
+		if *deployment.Spec.Replicas > 0 && deployment.Status.ReadyReplicas == 0 {
 			return autoscalingv1alpha1.ReachabilityUnreachable
 		}
 	}
