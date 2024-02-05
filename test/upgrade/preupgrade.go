@@ -35,6 +35,7 @@ func ServingPreUpgradeTests() []pkgupgrade.Operation {
 		ServicePreUpgradeAndScaleToZeroTest(),
 		BYORevisionPreUpgradeTest(),
 		InitialScalePreUpgradeTest(),
+		DeploymentFailurePreUpgrade(),
 	}
 }
 

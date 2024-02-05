@@ -50,29 +50,42 @@ func TransformDeploymentStatus(ds *appsv1.DeploymentStatus) *duckv1.Status {
 	// The absence of this condition means no failure has occurred. If we find it
 	// below, we'll overwrite this.
 	depCondSet.Manage(s).MarkTrue(DeploymentConditionReplicaSetReady)
+	depCondSet.Manage(s).MarkUnknown(DeploymentConditionProgressing, "Deploying", "")
 
-	for _, cond := range ds.Conditions {
-		// TODO(jonjohnsonjr): Should we care about appsv1.DeploymentAvailable here?
-		switch cond.Type {
-		case appsv1.DeploymentProgressing:
-			switch cond.Status {
-			case corev1.ConditionUnknown:
-				depCondSet.Manage(s).MarkUnknown(DeploymentConditionProgressing, cond.Reason, cond.Message)
-			case corev1.ConditionTrue:
-				depCondSet.Manage(s).MarkTrue(DeploymentConditionProgressing)
-			case corev1.ConditionFalse:
-				depCondSet.Manage(s).MarkFalse(DeploymentConditionProgressing, cond.Reason, cond.Message)
+	conds := []appsv1.DeploymentConditionType{
+		appsv1.DeploymentProgressing,
+		appsv1.DeploymentReplicaFailure,
+	}
+
+	for _, wantType := range conds {
+		for _, cond := range ds.Conditions {
+			if wantType != cond.Type {
+				continue
 			}
-		case appsv1.DeploymentReplicaFailure:
-			switch cond.Status {
-			case corev1.ConditionUnknown:
-				depCondSet.Manage(s).MarkUnknown(DeploymentConditionReplicaSetReady, cond.Reason, cond.Message)
-			case corev1.ConditionTrue:
-				depCondSet.Manage(s).MarkFalse(DeploymentConditionReplicaSetReady, cond.Reason, cond.Message)
-			case corev1.ConditionFalse:
-				depCondSet.Manage(s).MarkTrue(DeploymentConditionReplicaSetReady)
+
+			switch cond.Type {
+			case appsv1.DeploymentProgressing:
+				switch cond.Status {
+				case corev1.ConditionUnknown:
+					depCondSet.Manage(s).MarkUnknown(DeploymentConditionProgressing, cond.Reason, cond.Message)
+				case corev1.ConditionTrue:
+					depCondSet.Manage(s).MarkTrue(DeploymentConditionProgressing)
+				case corev1.ConditionFalse:
+					depCondSet.Manage(s).MarkFalse(DeploymentConditionProgressing, cond.Reason, cond.Message)
+				}
+			case appsv1.DeploymentReplicaFailure:
+				switch cond.Status {
+				case corev1.ConditionUnknown:
+					depCondSet.Manage(s).MarkUnknown(DeploymentConditionReplicaSetReady, cond.Reason, cond.Message)
+				case corev1.ConditionTrue:
+					depCondSet.Manage(s).MarkFalse(DeploymentConditionReplicaSetReady, cond.Reason, cond.Message)
+				case corev1.ConditionFalse:
+					depCondSet.Manage(s).MarkTrue(DeploymentConditionReplicaSetReady)
+				}
 			}
+
 		}
 	}
+
 	return s
 }
