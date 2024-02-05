@@ -219,7 +219,15 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *autoscalingv1alph
 }
 
 func computeStatus(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, pc podCounts, logger *zap.SugaredLogger) {
-	pa.Status.DesiredScale, pa.Status.ActualScale = ptr.Int32(int32(pc.want)), ptr.Int32(int32(pc.ready))
+	pa.Status.ActualScale = ptr.Int32(int32(pc.ready))
+
+	// When the autoscaler just restarted, it does not yet have metrics and would change the desiredScale to -1 and moments
+	// later back to the correct value. The following condition omits this.
+	if pc.want == -1 && pa.Status.DesiredScale != nil && *pa.Status.DesiredScale >= 0 {
+		logger.Debugf("Ignoring change of desiredScale from %d to %d", *pa.Status.DesiredScale, pc.want)
+	} else {
+		pa.Status.DesiredScale = ptr.Int32(int32(pc.want))
+	}
 
 	reportMetrics(pa, pc)
 	computeActiveCondition(ctx, pa, pc)
