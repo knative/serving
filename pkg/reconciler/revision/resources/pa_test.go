@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -35,6 +36,7 @@ func TestMakePA(t *testing.T) {
 	tests := []struct {
 		name string
 		rev  *v1.Revision
+		dep  *appsv1.Deployment
 		want *autoscalingv1alpha1.PodAutoscaler
 	}{{
 		name: "name is bar (Concurrency=1, Reachable=true)",
@@ -243,6 +245,14 @@ func TestMakePA(t *testing.T) {
 			}},
 	}, {
 		name: "failed deployment",
+		dep: &appsv1.Deployment{
+			Spec: appsv1.DeploymentSpec{
+				Replicas: ptr.Int32(1),
+			},
+			Status: appsv1.DeploymentStatus{
+				ReadyReplicas: 0,
+			},
+		},
 		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "blah",
@@ -305,6 +315,14 @@ func TestMakePA(t *testing.T) {
 	}, {
 		// Crashlooping container that never starts
 		name: "failed container",
+		dep: &appsv1.Deployment{
+			Spec: appsv1.DeploymentSpec{
+				Replicas: ptr.Int32(1),
+			},
+			Status: appsv1.DeploymentStatus{
+				ReadyReplicas: 0,
+			},
+		},
 		rev: &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "blah",
@@ -368,7 +386,7 @@ func TestMakePA(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := MakePA(test.rev)
+			got := MakePA(test.rev, test.dep)
 			if !cmp.Equal(got, test.want) {
 				t.Error("MakePA (-want, +got) =", cmp.Diff(test.want, got))
 			}

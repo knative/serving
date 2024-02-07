@@ -170,6 +170,8 @@ func (rs *RevisionStatus) PropagateDeploymentStatus(original *appsv1.DeploymentS
 
 // PropagateAutoscalerStatus propagates autoscaler's status to the revision's status.
 func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *autoscalingv1alpha1.PodAutoscalerStatus) {
+	resUnavailable := rs.GetCondition(RevisionConditionResourcesAvailable).IsFalse()
+
 	// Reflect the PA status in our own.
 	cond := ps.GetCondition(autoscalingv1alpha1.PodAutoscalerConditionReady)
 	rs.ActualReplicas = nil
@@ -183,18 +185,27 @@ func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *autoscalingv1alpha1.PodA
 	}
 
 	if cond == nil {
-		rs.MarkActiveUnknown("Deploying", "")
+		rs.MarkActiveUnknown(ReasonDeploying, "")
+
+		if !resUnavailable {
+			rs.MarkResourcesAvailableUnknown(ReasonDeploying, "")
+		}
 		return
 	}
 
 	// Don't mark the resources available, if deployment status already determined
 	// it isn't so.
-	resUnavailable := rs.GetCondition(RevisionConditionResourcesAvailable).IsFalse()
 	if ps.IsScaleTargetInitialized() && !resUnavailable {
 		// Precondition for PA being initialized is SKS being active and
 		// that implies that |service.endpoints| > 0.
 		rs.MarkResourcesAvailableTrue()
 		rs.MarkContainerHealthyTrue()
+	}
+
+	// Mark resource unavailable if we don't have a Service Name and the deployment is ready
+	// This can happen when we have initial scale set to 0
+	if rs.GetCondition(RevisionConditionResourcesAvailable).IsTrue() && ps.ServiceName == "" {
+		rs.MarkResourcesAvailableUnknown(ReasonDeploying, "")
 	}
 
 	switch cond.Status {
@@ -222,14 +233,6 @@ func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *autoscalingv1alpha1.PodA
 		rs.MarkActiveFalse(cond.Reason, cond.Message)
 	case corev1.ConditionTrue:
 		rs.MarkActiveTrue()
-
-		// Precondition for PA being active is SKS being active and
-		// that implies that |service.endpoints| > 0.
-		//
-		// Note: This is needed for backwards compatibility as we're adding the new
-		// ScaleTargetInitialized condition to gate readiness.
-		rs.MarkResourcesAvailableTrue()
-		rs.MarkContainerHealthyTrue()
 	}
 }
 
