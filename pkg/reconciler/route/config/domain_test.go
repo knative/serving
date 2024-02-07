@@ -95,19 +95,24 @@ func TestNewConfigBadYaml(t *testing.T) {
 
 func TestNewConfig(t *testing.T) {
 	expectedConfig := Domain{
-		Domains: map[string]*LabelSelector{
+		Domains: map[string]DomainConfig{
 			"test-domain.foo.com": {
-				Selector: map[string]string{
-					"app": "foo",
+				Selector: &LabelSelector{
+					Selector: map[string]string{
+						"app": "foo",
+					},
 				},
 			},
 			"bar.com": {
-				Selector: map[string]string{
-					"app":     "bar",
-					"version": "beta",
+				Selector: &LabelSelector{
+					Selector: map[string]string{
+						"app":     "bar",
+						"version": "beta",
+					},
 				},
+				Type: DomainTypeWildcard,
 			},
-			"default.com": {},
+			"default.com": {Selector: &LabelSelector{}, Type: DomainTypeWildcard},
 		},
 	}
 	c, err := NewDomainFromConfigMap(&corev1.ConfigMap{
@@ -116,8 +121,8 @@ func TestNewConfig(t *testing.T) {
 			Name:      DomainConfigName,
 		},
 		Data: map[string]string{
-			"test-domain.foo.com": "selector:\n  app: foo",
-			"bar.com":             "selector:\n  app: bar\n  version: beta",
+			"test-domain.foo.com": "selector:\n  app: foo\n",
+			"bar.com":             "selector:\n  app: bar\n  version: beta\ntype: wildcard",
 			"default.com":         "",
 		},
 	})
@@ -131,24 +136,30 @@ func TestNewConfig(t *testing.T) {
 
 func TestLookupDomainForLabels(t *testing.T) {
 	config := Domain{
-		Domains: map[string]*LabelSelector{
+		Domains: map[string]DomainConfig{
 			"test-domain.foo.com": {
-				Selector: map[string]string{
-					"app": "foo",
+				Selector: &LabelSelector{
+					Selector: map[string]string{
+						"app": "foo",
+					},
 				},
 			},
 			"foo.com": {
-				Selector: map[string]string{
-					"app":     "foo",
-					"version": "prod",
+				Selector: &LabelSelector{
+					Selector: map[string]string{
+						"app":     "foo",
+						"version": "prod",
+					},
 				},
 			},
 			"bar.com": {
-				Selector: map[string]string{
-					"app": "bar",
+				Selector: &LabelSelector{
+					Selector: map[string]string{
+						"app": "bar",
+					},
 				},
 			},
-			"default.com": {},
+			"default.com": {Selector: &LabelSelector{}, Type: DomainTypeWildcard},
 		},
 	}
 

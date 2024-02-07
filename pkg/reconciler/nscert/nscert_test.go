@@ -622,8 +622,8 @@ func networkConfig() *netcfg.Config {
 
 func domainConfig() *routecfg.Domain {
 	domainConfig := &routecfg.Domain{
-		Domains: map[string]*routecfg.LabelSelector{
-			"example.com": {},
+		Domains: map[string]routecfg.DomainConfig{
+			"example.com": {Type: routecfg.DomainTypeWildcard},
 		},
 	}
 	return domainConfig
