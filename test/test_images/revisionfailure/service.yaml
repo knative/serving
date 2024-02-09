@@ -1,0 +1,28 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: revision-failure
+  namespace: default
+spec:
+  template:
+    spec:
+      timeoutSeconds: 30
+      containers:
+      - image: ko://knative.dev/serving/test/test_images/revisionfailure
+        env:
+        - name: NAME
+          value: "$NAME"
+        volumeMounts:
+        - name: failure-list
+          mountPath: /etc/config
+      volumes:
+      - name: failure-list
+        configMap:
+          name: revision-failure
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: revision-failure
+# data:
+#   revision-failure-00001: "1"
