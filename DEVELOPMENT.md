@@ -256,7 +256,7 @@ of:
   the relevant section of [`./hack/schemapatch-config.yaml`](./hack/schemapatch-config.yaml)
   and run [`./hack/update-schemas.sh`](./hack/update-schemas.sh) Additionally:
 
-  - If the new field is added _behind a feature flag_, then add the `kubebuilder:validation:DropProperties` and/or `kubebuilder:pruning:PreserveUnknownFields` as `additionalMarkets`.
+  - If the new field is added _behind a feature flag_, then add the `kubebuilder:validation:DropProperties` and `kubebuilder:pruning:PreserveUnknownFields` as `additionalMarkers`.
 
     ```yaml
     additionalMarkers:
