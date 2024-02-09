@@ -260,8 +260,9 @@ of:
 
     ```yaml
     additionalMarkers:
-       - kubebuilder:validation:DropProperties
-       - kubebuilder:pruning:PreserveUnknownFields
+    # Part of a feature flag - so we want to omit the schema and preserve unknown fields
+    - kubebuilder:validation:DropProperties
+    - kubebuilder:pruning:PreserveUnknownFields
     ```
 
 These are all idempotent, and we expect that running these at `HEAD` to have no
