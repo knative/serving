@@ -255,10 +255,15 @@ of:
 - **If you change surface area of `PodSpec` that we allow in our resources** then you must update
   the relevant section of [`./hack/schemapatch-config.yaml`](./hack/schemapatch-config.yaml)
   and run [`./hack/update-schemas.sh`](./hack/update-schemas.sh) Additionally:
-  - If the new field is added _without feature-gating_, then it must be added to the
-    `allowedFields` list.
-  - If the new field is added _behind a feature flag_, then set `preserveUnknownFields:
-    true # for feature flagged fields` on its parent type. Do **not** add it to `allowedFields`.
+
+  - If the new field is added _behind a feature flag_, then add the `kubebuilder:validation:DropProperties` and `kubebuilder:pruning:PreserveUnknownFields` as `additionalMarkers`.
+
+    ```yaml
+    additionalMarkers:
+    # Part of a feature flag - so we want to omit the schema and preserve unknown fields
+    - kubebuilder:validation:DropProperties
+    - kubebuilder:pruning:PreserveUnknownFields
+    ```
 
 These are all idempotent, and we expect that running these at `HEAD` to have no
 diffs. Code generation and dependencies are automatically checked to produce no
