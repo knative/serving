@@ -18,6 +18,7 @@ package domainmapping
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -30,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 
 	netapi "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -319,14 +321,14 @@ func (r *Reconciler) resolveRef(ctx context.Context, dm *v1beta1.DomainMapping) 
 }
 
 func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1beta1.DomainMapping) error {
-	dc, err := r.domainClaimLister.Get(dm.Name)
-	if err != nil && !apierrs.IsNotFound(err) {
+	err := r.findMatchingDomainClaim(dm)
+	if err != nil && !errors.Is(err, errDomainClaimNotFound) && !errors.Is(err, errDomainClaimNotOwned) {
 		return fmt.Errorf("failed to get ClusterDomainClaim: %w", err)
-	} else if apierrs.IsNotFound(err) {
+	} else if errors.Is(err, errDomainClaimNotFound) {
 		if err := r.createDomainClaim(ctx, dm); err != nil {
 			return err
 		}
-	} else if dm.Namespace != dc.Spec.Namespace {
+	} else if errors.Is(err, errDomainClaimNotOwned) {
 		dm.Status.MarkDomainClaimNotOwned()
 		return fmt.Errorf("namespace %q does not own ClusterDomainClaim for %q", dm.Namespace, dm.Name)
 	}
@@ -344,6 +346,62 @@ func (r *Reconciler) createDomainClaim(ctx context.Context, dm *v1beta1.DomainMa
 	_, err := r.netclient.NetworkingV1alpha1().ClusterDomainClaims().Create(ctx, resources.MakeDomainClaim(dm), metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create ClusterDomainClaim: %w", err)
+	}
+
+	return nil
+}
+
+// Error returned when a domain claim is not found
+var errDomainClaimNotFound = errors.New("domain claim not found")
+
+// Error returned when a domain claim is not owned
+var errDomainClaimNotOwned = errors.New("domain claim not owned")
+
+// Find a matching domain claim for the given DomainMapping
+func (r *Reconciler) findMatchingDomainClaim(dm *v1beta1.DomainMapping) error {
+	// First check if exact match exists
+	dc, err := r.domainClaimLister.Get(dm.Name)
+	if err != nil && !apierrs.IsNotFound(err) {
+		return fmt.Errorf("failed to get ClusterDomainClaim: %w", err)
+	}
+	if err == nil {
+		if dc.Spec.Namespace != dm.Namespace {
+			return errDomainClaimNotOwned
+		}
+		return nil
+	}
+
+	// Did not find exact match, check for wildcard match
+	dcs, err := r.domainClaimLister.List(labels.Everything())
+	if err != nil {
+		return fmt.Errorf("failed to list ClusterDomainClaims: %w", err)
+	}
+
+	specificity := 0
+	match := false
+	for _, dc := range dcs {
+		// Check if the claim is wildcard
+		if !strings.HasPrefix(dc.Name, "*.") {
+			continue
+		}
+
+		// Check if the claim could match the domain
+		if !strings.HasSuffix(dm.Name, dc.Name[2:]) {
+			continue
+		}
+
+		// Check if the most specific wildcard claim is owned by this namespace
+		if parts := strings.Split(dc.Name, "."); len(parts) > specificity {
+			specificity = len(parts)
+			match = dm.Namespace == dc.Spec.Namespace
+		}
+	}
+
+	if !match && specificity == 0 {
+		return errDomainClaimNotFound
+	}
+	if !match && specificity > 0 {
+		return errDomainClaimNotOwned
 	}
 
 	return nil
