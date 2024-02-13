@@ -78,16 +78,13 @@ aliases:
   - knative-prow-updater-robot
   - knative-test-reporter-robot
   - krsna-m
-  - mchmarny
   - nainaz
   - pierDipi
   - psschwei
   - puerco
   - salaboy
   - skonto
-  - smoser-ibm
   - upodroid
-  - xtreme-sameer-vohra
   knative-release-leads:
   - Cali0707
   - Leo6Leo
@@ -163,10 +160,6 @@ aliases:
   - dsimansk
   - krsna-m
   - psschwei
-  trademark-committee:
-  - mchmarny
-  - smoser-ibm
-  - xtreme-sameer-vohra
   ux-wg-leads:
   - cali0707
   - leo6leo
