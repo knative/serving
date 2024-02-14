@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2024 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,18 +22,41 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"knative.dev/serving/test"
 )
 
-func handler(w http.ResponseWriter, r *http.Request) {
+func handler(w http.ResponseWriter, _ *http.Request) {
 	log.Print("Hello world received a request.")
 	fmt.Fprintf(w, "Hello %v! How about some tasty noodles?", os.Getenv("NAME"))
 }
 
 func main() {
+	stop := make(chan struct{})
+
 	flag.Parse()
-	log.Print("Hello world app started.")
+	log.Println("Hello world app started.")
+
+	checkForFailure()
+
+	go func() {
+		test.ListenAndServeGracefully(":8080", handler)
+		close(stop)
+	}()
+
+	for {
+		select {
+		case <-time.After(5 * time.Second):
+			checkForFailure()
+		case <-stop:
+			return
+		}
+	}
+}
+
+func checkForFailure() {
+	log.Println("Checking for failure")
 
 	entries, err := os.ReadDir("/etc/config")
 	if err != nil {
@@ -45,6 +68,4 @@ func main() {
 			log.Fatalf("you want me to fail")
 		}
 	}
-
-	test.ListenAndServeGracefully(":8080", handler)
 }
