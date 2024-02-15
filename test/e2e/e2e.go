@@ -84,7 +84,13 @@ func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clien
 		clients.KubeClient,
 		deploymentName,
 		func(d *appsv1.Deployment) (bool, error) {
-			return d.Status.ReadyReplicas == 0, nil
+			return (d.Spec.Replicas == nil || *d.Spec.Replicas == 0) &&
+					d.Status.Replicas == 0 &&
+					d.Status.UpdatedReplicas == 0 &&
+					d.Status.ReadyReplicas == 0 &&
+					d.Status.AvailableReplicas == 0 &&
+					d.Status.UnavailableReplicas == 0,
+				nil
 		},
 		"DeploymentIsScaledDown",
 		test.ServingFlags.TestNamespace,
