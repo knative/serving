@@ -159,7 +159,7 @@ function delete_dns_record() {
 }
 
 # Script entry point.
-initialize "$@" --num-nodes=4 --enable-ha --cluster-version=1.27
+initialize "$@" --num-nodes=4 --enable-ha --cluster-version=1.28
 
 # Run the tests
 header "Running tests"
