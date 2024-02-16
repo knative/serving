@@ -174,4 +174,6 @@ func TestDefectiveRevisionScalesDown(t *testing.T) {
 	if err = WaitForScaleToZero(t, rev1DeploymentName, clients); err != nil {
 		t.Fatal("first revision failed to scale down")
 	}
+
+	t.Fatal("it shouldn't fail here")
 }
