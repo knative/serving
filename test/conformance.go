@@ -46,6 +46,7 @@ const (
 	PizzaPlanet1        = "pizzaplanetv1"
 	PizzaPlanet2        = "pizzaplanetv2"
 	Readiness           = "readiness"
+	RevisionFailure     = "revisionfailure"
 	Runtime             = "runtime"
 	ServingContainer    = "servingcontainer"
 	SidecarContainer    = "sidecarcontainer"
