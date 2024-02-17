@@ -36,7 +36,7 @@ header "Running tests"
 failed=0
 
 # Run tests serially in the mesh and https scenarios.
-GO_TEST_FLAGS="-v -run TestDefect"
+GO_TEST_FLAGS="-failfast -run TestDefect"
 E2E_TEST_FLAGS="${TEST_OPTIONS}"
 
 if [ -z "${E2E_TEST_FLAGS}" ]; then
@@ -63,8 +63,7 @@ if (( SHORT )); then
   GO_TEST_FLAGS+=" -short"
 fi
 
-
-go_test_e2e -timeout=30m \
+go_test_e2e -timeout=60m \
   ${GO_TEST_FLAGS} \
   ./test/conformance/api/... \
   ./test/conformance/runtime/... \

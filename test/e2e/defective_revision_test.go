@@ -22,6 +22,7 @@ package e2e
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -39,8 +40,16 @@ import (
 	revisionnames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 )
 
-func TestDefectiveRevisionScalesDown(t *testing.T) {
+func TestDefectiveRevision(t *testing.T) {
 	t.Parallel()
+	for i := 0; i < 10; i++ {
+		t.Run(fmt.Sprintf("%v", i), func(t *testing.T) {
+			runtest(t)
+		})
+	}
+}
+
+func runtest(t *testing.T) {
 	clients := Setup(t) // This one uses the default namespace `test.ServingFlags.TestNamespace`
 
 	resources := test.ResourceNames{
@@ -142,7 +151,7 @@ func TestDefectiveRevisionScalesDown(t *testing.T) {
 		clients.KubeClient,
 		rev1DeploymentName,
 		func(d *appsv1.Deployment) (bool, error) {
-			// Fail if there's an error making the request
+			// Fail fast if there's an error making the request
 			select {
 			case requestErr = <-errs:
 				return false, requestErr
@@ -156,13 +165,14 @@ func TestDefectiveRevisionScalesDown(t *testing.T) {
 	)
 
 	if requestErr != nil {
-		t.Fatal("triggering request to revision failed: ", err)
+		t.Fatal("triggering request to revision failed: ", requestErr)
 	}
 
 	if err != nil {
 		t.Fatal("failed to wait for deployment to scale up: ", err)
 	}
 
+	// trigger a rollout of a new revision
 	if _, err = v1test.UpdateService(t, clients, resources, serviceFunc); err != nil {
 		t.Fatal("failed to update service: ", err)
 	}
@@ -171,9 +181,20 @@ func TestDefectiveRevisionScalesDown(t *testing.T) {
 		t.Fatal("failed to rollout new revision", err)
 	}
 
+	// wait for the request to be complete prior to asserting scale to zero
+outer:
+	for {
+		select {
+		case _, ok := <-errs:
+			if !ok {
+				break outer
+			}
+		case <-time.After(30 * time.Second):
+			t.Fatalf("request didn't complete")
+		}
+	}
+
 	if err = WaitForScaleToZero(t, rev1DeploymentName, clients); err != nil {
 		t.Fatal("first revision failed to scale down")
 	}
-
-	t.Fatal("it shouldn't fail here")
 }
