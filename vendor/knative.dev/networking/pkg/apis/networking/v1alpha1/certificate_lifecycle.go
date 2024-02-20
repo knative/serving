@@ -58,6 +58,14 @@ func (c *Certificate) IsReady() bool {
 		cs.GetCondition(CertificateConditionReady).IsTrue()
 }
 
+// IsFailed returns true is the Certificate ready is false
+// and the Certificate resource has been observed.
+func (c *Certificate) IsFailed() bool {
+	cs := c.Status
+	return cs.ObservedGeneration == c.Generation &&
+		cs.GetCondition(CertificateConditionReady).IsFalse()
+}
+
 // GetCondition gets a specific condition of the Certificate status.
 func (cs *CertificateStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return certificateCondSet.Manage(cs).GetCondition(t)
