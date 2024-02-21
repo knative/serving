@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -49,7 +48,7 @@ func ForwardResponseStream(ctx context.Context, mux *ServeMux, marshaler Marshal
 	var wroteHeader bool
 	for {
 		resp, err := recv()
-		if errors.Is(err, io.EOF) {
+		if err == io.EOF {
 			return
 		}
 		if err != nil {
