@@ -240,7 +240,6 @@ github.com/go-logfmt/logfmt
 ## explicit; go 1.18
 github.com/go-logr/logr
 github.com/go-logr/logr/funcr
-github.com/go-logr/logr/slogr
 # github.com/go-logr/stdr v1.2.2
 ## explicit; go 1.16
 github.com/go-logr/stdr
@@ -1268,6 +1267,8 @@ k8s.io/code-generator/pkg/namer
 k8s.io/code-generator/pkg/util
 k8s.io/code-generator/third_party/forked/golang/reflect
 # k8s.io/gengo v0.0.0-20240129211411-f967bbeff4b4
+# k8s.io/gengo v0.0.0-20230829151522-9cce18d56c01
+# k8s.io/gengo v0.0.0-20240129211411-f967bbeff4b4
 ## explicit; go 1.13
 k8s.io/gengo/args
 k8s.io/gengo/examples/deepcopy-gen/generators
@@ -1284,6 +1285,8 @@ k8s.io/gengo/types
 k8s.io/klog
 # k8s.io/klog/v2 v2.120.1
 ## explicit; go 1.18
+# k8s.io/klog/v2 v2.110.1
+## explicit; go 1.13
 k8s.io/klog/v2
 k8s.io/klog/v2/internal/buffer
 k8s.io/klog/v2/internal/clock
