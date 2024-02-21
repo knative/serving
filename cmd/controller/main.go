@@ -19,6 +19,7 @@ package main
 import (
 	// The set of controllers this controller process runs.
 	"flag"
+	"knative.dev/serving/pkg/net-certmanager/reconciler/certificate"
 
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/signals"
@@ -46,6 +47,7 @@ var ctors = []injection.ControllerConstructor{
 	gc.NewController,
 	nscert.NewController,
 	domainmapping.NewController,
+	certificate.NewController, // net-certmanager controller
 }
 
 func main() {
