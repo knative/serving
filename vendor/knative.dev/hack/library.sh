@@ -748,6 +748,8 @@ function __go_update_deps_for_module() {
   orig_pipefail_opt=$(shopt -p -o pipefail)
   set -o pipefail
   go mod tidy 2>&1 | grep -v "ignoring symlink" || true
+  go get toolchain@none
+
   if [[ "${FORCE_VENDOR:-false}" == "true" ]] || [ -d vendor ]; then
     group "Go mod vendor"
     go mod vendor 2>&1 |  grep -v "ignoring symlink" || true
