@@ -64,7 +64,7 @@ func Packages(c *generator.Context, arguments *args.GeneratorArgs) generator.Pac
 	}
 
 	for _, p := range c.Universe {
-		if !arguments.InputIncludes(p) {
+		if !inputIncludes(arguments.InputDirs, p) {
 			// Don't run on e.g. third party dependencies.
 			continue
 		}
@@ -87,6 +87,30 @@ func Packages(c *generator.Context, arguments *args.GeneratorArgs) generator.Pac
 	}
 
 	return pkgs
+}
+
+// inputIncludes returns true if the given package is a (sub) package of one of
+// the InputDirs.
+func inputIncludes(inputs []string, p *types.Package) bool {
+	// TODO: This does not handle conversion of local paths (./foo) into
+	// canonical packages (github.com/example/project/foo).
+	for _, input := range inputs {
+		// Normalize paths
+		input := strings.TrimSuffix(input, "/")
+		input = strings.TrimPrefix(input, "./vendor/")
+		seek := strings.TrimSuffix(p.Path, "/")
+
+		if input == seek {
+			return true
+		}
+		if strings.HasSuffix(input, "...") {
+			input = strings.TrimSuffix(input, "...")
+			if strings.HasPrefix(seek+"/", input) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // A single import restriction rule.
@@ -287,7 +311,7 @@ func (irf importRuleFile) verifyRules(restrictionFiles []*fileFormat, f *generat
 			fmt.Fprintf(&errorBuilder, "import %v has forbidden prefix %v\n", i, f)
 		}
 		if len(allowedMismatchedImports) > 0 {
-			sort.Sort(sort.StringSlice(allowedMismatchedImports))
+			sort.Strings(allowedMismatchedImports)
 			fmt.Fprintf(&errorBuilder, "the following imports did not match any allowed prefix:\n")
 			for _, i := range allowedMismatchedImports {
 				fmt.Fprintf(&errorBuilder, "  %v\n", i)
@@ -367,7 +391,7 @@ func (irf importRuleFile) verifyInverseRules(restrictionFiles []*fileFormat, f *
 			fmt.Fprintf(&errorBuilder, "(inverse): import %v has forbidden prefix %v\n", i, f)
 		}
 		if len(allowedMismatchedImports) > 0 {
-			sort.Sort(sort.StringSlice(allowedMismatchedImports))
+			sort.Strings(allowedMismatchedImports)
 			fmt.Fprintf(&errorBuilder, "(inverse): the following imports did not match any allowed prefix:\n")
 			for _, i := range allowedMismatchedImports {
 				fmt.Fprintf(&errorBuilder, "  %v\n", i)
