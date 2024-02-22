@@ -22,8 +22,9 @@ metadata:
     app.kubernetes.io/version: devel
     app.kubernetes.io/name: knative-serving
     networking.knative.dev/certificate-provider: cert-manager
+  annotations:
+    knative.dev/example-checksum: "b7a9a602"
 data:
-
   _example: |
     ################################
     #                              #
