@@ -16,7 +16,6 @@ env:
   REGISTRY_NAME: registry.local
   REGISTRY_PORT: 5000
   KO_DOCKER_REPO: registry.local:5000/knative
-  KIND_VERSION: 0.19.0
   GOTESTSUM_VERSION: 1.7.0
   KAPP_VERSION: 0.46.0
   YTT_VERSION: 0.40.1
@@ -30,10 +29,8 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Set up Go 1.21.x
-      uses: actions/setup-go@v3
-      with:
-        go-version: 1.21.x
+    - name: setup-go
+      uses: knative/actions/setup-go@main
 
     - name: Setup Cache Directories
       run: |
@@ -151,10 +148,8 @@ jobs:
       # AMBIENT: ${{ matrix.ambient || 0 }}
 
     steps:
-    - name: Set up Go 1.21.x
-      uses: actions/setup-go@v3
-      with:
-        go-version: 1.21.x
+    - name: setup-go
+      uses: knative/actions/setup-go@main
 
     - uses: actions/cache@v3
       with:
@@ -170,7 +165,7 @@ jobs:
         name: artifacts
         path: ~/artifacts
 
-    - name: Setup KinD 
+    - name: setup kind
       uses: chainguard-dev/actions/setup-kind@main
       with:
         k8s-version: ${{ matrix.k8s-version }}
@@ -178,7 +173,6 @@ jobs:
         cluster-suffix: c${{ github.run_id }}.local
         registry-volume: $HOME/artifacts/registry
 
- 
     - name: Install Dependencies
       run: |
         set -x
@@ -231,7 +225,7 @@ jobs:
           -skip-cleanup-on-fail \
           -enable-alpha -enable-beta \
           --ingress-class=${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
- 
+
     - uses: chainguard-dev/actions/kind-diag@main
       # Only upload logs on failure.
       if: ${{ failure() }}
