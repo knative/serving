@@ -1171,7 +1171,30 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: defaultProxySKS,
 		}},
-	}}
+	}, {
+		Name: "image pull error - stay queued", // The service is created and not initialized
+		Key:  key,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
+			decider(testNamespace, testRevision, -1, /* desiredScale */
+				0 /* ebc */)),
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, WithPASKSNotReady(""), withScales(0, -1), WithReachabilityReachable,
+				WithPAMetricsService(privateSvc)),
+			// SKS won't be ready bc no ready endpoints, but private service name will be populated.
+			sks(testNamespace, testRevision, WithProxyMode, WithDeployRef(deployName), WithPrivateService, WithPubService),
+			metric(testNamespace, testRevision),
+			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
+				d.Spec.Replicas = ptr.Int32(0)
+			}),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, WithPASKSNotReady(""),
+				WithBufferedTraffic,
+				withScales(0, -1), WithReachabilityReachable,
+				WithPAMetricsService(privateSvc), WithObservedGeneration(1),
+				WithPAStatusService(testRevision),
+			),
+		}}}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		retryAttempted = false

@@ -259,40 +259,57 @@ func reportMetrics(pa *autoscalingv1alpha1.PodAutoscaler, pc podCounts) {
 //	| -1   | >= min | >0    | activating | active     |
 //	| -1   | >= min | >0    | active     | active     |
 func computeActiveCondition(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, pc podCounts) {
+
 	minReady := activeThreshold(ctx, pa)
-	if pc.ready >= minReady && pa.Status.ServiceName != "" {
+	isServiceCreated := pa.Status.ServiceName != ""
+
+	// Mark the pa as Initialized if the service is created and reached the initial scale.
+	if pc.ready >= minReady && isServiceCreated {
 		pa.Status.MarkScaleTargetInitialized()
 	}
 
-	switch {
-	// Need to check for minReady = 0 because in the initialScale 0 case, pc.want will be -1.
-	case pc.want == 0 || minReady == 0:
-		if pa.Status.IsActivating() && minReady > 0 {
-			// We only ever scale to zero while activating if we fail to activate within the progress deadline.
-			pa.Status.MarkInactive("TimedOut", "The target could not be activated.")
-		} else {
+	// If the service is not created yet, it is either queued or inctive if initial scale zero.
+	if !isServiceCreated {
+		if minReady == 0 {
 			pa.Status.MarkInactive(noTrafficReason, "The target is not receiving traffic.")
-		}
-
-	case pc.ready < minReady:
-		if pc.want > 0 || !pa.Status.IsInactive() {
+		} else {
 			pa.Status.MarkActivating(
 				"Queued", "Requests to the target are being buffered as resources are provisioned.")
+		}
+		return
+	}
+
+	// If the target is not initialized, it will be queued.
+	if !pa.Status.IsScaleTargetInitialized() {
+		pa.Status.MarkActivating(
+			"Queued", "Requests to the target are being buffered as resources are provisioned.")
+		return
+	}
+
+	switch {
+	case pc.want == 0:
+		// The kpa is trying to scale to 0.
+		if pa.Status.IsActivating() {
+			// The pa is stuck in activating and the progressDeadline is forcing a scale to zero.
+			pa.Status.MarkInactive("TimedOut", "The target could not be activated.")
 		} else {
-			// This is for the initialScale 0 case. In the first iteration, minReady is 0,
-			// but for the following iterations, minReady is 1. pc.want will continue being
-			// -1 until we start receiving metrics, so we will end up here.
-			// Even though PA is already been marked as inactive in the first iteration, we
-			// still need to set it again. Otherwise reconciliation will fail with NewObservedGenFailure
-			// because we cannot go through one iteration of reconciliation without setting
-			// some status.
+			// The pa is no longer receiving traffic.
 			pa.Status.MarkInactive(noTrafficReason, "The target is not receiving traffic.")
 		}
 
-	case pc.ready >= minReady:
-		if pc.want > 0 || !pa.Status.IsInactive() {
-			pa.Status.MarkActive()
-		}
+	case pc.ready >= minReady && pc.ready > 0:
+		// To be active there must be atleast 1 active pod.
+		// This takes into consideration when InitialScale is zero.
+		pa.Status.MarkActive()
+
+	case pc.want < 0:
+		// The decider is not receiving metrics because the pa scaled to zero.
+		pa.Status.MarkInactive(noTrafficReason, "The target is not receiving traffic.")
+
+	default:
+		// The desired scale has not been reached yet.
+		pa.Status.MarkActivating(
+			"Queued", "Requests to the target are being buffered as resources are provisioned.")
 	}
 }
 
