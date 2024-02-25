@@ -19,6 +19,10 @@
 
 source "$(dirname "${BASH_SOURCE[0]:-$0}")/library.sh"
 
+# Default Kubernetes version to use for GKE, if not overridden with
+# the `--cluster-version` parameter.
+readonly GKE_DEFAULT_CLUSTER_VERSION="1.28"
+
 # Dumps the k8s api server metrics. Spins up a proxy, waits a little bit and
 # dumps the metrics to ${ARTIFACTS}/k8s.metrics.txt
 function dump_metrics() {
@@ -148,6 +152,9 @@ function create_gke_test_cluster() {
   fi
   if [[ ! " ${_custom_flags[*]} " =~ "--machine-type=" ]]; then
       _custom_flags+=("--machine-type=e2-standard-4")
+  fi
+  if [[ ! " ${_custom_flags[*]} " =~ "--cluster-version=" ]]; then
+      _custom_flags+=("--cluster-version=${GKE_DEFAULT_CLUSTER_VERSION}")
   fi
   kubetest2 gke "${_custom_flags[@]}" \
     --rundir-in-artifacts \

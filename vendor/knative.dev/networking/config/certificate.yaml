@@ -31,26 +31,42 @@ spec:
         status: {}
       schema:
         openAPIV3Schema:
-          description: Certificate is responsible for provisioning a SSL certificate for the given hosts. It is a Knative abstraction for various SSL certificate provisioning solutions (such as cert-manager or self-signed SSL certificate).
+          description: |-
+            Certificate is responsible for provisioning a SSL certificate for the
+            given hosts. It is a Knative abstraction for various SSL certificate
+            provisioning solutions (such as cert-manager or self-signed SSL certificate).
           type: object
           properties:
             apiVersion:
-              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              description: |-
+                APIVersion defines the versioned schema of this representation of an object.
+                Servers should convert recognized schemas to the latest internal value, and
+                may reject unrecognized values.
+                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
               type: string
             kind:
-              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              description: |-
+                Kind is a string value representing the REST resource this object represents.
+                Servers may infer this from the endpoint the client submits requests to.
+                Cannot be updated.
+                In CamelCase.
+                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
               type: string
             metadata:
               type: object
             spec:
-              description: 'Spec is the desired state of the Certificate. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+              description: |-
+                Spec is the desired state of the Certificate.
+                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
               type: object
               required:
                 - dnsNames
                 - secretName
               properties:
                 dnsNames:
-                  description: DNSNames is a list of DNS names the Certificate could support. The wildcard format of DNSNames (e.g. *.default.example.com) is supported.
+                  description: |-
+                    DNSNames is a list of DNS names the Certificate could support.
+                    The wildcard format of DNSNames (e.g. *.default.example.com) is supported.
                   type: array
                   items:
                     type: string
@@ -61,11 +77,17 @@ spec:
                   description: SecretName is the name of the secret resource to store the SSL certificate in.
                   type: string
             status:
-              description: 'Status is the current state of the Certificate. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+              description: |-
+                Status is the current state of the Certificate.
+                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
               type: object
               properties:
                 annotations:
-                  description: Annotations is additional Status fields for the Resource to save some additional State as well as convey more information to the user. This is roughly akin to Annotations on any k8s resource, just the reconciler conveying richer information outwards.
+                  description: |-
+                    Annotations is additional Status fields for the Resource to save some
+                    additional State as well as convey more information to the user. This is
+                    roughly akin to Annotations on any k8s resource, just the reconciler conveying
+                    richer information outwards.
                   type: object
                   additionalProperties:
                     type: string
@@ -73,14 +95,19 @@ spec:
                   description: Conditions the latest available observations of a resource's current state.
                   type: array
                   items:
-                    description: 'Condition defines a readiness condition for a Knative resource. See: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties'
+                    description: |-
+                      Condition defines a readiness condition for a Knative resource.
+                      See: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
                     type: object
                     required:
                       - status
                       - type
                     properties:
                       lastTransitionTime:
-                        description: LastTransitionTime is the last time the condition transitioned from one status to another. We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic differences (all other things held constant).
+                        description: |-
+                          LastTransitionTime is the last time the condition transitioned from one status to another.
+                          We use VolatileTime in place of metav1.Time to exclude this from creating equality.Semantic
+                          differences (all other things held constant).
                         type: string
                       message:
                         description: A human readable message indicating details about the transition.
@@ -89,7 +116,9 @@ spec:
                         description: The reason for the condition's last transition.
                         type: string
                       severity:
-                        description: Severity with which to treat failures of this type of condition. When this is not specified, it defaults to Error.
+                        description: |-
+                          Severity with which to treat failures of this type of condition.
+                          When this is not specified, it defaults to Error.
                         type: string
                       status:
                         description: Status of the condition, one of True, False, Unknown.
@@ -98,10 +127,14 @@ spec:
                         description: Type of condition.
                         type: string
                 http01Challenges:
-                  description: HTTP01Challenges is a list of HTTP01 challenges that need to be fulfilled in order to get the TLS certificate..
+                  description: |-
+                    HTTP01Challenges is a list of HTTP01 challenges that need to be fulfilled
+                    in order to get the TLS certificate..
                   type: array
                   items:
-                    description: HTTP01Challenge defines the status of a HTTP01 challenge that a certificate needs to fulfill.
+                    description: |-
+                      HTTP01Challenge defines the status of a HTTP01 challenge that a certificate needs
+                      to fulfill.
                     type: object
                     properties:
                       serviceName:
@@ -120,11 +153,15 @@ spec:
                         description: URL is the URL that the HTTP01 challenge is expected to serve on.
                         type: string
                 notAfter:
-                  description: The expiration time of the TLS certificate stored in the secret named by this resource in spec.secretName.
+                  description: |-
+                    The expiration time of the TLS certificate stored in the secret named
+                    by this resource in spec.secretName.
                   type: string
                   format: date-time
                 observedGeneration:
-                  description: ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.
+                  description: |-
+                    ObservedGeneration is the 'Generation' of the Service that
+                    was last processed by the controller.
                   type: integer
                   format: int64
       additionalPrinterColumns:
