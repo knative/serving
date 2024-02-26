@@ -175,9 +175,9 @@ func (c *Reconciler) reconcileCMCertificate(ctx context.Context, knCert *v1alpha
 		knCert.Status.MarkResourceNotOwned("CertManagerCertificate", desired.Name)
 		return nil, fmt.Errorf("knative Certificate %s in namespace %s does not own CertManager Certificate: %s", knCert.Name, knCert.Namespace, desired.Name)
 	} else if !equality.Semantic.DeepEqual(cmCert.Spec, desired.Spec) {
-		copy := cmCert.DeepCopy()
-		copy.Spec = desired.Spec
-		updated, err := c.certManagerClient.CertmanagerV1().Certificates(copy.Namespace).Update(ctx, copy, metav1.UpdateOptions{})
+		certCopy := cmCert.DeepCopy()
+		certCopy.Spec = desired.Spec
+		updated, err := c.certManagerClient.CertmanagerV1().Certificates(certCopy.Namespace).Update(ctx, certCopy, metav1.UpdateOptions{})
 		if err != nil {
 			recorder.Eventf(knCert, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to create Cert-Manager Certificate %s/%s: %v", desired.Namespace, desired.Name, err)
@@ -217,11 +217,9 @@ func (c *Reconciler) setHTTP01Challenges(ctx context.Context, knCert *v1alpha1.C
 			if dnsName == resources.Prefix+knCert.Spec.Domain {
 				logger.Info("No challenge service found for shortened commonname, could be cached? continuing")
 				continue
-			} else {
-				//If the cert is renewing, it could be possible that this isn't an error. Should this change depending on the case?
-				return fmt.Errorf("no challenge solver service for domain %s; selector=%v", dnsName, selector)
-
 			}
+			//If the cert is renewing, it could be possible that this isn't an error. Should this change depending on the case?
+			return fmt.Errorf("no challenge solver service for domain %s; selector=%v", dnsName, selector)
 		}
 
 		for _, svc := range svcs {
@@ -252,13 +250,14 @@ func (c *Reconciler) setHTTP01Challenges(ctx context.Context, knCert *v1alpha1.C
 }
 
 func (c *Reconciler) isHTTPChallenge(cmCert *cmv1.Certificate) (bool, error) {
-	if issuer, err := c.cmIssuerLister.Get(cmCert.Spec.IssuerRef.Name); err != nil {
+	var issuer *cmv1.ClusterIssuer
+	var err error
+	if issuer, err = c.cmIssuerLister.Get(cmCert.Spec.IssuerRef.Name); err != nil {
 		return false, err
-	} else {
-		return issuer.Spec.ACME != nil &&
-			len(issuer.Spec.ACME.Solvers) > 0 &&
-			issuer.Spec.ACME.Solvers[0].HTTP01 != nil, nil
 	}
+	return issuer.Spec.ACME != nil &&
+		len(issuer.Spec.ACME.Solvers) > 0 &&
+		issuer.Spec.ACME.Solvers[0].HTTP01 != nil, nil
 }
 
 func svcRef(namespace, name string) tracker.Reference {
