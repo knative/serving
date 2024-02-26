@@ -49,8 +49,8 @@ import (
 	"knative.dev/serving/pkg/net-certmanager/reconciler/certificate/config"
 	"knative.dev/serving/pkg/net-certmanager/reconciler/certificate/resources"
 
-	. "knative.dev/pkg/reconciler/testing"
-	. "knative.dev/serving/pkg/net-certmanager/reconciler/testing"
+	pkgreconcilertesting "knative.dev/pkg/reconciler/testing"
+	reconciletesting "knative.dev/serving/pkg/net-certmanager/reconciler/testing"
 
 	_ "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
@@ -109,7 +109,7 @@ var (
 )
 
 func TestNewController(t *testing.T) {
-	ctx, _ := SetupFakeContext(t)
+	ctx, _ := pkgreconcilertesting.SetupFakeContext(t)
 
 	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -130,7 +130,7 @@ func TestNewController(t *testing.T) {
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
 	retryAttempted := false
-	table := TableTest{{
+	table := pkgreconcilertesting.TableTest{{
 		Name: "bad workqueue key",
 		Key:  "too/many/parts",
 	}, {
@@ -184,7 +184,7 @@ func TestReconcile(t *testing.T) {
 				}),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created Cert-Manager Certificate %s/%s", "foo", "knCert"),
+			pkgreconcilertesting.Eventf(corev1.EventTypeNormal, "Created", "Created Cert-Manager Certificate %s/%s", "foo", "knCert"),
 		},
 		Key: "foo/knCert",
 	}, {
@@ -213,7 +213,7 @@ func TestReconcile(t *testing.T) {
 				}),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Cert-Manager Certificate %s/%s", "foo", "knCert"),
+			pkgreconcilertesting.Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Cert-Manager Certificate %s/%s", "foo", "knCert"),
 		},
 		Key: "foo/knCert",
 	}, {
@@ -234,7 +234,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("update", "certificates"),
+			pkgreconcilertesting.InduceFailure("update", "certificates"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cmCert("knCert", "foo", correctDNSNames),
@@ -255,9 +255,9 @@ func TestReconcile(t *testing.T) {
 				}, generation+1),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to create Cert-Manager Certificate %s: %v",
+			pkgreconcilertesting.Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to create Cert-Manager Certificate %s: %v",
 				"foo/knCert", "inducing failure for update certificates"),
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for %q: %v",
+			pkgreconcilertesting.Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for %q: %v",
 				"knCert", "inducing failure for update certificates"),
 		},
 		Key: "foo/knCert",
@@ -468,11 +468,11 @@ func TestReconcile(t *testing.T) {
 		},
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("create", "certificates"),
+			pkgreconcilertesting.InduceFailure("create", "certificates"),
 		},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Cert-Manager Certificate knCert/foo: inducing failure for create certificates"),
-			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create Cert-Manager Certificate: inducing failure for create certificates"),
+			pkgreconcilertesting.Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Cert-Manager Certificate knCert/foo: inducing failure for create certificates"),
+			pkgreconcilertesting.Eventf(corev1.EventTypeWarning, "InternalError", "failed to create Cert-Manager Certificate: inducing failure for create certificates"),
 		},
 		WantCreates: []runtime.Object{
 			externalCert,
@@ -501,11 +501,11 @@ func TestReconcile(t *testing.T) {
 		},
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("create", "certificates"),
+			pkgreconcilertesting.InduceFailure("create", "certificates"),
 		},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Cert-Manager Certificate knCert/foo: inducing failure for create certificates"),
-			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create Cert-Manager Certificate: inducing failure for create certificates"),
+			pkgreconcilertesting.Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Cert-Manager Certificate knCert/foo: inducing failure for create certificates"),
+			pkgreconcilertesting.Eventf(corev1.EventTypeWarning, "InternalError", "failed to create Cert-Manager Certificate: inducing failure for create certificates"),
 		},
 		WantCreates: []runtime.Object{
 			localCert,
@@ -534,11 +534,11 @@ func TestReconcile(t *testing.T) {
 		},
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("create", "certificates"),
+			pkgreconcilertesting.InduceFailure("create", "certificates"),
 		},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Cert-Manager Certificate knCert/foo: inducing failure for create certificates"),
-			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create Cert-Manager Certificate: inducing failure for create certificates"),
+			pkgreconcilertesting.Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Cert-Manager Certificate knCert/foo: inducing failure for create certificates"),
+			pkgreconcilertesting.Eventf(corev1.EventTypeWarning, "InternalError", "failed to create Cert-Manager Certificate: inducing failure for create certificates"),
 		},
 		WantCreates: []runtime.Object{
 			systemInternalCert,
@@ -560,7 +560,7 @@ func TestReconcile(t *testing.T) {
 		}},
 	}}
 
-	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+	table.Test(t, reconciletesting.MakeFactory(func(ctx context.Context, listers *reconciletesting.Listers, cmw configmap.Watcher) controller.Reconciler {
 		retryAttempted = false
 		r := &Reconciler{
 			cmCertificateLister: listers.GetCMCertificateLister(),
@@ -568,7 +568,7 @@ func TestReconcile(t *testing.T) {
 			cmIssuerLister:      listers.GetCMClusterIssuerLister(),
 			svcLister:           listers.GetK8sServiceLister(),
 			certManagerClient:   fakecertmanagerclient.Get(ctx),
-			tracker:             &NullTracker{},
+			tracker:             &pkgreconcilertesting.NullTracker{},
 		}
 		return certreconciler.NewReconciler(ctx, logging.FromContext(ctx), networkingclient.Get(ctx),
 			listers.GetCertificateLister(), controller.GetEventRecorder(ctx), r,
@@ -583,7 +583,7 @@ func TestReconcile(t *testing.T) {
 }
 
 func TestReconcile_HTTP01Challenges(t *testing.T) {
-	table := TableTest{{
+	table := pkgreconcilertesting.TableTest{{
 		Name:    "fail to set status.HTTP01Challenges",
 		Key:     "foo/knCert",
 		WantErr: true,
@@ -595,8 +595,8 @@ func TestReconcile_HTTP01Challenges(t *testing.T) {
 			externalCert,
 		},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created Cert-Manager Certificate %s/%s", "foo", "knCert"),
-			Eventf(corev1.EventTypeWarning, "InternalError", "no challenge solver service for domain %s; selector=acme.cert-manager.io/http-domain=1930889501", correctDNSNames[0]),
+			pkgreconcilertesting.Eventf(corev1.EventTypeNormal, "Created", "Created Cert-Manager Certificate %s/%s", "foo", "knCert"),
+			pkgreconcilertesting.Eventf(corev1.EventTypeWarning, "InternalError", "no challenge solver service for domain %s; selector=acme.cert-manager.io/http-domain=1930889501", correctDNSNames[0]),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: knCertWithStatus("knCert", "foo",
@@ -745,18 +745,18 @@ func TestReconcile_HTTP01Challenges(t *testing.T) {
 			Object: externalCertShortenedDNSNames,
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Cert-Manager Certificate %s/%s", "foo", "knCert"),
+			pkgreconcilertesting.Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Cert-Manager Certificate %s/%s", "foo", "knCert"),
 		},
 	}}
 
-	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+	table.Test(t, reconciletesting.MakeFactory(func(ctx context.Context, listers *reconciletesting.Listers, cmw configmap.Watcher) controller.Reconciler {
 		r := &Reconciler{
 			cmCertificateLister: listers.GetCMCertificateLister(),
 			cmChallengeLister:   listers.GetCMChallengeLister(),
 			cmIssuerLister:      listers.GetCMClusterIssuerLister(),
 			svcLister:           listers.GetK8sServiceLister(),
 			certManagerClient:   fakecertmanagerclient.Get(ctx),
-			tracker:             &NullTracker{},
+			tracker:             &pkgreconcilertesting.NullTracker{},
 		}
 		return certreconciler.NewReconciler(ctx, logging.FromContext(ctx), networkingclient.Get(ctx),
 			listers.GetCertificateLister(), controller.GetEventRecorder(ctx), r,

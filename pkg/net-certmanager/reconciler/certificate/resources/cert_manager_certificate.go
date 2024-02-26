@@ -66,34 +66,35 @@ func MakeCertManagerCertificate(cmConfig *config.CertManagerConfig, knCert *v1al
 						commonName,
 					),
 				}
-			} else {
-				// we have a domain field and are not a domainMapping
-				// if the domain is too long, even if we shorten, it will still be too big. We should error in that case
-				if len(knCert.Spec.Domain) > (longest - len(Prefix)) {
-					return nil, &apis.Condition{
-						Type:   CreateCertManagerCertificateCondition,
-						Status: corev1.ConditionFalse,
-						Reason: "CommonName Too Long",
-						Message: fmt.Sprintf(
-							"error creating cert-manager certificate: CommonName (%s)(length: %v) too long, prepending short prefix of (%s)(length: %v) will be longer than 64 bytes",
-							knCert.Spec.Domain,
-							len(knCert.Spec.Domain),
-							Prefix,
-							len(Prefix),
-						),
-					}
-				} else {
-					// by this point we know:
-					// - we have a domain on the kcert
-					// - this is not a domain mapping
-					// - the first entry on the kcert for dnsNames is too long
-					// - the domain is not too long, even with the shortening
-					// we can safely shorten the domain and know that it won't be too long
+			}
 
-					commonName = Prefix + knCert.Spec.Domain
-					dnsNames = append(dnsNames, commonName)
+			// we have a domain field and are not a domainMapping
+			// if the domain is too long, even if we shorten, it will still be too big. We should error in that case
+			if len(knCert.Spec.Domain) > (longest - len(Prefix)) {
+				return nil, &apis.Condition{
+					Type:   CreateCertManagerCertificateCondition,
+					Status: corev1.ConditionFalse,
+					Reason: "CommonName Too Long",
+					Message: fmt.Sprintf(
+						"error creating cert-manager certificate: CommonName (%s)(length: %v) too long, prepending short prefix of (%s)(length: %v) will be longer than 64 bytes",
+						knCert.Spec.Domain,
+						len(knCert.Spec.Domain),
+						Prefix,
+						len(Prefix),
+					),
 				}
 			}
+
+			// by this point we know:
+			// - we have a domain on the kcert
+			// - this is not a domain mapping
+			// - the first entry on the kcert for dnsNames is too long
+			// - the domain is not too long, even with the shortening
+			// we can safely shorten the domain and know that it won't be too long
+
+			commonName = Prefix + knCert.Spec.Domain
+			dnsNames = append(dnsNames, commonName)
+
 		} else {
 			//If there was no domain, we can't shorten anything. We must error.
 			return nil, &apis.Condition{
