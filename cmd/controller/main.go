@@ -19,7 +19,6 @@ package main
 import (
 	// The set of controllers this controller process runs.
 	"flag"
-	"knative.dev/serving/pkg/net-certmanager/reconciler/certificate"
 
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/signals"
@@ -34,6 +33,7 @@ import (
 
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
+	"knative.dev/serving/pkg/net-certmanager/reconciler/certificate"
 	"knative.dev/serving/pkg/reconciler/domainmapping"
 )
 
