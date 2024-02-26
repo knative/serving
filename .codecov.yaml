@@ -19,6 +19,7 @@ ignore:
   - "**/*.pb.go" # Ignore proto-generated files.
   - "hack"
   - "pkg/client"
+  - "pkg/net-certmanager/client"
   - "test"
   - "third_party"
   - "vendor"
