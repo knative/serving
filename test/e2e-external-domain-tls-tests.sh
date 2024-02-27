@@ -69,6 +69,7 @@ function setup_external_domain_tls_common() {
 
   toggle_feature external-domain-tls Enabled config-network
   toggle_feature autocreate-cluster-domain-claims true config-network
+  restart_pod ${SYSTEM_NAMESPACE} "app=controller"
 }
 
 function cleanup_external_domain_tls_common() {
@@ -78,6 +79,7 @@ function cleanup_external_domain_tls_common() {
   toggle_feature autocreate-cluster-domain-claims false config-network
   toggle_feature namespace-wildcard-cert-selector "" config-network
   kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
+  restart_pod ${SYSTEM_NAMESPACE} "app=controller"
 }
 
 function setup_http01_external_domain_tls() {

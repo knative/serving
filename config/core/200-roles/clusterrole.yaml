@@ -52,7 +52,7 @@ rules:
     resources: ["images"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
   - apiGroups: ["cert-manager.io"]
-    resources: ["certificates", "clusterissuers"]
+    resources: ["certificates", "clusterissuers", "certificaterequests", "issuers"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
   - apiGroups: ["acme.cert-manager.io"]
     resources: ["challenges"]
