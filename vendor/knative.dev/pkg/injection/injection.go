@@ -59,10 +59,36 @@ func EnableInjectionOrDie(ctx context.Context, cfg *rest.Config) (context.Contex
 
 	ctx, informers := Default.SetupInformers(ctx, cfg)
 
+	var finalInformers []controller.Informer
+
+	for _, inf := range informers {
+		if p := GetExcludeInformerPredicate(ctx); p != nil && (*p)(ctx, inf){
+			continue
+		}
+		finalInformers = append(finalInformers, inf)
+	}
+
 	return ctx, func() {
 		logging.FromContext(ctx).Info("Starting informers...")
-		if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+		logging.FromContext(ctx).Infof("Number of informers to start: %d\n", len(finalInformers))
+		if err := controller.StartInformers(ctx.Done(), finalInformers...); err != nil {
 			logging.FromContext(ctx).Fatalw("Failed to start informers", zap.Error(err))
 		}
 	}
+}
+
+type ExcludeInformerPredicate func(ctx context.Context, inf controller.Informer) bool
+type ExcludeInformerPredicateKey struct{}
+
+func WithExcludeInformerPredicate(ctx context.Context, predicate ExcludeInformerPredicate) context.Context {
+	return context.WithValue(ctx, ExcludeInformerPredicateKey{}, predicate)
+}
+
+func GetExcludeInformerPredicate(ctx context.Context) *ExcludeInformerPredicate {
+	untyped := ctx.Value(ExcludeInformerPredicateKey{})
+	if untyped == nil {
+		return nil
+	}
+	 e := untyped.(ExcludeInformerPredicate)
+	 return &e
 }
