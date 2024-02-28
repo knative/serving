@@ -37,7 +37,7 @@ import (
 const (
 	// NumControllerReconcilers is the number of controllers run by ./cmd/controller/main.go.
 	// It is exported so the tests from cmd/controller/main.go can ensure we keep it in sync.
-	NumControllerReconcilers = 10
+	NumControllerReconcilers = 9
 )
 
 func createPizzaPlanetService(t *testing.T, fopt ...rtesting.ServiceOption) (test.ResourceNames, *v1test.ResourceObjects) {
