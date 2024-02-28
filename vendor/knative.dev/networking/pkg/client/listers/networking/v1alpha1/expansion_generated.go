@@ -30,10 +30,6 @@ type CertificateNamespaceListerExpansion interface{}
 // ClusterDomainClaimLister.
 type ClusterDomainClaimListerExpansion interface{}
 
-// DomainListerExpansion allows custom methods to be added to
-// DomainLister.
-type DomainListerExpansion interface{}
-
 // IngressListerExpansion allows custom methods to be added to
 // IngressLister.
 type IngressListerExpansion interface{}
@@ -41,10 +37,6 @@ type IngressListerExpansion interface{}
 // IngressNamespaceListerExpansion allows custom methods to be added to
 // IngressNamespaceLister.
 type IngressNamespaceListerExpansion interface{}
-
-// RealmListerExpansion allows custom methods to be added to
-// RealmLister.
-type RealmListerExpansion interface{}
 
 // ServerlessServiceListerExpansion allows custom methods to be added to
 // ServerlessServiceLister.

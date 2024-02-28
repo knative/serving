@@ -257,7 +257,6 @@ github.com/golang-jwt/jwt/v4
 github.com/golang/groupcache/lru
 # github.com/golang/protobuf v1.5.3
 ## explicit; go 1.9
-github.com/golang/protobuf/jsonpb
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
@@ -685,7 +684,7 @@ google.golang.org/genproto/googleapis/api/httpbody
 google.golang.org/genproto/googleapis/rpc/code
 google.golang.org/genproto/googleapis/rpc/errdetails
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.61.1
+# google.golang.org/grpc v1.62.0
 ## explicit; go 1.19
 google.golang.org/grpc
 google.golang.org/grpc/attributes
@@ -766,6 +765,7 @@ google.golang.org/protobuf/internal/set
 google.golang.org/protobuf/internal/strs
 google.golang.org/protobuf/internal/version
 google.golang.org/protobuf/proto
+google.golang.org/protobuf/protoadapt
 google.golang.org/protobuf/reflect/protodesc
 google.golang.org/protobuf/reflect/protoreflect
 google.golang.org/protobuf/reflect/protoregistry
@@ -1307,7 +1307,7 @@ k8s.io/utils/pointer
 k8s.io/utils/ptr
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20240223150330-674b31b90ffe
+# knative.dev/caching v0.0.0-20240226153936-94c62a45c233
 ## explicit; go 1.21
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -1331,7 +1331,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 # knative.dev/hack v0.0.0-20240222141347-5f0998e65262
 ## explicit; go 1.18
 knative.dev/hack
-# knative.dev/networking v0.0.0-20240226064029-ff6307826d4c
+# knative.dev/networking v0.0.0-20240227132105-cfb3abdd3c62
 ## explicit; go 1.21
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1369,7 +1369,7 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20240226072014-32e13c4925ed
+# knative.dev/pkg v0.0.0-20240227021706-97fb318ab987
 ## explicit; go 1.21
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate

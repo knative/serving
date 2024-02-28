@@ -57,12 +57,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha1().Certificates().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("clusterdomainclaims"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha1().ClusterDomainClaims().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("domains"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha1().Domains().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("ingresses"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha1().Ingresses().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("realms"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha1().Realms().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("serverlessservices"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha1().ServerlessServices().Informer()}, nil
 
