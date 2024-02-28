@@ -22,10 +22,6 @@ type CertificateExpansion interface{}
 
 type ClusterDomainClaimExpansion interface{}
 
-type DomainExpansion interface{}
-
 type IngressExpansion interface{}
-
-type RealmExpansion interface{}
 
 type ServerlessServiceExpansion interface{}

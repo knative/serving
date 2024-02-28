@@ -28,12 +28,8 @@ type Interface interface {
 	Certificates() CertificateInformer
 	// ClusterDomainClaims returns a ClusterDomainClaimInformer.
 	ClusterDomainClaims() ClusterDomainClaimInformer
-	// Domains returns a DomainInformer.
-	Domains() DomainInformer
 	// Ingresses returns a IngressInformer.
 	Ingresses() IngressInformer
-	// Realms returns a RealmInformer.
-	Realms() RealmInformer
 	// ServerlessServices returns a ServerlessServiceInformer.
 	ServerlessServices() ServerlessServiceInformer
 }
@@ -59,19 +55,9 @@ func (v *version) ClusterDomainClaims() ClusterDomainClaimInformer {
 	return &clusterDomainClaimInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// Domains returns a DomainInformer.
-func (v *version) Domains() DomainInformer {
-	return &domainInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
 // Ingresses returns a IngressInformer.
 func (v *version) Ingresses() IngressInformer {
 	return &ingressInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// Realms returns a RealmInformer.
-func (v *version) Realms() RealmInformer {
-	return &realmInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // ServerlessServices returns a ServerlessServiceInformer.

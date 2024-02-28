@@ -30,9 +30,7 @@ type NetworkingV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	CertificatesGetter
 	ClusterDomainClaimsGetter
-	DomainsGetter
 	IngressesGetter
-	RealmsGetter
 	ServerlessServicesGetter
 }
 
@@ -49,16 +47,8 @@ func (c *NetworkingV1alpha1Client) ClusterDomainClaims() ClusterDomainClaimInter
 	return newClusterDomainClaims(c)
 }
 
-func (c *NetworkingV1alpha1Client) Domains() DomainInterface {
-	return newDomains(c)
-}
-
 func (c *NetworkingV1alpha1Client) Ingresses(namespace string) IngressInterface {
 	return newIngresses(c, namespace)
-}
-
-func (c *NetworkingV1alpha1Client) Realms() RealmInterface {
-	return newRealms(c)
 }
 
 func (c *NetworkingV1alpha1Client) ServerlessServices(namespace string) ServerlessServiceInterface {
