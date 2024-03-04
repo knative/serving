@@ -49,7 +49,7 @@ type ResponseExpectation func(response *http.Response) error
 
 func RuntimeRequest(ctx context.Context, t *testing.T, client *http.Client, url string, opts ...RequestOption) *types.RuntimeInfo {
 	return RuntimeRequestWithExpectations(ctx, t, client, url,
-		[]ResponseExpectation{StatusCodeExpectation(sets.NewInt(http.StatusOK))},
+		[]ResponseExpectation{StatusCodeExpectation(sets.New(http.StatusOK))},
 		false,
 		opts...)
 }
@@ -118,7 +118,7 @@ func DumpResponse(ctx context.Context, t *testing.T, resp *http.Response) {
 	t.Log(string(b))
 }
 
-func StatusCodeExpectation(statusCodes sets.Int) ResponseExpectation {
+func StatusCodeExpectation(statusCodes sets.Set[int]) ResponseExpectation {
 	return func(response *http.Response) error {
 		if !statusCodes.Has(response.StatusCode) {
 			return fmt.Errorf("got unexpected status: %d, expected %v", response.StatusCode, statusCodes)
