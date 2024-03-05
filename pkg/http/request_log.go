@@ -151,13 +151,12 @@ func (h *RequestLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				Size:    0,
 			}))
 			panic(err)
-		} else {
-			h.write(t, h.inputGetter(r, &RequestLogResponse{
-				Code:    rr.ResponseCode,
-				Latency: latency,
-				Size:    rr.ResponseSize,
-			}))
 		}
+		h.write(t, h.inputGetter(r, &RequestLogResponse{
+			Code:    rr.ResponseCode,
+			Latency: latency,
+			Size:    rr.ResponseSize,
+		}))
 	}()
 
 	h.handler.ServeHTTP(rr, r)
