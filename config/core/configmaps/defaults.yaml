@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "e7973912"
+    knative.dev/example-checksum: "5b64ff5c"
 data:
   _example: |
     ################################
@@ -50,7 +50,7 @@ data:
     # This value must be greater than or equal to revision-timeout-seconds.
     # If omitted, the system default is used (600 seconds).
     #
-    # If this value is increased, the activator's terminationGraceTimeSeconds
+    # If this value is increased, the activator's terminationGracePeriodSeconds
     # should also be increased to prevent in-flight requests being disrupted.
     max-revision-timeout-seconds: "600"  # 10 minutes
 
