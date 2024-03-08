@@ -102,7 +102,7 @@ func main() {
 		ctors = append(ctors, certificate.NewController) // add the net-certmanager controller
 	} else {
 		// Remove all non required informers
-		ctx = injection.WithExcludeInformerPredicate(ctx, excludeNetCertManagerInformers)
+		ctx = injection.WithInformerExcludingFilter(ctx, excludeNetCertManagerInformers)
 	}
 
 	sharedmain.MainWithConfig(ctx, "controller", cfg, ctors...)
@@ -122,12 +122,18 @@ func shouldEnableNetCertManagerController(ctx context.Context, client *kubernete
 		netCfg.NamespaceWildcardCertSelector != nil
 }
 
-func excludeNetCertManagerInformers(ctx context.Context, inf controller.Informer) bool {
-	isCertInf := v1certificate.Get(ctx).Informer() == inf
-	isCertReqInf := certificaterequest.Get(ctx).Informer() == inf
-	isClusterIssuerInf := clusterissuer.Get(ctx).Informer() == inf
-	isIssuerInf := issuer.Get(ctx).Informer() == inf
-	isChallengeInf := challenge.Get(ctx).Informer() == inf
-
-	return isCertInf || isCertReqInf || isClusterIssuerInf || isIssuerInf || isChallengeInf
+func excludeNetCertManagerInformers(ctx context.Context, inf controller.Informer) (bool, string) {
+	switch {
+	case v1certificate.Get(ctx).Informer() == inf:
+		return true, "CertificateInformer"
+	case certificaterequest.Get(ctx).Informer() == inf:
+		return true, "CertificateRequestInformer"
+	case clusterissuer.Get(ctx).Informer() == inf:
+		return true, "ClusterIssuerInformer"
+	case issuer.Get(ctx).Informer() == inf:
+		return true, "IssuerInformer"
+	case challenge.Get(ctx).Informer() == inf:
+		return true, "ChallengeInformer"
+	}
+	return false, ""
 }

@@ -59,36 +59,41 @@ func EnableInjectionOrDie(ctx context.Context, cfg *rest.Config) (context.Contex
 
 	ctx, informers := Default.SetupInformers(ctx, cfg)
 
-	var finalInformers []controller.Informer
-
+	includedInformers := make([]controller.Informer, 0)
+	
 	for _, inf := range informers {
-		if p := GetExcludeInformerPredicate(ctx); p != nil && (*p)(ctx, inf){
-			continue
+		if p := getInformerExcludingFilter(ctx); p != nil {
+			skip, name := (*p)(ctx, inf)
+			if skip {
+				logging.FromContext(ctx).Infof("Excluding informer %s", name)
+				continue
+			}
 		}
-		finalInformers = append(finalInformers, inf)
+		includedInformers = append(includedInformers, inf)
 	}
 
 	return ctx, func() {
-		logging.FromContext(ctx).Info("Starting informers...")
-		logging.FromContext(ctx).Infof("Number of informers to start: %d\n", len(finalInformers))
-		if err := controller.StartInformers(ctx.Done(), finalInformers...); err != nil {
+		logging.FromContext(ctx).Infof("Starting %d informers...", len(includedInformers))
+		if err := controller.StartInformers(ctx.Done(), includedInformers...); err != nil {
 			logging.FromContext(ctx).Fatalw("Failed to start informers", zap.Error(err))
 		}
 	}
 }
 
-type ExcludeInformerPredicate func(ctx context.Context, inf controller.Informer) bool
-type ExcludeInformerPredicateKey struct{}
+type InformerExcludingFilter func(ctx context.Context, inf controller.Informer) (bool, string)
+type excludeInformerPredicateKey struct{}
 
-func WithExcludeInformerPredicate(ctx context.Context, predicate ExcludeInformerPredicate) context.Context {
-	return context.WithValue(ctx, ExcludeInformerPredicateKey{}, predicate)
+// WithInformerExcludingFilter sets the predicate to exclude informers from being started.
+// If predicate returns true the informer will not be started.
+func WithInformerExcludingFilter(ctx context.Context, predicate InformerExcludingFilter) context.Context {
+	return context.WithValue(ctx, excludeInformerPredicateKey{}, predicate)
 }
 
-func GetExcludeInformerPredicate(ctx context.Context) *ExcludeInformerPredicate {
-	untyped := ctx.Value(ExcludeInformerPredicateKey{})
+func getInformerExcludingFilter(ctx context.Context) *InformerExcludingFilter {
+	untyped := ctx.Value(excludeInformerPredicateKey{})
 	if untyped == nil {
 		return nil
 	}
-	 e := untyped.(ExcludeInformerPredicate)
-	 return &e
+	e := untyped.(InformerExcludingFilter)
+	return &e
 }
