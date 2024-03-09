@@ -62,6 +62,6 @@ func TestHttpRedirect(t *testing.T) {
 	url.Scheme = "http"
 
 	RuntimeRequestWithExpectations(ctx, t, httpClient, url.String(),
-		[]ResponseExpectation{StatusCodeExpectation(sets.NewInt(http.StatusMovedPermanently))},
+		[]ResponseExpectation{StatusCodeExpectation(sets.New(http.StatusMovedPermanently))},
 		false)
 }
