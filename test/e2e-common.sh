@@ -284,7 +284,9 @@ function install() {
   elif is_ingress_class gateway-api; then
     # This installs an istio version that works with the v1alpha1 gateway api
     YTT_FILES+=("${E2E_YAML_DIR}/gateway-api/install")
-    YTT_FILES+=("${REPO_ROOT_DIR}/third_party/${ingress}-latest")
+    YTT_FILES+=("${REPO_ROOT_DIR}/third_party/${ingress}-latest/gateway-api.yaml")
+    YTT_FILES+=("${REPO_ROOT_DIR}/third_party/${ingress}-latest/net-gateway-api.yaml")
+    YTT_FILES+=("${REPO_ROOT_DIR}/third_party/${ingress}-latest/istio-gateway.yaml")
   else
     YTT_FILES+=("${REPO_ROOT_DIR}/third_party/${ingress}-latest")
   fi
