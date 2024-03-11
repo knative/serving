@@ -141,7 +141,7 @@ func TestReconcile(t *testing.T) {
 		cr.certificatesMux.RLock()
 		defer cr.certificatesMux.RUnlock()
 		cert, err := cr.GetCertificate(nil)
-		return err == nil && reflect.DeepEqual(newCert.Certificate, cert.Certificate), nil
+		return err == nil && cert != nil && reflect.DeepEqual(newCert.Certificate, cert.Certificate), nil
 	}); err != nil {
 		t.Fatalf("timeout to update the cert: %v", err)
 	}
