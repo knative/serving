@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/serving/pkg/queue/health"
@@ -37,19 +38,24 @@ const (
 	retryInterval = 50 * time.Millisecond
 )
 
-// Probe wraps a corev1.Probe along with a count of consecutive, successful probes
+// Probe holds all wrapped *corev1.Probe along with a barrier to sync single probing execution
 type Probe struct {
-	*corev1.Probe
-	count           int32
-	pollTimeout     time.Duration // To make tests not run for 10 seconds.
-	out             io.Writer     // To make tests not log errors in good cases.
-	autoDetectHTTP2 bool          // Feature gate to enable HTTP2 auto-detection.
+	probes []*wrappedProbe
+	out    io.Writer // To make tests not log errors in good cases.
 
 	// Barrier sync to ensure only one probe is happening at the same time.
 	// When a probe is active `gv` will be non-nil.
 	// When the probe finishes the `gv` will be reset to nil.
 	mu sync.RWMutex
 	gv *gateValue
+}
+
+type wrappedProbe struct {
+	*corev1.Probe
+	count           int32
+	pollTimeout     time.Duration // To make tests not run for 10 seconds.
+	out             io.Writer     // To make tests not log errors in good cases.
+	autoDetectHTTP2 bool          // Feature gate to enable HTTP2 auto-detection.
 }
 
 // gateValue is a write-once boolean impl.
@@ -79,27 +85,41 @@ func (gv *gateValue) read() bool {
 }
 
 // NewProbe returns a pointer to a new Probe.
-func NewProbe(v1p *corev1.Probe) *Probe {
+func NewProbe(probes []*corev1.Probe) *Probe {
+	wrappedProbes := []*wrappedProbe{}
+	for _, p := range probes {
+		wrappedProbes = append(wrappedProbes, &wrappedProbe{
+			Probe:       p,
+			out:         os.Stderr,
+			pollTimeout: PollTimeout,
+		})
+	}
 	return &Probe{
-		Probe:       v1p,
-		pollTimeout: PollTimeout,
-		out:         os.Stderr,
+		probes: wrappedProbes,
+		out:    os.Stderr,
 	}
 }
 
 // NewProbeWithHTTP2AutoDetection returns a pointer to a new Probe that has HTTP2
 // auto-detection enabled.
-func NewProbeWithHTTP2AutoDetection(v1p *corev1.Probe) *Probe {
+func NewProbeWithHTTP2AutoDetection(probes []*corev1.Probe) *Probe {
+	wrappedProbes := []*wrappedProbe{}
+	for _, p := range probes {
+		wrappedProbes = append(wrappedProbes, &wrappedProbe{
+			Probe:           p,
+			out:             os.Stderr,
+			pollTimeout:     PollTimeout,
+			autoDetectHTTP2: true,
+		})
+	}
 	return &Probe{
-		Probe:           v1p,
-		pollTimeout:     PollTimeout,
-		out:             os.Stderr,
-		autoDetectHTTP2: true,
+		probes: wrappedProbes,
+		out:    os.Stderr,
 	}
 }
 
 // shouldProbeAggressively indicates whether the Knative probe with aggressive retries should be used.
-func (p *Probe) shouldProbeAggressively() bool {
+func (p *wrappedProbe) shouldProbeAggressively() bool {
 	return p.PeriodSeconds == 0
 }
 
@@ -128,36 +148,39 @@ func (p *Probe) ProbeContainer() bool {
 }
 
 func (p *Probe) probeContainerImpl() bool {
-	var err error
+	var probeGroup errgroup.Group
 
-	switch {
-	case p.HTTPGet != nil:
-		err = p.httpProbe()
-	case p.TCPSocket != nil:
-		err = p.tcpProbe()
-	case p.GRPC != nil:
-		err = p.grpcProbe()
-	case p.Exec != nil:
-		// Should never be reachable. Exec probes to be translated to
-		// TCP probes when container is built.
-		// Using Fprintf for a concise error message in the event log.
-		fmt.Fprintln(p.out, "exec probe not supported")
-		return false
-	default:
-		// Using Fprintf for a concise error message in the event log.
-		fmt.Fprintln(p.out, "no probe found")
-		return false
+	for _, probe := range p.probes {
+		innerProbe := probe
+		probeGroup.Go(func() error {
+			switch {
+			case innerProbe.HTTPGet != nil:
+				return innerProbe.httpProbe()
+			case innerProbe.TCPSocket != nil:
+
+				return innerProbe.tcpProbe()
+			case innerProbe.GRPC != nil:
+				return innerProbe.grpcProbe()
+			case innerProbe.Exec != nil:
+				// Should never be reachable. Exec probes to be translated to
+				// TCP probes when container is built.
+				return fmt.Errorf("exec probe not supported")
+			default:
+				return fmt.Errorf("no probe found")
+			}
+		})
 	}
 
+	err := probeGroup.Wait()
 	if err != nil {
-		// Using Fprintf for a concise error message in the event log.
 		fmt.Fprintln(p.out, err.Error())
 		return false
 	}
+
 	return true
 }
 
-func (p *Probe) doProbe(probe func(time.Duration) error) error {
+func (p *wrappedProbe) doProbe(probe func(time.Duration) error) error {
 	if !p.shouldProbeAggressively() {
 		return probe(time.Duration(p.TimeoutSeconds) * time.Second)
 	}
@@ -193,7 +216,7 @@ func (p *Probe) doProbe(probe func(time.Duration) error) error {
 // tcpProbe function executes TCP probe once if its standard probe
 // otherwise TCP probe polls condition function which returns true
 // if the probe count is greater than success threshold and false if TCP probe fails
-func (p *Probe) tcpProbe() error {
+func (p *wrappedProbe) tcpProbe() error {
 	config := health.TCPProbeConfigOptions{
 		Address: p.TCPSocket.Host + ":" + p.TCPSocket.Port.String(),
 	}
@@ -207,7 +230,7 @@ func (p *Probe) tcpProbe() error {
 // httpProbe function executes HTTP probe once if its standard probe
 // otherwise HTTP probe polls condition function which returns true
 // if the probe count is greater than success threshold and false if HTTP probe fails
-func (p *Probe) httpProbe() error {
+func (p *wrappedProbe) httpProbe() error {
 	config := health.HTTPProbeConfigOptions{
 		HTTPGetAction: p.HTTPGet,
 		MaxProtoMajor: 1,
@@ -225,7 +248,7 @@ func (p *Probe) httpProbe() error {
 }
 
 // grpcProbe function executes gRPC probe
-func (p *Probe) grpcProbe() error {
+func (p *wrappedProbe) grpcProbe() error {
 	config := health.GRPCProbeConfigOptions{
 		GRPCAction: p.GRPC,
 	}

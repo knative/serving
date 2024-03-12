@@ -225,6 +225,62 @@ func TestGetContainer(t *testing.T) {
 	}
 }
 
+func TestGetSidecarContainers(t *testing.T) {
+	cases := []struct {
+		name   string
+		status RevisionSpec
+		want   []*corev1.Container
+	}{{
+		name:   "empty revisionSpec should return empty slice",
+		status: RevisionSpec{},
+		want:   []*corev1.Container{},
+	}, {
+		name: "single container should return empty slice",
+		status: RevisionSpec{
+			PodSpec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Name:  "user-container",
+					Image: "foo",
+				}},
+			},
+		},
+		want: []*corev1.Container{},
+	}, {
+		name: "get sidecars and not user-container",
+		status: RevisionSpec{
+			PodSpec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Name:  "user-container",
+					Image: "firstImage",
+					Ports: []corev1.ContainerPort{{
+						ContainerPort: 8888,
+					}},
+				}, {
+					Name:  "secondContainer",
+					Image: "secondImage",
+				}, {
+					Name:  "thirdContainer",
+					Image: "thirdImage",
+				}},
+			},
+		},
+		want: []*corev1.Container{{
+			Name:  "secondContainer",
+			Image: "secondImage",
+		}, {
+			Name:  "thirdContainer",
+			Image: "thirdImage",
+		}},
+	}}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if want, got := tc.want, tc.status.GetSidecarContainers(); !equality.Semantic.DeepEqual(want, got) {
+				t.Errorf("GetSidecarContainers: %v want: %v", got, want)
+			}
+		})
+	}
+}
+
 func TestSetRoutingState(t *testing.T) {
 	rev := &Revision{}
 	empty := time.Time{}

@@ -60,6 +60,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
 			MultiContainer:                   Enabled,
+			MultiContainerProbing:            Enabled,
 			PodSpecAffinity:                  Enabled,
 			PodSpecTopologySpreadConstraints: Enabled,
 			PodSpecDryRun:                    Enabled,
@@ -79,6 +80,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 		}),
 		data: map[string]string{
 			"multi-container":                              "Enabled",
+			"multi-container-probing":                      "Enabled",
 			"kubernetes.podspec-affinity":                  "Enabled",
 			"kubernetes.podspec-topologyspreadconstraints": "Enabled",
 			"kubernetes.podspec-dryrun":                    "Enabled",
@@ -113,6 +115,24 @@ func TestFeaturesConfiguration(t *testing.T) {
 		}),
 		data: map[string]string{
 			"multi-container": "Disabled",
+		},
+	}, {
+		name:    "multi-container-probing Allowed",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			MultiContainerProbing: Allowed,
+		}),
+		data: map[string]string{
+			"multi-container-probing": "Allowed",
+		},
+	}, {
+		name:    "multi-container-probing Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			MultiContainerProbing: Disabled,
+		}),
+		data: map[string]string{
+			"multi-container-probing": "Disabled",
 		},
 	}, {
 		name:    "kubernetes.podspec-affinity Allowed",

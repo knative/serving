@@ -194,6 +194,9 @@ var (
 		}, {
 			Name:  "ROOT_CA",
 			Value: "",
+		}, {
+			Name:  "ENABLE_MULTI_CONTAINER_PROBES",
+			Value: "false",
 		}},
 	}
 
@@ -1373,6 +1376,43 @@ func TestMakePodSpec(t *testing.T) {
 				),
 			},
 		),
+	}, {
+		name: "with multiple containers with readiness probes",
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				Ports:          buildContainerPorts(v1.DefaultUserPort),
+				ReadinessProbe: withHTTPReadinessProbe(v1.DefaultUserPort),
+			}, {
+				Name:           sidecarContainerName,
+				Image:          "Ubuntu",
+				ReadinessProbe: withHTTPReadinessProbe(8090),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}, {
+				ImageDigest: "ubuntu@sha256:deadbffe",
+			}}),
+		),
+		fc: apicfg.Features{
+			MultiContainerProbing: apicfg.Enabled,
+		},
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				sidecarContainer(sidecarContainerName,
+					func(container *corev1.Container) {
+						container.Image = "ubuntu@sha256:deadbffe"
+					},
+				),
+				queueContainer(
+					withEnvVar("ENABLE_MULTI_CONTAINER_PROBES", "true"),
+					withEnvVar("SERVING_READINESS_PROBE", `[{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP","httpHeaders":[{"name":"K-Kubelet-Probe","value":"queue"}]}},{"httpGet":{"path":"/","port":8090,"host":"127.0.0.1","scheme":"HTTP","httpHeaders":[{"name":"K-Kubelet-Probe","value":"queue"}]}}]`),
+				),
+			}),
 	}}
 
 	for _, test := range tests {
