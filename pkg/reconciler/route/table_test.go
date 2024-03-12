@@ -3129,6 +3129,98 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 		}},
 		Key: "default/becomes-ready",
 	}, {
+		Name: "check that Route is correctly updated when Certificate is failed",
+		Objects: []runtime.Object{
+			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34"), WithRouteGeneration(1),
+				// Populated by reconciliation when all traffic has been assigned.
+				WithAddress,
+				MarkTrafficAssigned,
+				WithStatusTraffic(
+					v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					}),
+				// The certificate is not ready. So we want to have HTTP URL.
+				WithInitRouteConditions,
+				MarkTrafficAssigned,
+				WithRouteObservedGeneration,
+				MarkCertificateProvisionFailed,
+				WithAddress,
+				MarkIngressReady,
+				WithURL,
+			),
+			cfg("default", "config",
+				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
+			simpleK8sService(
+				Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
+				WithExternalName(pkgnet.GetServiceHostname("private-istio-ingressgateway", "istio-system")),
+			),
+			ingressWithTLS(
+				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
+					WithRouteUID("12-34"), WithRouteGeneration(1)),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								LatestRevision:    ptr.Bool(true),
+								ConfigurationName: "config",
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
+							},
+						}},
+					},
+				}, nil, nil, withReadyIngress),
+			// MakeCertificates will create a certificate with DNS name "*.test-ns.example.com" which is not the host name
+			// needed by the input Route.
+			&netv1alpha1.Certificate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "route-12-34",
+					Namespace: "default",
+					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
+						Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")))},
+					Labels: map[string]string{
+						serving.RouteLabelKey:          "becomes-ready",
+						netapi.CertificateTypeLabelKey: string(netcfg.CertificateExternalDomain),
+					},
+					Annotations: map[string]string{
+						netapi.CertificateClassAnnotationKey: netcfg.CertManagerCertificateClassName,
+					},
+				},
+				Spec: netv1alpha1.CertificateSpec{
+					Domain:     "example.com",
+					DNSNames:   []string{"becomes-ready.default.example.com"},
+					SecretName: "route-12-34",
+				},
+				Status: failedCertStatus(),
+			},
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
+				WithRouteUID("12-34"), WithRouteGeneration(1), WithRouteObservedGeneration,
+				// Populated by reconciliation when all traffic has been assigned.
+				WithAddress,
+				WithRouteConditionsHTTPDowngrade,
+				MarkTrafficAssigned,
+				WithStatusTraffic(
+					v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					}),
+				// The certificate is failed. So we want to have HTTP URL.
+				WithInitRouteConditions,
+				MarkTrafficAssigned,
+				WithRouteObservedGeneration,
+				WithRouteConditionsHTTPDowngrade,
+				WithAddress,
+				MarkIngressReady,
+				WithURL,
+			),
+		}},
+		Key: "default/becomes-ready",
+	}, {
 		// This test is a same with "public becomes cluster local" above, but confirm it does not create certs with external-domain-tls for cluster-local.
 		Name: "public becomes cluster local w/ external-domain-tls",
 		Objects: []runtime.Object{
@@ -3477,6 +3569,12 @@ func readyCertStatus() netv1alpha1.CertificateStatus {
 func notReadyCertStatus() netv1alpha1.CertificateStatus {
 	certStatus := &netv1alpha1.CertificateStatus{}
 	certStatus.MarkNotReady("not ready", "not ready")
+	return *certStatus
+}
+
+func failedCertStatus() netv1alpha1.CertificateStatus {
+	certStatus := &netv1alpha1.CertificateStatus{}
+	certStatus.MarkFailed("failed", "failed")
 	return *certStatus
 }
 
