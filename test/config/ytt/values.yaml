@@ -5,6 +5,7 @@ k8s:
     domain: cluster.local
 serving:
   ingress_class: istio.ingress.networking.knative.dev
+  gateway_api_impl: istio
   namespaces:
     system: knative-serving
     test:

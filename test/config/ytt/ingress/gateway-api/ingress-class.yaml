@@ -4,3 +4,4 @@
 ---
 serving:
   ingress_class: gateway-api.ingress.networking.knative.dev
+  gateway_api_impl: istio
