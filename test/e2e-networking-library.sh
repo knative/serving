@@ -139,11 +139,11 @@ function setup_ingress_env_vars() {
   fi
   if is_ingress_class gateway-api; then
     if [[ "${GATEWAY_API_IMPLEMENTATION}" == "contour" ]]; then
-      export GATEWAY_OVERRIDE=${GATEWAY_OVERRIDE:-knative-gateway}
-      export GATEWAY_NAMESPACE_OVERRIDE=${GATEWAY_NAMESPACE_OVERRIDE:-contour-external}
+      export GATEWAY_OVERRIDE=envoy-knative-gateway
+      export GATEWAY_NAMESPACE_OVERRIDE=contour-external
     else
-      export GATEWAY_OVERRIDE=${GATEWAY_OVERRIDE:-istio-ingressgateway}
-      export GATEWAY_NAMESPACE_OVERRIDE=${GATEWAY_NAMESPACE_OVERRIDE:-istio-system}
+      export GATEWAY_OVERRIDE=istio-ingressgateway
+      export GATEWAY_NAMESPACE_OVERRIDE=istio-system
     fi
   fi
 }
