@@ -3128,6 +3128,90 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 		}},
 		Key: "default/becomes-ready",
 	}, {
+		Name: "check that Route is correctly updated when Certificate is failed",
+		Objects: []runtime.Object{
+			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34"), WithRouteGeneration(1)),
+			cfg("default", "config",
+				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
+			// MakeCertificates will create a certificate with DNS name "*.test-ns.example.com" which is not the host name
+			// needed by the input Route.
+			&netv1alpha1.Certificate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "route-12-34",
+					Namespace: "default",
+					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
+						Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")))},
+					Labels: map[string]string{
+						serving.RouteLabelKey:          "becomes-ready",
+						netapi.CertificateTypeLabelKey: string(netcfg.CertificateExternalDomain),
+					},
+					Annotations: map[string]string{
+						netapi.CertificateClassAnnotationKey: netcfg.CertManagerCertificateClassName,
+					},
+				},
+				Spec: netv1alpha1.CertificateSpec{
+					DNSNames: []string{"abc.test.example.com"},
+				},
+				Status: failedCertStatus(),
+			},
+		},
+		WantCreates: []runtime.Object{
+			ingressWithTLS(
+				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
+					WithRouteUID("12-34"), WithRouteGeneration(1)),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								LatestRevision:    ptr.Bool(true),
+								ConfigurationName: "config",
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
+							},
+						}},
+					},
+				}, nil, nil),
+			simpleK8sService(
+				Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
+				WithExternalName("becomes-ready.default.example.com"),
+			),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: certificateWithStatus(resources.MakeCertificates(Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
+				map[string]string{"becomes-ready.default.example.com": ""}, netcfg.CertManagerCertificateClassName, "example.com")[0], failedCertStatus()),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
+				WithRouteUID("12-34"), WithRouteGeneration(1), WithRouteObservedGeneration,
+				// Populated by reconciliation when all traffic has been assigned.
+				WithAddress, WithRouteConditionsHTTPDowngrade,
+				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
+					v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					}), MarkIngressNotConfigured,
+				// The certificate is not ready. So we want to have HTTP URL.
+				WithURL),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Certificate %s/%s", "default", "route-12-34"),
+			Eventf(corev1.EventTypeNormal, "Deleted", "Deleted orphaned Knative Certificate %s/%s", "default", "route-12-34"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			// This certificate's DNS name is not the host name needed by the input Route.
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "default",
+				Verb:      "delete",
+				Resource:  netv1alpha1.SchemeGroupVersion.WithResource("certificates"),
+			},
+			Name: "route-12-34",
+		}},
+		Key: "default/becomes-ready",
+	}, {
 		// This test is a same with "public becomes cluster local" above, but confirm it does not create certs with external-domain-tls for cluster-local.
 		Name: "public becomes cluster local w/ external-domain-tls",
 		Objects: []runtime.Object{
@@ -3476,6 +3560,12 @@ func readyCertStatus() netv1alpha1.CertificateStatus {
 func notReadyCertStatus() netv1alpha1.CertificateStatus {
 	certStatus := &netv1alpha1.CertificateStatus{}
 	certStatus.MarkNotReady("not ready", "not ready")
+	return *certStatus
+}
+
+func failedCertStatus() netv1alpha1.CertificateStatus {
+	certStatus := &netv1alpha1.CertificateStatus{}
+	certStatus.MarkFailed("failed", "failed")
 	return *certStatus
 }
 
