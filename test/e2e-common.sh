@@ -15,7 +15,6 @@
 # limitations under the License.
 
 # This script provides helper methods to perform cluster actions.
-# shellcheck disable=SC1090
 source "$(dirname "${BASH_SOURCE[0]}")/../vendor/knative.dev/hack/e2e-tests.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/e2e-networking-library.sh"
 
