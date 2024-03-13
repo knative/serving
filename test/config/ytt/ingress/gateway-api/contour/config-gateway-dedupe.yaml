@@ -1,4 +1,3 @@
-#@ load("@ytt:data", "data")
 #@ load("@ytt:overlay", "overlay")
 #@ load("helpers.lib.yaml", "system_configmap")
 
