@@ -64,6 +64,5 @@ const (
 
 // IsKubeletProbe returns true if the request is a Kubernetes probe.
 func IsKubeletProbe(r *http.Request) bool {
-	return strings.HasPrefix(r.Header.Get(UserAgentKey), KubeProbeUAPrefix) ||
-		r.Header.Get(KubeletProbeHeaderName) != ""
+	return strings.HasPrefix(r.Header.Get(UserAgentKey), KubeProbeUAPrefix)
 }

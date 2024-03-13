@@ -482,10 +482,10 @@ func applyReadinessProbeDefaults(p *corev1.Probe, port int32) {
 			p.HTTPGet.Scheme = corev1.URISchemeHTTP
 		}
 
-		p.HTTPGet.HTTPHeaders = append(p.HTTPGet.HTTPHeaders, corev1.HTTPHeader{
-			Name:  netheader.KubeletProbeKey,
-			Value: queue.Name,
-		})
+		//p.HTTPGet.HTTPHeaders = append(p.HTTPGet.HTTPHeaders, corev1.HTTPHeader{
+		//	Name:  netheader.KubeletProbeKey,
+		//	Value: queue.Name,
+		//})
 	case p.TCPSocket != nil:
 		p.TCPSocket.Host = localAddress
 		p.TCPSocket.Port = intstr.FromInt32(port)
