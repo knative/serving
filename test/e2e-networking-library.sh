@@ -19,6 +19,9 @@ function is_ingress_class() {
 }
 
 function stage_contour_gateway_api_resources() {
+  # This installs a contour version that works with the v1 gateway api
+  header "Staging Gateway API Resources - Contour"
+
   local gateway_dir="${E2E_YAML_DIR}/gateway-api/install-contour"
   mkdir -p "${gateway_dir}"
 
@@ -28,8 +31,8 @@ function stage_contour_gateway_api_resources() {
 }
 
 function stage_istio_gateway_api_resources() {
-  # This installs an istio version that works with the v1alpha1 gateway api
-  header "Staging Gateway API Resources"
+  # This installs an istio version that works with the v1 gateway api
+  header "Staging Gateway API Resources - Istio"
 
   local gateway_dir="${E2E_YAML_DIR}/gateway-api/install-istio"
   mkdir -p "${gateway_dir}"
