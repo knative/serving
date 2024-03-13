@@ -249,7 +249,7 @@ func TestHTTPSuccess(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	pb := NewProbe([]*corev1.Probe{&corev1.Probe{
+	pb := NewProbe([]*corev1.Probe{{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   5,
 		SuccessThreshold: 1,
@@ -597,7 +597,7 @@ func TestKnHTTPTimeoutFailure(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	pb := NewProbe([]*corev1.Probe{&corev1.Probe{
+	pb := NewProbe([]*corev1.Probe{{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: 1,
@@ -719,7 +719,7 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 	addr := listener.Addr().(*net.TCPAddr)
 
 	var successThreshold int32 = 3
-	pb := NewProbe([]*corev1.Probe{&corev1.Probe{
+	pb := NewProbe([]*corev1.Probe{{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: successThreshold,
