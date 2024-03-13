@@ -11,7 +11,6 @@
 #@   return yaml.encode(overlay.apply(yaml_old, new))
 #@ end
 
-#@ if data.values.serving.gateway_api_impl == "istio":
 #@overlay/match by=subset(kind="ConfigMap", name="istio", namespace="istio-system")
 ---
 data:
@@ -23,4 +22,3 @@ data:
     accessLogEncoding: JSON
     #@overlay/match missing_ok=True
     accessLogFile: /dev/stdout
-#@ end

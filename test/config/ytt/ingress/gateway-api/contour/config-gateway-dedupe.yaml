@@ -10,10 +10,6 @@
 #@   end
 #@ end
 
-#@ if data.values.serving.gateway_api_impl == "contour":
-
 #@overlay/match by=system_configmap("config-gateway"), when="2+"
 #@overlay/replace via=keep_only_devel
 ---
-
-#@ end
