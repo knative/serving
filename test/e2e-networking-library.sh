@@ -25,9 +25,11 @@ function stage_contour_gateway_api_resources() {
   local gateway_dir="${E2E_YAML_DIR}/gateway-api/install-contour"
   mkdir -p "${gateway_dir}"
 
+  echo "Downloading Contour Gateway Provisioner ${CONTOUR_VERSION}..."
   CONTOUR_VERSION=v1.28.1
   curl -s "https://raw.githubusercontent.com/projectcontour/contour/${CONTOUR_VERSION}/examples/render/contour-gateway-provisioner.yaml" \
     > "${gateway_dir}/contour-gateway-provisioner.yaml"
+  echo "Download complete!"
 }
 
 function stage_istio_gateway_api_resources() {
