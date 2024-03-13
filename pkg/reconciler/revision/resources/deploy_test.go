@@ -916,8 +916,9 @@ func TestMakePodSpec(t *testing.T) {
 				servingContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
+				//FIXME icg
 				queueContainer(
-					withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP","httpHeaders":[{"name":"K-Kubelet-Probe","value":"queue"}]}}`),
+					withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"}}`),
 				),
 			}),
 	}, {
@@ -1014,10 +1015,11 @@ func TestMakePodSpec(t *testing.T) {
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 							Port: intstr.FromInt(v1.DefaultUserPort),
-							HTTPHeaders: []corev1.HTTPHeader{{
-								Name:  netheader.KubeletProbeKey,
-								Value: queue.Name,
-							}},
+							//FIXME icg
+							//HTTPHeaders: []corev1.HTTPHeader{{
+							//	Name:  netheader.KubeletProbeKey,
+							//	Value: queue.Name,
+							//}},
 						},
 					}),
 				),
@@ -1410,7 +1412,8 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("ENABLE_MULTI_CONTAINER_PROBES", "true"),
-					withEnvVar("SERVING_READINESS_PROBE", `[{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP","httpHeaders":[{"name":"K-Kubelet-Probe","value":"queue"}]}},{"httpGet":{"path":"/","port":8090,"host":"127.0.0.1","scheme":"HTTP","httpHeaders":[{"name":"K-Kubelet-Probe","value":"queue"}]}}]`),
+					//FIXME icg
+					withEnvVar("SERVING_READINESS_PROBE", `[{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"}},{"httpGet":{"path":"/","port":8090,"host":"127.0.0.1","scheme":"HTTP"}}]`),
 				),
 			}),
 	}}

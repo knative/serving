@@ -216,8 +216,9 @@ func TestIgnoreProbe(t *testing.T) {
 	stats := netstats.NewRequestStats(time.Now())
 	h := ProxyHandler(breaker, stats, false /*tracingEnabled*/, proxy)
 
+	//FIXME icg
 	req := httptest.NewRequest(http.MethodPost, "http://prob.in", nil)
-	req.Header.Set(netheader.KubeletProbeKey, "1") // Mark it a probe.
+	req.Header.Set("User-Agent", netheader.KubeProbeUAPrefix) // Mark it a probe.
 	go h(httptest.NewRecorder(), req)
 	go h(httptest.NewRecorder(), req)
 
