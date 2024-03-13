@@ -353,7 +353,6 @@ function install() {
   run_ytt ${ytt_flags} \
     --data-value serving.namespaces.system="${SYSTEM_NAMESPACE}" \
     --data-value k8s.cluster.domain="${CLUSTER_DOMAIN}" \
-    --data-value serving.gateway_api_impl="${GATEWAY_API_IMPLEMENTATION}" \
     > "${ytt_result}" \
     || fail_test "failed to create deployment configuration"
 
