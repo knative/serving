@@ -758,10 +758,6 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 				Path:   "/",
 				Port:   intstr.FromInt(int(v1.DefaultUserPort)),
 				Scheme: corev1.URISchemeHTTP,
-				HTTPHeaders: []corev1.HTTPHeader{{
-					Name:  netheader.KubeletProbeKey,
-					Value: queue.Name,
-				}},
 			},
 		},
 		PeriodSeconds:  1,
@@ -833,10 +829,6 @@ func TestProbeGenerationHTTP(t *testing.T) {
 				Path:   probePath,
 				Port:   intstr.FromInt(userPort),
 				Scheme: corev1.URISchemeHTTPS,
-				HTTPHeaders: []corev1.HTTPHeader{{
-					Name:  netheader.KubeletProbeKey,
-					Value: queue.Name,
-				}},
 			},
 		},
 		PeriodSeconds:  2,
