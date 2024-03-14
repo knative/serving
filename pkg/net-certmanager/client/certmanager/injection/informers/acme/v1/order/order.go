@@ -22,20 +22,15 @@ import (
 	context "context"
 
 	controller "knative.dev/pkg/controller"
-	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"
 	v1 "knative.dev/serving/pkg/net-certmanager/client/certmanager/informers/externalversions/acme/v1"
 	factory "knative.dev/serving/pkg/net-certmanager/client/certmanager/injection/informers/factory"
 )
 
-func init() {
-	injection.Default.RegisterInformer(withInformer)
-}
-
 // Key is used for associating the Informer inside the context.Context.
 type Key struct{}
 
-func withInformer(ctx context.Context) (context.Context, controller.Informer) {
+func WithInformer(ctx context.Context) (context.Context, controller.Informer) {
 	f := factory.Get(ctx)
 	inf := f.Acme().V1().Orders()
 	return context.WithValue(ctx, Key{}, inf), inf.Informer()

@@ -87,6 +87,7 @@ ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
 ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
   knative.dev/serving/pkg/net-certmanager/client/certmanager github.com/cert-manager/cert-manager/pkg/apis \
   "certmanager:v1 acme:v1" \
+  --skipInitFuncForInformer \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
 group "Deepcopy Gen"
@@ -113,4 +114,4 @@ ${REPO_ROOT_DIR}/hack/update-schemas.sh
 group "Update deps post-codegen"
 
 # Make sure our dependencies are up-to-date
-${REPO_ROOT_DIR}/hack/update-deps.sh
+#${REPO_ROOT_DIR}/hack/update-deps.sh
