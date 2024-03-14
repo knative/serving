@@ -15,13 +15,13 @@
 # limitations under the License.
 
 # This script provides helper methods to perform cluster actions.
-# shellcheck disable=SC1090
 source "$(dirname "${BASH_SOURCE[0]}")/../vendor/knative.dev/hack/e2e-tests.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/e2e-networking-library.sh"
 
 export CERT_MANAGER_VERSION=${CERT_MANAGER_VERSION:-"latest"}
 # Since default is istio, make default ingress as istio
 export INGRESS_CLASS=${INGRESS_CLASS:-istio.ingress.networking.knative.dev}
+export GATEWAY_API_IMPLEMENTATION=${GATEWAY_API_IMPLEMENTATION:-"istio"}
 export ISTIO_VERSION=${ISTIO_VERSION:-"latest"}
 export KOURIER_VERSION=${KOURIER_VERSION:-""}
 export CONTOUR_VERSION=${CONTOUR_VERSION:-""}
@@ -173,8 +173,14 @@ function parse_flags() {
       ;;
     --gateway-api-version)
       # currently, the value of --gateway-api-version is ignored
-      # latest version of Contour pinned in third_party will be installed
+      # latest version of Gateway API pinned in third_party will be installed
       readonly GATEWAY_API_VERSION=$2
+      readonly INGRESS_CLASS="gateway-api.ingress.networking.knative.dev"
+      readonly SHORT=1
+      return 2
+      ;;
+    --gateway-api-implementation)
+      readonly GATEWAY_API_IMPLEMENTATION=$2
       readonly INGRESS_CLASS="gateway-api.ingress.networking.knative.dev"
       readonly SHORT=1
       return 2
@@ -240,9 +246,16 @@ function knative_setup() {
     fi
   fi
 
-  # Install gateway-api and istio. Gateway API CRD must be installed before Istio.
+  # Install gateway-api and istio or contour. Gateway API CRD must be installed before Istio.
   if is_ingress_class gateway-api; then
-    stage_gateway_api_resources
+    if [[ -z "${GATEWAY_API_IMPLEMENTATION}" || "${GATEWAY_API_IMPLEMENTATION}" == "istio" ]]; then
+      stage_istio_gateway_api_resources
+    elif [[ "${GATEWAY_API_IMPLEMENTATION}" == "contour" ]]; then
+      stage_contour_gateway_api_resources
+    else
+      echo "Only Gateway API with either Istio or Contour is currently supported in the e2e test matrix."
+      exit 1
+    fi
   fi
 
   stage_test_resources
@@ -278,15 +291,17 @@ function install() {
     "${REPO_ROOT_DIR}/test/config/ytt/core"
   )
 
+  local ingress_impl="${GATEWAY_API_IMPLEMENTATION}"
   if is_ingress_class istio; then
     # Istio - see cluster_setup for how the files are staged
     YTT_FILES+=("${E2E_YAML_DIR}/istio/${ingress_version}/install")
   elif is_ingress_class gateway-api; then
-    # This installs an istio version that works with the v1alpha1 gateway api
-    YTT_FILES+=("${E2E_YAML_DIR}/gateway-api/install")
+    # This installs an istio/contour version that works with the v1 gateway api
+    YTT_FILES+=("${E2E_YAML_DIR}/gateway-api/install-${ingress_impl}")
     YTT_FILES+=("${REPO_ROOT_DIR}/third_party/${ingress}-latest/gateway-api.yaml")
     YTT_FILES+=("${REPO_ROOT_DIR}/third_party/${ingress}-latest/net-gateway-api.yaml")
-    YTT_FILES+=("${REPO_ROOT_DIR}/third_party/${ingress}-latest/istio-gateway.yaml")
+    YTT_FILES+=("${REPO_ROOT_DIR}/third_party/${ingress}-latest/${ingress_impl}-gateway.yaml")
+    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/ingress/${ingress}-${ingress_impl}")
   else
     YTT_FILES+=("${REPO_ROOT_DIR}/third_party/${ingress}-latest")
   fi

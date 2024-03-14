@@ -1,0 +1,14 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("helpers.lib.yaml", "system_configmap")
+
+#@ def keep_only_devel(left, right):
+#@   if "serving.knative.dev/release" in left["metadata"]["labels"] and left["metadata"]["labels"]["serving.knative.dev/release"] == "devel":
+#@     return left
+#@   else:
+#@     return right
+#@   end
+#@ end
+
+#@overlay/match by=system_configmap("config-gateway"), when="2+"
+#@overlay/replace via=keep_only_devel
+---
