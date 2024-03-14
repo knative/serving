@@ -18,6 +18,8 @@ package generators
 
 import (
 	"io"
+	"os"
+	"strings"
 
 	clientgentypes "k8s.io/code-generator/cmd/client-gen/types"
 	"k8s.io/gengo/generator"
@@ -25,6 +27,8 @@ import (
 	"k8s.io/gengo/types"
 	"k8s.io/klog/v2"
 )
+
+const SkipInitFuncForInformerEnv = "SKIP_INIT_FUNC_FOR_INFORMER"
 
 // injectionTestGenerator produces a file of listers for a given GroupVersion and
 // type.
@@ -100,15 +104,21 @@ func (g *injectionGenerator) GenerateType(c *generator.Context, t *types.Type, w
 		}),
 	}
 
-	sw.Do(injectionInformer, m)
+	if os.Getenv(SkipInitFuncForInformerEnv) == "true" {
+		sw.Do(strings.ReplaceAll(injectionInformer, "withInformer", "WithInformer"), m)
+	} else {
+		sw.Do(initFunc + injectionInformer, m)
+	}
 
 	return sw.Error()
 }
 
-var injectionInformer = `
+var initFunc = `
 func init() {
 	{{.injectionRegisterInformer|raw}}(withInformer)
 }
+`
+var injectionInformer = `
 
 // Key is used for associating the Informer inside the context.Context.
 type Key struct{}
