@@ -301,12 +301,12 @@ function install() {
     YTT_FILES+=("${REPO_ROOT_DIR}/third_party/${ingress}-latest/gateway-api.yaml")
     YTT_FILES+=("${REPO_ROOT_DIR}/third_party/${ingress}-latest/net-gateway-api.yaml")
     YTT_FILES+=("${REPO_ROOT_DIR}/third_party/${ingress}-latest/${ingress_impl}-gateway.yaml")
+    YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/ingress/${ingress}-${ingress_impl}")
   else
     YTT_FILES+=("${REPO_ROOT_DIR}/third_party/${ingress}-latest")
   fi
 
-  YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/ingress/${ingress}/ingress-class.yaml")
-  YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/ingress/${ingress}/${ingress_impl}")
+  YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/ingress/${ingress}")
   YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/certmanager/kapp-order.yaml")
   YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/certmanager/kapp-secret-upgrade.yaml")
   YTT_FILES+=("${REPO_ROOT_DIR}/third_party/cert-manager-${CERT_MANAGER_VERSION}/cert-manager.yaml")
