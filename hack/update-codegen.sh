@@ -114,4 +114,4 @@ ${REPO_ROOT_DIR}/hack/update-schemas.sh
 group "Update deps post-codegen"
 
 # Make sure our dependencies are up-to-date
-#${REPO_ROOT_DIR}/hack/update-deps.sh
+${REPO_ROOT_DIR}/hack/update-deps.sh
