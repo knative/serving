@@ -17,18 +17,14 @@ limitations under the License.
 package generators
 
 import (
+	"github.com/spf13/pflag"
 	"io"
-	"os"
-	"strings"
-
 	clientgentypes "k8s.io/code-generator/cmd/client-gen/types"
 	"k8s.io/gengo/generator"
 	"k8s.io/gengo/namer"
 	"k8s.io/gengo/types"
 	"k8s.io/klog/v2"
 )
-
-const SkipInitFuncForInformerEnv = "SKIP_INIT_FUNC_FOR_INFORMER"
 
 // injectionTestGenerator produces a file of listers for a given GroupVersion and
 // type.
@@ -82,6 +78,8 @@ func (g *injectionGenerator) GenerateType(c *generator.Context, t *types.Type, w
 
 	klog.V(5).Info("processing type ", t)
 
+	skipInitFuncForInformer, _ := pflag.CommandLine.GetBool("skipInitFuncForInformer")
+
 	m := map[string]interface{}{
 		"groupGoName":               namer.IC(g.groupGoName),
 		"versionGoName":             namer.IC(g.groupVersion.Version.String()),
@@ -102,28 +100,25 @@ func (g *injectionGenerator) GenerateType(c *generator.Context, t *types.Type, w
 			Package: "context",
 			Name:    "WithValue",
 		}),
+		"skipInitFuncForInformer": skipInitFuncForInformer,
 	}
 
-	if os.Getenv(SkipInitFuncForInformerEnv) == "true" {
-		sw.Do(strings.ReplaceAll(injectionInformer, "withInformer", "WithInformer"), m)
-	} else {
-		sw.Do(initFunc + injectionInformer, m)
-	}
+	sw.Do(injectionInformer, m)
 
 	return sw.Error()
 }
 
-var initFunc = `
+var injectionInformer = `
+{{ if not .skipInitFuncForInformer }}
 func init() {
 	{{.injectionRegisterInformer|raw}}(withInformer)
 }
-`
-var injectionInformer = `
+{{ end }}
 
 // Key is used for associating the Informer inside the context.Context.
 type Key struct{}
 
-func withInformer(ctx {{.contextContext|raw}}) ({{.contextContext|raw}}, {{.controllerInformer|raw}}) {
+{{ if .skipInitFuncForInformer }} func WithInformer {{ else }} func withInformer {{ end }} (ctx {{.contextContext|raw}}) ({{.contextContext|raw}}, {{.controllerInformer|raw}}) {
 	f := {{.factoryGet|raw}}(ctx)
 	inf := f.{{.groupGoName}}().{{.versionGoName}}().{{.type|publicPlural}}()
 	return {{ .contextWithValue|raw }}(ctx, Key{}, inf), inf.Informer()

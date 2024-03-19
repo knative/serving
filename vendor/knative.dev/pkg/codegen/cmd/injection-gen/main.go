@@ -18,7 +18,6 @@ package main
 
 import (
 	"flag"
-	"os"
 
 	"k8s.io/klog/v2"
 
@@ -37,7 +36,6 @@ func main() {
 	genericArgs.AddFlags(pflag.CommandLine)
 	customArgs.AddFlags(pflag.CommandLine)
 	flag.Set("logtostderr", "true")
-	skipInitFuncForInformer := flag.Bool("skipInitFuncForInformer", false, "Skip the init function for informer")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
@@ -45,9 +43,6 @@ func main() {
 		klog.Fatal("Error: ", err)
 	}
 
-	if *skipInitFuncForInformer {
-		os.Setenv(generators.SkipInitFuncForInformerEnv, "true")
-	}
 	// Run it.
 	if err := genericArgs.Execute(
 		generators.NameSystems(),
