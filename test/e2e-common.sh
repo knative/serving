@@ -402,8 +402,9 @@ function install() {
     kubectl wait --timeout=60s --for=condition=Available deployment  -n ${SYSTEM_NAMESPACE} activator
   fi
 
-  toggle_feature loglevel.activator debug config-logging
-  toggle_feature logging.enable-request-log true config-observability
+  echo "Enable request logging"
+  toggle_feature "loglevel.activator" debug config-logging
+  toggle_feature "logging.enable-request-log" true config-observability
 
 }
 
