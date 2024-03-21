@@ -119,7 +119,7 @@ jobs:
         - ingress: istio-tls
           ingress-class: istio
           namespace-resources: virtualservices
-          enable-tls: 1
+          # enable-tls: 1
 
         # Disabled due to flakiness: https://github.com/knative/serving/issues/14637
         # - ingress: istio-ambient
