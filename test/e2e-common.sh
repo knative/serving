@@ -397,9 +397,12 @@ function install() {
       toggle_feature cluster-local-domain-tls enabled config-network
     fi
 
+    echo "Restart controller to enable the net-certmanager reconciler"
+    restart_pod ${SYSTEM_NAMESPACE} "app=controller"
     echo "Restart activator to mount the certificates"
-    kubectl delete pod -n ${SYSTEM_NAMESPACE} -l app=activator
-    kubectl wait --timeout=60s --for=condition=Available deployment  -n ${SYSTEM_NAMESPACE} activator
+    restart_pod ${SYSTEM_NAMESPACE} "app=activator"
+    kubectl wait --timeout=60s --for=condition=Available deployment -n ${SYSTEM_NAMESPACE} activator
+    kubectl wait --timeout=60s --for=condition=Available deployment -n ${SYSTEM_NAMESPACE} controller
   fi
 }
 
