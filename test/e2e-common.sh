@@ -401,6 +401,10 @@ function install() {
     kubectl delete pod -n ${SYSTEM_NAMESPACE} -l app=activator
     kubectl wait --timeout=60s --for=condition=Available deployment  -n ${SYSTEM_NAMESPACE} activator
   fi
+
+  toggle_feature loglevel.activator debug config-logging
+  toggle_feature logging.enable-request-log true config-observability
+
 }
 
 # Check if we should use --resolvabledomain.  In case the ingress only has
