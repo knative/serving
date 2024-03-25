@@ -476,18 +476,18 @@ spec:
             httpGet:
               scheme: HTTPS
               port: 8443
-              httpHeaders:
-                - name: k-kubelet-probe
-                  value: "webhook"
+#              httpHeaders:
+#                - name: k-kubelet-probe
+#                  value: "webhook"
             failureThreshold: 3
           livenessProbe:
             periodSeconds: 1
             httpGet:
               scheme: HTTPS
               port: 8443
-              httpHeaders:
-                - name: k-kubelet-probe
-                  value: "webhook"
+#              httpHeaders:
+#                - name: k-kubelet-probe
+#                  value: "webhook"
             failureThreshold: 6
             initialDelaySeconds: 20
           ports:
