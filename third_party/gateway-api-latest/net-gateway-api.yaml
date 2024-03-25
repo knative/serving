@@ -151,7 +151,8 @@ spec:
           # This is the Go import path for the binary that is containerized
           # and substituted here.
 #          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/controller@sha256:3b9cbcb0e52b7d25b52a079926c942bae62ca13d9024b50c6225cadfb822eff7
-          image: us-central1-docker.pkg.dev/daisy-284300/icg-artifacts-public/controller-0c34626ebd19640e7ad17335ffafe8a5@sha256:94526627b67725ee35cbf859e08685b38e3d9270292bfac395288f0e74d10d0b
+#          image: us-central1-docker.pkg.dev/daisy-284300/icg-artifacts-public/controller-0c34626ebd19640e7ad17335ffafe8a5@sha256:94526627b67725ee35cbf859e08685b38e3d9270292bfac395288f0e74d10d0b
+          image: us-central1-docker.pkg.dev/daisy-284300/icg-artifacts-public/controller-0c34626ebd19640e7ad17335ffafe8a5@sha256:dbacadb3c8e674e48de4ff91a399ab7a497fca552d08d822baf477f49be601be
           resources:
             requests:
               cpu: 100m
