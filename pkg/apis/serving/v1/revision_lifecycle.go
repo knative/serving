@@ -170,7 +170,7 @@ func (rs *RevisionStatus) PropagateDeploymentStatus(original *appsv1.DeploymentS
 
 // PropagateAutoscalerStatus propagates autoscaler's status to the revision's status.
 func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *autoscalingv1alpha1.PodAutoscalerStatus) {
-	resUnavailable := rs.GetCondition(RevisionConditionResourcesAvailable).IsFalse()
+	resUnavailable := rs.GetCondition(RevisionConditionResourcesAvailable).IsFalse() || rs.GetCondition(RevisionConditionContainerHealthy).IsFalse()
 
 	// Reflect the PA status in our own.
 	cond := ps.GetCondition(autoscalingv1alpha1.PodAutoscalerConditionReady)
