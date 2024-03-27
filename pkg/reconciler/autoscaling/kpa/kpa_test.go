@@ -601,7 +601,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			// SKS does not exist, so we're just creating and have no status.
 			Object: kpa(testNamespace, testRevision, WithPASKSNotReady("No Private Service Name"),
-				WithBufferedTraffic, WithPAMetricsService(privateSvc), withScales(0, unknownScale),
+				WithBufferedTraffic, WithPAMetricsService(privateSvc), withScales(0, defaultScale),
 				WithObservedGeneration(1)),
 		}},
 		WantCreates: []runtime.Object{
@@ -1992,6 +1992,100 @@ func TestComputeActivatorNum(t *testing.T) {
 			got := computeNumActivators(c.pods, c.decider)
 			if got != c.want {
 				t.Errorf("computeNumActivators() = %d, want %d", got, c.want)
+			}
+		})
+	}
+}
+
+func TestComputeStatus(t *testing.T) {
+	cases := []struct {
+		name string
+
+		haveActual       *int32
+		haveDesiredScale *int32
+
+		pcReady int
+		pcWant  int
+
+		wantActualScale  *int32
+		wantDesiredScale *int32
+	}{{
+		name: "initial",
+
+		haveActual:       nil,
+		haveDesiredScale: nil,
+
+		pcReady: 0,
+		pcWant:  1,
+
+		wantActualScale:  ptr.Int32(0),
+		wantDesiredScale: ptr.Int32(1),
+	}, {
+		name: "ready",
+
+		haveActual:       ptr.Int32(0),
+		haveDesiredScale: ptr.Int32(1),
+
+		pcReady: 1,
+		pcWant:  1,
+
+		wantActualScale:  ptr.Int32(1),
+		wantDesiredScale: ptr.Int32(1),
+	}, {
+		name: "stable",
+
+		haveActual:       ptr.Int32(1),
+		haveDesiredScale: ptr.Int32(1),
+
+		pcReady: 1,
+		pcWant:  1,
+
+		wantActualScale:  ptr.Int32(1),
+		wantDesiredScale: ptr.Int32(1),
+	}, {
+		name: "no metrics",
+
+		haveActual:       ptr.Int32(1),
+		haveDesiredScale: ptr.Int32(2),
+
+		pcReady: 2,
+		pcWant:  -1,
+
+		wantActualScale:  ptr.Int32(2),
+		wantDesiredScale: ptr.Int32(2),
+	}}
+
+	tc := &testConfigStore{config: defaultConfig()}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			ctx := tc.ToContext(context.Background())
+
+			pa := &autoscalingv1alpha1.PodAutoscaler{
+				Status: autoscalingv1alpha1.PodAutoscalerStatus{
+					ActualScale:  c.haveActual,
+					DesiredScale: c.haveDesiredScale,
+				},
+			}
+			pc := podCounts{
+				ready: c.pcReady,
+				want:  c.pcWant,
+			}
+
+			computeStatus(ctx, pa, pc, logging.FromContext(ctx))
+
+			if c.wantActualScale == nil && pa.Status.ActualScale != nil || c.wantActualScale != nil && pa.Status.ActualScale == nil {
+				t.Errorf("Unexpected ActualScale. Want: %v, Got: %v", c.wantActualScale, pa.Status.ActualScale)
+			}
+			if c.wantActualScale != nil && pa.Status.ActualScale != nil && *c.wantActualScale != *pa.Status.ActualScale {
+				t.Errorf("Unexpected ActualScale. Want: %d, Got: %d", *c.wantActualScale, *pa.Status.ActualScale)
+			}
+
+			if c.wantDesiredScale == nil && pa.Status.DesiredScale != nil || c.wantDesiredScale != nil && pa.Status.DesiredScale == nil {
+				t.Errorf("Unexpected DesiredScale. Want: %v, Got: %v", c.wantDesiredScale, pa.Status.DesiredScale)
+			}
+			if c.wantDesiredScale != nil && pa.Status.DesiredScale != nil && *c.wantDesiredScale != *pa.Status.DesiredScale {
+				t.Errorf("Unexpected DesiredScale. Want: %d, Got: %d", *c.wantDesiredScale, *pa.Status.DesiredScale)
 			}
 		})
 	}
