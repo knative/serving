@@ -392,8 +392,11 @@ function install() {
     echo "Patch config-network to enable encryption features"
     toggle_feature system-internal-tls enabled config-network
 
-    # This is currently only supported by kourier
     if [[ "$INGRESS_CLASS" == "kourier.ingress.networking.knative.dev" ]]; then
+      toggle_feature cluster-local-domain-tls enabled config-network
+    fi
+
+    if [[ "$INGRESS_CLASS" == "istio.ingress.networking.knative.dev" ]]; then
       toggle_feature cluster-local-domain-tls enabled config-network
     fi
 
