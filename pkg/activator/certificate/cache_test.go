@@ -132,11 +132,12 @@ func TestReconcile(t *testing.T) {
 	fakesecretinformer.Get(ctx).Informer().GetIndexer().Add(secret)
 
 	// Update cert and key but keep using old CA, then the error is expected.
-	secret.Data[certificates.CertName] = newTLSCrt
-	secret.Data[certificates.PrivateKeyName] = newTLSKey
+	newCertSecret := secret.DeepCopy()
+	newCertSecret.Data[certificates.CertName] = newTLSCrt
+	newCertSecret.Data[certificates.PrivateKeyName] = newTLSKey
 	newCert, _ := tls.X509KeyPair(newTLSCrt, newTLSKey)
 
-	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
+	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, newCertSecret, metav1.UpdateOptions{})
 	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
 		cr.certificatesMux.RLock()
 		defer cr.certificatesMux.RUnlock()
@@ -147,9 +148,10 @@ func TestReconcile(t *testing.T) {
 	}
 
 	// Update CA, now the error is gone.
-	secret.Data[certificates.CaCertName] = newCA
-	expectedPool := getPoolWithCerts(secret.Data[certificates.CaCertName])
-	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, secret, metav1.UpdateOptions{})
+	newCASecret := newCertSecret.DeepCopy()
+	newCASecret.Data[certificates.CaCertName] = newCA
+	expectedPool := getPoolWithCerts(newCASecret.Data[certificates.CaCertName])
+	fakekubeclient.Get(ctx).CoreV1().Secrets(system.Namespace()).Update(ctx, newCASecret, metav1.UpdateOptions{})
 	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 10*time.Second, true, func(context.Context) (bool, error) {
 		cr.certificatesMux.RLock()
 		defer cr.certificatesMux.RUnlock()
