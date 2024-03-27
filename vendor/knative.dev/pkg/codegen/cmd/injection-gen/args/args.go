@@ -30,6 +30,7 @@ type CustomArgs struct {
 	ListersPackage                   string
 	ForceKinds                       string
 	ListerHasPointerElem             bool
+	DisableInformerInit              bool
 }
 
 // NewDefaults returns default arguments for the generator.
@@ -50,7 +51,7 @@ func (ca *CustomArgs) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&ca.ListerHasPointerElem, "lister-has-pointer-elem", false, "")
 	fs.MarkDeprecated("lister-has-pointer-elem", "this flag has no effect")
 
-	fs.Bool("skipInitFuncForInformer", false, "Skip the init function for informer")
+	fs.BoolVar(&ca.DisableInformerInit, "disable-informer-init", false, "disable generating the init function for the informer")
 }
 
 // Validate checks the given arguments.

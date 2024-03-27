@@ -87,7 +87,7 @@ ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
 ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
   knative.dev/serving/pkg/net-certmanager/client/certmanager github.com/cert-manager/cert-manager/pkg/apis \
   "certmanager:v1 acme:v1" \
-  --skipInitFuncForInformer \
+  --disable-informer-init \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
 group "Deepcopy Gen"
