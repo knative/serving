@@ -106,15 +106,9 @@ spec:
         readinessProbe:
           httpGet:
             port: 8080
-            httpHeaders:
-            - name: k-kubelet-probe
-              value: "autoscaler"
         livenessProbe:
           httpGet:
             port: 8080
-            httpHeaders:
-            - name: k-kubelet-probe
-              value: "autoscaler"
           failureThreshold: 6
 
 ---

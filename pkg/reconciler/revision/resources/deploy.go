@@ -23,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -136,22 +135,6 @@ func certVolume(secret string) corev1.Volume {
 				SecretName: secret,
 			},
 		},
-	}
-}
-
-func addLivenessProbeHeader(p *corev1.Probe) {
-	if p == nil {
-		return
-	}
-	switch {
-	case p.HTTPGet != nil:
-		// With mTLS enabled, Istio rewrites probes, but doesn't spoof the kubelet
-		// user agent, so we need to inject an extra header to be able to distinguish
-		// between probes and real requests.
-		p.HTTPGet.HTTPHeaders = append(p.HTTPGet.HTTPHeaders, corev1.HTTPHeader{
-			Name:  netheader.KubeletProbeKey,
-			Value: queue.Name,
-		})
 	}
 }
 
@@ -272,10 +255,6 @@ func makeContainer(container corev1.Container, rev *v1.Revision) corev1.Containe
 			// container instead of via kubelet.
 			container.ReadinessProbe = nil
 		}
-	}
-
-	if container.LivenessProbe != nil {
-		addLivenessProbeHeader(container.LivenessProbe)
 	}
 
 	return container
