@@ -753,6 +753,8 @@ function __go_update_deps_for_module() {
   if [[ "${FORCE_VENDOR:-false}" == "true" ]] || [ -d vendor ]; then
     group "Go mod vendor"
     go mod vendor 2>&1 |  grep -v "ignoring symlink" || true
+  else
+    go mod download -x
   fi
   eval "$orig_pipefail_opt"
 
@@ -770,8 +772,8 @@ function __go_update_deps_for_module() {
     remove_broken_symlinks ./vendor
   fi
 
-  group "Updating licenses"
-  update_licenses third_party/VENDOR-LICENSE "./..."
+  group "Checking licenses"
+  check_licenses
   )
 }
 
@@ -805,18 +807,6 @@ function go_mod_gopath_hack() {
 # Parameters: $1..$n - parameters passed to the tool.
 function run_kntest() {
   go_run knative.dev/test-infra/tools/kntest/cmd/kntest@latest "$@"
-}
-
-# Run go-licenses to update licenses.
-# Parameters: $1 - output file, relative to repo root dir.
-#             $2 - directory to inspect.
-function update_licenses() {
-  local dst=$1
-  local dir=$2
-  shift
-  go_run github.com/google/go-licenses@v1.6.0 \
-    save "${dir}" --save_path="${dst}" --force || \
-    { echo "--- FAIL: go-licenses failed to update licenses"; return 1; }
 }
 
 # Run go-licenses to check for forbidden licenses.

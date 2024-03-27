@@ -3,6 +3,11 @@
 `hack` is a collection of scripts used to bootstrap CI processes and other vital
 entrypoint functionality.
 
+## Contributing
+
+If you are interested in contributing to Knative, take a look at [CLOTRIBUTOR](https://clotributor.dev/search?project=knative&page=1)
+for a list of help wanted issues across the project.
+
 ## Using the `presubmit-tests.sh` helper script
 
 This is a helper script to run the presubmit tests. To use it:

@@ -55,9 +55,14 @@ const (
 	// at the Queue proxy level back to be a host header.
 	OriginalHostKey = "K-Original-Host"
 
-	// KubeletProbeKey is the name of the header supplied by kubelet
-	// probes.  Istio with mTLS rewrites probes, but their probes pass a
-	// different user-agent.  So we augment the probes with this header.
+	// KubeletProbeKey is the name of the header supplied by kubelet probes.
+	// Prior to this deprecation, Istio with mTLS rewrote probes and their probes passed a
+	// different user-agent.  Therefore, this header was added to augment the probes.
+	//
+	// Deprecated: this custom request header is no longer necessary since Istio now propagates the
+	// original request header `User-Agent` sent by the kubelet (e.g., User-Agent: kube-probe/1.29).
+	// For updated usage, please utilize knative.dev/networking/pkg/http/header.UserAgentKey and
+	// knative.dev/networking/pkg/http/header.KubeProbeUAPrefix
 	KubeletProbeKey = "K-Kubelet-Probe"
 
 	// RouteTagKey is the name of the header entry which has a tag name as value.
