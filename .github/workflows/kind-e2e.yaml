@@ -89,7 +89,7 @@ jobs:
 
         ingress:
         - kourier
-        - kourier-tls
+        # - kourier-tls
         - istio
         - istio-tls
         # Disabled due to flakiness: https://github.com/knative/serving/issues/14637
@@ -127,9 +127,10 @@ jobs:
         #   ingress-class: istio
         #   ambient: 1
 
-        - ingress: kourier-tls
-          ingress-class: kourier
-          enable-tls: 1
+        # Disabled due to flakiness: https://github.com/knative/serving/issues/15052
+        # - ingress: kourier-tls
+        #   ingress-class: kourier
+        #   enable-tls: 1
 
         - test-suite: runtime
           test-path: ./test/conformance/runtime/...
