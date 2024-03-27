@@ -55,7 +55,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientgotesting "k8s.io/client-go/testing"
-	"k8s.io/utils/pointer"
 
 	"github.com/google/go-cmp/cmp"
 	"go.opencensus.io/resource"
@@ -2019,41 +2018,41 @@ func TestComputeStatus(t *testing.T) {
 		pcReady: 0,
 		pcWant:  1,
 
-		wantActualScale:  pointer.Int32(0),
-		wantDesiredScale: pointer.Int32(1),
+		wantActualScale:  ptr.Int32(0),
+		wantDesiredScale: ptr.Int32(1),
 	}, {
 		name: "ready",
 
-		haveActual:       pointer.Int32(0),
-		haveDesiredScale: pointer.Int32(1),
+		haveActual:       ptr.Int32(0),
+		haveDesiredScale: ptr.Int32(1),
 
 		pcReady: 1,
 		pcWant:  1,
 
-		wantActualScale:  pointer.Int32(1),
-		wantDesiredScale: pointer.Int32(1),
+		wantActualScale:  ptr.Int32(1),
+		wantDesiredScale: ptr.Int32(1),
 	}, {
 		name: "stable",
 
-		haveActual:       pointer.Int32(1),
-		haveDesiredScale: pointer.Int32(1),
+		haveActual:       ptr.Int32(1),
+		haveDesiredScale: ptr.Int32(1),
 
 		pcReady: 1,
 		pcWant:  1,
 
-		wantActualScale:  pointer.Int32(1),
-		wantDesiredScale: pointer.Int32(1),
+		wantActualScale:  ptr.Int32(1),
+		wantDesiredScale: ptr.Int32(1),
 	}, {
 		name: "no metrics",
 
-		haveActual:       pointer.Int32(1),
-		haveDesiredScale: pointer.Int32(2),
+		haveActual:       ptr.Int32(1),
+		haveDesiredScale: ptr.Int32(2),
 
 		pcReady: 2,
 		pcWant:  -1,
 
-		wantActualScale:  pointer.Int32(2),
-		wantDesiredScale: pointer.Int32(2),
+		wantActualScale:  ptr.Int32(2),
+		wantDesiredScale: ptr.Int32(2),
 	}}
 
 	tc := &testConfigStore{config: defaultConfig()}
