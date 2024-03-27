@@ -14,37 +14,27 @@ aliases:
   - navidshaikh
   - rhuss
   - vyasgun
-  conformance-task-force-leads:
-  - salaboy
-  conformance-writers:
-  - salaboy
   docs-reviewers:
   - nainaz
   - pmbanugo
   - retocode
   - skonto
   - snneji
-  docs-wg-leads:
-  - snneji
   docs-writers:
   - csantanapr
   - retocode
   - skonto
-  - snneji
   eventing-reviewers:
   - Leo6Leo
   - aslom
   - cali0707
   - creydr
-  eventing-triage:
-  - lberk
   eventing-wg-leads:
   - pierDipi
   eventing-writers:
   - aliok
   - cali0707
   - creydr
-  - lberk
   - lionelvillard
   - matzew
   - odacremolbap
