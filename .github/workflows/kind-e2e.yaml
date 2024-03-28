@@ -223,7 +223,7 @@ jobs:
           -race -count=1 -parallel=1 -tags=e2e \
           -timeout=30m \
           ${{ matrix.test-path }} \
-          -run ^TestRevisionTimeout/writes_first_byte_before_timeout$
+          -run ^TestRevisionTimeout/writes_first_byte_before_timeout$ \
           -skip-cleanup-on-fail \
           -enable-alpha -enable-beta \
           --ingress-class=${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
