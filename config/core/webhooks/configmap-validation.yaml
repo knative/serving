@@ -36,5 +36,5 @@ webhooks:
       values: ["knative-serving"]
     - key: app.kubernetes.io/component
       operator: In
-      values: ["autoscaler", "controller", "logging", "networking", "observability", "tracing"]
+      values: ["autoscaler", "controller", "logging", "networking", "observability", "tracing", "net-certmanager"]
   timeoutSeconds: 10
