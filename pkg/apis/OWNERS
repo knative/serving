@@ -10,6 +10,3 @@ reviewers:
 
 options:
   no_parent_owners: true
-
-labels:
-- area/API
