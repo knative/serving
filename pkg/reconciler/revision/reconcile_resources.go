@@ -115,6 +115,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 							rev.Status.PropagateDeploymentAvailabilityStatusIfFalse(&deployment.Status)
 						}
 					}
+					break
 				}
 			}
 		}
