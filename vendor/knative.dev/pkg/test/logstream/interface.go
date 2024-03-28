@@ -49,7 +49,7 @@ type ti interface {
 func Start(t ti) Canceler {
 	// Do this lazily to make import ordering less important.
 	once.Do(func() {
-		if ns := os.Getenv(system.NamespaceEnvKey); ns != "" {
+		if ns := os.Getenv("serving-tests"); ns != "" {
 			var err error
 			// handle case when ns contains a csv list
 			namespaces := strings.Split(ns, ",")
