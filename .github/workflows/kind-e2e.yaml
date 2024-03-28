@@ -85,13 +85,13 @@ jobs:
       matrix:
         k8s-version:
         - v1.28.x
-        - v1.29.x
+        #- v1.29.x
 
         ingress:
-        - kourier
-        # - kourier-tls
-        - istio
-        - istio-tls
+        #- kourier
+        - kourier-tls
+        #- istio
+        #- istio-tls
         # Disabled due to flakiness: https://github.com/knative/serving/issues/14637
         # - istio-ambient
         - contour
@@ -110,16 +110,16 @@ jobs:
         #   test-flags: -enable-alpha
         #   namespace-resources: httproute
 
-        - ingress: contour
-          namespace-resources: httpproxy
+        #- ingress: contour
+        #  namespace-resources: httpproxy
 
-        - ingress: istio
-          namespace-resources: virtualservices
+        #- ingress: istio
+        #  namespace-resources: virtualservices
 
-        - ingress: istio-tls
-          ingress-class: istio
-          namespace-resources: virtualservices
-          enable-tls: 1
+#        - ingress: istio-tls
+#          ingress-class: istio
+#          namespace-resources: virtualservices
+#          enable-tls: 1
 
         # Disabled due to flakiness: https://github.com/knative/serving/issues/14637
         # - ingress: istio-ambient
@@ -127,10 +127,9 @@ jobs:
         #   ingress-class: istio
         #   ambient: 1
 
-        # Disabled due to flakiness: https://github.com/knative/serving/issues/15052
-        # - ingress: kourier-tls
-        #   ingress-class: kourier
-        #   enable-tls: 1
+        - ingress: kourier-tls
+          ingress-class: kourier
+          enable-tls: 1
 
         - test-suite: runtime
           test-path: ./test/conformance/runtime/...
@@ -219,13 +218,19 @@ jobs:
 
     - name: Test ${{ matrix.test-suite }}
       run: |
-        gotestsum --format testname -- \
-          -race -count=1 -parallel=1 -tags=e2e \
-          -timeout=30m \
-          ${{ matrix.test-path }} \
-          -skip-cleanup-on-fail \
-          -enable-alpha -enable-beta \
-          --ingress-class=${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
+        
+        go test -json -tags e2e ./test/conformance/api/... -run ^TestRevisionTimeout/writes_first_byte_before_timeout$ \
+          -skip-cleanup-on-fail --enable-alpha --enable-beta --ingress-class=kourier.ingress.networking.knative.dev
+        
+        for i in `kubectl get pods -n serving-tests --no-headers | awk '{ print $1 }'`; kubectl logs -n serving-tests --all-containers $i
+
+#        gotestsum --format testname -- \
+#          -race -count=1 -parallel=1 -tags=e2e \
+#          -timeout=30m \
+#          ${{ matrix.test-path }} \
+#          -skip-cleanup-on-fail \
+#          -enable-alpha -enable-beta \
+#          --ingress-class=${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
 
     - uses: chainguard-dev/actions/kind-diag@main
       # Only upload logs on failure.
