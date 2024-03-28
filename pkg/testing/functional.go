@@ -124,18 +124,6 @@ func WithBufferedTraffic(pa *autoscalingv1alpha1.PodAutoscaler) {
 		"Requests to the target are being buffered as resources are provisioned.")
 }
 
-// WithBufferedTrafficAllConditionsSet updates the PA to reflect that it has received
-// and buffered traffic, it is not ready and waits for sks too.
-func WithBufferedTrafficAllConditionsSet(pa *autoscalingv1alpha1.PodAutoscaler) {
-	pa.Status.MarkActivating("Queued",
-		"Requests to the target are being buffered as resources are provisioned.")
-	pa.Status.MarkSKSNotReady("K8s Service is not ready")
-	pa.Status.MarkScaleTargetInitialized()
-	pa.Status.MarkNotReady("Queued",
-		"Requests to the target are being buffered as resources are provisioned.")
-
-}
-
 // WithNoTraffic updates the PA to reflect the fact that it is not
 // receiving traffic.
 func WithNoTraffic(reason, message string) PodAutoscalerOption {

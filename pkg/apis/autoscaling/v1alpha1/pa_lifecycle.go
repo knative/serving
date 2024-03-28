@@ -225,11 +225,6 @@ func (pas *PodAutoscalerStatus) MarkSKSNotReady(mes string) {
 	podCondSet.Manage(pas).MarkUnknown(PodAutoscalerConditionSKSReady, "NotReady", mes)
 }
 
-// MarkNotReady marks the PA condition that denotes it is not yet ready.
-func (pas *PodAutoscalerStatus) MarkNotReady(reason, mes string) {
-	podCondSet.Manage(pas).MarkUnknown(PodAutoscalerConditionReady, reason, mes)
-}
-
 // GetCondition gets the condition `t`.
 func (pas *PodAutoscalerStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return podCondSet.Manage(pas).GetCondition(t)

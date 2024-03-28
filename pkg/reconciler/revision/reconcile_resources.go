@@ -19,6 +19,7 @@ package revision
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 	"knative.dev/pkg/tracker"
@@ -32,6 +33,7 @@ import (
 
 	networkingApi "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/certificates"
+	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
@@ -42,6 +44,8 @@ import (
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 )
+
+const requeuePeriodForProgressionChecking = 1 * time.Second
 
 func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) error {
 	ns := rev.Namespace
@@ -72,7 +76,10 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 		return fmt.Errorf("failed to update deployment %q: %w", deploymentName, err)
 	}
 
-	rev.Status.PropagateDeploymentStatus(&deployment.Status)
+	// When we are scaling down we want to keep the error that we might have seen before
+	if *deployment.Spec.Replicas > 0 {
+		rev.Status.PropagateDeploymentStatus(&deployment.Status)
+	}
 
 	// If a container keeps crashing (no active pods in the deployment although we want some)
 	if *deployment.Spec.Replicas > 0 && deployment.Status.AvailableReplicas == 0 {
@@ -109,10 +116,13 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 						}
 					} else if w := status.State.Waiting; w != nil {
 						if hasDeploymentTimedOut(deployment) {
-							logger.Infof("marking resources unavailable with: %s: %s", w.Reason, w.Message)
+							logger.Infof("marking revision resources unavailable with: %s: %s", w.Reason, w.Message)
 							rev.Status.MarkResourcesAvailableFalse(w.Reason, w.Message)
-						} else {
-							rev.Status.PropagateDeploymentAvailabilityStatusIfFalse(&deployment.Status)
+							break
+						}
+						if shouldRequeue := rev.Status.PropagateDeploymentAvailabilityWithContainerStatus(&deployment.Status, w.Reason, w.Message); shouldRequeue {
+							// If we don't keep re-trying here at some point revision gets stuck without updates, thus not getting the latest.
+							return controller.NewRequeueAfter(requeuePeriodForProgressionChecking)
 						}
 					}
 				}

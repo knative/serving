@@ -137,12 +137,6 @@ func MarkInactive(reason, message string) RevisionOption {
 	}
 }
 
-func MarkActiveUknown(reason, message string) RevisionOption {
-	return func(r *v1.Revision) {
-		r.Status.MarkActiveUnknown(reason, message)
-	}
-}
-
 // MarkActivating calls .Status.MarkActivating on the Revision.
 func MarkActivating(reason, message string) RevisionOption {
 	return func(r *v1.Revision) {

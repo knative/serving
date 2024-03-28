@@ -18,6 +18,7 @@ package v1
 
 import (
 	"fmt"
+	"log"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -168,24 +169,20 @@ func (rs *RevisionStatus) PropagateDeploymentStatus(original *appsv1.DeploymentS
 	}
 }
 
-func (rs *RevisionStatus) PropagateDeploymentAvailabilityStatusIfFalse(original *appsv1.DeploymentStatus) {
+func (rs *RevisionStatus) PropagateDeploymentAvailabilityWithContainerStatus(original *appsv1.DeploymentStatus, reason, message string) bool {
 	m := revisionCondSet.Manage(rs)
-	avCond := m.GetCondition(RevisionConditionResourcesAvailable)
-
-	// Skip if set for other reasons
-	if avCond.Status == corev1.ConditionFalse {
-		return
-	}
-
 	for _, cond := range original.Conditions {
 		switch cond.Type {
 		case appsv1.DeploymentAvailable:
 			switch cond.Status {
 			case corev1.ConditionFalse:
-				m.MarkFalse(RevisionConditionResourcesAvailable, cond.Reason, cond.Message)
+				log.Printf("marking revision resource unavailable because deployment is not available with: %s: %s\n", reason, message)
+				m.MarkFalse(RevisionConditionResourcesAvailable, reason, message)
+				return true
 			}
 		}
 	}
+	return false
 }
 
 // PropagateAutoscalerStatus propagates autoscaler's status to the revision's status.

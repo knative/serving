@@ -566,7 +566,7 @@ func TestReconcile(t *testing.T) {
 				MarkContainerHealthy(),
 				WithRevisionObservedGeneration(1),
 			),
-			pa("foo", "pull-backoff", WithBufferedTrafficAllConditionsSet), // pa can't be ready since deployment times out.
+			pa("foo", "pull-backoff", WithReachabilityUnreachable), // pa can't be ready since deployment times out.
 			pod(t, "foo", "pull-backoff", WithWaitingContainer("pull-backoff", "ImagePullBackoff", "can't pull it")),
 			unAvailableDeploy(deploy(t, "foo", "pull-backoff")),
 			image("foo", "pull-backoff"),
@@ -575,13 +575,10 @@ func TestReconcile(t *testing.T) {
 			Object: Revision("foo", "pull-backoff",
 				WithLogURL,
 				MarkContainerHealthy(),
-				MarkActiveUknown("Queued", "Requests to the target are being buffered as resources are provisioned."),
-				MarkResourcesUnavailable("MinimumReplicasUnavailable", "Deployment does not have minimum availability."), withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+				MarkResourcesUnavailable("ImagePullBackoff", "can't pull it"), withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
 		}},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: pa("foo", "pull-backoff", WithBufferedTrafficAllConditionsSet, WithReachabilityUnreachable),
-		}},
-		Key: "foo/pull-backoff",
+		WantErr: true, // requeue error
+		Key:     "foo/pull-backoff",
 	}, {
 		Name: "surface pod errors",
 		// Test the propagation of the termination state of a Pod into the revision.
