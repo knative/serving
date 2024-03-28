@@ -391,7 +391,7 @@ spec:
               memory: 200Mi
             limits:
               cpu: "1"
-              memory: 500Mi
+              memory: 800Mi
       restartPolicy: Always
       serviceAccountName: net-kourier
 ---
