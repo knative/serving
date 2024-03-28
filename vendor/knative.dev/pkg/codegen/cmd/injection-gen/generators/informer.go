@@ -24,8 +24,6 @@ import (
 	"k8s.io/gengo/namer"
 	"k8s.io/gengo/types"
 	"k8s.io/klog/v2"
-
-	"github.com/spf13/pflag"
 )
 
 // injectionTestGenerator produces a file of listers for a given GroupVersion and
@@ -39,6 +37,7 @@ type injectionGenerator struct {
 	imports                     namer.ImportTracker
 	typedInformerPackage        string
 	groupInformerFactoryPackage string
+	disableInformerInit         bool
 }
 
 var _ generator.Generator = (*injectionGenerator)(nil)
@@ -80,8 +79,6 @@ func (g *injectionGenerator) GenerateType(c *generator.Context, t *types.Type, w
 
 	klog.V(5).Info("processing type ", t)
 
-	disableInformerInit, _ := pflag.CommandLine.GetBool("disable-informer-init")
-
 	m := map[string]interface{}{
 		"groupGoName":               namer.IC(g.groupGoName),
 		"versionGoName":             namer.IC(g.groupVersion.Version.String()),
@@ -102,7 +99,7 @@ func (g *injectionGenerator) GenerateType(c *generator.Context, t *types.Type, w
 			Package: "context",
 			Name:    "WithValue",
 		}),
-		"disableInformerInit": disableInformerInit,
+		"disableInformerInit": g.disableInformerInit,
 	}
 
 	sw.Do(injectionInformer, m)
