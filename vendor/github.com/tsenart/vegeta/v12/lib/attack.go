@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"sync"
 	"time"
+	"log"
 
 	"github.com/rs/dnscache"
 	"golang.org/x/net/http2"
@@ -517,6 +518,7 @@ func (a *Attacker) hit(tr Targeter, atk *attack) *Result {
 
 	req, err := tgt.Request()
 	if err != nil {
+		log.Printf("ERROR in attack 0: %v\n", err)
 		return &res
 	}
 
@@ -532,6 +534,7 @@ func (a *Attacker) hit(tr Targeter, atk *attack) *Result {
 
 	r, err := a.client.Do(req)
 	if err != nil {
+		log.Printf("ERROR in attack 1: %v\n", err)
 		return &res
 	}
 	defer r.Body.Close()
@@ -542,8 +545,10 @@ func (a *Attacker) hit(tr Targeter, atk *attack) *Result {
 	}
 
 	if res.Body, err = io.ReadAll(body); err != nil {
+		log.Printf("ERROR in attack 2: %v\n", err)
 		return &res
 	} else if _, err = io.Copy(io.Discard, r.Body); err != nil {
+		log.Printf("ERROR in attack 3: %v\n", err)
 		return &res
 	}
 

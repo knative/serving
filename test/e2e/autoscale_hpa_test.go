@@ -90,11 +90,12 @@ func setupHPASvc(t *testing.T, metric string, target int) *TestContext {
 	resources, err := v1test.CreateServiceReady(t, clients, names,
 		[]rtesting.ServiceOption{
 			rtesting.WithConfigAnnotations(map[string]string{
-				autoscaling.ClassAnnotationKey:    autoscaling.HPA,
-				autoscaling.MetricAnnotationKey:   metric,
-				autoscaling.TargetAnnotationKey:   strconv.Itoa(target),
-				autoscaling.MaxScaleAnnotationKey: fmt.Sprintf("%d", int(maxPods)),
-				autoscaling.WindowAnnotationKey:   "20s",
+				autoscaling.ClassAnnotationKey:          autoscaling.HPA,
+				autoscaling.MetricAnnotationKey:         metric,
+				autoscaling.TargetAnnotationKey:         strconv.Itoa(target),
+				autoscaling.MaxScaleAnnotationKey:       fmt.Sprintf("%d", int(maxPods)),
+				autoscaling.WindowAnnotationKey:         "20s",
+				"features.knative.dev/http-full-duplex": "Enabled",
 			}), rtesting.WithResourceRequirements(corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
 					corev1.ResourceCPU:    resource.MustParse("30m"),

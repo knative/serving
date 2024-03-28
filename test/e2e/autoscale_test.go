@@ -138,6 +138,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 				test.Options{},
 				rtesting.WithConfigAnnotations(map[string]string{
 					autoscaling.MetricAggregationAlgorithmKey: algo,
+					"features.knative.dev/http-full-duplex":   "Enabled",
 				}))
 			test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
 
