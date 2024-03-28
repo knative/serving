@@ -21,6 +21,7 @@ package e2e
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -52,13 +53,10 @@ func TestImagePullError(t *testing.T) {
 		cond := r.Status.GetCondition(v1.ConfigurationConditionReady)
 		if cond != nil && !cond.IsUnknown() {
 			if cond.IsFalse() {
-				if cond.Reason == wantCfgReason {
+				if cond.Reason == wantCfgReason && hasPullErrorMsg(cond.Message) {
 					return true, nil
 				}
 			}
-			t.Logf("Reason: %q; Message: %q; Status: %q", cond.Reason, cond.Message, cond.Status)
-			return true, fmt.Errorf("the Config %s ReadyCondition = (Reason=%q, Message=%q, Status=%q), wantReason: %q",
-				names.Config, cond.Reason, cond.Message, cond.Status, wantCfgReason)
 		}
 		return false, nil
 	}, "ContainerUnpullable"); err != nil {
@@ -91,4 +89,9 @@ func createLatestConfig(t *testing.T, clients *test.Clients, names test.Resource
 	return v1test.CreateConfiguration(t, clients, names, func(c *v1.Configuration) {
 		c.Spec = *v1test.ConfigurationSpec(names.Image)
 	})
+}
+
+func hasPullErrorMsg(msg string) bool {
+	return strings.Contains(msg, "Back-off pulling image") ||
+		strings.Contains(msg, "manifest unknown") || strings.Contains(msg, "failed to pull and unpack image")
 }
