@@ -24,7 +24,6 @@ import (
 	"sync"
 
 	"k8s.io/client-go/kubernetes"
-	"knative.dev/pkg/system"
 	"knative.dev/pkg/test"
 	"knative.dev/pkg/test/helpers"
 	logstreamv2 "knative.dev/pkg/test/logstream/v2"
