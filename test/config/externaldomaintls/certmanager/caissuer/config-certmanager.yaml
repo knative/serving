@@ -21,6 +21,8 @@ metadata:
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
     networking.knative.dev/certificate-provider: cert-manager
+  annotations:
+    knative.dev/example-checksum: "b7a9a602"
 data:
   issuerRef: |
     kind: ClusterIssuer
@@ -40,10 +42,29 @@ data:
     # These sample configuration options may be copied out of
     # this block and unindented to actually change the configuration.
 
-    # issuerRef is a reference to the issuer for this certificate.
+    # issuerRef is a reference to the issuer for external-domain certificates used for ingress.
     # IssuerRef should be either `ClusterIssuer` or `Issuer`.
-    # Please refer `IssuerRef` in https://github.com/jetstack/cert-manager/blob/master/pkg/apis/certmanager/v1alpha1/types_certificate.go
+    # Please refer `IssuerRef` in https://cert-manager.io/docs/concepts/issuer/
     # for more details about IssuerRef configuration.
+    # If the issuerRef is not specified, the self-signed `knative-selfsigned-issuer` ClusterIssuer is used.
     issuerRef: |
       kind: ClusterIssuer
       name: letsencrypt-issuer
+
+    # clusterLocalIssuerRef is a reference to the issuer for cluster-local-domain certificates used for ingress.
+    # clusterLocalIssuerRef should be either `ClusterIssuer` or `Issuer`.
+    # Please refer `IssuerRef` in https://cert-manager.io/docs/concepts/issuer/
+    # for more details about ClusterInternalIssuerRef configuration.
+    # If the clusterLocalIssuerRef is not specified, the self-signed `knative-selfsigned-issuer` ClusterIssuer is used.
+    clusterLocalIssuerRef: |
+      kind: ClusterIssuer
+      name: your-company-issuer
+
+    # systemInternalIssuerRef is a reference to the issuer for certificates for system-internal-tls certificates used by Knative internal components.
+    # systemInternalIssuerRef should be either `ClusterIssuer` or `Issuer`.
+    # Please refer `IssuerRef` in https://cert-manager.io/docs/concepts/issuer/
+    # for more details about ClusterInternalIssuerRef configuration.
+    # If the systemInternalIssuerRef is not specified, the self-signed `knative-selfsigned-issuer` ClusterIssuer is used.
+    systemInternalIssuerRef: |
+      kind: ClusterIssuer
+      name: knative-selfsigned-issuer
