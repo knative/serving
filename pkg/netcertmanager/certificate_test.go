@@ -21,11 +21,12 @@ import (
 	"errors"
 	"fmt"
 	"hash/adler32"
-	config2 "knative.dev/serving/pkg/netcertmanager/config"
-	"knative.dev/serving/pkg/netcertmanager/resources"
-	testing2 "knative.dev/serving/pkg/netcertmanager/testing"
 	"testing"
 	"time"
+
+	netcertmanageronfig "knative.dev/serving/pkg/netcertmanager/config"
+	"knative.dev/serving/pkg/netcertmanager/resources"
+	netcertmanagertesting "knative.dev/serving/pkg/netcertmanager/testing"
 
 	acmev1 "github.com/cert-manager/cert-manager/pkg/apis/acme/v1"
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -111,7 +112,7 @@ func TestNewController(t *testing.T) {
 
 	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      config2.CertManagerConfigName,
+			Name:      netcertmanageronfig.CertManagerConfigName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
@@ -558,7 +559,7 @@ func TestReconcile(t *testing.T) {
 		}},
 	}}
 
-	table.Test(t, testing2.MakeFactory(func(ctx context.Context, listers *testing2.Listers, cmw configmap.Watcher) controller.Reconciler {
+	table.Test(t, netcertmanagertesting.MakeFactory(func(ctx context.Context, listers *netcertmanagertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
 		retryAttempted = false
 		r := &Reconciler{
 			cmCertificateLister: listers.GetCMCertificateLister(),
@@ -572,7 +573,7 @@ func TestReconcile(t *testing.T) {
 			listers.GetCertificateLister(), controller.GetEventRecorder(ctx), r,
 			netcfg.CertManagerCertificateClassName, controller.Options{
 				ConfigStore: &testConfigStore{
-					config: &config2.Config{
+					config: &netcertmanageronfig.Config{
 						CertManager: certmanagerConfig(),
 					},
 				},
@@ -747,7 +748,7 @@ func TestReconcile_HTTP01Challenges(t *testing.T) {
 		},
 	}}
 
-	table.Test(t, testing2.MakeFactory(func(ctx context.Context, listers *testing2.Listers, cmw configmap.Watcher) controller.Reconciler {
+	table.Test(t, netcertmanagertesting.MakeFactory(func(ctx context.Context, listers *netcertmanagertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
 		r := &Reconciler{
 			cmCertificateLister: listers.GetCMCertificateLister(),
 			cmChallengeLister:   listers.GetCMChallengeLister(),
@@ -760,7 +761,7 @@ func TestReconcile_HTTP01Challenges(t *testing.T) {
 			listers.GetCertificateLister(), controller.GetEventRecorder(ctx), r,
 			netcfg.CertManagerCertificateClassName, controller.Options{
 				ConfigStore: &testConfigStore{
-					config: &config2.Config{
+					config: &netcertmanageronfig.Config{
 						CertManager: certmanagerConfig(),
 					},
 				},
@@ -769,17 +770,17 @@ func TestReconcile_HTTP01Challenges(t *testing.T) {
 }
 
 type testConfigStore struct {
-	config *config2.Config
+	config *netcertmanageronfig.Config
 }
 
 func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
-	return config2.ToContext(ctx, t.config)
+	return netcertmanageronfig.ToContext(ctx, t.config)
 }
 
 var _ pkgreconciler.ConfigStore = (*testConfigStore)(nil)
 
-func certmanagerConfig() *config2.CertManagerConfig {
-	return &config2.CertManagerConfig{
+func certmanagerConfig() *netcertmanageronfig.CertManagerConfig {
+	return &netcertmanageronfig.CertManagerConfig{
 		IssuerRef: &cmmeta.ObjectReference{
 			Kind: "ClusterIssuer",
 			Name: "Letsencrypt-issuer",

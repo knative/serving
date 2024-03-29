@@ -18,7 +18,6 @@ package netcertmanager
 
 import (
 	"context"
-	config2 "knative.dev/serving/pkg/netcertmanager/config"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -39,6 +38,7 @@ import (
 	cmchallengeinformer "knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/informers/acme/v1/challenge"
 	cmcertinformer "knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/informers/certmanager/v1/certificate"
 	clusterinformer "knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/informers/certmanager/v1/clusterissuer"
+	netcertmanageronfig "knative.dev/serving/pkg/netcertmanager/config"
 )
 
 const controllerAgentName = "certificate-controller"
@@ -82,7 +82,7 @@ func NewController(
 
 	impl := certreconciler.NewImpl(ctx, c, netcfg.CertManagerCertificateClassName,
 		func(impl *controller.Impl) controller.Options {
-			configStore := config2.NewStore(logger.Named("config-store"), configmap.TypeFilter(&config2.CertManagerConfig{})(func(string, interface{}) {
+			configStore := netcertmanageronfig.NewStore(logger.Named("config-store"), configmap.TypeFilter(&netcertmanageronfig.CertManagerConfig{})(func(string, interface{}) {
 				impl.FilteredGlobalResync(classFilterFunc, knCertificateInformer.Informer())
 			}))
 			configStore.WatchConfigs(cmw)

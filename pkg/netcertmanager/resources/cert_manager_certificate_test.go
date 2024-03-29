@@ -18,7 +18,6 @@ package resources
 
 import (
 	"fmt"
-	"knative.dev/serving/pkg/netcertmanager/config"
 	"strings"
 	"testing"
 
@@ -32,6 +31,7 @@ import (
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/pkg/netcertmanager/config"
 )
 
 const (
