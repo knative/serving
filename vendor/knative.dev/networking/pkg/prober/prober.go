@@ -186,7 +186,7 @@ func (m *Manager) doAsync(ctx context.Context, target string, arg interface{}, p
 			result bool
 			inErr  error
 		)
-		err := wait.PollImmediate(period, timeout, func() (bool, error) {
+		err := wait.PollUntilContextTimeout(ctx, period, timeout, true, func(ctx context.Context) (bool, error) {
 			result, inErr = Do(ctx, m.transport, target, ops...)
 			// Do not return error, which is from verifierError, as retry is expected until timeout.
 			return result, nil

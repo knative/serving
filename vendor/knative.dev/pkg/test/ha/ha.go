@@ -78,7 +78,7 @@ func WaitForNewLeaders(ctx context.Context, t *testing.T, client kubernetes.Inte
 	defer span.End()
 
 	var leaders sets.Set[string]
-	err := wait.PollImmediate(time.Second, time.Minute, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, time.Second, time.Minute, true, func(ctx context.Context) (bool, error) {
 		currLeaders, err := GetLeaders(ctx, t, client, deploymentName, namespace)
 		if err != nil {
 			return false, err
@@ -105,7 +105,7 @@ func WaitForNewLeader(ctx context.Context, client kubernetes.Interface, lease, n
 	span := logging.GetEmitableSpan(ctx, "WaitForNewLeader/"+lease)
 	defer span.End()
 	var leader string
-	err := wait.PollImmediate(time.Second, time.Minute, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, time.Second, time.Minute, true, func(ctx context.Context) (bool, error) {
 		lease, err := client.CoordinationV1().Leases(namespace).Get(ctx, lease, metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Errorf("error getting lease %s: %w", lease, err)
