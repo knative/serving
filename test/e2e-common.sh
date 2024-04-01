@@ -422,7 +422,7 @@ function test_setup() {
 
   # Install kail if needed.
   if ! which kail > /dev/null; then
-    bash <( curl -sfL https://raw.githubusercontent.com/boz/kail/master/godownloader.sh) -b "$GOPATH/bin"
+    go install github.com/boz/kail/cmd/kail@v0.17.4
   fi
 
   # Capture all logs.
