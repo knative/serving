@@ -93,8 +93,7 @@ jobs:
         # Disabled due to flakiness: https://github.com/knative/serving/issues/14637
         # - istio-ambient
         - contour
-        # Disabled due to consistent failures
-        # - gateway_istio
+        - gateway_istio
 
         test-suite:
         - runtime
@@ -102,11 +101,10 @@ jobs:
         - e2e
 
         include:
-        # Disabled due to consistent failures
-        # - ingress: gateway_istio
-        #   ingress-class: gateway-api
-        #   test-flags: -enable-alpha
-        #   namespace-resources: httproute
+        - ingress: gateway_istio
+          ingress-class: gateway-api
+          test-flags: -enable-alpha -enable-beta
+          namespace-resources: httproute
 
         - ingress: contour
           namespace-resources: httpproxy
