@@ -422,7 +422,7 @@ function test_setup() {
 
   # Install kail if needed.
   if ! which kail > /dev/null; then
-    bash <( curl -sfL https://raw.githubusercontent.com/boz/kail/master/godownloader.sh) -b "$GOPATH/bin"
+    go install github.com/boz/kail/cmd/kail@v0.17.4
   fi
 
   # Capture all logs.
@@ -624,10 +624,10 @@ function overlay_system_namespace() {
 }
 
 function run_ytt() {
-  go_run github.com/vmware-tanzu/carvel-ytt/cmd/ytt@v0.44.1 "$@"
+  go_run carvel.dev/ytt/cmd/ytt@v0.48.0 "$@"
 }
 
 
 function run_kapp() {
-  go_run github.com/vmware-tanzu/carvel-kapp/cmd/kapp@v0.54.1 "$@"
+  go_run github.com/vmware-tanzu/carvel-kapp/cmd/kapp@v0.60.0 "$@"
 }

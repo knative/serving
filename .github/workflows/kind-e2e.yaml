@@ -16,9 +16,7 @@ env:
   REGISTRY_NAME: registry.local
   REGISTRY_PORT: 5000
   KO_DOCKER_REPO: registry.local:5000/knative
-  GOTESTSUM_VERSION: 1.7.0
-  KAPP_VERSION: 0.46.0
-  YTT_VERSION: 0.40.1
+  GOTESTSUM_VERSION: 1.11.0
   KO_FLAGS: --platform=linux/amd64
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -181,18 +179,6 @@ jobs:
         curl -L https://github.com/gotestyourself/gotestsum/releases/download/v${GOTESTSUM_VERSION}/gotestsum_${GOTESTSUM_VERSION}_linux_amd64.tar.gz | tar xzf - gotestsum
         chmod +x ./gotestsum
         sudo mv gotestsum /usr/local/bin
-        echo "::endgroup::"
-
-        echo "::group:: install kapp ${KAPP_VERSION}"
-        curl -Lo ./kapp https://github.com/vmware-tanzu/carvel-kapp/releases/download/v${KAPP_VERSION}/kapp-linux-amd64
-        chmod +x ./kapp
-        sudo mv kapp /usr/local/bin
-        echo "::endgroup::"
-
-        echo "::group:: install ytt ${YTT_VERSION}"
-        curl -Lo ./ytt https://github.com/vmware-tanzu/carvel-ytt/releases/download/v${YTT_VERSION}/ytt-linux-amd64
-        chmod +x ./ytt
-        sudo mv ytt /usr/local/bin
         echo "::endgroup::"
 
     - uses: actions/checkout@v3
