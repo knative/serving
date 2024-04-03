@@ -110,6 +110,7 @@ jobs:
         # skipping known test failures
         - ingress: gateway_contour
           ingress-class: gateway-api
+          gateway-api-implementation: contour
           test-flags: -enable-alpha -enable-beta -disable-optional-api -skip "TestRouteCreation|TestServiceCreateAndUpdate|TestRevisionTimeout|TestDestroyPodInflight"
           namespace-resources: httproute
 
@@ -147,6 +148,7 @@ jobs:
     env:
       KIND: 1
       INGRESS_CLASS: ${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
+      GATEWAY_IMPLEMENTATION: ${{ matrix.gatewai-api-implementation }}
       ENABLE_TLS: ${{ matrix.enable-tls || 0 }}
       # Disabled due to flakiness: https://github.com/knative/serving/issues/14637
       # AMBIENT: ${{ matrix.ambient || 0 }}
