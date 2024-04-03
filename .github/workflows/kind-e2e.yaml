@@ -94,6 +94,7 @@ jobs:
         # - istio-ambient
         - contour
         - gateway_istio
+        - gateway_contour
 
         test-suite:
         - runtime
@@ -104,6 +105,12 @@ jobs:
         - ingress: gateway_istio
           ingress-class: gateway-api
           test-flags: -enable-alpha -enable-beta
+          namespace-resources: httproute
+
+        # skipping known test failures
+        - ingress: gateway_contour
+          ingress-class: gateway-api
+          test-flags: -enable-alpha -enable-beta -disable-optional-api -skip "TestRouteCreation|TestServiceCreateAndUpdate|TestRevisionTimeout|TestDestroyPodInflight"
           namespace-resources: httproute
 
         - ingress: contour
