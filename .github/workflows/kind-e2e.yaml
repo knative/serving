@@ -111,7 +111,7 @@ jobs:
         - ingress: gateway_contour
           ingress-class: gateway-api
           gateway-api-implementation: contour
-          test-flags: -enable-alpha -enable-beta -disable-optional-api -skip "TestRouteCreation|TestServiceCreateAndUpdate|TestRevisionTimeout|TestDestroyPodInflight"
+          test-flags: -enable-alpha -enable-beta -skip "^(TestRouteCreation|TestServiceCreateAndUpdate|TestRevisionTimeout|TestDestroyPodInflight)$"
           namespace-resources: httproute
 
         - ingress: contour
