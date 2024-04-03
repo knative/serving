@@ -148,7 +148,7 @@ jobs:
     env:
       KIND: 1
       INGRESS_CLASS: ${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
-      GATEWAY_IMPLEMENTATION: ${{ matrix.gatewai-api-implementation }}
+      GATEWAY_API_IMPLEMENTATION: ${{ matrix.gateway-api-implementation }}
       ENABLE_TLS: ${{ matrix.enable-tls || 0 }}
       # Disabled due to flakiness: https://github.com/knative/serving/issues/14637
       # AMBIENT: ${{ matrix.ambient || 0 }}
