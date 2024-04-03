@@ -118,7 +118,11 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	traffic, err := c.configureTraffic(ctx, r)
 	if traffic == nil || err != nil {
 		if err != nil {
-			r.Status.MarkUnknownTrafficError(err.Error())
+			if errors.As(err, &domains.DomainNameError{}) {
+				r.Status.MarkRevisionTargetTrafficError("ErrorConfig", err.Error())
+			} else {
+				r.Status.MarkUnknownTrafficError(err.Error())
+			}
 		}
 		// Traffic targets aren't ready, no need to configure child resources.
 		return err

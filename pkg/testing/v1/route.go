@@ -191,10 +191,10 @@ func MarkTrafficAssigned(r *v1.Route) {
 	r.Status.MarkTrafficAssigned()
 }
 
-// MarkUnknownTrafficError calls the method of the same name on .Status
-func MarkUnknownTrafficError(msg string) RouteOption {
+// MarkRevisionTargetTrafficError calls the method of the same name on .Status
+func MarkRevisionTargetTrafficError(reason, msg string) RouteOption {
 	return func(r *v1.Route) {
-		r.Status.MarkUnknownTrafficError(msg)
+		r.Status.MarkRevisionTargetTrafficError(reason, msg)
 	}
 }
 

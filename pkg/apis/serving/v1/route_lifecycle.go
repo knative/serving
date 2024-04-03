@@ -117,6 +117,12 @@ func (rs *RouteStatus) MarkUnknownTrafficError(msg string) {
 	routeCondSet.Manage(rs).MarkUnknown(RouteConditionAllTrafficAssigned, "Unknown", msg)
 }
 
+// MarkRevisionTargetTrafficError marks the RouteConditionAllTrafficAssigned condition
+// to indicate an error has occurred wrt a revision target.
+func (rs *RouteStatus) MarkRevisionTargetTrafficError(reason, msg string) {
+	routeCondSet.Manage(rs).MarkFalse(RouteConditionAllTrafficAssigned, reason, msg)
+}
+
 // MarkConfigurationNotReady marks the RouteConditionAllTrafficAssigned
 // condition to indiciate the Revision is not yet ready.
 func (rs *RouteStatus) MarkConfigurationNotReady(name string) {
