@@ -96,6 +96,12 @@ func TestServiceCreateListAndDelete(t *testing.T) {
 //     a. Update Labels
 //     b. Update Annotations
 func TestServiceCreateAndUpdate(t *testing.T) {
+	if test.ServingFlags.SkipTestsNotSupported {
+		// TODO (izabelacg) temporary solution until the following issue is addressed
+		// see https://github.com/knative/serving/issues/15091
+		t.Skip("Test fails with Contour and Gateway API")
+	}
+
 	t.Parallel()
 	clients := test.Setup(t)
 

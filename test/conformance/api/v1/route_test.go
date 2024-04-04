@@ -137,6 +137,12 @@ func TestRouteGetAndList(t *testing.T) {
 }
 
 func TestRouteCreation(t *testing.T) {
+	if test.ServingFlags.SkipTestsNotSupported {
+		// TODO (izabelacg) temporary solution until the following issue is addressed
+		// see https://github.com/knative/serving/issues/15090
+		t.Skip("Test fails with Contour and Gateway API")
+	}
+
 	if test.ServingFlags.DisableOptionalAPI {
 		t.Skip("Route create/patch/replace APIs are not required by Knative Serving API Specification")
 	}

@@ -53,6 +53,7 @@ type ServingEnvironmentFlags struct {
 	CustomMemoryLimits       string // Memory limits used for services with a specific size.
 	CustomCPURequests        string // CPU requests used for services with a specific size.
 	CustomCPULimits          string // CPU limits used for services with a specific size.
+	SkipTestsNotSupported    bool   // Indicates we want to skip certain conformance tests.
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -122,6 +123,11 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 	flag.StringVar(&f.CustomCPULimits, "custom-cpu-limits", "",
 		"Set this flag to the custom cpu limit for tests with specific cpu limit values."+
 			"This should differ from what is used as default. The flag accepts a value acceptable to resource.MustParse.")
+
+	flag.BoolVar(&f.SkipTestsNotSupported,
+		"skip-tests-not-supported",
+		false,
+		"Set this flag to skip certain conformance tests.")
 	return &f
 }
 
