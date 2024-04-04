@@ -63,6 +63,11 @@ if (( SHORT )); then
   GO_TEST_FLAGS+=" -short"
 fi
 
+# get the logs from cert-manager-controller
+kail -n "${SYSTEM_NAMESPACE}" > "${ARTIFACTS}/k8s.logs.txt" &
+kail_pid=$!
+# Clean up kail so it doesn't interfere with job shutting down
+add_trap "kill $kail_pid || true" EXIT
 
 go_test_e2e -timeout=30m \
   ${GO_TEST_FLAGS} \

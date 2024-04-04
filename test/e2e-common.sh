@@ -433,10 +433,10 @@ function test_setup() {
   fi
 
   # Capture all logs.
-  kail -l app=net-certmanager-controller > "${ARTIFACTS}/k8s.log-$(basename "${E2E_SCRIPT}").txt" &
-  local kail_pid=$!
-  # Clean up kail so it doesn't interfere with job shutting down
-  add_trap "kill $kail_pid || true" EXIT
+#  kail -l app=net-certmanager-controller > "${ARTIFACTS}/k8s.log-$(basename "${E2E_SCRIPT}").txt" &
+#  local kail_pid=$!
+#  # Clean up kail so it doesn't interfere with job shutting down
+#  add_trap "kill $kail_pid || true" EXIT
 
   echo ">> Uploading test images..."
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
