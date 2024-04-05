@@ -64,7 +64,7 @@ if (( SHORT )); then
 fi
 
 # get the logs from net-certmanager-controller
-kubectl logs deploy/net-certmanager-controller -n -n "${SYSTEM_NAMESPACE}" --all-containers > "${ARTIFACTS}/k8s.logs.txt" &
+kubectl logs deploy/net-certmanager-controller -n "${SYSTEM_NAMESPACE}" --all-containers > "${ARTIFACTS}/k8s.logs.txt" &
 log_pid=$!
 add_trap "kill $log_pid || true" EXIT
 
