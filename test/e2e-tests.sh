@@ -64,7 +64,8 @@ if (( SHORT )); then
 fi
 
 # get the logs from net-certmanager-controller
-kubectl logs deploy/net-certmanager-controller -n "${SYSTEM_NAMESPACE}" --all-containers > "${ARTIFACTS}/k8s.logs.txt" &
+go install github.com/stern/stern@latest
+stern -n "${SYSTEM_NAMESPACE}" > "${ARTIFACTS}/k8s.logs.txt" &
 log_pid=$!
 add_trap "kill $log_pid || true" EXIT
 
