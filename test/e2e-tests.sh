@@ -64,7 +64,8 @@ if (( SHORT )); then
 fi
 
 # get the logs from net-certmanager-controller
-go install github.com/stern/stern@latest
+curl -sfL https://github.com/stern/stern/releases/download/v1.28.0/stern_1.28.0_linux_amd64.tar.gz | tar xfv - stern
+mv stern "$GOPATH/bin"
 stern -n "${SYSTEM_NAMESPACE}" > "${ARTIFACTS}/k8s.logs.txt" &
 log_pid=$!
 add_trap "kill $log_pid || true" EXIT
