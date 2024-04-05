@@ -129,12 +129,12 @@ func DomainNameFromTemplate(ctx context.Context, r metav1.ObjectMeta, name strin
 	}
 
 	if err := templ.Execute(&buf, data); err != nil {
-		return "", DomainNameError{msg: fmt.Errorf("error executing the DomainTemplate: %w", err).Error()}
+		return "", DomainNameError{msg: fmt.Sprintf("error executing the DomainTemplate: %q", err.Error())}
 	}
 
 	urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), buf.String())
 	if urlErrs != nil {
-		return "", DomainNameError{msg: fmt.Errorf("invalid domain name %q: %w", buf.String(), urlErrs.ToAggregate()).Error()}
+		return "", DomainNameError{msg: fmt.Sprintf("invalid domain name %q: %q", buf.String(), urlErrs.ToAggregate())}
 	}
 
 	return buf.String(), nil
