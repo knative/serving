@@ -111,7 +111,7 @@ jobs:
         - ingress: gateway_contour
           ingress-class: gateway-api
           gateway-api-implementation: contour
-          test-flags: -enable-alpha -enable-beta -skip-tests-not-supported"
+          test-flags: -enable-alpha -enable-beta -skip-tests-not-supported
           namespace-resources: httproute
 
         - ingress: contour
