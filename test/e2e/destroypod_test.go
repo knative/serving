@@ -49,6 +49,12 @@ const (
 )
 
 func TestDestroyPodInflight(t *testing.T) {
+	if test.ServingFlags.SkipTestsNotSupported {
+		// TODO (izabelacg) temporary solution until the following issue is addressed
+		// see https://github.com/knative/serving/issues/15092
+		t.Skip("Test fails with Contour and Gateway API")
+	}
+
 	t.Parallel()
 
 	clients := Setup(t)
