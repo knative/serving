@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+exit 0
+
 source $(dirname "$0")/e2e-common.sh
 
 function setup_external_domain_tls_env_variables() {

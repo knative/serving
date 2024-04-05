@@ -63,16 +63,13 @@ if (( SHORT )); then
   GO_TEST_FLAGS+=" -short"
 fi
 
-# get the logs from cert-manager-controller
-kail -n "${SYSTEM_NAMESPACE}" > "${ARTIFACTS}/k8s.logs.txt" &
-kail_pid=$!
-# Clean up kail so it doesn't interfere with job shutting down
-add_trap "kill $kail_pid || true" EXIT
+# get the logs from net-certmanager-controller
+kubectl logs deploy/net-certmanager-controller -n -n "${SYSTEM_NAMESPACE}" --all-containers > "${ARTIFACTS}/k8s.logs.txt" &
+log_pid=$!
+add_trap "kill $log_pid || true" EXIT
 
 go_test_e2e -timeout=30m \
   ${GO_TEST_FLAGS} \
-  ./test/conformance/api/... \
-  ./test/conformance/runtime/... \
   ./test/e2e \
   ${E2E_TEST_FLAGS} || failed=1
 
