@@ -134,7 +134,7 @@ func DomainNameFromTemplate(ctx context.Context, r metav1.ObjectMeta, name strin
 
 	urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), buf.String())
 	if urlErrs != nil {
-		return "", DomainNameError{msg: fmt.Sprintf("invalid domain name %q: %q", buf.String(), urlErrs.ToAggregate())}
+		return "", DomainNameError{msg: fmt.Sprintf("invalid domain name %q: %s", buf.String(), urlErrs.ToAggregate())}
 	}
 
 	return buf.String(), nil
