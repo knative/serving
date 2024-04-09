@@ -2048,7 +2048,7 @@ func TestReconcile(t *testing.T) {
 			Object: Route("default", "tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long",
 				WithConfigTarget("config"), WithRouteObservedGeneration,
 				WithRouteFinalizer, WithInitRouteConditions,
-				MarkRevisionTargetTrafficError(errorConfigMsg, domains.DomainNameError.Error()+`: invalid domain name "tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long.default.example.com": url: Invalid value: "tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long": must be no more than 63 characters`),
+				MarkRevisionTargetTrafficError(errorConfigMsg, domains.ErrorDomainName.Error()+`: invalid domain name "tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long.default.example.com": url: Invalid value: "tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long": must be no more than 63 characters`),
 				WithHost("tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long.default.svc.cluster.local"),
 			),
 		}},

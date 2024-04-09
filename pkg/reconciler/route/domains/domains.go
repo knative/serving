@@ -44,7 +44,7 @@ import (
 const HTTPScheme string = "http"
 
 var (
-	DomainNameError = errors.New("domain name error")
+	ErrorDomainName = errors.New("domain name error")
 )
 
 // GetAllDomainsAndTags returns all of the domains and tags(including subdomains) associated with a Route
@@ -124,12 +124,12 @@ func DomainNameFromTemplate(ctx context.Context, r metav1.ObjectMeta, name strin
 	}
 
 	if err := templ.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("%w: error executing the DomainTemplate: %w", DomainNameError, err)
+		return "", fmt.Errorf("%w: error executing the DomainTemplate: %w", ErrorDomainName, err)
 	}
 
 	urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), buf.String())
 	if urlErrs != nil {
-		return "", fmt.Errorf("%w: invalid domain name %q: %s", DomainNameError, buf.String(), urlErrs.ToAggregate())
+		return "", fmt.Errorf("%w: invalid domain name %q: %w", ErrorDomainName, buf.String(), urlErrs.ToAggregate())
 	}
 
 	return buf.String(), nil
@@ -152,7 +152,7 @@ func HostnameFromTemplate(ctx context.Context, name, tag string) (string, error)
 	networkConfig := config.FromContext(ctx).Network
 	buf := bytes.Buffer{}
 	if err := networkConfig.GetTagTemplate().Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("%w: error executing the TagTemplate: %w", DomainNameError, err)
+		return "", fmt.Errorf("%w: error executing the TagTemplate: %w", ErrorDomainName, err)
 	}
 	return buf.String(), nil
 }
