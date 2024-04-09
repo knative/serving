@@ -451,7 +451,7 @@ github.com/prometheus/client_golang/prometheus/promhttp
 # github.com/prometheus/client_model v0.6.0
 ## explicit; go 1.19
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.51.1
+# github.com/prometheus/common v0.52.2
 ## explicit; go 1.21
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
@@ -600,7 +600,7 @@ golang.org/x/oauth2/google/internal/stsexchange
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
-# golang.org/x/sync v0.6.0
+# golang.org/x/sync v0.7.0
 ## explicit; go 1.18
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
@@ -1311,7 +1311,7 @@ k8s.io/utils/pointer
 k8s.io/utils/ptr
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20240329112012-84717c027d6f
+# knative.dev/caching v0.0.0-20240404014547-6569b97f2577
 ## explicit; go 1.21
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -1332,10 +1332,10 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/hack v0.0.0-20240327150553-47368d631660
+# knative.dev/hack v0.0.0-20240404013450-1133b37da8d7
 ## explicit; go 1.18
 knative.dev/hack
-# knative.dev/networking v0.0.0-20240329112016-75762caf9e15
+# knative.dev/networking v0.0.0-20240404014421-97688e760925
 ## explicit; go 1.21
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1373,7 +1373,7 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20240402144403-fef5da99bd14
+# knative.dev/pkg v0.0.0-20240408131417-094f1527d5fc
 ## explicit; go 1.21
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
