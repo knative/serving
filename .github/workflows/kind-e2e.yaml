@@ -107,11 +107,10 @@ jobs:
           test-flags: -enable-alpha -enable-beta
           namespace-resources: httproute
 
-        # skipping known test failures
         - ingress: gateway_contour
           ingress-class: gateway-api
           gateway-api-implementation: contour
-          test-flags: -enable-alpha -enable-beta -skip-tests-not-supported
+          test-flags: -enable-alpha -enable-beta
           namespace-resources: httproute
 
         - ingress: contour

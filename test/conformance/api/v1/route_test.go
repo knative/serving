@@ -22,6 +22,7 @@ package v1
 import (
 	"context"
 	"net/url"
+	"os"
 	"testing"
 
 	pkgtest "knative.dev/pkg/test"
@@ -137,10 +138,11 @@ func TestRouteGetAndList(t *testing.T) {
 }
 
 func TestRouteCreation(t *testing.T) {
-	if test.ServingFlags.SkipTestsNotSupported {
+	if os.Getenv("INGRESS_CLASS") == "gateway-api.ingress.networking.knative.dev" &&
+		os.Getenv("GATEWAY_API_IMPLEMENTATION") == "contour" {
 		// TODO (izabelacg) temporary solution until the following issue is addressed
 		// see https://github.com/knative/serving/issues/15090
-		t.Skip("Test fails with Contour and Gateway API")
+		t.Skip("Known test failure with Contour and Gateway API")
 	}
 
 	if test.ServingFlags.DisableOptionalAPI {
