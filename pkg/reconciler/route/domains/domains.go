@@ -19,6 +19,7 @@ package domains
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"text/template"
@@ -42,15 +43,9 @@ import (
 // HTTPScheme is the string representation of http.
 const HTTPScheme string = "http"
 
-var _ error = (*DomainNameError)(nil)
-
-type DomainNameError struct {
-	msg string
-}
-
-func (e DomainNameError) Error() string {
-	return e.msg
-}
+var (
+	DomainNameError = errors.New("domain name error")
+)
 
 // GetAllDomainsAndTags returns all of the domains and tags(including subdomains) associated with a Route
 func GetAllDomainsAndTags(ctx context.Context, r *v1.Route, names []string, visibility map[string]netv1alpha1.IngressVisibility) (map[string]string, error) {
@@ -129,12 +124,12 @@ func DomainNameFromTemplate(ctx context.Context, r metav1.ObjectMeta, name strin
 	}
 
 	if err := templ.Execute(&buf, data); err != nil {
-		return "", DomainNameError{msg: fmt.Sprintf("error executing the DomainTemplate: %q", err.Error())}
+		return "", fmt.Errorf("%w: error executing the DomainTemplate: %w", DomainNameError, err)
 	}
 
 	urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), buf.String())
 	if urlErrs != nil {
-		return "", DomainNameError{msg: fmt.Sprintf("invalid domain name %q: %s", buf.String(), urlErrs.ToAggregate())}
+		return "", fmt.Errorf("%w: invalid domain name %q: %s", DomainNameError, buf.String(), urlErrs.ToAggregate())
 	}
 
 	return buf.String(), nil
@@ -157,7 +152,7 @@ func HostnameFromTemplate(ctx context.Context, name, tag string) (string, error)
 	networkConfig := config.FromContext(ctx).Network
 	buf := bytes.Buffer{}
 	if err := networkConfig.GetTagTemplate().Execute(&buf, data); err != nil {
-		return "", DomainNameError{fmt.Errorf("error executing the TagTemplate: %w", err).Error()}
+		return "", fmt.Errorf("%w: error executing the TagTemplate: %w", DomainNameError, err)
 	}
 	return buf.String(), nil
 }

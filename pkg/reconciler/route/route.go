@@ -120,7 +120,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	traffic, err := c.configureTraffic(ctx, r)
 	if traffic == nil || err != nil {
 		if err != nil {
-			if errors.As(err, &domains.DomainNameError{}) {
+			if errors.Is(err, domains.DomainNameError) {
 				r.Status.MarkRevisionTargetTrafficError(errorConfigMsg, err.Error())
 			} else {
 				r.Status.MarkUnknownTrafficError(err.Error())
