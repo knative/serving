@@ -35,7 +35,7 @@ import (
 	. "knative.dev/serving/pkg/testing/v1"
 )
 
-// sendRequests send a request to "endpoint", returns error if unexpected response code, nil otherwise.
+// sendRequest send a request to "endpoint", returns error if unexpected response code, nil otherwise.
 func sendRequest(t *testing.T, clients *test.Clients, endpoint *url.URL,
 	initialSleep, sleep time.Duration, expectedResponseCode int) error {
 	client, err := pkgtest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, endpoint.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))

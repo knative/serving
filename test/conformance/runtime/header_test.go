@@ -67,7 +67,7 @@ func TestMustHaveHeadersSet(t *testing.T) {
 	matchHeaders(t, headers, expectedHeaders)
 }
 
-// TestMustHaveHeadersSet verified that all headers declared as "SHOULD" in the runtime
+// TestShouldHaveHeadersSet verified that all headers declared as "SHOULD" in the runtime
 // contract are present from the point of view of the user container.
 func TestShouldHaveHeadersSet(t *testing.T) {
 	t.Parallel()
