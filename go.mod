@@ -19,9 +19,9 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/automaxprocs v1.5.3
 	go.uber.org/zap v1.27.0
-	golang.org/x/net v0.22.0
+	golang.org/x/net v0.24.0
 	golang.org/x/sync v0.7.0
-	golang.org/x/sys v0.18.0
+	golang.org/x/sys v0.19.0
 	golang.org/x/time v0.5.0
 	google.golang.org/api v0.172.0
 	google.golang.org/grpc v1.62.1
@@ -32,10 +32,10 @@ require (
 	k8s.io/code-generator v0.29.2
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00
 	k8s.io/utils v0.0.0-20240102154912-e7106e64919e
-	knative.dev/caching v0.0.0-20240404014547-6569b97f2577
+	knative.dev/caching v0.0.0-20240409135700-c660724375a8
 	knative.dev/hack v0.0.0-20240404013450-1133b37da8d7
-	knative.dev/networking v0.0.0-20240404014421-97688e760925
-	knative.dev/pkg v0.0.0-20240408131417-094f1527d5fc
+	knative.dev/networking v0.0.0-20240409134343-ca2ffb806de2
+	knative.dev/pkg v0.0.0-20240409141558-1ff9a77566f6
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -137,10 +137,10 @@ require (
 	go.opentelemetry.io/otel/metric v1.24.0 // indirect
 	go.opentelemetry.io/otel/trace v1.24.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/crypto v0.21.0 // indirect
+	golang.org/x/crypto v0.22.0 // indirect
 	golang.org/x/mod v0.16.0 // indirect
 	golang.org/x/oauth2 v0.18.0 // indirect
-	golang.org/x/term v0.18.0 // indirect
+	golang.org/x/term v0.19.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/tools v0.19.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
