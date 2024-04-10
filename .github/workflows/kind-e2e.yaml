@@ -94,6 +94,7 @@ jobs:
         # - istio-ambient
         - contour
         - gateway_istio
+        - gateway_contour
 
         test-suite:
         - runtime
@@ -103,6 +104,12 @@ jobs:
         include:
         - ingress: gateway_istio
           ingress-class: gateway-api
+          test-flags: -enable-alpha -enable-beta
+          namespace-resources: httproute
+
+        - ingress: gateway_contour
+          ingress-class: gateway-api
+          gateway-api-implementation: contour
           test-flags: -enable-alpha -enable-beta
           namespace-resources: httproute
 
@@ -140,6 +147,7 @@ jobs:
     env:
       KIND: 1
       INGRESS_CLASS: ${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
+      GATEWAY_API_IMPLEMENTATION: ${{ matrix.gateway-api-implementation }}
       ENABLE_TLS: ${{ matrix.enable-tls || 0 }}
       # Disabled due to flakiness: https://github.com/knative/serving/issues/14637
       # AMBIENT: ${{ matrix.ambient || 0 }}
@@ -209,7 +217,8 @@ jobs:
           ${{ matrix.test-path }} \
           -skip-cleanup-on-fail \
           -enable-alpha -enable-beta \
-          --ingress-class=${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
+          --ingress-class=${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev \
+          ${{ matrix.test-flags }}
 
     - uses: chainguard-dev/actions/kind-diag@main
       # Only upload logs on failure.

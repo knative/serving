@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"testing"
 	"time"
 
@@ -105,6 +106,15 @@ func TestRevisionTimeout(t *testing.T) {
 		tc := tc
 
 		t.Run(tc.name, func(t *testing.T) {
+			if tc.name == "writes first byte before timeout" &&
+				os.Getenv("INGRESS_CLASS") == "gateway-api.ingress.networking.knative.dev" &&
+				os.Getenv("GATEWAY_API_IMPLEMENTATION") == "contour" &&
+				os.Getenv("KIND") != "" {
+				// TODO (izabelacg) temporary solution until the following issue is addressed
+				// see https://github.com/knative/serving/issues/15089
+				t.Skip("Known test failure with Contour and Gateway API")
+			}
+
 			t.Parallel()
 
 			names := test.ResourceNames{
