@@ -18,9 +18,9 @@ metadata:
   name: config-certmanager
   namespace: knative-serving
   labels:
-    app.kubernetes.io/component: net-certmanager
-    app.kubernetes.io/version: devel
     app.kubernetes.io/name: knative-serving
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/version: devel
     networking.knative.dev/certificate-provider: cert-manager
   annotations:
     knative.dev/example-checksum: "b7a9a602"

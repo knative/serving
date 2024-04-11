@@ -392,15 +392,11 @@ function install() {
     echo "Patch config-network to enable encryption features"
     toggle_feature system-internal-tls enabled config-network
 
-    if [[ "$INGRESS_CLASS" == "kourier.ingress.networking.knative.dev" ]]; then
+    if [[ "$INGRESS_CLASS" == "kourier.ingress.networking.knative.dev" ]] || [[ "$INGRESS_CLASS" == "istio.ingress.networking.knative.dev" ]]; then
       toggle_feature cluster-local-domain-tls enabled config-network
     fi
 
-    if [[ "$INGRESS_CLASS" == "istio.ingress.networking.knative.dev" ]]; then
-      toggle_feature cluster-local-domain-tls enabled config-network
-    fi
-
-    echo "Restart controller to enable the net-certmanager reconciler"
+    echo "Restart controller to enable the certificate reconciler"
     restart_pod ${SYSTEM_NAMESPACE} "app=controller"
     echo "Restart activator to mount the certificates"
     restart_pod ${SYSTEM_NAMESPACE} "app=activator"
