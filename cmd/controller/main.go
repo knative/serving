@@ -18,19 +18,16 @@ package main
 
 import (
 	"context"
+	"fmt"
 
 	// The set of controllers this controller process runs.
 	"flag"
 	"log"
-	"os"
-	"strconv"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-
 	netcfg "knative.dev/networking/pkg/config"
-	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/reconciler"
@@ -47,6 +44,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/serverlessservice"
 	"knative.dev/serving/pkg/reconciler/service"
 
+	versioned "knative.dev/serving/pkg/netcertmanager/client/certmanager/clientset/versioned"
 	"knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/informers/acme/v1/challenge"
 	v1certificate "knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/informers/certmanager/v1/certificate"
 	"knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/informers/certmanager/v1/certificaterequest"
@@ -73,37 +71,20 @@ func main() {
 
 	ctx := signals.NewContext()
 
-	// Allow configuration of threads per controller
-	if val, ok := os.LookupEnv("K_THREADS_PER_CONTROLLER"); ok {
-		threadsPerController, err := strconv.Atoi(val)
-		if err != nil {
-			log.Fatalf("failed to parse value %q of K_THREADS_PER_CONTROLLER: %v\n", val, err)
-		}
-		controller.DefaultThreadsPerController = threadsPerController
-	}
-
-	// TODO(mattmoor): Remove this once HA is stable.
-	disableHighAvailability := flag.Bool("disable-ha", false,
-		"Whether to disable high-availability functionality for this component.  This flag will be deprecated "+
-			"and removed when we have promoted this feature to stable, so do not pass it without filing an "+
-			"issue upstream!")
-
 	// HACK: This parses flags, so the above should be set once this runs.
 	cfg := injection.ParseAndGetRESTConfigOrDie()
-
-	if *disableHighAvailability {
-		ctx = sharedmain.WithHADisabled(ctx)
-	}
 
 	// If nil it panics
 	client := kubernetes.NewForConfigOrDie(cfg)
 
 	if shouldEnableNetCertManagerController(ctx, client) {
-		injection.Default.RegisterInformer(challenge.WithInformer)
-		injection.Default.RegisterInformer(v1certificate.WithInformer)
-		injection.Default.RegisterInformer(certificaterequest.WithInformer)
-		injection.Default.RegisterInformer(clusterissuer.WithInformer)
-		injection.Default.RegisterInformer(issuer.WithInformer)
+		v := versioned.NewForConfigOrDie(cfg)
+		if ok, err := certManagerCRDsExist(v); !ok {
+			log.Fatalf("Please install cert-manager: %v", err)
+		}
+		for _, inf := range []injection.InformerInjector{challenge.WithInformer, v1certificate.WithInformer, certificaterequest.WithInformer, clusterissuer.WithInformer, issuer.WithInformer} {
+			injection.Default.RegisterInformer(inf)
+		}
 		ctors = append(ctors, netcertmanager.NewController)
 	}
 
@@ -120,6 +101,36 @@ func shouldEnableNetCertManagerController(ctx context.Context, client *kubernete
 	if err != nil {
 		log.Fatalf("Failed to construct network config: %v", err)
 	}
+
 	return netCfg.ExternalDomainTLS || netCfg.SystemInternalTLSEnabled() || (netCfg.ClusterLocalDomainTLS == netcfg.EncryptionEnabled) ||
 		netCfg.NamespaceWildcardCertSelector != nil
+}
+
+func certManagerCRDsExist(client *versioned.Clientset) (bool, error) {
+	if ok, err := findCRD(client, "cert-manager.io/v1", []string{"certificaterequests", "certificates", "clusterissuers", "issuers"}); !ok {
+		return false, err
+	}
+	if ok, err := findCRD(client, "acme.cert-manager.io/v1", []string{"challenges"}); !ok {
+		return false, err
+	}
+	return true, nil
+}
+
+func findCRD(client *versioned.Clientset, groupVersion string, crds []string) (bool, error) {
+	resourceList, err := client.Discovery().ServerResourcesForGroupVersion(groupVersion)
+	if err != nil {
+		return false, err
+	}
+	for _, crdName := range crds {
+		isCRDPresent := false
+		for _, resource := range resourceList.APIResources {
+			if resource.Name == crdName {
+				isCRDPresent = true
+			}
+		}
+		if !isCRDPresent {
+			return false, fmt.Errorf("cert manager crds are missing: %s", crdName)
+		}
+	}
+	return true, nil
 }
