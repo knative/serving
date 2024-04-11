@@ -8,7 +8,7 @@ metadata:
     networking.knative.dev/ingress-provider: contour
     app.kubernetes.io/component: net-contour
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20240410-391b2d3e"
+    app.kubernetes.io/version: "20240411-6c0d430e"
     serving.knative.dev/controller: "true"
 rules:
   - apiGroups: ["projectcontour.io"]
@@ -38,7 +38,7 @@ metadata:
     networking.knative.dev/ingress-provider: contour
     app.kubernetes.io/component: net-contour
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20240410-391b2d3e"
+    app.kubernetes.io/version: "20240411-6c0d430e"
 data:
   _example: |
     ################################
@@ -71,6 +71,22 @@ data:
       ClusterLocal:
         class: contour-internal
         service: contour-internal/envoy
+    # cors-policy contains the configuration to set CORS policy for HTTPProxies.
+    cors-policy: |
+      allowCredentials: true
+      allowOrigin:
+        - example.com
+      allowMethods:
+        - GET
+        - POST
+        - OPTIONS
+      allowHeaders:
+        - authorization
+        - cache-control
+      exposeHeaders:
+        - Content-Length
+        - Content-Range
+      maxAge: "10m"
 
 # Copyright 2020 The Knative Authors
 #
@@ -95,7 +111,7 @@ metadata:
     networking.knative.dev/ingress-provider: contour
     app.kubernetes.io/component: net-contour
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20240410-391b2d3e"
+    app.kubernetes.io/version: "20240411-6c0d430e"
 spec:
   replicas: 1
   selector:
@@ -107,14 +123,14 @@ spec:
         app: net-contour-controller
         app.kubernetes.io/component: net-contour
         app.kubernetes.io/name: knative-serving
-        app.kubernetes.io/version: "20240410-391b2d3e"
+        app.kubernetes.io/version: "20240411-6c0d430e"
     spec:
       serviceAccountName: controller
       containers:
         - name: controller
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:4b23fbd95cde834ca4a000bb77e02adb30c4d9626c1744ca8a7711d4a1506561
+          image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:b791f908df6d9523c678c9cb941e80324c8b76d01b3cf5f37fa11c27be789604
           resources:
             requests:
               cpu: 40m
@@ -158,7 +174,7 @@ metadata:
     networking.knative.dev/ingress-provider: contour
     app.kubernetes.io/component: net-contour
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20240410-391b2d3e"
+    app.kubernetes.io/version: "20240411-6c0d430e"
 spec:
   delegations:
     - secretName: knative-serving-certs
