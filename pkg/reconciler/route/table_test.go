@@ -53,6 +53,7 @@ import (
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 	"knative.dev/serving/pkg/reconciler/route/config"
+	"knative.dev/serving/pkg/reconciler/route/domains"
 	"knative.dev/serving/pkg/reconciler/route/resources"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 
@@ -2047,7 +2048,7 @@ func TestReconcile(t *testing.T) {
 			Object: Route("default", "tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long",
 				WithConfigTarget("config"), WithRouteObservedGeneration,
 				WithRouteFinalizer, WithInitRouteConditions,
-				MarkUnknownTrafficError(`invalid domain name "tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long.default.example.com": url: Invalid value: "tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long": must be no more than 63 characters`),
+				MarkRevisionTargetTrafficError(errorConfigMsg, domains.ErrorDomainName.Error()+`: invalid domain name "tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long.default.example.com": url: Invalid value: "tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long": must be no more than 63 characters`),
 				WithHost("tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long.default.svc.cluster.local"),
 			),
 		}},

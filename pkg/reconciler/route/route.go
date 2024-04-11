@@ -79,6 +79,8 @@ type Reconciler struct {
 	enqueueAfter func(interface{}, time.Duration)
 }
 
+const errorConfigMsg = "ErrorConfig"
+
 // Check that our Reconciler implements routereconciler.Interface
 var _ routereconciler.Interface = (*Reconciler)(nil)
 
@@ -118,7 +120,11 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	traffic, err := c.configureTraffic(ctx, r)
 	if traffic == nil || err != nil {
 		if err != nil {
-			r.Status.MarkUnknownTrafficError(err.Error())
+			if errors.Is(err, domains.ErrorDomainName) {
+				r.Status.MarkRevisionTargetTrafficError(errorConfigMsg, err.Error())
+			} else {
+				r.Status.MarkUnknownTrafficError(err.Error())
+			}
 		}
 		// Traffic targets aren't ready, no need to configure child resources.
 		return err
