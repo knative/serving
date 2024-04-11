@@ -82,7 +82,7 @@ func WaitForCertificateSecret(ctx context.Context, t *testing.T, client *test.Cl
 	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForCertificateSecret/%s/%s", cert.Spec.SecretName, desc))
 	defer span.End()
 
-	return wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
+	return wait.PollUntilContextTimeout(ctx, test.PollInterval, test.PollTimeout, true, func(ctx context.Context) (bool, error) {
 		secret, err := client.KubeClient.CoreV1().Secrets(test.ServingNamespace).Get(ctx, cert.Spec.SecretName, metav1.GetOptions{})
 		if apierrs.IsNotFound(err) {
 			return false, nil
@@ -119,7 +119,7 @@ func WaitForCertificateState(ctx context.Context, client *test.NetworkingClients
 	defer span.End()
 
 	var lastState *v1alpha1.Certificate
-	return wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
+	return wait.PollUntilContextTimeout(ctx, test.PollInterval, test.PollTimeout, true, func(ctx context.Context) (bool, error) {
 		var err error
 		lastState, err = client.Certificates.Get(ctx, name, metav1.GetOptions{})
 		if err != nil {

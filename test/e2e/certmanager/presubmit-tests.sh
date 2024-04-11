@@ -29,8 +29,6 @@ export GO111MODULE=on
 
 source $(dirname $0)/../../../vendor/knative.dev/hack/presubmit-tests.sh
 
-# TODO(mattmoor): integration tests
-
 # We use the default build, unit and integration test runners.
 
 main $@

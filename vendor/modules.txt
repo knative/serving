@@ -1380,7 +1380,7 @@ knative.dev/networking/test/conformance/certificate
 knative.dev/networking/test/conformance/certificate/http01
 knative.dev/networking/test/conformance/certificate/nonhttp01
 knative.dev/networking/test/defaultsystem
-# knative.dev/pkg v0.0.0-20240402144403-fef5da99bd14
+# knative.dev/pkg v0.0.0-20240409141558-1ff9a77566f6
 ## explicit; go 1.21
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate

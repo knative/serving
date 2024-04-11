@@ -27,7 +27,7 @@ import (
 // TestSecret verifies that a certificate creates a secret
 func TestSecret(t *testing.T) {
 	ctx, clients := context.Background(), test.Setup(t)
-	certName := test.ObjectNameForTest(t) + ".example.com"
+	certName := test.ObjectNameForTest(t) + "." + test.NetworkingFlags.ServiceDomain
 
 	cert := utils.CreateCertificate(ctx, t, clients, []string{certName})
 

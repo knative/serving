@@ -35,7 +35,7 @@ func WaitForIngressState(ctx context.Context, client *NetworkingClients, name st
 	defer span.End()
 
 	var lastState *v1alpha1.Ingress
-	waitErr := wait.PollImmediate(PollInterval, PollTimeout, func() (bool, error) {
+	waitErr := wait.PollUntilContextTimeout(ctx, PollInterval, PollTimeout, true, func(ctx context.Context) (bool, error) {
 		var err error
 		lastState, err = client.Ingresses.Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
