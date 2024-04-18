@@ -6,12 +6,10 @@ aliases:
   - itsmurugappan
   client-wg-leads:
   - dsimansk
-  - navidshaikh
   - rhuss
   client-writers:
   - dsimansk
   - maximilien
-  - navidshaikh
   - rhuss
   - vyasgun
   docs-reviewers:
@@ -124,7 +122,6 @@ aliases:
   - davidhadas
   - evankanderson
   serving-approvers:
-  - psschwei
   - skonto
   serving-reviewers:
   - izabelacg
@@ -138,7 +135,6 @@ aliases:
   - dprotaso
   serving-writers:
   - dprotaso
-  - psschwei
   - skonto
   steering-committee:
   - aliok
