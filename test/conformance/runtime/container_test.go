@@ -66,6 +66,8 @@ func TestMustNotContainerConstraints(t *testing.T) {
 				Service: test.ObjectNameForTest(t),
 				Image:   test.Runtime,
 			}
+			test.EnsureTearDown(t, clients, &names)
+
 			if svc, err := testv1.CreateService(t, clients, names, tc.options); err == nil {
 				t.Errorf("CreateService = %v, want: error", spew.Sdump(svc))
 			}
@@ -182,6 +184,8 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 				Service: test.ObjectNameForTest(t),
 				Image:   test.Runtime,
 			}
+
+			test.EnsureTearDown(t, clients, &names)
 
 			svc, err := testv1.CreateService(t, clients, names, tc.options)
 			if err == nil && tc.assertIfNoError == nil {
