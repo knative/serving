@@ -26,7 +26,7 @@ function stage_contour_gateway_api_resources() {
   mkdir -p "${gateway_dir}"
 
   echo "Downloading Contour Gateway Provisioner ${CONTOUR_VERSION}..."
-  CONTOUR_VERSION=v1.28.1
+  CONTOUR_VERSION=v1.28.3
   curl -s "https://raw.githubusercontent.com/projectcontour/contour/${CONTOUR_VERSION}/examples/render/contour-gateway-provisioner.yaml" \
     > "${gateway_dir}/contour-gateway-provisioner.yaml"
   echo "Download complete!"
@@ -40,7 +40,7 @@ function stage_istio_gateway_api_resources() {
   mkdir -p "${gateway_dir}"
 
   # TODO: if we switch to istio 1.12 we can reuse stage_istio_head
-  curl -sL https://istio.io/downloadIstioctl | ISTIO_VERSION=1.20.2 sh -
+  curl -sL https://istio.io/downloadIstioctl | ISTIO_VERSION=1.21.1 sh -
 
   local params="--set values.global.proxy.clusterDomain=${CLUSTER_DOMAIN}"
 
