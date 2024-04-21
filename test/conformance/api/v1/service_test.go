@@ -21,7 +21,6 @@ package v1
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -97,14 +96,6 @@ func TestServiceCreateListAndDelete(t *testing.T) {
 //     a. Update Labels
 //     b. Update Annotations
 func TestServiceCreateAndUpdate(t *testing.T) {
-	if os.Getenv("INGRESS_CLASS") == "gateway-api.ingress.networking.knative.dev" &&
-		os.Getenv("GATEWAY_API_IMPLEMENTATION") == "contour" &&
-		os.Getenv("KIND") != "" {
-		// TODO (izabelacg) temporary solution until the following issue is addressed
-		// see https://github.com/knative/serving/issues/15091
-		t.Skip("Known test failure with Contour and Gateway API")
-	}
-
 	t.Parallel()
 	clients := test.Setup(t)
 
