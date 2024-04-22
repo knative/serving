@@ -20,15 +20,15 @@ metadata:
   labels:
     serving.knative.dev/release: devel
 data:
-  visibility: |
-    ExternalIP:
-      class: contour
-      gateway: contour-external/knative-gateway
-      service: contour-external/envoy-knative-gateway
-    ClusterLocal:
-      class: contour
-      gateway: contour-internal/knative-local-gateway
-      service: contour-internal/envoy-knative-local-gateway
+  external-gateways: |
+    - class: contour
+      gateway: contour-external/knative-external
+      service: contour-external/envoy-knative-external
+  # local-gateways defines the Gateway to be used for cluster local traffic
+  local-gateways: |
+    - class: contour
+      gateway: contour-internal/knative-local
+      service: contour-internal/envoy-knative-local
 
 ---
 # Copyright 2021 The Knative Authors
@@ -51,40 +51,64 @@ metadata:
   name: contour-external
 ---
 kind: GatewayClass
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 metadata:
-  name: contour-external-gatewayclass
+  name: contour-external
 spec:
   controllerName: projectcontour.io/gateway-controller
   parametersRef:
     kind: ContourDeployment
     group: projectcontour.io
-    name: contour-external-gatewayclass
+    name: contour-external
     namespace: contour-external
 ---
 kind: ContourDeployment
 apiVersion: projectcontour.io/v1alpha1
 metadata:
-  name: contour-external-gatewayclass
+  name: contour-external
   namespace: contour-external
 spec:
   runtimeSettings:
     enableExternalNameService: true
+    featureFlags:
+      - "useEndpointSlices"
+  envoy:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 100Mi
+      limits:
+        cpu: 1000m
+        memory: 1000Mi
+    workloadType: Deployment
+    deployment:
+      replicas: 2
   contour:
     deployment:
       replicas: 1
 ---
 kind: Gateway
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 metadata:
-  name: knative-gateway
+  name: knative-external
   namespace: contour-external
 spec:
-  gatewayClassName: contour-external-gatewayclass
+  gatewayClassName: contour-external
   listeners:
     - name: http
       port: 80
       protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: All
+    # We've observed when adding and removing a listener on port 443 this
+    # causes the GKE LB to have downtime. By adding this tls listener
+    # we keep that LB port open.
+    - name: tls
+      port: 443
+      protocol: TLS
+      tls:
+        mode: Passthrough
       allowedRoutes:
         namespaces:
           from: All
@@ -110,39 +134,51 @@ metadata:
   name: contour-internal
 ---
 kind: GatewayClass
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 metadata:
-  name: contour-internal-gatewayclass
+  name: contour-internal
 spec:
   controllerName: projectcontour.io/gateway-controller
   parametersRef:
     kind: ContourDeployment
     group: projectcontour.io
-    name: contour-internal-gatewayclass
+    name: contour-internal
     namespace: contour-internal
 ---
 kind: ContourDeployment
 apiVersion: projectcontour.io/v1alpha1
 metadata:
-  name: contour-internal-gatewayclass
+  name: contour-internal
   namespace: contour-internal
 spec:
   runtimeSettings:
     enableExternalNameService: true
+    featureFlags:
+      - "useEndpointSlices"
   envoy:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 100Mi
+      limits:
+        cpu: 1000m
+        memory: 1000Mi
+    workloadType: Deployment
     networkPublishing:
       type: ClusterIPService
+    deployment:
+      replicas: 2
   contour:
     deployment:
       replicas: 1
 ---
 kind: Gateway
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 metadata:
-  name: knative-local-gateway
+  name: knative-local
   namespace: contour-internal
 spec:
-  gatewayClassName: contour-internal-gatewayclass
+  gatewayClassName: contour-internal
   listeners:
     - name: http
       port: 80

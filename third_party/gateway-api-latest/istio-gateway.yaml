@@ -22,7 +22,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20240417-ff3ca573"
+    app.kubernetes.io/version: "20240422-76a9d18d"
     experimental.istio.io/disable-gateway-port-translation: "true"
 spec:
   type: ClusterIP
@@ -49,7 +49,7 @@ spec:
 # limitations under the License.
 
 kind: Gateway
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 metadata:
   name: knative-local-gateway
   namespace: istio-system
@@ -82,7 +82,7 @@ spec:
 # limitations under the License.
 
 kind: Gateway
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 metadata:
   name: knative-gateway
   namespace: istio-system
