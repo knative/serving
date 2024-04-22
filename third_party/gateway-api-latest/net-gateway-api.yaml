@@ -20,7 +20,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20240417-ff3ca573"
+    app.kubernetes.io/version: "20240422-76a9d18d"
 aggregationRule:
   clusterRoleSelectors:
     - matchLabels:
@@ -36,7 +36,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20240417-ff3ca573"
+    app.kubernetes.io/version: "20240422-76a9d18d"
 rules:
   - apiGroups: ["gateway.networking.k8s.io"]
     resources: ["httproutes", "referencegrants", "referencepolicies"]
@@ -69,7 +69,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20240417-ff3ca573"
+    app.kubernetes.io/version: "20240422-76a9d18d"
 data:
   _example: |
     ################################
@@ -78,25 +78,30 @@ data:
     #                              #
     ################################
 
-    # ***** WARNING *****
-    # This configuration is tentative.
-    # The structure might be changed in the future version.
-    # ********************
+    # This block is not actually functional configuration,
+    # but serves to illustrate the available configuration
+    # options and document them in a way that is accessible
+    # to users that `kubectl edit` this config map.
     #
-    # visibility: |
-    #   <visibility>: |
-    #     gatewayClass: GatewayClass Name
-    #     gateway: the namespace/name of Gateway
-    #     service: the namespace/name of Service for the Gateway
+    # These sample configuration options may be copied out of
+    # this example block and unindented to be in the data block
+    # to actually change the configuration.
+
+    # When configuring Gateways below if 'service' is not provided,
+    # net-gateway-api will use the first address on the Gateway status
+    # for probing. This is useful when the Gateway proxy is off cluster.
     #
-    # The gateway configuration for the default visibility.
-    visibility: |
-      ExternalIP:
-        class: istio
+    # See: https://github.com/knative-extensions/net-gateway-api/issues/665
+
+    # external-gateways defines the Gateway to be used for external traffic
+    external-gateways: |
+      - class: istio
         gateway: istio-system/knative-gateway
         service: istio-system/istio-ingressgateway
-      ClusterLocal:
-        class: istio
+
+    # local-gateways defines the Gateway to be used for cluster local traffic
+    local-gateways: |
+      - class: istio
         gateway: istio-system/knative-local-gateway
         service: istio-system/knative-local-gateway
 
@@ -123,7 +128,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
-    app.kubernetes.io/version: "20240417-ff3ca573"
+    app.kubernetes.io/version: "20240422-76a9d18d"
     app.kubernetes.io/name: knative-serving
 spec:
   replicas: 1
@@ -150,7 +155,7 @@ spec:
         - name: controller
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/controller@sha256:a976e9b438d7f4a97f52b1717816c303e1d35b56399ee46defae121f88e98086
+          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/controller@sha256:1b3a544691a90284f8fa963940dfacfb8282dc75c12105a43472040ae0c0453c
           resources:
             requests:
               cpu: 100m
