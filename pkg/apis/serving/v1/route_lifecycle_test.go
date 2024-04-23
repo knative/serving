@@ -428,54 +428,85 @@ func TestRouteNotOwnedStuff(t *testing.T) {
 	apistest.CheckConditionFailed(r, RouteConditionReady, t)
 }
 
-func TestCertificateReady(t *testing.T) {
-	r := &RouteStatus{}
-	r.InitializeConditions()
-	r.MarkCertificateReady("cert")
+func TestCertificateProvision(t *testing.T) {
+	message := "CommonName Too Long"
 
-	apistest.CheckConditionSucceeded(r, RouteConditionCertificateProvisioned, t)
-}
+	cases := []struct {
+		name   string
+		cert   *netv1alpha1.Certificate
+		status corev1.ConditionStatus
 
-func TestCertificateNotReady(t *testing.T) {
-	r := &RouteStatus{}
-	r.InitializeConditions()
-	r.MarkCertificateNotReady(&netv1alpha1.Certificate{})
-
-	apistest.CheckConditionOngoing(r, RouteConditionCertificateProvisioned, t)
-}
-
-func TestCertificateNotReadyWithBubbledUpMessage(t *testing.T) {
-	cert := &netv1alpha1.Certificate{
-		Status: netv1alpha1.CertificateStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{
-					{
-						Type:   "Ready",
-						Status: "False",
-						Reason: "CommonName Too Long",
-					},
+		wantMessage string
+	}{{
+		name:        "Ready with empty message",
+		cert:        &netv1alpha1.Certificate{},
+		status:      corev1.ConditionTrue,
+		wantMessage: "",
+	}, {
+		name:        "NotReady with empty message",
+		cert:        &netv1alpha1.Certificate{},
+		status:      corev1.ConditionUnknown,
+		wantMessage: "",
+	}, {
+		name: "NotReady with bubbled up message",
+		cert: &netv1alpha1.Certificate{
+			Status: netv1alpha1.CertificateStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{{
+						Type:   apis.ConditionReady,
+						Status: corev1.ConditionUnknown,
+						Reason: message,
+					}},
 				},
 			},
 		},
+		status:      corev1.ConditionUnknown,
+		wantMessage: message,
+	}, {
+		name:        "Failed with empty message",
+		cert:        &netv1alpha1.Certificate{},
+		status:      corev1.ConditionFalse,
+		wantMessage: "",
+	}, {
+		name: "Failed with bubbled up message",
+		cert: &netv1alpha1.Certificate{
+			Status: netv1alpha1.CertificateStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{{
+						Type:   apis.ConditionReady,
+						Status: corev1.ConditionFalse,
+						Reason: message,
+					}},
+				},
+			},
+		},
+		status:      corev1.ConditionFalse,
+		wantMessage: message,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := &RouteStatus{}
+			r.InitializeConditions()
+
+			if tc.status == corev1.ConditionTrue {
+				r.MarkCertificateReady(tc.cert.Name)
+			} else if tc.status == corev1.ConditionFalse {
+				r.MarkCertificateProvisionFailed(tc.cert)
+			} else {
+				r.MarkCertificateNotReady(tc.cert)
+			}
+
+			if err := apistest.CheckCondition(r, RouteConditionCertificateProvisioned, tc.status); err != nil {
+				t.Error(err)
+			}
+
+			certMessage := r.Status.GetCondition(apis.ConditionReady).Message
+			if !strings.Contains(certMessage, tc.wantMessage) {
+				t.Errorf("Literal %q not found in status message: %q", tc.wantMessage, certMessage)
+			}
+		})
 	}
-
-	r := &RouteStatus{}
-	r.InitializeConditions()
-	r.MarkCertificateNotReady(cert)
-
-	expectedCertMessage := "CommonName Too Long"
-	certMessage := r.Status.GetCondition("Ready").Message
-	if !strings.Contains(certMessage, expectedCertMessage) {
-		t.Errorf("Literal %q not found in status message: %q", expectedCertMessage, certMessage)
-	}
-}
-
-func TestCertificateProvisionFailed(t *testing.T) {
-	r := &RouteStatus{}
-	r.InitializeConditions()
-	r.MarkCertificateProvisionFailed("cert")
-
-	apistest.CheckConditionFailed(r, RouteConditionCertificateProvisioned, t)
 }
 
 func TestRouteNotOwnCertificate(t *testing.T) {

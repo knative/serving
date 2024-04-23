@@ -245,7 +245,7 @@ func (c *Reconciler) externalDomainTLS(ctx context.Context, host string, r *v1.R
 				if kaccessor.IsNotOwned(err) {
 					r.Status.MarkCertificateNotOwned(desiredCert.Name)
 				} else {
-					r.Status.MarkCertificateProvisionFailed(desiredCert.Name)
+					r.Status.MarkCertificateProvisionFailed(desiredCert)
 				}
 				return nil, nil, err
 			}
@@ -280,7 +280,11 @@ func (c *Reconciler) externalDomainTLS(ctx context.Context, host string, r *v1.R
 			tls = append(tls, resources.MakeIngressTLS(cert, sets.List(dnsNames)))
 		} else {
 			acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
-			r.Status.MarkCertificateNotReady(cert)
+			if cert.IsFailed() {
+				r.Status.MarkCertificateProvisionFailed(cert)
+			} else {
+				r.Status.MarkCertificateNotReady(cert)
+			}
 			// When httpProtocol is enabled, downgrade http scheme.
 			// Explicitly not using the override settings here as to not to muck with
 			// external-domain-tls semantics.
@@ -326,7 +330,7 @@ func (c *Reconciler) clusterLocalDomainTLS(ctx context.Context, r *v1.Route, tc 
 			if kaccessor.IsNotOwned(err) {
 				r.Status.MarkCertificateNotOwned(desiredCert.Name)
 			} else {
-				r.Status.MarkCertificateProvisionFailed(desiredCert.Name)
+				r.Status.MarkCertificateProvisionFailed(desiredCert)
 			}
 			return nil, err
 		}
@@ -342,6 +346,8 @@ func (c *Reconciler) clusterLocalDomainTLS(ctx context.Context, r *v1.Route, tc 
 
 			r.Status.MarkCertificateReady(cert.Name)
 			tls = append(tls, resources.MakeIngressTLS(cert, sets.List(localDomains)))
+		} else if cert.IsFailed() {
+			r.Status.MarkCertificateProvisionFailed(cert)
 		} else {
 			r.Status.MarkCertificateNotReady(cert)
 		}

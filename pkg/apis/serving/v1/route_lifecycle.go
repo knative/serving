@@ -166,10 +166,11 @@ func (rs *RouteStatus) MarkMissingTrafficTarget(kind, name string) {
 // MarkCertificateProvisionFailed marks the
 // RouteConditionCertificateProvisioned condition to indicate that the
 // Certificate provisioning failed.
-func (rs *RouteStatus) MarkCertificateProvisionFailed(name string) {
+func (rs *RouteStatus) MarkCertificateProvisionFailed(c *v1alpha1.Certificate) {
+	certificateCondition := c.Status.GetCondition(apis.ConditionReady)
 	routeCondSet.Manage(rs).MarkFalse(RouteConditionCertificateProvisioned,
 		"CertificateProvisionFailed",
-		"Certificate %s fails to be provisioned.", name)
+		"Certificate %s fails to be provisioned: %s", c.Name, certificateCondition.GetReason())
 }
 
 // MarkCertificateReady marks the RouteConditionCertificateProvisioned
