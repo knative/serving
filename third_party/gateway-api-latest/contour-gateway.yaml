@@ -18,6 +18,8 @@ metadata:
   name: config-gateway
   namespace: knative-serving
   labels:
+    app.kubernetes.io/component: net-gateway-api
+    app.kubernetes.io/name: knative-serving
     serving.knative.dev/release: devel
 data:
   external-gateways: |
