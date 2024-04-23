@@ -14,14 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package netcertmanager
+package certificate
 
 import (
 	"context"
-
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"knative.dev/serving/pkg/reconciler/certificate/config"
 
 	netapi "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -38,7 +38,6 @@ import (
 	cmchallengeinformer "knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/informers/acme/v1/challenge"
 	cmcertinformer "knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/informers/certmanager/v1/certificate"
 	clusterinformer "knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/informers/certmanager/v1/clusterissuer"
-	netcertmanageronfig "knative.dev/serving/pkg/netcertmanager/config"
 )
 
 const controllerAgentName = "certificate-controller"
@@ -82,7 +81,7 @@ func NewController(
 
 	impl := certreconciler.NewImpl(ctx, c, netcfg.CertManagerCertificateClassName,
 		func(impl *controller.Impl) controller.Options {
-			configStore := netcertmanageronfig.NewStore(logger.Named("config-store"), configmap.TypeFilter(&netcertmanageronfig.CertManagerConfig{})(func(string, interface{}) {
+			configStore := config.NewStore(logger.Named("config-store"), configmap.TypeFilter(&config.CertManagerConfig{})(func(string, interface{}) {
 				impl.FilteredGlobalResync(classFilterFunc, knCertificateInformer.Informer())
 			}))
 			configStore.WatchConfigs(cmw)

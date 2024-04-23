@@ -14,12 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package netcertmanager
+package certificate
 
 import (
 	"context"
 	"fmt"
 	"hash/adler32"
+	"knative.dev/serving/pkg/reconciler/certificate/config"
+	"knative.dev/serving/pkg/reconciler/certificate/resources"
 	"strconv"
 	"time"
 
@@ -46,8 +48,6 @@ import (
 	certmanagerclientset "knative.dev/serving/pkg/netcertmanager/client/certmanager/clientset/versioned"
 	acmelisters "knative.dev/serving/pkg/netcertmanager/client/certmanager/listers/acme/v1"
 	certmanagerlisters "knative.dev/serving/pkg/netcertmanager/client/certmanager/listers/certmanager/v1"
-	"knative.dev/serving/pkg/netcertmanager/config"
-	"knative.dev/serving/pkg/netcertmanager/resources"
 )
 
 const (

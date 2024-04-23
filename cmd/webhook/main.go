@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	certconfig "knative.dev/serving/pkg/reconciler/certificate/config"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/configmap"
@@ -49,7 +50,6 @@ import (
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/gc"
-	certconfig "knative.dev/serving/pkg/netcertmanager/config"
 	domainconfig "knative.dev/serving/pkg/reconciler/route/config"
 )
 

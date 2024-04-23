@@ -33,7 +33,7 @@ import (
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
-	"knative.dev/serving/pkg/netcertmanager"
+	"knative.dev/serving/pkg/reconciler/certificate"
 	"knative.dev/serving/pkg/reconciler/configuration"
 	"knative.dev/serving/pkg/reconciler/domainmapping"
 	"knative.dev/serving/pkg/reconciler/gc"
@@ -85,7 +85,7 @@ func main() {
 		for _, inf := range []injection.InformerInjector{challenge.WithInformer, v1certificate.WithInformer, certificaterequest.WithInformer, clusterissuer.WithInformer, issuer.WithInformer} {
 			injection.Default.RegisterInformer(inf)
 		}
-		ctors = append(ctors, netcertmanager.NewController)
+		ctors = append(ctors, certificate.NewController)
 	}
 
 	sharedmain.MainWithConfig(ctx, "controller", cfg, ctors...)
