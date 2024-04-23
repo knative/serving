@@ -20,7 +20,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20240423-3fcf453d"
+    app.kubernetes.io/version: "20240423-9e4ec34e"
 aggregationRule:
   clusterRoleSelectors:
     - matchLabels:
@@ -36,7 +36,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20240423-3fcf453d"
+    app.kubernetes.io/version: "20240423-9e4ec34e"
 rules:
   - apiGroups: ["gateway.networking.k8s.io"]
     resources: ["httproutes", "referencegrants", "referencepolicies"]
@@ -68,7 +68,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
-    app.kubernetes.io/version: "20240423-3fcf453d"
+    app.kubernetes.io/version: "20240423-9e4ec34e"
     app.kubernetes.io/name: knative-serving
 spec:
   replicas: 1
@@ -95,7 +95,7 @@ spec:
         - name: controller
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/controller@sha256:b4c454ed38a439315dcdcc997cef27ccbb5343f6fac64ec6efe4a872f22e28ad
+          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/controller@sha256:ecd629d702fa1355b66653ec43eed2cf0c669ac800a8f3c98f28c6854d41a4f1
           resources:
             requests:
               cpu: 100m
@@ -152,7 +152,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20240423-3fcf453d"
+    app.kubernetes.io/version: "20240423-9e4ec34e"
     networking.knative.dev/ingress-provider: gateway-api
 spec:
   selector:
@@ -166,14 +166,14 @@ spec:
         role: net-gateway-api-webhook
         app.kubernetes.io/component: net-gateway-api
         app.kubernetes.io/name: knative-serving
-        app.kubernetes.io/version: "20240423-3fcf453d"
+        app.kubernetes.io/version: "20240423-9e4ec34e"
     spec:
       serviceAccountName: controller
       containers:
         - name: webhook
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/webhook@sha256:0cc12247f829cceda81286992ced0eb2ae7e685e629450feeb67093e4acb0577
+          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/webhook@sha256:649beb931f9785e62239209cffc4ed284b0dfc5f5ec85118fed900d3f18845d0
           resources:
             requests:
               cpu: 20m
@@ -251,7 +251,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20240423-3fcf453d"
+    app.kubernetes.io/version: "20240423-9e4ec34e"
     networking.knative.dev/ingress-provider: gateway-api
 
 ---
@@ -278,7 +278,7 @@ metadata:
     role: net-gateway-api-webhook
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20240423-3fcf453d"
+    app.kubernetes.io/version: "20240423-9e4ec34e"
     networking.knative.dev/ingress-provider: gateway-api
 spec:
   ports:
@@ -317,7 +317,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20240423-3fcf453d"
+    app.kubernetes.io/version: "20240423-9e4ec34e"
     networking.knative.dev/ingress-provider: gateway-api
 webhooks:
   - admissionReviewVersions:
@@ -359,7 +359,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20240423-3fcf453d"
+    app.kubernetes.io/version: "20240423-9e4ec34e"
 data:
   _example: |
     ################################
@@ -388,11 +388,15 @@ data:
       - class: istio
         gateway: istio-system/knative-gateway
         service: istio-system/istio-ingressgateway
+        supported-features:
+        - HTTPRouteRequestTimeout
 
     # local-gateways defines the Gateway to be used for cluster local traffic
     local-gateways: |
       - class: istio
         gateway: istio-system/knative-local-gateway
         service: istio-system/knative-local-gateway
+        supported-features:
+        - HTTPRouteRequestTimeout
 
 ---
