@@ -285,19 +285,19 @@ func (c *Reconciler) externalDomainTLS(ctx context.Context, host string, r *v1.R
 			} else {
 				r.Status.MarkCertificateNotReady(cert)
 			}
-			// When httpProtocol is enabled, downgrade http scheme.
-			// Explicitly not using the override settings here as to not to muck with
-			// external-domain-tls semantics.
-			if config.FromContext(ctx).Network.HTTPProtocol == netcfg.HTTPEnabled {
-				if dnsNames.Has(host) {
-					r.Status.URL = &apis.URL{
-						Scheme: "http",
-						Host:   host,
-					}
-				}
-				setTargetsScheme(&r.Status, sets.List(dnsNames), "http")
-				r.Status.MarkHTTPDowngrade(cert.Name)
-			}
+			//// When httpProtocol is enabled, downgrade http scheme.
+			//// Explicitly not using the override settings here as to not to muck with
+			//// external-domain-tls semantics.
+			//if config.FromContext(ctx).Network.HTTPProtocol == netcfg.HTTPEnabled {
+			//	if dnsNames.Has(host) {
+			//		r.Status.URL = &apis.URL{
+			//			Scheme: "http",
+			//			Host:   host,
+			//		}
+			//	}
+			//	setTargetsScheme(&r.Status, sets.List(dnsNames), "http")
+			//	r.Status.MarkHTTPDowngrade(cert.Name)
+			//}
 		}
 	}
 	sort.Slice(acmeChallenges, func(i, j int) bool {

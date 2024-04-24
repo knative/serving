@@ -23,6 +23,8 @@ import (
 	"net/url"
 	"time"
 
+	"fmt"
+
 	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
@@ -152,6 +154,7 @@ func CheckEndpointState(
 	resolvable bool,
 	opts ...interface{},
 ) (*spoof.Response, error) {
+	fmt.Println("### RETO: Checking endpoint: ", url)
 	client, rOpts, err := makeSpoofClient(ctx, kubeClient, logf, url, resolvable, Flags.SpoofRequestTimeout, opts...)
 	if err != nil {
 		return nil, err
