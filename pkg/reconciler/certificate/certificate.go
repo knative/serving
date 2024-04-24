@@ -20,12 +20,8 @@ import (
 	"context"
 	"fmt"
 	"hash/adler32"
-	"knative.dev/serving/pkg/reconciler/certificate/config"
-	"knative.dev/serving/pkg/reconciler/certificate/resources"
 	"strconv"
 	"time"
-
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
@@ -36,10 +32,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/util/sets"
 	kubelisters "k8s.io/client-go/listers/core/v1"
-	certreconciler "knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/certificate"
 
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
+	certreconciler "knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/certificate"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -48,6 +45,8 @@ import (
 	certmanagerclientset "knative.dev/serving/pkg/netcertmanager/client/certmanager/clientset/versioned"
 	acmelisters "knative.dev/serving/pkg/netcertmanager/client/certmanager/listers/acme/v1"
 	certmanagerlisters "knative.dev/serving/pkg/netcertmanager/client/certmanager/listers/certmanager/v1"
+	"knative.dev/serving/pkg/reconciler/certificate/config"
+	"knative.dev/serving/pkg/reconciler/certificate/resources"
 )
 
 const (

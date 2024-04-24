@@ -21,9 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"hash/adler32"
-	testing3 "knative.dev/serving/pkg/netcertmanager/testing"
-	"knative.dev/serving/pkg/reconciler/certificate/config"
-	"knative.dev/serving/pkg/reconciler/certificate/resources"
 	"testing"
 	"time"
 
@@ -55,6 +52,9 @@ import (
 	_ "knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/informers/acme/v1/challenge/fake"
 	_ "knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/informers/certmanager/v1/certificate/fake"
 	_ "knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/informers/certmanager/v1/clusterissuer/fake"
+	testing3 "knative.dev/serving/pkg/netcertmanager/testing"
+	"knative.dev/serving/pkg/reconciler/certificate/config"
+	"knative.dev/serving/pkg/reconciler/certificate/resources"
 )
 
 const generation = 23132

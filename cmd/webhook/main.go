@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	certconfig "knative.dev/serving/pkg/reconciler/certificate/config"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/configmap"
@@ -35,6 +34,7 @@ import (
 	"knative.dev/pkg/webhook/resourcesemantics/defaulting"
 	"knative.dev/pkg/webhook/resourcesemantics/validation"
 	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
+	certconfig "knative.dev/serving/pkg/reconciler/certificate/config"
 
 	// resource validation types
 	net "knative.dev/networking/pkg/apis/networking/v1alpha1"

@@ -18,10 +18,10 @@ package resources
 
 import (
 	"fmt"
-	"knative.dev/serving/pkg/reconciler/certificate/config"
 
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/networking/pkg/apis/networking"
@@ -29,6 +29,7 @@ import (
 	netapi "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/pkg/reconciler/certificate/config"
 )
 
 const (
