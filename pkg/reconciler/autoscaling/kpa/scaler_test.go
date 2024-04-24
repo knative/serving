@@ -358,6 +358,19 @@ func TestScaler(t *testing.T) {
 			WithReachabilityReachable(k)
 		},
 	}, {
+		label:         "scale to zero, if revision is unreachable do not wait for last pod retention",
+		startReplicas: 10,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   true,
+		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
+			WithReachabilityUnreachable(k)
+			paMarkInactive(k, time.Now().Add(-gracePeriod))
+		},
+		configMutator: func(c *config.Config) {
+			c.Autoscaler.ScaleToZeroPodRetentionPeriod = 2 * gracePeriod
+		},
+	}, {
 		label:         "ignore minScale if unreachable",
 		startReplicas: 10,
 		scaleTo:       0,

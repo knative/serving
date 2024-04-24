@@ -252,6 +252,12 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1
 				return desiredScale, true
 			}
 
+			// If the revision is unreachable, scale to 0 instead of waiting for the last pod retention timeout.
+			if pa.Spec.Reachability == autoscalingv1alpha1.ReachabilityUnreachable {
+				logger.Infof("PA is unreachable, can scale to 0")
+				return desiredScale, true
+			}
+
 			// Now check last pod retention timeout. Since it's a hard deadline, regardless
 			// of network programming state we should circle back after that time period.
 			if lastPodTimeout > 0 {
