@@ -34,6 +34,7 @@ import (
 	"knative.dev/pkg/webhook/resourcesemantics/defaulting"
 	"knative.dev/pkg/webhook/resourcesemantics/validation"
 	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
+	certconfig "knative.dev/serving/pkg/reconciler/certificate/config"
 
 	// resource validation types
 	net "knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -143,17 +144,18 @@ func newConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 
 		// The configmaps to validate.
 		configmap.Constructors{
-			tracingconfig.ConfigName:       tracingconfig.NewTracingConfigFromConfigMap,
-			autoscalerconfig.ConfigName:    autoscalerconfig.NewConfigFromConfigMap,
-			gc.ConfigName:                  gc.NewConfigFromConfigMapFunc(ctx),
-			netcfg.ConfigMapName:           network.NewConfigFromConfigMap,
-			deployment.ConfigName:          deployment.NewConfigFromConfigMap,
-			apisconfig.FeaturesConfigName:  apisconfig.NewFeaturesConfigFromConfigMap,
-			metrics.ConfigMapName():        metrics.NewObservabilityConfigFromConfigMap,
-			logging.ConfigMapName():        logging.NewConfigFromConfigMap,
-			leaderelection.ConfigMapName(): leaderelection.NewConfigFromConfigMap,
-			domainconfig.DomainConfigName:  domainconfig.NewDomainFromConfigMap,
-			apisconfig.DefaultsConfigName:  apisconfig.NewDefaultsConfigFromConfigMap,
+			tracingconfig.ConfigName:         tracingconfig.NewTracingConfigFromConfigMap,
+			autoscalerconfig.ConfigName:      autoscalerconfig.NewConfigFromConfigMap,
+			gc.ConfigName:                    gc.NewConfigFromConfigMapFunc(ctx),
+			netcfg.ConfigMapName:             network.NewConfigFromConfigMap,
+			deployment.ConfigName:            deployment.NewConfigFromConfigMap,
+			apisconfig.FeaturesConfigName:    apisconfig.NewFeaturesConfigFromConfigMap,
+			metrics.ConfigMapName():          metrics.NewObservabilityConfigFromConfigMap,
+			logging.ConfigMapName():          logging.NewConfigFromConfigMap,
+			leaderelection.ConfigMapName():   leaderelection.NewConfigFromConfigMap,
+			domainconfig.DomainConfigName:    domainconfig.NewDomainFromConfigMap,
+			apisconfig.DefaultsConfigName:    apisconfig.NewDefaultsConfigFromConfigMap,
+			certconfig.CertManagerConfigName: certconfig.NewCertManagerConfigFromConfigMap,
 		},
 	)
 }

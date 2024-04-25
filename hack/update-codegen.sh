@@ -69,6 +69,12 @@ ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
   "serving:v1 serving:v1beta1 autoscaling:v1alpha1" \
   --go-header-file "${boilerplate}"
 
+# Generate our own client for cert-manager (otherwise injection won't work)
+${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
+  knative.dev/serving/pkg/client/certmanager github.com/cert-manager/cert-manager/pkg/apis \
+  "certmanager:v1 acme:v1" \
+  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
+
 group "Knative Codegen"
 
 # Knative Injection
@@ -76,6 +82,13 @@ ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
   knative.dev/serving/pkg/client knative.dev/serving/pkg/apis \
   "serving:v1 serving:v1beta1 autoscaling:v1alpha1" \
   --go-header-file "${boilerplate}"
+
+# Knative Injection (for cert-manager)
+${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
+  knative.dev/serving/pkg/client/certmanager github.com/cert-manager/cert-manager/pkg/apis \
+  "certmanager:v1 acme:v1" \
+  --disable-informer-init \
+  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
 group "Deepcopy Gen"
 
