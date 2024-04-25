@@ -216,6 +216,12 @@ func (c *Reconciler) externalDomainTLS(ctx context.Context, host string, r *v1.R
 		}
 	}
 
+	if len(domainToTagMap) == 0 {
+		// TODO: better to have a specific status, but see if this works
+		r.Status.MarkTLSNotEnabled(v1.ExternalDomainTLSNotEnabledMessage)
+		return tls, nil, nil
+	}
+
 	routeDomain := config.FromContext(ctx).Domain.LookupDomainForLabels(r.Labels)
 	labelSelector := kubelabels.SelectorFromSet(kubelabels.Set{
 		networking.WildcardCertDomainLabelKey: routeDomain,
