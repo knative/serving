@@ -34,10 +34,10 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	pkgreconciler "knative.dev/pkg/reconciler"
-	cmclient "knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/client"
-	cmchallengeinformer "knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/informers/acme/v1/challenge"
-	cmcertinformer "knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/informers/certmanager/v1/certificate"
-	clusterinformer "knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/informers/certmanager/v1/clusterissuer"
+	cmclient "knative.dev/serving/pkg/client/certmanager/injection/client"
+	cmchallengeinformer "knative.dev/serving/pkg/client/certmanager/injection/informers/acme/v1/challenge"
+	cmcertinformer "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1/certificate"
+	clusterinformer "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1/clusterissuer"
 	"knative.dev/serving/pkg/reconciler/certificate/config"
 )
 

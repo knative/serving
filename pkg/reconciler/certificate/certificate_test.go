@@ -48,11 +48,11 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	pkgreconcilertesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/system"
-	fakecertmanagerclient "knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/client/fake"
-	_ "knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/informers/acme/v1/challenge/fake"
-	_ "knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/informers/certmanager/v1/certificate/fake"
-	_ "knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/informers/certmanager/v1/clusterissuer/fake"
-	testing3 "knative.dev/serving/pkg/netcertmanager/testing"
+	fakecertmanagerclient "knative.dev/serving/pkg/client/certmanager/injection/client/fake"
+	_ "knative.dev/serving/pkg/client/certmanager/injection/informers/acme/v1/challenge/fake"
+	_ "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1/certificate/fake"
+	_ "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1/clusterissuer/fake"
+	certmanagertesting "knative.dev/serving/pkg/client/certmanager/testing"
 	"knative.dev/serving/pkg/reconciler/certificate/config"
 	"knative.dev/serving/pkg/reconciler/certificate/resources"
 )
@@ -558,7 +558,7 @@ func TestReconcile(t *testing.T) {
 		}},
 	}}
 
-	table.Test(t, testing3.MakeFactory(func(ctx context.Context, listers *testing3.Listers, cmw configmap.Watcher) controller.Reconciler {
+	table.Test(t, certmanagertesting.MakeFactory(func(ctx context.Context, listers *certmanagertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
 		retryAttempted = false
 		r := &Reconciler{
 			cmCertificateLister: listers.GetCMCertificateLister(),
@@ -747,7 +747,7 @@ func TestReconcile_HTTP01Challenges(t *testing.T) {
 		},
 	}}
 
-	table.Test(t, testing3.MakeFactory(func(ctx context.Context, listers *testing3.Listers, cmw configmap.Watcher) controller.Reconciler {
+	table.Test(t, certmanagertesting.MakeFactory(func(ctx context.Context, listers *certmanagertesting.Listers, cmw configmap.Watcher) controller.Reconciler {
 		r := &Reconciler{
 			cmCertificateLister: listers.GetCMCertificateLister(),
 			cmChallengeLister:   listers.GetCMChallengeLister(),

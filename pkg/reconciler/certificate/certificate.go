@@ -42,9 +42,9 @@ import (
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/tracker"
-	certmanagerclientset "knative.dev/serving/pkg/netcertmanager/client/certmanager/clientset/versioned"
-	acmelisters "knative.dev/serving/pkg/netcertmanager/client/certmanager/listers/acme/v1"
-	certmanagerlisters "knative.dev/serving/pkg/netcertmanager/client/certmanager/listers/certmanager/v1"
+	certmanagerclientset "knative.dev/serving/pkg/client/certmanager/clientset/versioned"
+	acmelisters "knative.dev/serving/pkg/client/certmanager/listers/acme/v1"
+	certmanagerlisters "knative.dev/serving/pkg/client/certmanager/listers/certmanager/v1"
 	"knative.dev/serving/pkg/reconciler/certificate/config"
 	"knative.dev/serving/pkg/reconciler/certificate/resources"
 )

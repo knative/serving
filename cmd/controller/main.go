@@ -44,12 +44,12 @@ import (
 	"knative.dev/serving/pkg/reconciler/serverlessservice"
 	"knative.dev/serving/pkg/reconciler/service"
 
-	versioned "knative.dev/serving/pkg/netcertmanager/client/certmanager/clientset/versioned"
-	"knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/informers/acme/v1/challenge"
-	v1certificate "knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/informers/certmanager/v1/certificate"
-	"knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/informers/certmanager/v1/certificaterequest"
-	"knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/informers/certmanager/v1/clusterissuer"
-	"knative.dev/serving/pkg/netcertmanager/client/certmanager/injection/informers/certmanager/v1/issuer"
+	versioned "knative.dev/serving/pkg/client/certmanager/clientset/versioned"
+	"knative.dev/serving/pkg/client/certmanager/injection/informers/acme/v1/challenge"
+	v1certificate "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1/certificate"
+	"knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1/certificaterequest"
+	"knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1/clusterissuer"
+	"knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1/issuer"
 )
 
 var ctors = []injection.ControllerConstructor{
