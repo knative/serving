@@ -122,6 +122,7 @@ aliases:
   - davidhadas
   - evankanderson
   serving-approvers:
+  - ReToCode
   - skonto
   serving-reviewers:
   - izabelacg
@@ -134,6 +135,7 @@ aliases:
   serving-wg-leads:
   - dprotaso
   serving-writers:
+  - ReToCode
   - dprotaso
   - skonto
   steering-committee:
