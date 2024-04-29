@@ -5,7 +5,7 @@ feature documentation.
 
 # Prerequisites
 * Have `cert-manager` installed
-* Have `net-certmanager` installed
+* Have the Knative certmanager integration enabled
 * Upload test images with `./test/upload-test-images.sh`
 * Enable `external-domain-tls` with `kubectl patch cm config-network -n knative-serving -p '{"data":{"external-domain-tls": "enabled"}}'`
 
