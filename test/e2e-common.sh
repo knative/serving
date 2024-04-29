@@ -309,7 +309,7 @@ function install() {
   YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/ingress/${ingress}")
   YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/certmanager/kapp-order.yaml")
   YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/certmanager/kapp-secret-upgrade.yaml")
-  YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt//certmanager/net-certmanager-config.yaml")
+  YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/certmanager/net-certmanager-config.yaml")
   YTT_FILES+=("${REPO_ROOT_DIR}/third_party/cert-manager-${CERT_MANAGER_VERSION}/cert-manager.yaml")
 
   if (( MESH )); then
