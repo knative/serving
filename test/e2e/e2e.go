@@ -209,3 +209,21 @@ func RevisionFromConfiguration(clients *test.Clients, configName string) (string
 	}
 	return "", fmt.Errorf("no valid revision name found in configuration %s", configName)
 }
+
+// PrivateServiceName returns the private service name for the given revision.
+func PrivateServiceName(t *testing.T, clients *test.Clients, revision string) string {
+	var privateServiceName string
+
+	if err := wait.PollUntilContextTimeout(context.Background(), time.Second, 1*time.Minute, true, func(context.Context) (bool, error) {
+		sks, err := clients.NetworkingClient.ServerlessServices.Get(context.Background(), revision, metav1.GetOptions{})
+		if err != nil {
+			return false, nil
+		}
+		privateServiceName = sks.Status.PrivateServiceName
+		return privateServiceName != "", nil
+	}); err != nil {
+		t.Fatalf("Error retrieving sks %q: %v", revision, err)
+	}
+
+	return privateServiceName
+}

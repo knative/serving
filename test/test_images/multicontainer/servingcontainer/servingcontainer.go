@@ -22,13 +22,15 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
 
 	"knative.dev/serving/test"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	log.Println("serving container received a request.")
-	res, err := http.Get("http://127.0.0.1:8882")
+	res, err := http.Get(os.ExpandEnv("http://localhost:$FORWARD_PORT"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -41,6 +43,10 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	flag.Parse()
-	log.Print("serving container started")
-	test.ListenAndServeGracefully(":8881", handler)
+	var port int
+	if env := os.Getenv("HEALTHCHECK_PORT"); env != "" {
+		port, _ = strconv.Atoi(env)
+	}
+	log.Printf("serving container started on port %d", port)
+	test.ListenAndServeGracefully(":"+strconv.Itoa(port), handler)
 }

@@ -22,11 +22,14 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 
 	"knative.dev/serving/test"
+)
+
+const (
+	defaultPort = "8080"
 )
 
 var (
@@ -60,6 +63,20 @@ func main() {
 		}()
 	}
 
+	if env := os.Getenv("UNREADY_DELAY"); env != "" {
+		delay, err := time.ParseDuration(env)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		go func() {
+			time.Sleep(delay)
+			mu.Lock()
+			healthy = false
+			mu.Unlock()
+		}()
+	}
+
 	if env := os.Getenv("LISTEN_DELAY"); env != "" {
 		delay, err := time.ParseDuration(env)
 		if err != nil {
@@ -76,21 +93,21 @@ func main() {
 	probeServer := http.NewServeMux()
 	probeServer.HandleFunc("/", handleHealthz)
 
-	if env := os.Getenv("HEALTHCHECK_PORT"); env != "" {
-		healthcheckPort, _ := strconv.Atoi(env)
+	if healthcheckPort := os.Getenv("HEALTHCHECK_PORT"); healthcheckPort != "" {
 		go func() {
-			http.ListenAndServe(":"+strconv.Itoa(healthcheckPort), probeServer)
+			http.ListenAndServe(":"+healthcheckPort, probeServer)
 		}()
 	} else {
 		mainServer.HandleFunc("/healthz", handleHealthz)
 	}
 
 	mainServer.HandleFunc("/query", handleQuery)
-	http.ListenAndServe(":8080", mainServer)
+
+	http.ListenAndServe(":"+getPort(), mainServer)
 }
 
 func execProbeMain() {
-	resp, err := http.Get(os.ExpandEnv("http://localhost:$PORT/healthz"))
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%s/healthz", getPort()))
 	if err != nil {
 		log.Fatal("Failed to probe: ", err)
 	}
@@ -109,6 +126,28 @@ func handleStartFailing(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleHealthz(w http.ResponseWriter, r *http.Request) {
+	handleCommon(w, r)
+}
+
+func handleQuery(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Query().Get("probe") == "ok" {
+		handleCommon(w, r)
+	}
+	http.Error(w, "no query", http.StatusInternalServerError)
+}
+
+func handleMain(w http.ResponseWriter, r *http.Request) {
+	handleCommon(w, r)
+}
+
+func getPort() string {
+	if port := os.Getenv("PORT"); port != "" {
+		return port
+	}
+	return defaultPort
+}
+
+func handleCommon(w http.ResponseWriter, r *http.Request) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -116,16 +155,5 @@ func handleHealthz(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not healthy", http.StatusInternalServerError)
 		return
 	}
-	fmt.Fprint(w, test.HelloWorldText)
-}
-
-func handleQuery(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Query().Get("probe") == "ok" {
-		fmt.Fprint(w, test.HelloWorldText)
-	}
-	http.Error(w, "no query", http.StatusInternalServerError)
-}
-
-func handleMain(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, test.HelloWorldText)
 }
