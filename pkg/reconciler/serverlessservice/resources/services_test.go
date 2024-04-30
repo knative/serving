@@ -133,7 +133,7 @@ func privateSvcMod(s *corev1.Service) {
 			"app": "sadness",
 		}
 	}
-	s.Spec.ClusterIP = "None"
+	s.Spec.ClusterIP = corev1.ClusterIPNone
 	s.Spec.Ports = append(s.Spec.Ports,
 		[]corev1.ServicePort{{
 			Name:       servingv1.AutoscalingQueueMetricsPortName,
@@ -471,7 +471,7 @@ func TestMakePrivateService(t *testing.T) {
 			s.Labels["ava"] = "adore"
 			s.Labels[networking.SKSLabelKey] = "dream-tonight-cherub-rock-mayonnaise-hummer-disarm-rocket-soma-quiet"
 			s.Annotations = map[string]string{"cherub": "rock"}
-			s.Spec.ClusterIP = "None"
+			s.Spec.ClusterIP = corev1.ClusterIPNone
 		}, privateSvcMod, func(s *corev1.Service) {
 			// And now patch port to be http2.
 			s.Spec.Ports[0] = corev1.ServicePort{

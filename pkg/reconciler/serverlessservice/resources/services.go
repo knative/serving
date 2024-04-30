@@ -189,7 +189,7 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 				TargetPort: targetPort(sks),
 			}},
 			Selector:  selector,
-			ClusterIP: "None",
+			ClusterIP: corev1.ClusterIPNone,
 		},
 	}
 }
