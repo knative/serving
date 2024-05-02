@@ -46,7 +46,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	flag.Parse()
-	log.Printf("serving container started on port %d", getPort())
+	log.Printf("serving container started on port %s", getPort())
 	test.ListenAndServeGracefully(":"+getPort(), handler)
 }
 
