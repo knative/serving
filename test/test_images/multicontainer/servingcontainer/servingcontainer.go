@@ -23,9 +23,12 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 
 	"knative.dev/serving/test"
+)
+
+const (
+	defaultPort = "8080"
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -43,10 +46,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	flag.Parse()
-	var port int
-	if env := os.Getenv("HEALTHCHECK_PORT"); env != "" {
-		port, _ = strconv.Atoi(env)
+	log.Printf("serving container started on port %d", getPort())
+	test.ListenAndServeGracefully(":"+getPort(), handler)
+}
+
+func getPort() string {
+	if port := os.Getenv("PORT"); port != "" {
+		return port
 	}
-	log.Printf("serving container started on port %d", port)
-	test.ListenAndServeGracefully(":"+strconv.Itoa(port), handler)
+	return defaultPort
 }
