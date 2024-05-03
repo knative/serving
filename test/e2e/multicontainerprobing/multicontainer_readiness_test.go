@@ -198,7 +198,7 @@ func TestMultiContainerReadinessDifferentProbeTypes(t *testing.T) {
 			ReadinessProbe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/healthz",
+						Path: "/healthz/readiness",
 						Port: intstr.FromInt32(8882),
 					},
 				},
@@ -287,7 +287,7 @@ func TestMultiContainerProbeStartFailingAfterReady(t *testing.T) {
 				FailureThreshold: 3,
 				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/healthz",
+						Path: "/healthz/readiness",
 						Port: intstr.FromInt32(8080),
 					}},
 			},
@@ -299,7 +299,7 @@ func TestMultiContainerProbeStartFailingAfterReady(t *testing.T) {
 			ReadinessProbe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/healthz",
+						Path: "/healthz/readiness",
 						Port: intstr.FromInt32(8881),
 					}},
 			},
