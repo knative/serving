@@ -21,6 +21,7 @@ package multicontainerprobing
 
 import (
 	"context"
+	"net/http"
 	"testing"
 	"time"
 
@@ -276,12 +277,24 @@ func TestMultiContainerProbeStartFailingAfterReady(t *testing.T) {
 			Ports: []corev1.ContainerPort{{
 				ContainerPort: 8080,
 			}},
+			Env: []corev1.EnvVar{
+				// The port of the sidecar where a request to start failing readiness should be sent.
+				{Name: "FORWARD_PORT", Value: "8881"},
+			},
+			ReadinessProbe: &corev1.Probe{
+				// Ensure quicker propagation of the readiness failure.
+				PeriodSeconds:    1,
+				FailureThreshold: 3,
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/healthz",
+						Port: intstr.FromInt32(8080),
+					}},
+			},
 		}, {
 			Image: pkgTest.ImagePath(names.Sidecars[0]),
 			Env: []corev1.EnvVar{
 				{Name: "PORT", Value: "8881"},
-				// Start as ready and become unready after initial delay.
-				{Name: "UNREADY_DELAY", Value: "10s"},
 			},
 			ReadinessProbe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
@@ -319,6 +332,26 @@ func TestMultiContainerProbeStartFailingAfterReady(t *testing.T) {
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 	); err != nil {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.HelloWorldText, err)
+	}
+
+	t.Log("POST to /start-failing-sidecar")
+	client, err := pkgTest.NewSpoofingClient(context.Background(),
+		clients.KubeClient,
+		t.Logf,
+		url.Hostname(),
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
+	if err != nil {
+		t.Fatalf("Failed to create spoofing client: %v", err)
+	}
+
+	url.Path = "/start-failing-sidecar"
+	startFailing, err := http.NewRequest(http.MethodPost, url.String(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.Do(startFailing); err != nil {
+		t.Fatalf("POST to /start-failing-sidecar failed: %v", err)
 	}
 
 	revName, err := e2e.RevisionFromConfiguration(clients, names.Service)

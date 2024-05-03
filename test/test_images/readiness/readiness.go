@@ -63,20 +63,6 @@ func main() {
 		}()
 	}
 
-	if env := os.Getenv("UNREADY_DELAY"); env != "" {
-		delay, err := time.ParseDuration(env)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		go func() {
-			time.Sleep(delay)
-			mu.Lock()
-			healthy = false
-			mu.Unlock()
-		}()
-	}
-
 	if env := os.Getenv("LISTEN_DELAY"); env != "" {
 		delay, err := time.ParseDuration(env)
 		if err != nil {
@@ -89,6 +75,9 @@ func main() {
 	mainServer := http.NewServeMux()
 	mainServer.HandleFunc("/", handleMain)
 	mainServer.HandleFunc("/start-failing", handleStartFailing)
+	// When the same image is used for a sidecar container, it is possible to give it
+	// a signal to start failing readiness. The request is sent to $FORWARD_PORT in the sidecar.
+	mainServer.HandleFunc("/start-failing-sidecar", handleStartFailingSidecar)
 
 	probeServer := http.NewServeMux()
 	probeServer.HandleFunc("/", handleHealthz)
@@ -123,6 +112,13 @@ func handleStartFailing(w http.ResponseWriter, r *http.Request) {
 
 	healthy = false
 	fmt.Fprint(w, "will now fail readiness")
+}
+
+func handleStartFailingSidecar(w http.ResponseWriter, r *http.Request) {
+	_, err := http.Get(os.ExpandEnv("http://localhost:$FORWARD_PORT/start-failing"))
+	if err != nil {
+		log.Fatalf("GET to /start-failing failed: %v", err)
+	}
 }
 
 func handleHealthz(w http.ResponseWriter, r *http.Request) {
