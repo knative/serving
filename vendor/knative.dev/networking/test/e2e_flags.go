@@ -45,7 +45,6 @@ type NetworkingEnvironmentFlags struct {
 	SkipTests           string // Indicates the test names we want to skip in alpha or beta features.
 	ClusterSuffix       string // Specifies the cluster DNS suffix to be used in tests.
 	ServiceDomain       string // Specifies the domain to use when creating the test services.
-	RequestDelay        int    // Specifies delay in Seconds before the client tries to dial the service
 }
 
 func initializeNetworkingFlags() *NetworkingEnvironmentFlags {
@@ -106,11 +105,6 @@ func initializeNetworkingFlags() *NetworkingEnvironmentFlags {
 		"service-domain",
 		"example.com",
 		"Set this flag to the domain to be used in tests.")
-
-	flag.IntVar(&f.RequestDelay,
-		"request-delay",
-		0,
-		"Set this flag to the number of seconds to wait before calling the service.")
 
 	return &f
 }
