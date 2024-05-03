@@ -33,8 +33,9 @@ const (
 )
 
 var (
-	healthy bool
-	mu      sync.Mutex
+	healthy         bool
+	mu              sync.Mutex
+	livenessCounter int
 )
 
 func main() {
@@ -80,14 +81,17 @@ func main() {
 	mainServer.HandleFunc("/start-failing-sidecar", handleStartFailingSidecar)
 
 	probeServer := http.NewServeMux()
-	probeServer.HandleFunc("/", handleHealthz)
+	probeServer.HandleFunc("/readiness", handleReadiness)
+	probeServer.HandleFunc("/liveness", handleLiveness)
 
 	if healthcheckPort := os.Getenv("HEALTHCHECK_PORT"); healthcheckPort != "" {
 		go func() {
 			http.ListenAndServe(":"+healthcheckPort, probeServer)
 		}()
 	} else {
-		mainServer.HandleFunc("/healthz", handleHealthz)
+		mainServer.HandleFunc("/healthz/readiness", handleReadiness)
+		mainServer.HandleFunc("/healthz/liveness", handleLiveness)
+		mainServer.HandleFunc("/healthz/livenessCounter", handleLivenessCounter)
 	}
 
 	mainServer.HandleFunc("/query", handleQuery)
@@ -96,7 +100,7 @@ func main() {
 }
 
 func execProbeMain() {
-	resp, err := http.Get(fmt.Sprintf("http://localhost:%s/healthz", getPort()))
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%s/healthz/readiness", getPort()))
 	if err != nil {
 		log.Fatal("Failed to probe: ", err)
 	}
@@ -121,7 +125,7 @@ func handleStartFailingSidecar(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handleHealthz(w http.ResponseWriter, r *http.Request) {
+func handleReadiness(w http.ResponseWriter, r *http.Request) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -130,6 +134,27 @@ func handleHealthz(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Fprint(w, test.HelloWorldText)
+}
+
+func handleLiveness(w http.ResponseWriter, r *http.Request) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if !healthy {
+		http.Error(w, "not healthy", http.StatusInternalServerError)
+		return
+	}
+
+	livenessCounter++
+
+	fmt.Fprint(w, livenessCounter)
+}
+
+func handleLivenessCounter(w http.ResponseWriter, r *http.Request) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	fmt.Fprint(w, livenessCounter)
 }
 
 func handleQuery(w http.ResponseWriter, r *http.Request) {

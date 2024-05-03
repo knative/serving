@@ -58,7 +58,7 @@ func TestReadinessAlternatePort(t *testing.T) {
 					HTTPGet: &corev1.HTTPGetAction{
 						Scheme: "http",
 						Port:   intstr.FromInt(8077),
-						Path:   "/",
+						Path:   "/readiness",
 					},
 				},
 			}))
