@@ -21,14 +21,12 @@ package corspolicy
 
 import (
 	"context"
-	v1test "knative.dev/serving/test/v1"
-	//"knative.dev/pkg/apis"
-	pkgTest "knative.dev/pkg/test"
-	//"knative.dev/serving/pkg/resources"
 	"net/http"
 	"testing"
 
+	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/test"
+	v1test "knative.dev/serving/test/v1"
 )
 
 const (
