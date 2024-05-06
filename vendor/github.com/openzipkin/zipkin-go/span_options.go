@@ -26,7 +26,7 @@ type SpanOption func(t *Tracer, s *spanImpl)
 
 // Kind sets the kind of the span being created.
 func Kind(kind model.Kind) SpanOption {
-	return func(t *Tracer, s *spanImpl) {
+	return func(_ *Tracer, s *spanImpl) {
 		s.Kind = kind
 	}
 }
@@ -54,14 +54,14 @@ func Parent(sc model.SpanContext) SpanOption {
 
 // StartTime uses a given start time for the span being created.
 func StartTime(start time.Time) SpanOption {
-	return func(t *Tracer, s *spanImpl) {
+	return func(_ *Tracer, s *spanImpl) {
 		s.Timestamp = start
 	}
 }
 
 // RemoteEndpoint sets the remote endpoint of the span being created.
 func RemoteEndpoint(e *model.Endpoint) SpanOption {
-	return func(t *Tracer, s *spanImpl) {
+	return func(_ *Tracer, s *spanImpl) {
 		s.RemoteEndpoint = e
 	}
 }
@@ -69,7 +69,7 @@ func RemoteEndpoint(e *model.Endpoint) SpanOption {
 // Tags sets initial tags for the span being created. If default tracer tags
 // are present they will be overwritten on key collisions.
 func Tags(tags map[string]string) SpanOption {
-	return func(t *Tracer, s *spanImpl) {
+	return func(_ *Tracer, s *spanImpl) {
 		for k, v := range tags {
 			s.Tags[k] = v
 		}
@@ -82,7 +82,7 @@ func Tags(tags map[string]string) SpanOption {
 // This is available if late tag data is expected to be only available after the
 // required finish time of the Span.
 func FlushOnFinish(b bool) SpanOption {
-	return func(t *Tracer, s *spanImpl) {
+	return func(_ *Tracer, s *spanImpl) {
 		s.flushOnFinish = b
 	}
 }
