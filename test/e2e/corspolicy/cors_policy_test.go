@@ -56,19 +56,19 @@ func TestCorsPolicy(t *testing.T) {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic: %v", names.Service, err)
 	}
 
-	serviceUrl := resources.Route.Status.URL.URL()
-	t.Logf("The domain of request is %s.", serviceUrl.Hostname())
+	serviceURL := resources.Route.Status.URL.URL()
+	t.Logf("The domain of request is %s.", serviceURL.Hostname())
 	client, err := pkgTest.NewSpoofingClient(context.Background(),
 		clients.KubeClient,
 		t.Logf,
-		serviceUrl.Hostname(),
+		serviceURL.Hostname(),
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		t.Fatalf("Failed to create spoofing client: %v", err)
 	}
 
-	request, err := http.NewRequest(http.MethodOptions, serviceUrl.String(), nil)
+	request, err := http.NewRequest(http.MethodOptions, serviceURL.String(), nil)
 	request.Header.Add("Origin", "any-domain.com")
 	request.Header.Add("Access-Control-Request-Method", "GET,OPTIONS")
 	if err != nil {
