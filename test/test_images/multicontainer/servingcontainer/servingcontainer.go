@@ -31,7 +31,7 @@ const (
 	defaultPort = "8080"
 )
 
-func handler(w http.ResponseWriter, r *http.Request) {
+func handler(w http.ResponseWriter, _ *http.Request) {
 	log.Println("serving container received a request.")
 	res, err := http.Get(os.ExpandEnv("http://localhost:$FORWARD_PORT"))
 	if err != nil {

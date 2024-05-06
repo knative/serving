@@ -110,7 +110,7 @@ func execProbeMain() {
 	os.Exit(0)
 }
 
-func handleStartFailing(w http.ResponseWriter, r *http.Request) {
+func handleStartFailing(w http.ResponseWriter, _ *http.Request) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -118,14 +118,14 @@ func handleStartFailing(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "will now fail readiness")
 }
 
-func handleStartFailingSidecar(w http.ResponseWriter, r *http.Request) {
+func handleStartFailingSidecar(_ http.ResponseWriter, _ *http.Request) {
 	_, err := http.Get(os.ExpandEnv("http://localhost:$FORWARD_PORT/start-failing"))
 	if err != nil {
 		log.Fatalf("GET to /start-failing failed: %v", err)
 	}
 }
 
-func handleReadiness(w http.ResponseWriter, r *http.Request) {
+func handleReadiness(w http.ResponseWriter, _ *http.Request) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -136,7 +136,7 @@ func handleReadiness(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, test.HelloWorldText)
 }
 
-func handleLiveness(w http.ResponseWriter, r *http.Request) {
+func handleLiveness(w http.ResponseWriter, _ *http.Request) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -150,7 +150,7 @@ func handleLiveness(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, livenessCounter)
 }
 
-func handleLivenessCounter(w http.ResponseWriter, r *http.Request) {
+func handleLivenessCounter(w http.ResponseWriter, _ *http.Request) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -164,7 +164,7 @@ func handleQuery(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "no query", http.StatusInternalServerError)
 }
 
-func handleMain(w http.ResponseWriter, r *http.Request) {
+func handleMain(w http.ResponseWriter, _ *http.Request) {
 	fmt.Fprint(w, test.HelloWorldText)
 }
 
