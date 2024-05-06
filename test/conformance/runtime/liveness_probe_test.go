@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	pkgtest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
+	"knative.dev/serving/pkg/apis/config"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	v1opts "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -82,7 +83,7 @@ func TestLivenessWithFail(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		url,
-		AtLeastNumLivenessChecks(t, 5),
+		atLeastNumLivenessChecks(t, 5),
 		"livenessIsReady",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
@@ -98,7 +99,7 @@ func TestLivenessWithFail(t *testing.T) {
 	}
 	for i := range podList.Items {
 		pod := &podList.Items[i]
-		if strings.Contains(pod.Name, deploymentName) && UserContainerRestarted(pod) {
+		if strings.Contains(pod.Name, deploymentName) && userContainerRestarted(pod) {
 			t.Fatal("User container unexpectedly restarted")
 		}
 	}
@@ -130,7 +131,7 @@ func TestLivenessWithFail(t *testing.T) {
 		func(p *corev1.PodList) (bool, error) {
 			for i := range p.Items {
 				pod := &p.Items[i]
-				if strings.Contains(pod.Name, deploymentName) && UserContainerRestarted(pod) {
+				if strings.Contains(pod.Name, deploymentName) && userContainerRestarted(pod) {
 					return true, nil
 				}
 			}
@@ -147,7 +148,7 @@ func TestLivenessWithFail(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		url,
-		AtLeastNumLivenessChecks(t, 5),
+		atLeastNumLivenessChecks(t, 5),
 		"livenessIsReady",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
@@ -156,7 +157,7 @@ func TestLivenessWithFail(t *testing.T) {
 	}
 }
 
-func AtLeastNumLivenessChecks(t *testing.T, expectedChecks int) spoof.ResponseChecker {
+func atLeastNumLivenessChecks(t *testing.T, expectedChecks int) spoof.ResponseChecker {
 	return func(resp *spoof.Response) (bool, error) {
 		actualChecks, err := strconv.Atoi(string(resp.Body))
 		// Some errors are temporarily expected after container restart.
@@ -170,9 +171,9 @@ func AtLeastNumLivenessChecks(t *testing.T, expectedChecks int) spoof.ResponseCh
 	}
 }
 
-func UserContainerRestarted(pod *corev1.Pod) bool {
+func userContainerRestarted(pod *corev1.Pod) bool {
 	for _, status := range pod.Status.ContainerStatuses {
-		if status.Name == "user-container" && status.RestartCount > 0 {
+		if status.Name == config.DefaultUserContainerName && status.RestartCount > 0 {
 			return true
 		}
 	}

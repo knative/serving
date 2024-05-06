@@ -46,11 +46,11 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	flag.Parse()
-	log.Printf("serving container started on port %s", getPort())
-	test.ListenAndServeGracefully(":"+getPort(), handler)
+	log.Printf("serving container started on port %s", getServerPort())
+	test.ListenAndServeGracefully(":"+getServerPort(), handler)
 }
 
-func getPort() string {
+func getServerPort() string {
 	if port := os.Getenv("PORT"); port != "" {
 		return port
 	}

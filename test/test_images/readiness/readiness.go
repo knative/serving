@@ -96,11 +96,11 @@ func main() {
 
 	mainServer.HandleFunc("/query", handleQuery)
 
-	http.ListenAndServe(":"+getPort(), mainServer)
+	http.ListenAndServe(":"+getServerPort(), mainServer)
 }
 
 func execProbeMain() {
-	resp, err := http.Get(fmt.Sprintf("http://localhost:%s/healthz/readiness", getPort()))
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%s/healthz/readiness", getServerPort()))
 	if err != nil {
 		log.Fatal("Failed to probe: ", err)
 	}
@@ -168,7 +168,7 @@ func handleMain(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, test.HelloWorldText)
 }
 
-func getPort() string {
+func getServerPort() string {
 	if port := os.Getenv("PORT"); port != "" {
 		return port
 	}
