@@ -115,6 +115,13 @@ immediate_gc
 go_test_e2e -timeout=2m ./test/e2e/gc ${E2E_TEST_FLAGS} || failed=1
 kubectl replace cm "config-gc" -n ${SYSTEM_NAMESPACE} -f "${TMP_DIR}"/config-gc.yaml
 
+# Run tests with CORS policy enabled for Contour
+if [[ "${INGRESS_CLASS}" == *"contour"* ]]; then
+  toggle_feature cors-policy "allowOrigin:\n - '*'\nallowMethods:\n - GET\n - OPTIONS\n" config-contour || fail_test
+  go_test_e2e -timeout=2m ./test/e2e/corspolicy ${E2E_TEST_FLAGS} || failed=1
+  toggle_feature cors-policy "" config-contour || fail_test
+fi
+
 # Run scale tests.
 # Note that we use a very high -parallel because each ksvc is run as its own
 # sub-test. If this is not larger than the maximum scale tested then the test
