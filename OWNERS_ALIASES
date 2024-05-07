@@ -52,17 +52,12 @@ aliases:
   - lkingland
   - salaboy
   knative-admin:
-  - Cali0707
-  - Leo6Leo
-  - ReToCode
   - aliok
   - cardil
-  - creydr
   - davidhadas
   - dprotaso
   - dsimansk
   - evankanderson
-  - izabelacg
   - knative-automation
   - knative-prow-releaser-robot
   - knative-prow-robot
@@ -70,20 +65,10 @@ aliases:
   - knative-test-reporter-robot
   - krsna-m
   - nainaz
-  - pierDipi
   - psschwei
   - salaboy
-  - skonto
   - upodroid
-  knative-release-leads:
-  - Cali0707
-  - Leo6Leo
-  - ReToCode
-  - creydr
-  - dsimansk
-  - izabelacg
-  - pierDipi
-  - skonto
+  knative-release-leads: []
   knative-robots:
   - knative-automation
   - knative-prow-releaser-robot
