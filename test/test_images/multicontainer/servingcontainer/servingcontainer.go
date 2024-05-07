@@ -22,13 +22,18 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 
 	"knative.dev/serving/test"
 )
 
-func handler(w http.ResponseWriter, r *http.Request) {
+const (
+	defaultPort = "8080"
+)
+
+func handler(w http.ResponseWriter, _ *http.Request) {
 	log.Println("serving container received a request.")
-	res, err := http.Get("http://127.0.0.1:8882")
+	res, err := http.Get(os.ExpandEnv("http://localhost:$FORWARD_PORT"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -41,6 +46,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	flag.Parse()
-	log.Print("serving container started")
-	test.ListenAndServeGracefully(":8881", handler)
+	log.Printf("serving container started on port %s", getServerPort())
+	test.ListenAndServeGracefully(":"+getServerPort(), handler)
+}
+
+func getServerPort() string {
+	if port := os.Getenv("PORT"); port != "" {
+		return port
+	}
+	return defaultPort
 }

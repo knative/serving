@@ -441,10 +441,7 @@ func validateContainers(ctx context.Context, containers []corev1.Container, volu
 		} else {
 			allNames.Insert(containers[i].Name)
 		}
-		// Probes are not allowed on other than serving container,
-		// ref: http://bit.ly/probes-condition
 		if len(containers[i].Ports) == 0 {
-			// Note, if we allow readiness/liveness checks on sidecars, we should pass in an *empty* port here, not the main container's port.
 			errs = errs.Also(validateSidecarContainer(WithinSidecarContainer(ctx), containers[i], volumes).ViaFieldIndex("containers", i))
 		} else {
 			errs = errs.Also(ValidateUserContainer(WithinUserContainer(ctx), containers[i], volumes, port).ViaFieldIndex("containers", i))
