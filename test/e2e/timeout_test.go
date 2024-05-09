@@ -124,11 +124,11 @@ func TestRevisionTimeout(t *testing.T) {
 		initialSleep:       20 * time.Second,
 	}, {
 		name:               "exceeds idle timeout - new",
-		timeoutSeconds:     15,
-		idleTimeoutSeconds: 7,
+		timeoutSeconds:     20,
+		idleTimeoutSeconds: 5,
 		expectedStatus:     http.StatusGatewayTimeout,
 		initialSleep:       3 * time.Second,
-		sleep:              5 * time.Second,
+		sleep:              7 * time.Second,
 	}, {
 		// FIXME icg
 		// copied from ./test/conformance/api/v1/revision_timeout_test.go but with updated status code
