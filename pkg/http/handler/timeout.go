@@ -126,8 +126,9 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		case <-timeout.C():
-			timeoutDrained = true
-			if tw.tryTimeoutAndWriteError(h.body) {
+			timedOut := tw.tryTimeoutAndWriteError(h.body)
+			if timedOut {
+				timeoutDrained = true
 				return
 			}
 		case now := <-idleTimeoutCh:
@@ -224,12 +225,8 @@ func (tw *timeoutWriter) tryTimeoutAndWriteError(msg string) bool {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
 
-	if tw.lastWriteTime.IsZero() {
-		tw.timeoutAndWriteError(msg)
-		return true
-	}
-
-	return false
+	tw.timeoutAndWriteError(msg)
+	return true
 }
 
 // tryResponseStartTimeoutAndWriteError writes an error to the responsewriter if
