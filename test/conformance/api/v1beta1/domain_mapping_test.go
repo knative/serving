@@ -36,10 +36,6 @@ import (
 )
 
 func TestDomainMapping(t *testing.T) {
-	if !test.ServingFlags.EnableBetaFeatures {
-		t.Skip("Beta features not enabled")
-	}
-
 	t.Parallel()
 	ctx, clients := context.Background(), test.Setup(t)
 
