@@ -17,6 +17,7 @@ limitations under the License.
 package test
 
 import (
+	"bufio"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -26,6 +27,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/kmeta"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/signals"
@@ -104,5 +106,31 @@ func PemDataFromSecret(ctx context.Context, logf logging.FormatLogger, clients *
 func AddTestAnnotation(t testing.TB, m metav1.ObjectMeta) {
 	kmeta.UnionMaps(m.Annotations, map[string]string{
 		testAnnotation: t.Name(),
+	})
+}
+
+// WaitForLog waits for the given condition applied to log lines.
+func WaitForLog(t *testing.T, clients *Clients, ns, podName, container string, condition func(log string) bool) error {
+	return wait.PollUntilContextTimeout(context.Background(), time.Second, 120*time.Second, true, func(context.Context) (bool, error) {
+		req := clients.KubeClient.CoreV1().Pods(ns).GetLogs(podName, &corev1.PodLogOptions{
+			Container: container,
+		})
+		podLogs, err := req.Stream(context.Background())
+		if err != nil {
+			return false, err
+		}
+		defer podLogs.Close()
+
+		scanner := bufio.NewScanner(podLogs)
+		for scanner.Scan() {
+			t.Logf("%s/%s log: %s", podName, container, scanner.Text())
+			if len(scanner.Bytes()) == 0 {
+				continue
+			}
+			if condition(scanner.Text()) {
+				return true, nil
+			}
+		}
+		return false, scanner.Err()
 	})
 }
