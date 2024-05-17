@@ -12,3 +12,6 @@ jobs:
         with:
           api-key: ${{secrets.FOSSA_TOKEN}}
           run-tests: true
+      - name: Setup tmate session
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
