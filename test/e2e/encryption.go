@@ -49,7 +49,8 @@ func GetCASecret(clients *test.Clients) (*corev1.Secret, error) {
 	}
 
 	// CA is only needed when encryption on the cluster is enabled
-	if !strings.EqualFold(cm.Data[netcfg.ClusterLocalDomainTLSKey], string(netcfg.EncryptionEnabled)) {
+	if !strings.EqualFold(cm.Data[netcfg.ClusterLocalDomainTLSKey], string(netcfg.EncryptionEnabled)) &&
+		!strings.EqualFold(cm.Data[netcfg.SystemInternalTLSKey], string(netcfg.EncryptionEnabled)) {
 		return nil, nil
 	}
 
