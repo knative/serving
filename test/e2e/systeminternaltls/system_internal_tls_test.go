@@ -36,8 +36,10 @@ import (
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	pkgNetworking "knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue/certificate"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
@@ -87,7 +89,8 @@ func TestSystemInternalTLS(t *testing.T) {
 	}
 	activatorPod := pods.Items[0]
 
-	if err := e2e.WaitForLog(t, clients, activatorPod.Namespace, activatorPod.Name, "activator", matchTLSLog); err != nil {
+	const numMatches = 1
+	if err := e2e.WaitForLog(t, clients, activatorPod.Namespace, activatorPod.Name, "activator", matchTLSLog, numMatches); err != nil {
 		t.Fatal("TLS not used on requests to activator:", err)
 	}
 
@@ -103,7 +106,7 @@ func TestSystemInternalTLS(t *testing.T) {
 	}
 	helloWorldPod := pods.Items[0]
 
-	if err := e2e.WaitForLog(t, clients, helloWorldPod.Namespace, helloWorldPod.Name, "queue-proxy", matchTLSLog); err != nil {
+	if err := e2e.WaitForLog(t, clients, helloWorldPod.Namespace, helloWorldPod.Name, "queue-proxy", matchTLSLog, numMatches); err != nil {
 		t.Fatal("TLS not used on requests to queue-proxy:", err)
 	}
 }
@@ -129,7 +132,11 @@ func TestTLSCertificateRotation(t *testing.T) {
 	}
 
 	t.Log("Creating Service:", names.Service)
-	resources1, err := v1test.CreateServiceReady(t, clients, &names)
+	resources1, err := v1test.CreateServiceReady(t, clients, &names,
+		rtesting.WithConfigAnnotations(map[string]string{
+			// Make sure we don't scale to zero during the as we're waiting for logs.
+			autoscaling.MinScaleAnnotationKey: "1",
+		}))
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v: %v", names.Service, err)
 	}
@@ -203,8 +210,10 @@ func TestTLSCertificateRotation(t *testing.T) {
 	if len(pods.Items) == 0 {
 		t.Fatal("No pods detected for test app:", err)
 	}
+	// The Certs are loaded during startup and then after re-creating the secret.
+	const numMatches = 2
 	helloWorldPod := pods.Items[0]
-	if err := e2e.WaitForLog(t, clients, helloWorldPod.Namespace, helloWorldPod.Name, "queue-proxy", matchCertReloadLog); err != nil {
+	if err := e2e.WaitForLog(t, clients, helloWorldPod.Namespace, helloWorldPod.Name, "queue-proxy", matchCertReloadLog, numMatches); err != nil {
 		t.Fatal("Certificate not reloaded in time by queue-proxy:", err)
 	}
 

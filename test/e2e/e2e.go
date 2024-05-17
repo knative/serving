@@ -230,8 +230,8 @@ func PrivateServiceName(t *testing.T, clients *test.Clients, revision string) st
 	return privateServiceName
 }
 
-// WaitForLog waits for the given condition applied to log lines.
-func WaitForLog(t *testing.T, clients *test.Clients, ns, podName, container string, condition func(log string) bool) error {
+// WaitForLog waits for the given matcher to match at least given number of lines.
+func WaitForLog(t *testing.T, clients *test.Clients, ns, podName, container string, matcher func(log string) bool, numMatches int) error {
 	return wait.PollUntilContextTimeout(context.Background(), test.PollInterval, test.PollTimeout, true, func(context.Context) (bool, error) {
 		req := clients.KubeClient.CoreV1().Pods(ns).GetLogs(podName, &corev1.PodLogOptions{
 			Container: container,
@@ -242,16 +242,17 @@ func WaitForLog(t *testing.T, clients *test.Clients, ns, podName, container stri
 		}
 		defer podLogs.Close()
 
+		count := 0
 		scanner := bufio.NewScanner(podLogs)
 		for scanner.Scan() {
 			t.Logf("%s/%s log: %s", podName, container, scanner.Text())
 			if len(scanner.Bytes()) == 0 {
 				continue
 			}
-			if condition(scanner.Text()) {
-				return true, nil
+			if matcher(scanner.Text()) {
+				count++
 			}
 		}
-		return false, scanner.Err()
+		return count >= numMatches, scanner.Err()
 	})
 }
