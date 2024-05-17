@@ -28,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/networking/test"
 	"knative.dev/pkg/kmeta"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/signals"
@@ -111,7 +112,7 @@ func AddTestAnnotation(t testing.TB, m metav1.ObjectMeta) {
 
 // WaitForLog waits for the given condition applied to log lines.
 func WaitForLog(t *testing.T, clients *Clients, ns, podName, container string, condition func(log string) bool) error {
-	return wait.PollUntilContextTimeout(context.Background(), time.Second, 120*time.Second, true, func(context.Context) (bool, error) {
+	return wait.PollUntilContextTimeout(context.Background(), test.PollInterval, test.PollTimeout, true, func(context.Context) (bool, error) {
 		req := clients.KubeClient.CoreV1().Pods(ns).GetLogs(podName, &corev1.PodLogOptions{
 			Container: container,
 		})
