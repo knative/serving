@@ -87,7 +87,7 @@ func TestSystemInternalTLS(t *testing.T) {
 	}
 	activatorPod := pods.Items[0]
 
-	if err := test.WaitForLog(t, clients, activatorPod.Namespace, activatorPod.Name, "activator", matchTLSLog); err != nil {
+	if err := e2e.WaitForLog(t, clients, activatorPod.Namespace, activatorPod.Name, "activator", matchTLSLog); err != nil {
 		t.Fatal("TLS not used on requests to activator:", err)
 	}
 
@@ -103,7 +103,7 @@ func TestSystemInternalTLS(t *testing.T) {
 	}
 	helloWorldPod := pods.Items[0]
 
-	if err := test.WaitForLog(t, clients, helloWorldPod.Namespace, helloWorldPod.Name, "queue-proxy", matchTLSLog); err != nil {
+	if err := e2e.WaitForLog(t, clients, helloWorldPod.Namespace, helloWorldPod.Name, "queue-proxy", matchTLSLog); err != nil {
 		t.Fatal("TLS not used on requests to queue-proxy:", err)
 	}
 }
@@ -204,7 +204,7 @@ func TestTLSCertificateRotation(t *testing.T) {
 		t.Fatal("No pods detected for test app:", err)
 	}
 	helloWorldPod := pods.Items[0]
-	if err := test.WaitForLog(t, clients, helloWorldPod.Namespace, helloWorldPod.Name, "queue-proxy", matchCertReloadLog); err != nil {
+	if err := e2e.WaitForLog(t, clients, helloWorldPod.Namespace, helloWorldPod.Name, "queue-proxy", matchCertReloadLog); err != nil {
 		t.Fatal("Certificate not reloaded in time by queue-proxy:", err)
 	}
 
