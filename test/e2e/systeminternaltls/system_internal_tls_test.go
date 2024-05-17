@@ -258,8 +258,5 @@ func matchTLSLog(line string) bool {
 }
 
 func matchCertReloadLog(line string) bool {
-	if strings.Contains(line, certificate.CertReloadMessage) {
-		return true
-	}
-	return false
+	return strings.Contains(line, certificate.CertReloadMessage)
 }
