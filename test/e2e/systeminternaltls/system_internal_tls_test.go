@@ -29,7 +29,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/networking/pkg/apis/networking"
@@ -285,7 +284,7 @@ func waitForCACertSecret(clients *test.Clients, namespace, name string) (*corev1
 	err := wait.PollUntilContextTimeout(context.Background(), test.PollInterval, test.PollTimeout, true, func(context.Context) (bool, error) {
 		caSecret, err := clients.KubeClient.CoreV1().Secrets(namespace).Get(context.Background(), name, v1.GetOptions{})
 		if err != nil {
-			if apierrs.IsNotFound(err) {
+			if errors.IsNotFound(err) {
 				return false, nil
 			}
 			return false, err
