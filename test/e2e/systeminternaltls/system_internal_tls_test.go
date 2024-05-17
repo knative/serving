@@ -29,7 +29,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/certificates"
 	"knative.dev/networking/pkg/config"
@@ -223,11 +225,19 @@ func TestTLSCertificateRotation(t *testing.T) {
 	if err := clients.KubeClient.CoreV1().Secrets(systemNS).Delete(context.Background(), config.ServingRoutingCertName, v1.DeleteOptions{}); err != nil {
 		t.Error(err)
 	}
+	_, err = waitForCaCert(clients, systemNS, config.ServingRoutingCertName)
+	if err != nil {
+		t.Fatal(err)
+	}
 	checkEndpointState(t, clients, url)
 
 	t.Log("Deleting secret in ingress namespace")
 	if err := clients.KubeClient.CoreV1().Secrets(ingressNS).Delete(context.Background(), config.ServingRoutingCertName, v1.DeleteOptions{}); err != nil {
 		t.Error(err)
+	}
+	_, err = waitForCaCert(clients, ingressNS, config.ServingRoutingCertName)
+	if err != nil {
+		t.Fatal(err)
 	}
 	checkEndpointState(t, clients, url)
 
@@ -268,4 +278,28 @@ func matchTLSLog(line string) bool {
 
 func matchCertReloadLog(line string) bool {
 	return strings.Contains(line, certificate.CertReloadMessage)
+}
+
+func waitForCaCert(clients *test.Clients, namespace, name string) (*corev1.Secret, error) {
+	var secret *corev1.Secret
+	err := wait.PollUntilContextTimeout(context.Background(), test.PollInterval, test.PollTimeout, true, func(context.Context) (bool, error) {
+		caSecret, err := clients.KubeClient.CoreV1().Secrets(namespace).Get(context.Background(), name, v1.GetOptions{})
+		if err != nil {
+			if apierrs.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		// CA not yet populated
+		if len(caSecret.Data[certificates.CaCertName]) == 0 {
+			return false, nil
+		}
+		secret = caSecret
+		return true, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error while waiting for CA cert to be populated: %w", err)
+	}
+
+	return secret, nil
 }
