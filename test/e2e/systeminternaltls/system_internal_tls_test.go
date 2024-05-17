@@ -225,7 +225,7 @@ func TestTLSCertificateRotation(t *testing.T) {
 	if err := clients.KubeClient.CoreV1().Secrets(systemNS).Delete(context.Background(), config.ServingRoutingCertName, v1.DeleteOptions{}); err != nil {
 		t.Error(err)
 	}
-	_, err = waitForCaCert(clients, systemNS, config.ServingRoutingCertName)
+	_, err = waitForCACertSecret(clients, systemNS, config.ServingRoutingCertName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -235,7 +235,7 @@ func TestTLSCertificateRotation(t *testing.T) {
 	if err := clients.KubeClient.CoreV1().Secrets(ingressNS).Delete(context.Background(), config.ServingRoutingCertName, v1.DeleteOptions{}); err != nil {
 		t.Error(err)
 	}
-	_, err = waitForCaCert(clients, ingressNS, config.ServingRoutingCertName)
+	_, err = waitForCACertSecret(clients, ingressNS, config.ServingRoutingCertName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -280,7 +280,7 @@ func matchCertReloadLog(line string) bool {
 	return strings.Contains(line, certificate.CertReloadMessage)
 }
 
-func waitForCaCert(clients *test.Clients, namespace, name string) (*corev1.Secret, error) {
+func waitForCACertSecret(clients *test.Clients, namespace, name string) (*corev1.Secret, error) {
 	var secret *corev1.Secret
 	err := wait.PollUntilContextTimeout(context.Background(), test.PollInterval, test.PollTimeout, true, func(context.Context) (bool, error) {
 		caSecret, err := clients.KubeClient.CoreV1().Secrets(namespace).Get(context.Background(), name, v1.GetOptions{})
