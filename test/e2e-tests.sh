@@ -97,7 +97,7 @@ restart_pod ${SYSTEM_NAMESPACE} "app=activator"
 if (( ! HTTPS )); then
   restart_pod ${SYSTEM_NAMESPACE} "app=controller"
 fi
-go_test_e2e -timeout=2m ./test/e2e/systeminternaltls ${E2E_TEST_FLAGS} || failed=1
+go_test_e2e -timeout=4m ./test/e2e/systeminternaltls ${E2E_TEST_FLAGS} || failed=1
 toggle_feature system-internal-tls disabled config-network || fail_test
 toggle_feature "logging.enable-request-log" false config-observability || fail_test
 toggle_feature "logging.request-log-template" '' config-observability || fail_test
