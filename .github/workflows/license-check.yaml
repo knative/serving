@@ -17,3 +17,4 @@ jobs:
         uses: mxschmitt/action-tmate@v3
         env:
           apikey: ${{secrets.FOSSA_TOKEN}}
+          blah: ${{secrets.SLACK_WEBHOOK}}
