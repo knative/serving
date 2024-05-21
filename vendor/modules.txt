@@ -676,8 +676,8 @@ golang.org/x/tools/internal/versions
 # gomodules.xyz/jsonpatch/v2 v2.4.0
 ## explicit; go 1.20
 gomodules.xyz/jsonpatch/v2
-# google.golang.org/api v0.180.0
-## explicit; go 1.19
+# google.golang.org/api v0.181.0
+## explicit; go 1.20
 google.golang.org/api/dns/v1
 google.golang.org/api/googleapi
 google.golang.org/api/googleapi/transport
@@ -691,15 +691,15 @@ google.golang.org/api/option/internaloption
 google.golang.org/api/support/bundler
 google.golang.org/api/transport/http
 google.golang.org/api/transport/http/internal/propagation
-# google.golang.org/genproto/googleapis/api v0.0.0-20240415180920-8c6c420018be
+# google.golang.org/genproto/googleapis/api v0.0.0-20240506185236-b8a5c65736ae
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/api/httpbody
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20240429193739-8cf5692501f6
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20240513163218-0867130af1f8
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/rpc/code
 google.golang.org/genproto/googleapis/rpc/errdetails
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.63.2
+# google.golang.org/grpc v1.64.0
 ## explicit; go 1.19
 google.golang.org/grpc
 google.golang.org/grpc/attributes
@@ -1325,7 +1325,7 @@ k8s.io/utils/pointer
 k8s.io/utils/ptr
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20240513135106-1a6c1c714c18
+# knative.dev/caching v0.0.0-20240516131342-69083faf77fc
 ## explicit; go 1.21
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -1349,7 +1349,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 # knative.dev/hack v0.0.0-20240507013718-68e3bfb39d11
 ## explicit; go 1.18
 knative.dev/hack
-# knative.dev/networking v0.0.0-20240513222801-b31855c61440
+# knative.dev/networking v0.0.0-20240516132600-507209b2bf6f
 ## explicit; go 1.21
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1393,7 +1393,7 @@ knative.dev/networking/test/conformance/certificate
 knative.dev/networking/test/conformance/certificate/http01
 knative.dev/networking/test/conformance/certificate/nonhttp01
 knative.dev/networking/test/defaultsystem
-# knative.dev/pkg v0.0.0-20240515073057-11a3d46fe4d6
+# knative.dev/pkg v0.0.0-20240521083825-99e1685a7997
 ## explicit; go 1.21
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
