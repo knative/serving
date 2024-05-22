@@ -142,7 +142,7 @@ func TestTLSCertificateRotation(t *testing.T) {
 	t.Log("Creating Service:", names.Service)
 	resources1, err := v1test.CreateServiceReady(t, clients, &names,
 		rtesting.WithConfigAnnotations(map[string]string{
-			// Make sure we don't scale to zero during the as we're waiting for logs.
+			// Make sure we don't scale to zero during the test as we're waiting for logs.
 			autoscaling.MinScaleAnnotationKey: "1",
 		}))
 	if err != nil {
@@ -157,10 +157,6 @@ func TestTLSCertificateRotation(t *testing.T) {
 	secret, err := e2e.GetCASecret(clients)
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	if err := updateInternalIssuer(clients, issuerRenewed); err != nil {
-		t.Fatal("Failed to update internal issuer:", err)
 	}
 
 	// Read the new secret.
@@ -193,6 +189,10 @@ func TestTLSCertificateRotation(t *testing.T) {
 		if err != nil {
 			t.Fatal("Failed to create configmap:", err)
 		}
+	}
+
+	if err := updateInternalIssuer(clients, issuerRenewed); err != nil {
+		t.Fatal("Failed to update internal issuer:", err)
 	}
 
 	// Clean up on test failure or interrupt
@@ -231,13 +231,13 @@ func TestTLSCertificateRotation(t *testing.T) {
 
 	t.Log("Deleting secret in system namespace")
 	if err := clients.KubeClient.CoreV1().Secrets(systemNS).Delete(context.Background(), config.ServingRoutingCertName, v1.DeleteOptions{}); err != nil {
-		t.Error(err)
+		t.Fatalf("Failed to delete secret %s in system namespacee", config.ServingRoutingCertName)
 	}
 	checkEndpointState(t, clients, url)
 
 	t.Log("Deleting secret in ingress namespace")
 	if err := clients.KubeClient.CoreV1().Secrets(ingressNS).Delete(context.Background(), config.ServingRoutingCertName, v1.DeleteOptions{}); err != nil {
-		t.Error(err)
+		t.Fatalf("Failed to delete secret %s in ingress namespacee", config.ServingRoutingCertName)
 	}
 	checkEndpointState(t, clients, url)
 
@@ -246,14 +246,14 @@ func TestTLSCertificateRotation(t *testing.T) {
 		cmUpdate, err := clients.KubeClient.CoreV1().ConfigMaps(ns).
 			Get(context.Background(), cm.Name, v1.GetOptions{})
 		if err != nil {
-			t.Fatal(err)
+			t.Fatal("Failed to get trust-bundle configmap:", err)
 		}
 
 		delete(cmUpdate.Data, "cert.pem")
 
-		if _, err = clients.KubeClient.CoreV1().ConfigMaps(system.Namespace()).
+		if _, err = clients.KubeClient.CoreV1().ConfigMaps(ns).
 			Update(context.Background(), cmUpdate, v1.UpdateOptions{}); err != nil {
-			t.Fatal(err)
+			t.Fatal("Failed to update trust-bundle configmap:", err)
 		}
 	}
 	checkEndpointState(t, clients, url)
