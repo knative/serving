@@ -27,10 +27,11 @@ import (
 	"strings"
 	"testing"
 
+	cmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
+	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/certificates"
 	"knative.dev/networking/pkg/config"
@@ -40,10 +41,15 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	pkgNetworking "knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue/certificate"
+	certCfg "knative.dev/serving/pkg/reconciler/certificate/config"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
+)
+
+const (
+	caSecretRenewed = "knative-selfsigned-ca-renewed"
 )
 
 // TestSystemInternalTLS tests the TLS connections between system components.
@@ -146,15 +152,18 @@ func TestTLSCertificateRotation(t *testing.T) {
 	url := resources1.Route.Status.URL.URL()
 	checkEndpointState(t, clients, url)
 
+	// Read the old (default) secret.
 	secret, err := e2e.GetCASecret(clients)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := clients.KubeClient.CoreV1().Secrets(secret.Namespace).Delete(context.Background(), secret.Name, v1.DeleteOptions{}); err != nil {
-		t.Fatalf("Failed to delete Secret %s: %v", secret.Name, err)
+
+	if err := updateInternalIssuer(clients, "knative-selfsigned-issuer-renewed"); err != nil {
+		t.Fatal("Failed to update internal issuer:", err)
 	}
-	// Wait for the secret to be reloaded.
-	secretReloaded, err := e2e.GetCASecret(clients)
+
+	// Read the new secret.
+	secretRenewed, err := e2e.GetCASecretByName(clients, caSecretRenewed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,8 +182,8 @@ func TestTLSCertificateRotation(t *testing.T) {
 			},
 		},
 		Data: map[string]string{
-			"cert.pem":          string(secret.Data[certificates.CertName]),
-			"cert_reloaded.pem": string(secretReloaded.Data[certificates.CertName]),
+			"cert.pem":         string(secret.Data[certificates.CertName]),
+			"cert_renewed.pem": string(secretRenewed.Data[certificates.CertName]),
 		},
 	}
 	for _, ns := range bundleNamespaces {
@@ -217,16 +226,11 @@ func TestTLSCertificateRotation(t *testing.T) {
 	if err := e2e.WaitForLog(t, clients, helloWorldPod.Namespace, helloWorldPod.Name, "queue-proxy", matchCertReloadLog, numMatches); err != nil {
 		t.Fatal("Certificate not reloaded in time by queue-proxy:", err)
 	}
-
 	checkEndpointState(t, clients, url)
 
 	t.Log("Deleting secret in system namespace")
 	if err := clients.KubeClient.CoreV1().Secrets(systemNS).Delete(context.Background(), config.ServingRoutingCertName, v1.DeleteOptions{}); err != nil {
 		t.Error(err)
-	}
-	_, err = waitForCACertSecret(clients, systemNS, config.ServingRoutingCertName)
-	if err != nil {
-		t.Fatal(err)
 	}
 	checkEndpointState(t, clients, url)
 
@@ -234,19 +238,48 @@ func TestTLSCertificateRotation(t *testing.T) {
 	if err := clients.KubeClient.CoreV1().Secrets(ingressNS).Delete(context.Background(), config.ServingRoutingCertName, v1.DeleteOptions{}); err != nil {
 		t.Error(err)
 	}
-	_, err = waitForCACertSecret(clients, ingressNS, config.ServingRoutingCertName)
-	if err != nil {
-		t.Fatal(err)
-	}
 	checkEndpointState(t, clients, url)
 
-	t.Log("Deleting trust-bundle ConfigMap")
+	t.Log("Deleting old certificate from trust-bundle ConfigMap")
 	for _, ns := range bundleNamespaces {
-		if err := clients.KubeClient.CoreV1().ConfigMaps(ns).Delete(context.Background(), cm.Name, v1.DeleteOptions{}); err != nil {
-			t.Error(err)
+		cmUpdate, err := clients.KubeClient.CoreV1().ConfigMaps(ns).
+			Get(context.Background(), cm.Name, v1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		delete(cmUpdate.Data, "cert.pem")
+
+		if _, err = clients.KubeClient.CoreV1().ConfigMaps(system.Namespace()).
+			Update(context.Background(), cmUpdate, v1.UpdateOptions{}); err != nil {
+			t.Fatal(err)
 		}
 	}
 	checkEndpointState(t, clients, url)
+}
+
+func updateInternalIssuer(clients *test.Clients, issuerName string) error {
+	cm, err := clients.KubeClient.CoreV1().ConfigMaps(system.Namespace()).
+		Get(context.Background(), certCfg.CertManagerConfigName, v1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	newClusterIssuer := &cmeta.ObjectReference{
+		Kind: "ClusterIssuer",
+		Name: issuerName,
+	}
+	issuerBytes, err := yaml.Marshal(newClusterIssuer)
+	if err != nil {
+		return fmt.Errorf("failed to marshall ClusterIssuer: %w", err)
+	}
+	cm.Data["systemInternalIssuerRef"] = string(issuerBytes)
+
+	_, err = clients.KubeClient.CoreV1().ConfigMaps(system.Namespace()).
+		Update(context.Background(), cm, v1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func checkEndpointState(t *testing.T, clients *test.Clients, url *url.URL) {
@@ -277,28 +310,4 @@ func matchTLSLog(line string) bool {
 
 func matchCertReloadLog(line string) bool {
 	return strings.Contains(line, certificate.CertReloadMessage)
-}
-
-func waitForCACertSecret(clients *test.Clients, namespace, name string) (*corev1.Secret, error) {
-	var secret *corev1.Secret
-	err := wait.PollUntilContextTimeout(context.Background(), test.PollInterval, test.PollTimeout, true, func(context.Context) (bool, error) {
-		caSecret, err := clients.KubeClient.CoreV1().Secrets(namespace).Get(context.Background(), name, v1.GetOptions{})
-		if err != nil {
-			if errors.IsNotFound(err) {
-				return false, nil
-			}
-			return false, err
-		}
-		// CA not yet populated
-		if len(caSecret.Data[certificates.CaCertName]) == 0 {
-			return false, nil
-		}
-		secret = caSecret
-		return true, nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("error while waiting for CA cert to be populated: %w", err)
-	}
-
-	return secret, nil
 }

@@ -40,6 +40,19 @@ spec:
     secretName: knative-selfsigned-ca
 ---
 apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: knative-selfsigned-issuer
+  labels:
+    app.kubernetes.io/component: net-certmanager
+    app.kubernetes.io/name: knative-serving
+    networking.knative.dev/certificate-provider: cert-manager
+    knative.dev/issuer-install: "true"
+spec:
+  ca:
+    secretName: knative-selfsigned-ca-renewed
+---
+apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: knative-selfsigned-ca
@@ -59,4 +72,23 @@ spec:
   issuerRef:
     kind: ClusterIssuer
     name: selfsigned-cluster-issuer
-
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: knative-selfsigned-ca-renewed
+  namespace: cert-manager
+  labels:
+    app.kubernetes.io/component: net-certmanager
+    app.kubernetes.io/name: knative-serving
+    networking.knative.dev/certificate-provider: cert-manager
+    knative.dev/issuer-install: "true"
+spec:
+  secretName: knative-selfsigned-ca-renewed
+  commonName: knative.dev
+  usages:
+    - server auth
+  isCA: true
+  issuerRef:
+    kind: ClusterIssuer
+    name: selfsigned-cluster-issuer

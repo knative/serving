@@ -40,8 +40,13 @@ const (
 	certManagerNamespace = "cert-manager"
 )
 
-// GetCASecret returns the Secret that is used by the CA to issue KnativeCertificates.
+// GetCASecret returns the default Secret that is used by the CA to issue KnativeCertificates.
 func GetCASecret(clients *test.Clients) (*corev1.Secret, error) {
+	return GetCASecretByName(clients, certManagerCASecret)
+}
+
+// GetCASecretByName returns the named Secret that is used by the CA to issue KnativeCertificates.
+func GetCASecretByName(clients *test.Clients, name string) (*corev1.Secret, error) {
 	cm, err := clients.KubeClient.CoreV1().ConfigMaps(system.Namespace()).
 		Get(context.Background(), netcfg.ConfigMapName, metav1.GetOptions{})
 	if err != nil {
@@ -57,7 +62,7 @@ func GetCASecret(clients *test.Clients) (*corev1.Secret, error) {
 	class := getCertificateClass(cm)
 	switch class {
 	case netcfg.CertManagerCertificateClassName:
-		return getCertManagerCA(clients)
+		return getCertManagerCA(clients, name)
 	default:
 		return nil, fmt.Errorf("invalid %s: %s", netcfg.DefaultCertificateClassKey, class)
 	}
@@ -73,10 +78,10 @@ func getCertificateClass(cm *corev1.ConfigMap) string {
 	return netcfg.CertManagerCertificateClassName
 }
 
-func getCertManagerCA(clients *test.Clients) (*corev1.Secret, error) {
+func getCertManagerCA(clients *test.Clients, secretName string) (*corev1.Secret, error) {
 	var secret *corev1.Secret
 	err := wait.PollUntilContextTimeout(context.Background(), test.PollInterval, test.PollTimeout, true, func(context.Context) (bool, error) {
-		caSecret, err := clients.KubeClient.CoreV1().Secrets(certManagerNamespace).Get(context.Background(), certManagerCASecret, metav1.GetOptions{})
+		caSecret, err := clients.KubeClient.CoreV1().Secrets(certManagerNamespace).Get(context.Background(), secretName, metav1.GetOptions{})
 		if err != nil {
 			if apierrs.IsNotFound(err) {
 				return false, nil
