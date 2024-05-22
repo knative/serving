@@ -65,13 +65,22 @@ if (( SHORT )); then
   GO_TEST_FLAGS+=" -short"
 fi
 
-
 go_test_e2e -timeout=30m \
   ${GO_TEST_FLAGS} \
   ./test/conformance/api/... \
   ./test/conformance/runtime/... \
   ./test/e2e \
   ${E2E_TEST_FLAGS} || failed=1
+
+# Run tests with CORS policy enabled for Contour
+if [[ "${INGRESS_CLASS}" == *"contour"* ]]; then
+  header "Enabling CORS feature for Contour"
+  toggle_feature cors-policy "allowOrigin:\n - '*'\nallowMethods:\n - GET\n - OPTIONS\n" config-contour || fail_test
+  header "Running corspolicy tests"
+  go_test_e2e -timeout=2m ./test/e2e/corspolicy ${E2E_TEST_FLAGS} || failed=1
+  header "Disabling CORS feature for Contour"
+  toggle_feature cors-policy "" config-contour || fail_test
+fi
 
 toggle_feature tag-header-based-routing Enabled
 go_test_e2e -timeout=2m ./test/e2e/tagheader ${E2E_TEST_FLAGS} || failed=1
