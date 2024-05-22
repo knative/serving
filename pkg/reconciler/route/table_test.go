@@ -75,6 +75,7 @@ const (
 	rolloutDurationKey key = iota
 	externalSchemeKey
 	enableExternalDomainTLSKey
+	domainConfigKey
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -3276,6 +3277,7 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 				WithRouteUID("65-23"),
 				WithRouteGeneration(1), WithRouteObservedGeneration,
 				MarkTrafficAssigned, MarkIngressNotConfigured,
+				WithRouteConditionsTLSNotEnabledForClusterLocalMessage,
 				WithLocalDomain, WithAddress, WithInitRouteConditions,
 				WithRouteLabel(map[string]string{netapi.VisibilityLabelKey: serving.VisibilityClusterLocal}),
 				WithStatusTraffic(
@@ -3286,6 +3288,66 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 					})),
 		}},
 		Key: "default/becomes-local",
+	}, {
+		Name: "local domain route should mark certificate provisioned TLS disabled",
+		Key:  "default/local-domain",
+		Ctx: context.WithValue(context.Background(), domainConfigKey, &config.Domain{
+			Domains: map[string]config.DomainConfig{
+				"svc.cluster.local": {},
+			},
+		}),
+		Objects: []runtime.Object{
+			Route("default", "local-domain", WithConfigTarget("config"), WithRouteGeneration(1),
+				WithRouteObservedGeneration,
+				WithRouteUID("65-23")),
+			cfg("default", "config",
+				WithConfigGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
+			simpleIngress(
+				Route("default", "local-domain", WithConfigTarget("config"), WithRouteUID("65-23")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								ConfigurationName: "config",
+								LatestRevision:    ptr.Bool(true),
+								RevisionName:      "config-00001",
+								Percent:           ptr.Int64(100),
+							},
+						}},
+					},
+				},
+				withReadyIngress,
+				// simpleIngress and the test use different 'configs' (limit of reading config from the context)
+				// so we need to delete the external visible host rules
+				func(i *netv1alpha1.Ingress) {
+					localRules := i.Spec.Rules[:0]
+					for _, rule := range i.Spec.Rules {
+						if rule.Visibility == netv1alpha1.IngressVisibilityClusterLocal {
+							localRules = append(localRules, rule)
+						}
+					}
+					i.Spec.Rules = localRules
+				},
+			),
+			simpleK8sService(Route("default", "local-domain", WithConfigTarget("config"),
+				WithRouteUID("65-23"))),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Route("default", "local-domain", WithConfigTarget("config"),
+				WithRouteUID("65-23"),
+				WithRouteGeneration(1), WithRouteObservedGeneration,
+				MarkTrafficAssigned,
+				MarkIngressReady,
+				WithRouteConditionsTLSNotEnabledForClusterLocalMessage,
+				WithLocalDomain, WithAddress, WithInitRouteConditions,
+				WithStatusTraffic(
+					v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					})),
+		}},
 	}}
 
 	for i, row := range table {
@@ -3322,6 +3384,9 @@ func NewTestReconciler(ctx context.Context, listers *Listers, cmw configmap.Watc
 	}
 	if v := ctx.Value(externalSchemeKey); v != nil {
 		cfg.Network.DefaultExternalScheme = v.(string)
+	}
+	if v := ctx.Value(domainConfigKey); v != nil {
+		cfg.Domain = v.(*config.Domain)
 	}
 
 	return routereconciler.NewReconciler(ctx,
