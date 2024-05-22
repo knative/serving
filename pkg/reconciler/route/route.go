@@ -143,7 +143,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 		return err
 	}
 
-	tls, acmeChallenges, err := c.externalDomainTLS(ctx, r.Status.URL.Host, r, traffic)
+	tls, acmeChallenges, desiredCerts, err := c.externalDomainTLS(ctx, r.Status.URL.Host, r, traffic)
 	if err != nil {
 		return err
 	}
@@ -154,6 +154,10 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 			return err
 		}
 		tls = append(tls, internalTLS...)
+	} else if externalDomainTLSEnabled(ctx, r) && len(desiredCerts) == 0 {
+		// If external TLS is enabled but we have no desired certs then the route
+		// must have only cluster local hosts
+		r.Status.MarkTLSNotEnabled(v1.TLSNotEnabledForClusterLocalMessage)
 	}
 
 	// Reconcile ingress and its children resources.
@@ -195,18 +199,24 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	return nil
 }
 
-func (c *Reconciler) externalDomainTLS(ctx context.Context, host string, r *v1.Route, traffic *traffic.Config) ([]netv1alpha1.IngressTLS, []netv1alpha1.HTTP01Challenge, error) {
+func (c *Reconciler) externalDomainTLS(ctx context.Context, host string, r *v1.Route, traffic *traffic.Config) (
+	[]netv1alpha1.IngressTLS,
+	[]netv1alpha1.HTTP01Challenge,
+	[]*netv1alpha1.Certificate,
+	error,
+) {
+	var desiredCerts []*netv1alpha1.Certificate
 	logger := logging.FromContext(ctx)
 
 	tls := []netv1alpha1.IngressTLS{}
 	if !externalDomainTLSEnabled(ctx, r) {
 		r.Status.MarkTLSNotEnabled(v1.ExternalDomainTLSNotEnabledMessage)
-		return tls, nil, nil
+		return tls, nil, desiredCerts, nil
 	}
 
 	domainToTagMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets), traffic.Visibility)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, desiredCerts, err
 	}
 
 	for domain := range domainToTagMap {
@@ -223,7 +233,7 @@ func (c *Reconciler) externalDomainTLS(ctx context.Context, host string, r *v1.R
 
 	allWildcardCerts, err := c.certificateLister.Certificates(r.Namespace).List(labelSelector)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, desiredCerts, err
 	}
 
 	domainConfig := config.FromContext(ctx).Domain
@@ -231,7 +241,7 @@ func (c *Reconciler) externalDomainTLS(ctx context.Context, host string, r *v1.R
 	domain := domainConfig.LookupDomainForLabels(rLabels)
 
 	acmeChallenges := []netv1alpha1.HTTP01Challenge{}
-	desiredCerts := resources.MakeCertificates(r, domainToTagMap, certClass(ctx, r), domain)
+	desiredCerts = resources.MakeCertificates(r, domainToTagMap, certClass(ctx, r), domain)
 	for _, desiredCert := range desiredCerts {
 		dnsNames := sets.New(desiredCert.Spec.DNSNames...)
 		// Look for a matching wildcard cert before provisioning a new one. This saves the
@@ -247,7 +257,7 @@ func (c *Reconciler) externalDomainTLS(ctx context.Context, host string, r *v1.R
 				} else {
 					r.Status.MarkCertificateProvisionFailed(desiredCert)
 				}
-				return nil, nil, err
+				return nil, nil, desiredCerts, err
 			}
 			dnsNames = sets.New(cert.Spec.DNSNames...)
 		}
@@ -306,12 +316,12 @@ func (c *Reconciler) externalDomainTLS(ctx context.Context, host string, r *v1.R
 
 	orphanCerts, err := c.getOrphanRouteCerts(r, domainToTagMap, netcfg.CertificateExternalDomain)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, desiredCerts, err
 	}
 
 	c.deleteOrphanedCerts(ctx, orphanCerts)
 
-	return tls, acmeChallenges, nil
+	return tls, acmeChallenges, desiredCerts, nil
 }
 
 func (c *Reconciler) clusterLocalDomainTLS(ctx context.Context, r *v1.Route, tc *traffic.Config) ([]netv1alpha1.IngressTLS, error) {
