@@ -27,8 +27,6 @@ import (
 	"strings"
 	"testing"
 
-	cmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
-	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,16 +39,10 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	pkgNetworking "knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue/certificate"
-	certCfg "knative.dev/serving/pkg/reconciler/certificate/config"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
-)
-
-const (
-	issuerRenewed   = "knative-selfsigned-issuer-renewed"
-	caSecretRenewed = "knative-selfsigned-ca-renewed"
 )
 
 // TestSystemInternalTLS tests the TLS connections between system components.
@@ -159,11 +151,13 @@ func TestTLSCertificateRotation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Read the new secret.
-	secretRenewed, err := e2e.GetCASecretByName(clients, caSecretRenewed)
-	if err != nil {
-		t.Fatal(err)
+	if err := clients.KubeClient.CoreV1().Secrets(secret.Namespace).
+		Delete(context.Background(), secret.Name, v1.DeleteOptions{}); err != nil {
+		t.Fatalf("Failed to delete Secret %s: %v", secret.Name, err)
 	}
+
+	// Wait for the secret to be reloaded.
+	secretRenewed, err := e2e.GetCASecret(clients)
 
 	t.Log("Creating ConfigMap with old and new CA certs")
 	systemNS := os.Getenv(system.NamespaceEnvKey)
@@ -191,17 +185,13 @@ func TestTLSCertificateRotation(t *testing.T) {
 		}
 	}
 
-	if err := updateInternalIssuer(clients, issuerRenewed); err != nil {
-		t.Fatal("Failed to update internal issuer:", err)
-	}
-
 	// Clean up on test failure or interrupt
 	test.EnsureCleanup(t, func() {
 		test.TearDown(clients, &names)
 		for _, ns := range bundleNamespaces {
 			if err := clients.KubeClient.CoreV1().ConfigMaps(ns).
 				Delete(context.Background(), cm.Name, v1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
-				t.Error("Failed to delete configmap:", err)
+				t.Fatal("Failed to delete configmap:", err)
 			}
 		}
 	})
@@ -257,30 +247,6 @@ func TestTLSCertificateRotation(t *testing.T) {
 		}
 	}
 	checkEndpointState(t, clients, url)
-}
-
-func updateInternalIssuer(clients *test.Clients, issuerName string) error {
-	cm, err := clients.KubeClient.CoreV1().ConfigMaps(system.Namespace()).
-		Get(context.Background(), certCfg.CertManagerConfigName, v1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	newClusterIssuer := &cmeta.ObjectReference{
-		Kind: "ClusterIssuer",
-		Name: issuerName,
-	}
-	issuerBytes, err := yaml.Marshal(newClusterIssuer)
-	if err != nil {
-		return fmt.Errorf("failed to marshall ClusterIssuer: %w", err)
-	}
-	cm.Data["systemInternalIssuerRef"] = string(issuerBytes)
-
-	_, err = clients.KubeClient.CoreV1().ConfigMaps(system.Namespace()).
-		Update(context.Background(), cm, v1.UpdateOptions{})
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func checkEndpointState(t *testing.T, clients *test.Clients, url *url.URL) {
