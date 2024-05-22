@@ -72,16 +72,6 @@ go_test_e2e -timeout=30m \
   ./test/e2e \
   ${E2E_TEST_FLAGS} || failed=1
 
-# Run tests with CORS policy enabled for Contour
-if [[ "${INGRESS_CLASS}" == *"contour"* ]]; then
-  header "Enabling CORS feature for Contour"
-  toggle_feature cors-policy "allowOrigin:\n - '*'\nallowMethods:\n - GET\n - OPTIONS\n" config-contour || fail_test
-  header "Running corspolicy tests"
-  go_test_e2e -timeout=2m ./test/e2e/corspolicy ${E2E_TEST_FLAGS} || failed=1
-  header "Disabling CORS feature for Contour"
-  toggle_feature cors-policy "" config-contour || fail_test
-fi
-
 toggle_feature tag-header-based-routing Enabled
 go_test_e2e -timeout=2m ./test/e2e/tagheader ${E2E_TEST_FLAGS} || failed=1
 toggle_feature tag-header-based-routing Disabled
@@ -123,6 +113,13 @@ add_trap "kubectl replace cm 'config-gc' -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/co
 immediate_gc
 go_test_e2e -timeout=2m ./test/e2e/gc ${E2E_TEST_FLAGS} || failed=1
 kubectl replace cm "config-gc" -n ${SYSTEM_NAMESPACE} -f "${TMP_DIR}"/config-gc.yaml
+
+# Run tests with CORS policy enabled for Contour
+if [[ "${INGRESS_CLASS}" == *"contour"* ]]; then
+  toggle_feature cors-policy "allowOrigin:\n - '*'\nallowMethods:\n - GET\n - OPTIONS\n" config-contour || fail_test
+  go_test_e2e -timeout=2m ./test/e2e/corspolicy ${E2E_TEST_FLAGS} || failed=1
+  kubectl patch cm config-contour -n "${SYSTEM_NAMESPACE}" -p '[{"op": "remove", "path": "/data/cors-policy"}]'
+fi
 
 # Run scale tests.
 # Note that we use a very high -parallel because each ksvc is run as its own
