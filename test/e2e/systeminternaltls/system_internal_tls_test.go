@@ -49,6 +49,7 @@ import (
 )
 
 const (
+	issuerRenewed   = "knative-selfsigned-issuer-renewed"
 	caSecretRenewed = "knative-selfsigned-ca-renewed"
 )
 
@@ -158,7 +159,7 @@ func TestTLSCertificateRotation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := updateInternalIssuer(clients, "knative-selfsigned-issuer-renewed"); err != nil {
+	if err := updateInternalIssuer(clients, issuerRenewed); err != nil {
 		t.Fatal("Failed to update internal issuer:", err)
 	}
 
