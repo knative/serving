@@ -42,7 +42,7 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
-  name: knative-selfsigned-issuer
+  name: knative-selfsigned-issuer-renewed
   labels:
     app.kubernetes.io/component: net-certmanager
     app.kubernetes.io/name: knative-serving
