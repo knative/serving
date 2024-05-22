@@ -31,6 +31,10 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
+const (
+	webhookName = "broken-webhook"
+)
+
 func DeploymentFailurePostUpgrade() pkgupgrade.Operation {
 	return pkgupgrade.NewOperation("DeploymentFailurePostUpgrade", func(c pkgupgrade.Context) {
 		clients := e2e.Setup(c.T)
@@ -39,6 +43,13 @@ func DeploymentFailurePostUpgrade() pkgupgrade.Operation {
 			Service: "deployment-upgrade-failure",
 			Image:   test.HelloWorld,
 		}
+		test.EnsureCleanup(c.T, func() {
+			if err := clients.KubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(
+				context.Background(), webhookName, metav1.DeleteOptions{}); err != nil {
+				c.T.Fatal("Failed to delete webhook:", err)
+			}
+			test.TearDown(clients, &names)
+		})
 
 		service, err := clients.ServingClient.Services.Get(context.Background(), names.Service, metav1.GetOptions{})
 		if err != nil {
@@ -100,7 +111,7 @@ func DeploymentFailurePreUpgrade() pkgupgrade.Operation {
 			ctx,
 			&admissionv1.MutatingWebhookConfiguration{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "broken-webhook",
+					Name: webhookName,
 				},
 				Webhooks: []admissionv1.MutatingWebhook{{
 					AdmissionReviewVersions: []string{"v1"},
