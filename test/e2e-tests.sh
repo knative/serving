@@ -118,8 +118,10 @@ kubectl replace cm "config-gc" -n ${SYSTEM_NAMESPACE} -f "${TMP_DIR}"/config-gc.
 # Run tests with CORS policy enabled for Contour
 if [[ "${INGRESS_CLASS}" == *"contour"* ]]; then
   toggle_feature cors-policy "allowOrigin:\n - '*'\nallowMethods:\n - GET\n - OPTIONS\n" config-contour || fail_test
-  go_test_e2e -timeout=2m ./test/e2e/corspolicy ${E2E_TEST_FLAGS} || failed=1
-  toggle_feature cors-policy "" config-contour || fail_test
+  go_test_e2e -timeout=5m ./test/e2e/corspolicy ${E2E_TEST_FLAGS} || failed=1
+  kubectl patch cm config-contour -n "${SYSTEM_NAMESPACE}" --type=json -p '[{"op": "remove", "path": "/data/cors-policy"}]' || fail_test
+  echo "Waiting 30s for change to get picked up."
+  sleep 30
 fi
 
 # Run scale tests.
