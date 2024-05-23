@@ -180,6 +180,14 @@ func WithRouteConditionsExternalDomainTLSDisabled(rt *v1.Route) {
 	rt.Status.MarkTLSNotEnabled(v1.ExternalDomainTLSNotEnabledMessage)
 }
 
+// WithRouteConditionsTLSNotEnabledForClusterLocalMessage calls
+// MarkTLSNotEnabled with TLSNotEnabledForClusterLocalMessage after initialized
+// the Service's conditions.
+func WithRouteConditionsTLSNotEnabledForClusterLocalMessage(rt *v1.Route) {
+	rt.Status.InitializeConditions()
+	rt.Status.MarkTLSNotEnabled(v1.TLSNotEnabledForClusterLocalMessage)
+}
+
 // WithRouteConditionsHTTPDowngrade calls MarkHTTPDowngrade after initialized the Service's conditions.
 func WithRouteConditionsHTTPDowngrade(rt *v1.Route) {
 	rt.Status.InitializeConditions()
