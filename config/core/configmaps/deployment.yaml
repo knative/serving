@@ -91,3 +91,16 @@ data:
     # Sets rootCA for the queue proxy - used by QPOptions
     # If omitted, or empty, no rootCA is added to the golang rootCAs
     queue-sidecar-rootca: ""
+    
+    # If specified, sets the pod's scheduling constraints
+    # Affinity is a group of affinity scheduling rules.
+    #
+    # affinity-rules: |
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: workload
+                operator: In
+                values:
+                - staging

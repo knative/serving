@@ -24,8 +24,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/sets"
-
 	cm "knative.dev/pkg/configmap"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -68,6 +68,8 @@ const (
 	// qpoptions
 	queueSidecarTokenAudiencesKey = "queue-sidecar-token-audiences"
 	queueSidecarRooCAKey          = "queue-sidecar-rootca"
+
+	affinityRules = "affinity-rules"
 )
 
 var (
@@ -164,6 +166,14 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 		return nil, fmt.Errorf("digest-resolution-timeout cannot be a non-positive duration, was %v", nc.DigestResolutionTimeout)
 	}
 
+	var affinity corev1.Affinity
+	if value, ok := configMap[affinityRules]; ok && value != "" {
+		if err := yaml.Unmarshal([]byte(value), &affinity); err != nil {
+			return nil, err
+		}
+		nc.AffinityRules = &affinity
+	}
+
 	return nc, nil
 }
 
@@ -214,4 +224,7 @@ type Config struct {
 
 	// QueueSidecarRootCA is a root certificate to be trusted by the queue proxy sidecar  qpoptions.
 	QueueSidecarRootCA string
+
+	// AffinityRules is a group of affinity scheduling rules.
+	AffinityRules *corev1.Affinity
 }

@@ -17,10 +17,9 @@ limitations under the License.
 package deployment
 
 import (
+	"github.com/google/go-cmp/cmp"
 	"testing"
 	"time"
-
-	"github.com/google/go-cmp/cmp"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -81,6 +80,85 @@ func TestControllerConfiguration(t *testing.T) {
 		wantConfig *Config
 		data       map[string]string
 	}{{
+		name: "controller configuration with no affinity rules",
+		wantConfig: &Config{
+			RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
+			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
+			QueueSidecarImage:              defaultSidecarImage,
+			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			QueueSidecarTokenAudiences:     sets.New(""),
+			ProgressDeadline:               ProgressDeadlineDefault,
+			AffinityRules:                  nil,
+		},
+		data: map[string]string{
+			QueueSidecarImageKey: defaultSidecarImage,
+		},
+	}, {
+		name: "controller configuration with empty affinity rules",
+		wantConfig: &Config{
+			RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
+			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
+			QueueSidecarImage:              defaultSidecarImage,
+			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			QueueSidecarTokenAudiences:     sets.New(""),
+			ProgressDeadline:               ProgressDeadlineDefault,
+			AffinityRules:                  nil,
+		},
+		data: map[string]string{
+			QueueSidecarImageKey: defaultSidecarImage,
+			affinityRules:        "",
+		},
+	}, {
+		name:    "controller configuration with bad affinity rules",
+		wantErr: true,
+		data: map[string]string{
+			QueueSidecarImageKey: defaultSidecarImage,
+			affinityRules:        "coconut",
+		},
+	}, {
+		name:    "controller configuration with bad pod anti affinity rules",
+		wantErr: true,
+		data: map[string]string{
+			QueueSidecarImageKey: defaultSidecarImage,
+			affinityRules: `
+podAntiAffinity:
+  requiredDuringSchedulingIgnoredDuringExecution: true
+`,
+		},
+	}, {
+		name: "controller configuration with good affinity rules",
+		wantConfig: &Config{
+			RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
+			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
+			QueueSidecarImage:              defaultSidecarImage,
+			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			QueueSidecarTokenAudiences:     sets.New(""),
+			ProgressDeadline:               ProgressDeadlineDefault,
+			AffinityRules: &corev1.Affinity{
+				PodAntiAffinity: &corev1.PodAntiAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
+						TopologyKey: "kubernetes.io/hostname",
+						LabelSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"app": "duck",
+							},
+						},
+					}},
+				},
+			},
+		},
+		data: map[string]string{
+			QueueSidecarImageKey: defaultSidecarImage,
+			affinityRules: `
+podAntiAffinity:
+  requiredDuringSchedulingIgnoredDuringExecution:
+  - topologyKey: kubernetes.io/hostname
+    labelSelector:
+      matchLabels:
+        app: duck
+`,
+		},
+	}, {
 		name: "controller configuration with bad registries",
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.New("ko.local", ""),
