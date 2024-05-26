@@ -19,6 +19,7 @@ package serverlessservice
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/davecgh/go-spew/spew"
@@ -194,7 +195,12 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 		srcEps                *corev1.Endpoints
 		foundServingEndpoints bool
 	)
-	activatorEps, err := r.endpointsLister.Endpoints(system.Namespace()).Get(networking.ActivatorServiceName)
+
+	namespace, ok := os.LookupEnv("NAMESPACE_TO_HANDLE")
+	if !ok {
+		namespace = system.Namespace()
+	}
+	activatorEps, err := r.endpointsLister.Endpoints(namespace).Get(networking.ActivatorServiceName)
 	if err != nil {
 		return fmt.Errorf("failed to get activator service endpoints: %w", err)
 	}

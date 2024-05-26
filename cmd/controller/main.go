@@ -19,10 +19,12 @@ package main
 import (
 	// The set of controllers this controller process runs.
 	"flag"
+	"os"
 
 	certificate "knative.dev/control-protocol/pkg/certificates/reconciler"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/signals"
+
 	"knative.dev/serving/pkg/reconciler/configuration"
 	"knative.dev/serving/pkg/reconciler/gc"
 	"knative.dev/serving/pkg/reconciler/labeler"
@@ -51,7 +53,6 @@ var ctors = []injection.ControllerConstructor{
 	serverlessservice.NewController,
 	service.NewController,
 	gc.NewController,
-	nscert.NewController,
 	certificate.NewControllerFactory(networking.ServingCertName),
 }
 
@@ -59,6 +60,11 @@ func main() {
 	flag.DurationVar(&reconciler.DefaultTimeout,
 		"reconciliation-timeout", reconciler.DefaultTimeout,
 		"The amount of time to give each reconciliation of a resource to complete before its context is canceled.")
+
+	namespace, ok := os.LookupEnv("NAMESPACE_TO_HANDLE")
+	if !ok || namespace == "" {
+		ctors = append(ctors, nscert.NewController)
+	}
 
 	labelName := networking.ServingCertName + secretLabelNamePostfix
 	ctx := filteredFactory.WithSelectors(signals.NewContext(), labelName)

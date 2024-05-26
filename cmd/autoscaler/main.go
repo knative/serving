@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"go.uber.org/zap"
@@ -86,6 +87,10 @@ func main() {
 	// Adjust our client's rate limits based on the number of controller's we are running.
 	cfg.QPS = controllerNum * rest.DefaultQPS
 	cfg.Burst = controllerNum * rest.DefaultBurst
+	namespace, ok := os.LookupEnv("NAMESPACE_TO_HANDLE")
+	if ok {
+		ctx = injection.WithNamespaceScope(ctx, namespace)
+	}
 	ctx = filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
 

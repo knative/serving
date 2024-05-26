@@ -18,6 +18,7 @@ package serverlessservice
 
 import (
 	"context"
+	"os"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
@@ -69,13 +70,18 @@ func NewController(
 	// Watch all the SKS objects.
 	sksInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
+	namespace, ok := os.LookupEnv("NAMESPACE_TO_HANDLE")
+	if !ok {
+		namespace = ""
+	}
+
 	// Watch all the endpoints that we have attached our label to.
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: pkgreconciler.ChainFilterFuncs(
 			pkgreconciler.LabelExistsFilterFunc(networking.SKSLabelKey),
 			pkgreconciler.LabelFilterFunc(networking.ServiceTypeKey, string(networking.ServiceTypePrivate), false),
 		),
-		Handler: controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("" /*any namespace*/, networking.SKSLabelKey)),
+		Handler: controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource(namespace, networking.SKSLabelKey)),
 	})
 
 	// Watch all the services that we have created.

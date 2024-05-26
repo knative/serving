@@ -100,6 +100,11 @@ func main() {
 	log.Printf("Registering %d informer factories", len(injection.Default.GetInformerFactories()))
 	log.Printf("Registering %d informers", len(injection.Default.GetInformers()))
 
+	namespace, ok := os.LookupEnv("NAMESPACE_TO_HANDLE")
+	if ok {
+		log.Printf("Restricting to namespace %v", namespace)
+		ctx = injection.WithNamespaceScope(ctx, namespace)
+	}
 	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
 
 	var env config

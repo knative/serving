@@ -18,6 +18,7 @@ package kpa
 
 import (
 	"context"
+	"os"
 
 	"k8s.io/client-go/tools/cache"
 
@@ -101,10 +102,15 @@ func NewController(
 	sksInformer.Informer().AddEventHandler(handleMatchingControllers)
 	metricInformer.Informer().AddEventHandler(handleMatchingControllers)
 
+	namespace, ok := os.LookupEnv("NAMESPACE_TO_HANDLE")
+	if !ok {
+		namespace = ""
+	}
+
 	// Watch the knative pods.
 	podsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: pkgreconciler.LabelExistsFilterFunc(serving.RevisionLabelKey),
-		Handler:    controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)),
+		Handler:    controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource(namespace, serving.RevisionLabelKey)),
 	})
 
 	// Have the Deciders enqueue the PAs whose decisions have changed.

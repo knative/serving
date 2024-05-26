@@ -19,6 +19,7 @@ limitations under the License.
 package externalversions
 
 import (
+	"os"
 	reflect "reflect"
 	sync "sync"
 	time "time"
@@ -78,6 +79,10 @@ func WithNamespace(namespace string) SharedInformerOption {
 
 // NewSharedInformerFactory constructs a new instance of sharedInformerFactory for all namespaces.
 func NewSharedInformerFactory(client versioned.Interface, defaultResync time.Duration) SharedInformerFactory {
+	namespace, ok := os.LookupEnv("NAMESPACE_TO_HANDLE")
+	if ok {
+		return NewSharedInformerFactoryWithOptions(client, defaultResync, WithNamespace(namespace))
+	}
 	return NewSharedInformerFactoryWithOptions(client, defaultResync)
 }
 
