@@ -1393,13 +1393,6 @@ knative.dev/networking/test/conformance/certificate
 knative.dev/networking/test/conformance/certificate/http01
 knative.dev/networking/test/conformance/certificate/nonhttp01
 knative.dev/networking/test/defaultsystem
-knative.dev/networking/test/test_images/grpc-ping
-knative.dev/networking/test/test_images/grpc-ping/proto
-knative.dev/networking/test/test_images/httpproxy
-knative.dev/networking/test/test_images/runtime
-knative.dev/networking/test/test_images/runtime/handlers
-knative.dev/networking/test/test_images/timeout
-knative.dev/networking/test/types
 # knative.dev/pkg v0.0.0-20240521083825-99e1685a7997
 ## explicit; go 1.21
 knative.dev/pkg/apiextensions/storageversion

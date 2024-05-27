@@ -53,11 +53,4 @@ import (
 
 	// For load testing
 	_ "github.com/tsenart/vegeta/v12"
-
-	// certmanager tests
-	// TODO: move to the Serving ones
-	_ "knative.dev/networking/test/test_images/grpc-ping"
-	_ "knative.dev/networking/test/test_images/httpproxy"
-	_ "knative.dev/networking/test/test_images/runtime"
-	_ "knative.dev/networking/test/test_images/timeout"
 )
