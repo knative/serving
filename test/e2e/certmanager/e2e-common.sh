@@ -36,6 +36,7 @@ function test_setup() {
   $(dirname $0)/upload-test-images.sh || fail_test "Error uploading test images"
   echo ">> Creating test resources (test/e2e/certmanager/config)"
   ko apply ${KO_FLAGS} -f test/e2e/certmanager/config || return 1
+  kubectl apply -f $(dirname $0)/../../../vendor/knative.dev/networking/config/certificate.yaml
 
   # Bringing up controllers.
   echo ">> Bringing up Cert-Manager"
