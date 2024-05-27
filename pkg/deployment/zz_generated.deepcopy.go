@@ -22,7 +22,6 @@ limitations under the License.
 package deployment
 
 import (
-	v1 "k8s.io/api/core/v1"
 	sets "k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -72,11 +71,6 @@ func (in *Config) DeepCopyInto(out *Config) {
 		for key, val := range *in {
 			(*out)[key] = val
 		}
-	}
-	if in.AffinityRules != nil {
-		in, out := &in.AffinityRules, &out.AffinityRules
-		*out = new(v1.Affinity)
-		(*in).DeepCopyInto(*out)
 	}
 	return
 }
