@@ -98,7 +98,7 @@ var (
 	QueueSidecarEphemeralStorageLimitDefault = resource.MustParse("1024Mi")
 
 	// EnablePodAntiAffinityRuleDefault is the default value for the EnablePodAntiAffinityRule flag.
-	EnablePodAntiAffinityRuleDefault = false
+	EnablePodAntiAffinityRuleDefault = true
 )
 
 func defaultConfig() *Config {

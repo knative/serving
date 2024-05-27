@@ -92,7 +92,8 @@ func TestControllerConfiguration(t *testing.T) {
 			EnablePodAntiAffinityRule:      EnablePodAntiAffinityRuleDefault,
 		},
 		data: map[string]string{
-			QueueSidecarImageKey: defaultSidecarImage,
+			QueueSidecarImageKey:      defaultSidecarImage,
+			enablePodAntiAffinityRule: "true",
 		},
 	}, {
 		name:    "controller configuration with empty string for the pod anti-affinity toggle",
