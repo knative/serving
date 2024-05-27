@@ -107,7 +107,7 @@ spec:
             scheme: HTTPS
             port: 8443
         livenessProbe:
-          periodSeconds: 1
+          periodSeconds: 10
           httpGet:
             scheme: HTTPS
             port: 8443
