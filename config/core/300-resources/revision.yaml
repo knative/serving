@@ -45,9 +45,6 @@ spec:
         - name: Config Name
           type: string
           jsonPath: ".metadata.labels['serving\\.knative\\.dev/configuration']"
-        - name: K8s Service Name
-          type: string
-          jsonPath: ".status.serviceName"
         - name: Generation
           type: string # int in string form :(
           jsonPath: ".metadata.labels['serving\\.knative\\.dev/configurationGeneration']"
