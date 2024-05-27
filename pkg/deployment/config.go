@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/sets"
 	cm "knative.dev/pkg/configmap"
-	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -69,7 +68,7 @@ const (
 	queueSidecarTokenAudiencesKey = "queue-sidecar-token-audiences"
 	queueSidecarRooCAKey          = "queue-sidecar-rootca"
 
-	affinityRules = "affinity-rules"
+	enablePodAntiAffinityRule = "enable-pod-anti-affinity-rule"
 )
 
 var (
@@ -97,6 +96,9 @@ var (
 	// QueueSidecarEphemeralStorageLimitDefault is the default limit.ephemeral-storage to set for the
 	// queue sidecar.
 	QueueSidecarEphemeralStorageLimitDefault = resource.MustParse("1024Mi")
+
+	// EnablePodAntiAffinityRuleDefault is the default value for the EnablePodAntiAffinityRule flag.
+	EnablePodAntiAffinityRuleDefault = false
 )
 
 func defaultConfig() *Config {
@@ -105,6 +107,7 @@ func defaultConfig() *Config {
 		DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 		RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
 		QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+		EnablePodAntiAffinityRule:      false,
 	}
 	// The following code is needed for ConfigMap testing.
 	// defaultConfig must match the example in deployment.yaml which includes: `queue-sidecar-token-audiences: ""`
@@ -146,6 +149,8 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 
 		cm.AsStringSet(queueSidecarTokenAudiencesKey, &nc.QueueSidecarTokenAudiences),
 		cm.AsString(queueSidecarRooCAKey, &nc.QueueSidecarRootCA),
+
+		cm.AsBool(enablePodAntiAffinityRule, &nc.EnablePodAntiAffinityRule),
 	); err != nil {
 		return nil, err
 	}
@@ -164,14 +169,6 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 
 	if nc.DigestResolutionTimeout <= 0 {
 		return nil, fmt.Errorf("digest-resolution-timeout cannot be a non-positive duration, was %v", nc.DigestResolutionTimeout)
-	}
-
-	var affinity corev1.Affinity
-	if value, ok := configMap[affinityRules]; ok && value != "" {
-		if err := yaml.Unmarshal([]byte(value), &affinity); err != nil {
-			return nil, err
-		}
-		nc.AffinityRules = &affinity
 	}
 
 	return nc, nil
@@ -225,6 +222,7 @@ type Config struct {
 	// QueueSidecarRootCA is a root certificate to be trusted by the queue proxy sidecar  qpoptions.
 	QueueSidecarRootCA string
 
-	// AffinityRules is a group of affinity scheduling rules.
-	AffinityRules *corev1.Affinity
+	// EnablePodAntiAffinityRule is a flag that controls if pod anti-affinity rules will be automatically
+	// applied to the PodSpec of all Knative services.
+	EnablePodAntiAffinityRule bool
 }

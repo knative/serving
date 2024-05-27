@@ -80,7 +80,7 @@ func TestControllerConfiguration(t *testing.T) {
 		wantConfig *Config
 		data       map[string]string
 	}{{
-		name: "controller configuration with no affinity rules",
+		name: "controller configuration with no pod anti-affinity toggle specified",
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
 			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
@@ -88,45 +88,27 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			QueueSidecarTokenAudiences:     sets.New(""),
 			ProgressDeadline:               ProgressDeadlineDefault,
-			AffinityRules:                  nil,
+			EnablePodAntiAffinityRule:      EnablePodAntiAffinityRuleDefault,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey: defaultSidecarImage,
 		},
 	}, {
-		name: "controller configuration with empty affinity rules",
-		wantConfig: &Config{
-			RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
-			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
-			QueueSidecarImage:              defaultSidecarImage,
-			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
-			QueueSidecarTokenAudiences:     sets.New(""),
-			ProgressDeadline:               ProgressDeadlineDefault,
-			AffinityRules:                  nil,
-		},
-		data: map[string]string{
-			QueueSidecarImageKey: defaultSidecarImage,
-			affinityRules:        "",
-		},
-	}, {
-		name:    "controller configuration with bad affinity rules",
+		name:    "controller configuration with empty string for the pod anti-affinity toggle",
 		wantErr: true,
 		data: map[string]string{
-			QueueSidecarImageKey: defaultSidecarImage,
-			affinityRules:        "coconut",
+			QueueSidecarImageKey:      defaultSidecarImage,
+			enablePodAntiAffinityRule: "",
 		},
 	}, {
-		name:    "controller configuration with bad pod anti affinity rules",
+		name:    "controller configuration with wrong type for the pod anti-affinity toggle",
 		wantErr: true,
 		data: map[string]string{
-			QueueSidecarImageKey: defaultSidecarImage,
-			affinityRules: `
-podAntiAffinity:
-  requiredDuringSchedulingIgnoredDuringExecution: true
-`,
+			QueueSidecarImageKey:      defaultSidecarImage,
+			enablePodAntiAffinityRule: "coconut",
 		},
 	}, {
-		name: "controller configuration with good affinity rules",
+		name: "controller configuration with the pod anti-affinity toggle on",
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
 			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
@@ -134,29 +116,11 @@ podAntiAffinity:
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			QueueSidecarTokenAudiences:     sets.New(""),
 			ProgressDeadline:               ProgressDeadlineDefault,
-			AffinityRules: &corev1.Affinity{
-				PodAntiAffinity: &corev1.PodAntiAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
-						TopologyKey: "kubernetes.io/hostname",
-						LabelSelector: &metav1.LabelSelector{
-							MatchLabels: map[string]string{
-								"app": "duck",
-							},
-						},
-					}},
-				},
-			},
+			EnablePodAntiAffinityRule:      true,
 		},
 		data: map[string]string{
-			QueueSidecarImageKey: defaultSidecarImage,
-			affinityRules: `
-podAntiAffinity:
-  requiredDuringSchedulingIgnoredDuringExecution:
-  - topologyKey: kubernetes.io/hostname
-    labelSelector:
-      matchLabels:
-        app: duck
-`,
+			QueueSidecarImageKey:      defaultSidecarImage,
+			enablePodAntiAffinityRule: "true",
 		},
 	}, {
 		name: "controller configuration with bad registries",
