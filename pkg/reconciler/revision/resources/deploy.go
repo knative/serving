@@ -150,6 +150,22 @@ func rewriteUserLivenessProbe(p *corev1.Probe, userPort int) {
 	}
 }
 
+func makeDefaultPodAntiAffinity(revisionLabelValue string) *corev1.PodAntiAffinity {
+	return &corev1.PodAntiAffinity{
+		PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
+			Weight: 100,
+			PodAffinityTerm: corev1.PodAffinityTerm{
+				TopologyKey: corev1.LabelHostname,
+				LabelSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						serving.RevisionLabelKey: revisionLabelValue,
+					},
+				},
+			},
+		}},
+	}
+}
+
 func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) {
 	queueContainer, err := makeQueueContainer(rev, cfg)
 	tokenVolume := varTokenVolume.DeepCopy()
@@ -207,6 +223,13 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 			container.Env = append(container.Env, buildVarLogSubpathEnvs()...)
 
 			podSpec.Containers[i] = container
+		}
+	}
+
+	if cfg.Deployment.EnablePodAntiAffinityRule && cfg.Features.PodSpecAffinity == apiconfig.Disabled {
+		revisionLabelValue := rev.Labels[serving.RevisionLabelKey]
+		if revisionLabelValue != "" {
+			podSpec.Affinity = &corev1.Affinity{PodAntiAffinity: makeDefaultPodAntiAffinity(revisionLabelValue)}
 		}
 	}
 
