@@ -1,0 +1,10 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: retry-test-image
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+      - image: ko://knative.dev/networking/test/test_images/timeout
