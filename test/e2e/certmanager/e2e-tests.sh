@@ -18,9 +18,11 @@ source $(dirname $0)/e2e-common.sh
 
 
 # Script entry point.
-initialize "$@" --cluster-version=1.28
+initialize --num-nodes=4 --cluster-version=1.28 "$@"
 
 CERTIFICATE_CLASS="cert-manager.certificate.networking.knative.dev"
+toggle_feature external-domain-tls Enabled config-network
+restart_pod ${SYSTEM_NAMESPACE} "app=controller"
 
 # Certificate conformance tests must be run separately
 # because they need cert-manager specific configurations.
@@ -38,4 +40,6 @@ go_test_e2e -timeout=10m ./test/e2e/certmanager/conformance \
   "--certificateClass=${CERTIFICATE_CLASS}" || fail_test
 kubectl delete -f ./test/e2e/certmanager/config/autotls/certmanager/http01/
 
+toggle_feature external-domain-tls Disabled config-network
+restart_pod ${SYSTEM_NAMESPACE} "app=controller"
 success

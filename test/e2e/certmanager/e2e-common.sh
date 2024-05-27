@@ -42,11 +42,6 @@ function test_setup() {
   echo ">> Bringing up Cert-Manager"
   kubectl apply -f third_party/cert-manager-latest/cert-manager.yaml || return 1
   wait_until_pods_running cert-manager || return 1
-
-  echo ">> Bringing up serving controller with net-certmanager enabled"
-  ko apply -f config || return 1
-  echo ">> Waiting for Serving components to be running..."
-  wait_until_pods_running knative-serving || return 1
 }
 
 # Add function call to trap
