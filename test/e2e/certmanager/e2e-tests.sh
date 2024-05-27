@@ -26,19 +26,19 @@ restart_pod ${SYSTEM_NAMESPACE} "app=controller"
 
 # Certificate conformance tests must be run separately
 # because they need cert-manager specific configurations.
-kubectl apply -f ./test/e2e/certmanager/config/autotls/certmanager/selfsigned/
+kubectl apply -f "${E2E_YAML_DIR}"/test/config/externaldomaintls/certmanager/selfsigned/
 add_trap "kubectl delete -f ./test/e2e/certmanager/config/autotls/certmanager/selfsigned/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 go_test_e2e -timeout=10m ./test/e2e/certmanager/conformance \
   -run TestNonHTTP01Conformance \
   "--certificateClass=${CERTIFICATE_CLASS}" || fail_test
-kubectl delete -f ./test/e2e/certmanager/config/autotls/certmanager/selfsigned/
+kubectl delete -f "${E2E_YAML_DIR}"/test/config/externaldomaintls/certmanager/selfsigned/
 
-kubectl apply -f ./test/e2e/certmanager/config/autotls/certmanager/http01/
+kubectl apply -f "${E2E_YAML_DIR}"/test/config/externaldomaintls/certmanager/http01/
 add_trap "kubectl delete -f ./test/e2e/certmanager/config/autotls/certmanager/http01/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 go_test_e2e -timeout=10m ./test/e2e/certmanager/conformance \
   -run TestHTTP01Conformance \
   "--certificateClass=${CERTIFICATE_CLASS}" || fail_test
-kubectl delete -f ./test/e2e/certmanager/config/autotls/certmanager/http01/
+kubectl delete -f "${E2E_YAML_DIR}"/test/config/externaldomaintls/certmanager/http01/
 
 toggle_feature external-domain-tls Disabled config-network
 restart_pod ${SYSTEM_NAMESPACE} "app=controller"
