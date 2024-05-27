@@ -35,6 +35,17 @@ spec:
         app.kubernetes.io/name: knative-serving
         app.kubernetes.io/version: devel
     spec:
+      # To avoid node becoming SPOF, spread our replicas to different nodes.
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: activator
+                topologyKey: kubernetes.io/hostname
+              weight: 100
+
       serviceAccountName: activator
       containers:
       - name: activator
