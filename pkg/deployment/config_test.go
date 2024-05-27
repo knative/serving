@@ -17,9 +17,10 @@ limitations under the License.
 package deployment
 
 import (
-	"github.com/google/go-cmp/cmp"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
