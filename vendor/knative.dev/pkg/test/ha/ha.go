@@ -57,7 +57,8 @@ func GetLeaders(ctx context.Context, t *testing.T, client kubernetes.Interface, 
 	}
 	ret := make([]string, 0, len(leases.Items))
 	for _, lease := range leases.Items {
-		if lease.Spec.HolderIdentity == nil {
+		if lease.Spec.HolderIdentity == nil || *lease.Spec.HolderIdentity == "" {
+			t.Logf("GetLeaders[%s] skipping lease %s as it has no holder", deploymentName, lease.Name)
 			continue
 		}
 		pod := strings.SplitN(*lease.Spec.HolderIdentity, "_", 2)[0]
