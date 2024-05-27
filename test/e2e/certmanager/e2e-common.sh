@@ -15,7 +15,7 @@
 # limitations under the License.
 
 # This script includes common functions for testing setup and teardown.
-source $(dirname $0)/../../../vendor/knative.dev/hack/e2e-tests.sh
+source $(dirname $0)/../../../test/e2e-common.sh
 
 
 # Setup resources.
@@ -34,8 +34,8 @@ function test_setup() {
   # Setting up test resources.
   echo ">> Publishing test images"
   $(dirname $0)/upload-test-images.sh || fail_test "Error uploading test images"
-  echo ">> Creating test resources (test/config/)"
-  ko apply ${KO_FLAGS} -f test/config/ || return 1
+  echo ">> Creating test resources (test/e2e/certmanager/config)"
+  ko apply ${KO_FLAGS} -f test/e2e/certmanager/config || return 1
 
   # Bringing up controllers.
   echo ">> Bringing up Cert-Manager"
