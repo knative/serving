@@ -158,6 +158,9 @@ func TestTLSCertificateRotation(t *testing.T) {
 
 	// Wait for the secret to be reloaded.
 	secretRenewed, err := e2e.GetCASecret(clients)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	t.Log("Creating ConfigMap with old and new CA certs")
 	systemNS := os.Getenv(system.NamespaceEnvKey)
