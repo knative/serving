@@ -92,7 +92,7 @@ toggle_feature system-internal-tls enabled config-network || fail_test
 toggle_feature "logging.enable-request-log" true config-observability || fail_test
 toggle_feature "logging.request-log-template" "TLS: {{.Request.TLS}}" config-observability || fail_test
 # with current implementation, Activator must be restarted when configuring system-internal-tls. See https://github.com/knative/serving/issues/13754
-restart_pod ${SYSTEM_NAMESPACE} "app=activator"
+restart_pod "${SYSTEM_NAMESPACE}" "app=activator"
 
 # we need to restart the pod in order to start the net-certmanager-controller
 if (( ! HTTPS )); then
