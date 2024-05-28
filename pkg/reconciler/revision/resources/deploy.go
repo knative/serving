@@ -227,10 +227,7 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 	}
 
 	if cfg.Deployment.EnablePodAntiAffinityRule && cfg.Features.PodSpecAffinity == apiconfig.Disabled {
-		revisionLabelValue := rev.Labels[serving.RevisionLabelKey]
-		if revisionLabelValue != "" {
-			podSpec.Affinity = &corev1.Affinity{PodAntiAffinity: makeDefaultPodAntiAffinity(revisionLabelValue)}
-		}
+		podSpec.Affinity = &corev1.Affinity{PodAntiAffinity: makeDefaultPodAntiAffinity(rev.Name)}
 	}
 
 	return podSpec, nil
