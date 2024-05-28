@@ -107,4 +107,4 @@ data:
     #         weight: 100
     # `
     #
-    # pod-anti-affinity-rules: "Enabled"
+    # pod-anti-affinity-rules: true
