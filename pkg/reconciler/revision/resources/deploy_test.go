@@ -1434,11 +1434,6 @@ func TestMakePodSpec(t *testing.T) {
 			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
-			func(revision *v1.Revision) {
-				revision.Labels = map[string]string{
-					serving.RevisionLabelKey: "bar",
-				}
-			},
 		),
 		fc: apicfg.Features{
 			PodSpecAffinity: apicfg.Disabled,
@@ -1470,11 +1465,6 @@ func TestMakePodSpec(t *testing.T) {
 			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
-			func(revision *v1.Revision) {
-				revision.Labels = map[string]string{
-					serving.RevisionLabelKey: "bar",
-				}
-			},
 		),
 		fc: apicfg.Features{
 			PodSpecAffinity: apicfg.Disabled,
@@ -1501,11 +1491,6 @@ func TestMakePodSpec(t *testing.T) {
 			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
-			func(revision *v1.Revision) {
-				revision.Labels = map[string]string{
-					serving.RevisionLabelKey: "bar",
-				}
-			},
 		),
 		fc: apicfg.Features{
 			PodSpecAffinity: apicfg.Enabled,
