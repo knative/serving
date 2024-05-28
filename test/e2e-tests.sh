@@ -41,7 +41,7 @@ E2E_TEST_FLAGS=()
 
 IFS=" " read -r -a E2E_TEST_FLAGS <<< "${TEST_OPTIONS:-}"
 
-if [[ "${E2E_TEST_FLAGS[@]}" == "" ]; then
+if [[ "${E2E_TEST_FLAGS[@]}" == "" ]]; then
   E2E_TEST_FLAGS=("-resolvabledomain=$(use_resolvable_domain)" "-ingress-class=${INGRESS_CLASS}")
 
   # Drop testing alpha and beta features with the Gateway API
