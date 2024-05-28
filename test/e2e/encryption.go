@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/networking/pkg/certificates"
@@ -48,7 +49,8 @@ func GetCASecret(clients *test.Clients) (*corev1.Secret, error) {
 	}
 
 	// CA is only needed when encryption on the cluster is enabled
-	if !strings.EqualFold(cm.Data[netcfg.ClusterLocalDomainTLSKey], string(netcfg.EncryptionEnabled)) {
+	if !strings.EqualFold(cm.Data[netcfg.ClusterLocalDomainTLSKey], string(netcfg.EncryptionEnabled)) &&
+		!strings.EqualFold(cm.Data[netcfg.SystemInternalTLSKey], string(netcfg.EncryptionEnabled)) {
 		return nil, nil
 	}
 
@@ -76,6 +78,9 @@ func getCertManagerCA(clients *test.Clients) (*corev1.Secret, error) {
 	err := wait.PollUntilContextTimeout(context.Background(), test.PollInterval, test.PollTimeout, true, func(context.Context) (bool, error) {
 		caSecret, err := clients.KubeClient.CoreV1().Secrets(certManagerNamespace).Get(context.Background(), certManagerCASecret, metav1.GetOptions{})
 		if err != nil {
+			if apierrs.IsNotFound(err) {
+				return false, nil
+			}
 			return false, err
 		}
 		// CA not yet populated
@@ -87,7 +92,7 @@ func getCertManagerCA(clients *test.Clients) (*corev1.Secret, error) {
 		return true, nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("error while waiting for cert-manager self-signed CA to be popluated: %w", err)
+		return nil, fmt.Errorf("error while waiting for cert-manager self-signed CA to be populated: %w", err)
 	}
 
 	return secret, nil

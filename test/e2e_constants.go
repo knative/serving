@@ -37,4 +37,7 @@ const (
 
 	// testAnnotation is an annotation attached to resources originating from tests.
 	testAnnotation = "knative-e2e-test"
+
+	// GatewayNamespaceOverride is the name of env variable with gateway namespace
+	GatewayNamespaceOverride = "GATEWAY_NAMESPACE_OVERRIDE"
 )
