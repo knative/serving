@@ -1388,11 +1388,6 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-knative.dev/networking/test
-knative.dev/networking/test/conformance/certificate
-knative.dev/networking/test/conformance/certificate/http01
-knative.dev/networking/test/conformance/certificate/nonhttp01
-knative.dev/networking/test/defaultsystem
 # knative.dev/pkg v0.0.0-20240521083825-99e1685a7997
 ## explicit; go 1.21
 knative.dev/pkg/apiextensions/storageversion
