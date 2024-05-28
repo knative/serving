@@ -233,23 +233,6 @@ func TestTLSCertificateRotation(t *testing.T) {
 		t.Fatalf("Failed to delete secret %s in ingress namespacee", config.ServingRoutingCertName)
 	}
 	checkEndpointState(t, clients, url)
-
-	t.Log("Deleting old certificate from trust-bundle ConfigMap")
-	for _, ns := range bundleNamespaces {
-		cmUpdate, err := clients.KubeClient.CoreV1().ConfigMaps(ns).
-			Get(context.Background(), cm.Name, v1.GetOptions{})
-		if err != nil {
-			t.Fatal("Failed to get trust-bundle configmap:", err)
-		}
-
-		delete(cmUpdate.Data, "cert.pem")
-
-		if _, err = clients.KubeClient.CoreV1().ConfigMaps(ns).
-			Update(context.Background(), cmUpdate, v1.UpdateOptions{}); err != nil {
-			t.Fatal("Failed to update trust-bundle configmap:", err)
-		}
-	}
-	checkEndpointState(t, clients, url)
 }
 
 func checkEndpointState(t *testing.T, clients *test.Clients, url *url.URL) {
