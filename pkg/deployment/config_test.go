@@ -132,6 +132,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			QueueSidecarTokenAudiences:     sets.New("foo", "bar", "boo-srv"),
 			ProgressDeadline:               ProgressDeadlineDefault,
+			EnablePodAntiAffinityRule:      EnablePodAntiAffinityRuleDefault,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:              defaultSidecarImage,
@@ -147,6 +148,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			QueueSidecarTokenAudiences:     sets.New(""),
 			ProgressDeadline:               444 * time.Second,
+			EnablePodAntiAffinityRule:      EnablePodAntiAffinityRuleDefault,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey: defaultSidecarImage,
@@ -161,6 +163,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			QueueSidecarTokenAudiences:     sets.New(""),
 			ProgressDeadline:               ProgressDeadlineDefault,
+			EnablePodAntiAffinityRule:      EnablePodAntiAffinityRuleDefault,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:       defaultSidecarImage,
@@ -175,6 +178,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			QueueSidecarTokenAudiences:     sets.New(""),
 			ProgressDeadline:               ProgressDeadlineDefault,
+			EnablePodAntiAffinityRule:      EnablePodAntiAffinityRuleDefault,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:              defaultSidecarImage,
@@ -194,6 +198,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarMemoryLimit:             quantity("654m"),
 			QueueSidecarEphemeralStorageLimit:   quantity("321M"),
 			QueueSidecarTokenAudiences:          sets.New(""),
+			EnablePodAntiAffinityRule:           EnablePodAntiAffinityRuleDefault,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:                   defaultSidecarImage,
@@ -270,6 +275,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarEphemeralStorageRequest: quantity("9M"),
 			QueueSidecarEphemeralStorageLimit:   quantity("10M"),
 			QueueSidecarTokenAudiences:          sets.New(""),
+			EnablePodAntiAffinityRule:           EnablePodAntiAffinityRuleDefault,
 		},
 	}, {
 		name: "newer key case takes priority",
@@ -311,6 +317,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarEphemeralStorageRequest: quantity("20M"),
 			QueueSidecarEphemeralStorageLimit:   quantity("21M"),
 			QueueSidecarTokenAudiences:          sets.New("foo"),
+			EnablePodAntiAffinityRule:           EnablePodAntiAffinityRuleDefault,
 		},
 	}}
 
