@@ -69,6 +69,8 @@ const (
 	queueSidecarRooCAKey          = "queue-sidecar-rootca"
 
 	enablePodAntiAffinityRule = "enable-pod-anti-affinity-rule"
+
+	EnablePodAntiAffinityRuleDefault = true
 )
 
 var (
@@ -96,9 +98,6 @@ var (
 	// QueueSidecarEphemeralStorageLimitDefault is the default limit.ephemeral-storage to set for the
 	// queue sidecar.
 	QueueSidecarEphemeralStorageLimitDefault = resource.MustParse("1024Mi")
-
-	// EnablePodAntiAffinityRuleDefault is the default value for the EnablePodAntiAffinityRule flag.
-	EnablePodAntiAffinityRuleDefault = true
 )
 
 func defaultConfig() *Config {
@@ -107,7 +106,7 @@ func defaultConfig() *Config {
 		DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 		RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
 		QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
-		EnablePodAntiAffinityRule:      false,
+		EnablePodAntiAffinityRule:      EnablePodAntiAffinityRuleDefault,
 	}
 	// The following code is needed for ConfigMap testing.
 	// defaultConfig must match the example in deployment.yaml which includes: `queue-sidecar-token-audiences: ""`
