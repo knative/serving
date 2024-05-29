@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "e2f637c6"
+    knative.dev/example-checksum: "720ddb97"
 data:
   # This is the Go import path for the binary that is containerized
   # and substituted here.
@@ -108,3 +108,18 @@ data:
     # `
     # This may be "none" or "prefer-spread-revision-over-nodes" (default)
     # default-affinity-type: "prefer-spread-revision-over-nodes"
+
+    # runtime-class-name contains the selector for which runtimeClassName
+    # is selected to put in a revision.
+    # By default, it is not set by Knative.
+    #
+    # Example:
+    # runtime-class-name: |
+    #   "":
+    #     selector:
+    #       use-default-runc: "yes"
+    #   kata: {}
+    #   gvisor:
+    #     selector:
+    #       use-gvisor: "please"
+    runtime-class-name: ""

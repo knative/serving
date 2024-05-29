@@ -19,12 +19,18 @@ package deployment
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	apimachineryvalidation "k8s.io/apimachinery/pkg/api/validation"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/yaml"
+
 	cm "knative.dev/pkg/configmap"
+	"knative.dev/pkg/ptr"
 )
 
 const (
@@ -70,6 +76,8 @@ const (
 
 	defaultAffinityTypeKey   = "default-affinity-type"
 	defaultAffinityTypeValue = PreferSpreadRevisionOverNodes
+
+	RuntimeClassNameKey = "runtime-class-name"
 )
 
 var (
@@ -116,10 +124,53 @@ func defaultConfig() *Config {
 	return cfg
 }
 
+func (d Config) PodRuntimeClassName(lbs map[string]string) *string {
+	runtimeClassName := ""
+	specificity := -1
+	for k, v := range d.RuntimeClassNames {
+		if !v.Matches(lbs) || v.specificity() < specificity {
+			continue
+		}
+		if v.specificity() > specificity || strings.Compare(k, runtimeClassName) < 0 {
+			runtimeClassName = k
+			specificity = v.specificity()
+		}
+	}
+	if runtimeClassName == "" {
+		return nil
+	}
+	return ptr.String(runtimeClassName)
+}
+
+type RuntimeClassNameLabelSelector struct {
+	Selector map[string]string `json:"selector,omitempty"`
+}
+
+func (s *RuntimeClassNameLabelSelector) specificity() int {
+	if s.Selector == nil {
+		return 0
+	}
+	return len(s.Selector)
+}
+
+func (s *RuntimeClassNameLabelSelector) Matches(labels map[string]string) bool {
+	if s.Selector == nil {
+		return true
+	}
+	for label, expectedValue := range s.Selector {
+		value, ok := labels[label]
+		if !ok || expectedValue != value {
+			return false
+		}
+	}
+	return true
+}
+
 // NewConfigFromMap creates a DeploymentConfig from the supplied Map.
 func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 	nc := defaultConfig()
 
+	var runtimeClassNames string
 	if err := cm.Parse(configMap,
 		// Legacy keys for backwards compatibility
 		cm.AsString(DeprecatedQueueSidecarImageKey, &nc.QueueSidecarImage),
@@ -147,6 +198,8 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 
 		cm.AsStringSet(queueSidecarTokenAudiencesKey, &nc.QueueSidecarTokenAudiences),
 		cm.AsString(queueSidecarRooCAKey, &nc.QueueSidecarRootCA),
+
+		cm.AsString(RuntimeClassNameKey, &runtimeClassNames),
 	); err != nil {
 		return nil, err
 	}
@@ -173,6 +226,19 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 			nc.DefaultAffinityType = opt
 		default:
 			return nil, fmt.Errorf("unsupported %s value: %q", defaultAffinityTypeKey, affinity)
+		}
+	}
+	if err := yaml.Unmarshal([]byte(runtimeClassNames), &nc.RuntimeClassNames); err != nil {
+		return nil, fmt.Errorf("%v cannot be parsed, please check the format: %w", RuntimeClassNameKey, err)
+	}
+	for class, rcn := range nc.RuntimeClassNames {
+		if warns := apimachineryvalidation.NameIsDNSSubdomain(class, false); len(warns) > 0 {
+			return nil, fmt.Errorf("%v %v selector not valid DNSSubdomain: %v", RuntimeClassNameKey, class, warns)
+		}
+		if len(rcn.Selector) > 0 {
+			if _, err := labels.ValidatedSelectorFromSet(rcn.Selector); err != nil {
+				return nil, fmt.Errorf("%v %v selector invalid: %w", RuntimeClassNameKey, class, err)
+			}
 		}
 	}
 	return nc, nil
@@ -240,4 +306,7 @@ type Config struct {
 	// DefaultAffinityType is a string that controls what affinity rules will be automatically
 	// applied to the PodSpec of all Knative services.
 	DefaultAffinityType AffinityType
+
+	// RuntimeClassNames specifies which runtime the Pod will use
+	RuntimeClassNames map[string]RuntimeClassNameLabelSelector
 }
