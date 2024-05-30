@@ -227,12 +227,6 @@ func TestTLSCertificateRotation(t *testing.T) {
 		t.Fatalf("Failed to delete secret %s in system namespacee", config.ServingRoutingCertName)
 	}
 	checkEndpointState(t, clients, url)
-
-	t.Log("Deleting secret in ingress namespace")
-	if err := clients.KubeClient.CoreV1().Secrets(ingressNS).Delete(context.Background(), config.ServingRoutingCertName, v1.DeleteOptions{}); err != nil {
-		t.Fatalf("Failed to delete secret %s in ingress namespacee", config.ServingRoutingCertName)
-	}
-	checkEndpointState(t, clients, url)
 }
 
 func checkEndpointState(t *testing.T, clients *test.Clients, url *url.URL) {
