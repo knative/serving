@@ -36,7 +36,10 @@ import (
 	"testing"
 )
 
-const minimumNumberOfReplicas = 2
+const (
+	minimumNumberOfReplicas = 2
+	maximumNumberOfReplicas = 2
+)
 
 func TestActivatorNotInRequestPath(t *testing.T) {
 	clients := e2e.Setup(t)
@@ -46,7 +49,8 @@ func TestActivatorNotInRequestPath(t *testing.T) {
 	names, resources := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.MinScaleAnnotationKey:  strconv.Itoa(minimumNumberOfReplicas), // Make sure we don't scale to zero during the test.
-			autoscaling.TargetBurstCapacityKey: "0",                                   // The Activator is only added to the request path during scale from zero scenarios.
+			autoscaling.MaxScaleAnnotationKey:  strconv.Itoa(maximumNumberOfReplicas),
+			autoscaling.TargetBurstCapacityKey: "0", // The Activator is only added to the request path during scale from zero scenarios.
 		}),
 	)
 	test.EnsureTearDown(t, clients, &names)
@@ -62,7 +66,8 @@ func TestActivatorInRequestPathAlways(t *testing.T) {
 	names, resources := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.MinScaleAnnotationKey:  strconv.Itoa(minimumNumberOfReplicas), // Make sure we don't scale to zero during the test.
-			autoscaling.TargetBurstCapacityKey: "-1",                                  // Make sure all requests go through the activator.
+			autoscaling.MaxScaleAnnotationKey:  strconv.Itoa(maximumNumberOfReplicas),
+			autoscaling.TargetBurstCapacityKey: "-1", // Make sure all requests go through the activator.
 		}),
 	)
 	test.EnsureTearDown(t, clients, &names)
@@ -78,7 +83,8 @@ func TestActivatorInRequestPathPossibly(t *testing.T) {
 	names, resources := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.MinScaleAnnotationKey:  strconv.Itoa(minimumNumberOfReplicas), // Make sure we don't scale to zero during the test.
-			autoscaling.TargetBurstCapacityKey: "1",                                   // The Activator may be in the path, depending on the revision scale and load.
+			autoscaling.MaxScaleAnnotationKey:  strconv.Itoa(maximumNumberOfReplicas),
+			autoscaling.TargetBurstCapacityKey: "1", // The Activator may be in the path, depending on the revision scale and load.
 		}),
 	)
 	test.EnsureTearDown(t, clients, &names)
