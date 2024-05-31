@@ -268,6 +268,9 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1
 			// Compute the difference between time we've been proxying with the timeout.
 			// If it's positive, that's the time we need to sleep, if negative -- we
 			// can scale to zero.
+			// It is positive if no activator endpoints, because the condition with type name
+			// "ActivatorEndpointsPopulated" will be false or nil.
+			// We can not scale to zero when no activator endpoints.
 			pf := sks.Status.ProxyFor()
 			to := cfgAS.ScaleToZeroGracePeriod - pf
 			if to <= 0 {
