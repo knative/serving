@@ -67,6 +67,7 @@ func GetLeaders(ctx context.Context, t *testing.T, client kubernetes.Interface, 
 		if extractDeployment(pod) != deploymentName {
 			continue
 		}
+		t.Logf("Adding lease: %s for pod: %s - lease spec: %v", lease.Name, pod, lease.Spec)
 		ret = append(ret, pod)
 	}
 	return ret, nil
