@@ -447,7 +447,7 @@ func TestReconcile(t *testing.T) {
 		Name: "OnCreate-no-activator-eps-proxy",
 		Key:  "on/cnaeps",
 		Objects: []runtime.Object{
-			SKS("on", "cnaeps", WithDeployRef("blah"), withProxyMode),
+			SKS("on", "cnaeps", WithDeployRef("blah"), WithProxyMode),
 			deploy("on", "blah"),
 			endpointspriv("on", "cnaeps"), // This should be ignored.
 			activatorEndpoints(),
@@ -458,8 +458,8 @@ func TestReconcile(t *testing.T) {
 			endpointspub("on", "cnaeps"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: SKS("on", "cnaeps", WithDeployRef("blah"), withProxyMode,
-				markNoEndpoints, WithPubService, WithPrivateService),
+			Object: SKS("on", "cnaeps", WithDeployRef("blah"), WithProxyMode,
+				markNoHealthyEndpoints, WithPubService, WithPrivateService),
 		}},
 	}, {
 		Name:    "create-svc-fail-priv",
@@ -768,12 +768,12 @@ func markTransitioning(s string) SKSOption {
 }
 
 func markNoEndpoints(sks *nv1a1.ServerlessService) {
-	sks.Status.MarkEndpointsNotReady("NoHealthyBackends")
+	markNoHealthyEndpoints(sks)
 	sks.Status.MarkActivatorEndpointsPopulated()
 }
 
-func markNoActivatorEndpoints(sks *nv1a1.ServerlessService) {
-	sks.Status.MarkActivatorEndpointsRemoved()
+func markNoHealthyEndpoints(sks *nv1a1.ServerlessService) {
+	sks.Status.MarkEndpointsNotReady("NoHealthyBackends")
 }
 
 func withHTTP2Protocol(sks *nv1a1.ServerlessService) {

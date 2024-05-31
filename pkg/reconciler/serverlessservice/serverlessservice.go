@@ -292,7 +292,8 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	}
 	// If we have no backends or if we're in the proxy mode, then
 	// activator backs this revision.
-	if !foundServingEndpoints || mode == netv1alpha1.SKSOperationModeProxy {
+	// If no activator, force serve mode and remove.
+	if mode == netv1alpha1.SKSOperationModeProxy {
 		sks.Status.MarkActivatorEndpointsPopulated()
 	} else {
 		sks.Status.MarkActivatorEndpointsRemoved()
