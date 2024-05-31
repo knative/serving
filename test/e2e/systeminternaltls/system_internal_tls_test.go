@@ -145,6 +145,10 @@ func TestTLSCertificateRotation(t *testing.T) {
 	url := resources1.Route.Status.URL.URL()
 	checkEndpointState(t, clients, url)
 
+	prober := test.RunRouteProber(t.Logf, clients, url,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
+	defer test.AssertProberDefault(t, prober)
+
 	// Read the old (default) secret.
 	secret, err := e2e.GetCASecret(clients)
 	if err != nil {
@@ -220,13 +224,11 @@ func TestTLSCertificateRotation(t *testing.T) {
 	if err := e2e.WaitForLog(t, clients, helloWorldPod.Namespace, helloWorldPod.Name, "queue-proxy", matchCertReloadLog, numMatches); err != nil {
 		t.Fatal("Certificate not reloaded in time by queue-proxy:", err)
 	}
-	checkEndpointState(t, clients, url)
 
 	t.Log("Deleting secret in system namespace")
 	if err := clients.KubeClient.CoreV1().Secrets(systemNS).Delete(context.Background(), config.ServingRoutingCertName, v1.DeleteOptions{}); err != nil {
 		t.Fatalf("Failed to delete secret %s in system namespacee", config.ServingRoutingCertName)
 	}
-	checkEndpointState(t, clients, url)
 }
 
 func checkEndpointState(t *testing.T, clients *test.Clients, url *url.URL) {
