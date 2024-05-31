@@ -33,6 +33,7 @@ import (
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/reconciler/certificate"
 	"knative.dev/serving/pkg/reconciler/configuration"
 	"knative.dev/serving/pkg/reconciler/domainmapping"
@@ -102,8 +103,7 @@ func shouldEnableNetCertManagerController(ctx context.Context, client *kubernete
 		log.Fatalf("Failed to construct network config: %v", err)
 	}
 
-	return netCfg.ExternalDomainTLS || netCfg.SystemInternalTLSEnabled() || (netCfg.ClusterLocalDomainTLS == netcfg.EncryptionEnabled) ||
-		netCfg.NamespaceWildcardCertSelector != nil
+	return networking.IsNetCertManagerControllerRequired(netCfg)
 }
 
 func certManagerCRDsExist(client *versioned.Clientset) (bool, error) {

@@ -44,3 +44,9 @@ func GetHTTPOption(ctx context.Context, networkConfig *netcfg.Config, annotation
 		return "", nil
 	}
 }
+
+// IsNetCertManagerControllerRequired returns true if we need the netCertManagerController running
+func IsNetCertManagerControllerRequired(netCfg *netcfg.Config) bool {
+	return netCfg.ExternalDomainTLS || netCfg.SystemInternalTLSEnabled() || (netCfg.ClusterLocalDomainTLS == netcfg.EncryptionEnabled) ||
+		netCfg.NamespaceWildcardCertSelector != nil
+}

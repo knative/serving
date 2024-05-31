@@ -42,7 +42,7 @@ func TestControllerHA(t *testing.T) {
 	clients := e2e.Setup(t)
 
 	reconcilers := NumControllerReconcilers
-	if isInternalEncryptionOn(t, clients.KubeClient) {
+	if isNetCertmanagerControllerReconcilerOn(t, clients.KubeClient) {
 		reconcilers = NumControllerReconcilers + 1
 	}
 	if err := pkgTest.WaitForDeploymentScale(context.Background(), clients.KubeClient, controllerDeploymentName, system.Namespace(), test.ServingFlags.Replicas); err != nil {
