@@ -115,7 +115,7 @@ func TestReconcile(t *testing.T) {
 		Name: "force serve mode, no endpoints",
 		Key:  "force/serve",
 		Objects: []runtime.Object{
-			SKS("force", "serve", withProxyMode, markHappy, WithPubService, WithPrivateService, WithDeployRef("bar")),
+			SKS("force", "serve", WithProxyMode, markHappy, WithPubService, WithPrivateService, WithDeployRef("bar")),
 			deploy("force", "bar"),
 			svcpub("force", "serve"),
 			svcpriv("force", "serve"),
@@ -770,6 +770,10 @@ func markTransitioning(s string) SKSOption {
 func markNoEndpoints(sks *nv1a1.ServerlessService) {
 	sks.Status.MarkEndpointsNotReady("NoHealthyBackends")
 	sks.Status.MarkActivatorEndpointsPopulated()
+}
+
+func markNoActivatorEndpoints(sks *nv1a1.ServerlessService) {
+	sks.Status.MarkActivatorEndpointsRemoved()
 }
 
 func withHTTP2Protocol(sks *nv1a1.ServerlessService) {
