@@ -140,6 +140,10 @@ func activatorProbe(pa *autoscalingv1alpha1.PodAutoscaler, transport http.RoundT
 }
 
 func lastPodRetention(pa *autoscalingv1alpha1.PodAutoscaler, cfg *autoscalerconfig.Config) time.Duration {
+	// if revision is unreachable, no need to account for last pod retention
+	if pa.Spec.Reachability == autoscalingv1alpha1.ReachabilityUnreachable {
+		return 0
+	}
 	d, ok := pa.ScaleToZeroPodRetention()
 	if ok {
 		return d
