@@ -140,6 +140,10 @@ func activatorProbe(pa *autoscalingv1alpha1.PodAutoscaler, transport http.RoundT
 }
 
 func lastPodRetention(pa *autoscalingv1alpha1.PodAutoscaler, cfg *autoscalerconfig.Config) time.Duration {
+	// if revision is unreachable, no need to account for last pod retention
+	if pa.Spec.Reachability == autoscalingv1alpha1.ReachabilityUnreachable {
+		return 0
+	}
 	d, ok := pa.ScaleToZeroPodRetention()
 	if ok {
 		return d
@@ -249,12 +253,6 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1
 			lastPodMaxTimeout := durationMax(cfgAS.ScaleToZeroGracePeriod, lastPodTimeout)
 			// If we have been inactive for this long, we can scale to 0!
 			if pa.Status.InactiveFor(now) >= lastPodMaxTimeout {
-				return desiredScale, true
-			}
-
-			// If the revision is unreachable, scale to 0 instead of waiting for the last pod retention timeout.
-			if pa.Spec.Reachability == autoscalingv1alpha1.ReachabilityUnreachable {
-				logger.Infof("PA is unreachable, can scale to 0")
 				return desiredScale, true
 			}
 
