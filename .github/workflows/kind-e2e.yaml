@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: setup-go
       uses: knative/actions/setup-go@main
@@ -35,7 +35,7 @@ jobs:
         mkdir -p ~/artifacts/build
         mkdir -p ~/artifacts/registry
 
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       with:
         path: |
           ~/.cache/go-build
@@ -68,7 +68,7 @@ jobs:
       run: |
         ./test/upload-test-images.sh
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: artifacts
         path: ~/artifacts
@@ -87,7 +87,7 @@ jobs:
 
         ingress:
         - kourier
-        # - kourier-tls
+        - kourier-tls
         - istio
         - istio-tls
         # Disabled due to flakiness: https://github.com/knative/serving/issues/14637
@@ -130,10 +130,9 @@ jobs:
         #   ingress-class: istio
         #   ambient: 1
 
-        # Disabled due to flakiness: https://github.com/knative/serving/issues/15052
-        # - ingress: kourier-tls
-        #   ingress-class: kourier
-        #   enable-tls: 1
+        - ingress: kourier-tls
+          ingress-class: kourier
+          enable-tls: 1
 
         - test-suite: runtime
           test-path: ./test/conformance/runtime/...
@@ -156,7 +155,7 @@ jobs:
     - name: setup-go
       uses: knative/actions/setup-go@main
 
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       with:
         path: |
           ~/.cache/go-build
@@ -165,7 +164,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
 
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         name: artifacts
         path: ~/artifacts
@@ -187,7 +186,7 @@ jobs:
         sudo mv gotestsum /usr/local/bin
         echo "::endgroup::"
 
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
 

@@ -83,7 +83,7 @@ func TestMinScale(t *testing.T) {
 	}
 
 	revName := latestRevisionName(t, clients, names.Config, "")
-	serviceName := privateServiceName(t, clients, revName)
+	serviceName := PrivateServiceName(t, clients, revName)
 
 	t.Log("Waiting for revision to scale to minScale before becoming ready")
 	if lr, err := waitForDesiredScale(clients, serviceName, gte(minScale)); err != nil {
@@ -116,7 +116,7 @@ func TestMinScale(t *testing.T) {
 	}
 
 	newRevName := latestRevisionName(t, clients, names.Config, revName)
-	newServiceName := privateServiceName(t, clients, newRevName)
+	newServiceName := PrivateServiceName(t, clients, newRevName)
 
 	t.Log("Waiting for new revision to scale to minScale after update")
 	if lr, err := waitForDesiredScale(clients, newServiceName, gte(minScale)); err != nil {
@@ -206,23 +206,6 @@ func latestRevisionName(t *testing.T, clients *test.Clients, configName, oldRevN
 	}
 
 	return config.Status.LatestCreatedRevisionName
-}
-
-func privateServiceName(t *testing.T, clients *test.Clients, revisionName string) string {
-	var privateServiceName string
-
-	if err := wait.PollUntilContextTimeout(context.Background(), time.Second, 1*time.Minute, true, func(context.Context) (bool, error) {
-		sks, err := clients.NetworkingClient.ServerlessServices.Get(context.Background(), revisionName, metav1.GetOptions{})
-		if err != nil {
-			return false, nil
-		}
-		privateServiceName = sks.Status.PrivateServiceName
-		return privateServiceName != "", nil
-	}); err != nil {
-		t.Fatalf("Error retrieving sks %q: %v", revisionName, err)
-	}
-
-	return privateServiceName
 }
 
 // waitForDesiredScale returns the last observed number of pods and/or error if the cond

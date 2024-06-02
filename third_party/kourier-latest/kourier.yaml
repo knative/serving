@@ -20,7 +20,7 @@ metadata:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20240422-c5afaf1a"
+    app.kubernetes.io/version: "20240530-36b7eee3"
 
 ---
 # Copyright 2020 The Knative Authors
@@ -45,7 +45,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20240422-c5afaf1a"
+    app.kubernetes.io/version: "20240530-36b7eee3"
     app.kubernetes.io/name: knative-serving
 data:
   envoy-bootstrap.yaml: |
@@ -97,6 +97,15 @@ data:
                                       exact: GET
                               route:
                                 cluster: service_stats
+                            - match:
+                                safe_regex:
+                                  regex: '/drain_listeners'
+                                headers:
+                                  - name: ':method'
+                                    string_match:
+                                      exact: POST
+                              route:
+                                cluster: service_stats
       clusters:
         - name: service_stats
           connect_timeout: 0.250s
@@ -107,8 +116,9 @@ data:
               lb_endpoints:
                 endpoint:
                   address:
-                    pipe:
-                      path: /tmp/envoy.admin
+                    socket_address:
+                      address: 127.0.0.1
+                      port_value: 9901
         - name: xds_cluster
           # This keepalive is recommended by envoy docs.
           # https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol
@@ -137,8 +147,9 @@ data:
         typed_config:
           "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
       address:
-        pipe:
-          path: /tmp/envoy.admin
+        socket_address:
+          address: 127.0.0.1
+          port_value: 9901
 
 ---
 # Copyright 2021 The Knative Authors
@@ -163,7 +174,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20240422-c5afaf1a"
+    app.kubernetes.io/version: "20240530-36b7eee3"
     app.kubernetes.io/name: knative-serving
 data:
   _example: |
@@ -243,7 +254,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20240422-c5afaf1a"
+    app.kubernetes.io/version: "20240530-36b7eee3"
     app.kubernetes.io/name: knative-serving
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -253,7 +264,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20240422-c5afaf1a"
+    app.kubernetes.io/version: "20240530-36b7eee3"
     app.kubernetes.io/name: knative-serving
 rules:
   - apiGroups: [""]
@@ -282,7 +293,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20240422-c5afaf1a"
+    app.kubernetes.io/version: "20240530-36b7eee3"
     app.kubernetes.io/name: knative-serving
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -316,7 +327,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20240422-c5afaf1a"
+    app.kubernetes.io/version: "20240530-36b7eee3"
     app.kubernetes.io/name: knative-serving
 spec:
   strategy:
@@ -338,7 +349,7 @@ spec:
         app: net-kourier-controller
     spec:
       containers:
-        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:8bcaef61aef24b1884f079a45f6793b612c7292f5e17c7b817fe4a20f8ae5c50
+        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:93b9832c49ff2780d0ed4383b9dab52a67b5ff25f6772f16b93f37f5f76b4107
           name: controller
           env:
             - name: CERTS_SECRET_NAMESPACE
@@ -365,6 +376,9 @@ spec:
           ports:
             - name: http2-xds
               containerPort: 18000
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
               protocol: TCP
           readinessProbe:
             grpc:
@@ -403,7 +417,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20240422-c5afaf1a"
+    app.kubernetes.io/version: "20240530-36b7eee3"
     app.kubernetes.io/name: knative-serving
 spec:
   ports:
@@ -411,6 +425,10 @@ spec:
       port: 18000
       protocol: TCP
       targetPort: 18000
+    - name: http-metrics
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
   selector:
     app: net-kourier-controller
   type: ClusterIP
@@ -438,7 +456,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20240422-c5afaf1a"
+    app.kubernetes.io/version: "20240530-36b7eee3"
     app.kubernetes.io/name: knative-serving
 spec:
   strategy:
@@ -466,8 +484,13 @@ spec:
             - --base-id 1
             - -c /tmp/config/envoy-bootstrap.yaml
             - --log-level info
+            - --drain-time-s $(DRAIN_TIME_SECONDS)
+            - --drain-strategy immediate
           command:
             - /usr/local/bin/envoy
+          env:
+            - name: DRAIN_TIME_SECONDS
+              value: "15"
           image: docker.io/envoyproxy/envoy:v1.26-latest
           name: kourier-gateway
           ports:
@@ -486,6 +509,9 @@ spec:
             - name: https-probe
               containerPort: 9443
               protocol: TCP
+            - name: metrics
+              containerPort: 9000
+              protocol: TCP
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: false
@@ -503,7 +529,7 @@ spec:
           lifecycle:
             preStop:
               exec:
-                command: ["/bin/sh", "-c", "curl -X POST --unix /tmp/envoy.admin http://localhost/healthcheck/fail; sleep 15"]
+                command: ["/bin/sh", "-c", "curl -X POST http://localhost:9901/drain_listeners?graceful; sleep $DRAIN_TIME_SECONDS"]
           readinessProbe:
             httpGet:
               httpHeaders:
@@ -533,6 +559,8 @@ spec:
             limits:
               cpu: "1"
               memory: 800Mi
+      # to ensure a graceful drain, terminationGracePeriodSeconds must be greater than DRAIN_TIME_SECONDS environment variable
+      terminationGracePeriodSeconds: 30
       volumes:
         - name: config-volume
           configMap:
@@ -547,7 +575,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20240422-c5afaf1a"
+    app.kubernetes.io/version: "20240530-36b7eee3"
     app.kubernetes.io/name: knative-serving
 spec:
   ports:
@@ -571,7 +599,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20240422-c5afaf1a"
+    app.kubernetes.io/version: "20240530-36b7eee3"
     app.kubernetes.io/name: knative-serving
 spec:
   ports:
@@ -595,7 +623,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20240422-c5afaf1a"
+    app.kubernetes.io/version: "20240530-36b7eee3"
     app.kubernetes.io/name: knative-serving
 spec:
   minReplicas: 1
@@ -621,7 +649,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20240422-c5afaf1a"
+    app.kubernetes.io/version: "20240530-36b7eee3"
     app.kubernetes.io/name: knative-serving
 spec:
   minAvailable: 80%

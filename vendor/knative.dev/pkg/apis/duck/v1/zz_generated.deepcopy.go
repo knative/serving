@@ -158,6 +158,11 @@ func (in *AuthStatus) DeepCopyInto(out *AuthStatus) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.ServiceAccountNames != nil {
+		in, out := &in.ServiceAccountNames, &out.ServiceAccountNames
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

@@ -22,4 +22,9 @@ type AuthStatus struct {
 	// ServiceAccountName is the name of the generated service account
 	// used for this components OIDC authentication.
 	ServiceAccountName *string `json:"serviceAccountName,omitempty"`
+
+	// ServiceAccountNames is the list of names of the generated service accounts
+	// used for this components OIDC authentication. This list can have len() > 1,
+	// when the component uses multiple identities (e.g. in case of a Parallel).
+	ServiceAccountNames []string `json:"serviceAccountNames,omitempty"`
 }

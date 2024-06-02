@@ -28,6 +28,10 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	CertReloadMessage = "Certificate and/or key have changed on disk and were reloaded."
+)
+
 // CertWatcher watches certificate and key files and reloads them if they change on disk.
 type CertWatcher struct {
 	certPath     string
@@ -128,7 +132,7 @@ func (cw *CertWatcher) loadCert() error {
 		cw.certChecksum = certChecksum
 		cw.keyChecksum = keyChecksum
 
-		cw.logger.Info("Certificate and/or key have changed on disk and were reloaded.")
+		cw.logger.Info(CertReloadMessage)
 	}
 
 	return nil

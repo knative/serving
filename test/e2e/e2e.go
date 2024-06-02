@@ -17,12 +17,14 @@ limitations under the License.
 package e2e
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"strconv"
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -208,4 +210,49 @@ func RevisionFromConfiguration(clients *test.Clients, configName string) (string
 		return config.Status.LatestCreatedRevisionName, nil
 	}
 	return "", fmt.Errorf("no valid revision name found in configuration %s", configName)
+}
+
+// PrivateServiceName returns the private service name for the given revision.
+func PrivateServiceName(t *testing.T, clients *test.Clients, revision string) string {
+	var privateServiceName string
+
+	if err := wait.PollUntilContextTimeout(context.Background(), time.Second, 1*time.Minute, true, func(context.Context) (bool, error) {
+		sks, err := clients.NetworkingClient.ServerlessServices.Get(context.Background(), revision, metav1.GetOptions{})
+		if err != nil {
+			return false, nil
+		}
+		privateServiceName = sks.Status.PrivateServiceName
+		return privateServiceName != "", nil
+	}); err != nil {
+		t.Fatalf("Error retrieving sks %q: %v", revision, err)
+	}
+
+	return privateServiceName
+}
+
+// WaitForLog waits for the given matcher to match at least given number of lines.
+func WaitForLog(t *testing.T, clients *test.Clients, ns, podName, container string, matcher func(log string) bool, numMatches int) error {
+	return wait.PollUntilContextTimeout(context.Background(), test.PollInterval, test.PollTimeout, true, func(context.Context) (bool, error) {
+		req := clients.KubeClient.CoreV1().Pods(ns).GetLogs(podName, &corev1.PodLogOptions{
+			Container: container,
+		})
+		podLogs, err := req.Stream(context.Background())
+		if err != nil {
+			return false, err
+		}
+		defer podLogs.Close()
+
+		count := 0
+		scanner := bufio.NewScanner(podLogs)
+		for scanner.Scan() {
+			t.Logf("%s/%s log: %s", podName, container, scanner.Text())
+			if len(scanner.Bytes()) == 0 {
+				continue
+			}
+			if matcher(scanner.Text()) {
+				count++
+			}
+		}
+		return count >= numMatches, scanner.Err()
+	})
 }

@@ -38,17 +38,20 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-// readinessPropagationTime is how long to poll to allow for readiness probe
-// changes to propagate to ingresses/activator.
-//
-// When Readiness.PeriodSeconds=0 the underlying Pods use the K8s
-// defaults for readiness. Those are:
-// - Readiness.PeriodSeconds=10
-// - Readiness.FailureThreshold=3
-//
-// Thus it takes at a mininum 30 seconds for the Pod to become
-// unready. To account for this we bump max propagation time
-const readinessPropagationTime = time.Minute
+const (
+	// readinessPropagationTime is how long to poll to allow for readiness probe
+	// changes to propagate to ingresses/activator.
+	//
+	// When Readiness.PeriodSeconds=0 the underlying Pods use the K8s
+	// defaults for readiness. Those are:
+	// - Readiness.PeriodSeconds=10
+	// - Readiness.FailureThreshold=3
+	//
+	// Thus it takes at a mininum 30 seconds for the Pod to become
+	// unready. To account for this we bump max propagation time
+	readinessPropagationTime = time.Minute
+	readinessPath            = "/healthz/readiness"
+)
 
 func TestProbeRuntime(t *testing.T) {
 	t.Parallel()
@@ -72,7 +75,7 @@ func TestProbeRuntime(t *testing.T) {
 		}},
 		handler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Path: "/healthz",
+				Path: readinessPath,
 			},
 		},
 	}, {
@@ -130,7 +133,7 @@ func TestProbeRuntime(t *testing.T) {
 
 				// Once the service reports ready we should immediately be able to curl it.
 				url := resources.Route.Status.URL.URL()
-				url.Path = "/healthz"
+				url.Path = readinessPath
 				if _, err = pkgtest.CheckEndpointState(
 					context.Background(),
 					clients.KubeClient,
@@ -225,7 +228,7 @@ func waitReadyThenStartFailing(t *testing.T, clients *test.Clients, names test.R
 			PeriodSeconds: probePeriod,
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
-					Path: "/healthz",
+					Path: readinessPath,
 				},
 			},
 		}))

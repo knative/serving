@@ -33,5 +33,4 @@ data:
   loglevel.activator: "debug"
   loglevel.hpaautoscaler: "debug"
   loglevel.net-istio-controller: "debug"
-  loglevel.net-certmanager-controller: "debug"
   loglevel.net-contour-controller: "debug"
