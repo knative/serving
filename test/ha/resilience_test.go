@@ -117,20 +117,17 @@ func testUptimeDuringUserPodDeletion(t *testing.T, ctx context.Context, clients 
 	t.Logf("Watching user pods")
 	var wg sync.WaitGroup
 	wg.Add(2)
+
 	go watchPodEvents(t, ctx, clients, &wg, selector, pods.Items[0].Name)
 	go watchPodEvents(t, ctx, clients, &wg, selector, pods.Items[1].Name)
 	wg.Wait()
 
-	// Delete first user pod
-	err = clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).Delete(ctx, pods.Items[0].Name, metav1.DeleteOptions{})
-	if err != nil {
-		t.Fatalf("Unable to delete pod: %v", err)
-	}
-
-	// Delete second user pod
-	err = clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).Delete(ctx, pods.Items[1].Name, metav1.DeleteOptions{})
-	if err != nil {
-		t.Fatalf("Unable to delete pod: %v", err)
+	// Delete user pods
+	for _, pod := range pods.Items {
+		err := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).Delete(ctx, pod.Name, metav1.DeleteOptions{})
+		if err != nil {
+			t.Fatalf("Unable to delete pod: %v", err)
+		}
 	}
 
 	newPods, err := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
@@ -151,7 +148,8 @@ func watchPodEvents(t *testing.T, ctx context.Context, clients *test.Clients, wg
 		Watch:         true,
 	})
 	if err != nil {
-		t.Fatalf("Unable to watch pods: %v", err)
+		t.Errorf("Unable to watch pods: %v", err)
+		panic(err)
 	}
 
 	podEventsChan := watcher.ResultChan()
