@@ -21,6 +21,10 @@ package ha
 
 import (
 	"context"
+	"strconv"
+	"sync"
+	"testing"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -31,9 +35,6 @@ import (
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
-	"strconv"
-	"sync"
-	"testing"
 )
 
 const (
