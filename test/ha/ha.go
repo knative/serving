@@ -26,8 +26,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 
+	netcfg "knative.dev/networking/pkg/config"
+	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
+	"knative.dev/serving/pkg/networking"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
@@ -101,4 +104,18 @@ func readyEndpointsDoNotContain(ip string) func(*corev1.Endpoints) (bool, error)
 		}
 		return true, nil
 	}
+}
+
+func isNetCertmanagerControllerReconcilerOn(t *testing.T, client kubernetes.Interface) bool {
+	var cm *corev1.ConfigMap
+	var err error
+	if cm, err = client.CoreV1().ConfigMaps(system.Namespace()).Get(context.Background(), "config-network", metav1.GetOptions{}); err != nil {
+		t.Fatalf("Failed to get cm config-network: %v", err)
+	}
+	netCfg, err := netcfg.NewConfigFromMap(cm.Data)
+	if err != nil {
+		t.Fatalf("Failed to construct network config: %v", err)
+	}
+
+	return networking.IsNetCertManagerControllerRequired(netCfg)
 }
