@@ -227,7 +227,7 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 		}
 	}
 
-	if cfg.Deployment.Affinity != deploymentconfig.PreferSpreadRevisionOverNodes && cfg.Features.PodSpecAffinity == apiconfig.Disabled {
+	if cfg.Deployment.Affinity == deploymentconfig.PreferSpreadRevisionOverNodes && cfg.Features.PodSpecAffinity == apiconfig.Disabled {
 		podSpec.Affinity = &corev1.Affinity{PodAntiAffinity: makePreferSpreadRevisionOverNodes(rev.Name)}
 	}
 
