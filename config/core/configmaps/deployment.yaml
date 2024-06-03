@@ -92,7 +92,7 @@ data:
     # If omitted, or empty, no rootCA is added to the golang rootCAs
     queue-sidecar-rootca: ""
 
-    # If set to "true", it automatically configures pod anti-affinity requirements for all Knative services.
+    # If set, it automatically configures pod anti-affinity requirements for all Knative services.
     # It employs the `preferredDuringSchedulingIgnoredDuringExecution` weighted pod affinity term,
     # aligning with the Knative revision label. It yields the configuration below in all workloads' deployments:
     # `
@@ -106,5 +106,5 @@ data:
     #               serving.knative.dev/revision: {{revision-name}}
     #         weight: 100
     # `
-    #
-    # enable-pod-anti-affinity-rule: "true"
+    # This may be "none" or "prefer-spread-revision-over-nodes" (default)
+    # affinity: "prefer-spread-revision-over-nodes"

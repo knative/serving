@@ -1424,7 +1424,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 			}),
 	}, {
-		name: "with default pod anti-affinity rules",
+		name: "with default affinity rules",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
 				Name:           servingContainerName,
@@ -1439,7 +1439,7 @@ func TestMakePodSpec(t *testing.T) {
 			PodSpecAffinity: apicfg.Disabled,
 		},
 		dc: deployment.Config{
-			EnablePodAntiAffinityRule: true,
+			Affinity: deployment.PreferSpreadRevisionOverNodes,
 		},
 		want: podSpec(
 			[]corev1.Container{
@@ -1455,7 +1455,7 @@ func TestMakePodSpec(t *testing.T) {
 			},
 		),
 	}, {
-		name: "with pod anti-affinity rules toggle off",
+		name: "with affinity rules deactivated",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
 				Name:           servingContainerName,
@@ -1470,7 +1470,7 @@ func TestMakePodSpec(t *testing.T) {
 			PodSpecAffinity: apicfg.Disabled,
 		},
 		dc: deployment.Config{
-			EnablePodAntiAffinityRule: false,
+			Affinity: deployment.None,
 		},
 		want: podSpec(
 			[]corev1.Container{
@@ -1481,7 +1481,7 @@ func TestMakePodSpec(t *testing.T) {
 			},
 		),
 	}, {
-		name: "with pod anti-affinity rules toggle on for both users and operators",
+		name: "with affinity rules on for both users and operators",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
 				Name:           servingContainerName,
@@ -1496,7 +1496,7 @@ func TestMakePodSpec(t *testing.T) {
 			PodSpecAffinity: apicfg.Enabled,
 		},
 		dc: deployment.Config{
-			EnablePodAntiAffinityRule: true,
+			Affinity: deployment.PreferSpreadRevisionOverNodes,
 		},
 		want: podSpec(
 			[]corev1.Container{

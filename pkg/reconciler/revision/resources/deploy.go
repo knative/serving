@@ -39,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	apiconfig "knative.dev/serving/pkg/apis/config"
+	deploymentconfig "knative.dev/serving/pkg/deployment"
 )
 
 const certVolumeName = "server-certs"
@@ -150,7 +151,7 @@ func rewriteUserLivenessProbe(p *corev1.Probe, userPort int) {
 	}
 }
 
-func makeDefaultPodAntiAffinity(revisionLabelValue string) *corev1.PodAntiAffinity {
+func makePreferSpreadRevisionOverNodes(revisionLabelValue string) *corev1.PodAntiAffinity {
 	return &corev1.PodAntiAffinity{
 		PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
 			Weight: 100,
@@ -226,8 +227,8 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 		}
 	}
 
-	if cfg.Deployment.EnablePodAntiAffinityRule && cfg.Features.PodSpecAffinity == apiconfig.Disabled {
-		podSpec.Affinity = &corev1.Affinity{PodAntiAffinity: makeDefaultPodAntiAffinity(rev.Name)}
+	if cfg.Deployment.Affinity != deploymentconfig.PreferSpreadRevisionOverNodes && cfg.Features.PodSpecAffinity == apiconfig.Disabled {
+		podSpec.Affinity = &corev1.Affinity{PodAntiAffinity: makePreferSpreadRevisionOverNodes(rev.Name)}
 	}
 
 	return podSpec, nil

@@ -81,7 +81,7 @@ func TestControllerConfiguration(t *testing.T) {
 		wantConfig *Config
 		data       map[string]string
 	}{{
-		name: "controller configuration with no pod anti-affinity toggle specified",
+		name: "controller configuration with no affinity rule specified",
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
 			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
@@ -89,27 +89,27 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			QueueSidecarTokenAudiences:     sets.New(""),
 			ProgressDeadline:               ProgressDeadlineDefault,
-			EnablePodAntiAffinityRule:      EnablePodAntiAffinityRuleDefault,
+			Affinity:                       affinityDefault,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey: defaultSidecarImage,
 		},
 	}, {
-		name:    "controller configuration with empty string for the pod anti-affinity toggle",
+		name:    "controller configuration with empty string for the affinity rule",
 		wantErr: true,
 		data: map[string]string{
-			QueueSidecarImageKey:      defaultSidecarImage,
-			enablePodAntiAffinityRule: "",
+			QueueSidecarImageKey: defaultSidecarImage,
+			affinityKey:          "",
 		},
 	}, {
-		name:    "controller configuration with wrong type for the pod anti-affinity toggle",
+		name:    "controller configuration with unsupported affinity value",
 		wantErr: true,
 		data: map[string]string{
-			QueueSidecarImageKey:      defaultSidecarImage,
-			enablePodAntiAffinityRule: "coconut",
+			QueueSidecarImageKey: defaultSidecarImage,
+			affinityKey:          "coconut",
 		},
 	}, {
-		name: "controller configuration with the pod anti-affinity toggle on",
+		name: "controller configuration with the default affinity rule set",
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
 			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
@@ -117,11 +117,26 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			QueueSidecarTokenAudiences:     sets.New(""),
 			ProgressDeadline:               ProgressDeadlineDefault,
-			EnablePodAntiAffinityRule:      true,
+			Affinity:                       affinityDefault,
 		},
 		data: map[string]string{
-			QueueSidecarImageKey:      defaultSidecarImage,
-			enablePodAntiAffinityRule: "true",
+			QueueSidecarImageKey: defaultSidecarImage,
+			affinityKey:          string(PreferSpreadRevisionOverNodes),
+		},
+	}, {
+		name: "controller configuration with affinity deactivated",
+		wantConfig: &Config{
+			RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
+			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
+			QueueSidecarImage:              defaultSidecarImage,
+			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			QueueSidecarTokenAudiences:     sets.New(""),
+			ProgressDeadline:               ProgressDeadlineDefault,
+			Affinity:                       None,
+		},
+		data: map[string]string{
+			QueueSidecarImageKey: defaultSidecarImage,
+			affinityKey:          string(None),
 		},
 	}, {
 		name: "controller configuration with bad registries",
@@ -132,7 +147,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			QueueSidecarTokenAudiences:     sets.New("foo", "bar", "boo-srv"),
 			ProgressDeadline:               ProgressDeadlineDefault,
-			EnablePodAntiAffinityRule:      EnablePodAntiAffinityRuleDefault,
+			Affinity:                       affinityDefault,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:              defaultSidecarImage,
@@ -148,7 +163,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			QueueSidecarTokenAudiences:     sets.New(""),
 			ProgressDeadline:               444 * time.Second,
-			EnablePodAntiAffinityRule:      EnablePodAntiAffinityRuleDefault,
+			Affinity:                       affinityDefault,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey: defaultSidecarImage,
@@ -163,7 +178,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			QueueSidecarTokenAudiences:     sets.New(""),
 			ProgressDeadline:               ProgressDeadlineDefault,
-			EnablePodAntiAffinityRule:      EnablePodAntiAffinityRuleDefault,
+			Affinity:                       affinityDefault,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:       defaultSidecarImage,
@@ -178,7 +193,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			QueueSidecarTokenAudiences:     sets.New(""),
 			ProgressDeadline:               ProgressDeadlineDefault,
-			EnablePodAntiAffinityRule:      EnablePodAntiAffinityRuleDefault,
+			Affinity:                       affinityDefault,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:              defaultSidecarImage,
@@ -198,7 +213,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarMemoryLimit:             quantity("654m"),
 			QueueSidecarEphemeralStorageLimit:   quantity("321M"),
 			QueueSidecarTokenAudiences:          sets.New(""),
-			EnablePodAntiAffinityRule:           EnablePodAntiAffinityRuleDefault,
+			Affinity:                            affinityDefault,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:                   defaultSidecarImage,
@@ -275,7 +290,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarEphemeralStorageRequest: quantity("9M"),
 			QueueSidecarEphemeralStorageLimit:   quantity("10M"),
 			QueueSidecarTokenAudiences:          sets.New(""),
-			EnablePodAntiAffinityRule:           EnablePodAntiAffinityRuleDefault,
+			Affinity:                            affinityDefault,
 		},
 	}, {
 		name: "newer key case takes priority",
@@ -317,7 +332,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarEphemeralStorageRequest: quantity("20M"),
 			QueueSidecarEphemeralStorageLimit:   quantity("21M"),
 			QueueSidecarTokenAudiences:          sets.New("foo"),
-			EnablePodAntiAffinityRule:           EnablePodAntiAffinityRuleDefault,
+			Affinity:                            affinityDefault,
 		},
 	}}
 
