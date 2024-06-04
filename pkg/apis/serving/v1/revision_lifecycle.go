@@ -18,8 +18,7 @@ package v1
 
 import (
 	"fmt"
-	"log"
-
+	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -169,14 +168,14 @@ func (rs *RevisionStatus) PropagateDeploymentStatus(original *appsv1.DeploymentS
 	}
 }
 
-func (rs *RevisionStatus) PropagateDeploymentAvailabilityWithContainerStatus(original *appsv1.DeploymentStatus, reason, message string) bool {
+func (rs *RevisionStatus) PropagateDeploymentAvailabilityWithContainerStatus(logger *zap.SugaredLogger, original *appsv1.DeploymentStatus, reason, message string) bool {
 	m := revisionCondSet.Manage(rs)
 	for _, cond := range original.Conditions {
 		switch cond.Type {
 		case appsv1.DeploymentAvailable:
 			switch cond.Status {
 			case corev1.ConditionFalse:
-				log.Printf("marking revision resource unavailable because deployment is not available with: %s: %s\n", reason, message)
+				logger.Debugf("marking revision resource unavailable because deployment is not available with: %s: %s\n", reason, message)
 				m.MarkFalse(RevisionConditionResourcesAvailable, reason, message)
 				return true
 			}
