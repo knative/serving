@@ -164,11 +164,9 @@ func TestContainerExitingMsg(t *testing.T) {
 		cond := r.Status.GetCondition(v1.RevisionConditionReady)
 		t.Logf("Revision %s Ready status = %v", names.Revision, cond)
 		if cond != nil {
-			if cond.Reason != "" && cond.Message != "" {
+			if cond.Reason != "" && cond.Reason != "ContainerCreating" && cond.Message != "" {
 				return true, nil
 			}
-			return true, fmt.Errorf("The revision %s has empty reason or message: (Reason=%q, Message=%q)",
-				names.Revision, cond.Reason, cond.Message)
 		}
 		return false, nil
 	}, "RevisionContainersCrashing"); err != nil {

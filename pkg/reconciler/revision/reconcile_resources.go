@@ -19,7 +19,8 @@ package revision
 import (
 	"context"
 	"fmt"
-	
+	"time"
+
 	"go.uber.org/zap"
 	"knative.dev/pkg/tracker"
 	networkingaccessor "knative.dev/serving/pkg/reconciler/accessor/networking"
@@ -43,6 +44,8 @@ import (
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 )
+
+const requeuePeriodForDeploymentChecking = 1 * time.Second
 
 func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) error {
 	ns := rev.Namespace
@@ -119,8 +122,11 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 						}
 						if shouldRequeue := rev.Status.PropagateDeploymentAvailabilityWithContainerStatus(logger, &deployment.Status, w.Reason, w.Message); shouldRequeue {
 							// If we don't keep re-trying here at some point revision gets stuck without updates, thus not getting the latest.
-							return controller.NewRequeueImmediately()
+							return controller.NewRequeueAfter(requeuePeriodForDeploymentChecking)
 						}
+					} else {
+						// We are facing an availability issue, we need to check again
+						return controller.NewRequeueAfter(requeuePeriodForDeploymentChecking)
 					}
 				}
 			}
