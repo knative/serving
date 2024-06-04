@@ -79,7 +79,7 @@ func WaitForNewLeaders(ctx context.Context, t *testing.T, client kubernetes.Inte
 	defer span.End()
 
 	var leaders sets.Set[string]
-	err := wait.PollUntilContextTimeout(ctx, time.Second, time.Minute, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
 		currLeaders, err := GetLeaders(ctx, t, client, deploymentName, namespace)
 		if err != nil {
 			return false, err
