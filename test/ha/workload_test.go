@@ -138,7 +138,7 @@ func testUptimeDuringUserPodDeletion(t *testing.T, ctx context.Context, clients 
 	}
 
 	if !(len(newPods.Items) == minimumNumberOfReplicas) {
-		t.Errorf("Expected to have %d user pod(s) running, but found %d.", minimumNumberOfReplicas, len(pods.Items))
+		t.Errorf("Expected to have %d user pod(s) running, but found %d.", minimumNumberOfReplicas, len(newPods.Items))
 	}
 }
 
