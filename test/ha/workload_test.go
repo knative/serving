@@ -120,15 +120,17 @@ func testUptimeDuringUserPodDeletion(t *testing.T, ctx context.Context, clients 
 
 	go watchPodEvents(t, ctx, clients, &wg, selector, pods.Items[0].Name)
 	go watchPodEvents(t, ctx, clients, &wg, selector, pods.Items[1].Name)
-	wg.Wait()
 
 	// Delete user pods
+	t.Logf("Deleting user pods")
 	for _, pod := range pods.Items {
 		err := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).Delete(ctx, pod.Name, metav1.DeleteOptions{})
 		if err != nil {
 			t.Fatalf("Unable to delete pod: %v", err)
 		}
 	}
+
+	wg.Wait()
 
 	newPods, err := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
