@@ -22,13 +22,10 @@ package ha
 import (
 	"context"
 	"strconv"
-	"sync"
 	"testing"
 
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/watch"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
@@ -42,6 +39,7 @@ const (
 	minimumNumberOfReplicas = 2
 	maximumNumberOfReplicas = 2
 	deploymentSuffix        = "-deployment"
+	repetitionCount         = 10
 )
 
 func TestActivatorNotInRequestPath(t *testing.T) {
@@ -107,62 +105,33 @@ func testUptimeDuringUserPodDeletion(t *testing.T, ctx context.Context, clients 
 		t.Fatalf("Deployment %s not scaled to %d: %v", deploymentName, minimumNumberOfReplicas, err)
 	}
 
-	// Get user pods
-	selector := labels.SelectorFromSet(labels.Set{
-		serving.ServiceLabelKey: names.Service,
-	})
-	pods, err := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
-	if err != nil {
-		t.Fatalf("Unable to get pods: %v", err)
+	for i := 0; i < repetitionCount; i++ {
+		deleteUserPods(t, ctx, clients, names.Service)
 	}
-
-	t.Logf("Watching user pods")
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	go watchPodEvents(t, ctx, clients, &wg, selector, pods.Items[0].Name)
-	go watchPodEvents(t, ctx, clients, &wg, selector, pods.Items[1].Name)
-
-	// Delete user pods
-	t.Logf("Deleting user pods")
-	for _, pod := range pods.Items {
-		err := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).Delete(ctx, pod.Name, metav1.DeleteOptions{})
-		if err != nil {
-			t.Fatalf("Unable to delete pod: %v", err)
-		}
-	}
-
-	wg.Wait()
 
 	if err := pkgTest.WaitForDeploymentScale(ctx, clients.KubeClient, deploymentName, test.ServingFlags.TestNamespace, minimumNumberOfReplicas); err != nil {
 		t.Errorf("Deployment %s not scaled to %d: %v", deploymentName, minimumNumberOfReplicas, err)
 	}
 }
 
-func watchPodEvents(t *testing.T, ctx context.Context, clients *test.Clients, wg *sync.WaitGroup, selector labels.Selector, targetPod string) {
-	defer wg.Done()
-
-	watcher, err := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).Watch(ctx, metav1.ListOptions{
-		LabelSelector: selector.String(),
-		Watch:         true,
+func deleteUserPods(t *testing.T, ctx context.Context, clients *test.Clients, serviceName string) {
+	// Get user pods
+	selector := labels.SelectorFromSet(labels.Set{
+		serving.ServiceLabelKey: serviceName,
 	})
+	pods, err := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
-		t.Errorf("Unable to watch pods: %v", err)
-		panic(err)
+		t.Fatalf("Unable to get pods: %v", err)
 	}
 
-	podEventsChan := watcher.ResultChan()
-	defer watcher.Stop()
-
-	for event := range podEventsChan {
-		pod, ok := event.Object.(*v1.Pod)
-		t.Logf("Pod %s received event: %s", pod.Name, event.Type)
-		if !ok {
-			continue
+	t.Logf("Deleting user pods")
+	for _, pod := range pods.Items {
+		err := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).Delete(ctx, pod.Name, metav1.DeleteOptions{})
+		if err != nil {
+			t.Fatalf("Unable to delete pod: %v", err)
 		}
-		if event.Type == watch.Deleted && pod.Name == targetPod {
-			t.Logf("Pod %s deleted from node %s", pod.Name, pod.Spec.NodeName)
-			break
+		if err := pkgTest.WaitForPodDeleted(context.Background(), clients.KubeClient, pod.Name, test.ServingFlags.TestNamespace); err != nil {
+			t.Fatalf("Did not observe %s to actually be deleted: %v", pod.Name, err)
 		}
 	}
 }
