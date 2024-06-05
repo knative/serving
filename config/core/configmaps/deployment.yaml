@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "593aef61"
+    knative.dev/example-checksum: "e2f637c6"
 data:
   # This is the Go import path for the binary that is containerized
   # and substituted here.
@@ -107,4 +107,4 @@ data:
     #         weight: 100
     # `
     # This may be "none" or "prefer-spread-revision-over-nodes" (default)
-    # affinity: "prefer-spread-revision-over-nodes"
+    # default-affinity-type: "prefer-spread-revision-over-nodes"

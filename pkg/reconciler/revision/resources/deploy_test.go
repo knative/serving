@@ -1450,7 +1450,7 @@ func TestMakePodSpec(t *testing.T) {
 			PodSpecAffinity: apicfg.Disabled,
 		},
 		dc: deployment.Config{
-			Affinity: deployment.PreferSpreadRevisionOverNodes,
+			DefaultAffinityType: deployment.PreferSpreadRevisionOverNodes,
 		},
 		want: podSpec(
 			[]corev1.Container{
@@ -1481,7 +1481,7 @@ func TestMakePodSpec(t *testing.T) {
 			PodSpecAffinity: apicfg.Disabled,
 		},
 		dc: deployment.Config{
-			Affinity: deployment.None,
+			DefaultAffinityType: deployment.None,
 		},
 		want: podSpec(
 			[]corev1.Container{
@@ -1511,7 +1511,7 @@ func TestMakePodSpec(t *testing.T) {
 			PodSpecAffinity: apicfg.Enabled,
 		},
 		dc: deployment.Config{
-			Affinity: deployment.PreferSpreadRevisionOverNodes,
+			DefaultAffinityType: deployment.PreferSpreadRevisionOverNodes,
 		},
 		want: podSpec(
 			[]corev1.Container{

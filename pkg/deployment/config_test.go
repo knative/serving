@@ -89,7 +89,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			QueueSidecarTokenAudiences:     sets.New(""),
 			ProgressDeadline:               ProgressDeadlineDefault,
-			Affinity:                       affinityDefault,
+			DefaultAffinityType:            defaultAffinityTypeValue,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey: defaultSidecarImage,
@@ -98,15 +98,15 @@ func TestControllerConfiguration(t *testing.T) {
 		name:    "controller configuration with empty string for the affinity rule",
 		wantErr: true,
 		data: map[string]string{
-			QueueSidecarImageKey: defaultSidecarImage,
-			affinityKey:          "",
+			QueueSidecarImageKey:   defaultSidecarImage,
+			defaultAffinityTypeKey: "",
 		},
 	}, {
 		name:    "controller configuration with unsupported affinity value",
 		wantErr: true,
 		data: map[string]string{
-			QueueSidecarImageKey: defaultSidecarImage,
-			affinityKey:          "coconut",
+			QueueSidecarImageKey:   defaultSidecarImage,
+			defaultAffinityTypeKey: "coconut",
 		},
 	}, {
 		name: "controller configuration with the default affinity rule set",
@@ -117,11 +117,11 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			QueueSidecarTokenAudiences:     sets.New(""),
 			ProgressDeadline:               ProgressDeadlineDefault,
-			Affinity:                       affinityDefault,
+			DefaultAffinityType:            defaultAffinityTypeValue,
 		},
 		data: map[string]string{
-			QueueSidecarImageKey: defaultSidecarImage,
-			affinityKey:          string(PreferSpreadRevisionOverNodes),
+			QueueSidecarImageKey:   defaultSidecarImage,
+			defaultAffinityTypeKey: string(PreferSpreadRevisionOverNodes),
 		},
 	}, {
 		name: "controller configuration with affinity deactivated",
@@ -132,11 +132,11 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			QueueSidecarTokenAudiences:     sets.New(""),
 			ProgressDeadline:               ProgressDeadlineDefault,
-			Affinity:                       None,
+			DefaultAffinityType:            None,
 		},
 		data: map[string]string{
-			QueueSidecarImageKey: defaultSidecarImage,
-			affinityKey:          string(None),
+			QueueSidecarImageKey:   defaultSidecarImage,
+			defaultAffinityTypeKey: string(None),
 		},
 	}, {
 		name: "controller configuration with bad registries",
@@ -147,7 +147,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			QueueSidecarTokenAudiences:     sets.New("foo", "bar", "boo-srv"),
 			ProgressDeadline:               ProgressDeadlineDefault,
-			Affinity:                       affinityDefault,
+			DefaultAffinityType:            defaultAffinityTypeValue,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:              defaultSidecarImage,
@@ -163,7 +163,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			QueueSidecarTokenAudiences:     sets.New(""),
 			ProgressDeadline:               444 * time.Second,
-			Affinity:                       affinityDefault,
+			DefaultAffinityType:            defaultAffinityTypeValue,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey: defaultSidecarImage,
@@ -178,7 +178,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			QueueSidecarTokenAudiences:     sets.New(""),
 			ProgressDeadline:               ProgressDeadlineDefault,
-			Affinity:                       affinityDefault,
+			DefaultAffinityType:            defaultAffinityTypeValue,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:       defaultSidecarImage,
@@ -193,7 +193,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			QueueSidecarTokenAudiences:     sets.New(""),
 			ProgressDeadline:               ProgressDeadlineDefault,
-			Affinity:                       affinityDefault,
+			DefaultAffinityType:            defaultAffinityTypeValue,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:              defaultSidecarImage,
@@ -213,7 +213,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarMemoryLimit:             quantity("654m"),
 			QueueSidecarEphemeralStorageLimit:   quantity("321M"),
 			QueueSidecarTokenAudiences:          sets.New(""),
-			Affinity:                            affinityDefault,
+			DefaultAffinityType:                 defaultAffinityTypeValue,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:                   defaultSidecarImage,
@@ -290,7 +290,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarEphemeralStorageRequest: quantity("9M"),
 			QueueSidecarEphemeralStorageLimit:   quantity("10M"),
 			QueueSidecarTokenAudiences:          sets.New(""),
-			Affinity:                            affinityDefault,
+			DefaultAffinityType:                 defaultAffinityTypeValue,
 		},
 	}, {
 		name: "newer key case takes priority",
@@ -332,7 +332,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarEphemeralStorageRequest: quantity("20M"),
 			QueueSidecarEphemeralStorageLimit:   quantity("21M"),
 			QueueSidecarTokenAudiences:          sets.New("foo"),
-			Affinity:                            affinityDefault,
+			DefaultAffinityType:                 defaultAffinityTypeValue,
 		},
 	}}
 

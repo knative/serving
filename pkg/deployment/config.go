@@ -68,9 +68,8 @@ const (
 	queueSidecarTokenAudiencesKey = "queue-sidecar-token-audiences"
 	queueSidecarRooCAKey          = "queue-sidecar-rootca"
 
-	affinityKey = "affinity"
-
-	affinityDefault = PreferSpreadRevisionOverNodes
+	defaultAffinityTypeKey   = "default-affinity-type"
+	defaultAffinityTypeValue = PreferSpreadRevisionOverNodes
 )
 
 var (
@@ -106,7 +105,7 @@ func defaultConfig() *Config {
 		DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 		RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
 		QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
-		Affinity:                       affinityDefault,
+		DefaultAffinityType:            defaultAffinityTypeValue,
 	}
 	// The following code is needed for ConfigMap testing.
 	// defaultConfig must match the example in deployment.yaml which includes: `queue-sidecar-token-audiences: ""`
@@ -168,10 +167,10 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 		return nil, fmt.Errorf("digest-resolution-timeout cannot be a non-positive duration, was %v", nc.DigestResolutionTimeout)
 	}
 
-	if affinity, ok := configMap[affinityKey]; ok {
-		switch opt := AffinityRule(affinity); opt {
+	if affinity, ok := configMap[defaultAffinityTypeKey]; ok {
+		switch opt := AffinityType(affinity); opt {
 		case None, PreferSpreadRevisionOverNodes:
-			nc.Affinity = opt
+			nc.DefaultAffinityType = opt
 		default:
 			return nil, fmt.Errorf("unsupported `affinity` value %q", affinity)
 		}
@@ -184,15 +183,15 @@ func NewConfigFromConfigMap(config *corev1.ConfigMap) (*Config, error) {
 	return NewConfigFromMap(config.Data)
 }
 
-// AffinityRule specifies which affinity requirements will be automatically applied to the PodSpec of all Knative services.
-type AffinityRule string
+// AffinityType specifies which affinity requirements will be automatically applied to the PodSpec of all Knative services.
+type AffinityType string
 
 const (
 	// None is used for deactivating affinity configuration for user workloads.
-	None AffinityRule = "none"
+	None AffinityType = "none"
 
 	// PreferSpreadRevisionOverNodes is used to set pod anti-affinity requirements for user workloads.
-	PreferSpreadRevisionOverNodes AffinityRule = "prefer-spread-revision-over-nodes"
+	PreferSpreadRevisionOverNodes AffinityType = "prefer-spread-revision-over-nodes"
 )
 
 // Config includes the configurations for the controller.
@@ -238,7 +237,7 @@ type Config struct {
 	// QueueSidecarRootCA is a root certificate to be trusted by the queue proxy sidecar  qpoptions.
 	QueueSidecarRootCA string
 
-	// Affinity is a string that controls what affinity rules will be automatically
+	// DefaultAffinityType is a string that controls what affinity rules will be automatically
 	// applied to the PodSpec of all Knative services.
-	Affinity AffinityRule
+	DefaultAffinityType AffinityType
 }
