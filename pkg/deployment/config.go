@@ -172,7 +172,7 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 		case None, PreferSpreadRevisionOverNodes:
 			nc.DefaultAffinityType = opt
 		default:
-			return nil, fmt.Errorf("unsupported `affinity` value %q", affinity)
+			return nil, fmt.Errorf("unsupported %s value: %q", defaultAffinityTypeKey, affinity)
 		}
 	}
 	return nc, nil
