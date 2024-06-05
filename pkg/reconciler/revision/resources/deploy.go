@@ -227,10 +227,8 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 		}
 	}
 
-	if cfg.Deployment.Affinity == deploymentconfig.PreferSpreadRevisionOverNodes {
-		if cfg.Features.PodSpecAffinity == apiconfig.Disabled || (cfg.Features.PodSpecAffinity == apiconfig.Enabled && rev.Spec.Affinity == nil) {
-			podSpec.Affinity = &corev1.Affinity{PodAntiAffinity: makePreferSpreadRevisionOverNodes(rev.Name)}
-		}
+	if cfg.Deployment.Affinity == deploymentconfig.PreferSpreadRevisionOverNodes && rev.Spec.Affinity == nil {
+		podSpec.Affinity = &corev1.Affinity{PodAntiAffinity: makePreferSpreadRevisionOverNodes(rev.Name)}
 	}
 
 	return podSpec, nil
