@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/watch"
+	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -40,6 +41,7 @@ import (
 const (
 	minimumNumberOfReplicas = 2
 	maximumNumberOfReplicas = 2
+	deploymentSuffix        = "-deployment"
 )
 
 func TestActivatorNotInRequestPath(t *testing.T) {
@@ -100,18 +102,18 @@ func testUptimeDuringUserPodDeletion(t *testing.T, ctx context.Context, clients 
 	prober.Spawn(resources.Service.Status.URL.URL())
 	defer assertSLO(t, prober, 1)
 
-	// Get user pods
+	deploymentName := names.Revision + deploymentSuffix
+	if err := pkgTest.WaitForDeploymentScale(ctx, clients.KubeClient, deploymentName, test.ServingFlags.TestNamespace, minimumNumberOfReplicas); err != nil {
+		t.Fatalf("Deployment %s not scaled to %d: %v", deploymentName, minimumNumberOfReplicas, err)
+	}
 
+	// Get user pods
 	selector := labels.SelectorFromSet(labels.Set{
 		serving.ServiceLabelKey: names.Service,
 	})
 	pods, err := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
 		t.Fatalf("Unable to get pods: %v", err)
-	}
-
-	if !(len(pods.Items) == minimumNumberOfReplicas) {
-		t.Fatalf("Expected to have %d user pod(s) running, but found %d.", minimumNumberOfReplicas, len(pods.Items))
 	}
 
 	t.Logf("Watching user pods")
@@ -132,13 +134,8 @@ func testUptimeDuringUserPodDeletion(t *testing.T, ctx context.Context, clients 
 
 	wg.Wait()
 
-	newPods, err := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
-	if err != nil {
-		t.Fatalf("Unable to get pods: %v", err)
-	}
-
-	if !(len(newPods.Items) == minimumNumberOfReplicas) {
-		t.Errorf("Expected to have %d user pod(s) running, but found %d.", minimumNumberOfReplicas, len(newPods.Items))
+	if err := pkgTest.WaitForDeploymentScale(ctx, clients.KubeClient, deploymentName, test.ServingFlags.TestNamespace, minimumNumberOfReplicas); err != nil {
+		t.Errorf("Deployment %s not scaled to %d: %v", deploymentName, minimumNumberOfReplicas, err)
 	}
 }
 
