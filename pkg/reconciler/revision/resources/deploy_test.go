@@ -219,6 +219,17 @@ var (
 		}},
 	}
 
+	userDefinedPodAntiAffinityRules = &corev1.PodAntiAffinity{
+		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
+			TopologyKey: "kubernetes.io/hostname",
+			LabelSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"serving.knative.dev/revision": "bar",
+				},
+			},
+		}},
+	}
+
 	maxUnavailable    = intstr.FromInt(0)
 	defaultDeployment = &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1481,7 +1492,7 @@ func TestMakePodSpec(t *testing.T) {
 			},
 		),
 	}, {
-		name: "with affinity rules on for both users and operators",
+		name: "with affinity rules set by the user and the operator",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
 				Name:           servingContainerName,
@@ -1491,7 +1502,11 @@ func TestMakePodSpec(t *testing.T) {
 			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
-		),
+			func(r *v1.Revision) {
+				r.Spec.Affinity = &corev1.Affinity{
+					PodAntiAffinity: userDefinedPodAntiAffinityRules,
+				}
+			}),
 		fc: apicfg.Features{
 			PodSpecAffinity: apicfg.Enabled,
 		},
@@ -1504,6 +1519,11 @@ func TestMakePodSpec(t *testing.T) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
 				queueContainer(),
+			},
+			func(p *corev1.PodSpec) {
+				p.Affinity = &corev1.Affinity{
+					PodAntiAffinity: userDefinedPodAntiAffinityRules,
+				}
 			},
 		),
 	}}
