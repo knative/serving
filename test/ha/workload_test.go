@@ -83,9 +83,8 @@ func TestActivatorInRequestPathPossibly(t *testing.T) {
 	// Create first service that we will continually probe during disruption scenario.
 	names, resources := createPizzaPlanetService(t,
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.MinScaleAnnotationKey:  strconv.Itoa(minimumNumberOfReplicas), // Make sure we don't scale to zero during the test.
-			autoscaling.MaxScaleAnnotationKey:  strconv.Itoa(maximumNumberOfReplicas),
-			autoscaling.TargetBurstCapacityKey: "200", // The Activator may be in the path, depending on the revision scale and load.
+			autoscaling.MinScaleAnnotationKey: strconv.Itoa(minimumNumberOfReplicas), // Make sure we don't scale to zero during the test.
+			autoscaling.MaxScaleAnnotationKey: strconv.Itoa(maximumNumberOfReplicas),
 		}),
 	)
 	test.EnsureTearDown(t, clients, &names)
