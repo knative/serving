@@ -81,7 +81,7 @@ func TestControllerConfiguration(t *testing.T) {
 		wantConfig *Config
 		data       map[string]string
 	}{{
-		name: "controller configuration with no affinity rule specified",
+		name: "controller configuration with no default affinity type specified",
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
 			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
@@ -95,21 +95,21 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarImageKey: defaultSidecarImage,
 		},
 	}, {
-		name:    "controller configuration with empty string for the affinity rule",
+		name:    "controller configuration with empty string set for the default affinity type",
 		wantErr: true,
 		data: map[string]string{
 			QueueSidecarImageKey:   defaultSidecarImage,
 			defaultAffinityTypeKey: "",
 		},
 	}, {
-		name:    "controller configuration with unsupported affinity value",
+		name:    "controller configuration with unsupported value for default affinity type",
 		wantErr: true,
 		data: map[string]string{
 			QueueSidecarImageKey:   defaultSidecarImage,
 			defaultAffinityTypeKey: "coconut",
 		},
 	}, {
-		name: "controller configuration with the default affinity rule set",
+		name: "controller configuration with the default affinity type set",
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
 			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
@@ -124,7 +124,7 @@ func TestControllerConfiguration(t *testing.T) {
 			defaultAffinityTypeKey: string(PreferSpreadRevisionOverNodes),
 		},
 	}, {
-		name: "controller configuration with affinity deactivated",
+		name: "controller configuration with default affinity type deactivated",
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
 			DigestResolutionTimeout:        digestResolutionTimeoutDefault,

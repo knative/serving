@@ -1435,7 +1435,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 			}),
 	}, {
-		name: "with default affinity rules",
+		name: "with default affinity type set",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
 				Name:           servingContainerName,
@@ -1466,7 +1466,7 @@ func TestMakePodSpec(t *testing.T) {
 			},
 		),
 	}, {
-		name: "with affinity rules deactivated",
+		name: "with default affinity type deactivated",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
 				Name:           servingContainerName,
@@ -1492,7 +1492,7 @@ func TestMakePodSpec(t *testing.T) {
 			},
 		),
 	}, {
-		name: "with affinity rules set by the user and the operator",
+		name: "with affinity rules set by both the user and the operator",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
 				Name:           servingContainerName,
