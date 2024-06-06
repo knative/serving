@@ -80,7 +80,7 @@ var (
 		ReadinessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
-					Port: intstr.FromInt(int(queueHTTPPort.ContainerPort)),
+					Port: intstr.FromInt32(queueHTTPPort.ContainerPort),
 					HTTPHeaders: []corev1.HTTPHeader{{
 						Name:  netheader.ProbeKey,
 						Value: queue.Name,
@@ -230,7 +230,7 @@ var (
 		}},
 	}
 
-	maxUnavailable    = intstr.FromInt(0)
+	maxUnavailable    = intstr.FromInt32(0)
 	defaultDeployment = &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "foo",
@@ -398,6 +398,12 @@ func withExecReadinessProbe(command []string) *corev1.Probe {
 func withLivenessProbe(handler corev1.ProbeHandler) containerOption {
 	return func(container *corev1.Container) {
 		container.LivenessProbe = &corev1.Probe{ProbeHandler: handler}
+	}
+}
+
+func withStartupProbe(handler corev1.ProbeHandler) containerOption {
+	return func(container *corev1.Container) {
+		container.StartupProbe = &corev1.Probe{ProbeHandler: handler}
 	}
 }
 
@@ -1044,7 +1050,7 @@ func TestMakePodSpec(t *testing.T) {
 					withLivenessProbe(corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
-							Port: intstr.FromInt(v1.DefaultUserPort),
+							Port: intstr.FromInt32(v1.DefaultUserPort),
 						},
 					}),
 				),
@@ -1074,8 +1080,69 @@ func TestMakePodSpec(t *testing.T) {
 					},
 					withLivenessProbe(corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{
-							Port: intstr.FromInt(v1.DefaultUserPort),
+							Port: intstr.FromInt32(v1.DefaultUserPort),
 						},
+					}),
+				),
+				queueContainer(),
+			}),
+	}, {
+		name: "with HTTP startup probe",
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+				StartupProbe: &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+						},
+					},
+				},
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(
+					func(container *corev1.Container) {
+						container.Image = "busybox@sha256:deadbeef"
+					},
+					withStartupProbe(corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+						},
+					}),
+				),
+				queueContainer(),
+			}),
+	}, {
+		name: "with TCP startup probe",
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+				StartupProbe: &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						TCPSocket: &corev1.TCPSocketAction{},
+					}}}},
+			),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(
+					func(container *corev1.Container) {
+						container.Image = "busybox@sha256:deadbeef"
+					},
+					withStartupProbe(corev1.ProbeHandler{
+						TCPSocket: &corev1.TCPSocketAction{},
 					}),
 				),
 				queueContainer(),
@@ -1783,6 +1850,81 @@ func TestMakeDeployment(t *testing.T) {
 			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
 			deploy.Annotations = map[string]string{serving.ProgressDeadlineAnnotationKey: "42s"}
 			deploy.Spec.Template.Annotations = map[string]string{serving.ProgressDeadlineAnnotationKey: "42s"}
+		}),
+	}, {
+		name: "with progress-deadline increase from single startup probe",
+		dc: deployment.Config{
+			ProgressDeadline: 42 * time.Second,
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "ubuntu",
+				ReadinessProbe: withTCPReadinessProbe(12345),
+				StartupProbe: &corev1.Probe{
+					InitialDelaySeconds: 10,
+					TimeoutSeconds:      30,
+					PeriodSeconds:       5,
+					SuccessThreshold:    1,
+					FailureThreshold:    3,
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+						},
+					},
+				},
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}), withoutLabels),
+		want: appsv1deployment(func(deploy *appsv1.Deployment) {
+			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42 + 10 + (5 * 3 * 30))
+		}),
+	}, {
+		name: "with progress-deadline increase from multiple startup probes",
+		dc: deployment.Config{
+			ProgressDeadline: 42 * time.Second,
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "ubuntu",
+				ReadinessProbe: withTCPReadinessProbe(12345),
+				StartupProbe: &corev1.Probe{
+					InitialDelaySeconds: 10,
+					TimeoutSeconds:      30,
+					PeriodSeconds:       5,
+					SuccessThreshold:    1,
+					FailureThreshold:    3,
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+						},
+					},
+				},
+			}, {
+				Name:  servingContainerName + "-2",
+				Image: "sidecar",
+				StartupProbe: &corev1.Probe{
+					InitialDelaySeconds: 10,
+					TimeoutSeconds:      30,
+					PeriodSeconds:       5,
+					SuccessThreshold:    5,
+					FailureThreshold:    3,
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+						},
+					},
+				},
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}, {
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}), withoutLabels),
+		want: appsv1deployment(func(deploy *appsv1.Deployment) {
+			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42 + 10 + (5 * 5 * 30))
 		}),
 	}, {
 		name: "cluster initial scale",
