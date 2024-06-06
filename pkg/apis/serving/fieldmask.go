@@ -305,6 +305,7 @@ func ContainerMask(in *corev1.Container) *corev1.Container {
 	out.ReadinessProbe = in.ReadinessProbe
 	out.Resources = in.Resources
 	out.SecurityContext = in.SecurityContext
+	out.StartupProbe = in.StartupProbe
 	out.TerminationMessagePath = in.TerminationMessagePath
 	out.TerminationMessagePolicy = in.TerminationMessagePolicy
 	out.VolumeMounts = in.VolumeMounts
