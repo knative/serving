@@ -39,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	apiconfig "knative.dev/serving/pkg/apis/config"
+	deploymentconfig "knative.dev/serving/pkg/deployment"
 )
 
 const certVolumeName = "server-certs"
@@ -150,6 +151,22 @@ func rewriteUserLivenessProbe(p *corev1.Probe, userPort int) {
 	}
 }
 
+func makePreferSpreadRevisionOverNodes(revisionLabelValue string) *corev1.PodAntiAffinity {
+	return &corev1.PodAntiAffinity{
+		PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
+			Weight: 100,
+			PodAffinityTerm: corev1.PodAffinityTerm{
+				TopologyKey: corev1.LabelHostname,
+				LabelSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						serving.RevisionLabelKey: revisionLabelValue,
+					},
+				},
+			},
+		}},
+	}
+}
+
 func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) {
 	queueContainer, err := makeQueueContainer(rev, cfg)
 	tokenVolume := varTokenVolume.DeepCopy()
@@ -208,6 +225,10 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 
 			podSpec.Containers[i] = container
 		}
+	}
+
+	if cfg.Deployment.DefaultAffinityType == deploymentconfig.PreferSpreadRevisionOverNodes && rev.Spec.Affinity == nil {
+		podSpec.Affinity = &corev1.Affinity{PodAntiAffinity: makePreferSpreadRevisionOverNodes(rev.Name)}
 	}
 
 	return podSpec, nil
