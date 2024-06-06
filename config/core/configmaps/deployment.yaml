@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "ed77183a"
+    knative.dev/example-checksum: "e2f637c6"
 data:
   # This is the Go import path for the binary that is containerized
   # and substituted here.
@@ -91,3 +91,20 @@ data:
     # Sets rootCA for the queue proxy - used by QPOptions
     # If omitted, or empty, no rootCA is added to the golang rootCAs
     queue-sidecar-rootca: ""
+
+    # If set, it automatically configures pod anti-affinity requirements for all Knative services.
+    # It employs the `preferredDuringSchedulingIgnoredDuringExecution` weighted pod affinity term,
+    # aligning with the Knative revision label. It yields the configuration below in all workloads' deployments:
+    # `
+    #   affinity:
+    #     podAntiAffinity:
+    #       preferredDuringSchedulingIgnoredDuringExecution:
+    #       - podAffinityTerm:
+    #           topologyKey: kubernetes.io/hostname
+    #           labelSelector:
+    #             matchLabels:
+    #               serving.knative.dev/revision: {{revision-name}}
+    #         weight: 100
+    # `
+    # This may be "none" or "prefer-spread-revision-over-nodes" (default)
+    # default-affinity-type: "prefer-spread-revision-over-nodes"

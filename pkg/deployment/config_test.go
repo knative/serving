@@ -81,6 +81,64 @@ func TestControllerConfiguration(t *testing.T) {
 		wantConfig *Config
 		data       map[string]string
 	}{{
+		name: "controller configuration with no default affinity type specified",
+		wantConfig: &Config{
+			RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
+			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
+			QueueSidecarImage:              defaultSidecarImage,
+			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			QueueSidecarTokenAudiences:     sets.New(""),
+			ProgressDeadline:               ProgressDeadlineDefault,
+			DefaultAffinityType:            defaultAffinityTypeValue,
+		},
+		data: map[string]string{
+			QueueSidecarImageKey: defaultSidecarImage,
+		},
+	}, {
+		name:    "controller configuration with empty string set for the default affinity type",
+		wantErr: true,
+		data: map[string]string{
+			QueueSidecarImageKey:   defaultSidecarImage,
+			defaultAffinityTypeKey: "",
+		},
+	}, {
+		name:    "controller configuration with unsupported value for default affinity type",
+		wantErr: true,
+		data: map[string]string{
+			QueueSidecarImageKey:   defaultSidecarImage,
+			defaultAffinityTypeKey: "coconut",
+		},
+	}, {
+		name: "controller configuration with the default affinity type set",
+		wantConfig: &Config{
+			RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
+			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
+			QueueSidecarImage:              defaultSidecarImage,
+			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			QueueSidecarTokenAudiences:     sets.New(""),
+			ProgressDeadline:               ProgressDeadlineDefault,
+			DefaultAffinityType:            defaultAffinityTypeValue,
+		},
+		data: map[string]string{
+			QueueSidecarImageKey:   defaultSidecarImage,
+			defaultAffinityTypeKey: string(PreferSpreadRevisionOverNodes),
+		},
+	}, {
+		name: "controller configuration with default affinity type deactivated",
+		wantConfig: &Config{
+			RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
+			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
+			QueueSidecarImage:              defaultSidecarImage,
+			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			QueueSidecarTokenAudiences:     sets.New(""),
+			ProgressDeadline:               ProgressDeadlineDefault,
+			DefaultAffinityType:            None,
+		},
+		data: map[string]string{
+			QueueSidecarImageKey:   defaultSidecarImage,
+			defaultAffinityTypeKey: string(None),
+		},
+	}, {
 		name: "controller configuration with bad registries",
 		wantConfig: &Config{
 			RegistriesSkippingTagResolving: sets.New("ko.local", ""),
@@ -89,6 +147,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			QueueSidecarTokenAudiences:     sets.New("foo", "bar", "boo-srv"),
 			ProgressDeadline:               ProgressDeadlineDefault,
+			DefaultAffinityType:            defaultAffinityTypeValue,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:              defaultSidecarImage,
@@ -104,6 +163,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			QueueSidecarTokenAudiences:     sets.New(""),
 			ProgressDeadline:               444 * time.Second,
+			DefaultAffinityType:            defaultAffinityTypeValue,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey: defaultSidecarImage,
@@ -118,6 +178,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			QueueSidecarTokenAudiences:     sets.New(""),
 			ProgressDeadline:               ProgressDeadlineDefault,
+			DefaultAffinityType:            defaultAffinityTypeValue,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:       defaultSidecarImage,
@@ -132,6 +193,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 			QueueSidecarTokenAudiences:     sets.New(""),
 			ProgressDeadline:               ProgressDeadlineDefault,
+			DefaultAffinityType:            defaultAffinityTypeValue,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:              defaultSidecarImage,
@@ -151,6 +213,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarMemoryLimit:             quantity("654m"),
 			QueueSidecarEphemeralStorageLimit:   quantity("321M"),
 			QueueSidecarTokenAudiences:          sets.New(""),
+			DefaultAffinityType:                 defaultAffinityTypeValue,
 		},
 		data: map[string]string{
 			QueueSidecarImageKey:                   defaultSidecarImage,
@@ -227,6 +290,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarEphemeralStorageRequest: quantity("9M"),
 			QueueSidecarEphemeralStorageLimit:   quantity("10M"),
 			QueueSidecarTokenAudiences:          sets.New(""),
+			DefaultAffinityType:                 defaultAffinityTypeValue,
 		},
 	}, {
 		name: "newer key case takes priority",
@@ -268,6 +332,7 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarEphemeralStorageRequest: quantity("20M"),
 			QueueSidecarEphemeralStorageLimit:   quantity("21M"),
 			QueueSidecarTokenAudiences:          sets.New("foo"),
+			DefaultAffinityType:                 defaultAffinityTypeValue,
 		},
 	}}
 

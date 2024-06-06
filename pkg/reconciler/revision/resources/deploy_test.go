@@ -205,6 +205,31 @@ var (
 		EnableServiceLinks:            ptr.Bool(false),
 	}
 
+	defaultPodAntiAffinityRules = &corev1.PodAntiAffinity{
+		PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
+			Weight: 100,
+			PodAffinityTerm: corev1.PodAffinityTerm{
+				TopologyKey: "kubernetes.io/hostname",
+				LabelSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"serving.knative.dev/revision": "bar",
+					},
+				},
+			},
+		}},
+	}
+
+	userDefinedPodAntiAffinityRules = &corev1.PodAntiAffinity{
+		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
+			TopologyKey: "kubernetes.io/hostname",
+			LabelSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"serving.knative.dev/revision": "bar",
+				},
+			},
+		}},
+	}
+
 	maxUnavailable    = intstr.FromInt(0)
 	defaultDeployment = &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1409,6 +1434,98 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("SERVING_READINESS_PROBE", `[{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"}},{"httpGet":{"path":"/","port":8090,"host":"127.0.0.1","scheme":"HTTP"}}]`),
 				),
 			}),
+	}, {
+		name: "with default affinity type set",
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		fc: apicfg.Features{
+			PodSpecAffinity: apicfg.Disabled,
+		},
+		dc: deployment.Config{
+			DefaultAffinityType: deployment.PreferSpreadRevisionOverNodes,
+		},
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(),
+			},
+			func(p *corev1.PodSpec) {
+				p.Affinity = &corev1.Affinity{
+					PodAntiAffinity: defaultPodAntiAffinityRules,
+				}
+			},
+		),
+	}, {
+		name: "with default affinity type deactivated",
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		fc: apicfg.Features{
+			PodSpecAffinity: apicfg.Disabled,
+		},
+		dc: deployment.Config{
+			DefaultAffinityType: deployment.None,
+		},
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(),
+			},
+		),
+	}, {
+		name: "with affinity rules set by both the user and the operator",
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+			func(r *v1.Revision) {
+				r.Spec.Affinity = &corev1.Affinity{
+					PodAntiAffinity: userDefinedPodAntiAffinityRules,
+				}
+			}),
+		fc: apicfg.Features{
+			PodSpecAffinity: apicfg.Enabled,
+		},
+		dc: deployment.Config{
+			DefaultAffinityType: deployment.PreferSpreadRevisionOverNodes,
+		},
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+				}),
+				queueContainer(),
+			},
+			func(p *corev1.PodSpec) {
+				p.Affinity = &corev1.Affinity{
+					PodAntiAffinity: userDefinedPodAntiAffinityRules,
+				}
+			},
+		),
 	}}
 
 	for _, test := range tests {
