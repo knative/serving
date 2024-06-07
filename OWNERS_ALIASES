@@ -14,10 +14,8 @@ aliases:
   - vyasgun
   docs-reviewers:
   - nainaz
-  - pmbanugo
   - retocode
   - skonto
-  - snneji
   docs-writers:
   - csantanapr
   - retocode
@@ -35,7 +33,6 @@ aliases:
   - creydr
   - lionelvillard
   - matzew
-  - odacremolbap
   - pierDipi
   func-reviewers:
   - jrangelramos
