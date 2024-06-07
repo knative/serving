@@ -20,10 +20,8 @@ import (
 	"context"
 	"flag"
 	"log"
-	"strings"
 
 	"go.uber.org/zap"
-	v1 "k8s.io/api/apps/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -51,16 +49,9 @@ func main() {
 
 	logger.Info("Deleting old Serving resources if any")
 
-	// Delete all deployments
-	var deps *v1.DeploymentList
-	if deps, err = client.AppsV1().Deployments(system.Namespace()).List(context.Background(), metav1.ListOptions{}); err != nil {
-		logger.Fatal("failed to list deployments: ", err)
-	}
-	for _, dep := range deps.Items {
-		if hasPrefix(dep.Name) {
-			if err = client.AppsV1().Deployments(system.Namespace()).Delete(context.Background(), dep.Name, metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
-				logger.Fatal("failed to delete deployment ", dep.Name, ": ", err)
-			}
+	for _, dep := range []string{"domain-mapping", "domainmapping-webhook", "net-certmanager-controller", "net-certmanager-webhook"} {
+		if err = client.AppsV1().Deployments(system.Namespace()).Delete(context.Background(), dep, metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
+			logger.Fatal("failed to delete deployment ", dep, ": ", err)
 		}
 	}
 
@@ -94,17 +85,7 @@ func main() {
 	if err = client.RbacV1().ClusterRoles().Delete(context.Background(), "knative-serving-certmanager", metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
 		logger.Fatal("failed to delete clusterrole knative-serving-certmanager: ", err)
 	}
-
-	// Delete the role we created for the cleanup job
-	if err = client.RbacV1().ClusterRoles().Delete(context.Background(), "knative-serving-cleanup", metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
-		logger.Fatal("failed to delete clusterrole knative-serving-cleanup: ", err)
-	}
 	logger.Info("Old Serving resource deletion completed successfully")
-}
-
-func hasPrefix(name string) bool {
-	return strings.HasPrefix(name, "domain-mapping") || strings.HasPrefix(name, "domainmapping-webhook") ||
-		strings.HasPrefix(name, "net-certmanager-controller") || strings.HasPrefix(name, "net-certmanager-webhook")
 }
 
 func setupLogger() *zap.SugaredLogger {

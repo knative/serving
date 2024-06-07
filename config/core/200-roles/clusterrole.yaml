@@ -57,3 +57,7 @@ rules:
   - apiGroups: ["acme.cert-manager.io"]
     resources: ["challenges"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles"]
+    verbs: ["delete"]
+    resourceNames: ["knative-serving-certmanager"]
