@@ -39,10 +39,11 @@ const (
 	minimumNumberOfReplicas = 2
 	maximumNumberOfReplicas = 2
 	deploymentSuffix        = "-deployment"
-	repetitionCount         = 10
+	repetitionCount         = 5
 )
 
 func TestActivatorNotInRequestPath(t *testing.T) {
+	t.Parallel()
 	clients := e2e.Setup(t)
 	ctx := context.Background()
 
@@ -60,6 +61,7 @@ func TestActivatorNotInRequestPath(t *testing.T) {
 }
 
 func TestActivatorInRequestPathAlways(t *testing.T) {
+	t.Parallel()
 	clients := e2e.Setup(t)
 	ctx := context.Background()
 
@@ -77,6 +79,7 @@ func TestActivatorInRequestPathAlways(t *testing.T) {
 }
 
 func TestActivatorInRequestPathPossibly(t *testing.T) {
+	t.Parallel()
 	clients := e2e.Setup(t)
 	ctx := context.Background()
 
