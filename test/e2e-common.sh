@@ -474,6 +474,14 @@ function restart_pod() {
   kubectl -n ${namespace} delete pod -l ${label}
 }
 
+function restart_pod_n() {
+  local namespace="$1"
+  local label="$2"
+  echo -n "Deleting pod in ${namespace} with label ${label}"
+  kubectl -n ${namespace} delete pod -l ${label}
+  kubectl logs -f -n ${namespace} -l ${label}
+}
+
 function toggle_feature() {
   local FEATURE="$1"
   local STATE="$2"
