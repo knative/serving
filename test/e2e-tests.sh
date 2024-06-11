@@ -113,6 +113,7 @@ do
   if (( ! HTTPS )); then
     restart_pod_n "${SYSTEM_NAMESPACE}" "app=controller"
   fi
+  kubectl get leases -n "${SYSTEM_NAMESPACE}" -ojson | grep holder
 
   #kubectl get cm "config-gc" -n "${SYSTEM_NAMESPACE}" -o yaml > "${TMP_DIR}"/config-gc.yaml
   #add_trap "kubectl replace cm 'config-gc' -n ${SYSTEM_NAMESPACE} -f ${TMP_DIR}/config-gc.yaml" SIGKILL SIGTERM SIGQUIT
