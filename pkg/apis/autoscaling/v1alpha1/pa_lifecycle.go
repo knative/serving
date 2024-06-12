@@ -215,6 +215,12 @@ func (pas *PodAutoscalerStatus) MarkScaleTargetInitialized() {
 	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionScaleTargetInitialized)
 }
 
+// MarkScaleTargetNotInitialized marks the PA's PodAutoscalerConditionScaleTargetInitialized
+// condition true.
+func (pas *PodAutoscalerStatus) MarkScaleTargetNotInitialized(reason, message string) {
+	podCondSet.Manage(pas).MarkFalse(PodAutoscalerConditionScaleTargetInitialized, reason, message)
+}
+
 // MarkSKSReady marks the PA condition denoting that SKS is ready.
 func (pas *PodAutoscalerStatus) MarkSKSReady() {
 	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionSKSReady)

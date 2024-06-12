@@ -35,16 +35,21 @@ import (
 	"knative.dev/serving/pkg/activator"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
+	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	kparesources "knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
+	revresurces "knative.dev/serving/pkg/reconciler/revision/resources"
 	"knative.dev/serving/pkg/resources"
 
+	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/retry"
 )
 
 const (
@@ -326,7 +331,7 @@ func (ks *scaler) applyScale(ctx context.Context, pa *autoscalingv1alpha1.PodAut
 }
 
 // scale attempts to scale the given PA's target reference to the desired scale.
-func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, sks *netv1alpha1.ServerlessService, desiredScale int32) (int32, error) {
+func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, sks *netv1alpha1.ServerlessService, desiredScale int32, client clientset.Interface, podForErrorChecking *corev1.Pod) (int32, error) {
 	asConfig := config.FromContext(ctx).Autoscaler
 	logger := logging.FromContext(ctx)
 
@@ -371,6 +376,38 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 		return desiredScale, nil
 	}
 
+	// Before we apply scale to zero and since we have failed to activate, check if any pod is in waiting state
+	// This should capture any case where we scale from zero and regular progressDeadline expiration will not be hit due to K8s limitations
+	// when not being in a deployment rollout.
+	if desiredScale == 0 && pa.Status.IsActivating() && podForErrorChecking != nil {
+		if err = checkAvailabilityBeforeScalingDown(podForErrorChecking, logger, pa, client); err != nil {
+			return desiredScale, fmt.Errorf("failed to get check availability for target %v: %w", pa.Spec.ScaleTargetRef, err)
+		}
+	}
+
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
 	return desiredScale, ks.applyScale(ctx, pa, desiredScale, ps)
+}
+
+func checkAvailabilityBeforeScalingDown(pod *corev1.Pod, logger *zap.SugaredLogger, pa *autoscalingv1alpha1.PodAutoscaler, client clientset.Interface) error {
+	for _, status := range pod.Status.ContainerStatuses {
+		if status.Name != revresurces.QueueContainerName {
+			if w := status.State.Waiting; w != nil {
+				logger.Debugf("marking revision inactive with: %s: %s", w.Reason, w.Message)
+				pa.Status.MarkScaleTargetNotInitialized(w.Reason, w.Message)
+				return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+					rev, err := client.ServingV1().Revisions(pa.Namespace).Get(context.Background(), pa.Name, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					rev.Status.MarkResourcesAvailableFalse(w.Reason, w.Message)
+					if _, err = client.ServingV1().Revisions(pa.Namespace).UpdateStatus(context.Background(), rev, metav1.UpdateOptions{}); err != nil {
+						return err
+					}
+					return nil
+				})
+			}
+		}
+	}
+	return nil
 }
