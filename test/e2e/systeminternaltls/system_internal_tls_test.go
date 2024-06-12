@@ -222,13 +222,13 @@ func TestTLSCertificateRotation(t *testing.T) {
 
 	t.Log("Deleting secret in system namespace")
 	if err := clients.KubeClient.CoreV1().Secrets(systemNS).Delete(context.Background(), config.ServingRoutingCertName, v1.DeleteOptions{}); err != nil {
-		t.Fatalf("Failed to delete secret %s in system namespacee", config.ServingRoutingCertName)
+		t.Fatalf("Failed to delete secret %s in system namespace: %v", config.ServingRoutingCertName, err)
 	}
 	checkEndpointState(t, clients, url)
 
 	t.Log("Deleting secret in ingress namespace")
 	if err := clients.KubeClient.CoreV1().Secrets(ingressNS).Delete(context.Background(), config.ServingRoutingCertName, v1.DeleteOptions{}); err != nil {
-		t.Fatalf("Failed to delete secret %s in ingress namespacee", config.ServingRoutingCertName)
+		t.Fatalf("Failed to delete secret %s in ingress namespace: %v", config.ServingRoutingCertName, err)
 	}
 	checkEndpointState(t, clients, url)
 }
