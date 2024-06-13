@@ -120,6 +120,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 		if err != nil {
 			r.Status.MarkUnknownTrafficError(err.Error())
 		}
+		logger.Errorf("configureTraffic for '%v' traffic=%v error=%v", r.Name, traffic, err)
 		// Traffic targets aren't ready, no need to configure child resources.
 		return err
 	}
@@ -131,7 +132,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 		},
 	}
 
-	logger.Info("Creating placeholder k8s services")
+	logger.Info("Creating placeholder k8s services for Address", r.Status.Address)
 	services, err := c.reconcilePlaceholderServices(ctx, r, traffic.Targets)
 	if err != nil {
 		return err
@@ -343,17 +344,23 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1.Route) (*traffi
 	logger := logging.FromContext(ctx)
 	t, trafficErr := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
 	if t == nil {
+		logger.Errorf("build traffic configuration errored %v", trafficErr)
 		return nil, trafficErr
+	}
+	if trafficErr != nil {
+		logger.Errorf("trafficErr from building config was %v", trafficErr)
 	}
 	// Augment traffic configuration with visibility information.  Do not overwrite trafficErr,
 	// since we will use it later.
 	visibility, err := visibility.NewResolver(c.serviceLister).GetVisibility(ctx, r)
 	if err != nil {
+		logger.Errorf("new resolver for %v errored %v", r.Name, err)
 		return nil, err
 	}
 	t.Visibility = visibility
 	// Update the Route URL.
 	if err := c.updateRouteStatusURL(ctx, r, t.Visibility); err != nil {
+		logger.Errorf("could not update route status url with visibility %v error %v", visibility, err)
 		return nil, err
 	}
 	// Tell our trackers to reconcile Route whenever the things referred to by our
@@ -367,11 +374,13 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1.Route) (*traffi
 			Namespace:  obj.Namespace,
 			Name:       obj.Name,
 		}, r); err != nil {
+			logger.Errorf("track reference errored for %v::%v err %v", obj.Kind, obj.Name, err)
 			return nil, err
 		}
 	}
 	for _, configuration := range t.Configurations {
 		if err := c.tracker.TrackReference(objectRef(configuration), r); err != nil {
+			logger.Errorf("configuration track ref %v error %v", configuration, err)
 			return nil, err
 		}
 	}
@@ -380,6 +389,7 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1.Route) (*traffi
 			logger.Infof("Revision %s/%s is inactive", revision.Namespace, revision.Name)
 		}
 		if err := c.tracker.TrackReference(objectRef(revision), r); err != nil {
+			logger.Errorf("revision activation %v error %v", revision, err)
 			return nil, err
 		}
 	}
@@ -389,6 +399,7 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1.Route) (*traffi
 	if trafficErr != nil && !isTargetError {
 		// An error that's not due to missing traffic target should
 		// make us fail fast.
+		logger.Errorf("fail fast because isTargetError=%v and trafficErr=%v", isTargetError, trafficErr)
 		return nil, trafficErr
 	}
 	if badTarget != nil && isTargetError {

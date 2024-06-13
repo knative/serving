@@ -84,7 +84,7 @@ func newDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher
 	return defaulting.NewAdmissionController(ctx,
 
 		// Name of the resource webhook.
-		"webhook.serving.knative.dev",
+		webhook.OptionalNameFromEnv("WEBHOOK_NAME_DEFAULTING", "webhook.serving.knative.dev"),
 
 		// The path on which to serve the webhook.
 		"/defaulting",
@@ -109,7 +109,7 @@ func newValidationAdmissionController(ctx context.Context, cmw configmap.Watcher
 	return validation.NewAdmissionController(ctx,
 
 		// Name of the resource webhook.
-		"validation.webhook.serving.knative.dev",
+		webhook.OptionalNameFromEnv("WEBHOOK_NAME_VALIDATION", "validation.webhook.serving.knative.dev"),
 
 		// The path on which to serve the webhook.
 		"/resource-validation",
@@ -133,7 +133,7 @@ func newConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 	return configmaps.NewAdmissionController(ctx,
 
 		// Name of the configmap webhook.
-		"config.webhook.serving.knative.dev",
+		webhook.OptionalNameFromEnv("WEBHOOK_NAME_CONFIGMAP", "config.webhook.serving.knative.dev"),
 
 		// The path on which to serve the webhook.
 		"/config-validation",
@@ -160,7 +160,7 @@ func main() {
 	ctx := webhook.WithOptions(signals.NewContext(), webhook.Options{
 		ServiceName: webhook.NameFromEnv(),
 		Port:        webhook.PortFromEnv(8443),
-		SecretName:  "webhook-certs",
+		SecretName:  webhook.SecretNameFromEnv("webhook-certs"),
 	})
 
 	ctx = sharedmain.WithHealthProbesDisabled(ctx)

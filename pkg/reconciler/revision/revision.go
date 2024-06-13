@@ -18,6 +18,7 @@ package revision
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -145,12 +146,13 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 		}
 	}
 
-	for _, phase := range []func(context.Context, *v1.Revision) error{
+	for ii, phase := range []func(context.Context, *v1.Revision) error{
 		c.reconcileDeployment,
 		c.reconcileImageCache,
 		c.reconcilePA,
 	} {
 		if err := phase(ctx, rev); err != nil {
+			logger.Error(fmt.Sprintf("error when processing phase %d for revision '%s', err=%v", ii, rev.Name, err))
 			return err
 		}
 	}

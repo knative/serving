@@ -277,6 +277,7 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 				}
 			}
 
+			logger.Infof("update endpoint from=%v to=%v", from.Endpoints, to.Endpoints)
 			if from.Endpoints != nil && to.Endpoints != nil {
 				if !equality.Semantic.DeepEqual(from.Endpoints.Subsets, to.Endpoints.Subsets) {
 					// Don't modify the informers copy.

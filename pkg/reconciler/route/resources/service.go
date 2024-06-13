@@ -27,6 +27,7 @@ import (
 	netapi "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/domains"
@@ -109,6 +110,7 @@ func MakeK8sService(ctx context.Context, route *v1.Route, tagName string, ingres
 		},
 		Endpoints: nil,
 	}
+	logging.FromContext(ctx).Infof("setting endpoint for %v balancer=%v", pair.Service)
 
 	// We want to avoid ExternalName K8s Services for the reasons outlined
 	// here: https://github.com/knative/serving/issues/11821

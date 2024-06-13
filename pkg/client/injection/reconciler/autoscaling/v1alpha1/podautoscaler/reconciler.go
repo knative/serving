@@ -203,6 +203,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	getter := r.Lister.PodAutoscalers(s.namespace)
 
 	original, err := getter.Get(s.name)
+	logger.Debugf("reconcile PA '%v' original=%v", s.name, original)
 
 	if errors.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing and call
@@ -219,7 +220,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		return err
 	}
 
-	if classValue, found := original.GetAnnotations()[ClassAnnotationKey]; !found || classValue != r.classValue {
+	if classValue, found := original.GetAnnotations()[ClassAnnotationKey]; found && classValue != r.classValue {
 		logger.Debugw("Skip reconciling resource, class annotation value does not match reconciler instance value.",
 			zap.String("classKey", ClassAnnotationKey),
 			zap.String("issue", classValue+"!="+r.classValue))
@@ -228,6 +229,10 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 
 	// Don't modify the informers copy.
 	resource := original.DeepCopy()
+
+	resource.SetAnnotations(map[string]string{
+		ClassAnnotationKey: r.classValue,
+	})
 
 	var reconcileEvent reconciler.Event
 

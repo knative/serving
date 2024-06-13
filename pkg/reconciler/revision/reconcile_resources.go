@@ -33,6 +33,7 @@ import (
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
@@ -66,6 +67,8 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 		if err != nil {
 			return fmt.Errorf("failed to update deployment %q: %w", deploymentName, err)
 		}
+		logger.Infof("deployment '%v' checked and updated, revGen=%v obsGen=%v activationRequired=%v",
+			deploymentName, rev.Generation, deployment.Status.ObservedGeneration, rev.Status.IsActivationRequired())
 
 		// Now that we have a Deployment, determine whether there is any relevant
 		// status to surface in the Revision.
@@ -74,8 +77,14 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 		// The autoscaler mutates the deployment pretty often, which would cause us
 		// to flip back and forth between Ready and Unknown every time we scale up
 		// or down.
-		if !rev.Status.IsActivationRequired() {
+		if !rev.Status.IsActivationRequired() || deployment.Status.ObservedGeneration == rev.Generation {
 			rev.Status.PropagateDeploymentStatus(&deployment.Status)
+
+			ds := serving.TransformDeploymentStatus(&deployment.Status)
+			cond := ds.GetCondition(serving.DeploymentConditionReady)
+			logger.Infof("propagated deployment status condition=%v ?%v", cond, corev1.ConditionTrue == cond.Status)
+			rev.Status.MarkResourcesAvailableTrue()
+			rev.Status.MarkContainerHealthyTrue()
 		}
 	}
 
@@ -94,6 +103,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 			// If pod cannot be scheduled then we expect the container status to be empty.
 			for _, cond := range pod.Status.Conditions {
 				if cond.Type == corev1.PodScheduled && cond.Status == corev1.ConditionFalse {
+					logger.Errorf("marking rev available false because of bad condition %v on pod %v", cond, pod.Name)
 					rev.Status.MarkResourcesAvailableFalse(cond.Reason, cond.Message)
 					break
 				}
@@ -120,6 +130,14 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 		}
 	}
 
+	activeStatus := corev1.ConditionFalse
+	for _, condition := range rev.Status.Conditions {
+		if condition.Type == "Active" {
+			activeStatus = condition.Status
+		}
+	}
+
+	logger.Infof("deployment '%s' reconciled Active=%v", deploymentName, activeStatus)
 	return nil
 }
 
@@ -140,6 +158,7 @@ func (c *Reconciler) reconcileImageCache(ctx context.Context, rev *v1.Revision) 
 			return fmt.Errorf("failed to get image cache %q: %w", imageName, err)
 		}
 	}
+	logger.Infof("imageCache for rev '%s' reconciled", rev.Name)
 	return nil
 }
 
@@ -161,6 +180,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 		return fmt.Errorf("failed to get PA %q: %w", paName, err)
 	} else if !metav1.IsControlledBy(pa, rev) {
 		// Surface an error in the revision's status, and return an error.
+		logger.Errorf("revision: %q does not own PodAutoscaler: %q", rev.Name, paName)
 		rev.Status.MarkResourcesAvailableFalse(v1.ReasonNotOwned, v1.ResourceNotOwnedMessage("PodAutoscaler", paName))
 		return fmt.Errorf("revision: %q does not own PodAutoscaler: %q", rev.Name, paName)
 	}
