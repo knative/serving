@@ -170,7 +170,7 @@ jobs:
         path: ~/artifacts
 
     - name: setup kind
-      uses: chainguard-dev/actions/setup-kind@main
+      uses: retocode/cg-actions/setup-kind@main
       with:
         k8s-version: ${{ matrix.k8s-version }}
         kind-worker-count: 4
