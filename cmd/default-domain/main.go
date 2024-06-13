@@ -164,6 +164,13 @@ func findGatewayAddress(ctx context.Context, kubeclient kubernetes.Interface, cl
 	return &svc.Status.LoadBalancer.Ingress[0], nil
 }
 
+func buildMagicDNSName(ip, magicDNS string) string {
+	if magicDNS == "sslip.io" {
+		ip = strings.ReplaceAll(ip, ":", "-")
+	}
+	return fmt.Sprintf("%s.%s", ip, magicDNS)
+}
+
 func main() {
 	flag.Parse()
 	ctx := signals.NewContext()
@@ -209,19 +216,21 @@ func main() {
 			logger.Info("Gateway has neither IP nor hostname -- leaving default domain config intact")
 			return
 		}
-		ipAddr, err := net.ResolveIPAddr("ip4", address.Hostname)
+		ipAddr, err := net.ResolveIPAddr("ip", address.Hostname)
 		if err != nil {
 			logger.Fatalw("Error resolving the IP address of %q", address.Hostname, zap.Error(err))
 		}
 		ip = ipAddr.String()
 	}
 
-	// Use the IP (assumes IPv4) to set up a magic DNS name under a top-level Magic
+	// Use the IP to set up a magic DNS name under a top-level Magic
 	// DNS service like sslip.io or nip.io, where:
 	//     1.2.3.4.sslip.io  ===(magically resolves to)===> 1.2.3.4
+	//     2a01-4f8-c17-b8f--2.sslip.io ===(magically resolves to)===> 2a01:4f8:c17:b8f::2
+	//
 	// Add this magic DNS name without a label selector to the ConfigMap,
 	// and send it back to the API server.
-	domain := fmt.Sprintf("%s.%s", ip, *magicDNS)
+	domain := buildMagicDNSName(ip, *magicDNS)
 	domainCM.Data[domain] = ""
 	if _, err = kubeClient.CoreV1().ConfigMaps(system.Namespace()).Update(ctx, domainCM, metav1.UpdateOptions{}); err != nil {
 		logger.Fatalw("Error updating ConfigMap", zap.Error(err))
