@@ -380,7 +380,7 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 	// This should capture any case where we scale from zero and regular progressDeadline expiration will not be hit due to K8s limitations
 	// when not being in a deployment rollout.
 	if desiredScale == 0 && pa.Status.IsActivating() && podForErrorChecking != nil {
-		if err = checkAvailabilityBeforeScalingDown(podForErrorChecking, logger, pa, client); err != nil {
+		if err = checkAvailabilityBeforeScalingDown(ctx, logger, podForErrorChecking, pa, client); err != nil {
 			return desiredScale, fmt.Errorf("failed to get check availability for target %v: %w", pa.Spec.ScaleTargetRef, err)
 		}
 	}
@@ -389,19 +389,19 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 	return desiredScale, ks.applyScale(ctx, pa, desiredScale, ps)
 }
 
-func checkAvailabilityBeforeScalingDown(pod *corev1.Pod, logger *zap.SugaredLogger, pa *autoscalingv1alpha1.PodAutoscaler, client clientset.Interface) error {
+func checkAvailabilityBeforeScalingDown(ctx context.Context, logger *zap.SugaredLogger, pod *corev1.Pod, pa *autoscalingv1alpha1.PodAutoscaler, client clientset.Interface) error {
 	for _, status := range pod.Status.ContainerStatuses {
 		if status.Name != revresurces.QueueContainerName {
 			if w := status.State.Waiting; w != nil {
 				logger.Debugf("marking revision inactive with: %s: %s", w.Reason, w.Message)
 				pa.Status.MarkScaleTargetNotInitialized(w.Reason, w.Message)
 				return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-					rev, err := client.ServingV1().Revisions(pa.Namespace).Get(context.Background(), pa.Name, metav1.GetOptions{})
+					rev, err := client.ServingV1().Revisions(pa.Namespace).Get(ctx, pa.Name, metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
 					rev.Status.MarkResourcesAvailableFalse(w.Reason, w.Message)
-					if _, err = client.ServingV1().Revisions(pa.Namespace).UpdateStatus(context.Background(), rev, metav1.UpdateOptions{}); err != nil {
+					if _, err = client.ServingV1().Revisions(pa.Namespace).UpdateStatus(ctx, rev, metav1.UpdateOptions{}); err != nil {
 						return err
 					}
 					return nil
