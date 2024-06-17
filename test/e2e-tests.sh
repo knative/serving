@@ -109,10 +109,12 @@ do
   # with the current implementation, Activator is always in the request path, and needs to be restarted after configuring system-internal-tls
   restart_pod "${SYSTEM_NAMESPACE}" "app=activator"
 
+  kubectl get pods -n "${SYSTEM_NAMESPACE}"
   # we need to restart the pod to stop the net-certmanager-controller
   if (( ! HTTPS )); then
     restart_pod_n "${SYSTEM_NAMESPACE}" "app=controller"
   fi
+  kubectl get pods -n "${SYSTEM_NAMESPACE}"
   echo -n "Sleeping...120"
   sleep 120
   echo -n "Printing leases..."
