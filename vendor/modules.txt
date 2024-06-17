@@ -1349,7 +1349,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 # knative.dev/hack v0.0.0-20240607132042-09143140a254
 ## explicit; go 1.18
 knative.dev/hack
-# knative.dev/networking v0.0.0-20240607132834-85e269dff522
+# knative.dev/networking v0.0.0-20240611072033-3b8764c0bb4c
 ## explicit; go 1.21
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1388,7 +1388,7 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20240610120318-15e6cdf2f386
+# knative.dev/pkg v0.0.0-20240614135239-339c22b8218c
 ## explicit; go 1.21
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1402,6 +1402,7 @@ knative.dev/pkg/apis/testing/fuzzer
 knative.dev/pkg/apis/testing/roundtrip
 knative.dev/pkg/changeset
 knative.dev/pkg/client/injection/ducks/duck/v1/addressable
+knative.dev/pkg/client/injection/ducks/duck/v1/authstatus
 knative.dev/pkg/client/injection/kube/client
 knative.dev/pkg/client/injection/kube/client/fake
 knative.dev/pkg/client/injection/kube/informers/admissionregistration/v1/mutatingwebhookconfiguration
