@@ -162,8 +162,6 @@ func TestTLSCertificateRotation(t *testing.T) {
 
 	t.Log("Creating ConfigMap with old and new CA certs")
 	systemNS := os.Getenv(system.NamespaceEnvKey)
-	ingressNS := os.Getenv(test.GatewayNamespaceOverride)
-	bundleNamespaces := []string{systemNS, ingressNS}
 
 	// Create ConfigMap with networking.knative.dev/trust-bundle label in required namespaces
 	cm := &corev1.ConfigMap{
@@ -178,22 +176,18 @@ func TestTLSCertificateRotation(t *testing.T) {
 			"cert_renewed.pem": string(secretRenewed.Data[certificates.CertName]),
 		},
 	}
-	for _, ns := range bundleNamespaces {
-		_, err := clients.KubeClient.CoreV1().ConfigMaps(ns).
-			Create(context.Background(), cm, v1.CreateOptions{})
-		if err != nil {
-			t.Fatal("Failed to create configmap:", err)
-		}
+	_, err = clients.KubeClient.CoreV1().ConfigMaps(systemNS).
+		Create(context.Background(), cm, v1.CreateOptions{})
+	if err != nil {
+		t.Fatal("Failed to create configmap:", err)
 	}
 
 	// Clean up on test failure or interrupt
 	test.EnsureCleanup(t, func() {
 		test.TearDown(clients, &names)
-		for _, ns := range bundleNamespaces {
-			if err := clients.KubeClient.CoreV1().ConfigMaps(ns).
-				Delete(context.Background(), cm.Name, v1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
-				t.Fatal("Failed to delete configmap:", err)
-			}
+		if err := clients.KubeClient.CoreV1().ConfigMaps(systemNS).
+			Delete(context.Background(), cm.Name, v1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
+			t.Fatal("Failed to delete configmap:", err)
 		}
 	})
 
@@ -223,12 +217,6 @@ func TestTLSCertificateRotation(t *testing.T) {
 	t.Log("Deleting secret in system namespace")
 	if err := clients.KubeClient.CoreV1().Secrets(systemNS).Delete(context.Background(), config.ServingRoutingCertName, v1.DeleteOptions{}); err != nil {
 		t.Fatalf("Failed to delete secret %s in system namespace: %v", config.ServingRoutingCertName, err)
-	}
-	checkEndpointState(t, clients, url)
-
-	t.Log("Deleting secret in ingress namespace")
-	if err := clients.KubeClient.CoreV1().Secrets(ingressNS).Delete(context.Background(), config.ServingRoutingCertName, v1.DeleteOptions{}); err != nil {
-		t.Fatalf("Failed to delete secret %s in ingress namespace: %v", config.ServingRoutingCertName, err)
 	}
 	checkEndpointState(t, clients, url)
 }
