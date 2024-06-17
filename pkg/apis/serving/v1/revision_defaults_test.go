@@ -88,7 +88,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				TimeoutSeconds:       ptr.Int64(423),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:           config.DefaultUserContainerName,
+						Name:           config.DefaultMainContainerName,
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
 					}},
@@ -122,7 +122,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				IdleTimeoutSeconds:          ptr.Int64(100),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:           config.DefaultUserContainerName,
+						Name:           config.DefaultMainContainerName,
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
 					}},
@@ -154,7 +154,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				PodSpec: corev1.PodSpec{
 					EnableServiceLinks: ptr.Bool(false),
 					Containers: []corev1.Container{{
-						Name:           config.DefaultUserContainerName,
+						Name:           config.DefaultMainContainerName,
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
 					}},
@@ -189,7 +189,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				TimeoutSeconds:       ptr.Int64(300),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:           config.DefaultUserContainerName,
+						Name:           config.DefaultMainContainerName,
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
 					}},
@@ -220,7 +220,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				TimeoutSeconds:       ptr.Int64(300),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:           config.DefaultUserContainerName,
+						Name:           config.DefaultMainContainerName,
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
 					}},
@@ -251,7 +251,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				TimeoutSeconds:       ptr.Int64(300),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:           config.DefaultUserContainerName,
+						Name:           config.DefaultMainContainerName,
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
 					}},
@@ -285,7 +285,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				TimeoutSeconds:       ptr.Int64(300),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:           config.DefaultUserContainerName,
+						Name:           config.DefaultMainContainerName,
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
 					}},
@@ -315,7 +315,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				PodSpec: corev1.PodSpec{
 					EnableServiceLinks: ptr.Bool(false),
 					Containers: []corev1.Container{{
-						Name:  config.DefaultUserContainerName,
+						Name:  config.DefaultMainContainerName,
 						Image: "foo",
 						VolumeMounts: []corev1.VolumeMount{{
 							Name:     "bar",
@@ -353,7 +353,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				TimeoutSeconds:       ptr.Int64(456),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:           config.DefaultUserContainerName,
+						Name:           config.DefaultMainContainerName,
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
 					}},
@@ -423,7 +423,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:      config.DefaultUserContainerName,
+						Name:      config.DefaultMainContainerName,
 						Resources: defaultResources,
 						ReadinessProbe: &corev1.Probe{
 							SuccessThreshold: 1,
@@ -456,7 +456,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name: config.DefaultUserContainerName,
+						Name: config.DefaultMainContainerName,
 						ReadinessProbe: &corev1.Probe{
 							FailureThreshold: 3, // Added as k8s default
 							ProbeHandler:     defaultProbe.ProbeHandler,
@@ -483,7 +483,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:           config.DefaultUserContainerName,
+						Name:           config.DefaultMainContainerName,
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
 					}},
@@ -523,7 +523,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name: config.DefaultUserContainerName,
+						Name: config.DefaultMainContainerName,
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceCPU:              resource.MustParse("100m"),
@@ -1199,7 +1199,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:      config.DefaultUserContainerName + "-0",
+						Name:      config.DefaultMainContainerName + "-0",
 						Resources: defaultResources,
 						ReadinessProbe: &corev1.Probe{
 							SuccessThreshold: 1,
@@ -1210,7 +1210,7 @@ func TestRevisionDefaulting(t *testing.T) {
 							},
 						},
 					}, {
-						Name:      config.DefaultUserContainerName + "-1",
+						Name:      config.DefaultMainContainerName + "-1",
 						Resources: defaultResources,
 						ReadinessProbe: &corev1.Probe{
 							SuccessThreshold: 1,
@@ -1251,7 +1251,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name: config.DefaultUserContainerName + "-0",
+						Name: config.DefaultMainContainerName + "-0",
 						Ports: []corev1.ContainerPort{{
 							ContainerPort: 8080,
 						}},
@@ -1264,7 +1264,7 @@ func TestRevisionDefaulting(t *testing.T) {
 						},
 						Resources: defaultResources,
 					}, {
-						Name: config.DefaultUserContainerName + "-1",
+						Name: config.DefaultMainContainerName + "-1",
 						ReadinessProbe: &corev1.Probe{
 							FailureThreshold: 3, // Added as k8s default
 							PeriodSeconds:    10,
@@ -1294,14 +1294,14 @@ func TestRevisionDefaulting(t *testing.T) {
 				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name: config.DefaultUserContainerName + "-0",
+						Name: config.DefaultMainContainerName + "-0",
 						Ports: []corev1.ContainerPort{{
 							ContainerPort: 8080,
 						}},
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
 					}, {
-						Name:           config.DefaultUserContainerName + "-1",
+						Name:           config.DefaultMainContainerName + "-1",
 						Resources:      defaultResources,
 						ReadinessProbe: nil,
 					}},

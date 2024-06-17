@@ -72,7 +72,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 					Spec: RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
-								Name:           config.DefaultUserContainerName,
+								Name:           config.DefaultMainContainerName,
 								Image:          "busybox",
 								Resources:      defaultResources,
 								ReadinessProbe: defaultProbe,
@@ -107,7 +107,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 						PodSpec: corev1.PodSpec{
 							EnableServiceLinks: ptr.Bool(false),
 							Containers: []corev1.Container{{
-								Name:           config.DefaultUserContainerName,
+								Name:           config.DefaultMainContainerName,
 								Image:          "busybox",
 								Resources:      defaultResources,
 								ReadinessProbe: defaultProbe,
@@ -144,7 +144,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 						PodSpec: corev1.PodSpec{
 							EnableServiceLinks: ptr.Bool(true),
 							Containers: []corev1.Container{{
-								Name:           config.DefaultUserContainerName,
+								Name:           config.DefaultMainContainerName,
 								Image:          "busybox",
 								Resources:      defaultResources,
 								ReadinessProbe: defaultProbe,

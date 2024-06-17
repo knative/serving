@@ -207,7 +207,7 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 		extraVolumes = append(extraVolumes, certVolume(networking.ServingCertName))
 	}
 
-	podSpec := BuildPodSpec(rev, append(BuildUserContainers(rev), *queueContainer), cfg)
+	podSpec := BuildPodSpec(rev, append(BuildMainContainers(rev), *queueContainer), cfg)
 	podSpec.Volumes = append(podSpec.Volumes, extraVolumes...)
 
 	if cfg.Observability.EnableVarLogCollection {
@@ -234,8 +234,8 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 	return podSpec, nil
 }
 
-// BuildUserContainers makes an array of containers from the Revision template.
-func BuildUserContainers(rev *v1.Revision) []corev1.Container {
+// BuildMainContainers makes an array of containers from the Revision template.
+func BuildMainContainers(rev *v1.Revision) []corev1.Container {
 	containers := make([]corev1.Container, 0, len(rev.Spec.PodSpec.Containers))
 	for i := range rev.Spec.PodSpec.Containers {
 		var container corev1.Container

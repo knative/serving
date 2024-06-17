@@ -56,9 +56,9 @@ const (
 	// specified by the user, if `name:` is omitted.
 	DefaultInitContainerName = "init-container"
 
-	// DefaultUserContainerName is the default name we give to the container
+	// DefaultMainContainerName is the default name we give to the container
 	// specified by the user, if `name:` is omitted.
-	DefaultUserContainerName = "user-container"
+	DefaultMainContainerName = "user-container"
 
 	// DefaultContainerConcurrency is the default container concurrency. It will be set if ContainerConcurrency is not specified.
 	DefaultContainerConcurrency = 0
@@ -74,7 +74,7 @@ const (
 
 var (
 	DefaultInitContainerNameTemplate = mustParseTemplate(DefaultInitContainerName)
-	DefaultUserContainerNameTemplate = mustParseTemplate(DefaultUserContainerName)
+	DefaultMainContainerNameTemplate = mustParseTemplate(DefaultMainContainerName)
 )
 
 func defaultDefaultsConfig() *Defaults {
@@ -84,7 +84,7 @@ func defaultDefaultsConfig() *Defaults {
 		RevisionResponseStartTimeoutSeconds: DefaultRevisionResponseStartTimeoutSeconds,
 		RevisionIdleTimeoutSeconds:          DefaultRevisionIdleTimeoutSeconds,
 		InitContainerNameTemplate:           DefaultInitContainerNameTemplate,
-		UserContainerNameTemplate:           DefaultUserContainerNameTemplate,
+		MainContainerNameTemplate:           DefaultMainContainerNameTemplate,
 		ContainerConcurrency:                DefaultContainerConcurrency,
 		ContainerConcurrencyMaxLimit:        DefaultMaxRevisionContainerConcurrency,
 		AllowContainerConcurrencyZero:       DefaultAllowContainerConcurrencyZero,
@@ -114,7 +114,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 
 	if err := cm.Parse(data,
 		asTemplate("init-container-name-template", &nc.InitContainerNameTemplate),
-		asTemplate("container-name-template", &nc.UserContainerNameTemplate),
+		asTemplate("container-name-template", &nc.MainContainerNameTemplate),
 
 		cm.AsBool("allow-container-concurrency-zero", &nc.AllowContainerConcurrencyZero),
 		asTriState("enable-service-links", &nc.EnableServiceLinks, nil),
@@ -163,7 +163,7 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 			nc.ContainerConcurrency, 0, nc.ContainerConcurrencyMaxLimit, "container-concurrency")
 	}
 	// Check that the templates properly apply to ObjectMeta.
-	if err := nc.UserContainerNameTemplate.Execute(io.Discard, metav1.ObjectMeta{}); err != nil {
+	if err := nc.MainContainerNameTemplate.Execute(io.Discard, metav1.ObjectMeta{}); err != nil {
 		return nil, fmt.Errorf("error executing template: %w", err)
 	}
 	if err := nc.InitContainerNameTemplate.Execute(io.Discard, metav1.ObjectMeta{}); err != nil {
@@ -194,7 +194,7 @@ type Defaults struct {
 
 	InitContainerNameTemplate *ObjectMetaTemplate
 
-	UserContainerNameTemplate *ObjectMetaTemplate
+	MainContainerNameTemplate *ObjectMetaTemplate
 
 	ContainerConcurrency int64
 
@@ -226,9 +226,9 @@ func containerNameFromTemplate(ctx context.Context, tmpl *ObjectMetaTemplate) st
 	return buf.String()
 }
 
-// UserContainerName returns the name of the user container based on the context.
-func (d Defaults) UserContainerName(ctx context.Context) string {
-	return containerNameFromTemplate(ctx, d.UserContainerNameTemplate)
+// MainContainerName returns the name of the user container based on the context.
+func (d Defaults) MainContainerName(ctx context.Context) string {
+	return containerNameFromTemplate(ctx, d.MainContainerNameTemplate)
 }
 
 // InitContainerName returns the name of the init container based on the context.

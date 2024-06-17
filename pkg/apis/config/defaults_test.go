@@ -79,7 +79,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			RevisionIdleTimeoutSeconds:          123,
 			ContainerConcurrencyMaxLimit:        1984,
 			RevisionCPURequest:                  &oneTwoThree,
-			UserContainerNameTemplate:           mustParseTemplate("{{.Name}}"),
+			MainContainerNameTemplate:           mustParseTemplate("{{.Name}}"),
 			InitContainerNameTemplate:           mustParseTemplate("{{.Name}}"),
 			EnableServiceLinks:                  ptr.Bool(true),
 		},
@@ -103,7 +103,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			MaxRevisionTimeoutSeconds:           DefaultMaxRevisionTimeoutSeconds,
 			RevisionResponseStartTimeoutSeconds: DefaultRevisionResponseStartTimeoutSeconds,
 			InitContainerNameTemplate:           DefaultInitContainerNameTemplate,
-			UserContainerNameTemplate:           DefaultUserContainerNameTemplate,
+			MainContainerNameTemplate:           DefaultMainContainerNameTemplate,
 			ContainerConcurrencyMaxLimit:        DefaultMaxRevisionContainerConcurrency,
 			AllowContainerConcurrencyZero:       true,
 			EnableServiceLinks:                  ptr.Bool(false),
@@ -119,7 +119,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			MaxRevisionTimeoutSeconds:           DefaultMaxRevisionTimeoutSeconds,
 			RevisionResponseStartTimeoutSeconds: DefaultRevisionResponseStartTimeoutSeconds,
 			InitContainerNameTemplate:           DefaultInitContainerNameTemplate,
-			UserContainerNameTemplate:           DefaultUserContainerNameTemplate,
+			MainContainerNameTemplate:           DefaultMainContainerNameTemplate,
 			ContainerConcurrencyMaxLimit:        DefaultMaxRevisionContainerConcurrency,
 			AllowContainerConcurrencyZero:       true,
 			EnableServiceLinks:                  nil,
@@ -214,7 +214,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			ContainerConcurrencyMaxLimit:        DefaultMaxRevisionContainerConcurrency,
 			AllowContainerConcurrencyZero:       DefaultAllowContainerConcurrencyZero,
 			EnableServiceLinks:                  ptr.Bool(false),
-			UserContainerNameTemplate:           mustParseTemplate("{{.Name}}"),
+			MainContainerNameTemplate:           mustParseTemplate("{{.Name}}"),
 			InitContainerNameTemplate:           mustParseTemplate("my-template"),
 		},
 		data: map[string]string{
@@ -235,7 +235,7 @@ func TestDefaultsConfiguration(t *testing.T) {
 			AllowContainerConcurrencyZero:       DefaultAllowContainerConcurrencyZero,
 			EnableServiceLinks:                  ptr.Bool(false),
 			InitContainerNameTemplate:           DefaultInitContainerNameTemplate,
-			UserContainerNameTemplate:           DefaultUserContainerNameTemplate,
+			MainContainerNameTemplate:           DefaultMainContainerNameTemplate,
 		},
 	}}
 
@@ -308,8 +308,8 @@ func TestTemplating(t *testing.T) {
 				Namespace: "guardians",
 			})
 
-			if got, want := def.UserContainerName(ctx), test.want; got != want {
-				t.Errorf("UserContainerName() = %v, wanted %v", got, want)
+			if got, want := def.MainContainerName(ctx), test.want; got != want {
+				t.Errorf("MainContainerName() = %v, wanted %v", got, want)
 			}
 
 			if got, want := def.InitContainerName(ctx), test.want; got != want {

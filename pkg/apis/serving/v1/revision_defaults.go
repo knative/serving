@@ -82,8 +82,8 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 	for idx := range rs.PodSpec.InitContainers {
 		containerNames.Insert(rs.PodSpec.InitContainers[idx].Name)
 	}
-	defaultUserContainerName := cfg.Defaults.UserContainerName(ctx)
-	applyDefaultContainerNames(rs.PodSpec.Containers, containerNames, defaultUserContainerName)
+	defaultMainContainerName := cfg.Defaults.MainContainerName(ctx)
+	applyDefaultContainerNames(rs.PodSpec.Containers, containerNames, defaultMainContainerName)
 	defaultInitContainerName := cfg.Defaults.InitContainerName(ctx)
 	applyDefaultContainerNames(rs.PodSpec.InitContainers, containerNames, defaultInitContainerName)
 	for idx := range rs.PodSpec.Containers {
@@ -132,7 +132,7 @@ func (rs *RevisionSpec) applyDefault(ctx context.Context, container *corev1.Cont
 	// If there are multiple containers then default probes will be applied to the container where user specified PORT
 	// default probes will not be applied for non serving containers
 	if len(rs.PodSpec.Containers) == 1 || len(container.Ports) != 0 {
-		rs.applyUserContainerDefaultReadinessProbe(container)
+		rs.applyMainContainerDefaultReadinessProbe(container)
 	}
 	rs.applyReadinessProbeDefaults(container)
 	rs.applyGRPCProbeDefaults(container)
@@ -155,7 +155,7 @@ func (rs *RevisionSpec) applyDefault(ctx context.Context, container *corev1.Cont
 	}
 }
 
-func (*RevisionSpec) applyUserContainerDefaultReadinessProbe(container *corev1.Container) {
+func (*RevisionSpec) applyMainContainerDefaultReadinessProbe(container *corev1.Container) {
 	if container.ReadinessProbe == nil {
 		container.ReadinessProbe = &corev1.Probe{}
 	}
