@@ -230,10 +230,6 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	// Don't modify the informers copy.
 	resource := original.DeepCopy()
 
-	resource.SetAnnotations(map[string]string{
-		ClassAnnotationKey: r.classValue,
-	})
-
 	var reconcileEvent reconciler.Event
 
 	name, do := s.reconcileMethodFor(resource)
