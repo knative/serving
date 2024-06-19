@@ -22,7 +22,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20240611-e2fc773a"
+    app.kubernetes.io/version: "20240619-cf4988a3"
     experimental.istio.io/disable-gateway-port-translation: "true"
 spec:
   type: ClusterIP
@@ -95,6 +95,17 @@ spec:
     - name: default
       port: 80
       protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: All
+    # We've observed when adding and removing a listener on port 443 this
+    # causes the GKE LB to have downtime. By adding this tls listener
+    # we keep that LB port open.
+    - name: tls
+      port: 443
+      protocol: TLS
+      tls:
+        mode: Passthrough
       allowedRoutes:
         namespaces:
           from: All
