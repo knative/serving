@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"testing"
 	"time"
 
@@ -50,14 +49,6 @@ const (
 )
 
 func TestDestroyPodInflight(t *testing.T) {
-	if os.Getenv("INGRESS_CLASS") == "gateway-api.ingress.networking.knative.dev" &&
-		os.Getenv("GATEWAY_API_IMPLEMENTATION") == "contour" &&
-		os.Getenv("KIND") != "" {
-		// TODO (izabelacg) temporary solution until the following issue is addressed
-		// see https://github.com/knative/serving/issues/15092
-		t.Skip("Known test failure with Contour and Gateway API")
-	}
-
 	t.Parallel()
 
 	clients := Setup(t)
