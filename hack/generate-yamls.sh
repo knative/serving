@@ -54,11 +54,12 @@ readonly SERVING_DEFAULT_DOMAIN_YAML=${YAML_OUTPUT_DIR}/serving-default-domain.y
 readonly SERVING_STORAGE_VERSION_MIGRATE_YAML=${YAML_OUTPUT_DIR}/serving-storage-version-migration.yaml
 readonly SERVING_HPA_YAML=${YAML_OUTPUT_DIR}/serving-hpa.yaml
 readonly SERVING_CRD_YAML=${YAML_OUTPUT_DIR}/serving-crds.yaml
+readonly SERVING_CLEAN_UP_YAML=${YAML_OUTPUT_DIR}/cleanup.yaml
 readonly SERVING_POST_INSTALL_JOBS_YAML=${YAML_OUTPUT_DIR}/serving-post-install-jobs.yaml
 
 declare -A CONSOLIDATED_ARTIFACTS
 CONSOLIDATED_ARTIFACTS=(
-  ["${SERVING_POST_INSTALL_JOBS_YAML}"]="${SERVING_STORAGE_VERSION_MIGRATE_YAML}"
+  ["${SERVING_POST_INSTALL_JOBS_YAML}"]="${SERVING_STORAGE_VERSION_MIGRATE_YAML} ${SERVING_CLEAN_UP_YAML}"
 )
 readonly CONSOLIDATED_ARTIFACTS
 
@@ -90,6 +91,8 @@ ko resolve ${KO_YAML_FLAGS} -R -f config/core/ | "${LABEL_YAML_CMD[@]}" > "${SER
 ko resolve ${KO_YAML_FLAGS} -f config/post-install/default-domain.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_DEFAULT_DOMAIN_YAML}"
 
 ko resolve ${KO_YAML_FLAGS} -f config/post-install/storage-version-migration.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_STORAGE_VERSION_MIGRATE_YAML}"
+
+ko resolve ${KO_YAML_FLAGS} -f config/post-install/cleanup.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_CLEAN_UP_YAML}"
 
 # These don't have images, but ko will concatenate them for us.
 ko resolve ${KO_YAML_FLAGS} -f config/core/300-resources/ -f config/core/300-imagecache.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_CRD_YAML}"
