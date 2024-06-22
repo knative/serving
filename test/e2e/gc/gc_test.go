@@ -21,7 +21,6 @@ package gc
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -88,7 +87,7 @@ func TestRevisionGC(t *testing.T) {
 		}
 		return false, err
 	})
-	if errors.Is(err, wait.ErrWaitTimeout) {
+	if wait.Interrupted(err) {
 		t.Fatalf("Got revision %v, expected not_found", originalRevision)
 	}
 	if err != nil {
