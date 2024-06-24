@@ -46,7 +46,7 @@ jobs:
 
     # Install the latest release of ko
     - name: Install ko
-      uses: ko-build/setup-ko@v0.6
+      uses: ko-build/setup-ko@v0.7
 
     - name: Setup Registry
       run: |
