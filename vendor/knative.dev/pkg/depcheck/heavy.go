@@ -16,15 +16,13 @@ limitations under the License.
 
 package depcheck
 
-var (
-	// KnownHeavyDependencies is a list of dependencies that are known to increase the
-	// binary's size by a lot.
-	KnownHeavyDependencies = []string{
-		"k8s.io/apimachinery/pkg/api/apitesting/fuzzer",
+// KnownHeavyDependencies is a list of dependencies that are known to increase the
+// binary's size by a lot.
+var KnownHeavyDependencies = []string{
+	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer",
 
-		// As of 2020/10/27 this adds about 13MB to overall binary size.
-		"k8s.io/client-go/kubernetes",
-		// As of 2020/10/27 this adds about 7MB to overall binary size.
-		"contrib.go.opencensus.io/exporter/stackdriver",
-	}
-)
+	// As of 2020/10/27 this adds about 13MB to overall binary size.
+	"k8s.io/client-go/kubernetes",
+	// As of 2020/10/27 this adds about 7MB to overall binary size.
+	"contrib.go.opencensus.io/exporter/stackdriver",
+}

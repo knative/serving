@@ -117,7 +117,8 @@ type standardBuilder struct {
 }
 
 func (b *standardBuilder) buildElector(ctx context.Context, la reconciler.LeaderAware,
-	queueName string, enq func(reconciler.Bucket, types.NamespacedName)) (Elector, error) {
+	queueName string, enq func(reconciler.Bucket, types.NamespacedName),
+) (Elector, error) {
 	logger := logging.FromContext(ctx)
 
 	id := b.lec.Identity

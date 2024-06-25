@@ -32,7 +32,7 @@ var (
 	// Unmarshal is an alias for json.Unmarshal
 	Unmarshal = json.Unmarshal
 
-	//Marshal is an alias for json.Marshal
+	// Marshal is an alias for json.Marshal
 	Marshal = json.Marshal
 )
 

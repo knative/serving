@@ -86,7 +86,7 @@ func startNewPromSrv(e *prom.Exporter, host string, port int) *http.Server {
 	curPromSrv = &http.Server{
 		Addr:              host + ":" + strconv.Itoa(port),
 		Handler:           sm,
-		ReadHeaderTimeout: time.Minute, //https://medium.com/a-journey-with-go/go-understand-and-mitigate-slowloris-attack-711c1b1403f6
+		ReadHeaderTimeout: time.Minute, // https://medium.com/a-journey-with-go/go-understand-and-mitigate-slowloris-attack-711c1b1403f6
 	}
 	return curPromSrv
 }
