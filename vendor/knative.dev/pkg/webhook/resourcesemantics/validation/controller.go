@@ -45,7 +45,6 @@ func NewAdmissionControllerWithConfig(
 	disallowUnknownFields bool,
 	callbacks map[schema.GroupVersionKind]Callback,
 ) *controller.Impl {
-
 	opts := []OptionFunc{
 		WithPath(path),
 		WithTypes(handlers),
@@ -122,7 +121,6 @@ func newController(ctx context.Context, name string, optsFunc ...OptionFunc) *co
 	})
 
 	return c
-
 }
 
 // NewAdmissionController constructs a reconciler

@@ -45,7 +45,6 @@ func NewAdmissionController(
 	disallowUnknownFields bool,
 	callbacks ...map[schema.GroupVersionKind]Callback,
 ) *controller.Impl {
-
 	// This not ideal, we are using a variadic argument to effectively make callbacks optional
 	// This allows this addition to be non-breaking to consumers of /pkg
 	// TODO: once all sub-repos have adopted this, we might move this back to a traditional param.

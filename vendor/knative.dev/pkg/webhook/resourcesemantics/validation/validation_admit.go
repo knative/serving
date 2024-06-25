@@ -106,8 +106,8 @@ func (ac *reconciler) Admit(ctx context.Context, request *admissionv1.AdmissionR
 func (ac *reconciler) decodeRequestAndPrepareContext(
 	ctx context.Context,
 	req *admissionv1.AdmissionRequest,
-	gvk schema.GroupVersionKind) (context.Context, resourcesemantics.GenericCRD, error) {
-
+	gvk schema.GroupVersionKind,
+) (context.Context, resourcesemantics.GenericCRD, error) {
 	logger := logging.FromContext(ctx)
 	handler, ok := ac.handlers[gvk]
 	if !ok {

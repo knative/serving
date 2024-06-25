@@ -203,7 +203,6 @@ func objForGVK(t *testing.T,
 	gvk schema.GroupVersionKind,
 	scheme *runtime.Scheme,
 ) convertibleObject {
-
 	t.Helper()
 
 	obj, err := scheme.New(gvk)
@@ -235,7 +234,6 @@ func hubInstanceForGK(t *testing.T,
 	hubs *runtime.Scheme,
 	gk schema.GroupKind,
 ) (apis.Convertible, schema.GroupVersionKind) {
-
 	t.Helper()
 
 	for hubGVK := range hubs.AllKnownTypes() {

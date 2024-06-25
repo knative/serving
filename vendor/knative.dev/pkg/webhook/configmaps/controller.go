@@ -41,7 +41,6 @@ func NewAdmissionController(
 	name, path string,
 	constructors configmap.Constructors,
 ) *controller.Impl {
-
 	client := kubeclient.Get(ctx)
 	vwhInformer := vwhinformer.Get(ctx)
 	secretInformer := secretinformer.Get(ctx)

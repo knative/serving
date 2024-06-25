@@ -51,7 +51,7 @@ func NewCombined(pacers []vegeta.Pacer, durations []time.Duration) (vegeta.Pacer
 	}
 
 	var totalDuration uint64
-	var stepDurations = make([]uint64, len(pacers))
+	stepDurations := make([]uint64, len(pacers))
 	for i, duration := range durations {
 		if duration < 1*time.Second {
 			return nil, errors.New("duration for each pacer must be longer than 1 second")

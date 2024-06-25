@@ -167,6 +167,7 @@ func validateDestinationRef(ref corev1.ObjectReference) *apis.FieldError {
 
 	return errs
 }
+
 func validateCACerts(CACert *string) *apis.FieldError {
 	// Check the object.
 	var errs *apis.FieldError

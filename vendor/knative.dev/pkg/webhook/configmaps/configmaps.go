@@ -61,10 +61,12 @@ type reconciler struct {
 	secretName string
 }
 
-var _ controller.Reconciler = (*reconciler)(nil)
-var _ pkgreconciler.LeaderAware = (*reconciler)(nil)
-var _ webhook.AdmissionController = (*reconciler)(nil)
-var _ webhook.StatelessAdmissionController = (*reconciler)(nil)
+var (
+	_ controller.Reconciler                = (*reconciler)(nil)
+	_ pkgreconciler.LeaderAware            = (*reconciler)(nil)
+	_ webhook.AdmissionController          = (*reconciler)(nil)
+	_ webhook.StatelessAdmissionController = (*reconciler)(nil)
+)
 
 // Reconcile implements controller.Reconciler
 func (ac *reconciler) Reconcile(ctx context.Context, key string) error {

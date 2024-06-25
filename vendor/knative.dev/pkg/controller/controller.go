@@ -54,14 +54,12 @@ const (
 	DefaultResyncPeriod = 10 * time.Hour
 )
 
-var (
-	// DefaultThreadsPerController is the number of threads to use
-	// when processing the controller's workqueue.  Controller binaries
-	// may adjust this process-wide default.  For finer control, invoke
-	// Run on the controller directly.
-	// TODO rename the const to Concurrency and deprecated this
-	DefaultThreadsPerController = 2
-)
+// DefaultThreadsPerController is the number of threads to use
+// when processing the controller's workqueue.  Controller binaries
+// may adjust this process-wide default.  For finer control, invoke
+// Run on the controller directly.
+// TODO rename the const to Concurrency and deprecated this
+var DefaultThreadsPerController = 2
 
 // Reconciler is the interface that controller implementations are expected
 // to implement, so that the shared controller.Impl can drive work through it.

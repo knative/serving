@@ -77,7 +77,8 @@ func NewBackgroundVerification(name string, setup func(c Context), verify func(c
 // NewBackgroundOperation creates a new background operation or test that can be
 // notified to stop its operation.
 func NewBackgroundOperation(name string, setup func(c Context),
-	handler func(bc BackgroundContext)) BackgroundOperation {
+	handler func(bc BackgroundContext),
+) BackgroundOperation {
 	return &simpleBackgroundOperation{
 		name:    name,
 		setup:   setup,

@@ -28,7 +28,7 @@ import (
 const (
 	defaultLabelOut = "[OUT]"
 	defaultLabelErr = "[ERR]"
-	executeMode     = 0700
+	executeMode     = 0o700
 )
 
 // NewExecutor creates a new executor.
