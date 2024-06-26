@@ -153,7 +153,6 @@ func main() {
 				continue
 			}
 
-			name, leaders := name, leaders
 			eg.Go(func() error {
 				return quack(ctx, kc, name, leaders)
 			})

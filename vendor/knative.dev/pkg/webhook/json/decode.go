@@ -19,6 +19,7 @@ package json
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 )
 
@@ -95,7 +96,7 @@ func findMetadataOffsets(bites []byte) (start, end int64, err error) {
 
 	for {
 		t, err = dec.Token()
-		if err == io.EOF { //nolint
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

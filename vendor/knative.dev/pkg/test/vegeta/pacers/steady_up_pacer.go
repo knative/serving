@@ -96,7 +96,7 @@ func (sup *steadyUpPacer) Pace(elapsedTime time.Duration, elapsedHits uint64) (t
 
 	// If we can't converge to an error of <1e-3 within 10 iterations, bail.
 	// This rarely even loops for any large Period if hitsToWait is small.
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		hitsAtGuess := sup.hits(elapsedTime + nextHitIn)
 		err := float64(elapsedHits+1) - hitsAtGuess
 		if math.Abs(err) < 1e-3 {
