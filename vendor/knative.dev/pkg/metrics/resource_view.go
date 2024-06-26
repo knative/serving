@@ -307,7 +307,7 @@ func optionForResource(r *resource.Resource) (stats.Options, error) {
 			// If we can't create exporters but we have a Meter, return that.
 			return mE.o, nil
 		}
-		return nil, fmt.Errorf("whoops, allMeters.factory is nil")
+		return nil, errors.New("whoops, allMeters.factory is nil")
 	}
 	exporter, err := allMeters.factory(r)
 	if err != nil {

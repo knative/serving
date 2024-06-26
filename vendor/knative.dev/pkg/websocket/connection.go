@@ -134,7 +134,7 @@ func NewDurableConnection(target string, messageChan chan []byte, logger *zap.Su
 			// by restarting the serving side of the connection behind a Kubernetes Service.
 			HandshakeTimeout: 3 * time.Second,
 		}
-		conn, resp, err := dialer.Dial(target, nil)
+		conn, resp, err := dialer.Dial(target, nil) //nolint:bodyclose
 		if err != nil {
 			if resp != nil {
 				dresp, _ := httputil.DumpResponse(resp, true /*body*/) // This is for logging so don't care if it fails.

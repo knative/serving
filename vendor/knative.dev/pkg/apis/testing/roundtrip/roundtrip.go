@@ -144,7 +144,7 @@ func ExternalTypesViaHub(t *testing.T, scheme, hubs *runtime.Scheme, fuzzerFuncs
 		}
 
 		t.Run(gvk.Group+"."+gvk.Version+"."+gvk.Kind, func(t *testing.T) {
-			for i := 0; i < *roundtrip.FuzzIters; i++ {
+			for range *roundtrip.FuzzIters {
 				roundTripViaHub(t, gvk, scheme, hubs, f)
 
 				if t.Failed() {
