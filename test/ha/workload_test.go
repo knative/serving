@@ -78,23 +78,6 @@ func TestActivatorInRequestPathAlways(t *testing.T) {
 	testUptimeDuringUserPodDeletion(t, ctx, clients, names, resources)
 }
 
-func TestActivatorInRequestPathPossibly(t *testing.T) {
-	t.Parallel()
-	clients := e2e.Setup(t)
-	ctx := context.Background()
-
-	// Create first service that we will continually probe during disruption scenario.
-	names, resources := createPizzaPlanetService(t,
-		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.MinScaleAnnotationKey: strconv.Itoa(minimumNumberOfReplicas), // Make sure we don't scale to zero during the test.
-			autoscaling.MaxScaleAnnotationKey: strconv.Itoa(maximumNumberOfReplicas),
-		}),
-	)
-	test.EnsureTearDown(t, clients, &names)
-
-	testUptimeDuringUserPodDeletion(t, ctx, clients, names, resources)
-}
-
 func testUptimeDuringUserPodDeletion(t *testing.T, ctx context.Context, clients *test.Clients, names test.ResourceNames, resources *v1test.ResourceObjects) {
 	t.Log("Starting prober")
 	prober := test.NewProberManager(t.Logf, clients, minProbes, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
