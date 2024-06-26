@@ -19,6 +19,7 @@ package helpers
 import (
 	"math/rand"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 )
@@ -32,7 +33,10 @@ const (
 	testNamePrefix  = "Test"
 )
 
-var nameRand *rand.Rand
+var (
+	 nameRand *rand.Rand
+	 nameMu sync.Mutex
+)
 
 func init() {
 	// Properly seed the random number generator so RandomString() is actually random.
@@ -40,6 +44,7 @@ func init() {
 	// already existing resources.
 	seed := time.Now().UTC().UnixNano()
 	nameRand = rand.New(rand.NewSource(seed))
+
 }
 
 type named interface {
@@ -75,9 +80,11 @@ func AppendRandomString(prefix string) string {
 // RandomString will generate a random string.
 func RandomString() string {
 	suffix := make([]byte, randSuffixLen)
+	nameMu.Lock()
 	for i := range suffix {
 		suffix[i] = letterBytes[nameRand.Intn(len(letterBytes))]
 	}
+	nameMu.Unlock()
 	return string(suffix)
 }
 
