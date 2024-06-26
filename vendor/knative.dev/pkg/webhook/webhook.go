@@ -176,6 +176,7 @@ func New(
 		// a new secret informer from it.
 		secretInformer := kubeinformerfactory.Get(ctx).Core().V1().Secrets()
 
+		//nolint:gosec // operator configures TLS min version (default is 1.3)
 		webhook.tlsConfig = &tls.Config{
 			MinVersion: opts.TLSMinVersion,
 

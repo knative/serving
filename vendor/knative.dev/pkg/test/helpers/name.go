@@ -32,12 +32,14 @@ const (
 	testNamePrefix  = "Test"
 )
 
+var nameRand *rand.Rand
+
 func init() {
 	// Properly seed the random number generator so RandomString() is actually random.
 	// Otherwise, rerunning tests will generate the same names for the test resources, causing conflicts with
 	// already existing resources.
 	seed := time.Now().UTC().UnixNano()
-	rand.Seed(seed)
+	nameRand = rand.New(rand.NewSource(seed))
 }
 
 type named interface {
@@ -74,7 +76,7 @@ func AppendRandomString(prefix string) string {
 func RandomString() string {
 	suffix := make([]byte, randSuffixLen)
 	for i := range suffix {
-		suffix[i] = letterBytes[rand.Intn(len(letterBytes))]
+		suffix[i] = letterBytes[nameRand.Intn(len(letterBytes))]
 	}
 	return string(suffix)
 }
