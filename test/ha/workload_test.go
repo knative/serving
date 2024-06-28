@@ -121,7 +121,7 @@ func deleteUserPods(t *testing.T, ctx context.Context, clients *test.Clients, se
 			return false, nil
 		}, pod.Name, pod.Namespace); err != nil {
 			if !apierrs.IsNotFound(err) {
-				t.Fatalf("expected pkg to not be found")
+				t.Fatalf("expected pod to not be found")
 			}
 		}
 
