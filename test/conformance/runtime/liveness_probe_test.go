@@ -173,7 +173,7 @@ func atLeastNumLivenessChecks(t *testing.T, expectedChecks int) spoof.ResponseCh
 
 func userContainerRestarted(pod *corev1.Pod) bool {
 	for _, status := range pod.Status.ContainerStatuses {
-		if status.Name == config.DefaultUserContainerName && status.RestartCount > 0 {
+		if status.Name == config.DefaultMainContainerName && status.RestartCount > 0 {
 			return true
 		}
 	}
