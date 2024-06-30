@@ -691,7 +691,7 @@ google.golang.org/api/option/internaloption
 google.golang.org/api/support/bundler
 google.golang.org/api/transport/http
 google.golang.org/api/transport/http/internal/propagation
-# google.golang.org/genproto/googleapis/api v0.0.0-20240521202816-d264139d666e
+# google.golang.org/genproto/googleapis/api v0.0.0-20240604185151-ef581f913117
 ## explicit; go 1.20
 google.golang.org/genproto/googleapis/api/httpbody
 # google.golang.org/genproto/googleapis/rpc v0.0.0-20240528184218-531527333157
@@ -1325,8 +1325,8 @@ k8s.io/utils/pointer
 k8s.io/utils/ptr
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20240610144728-23ec42b2186b
-## explicit; go 1.21
+# knative.dev/caching v0.0.0-20240625184806-46bd851751d2
+## explicit; go 1.22
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
 knative.dev/caching/pkg/apis/caching/v1alpha1
@@ -1349,7 +1349,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 # knative.dev/hack v0.0.0-20240607132042-09143140a254
 ## explicit; go 1.18
 knative.dev/hack
-# knative.dev/networking v0.0.0-20240607132834-85e269dff522
+# knative.dev/networking v0.0.0-20240611072033-3b8764c0bb4c
 ## explicit; go 1.21
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1388,8 +1388,8 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20240610120318-15e6cdf2f386
-## explicit; go 1.21
+# knative.dev/pkg v0.0.0-20240626134149-3f6a546ac3a4
+## explicit; go 1.22
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
 knative.dev/pkg/apis
@@ -1402,6 +1402,7 @@ knative.dev/pkg/apis/testing/fuzzer
 knative.dev/pkg/apis/testing/roundtrip
 knative.dev/pkg/changeset
 knative.dev/pkg/client/injection/ducks/duck/v1/addressable
+knative.dev/pkg/client/injection/ducks/duck/v1/authstatus
 knative.dev/pkg/client/injection/kube/client
 knative.dev/pkg/client/injection/kube/client/fake
 knative.dev/pkg/client/injection/kube/informers/admissionregistration/v1/mutatingwebhookconfiguration

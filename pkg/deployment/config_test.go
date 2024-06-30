@@ -17,16 +17,20 @@ limitations under the License.
 package deployment
 
 import (
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"sigs.k8s.io/yaml"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/test/conformance/api/shared"
 
@@ -334,6 +338,124 @@ func TestControllerConfiguration(t *testing.T) {
 			QueueSidecarTokenAudiences:          sets.New("foo"),
 			DefaultAffinityType:                 defaultAffinityTypeValue,
 		},
+	}, {
+		name:    "runtime class name defaults to nothing",
+		wantErr: false,
+		data: map[string]string{
+			QueueSidecarImageKey: defaultSidecarImage,
+		},
+		wantConfig: &Config{
+			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
+			ProgressDeadline:               ProgressDeadlineDefault,
+			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			QueueSidecarImage:              defaultSidecarImage,
+			QueueSidecarTokenAudiences:     sets.New(""),
+			RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
+			RuntimeClassNames:              nil,
+			DefaultAffinityType:            defaultAffinityTypeValue,
+		},
+	}, {
+		name:    "runtime class name with wildcard",
+		wantErr: false,
+		wantConfig: &Config{
+			RuntimeClassNames: map[string]RuntimeClassNameLabelSelector{
+				"gvisor": {},
+			},
+			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
+			ProgressDeadline:               ProgressDeadlineDefault,
+			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			QueueSidecarImage:              defaultSidecarImage,
+			QueueSidecarTokenAudiences:     sets.New(""),
+			RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
+			DefaultAffinityType:            defaultAffinityTypeValue,
+		},
+		data: map[string]string{
+			RuntimeClassNameKey:  "gvisor: {}",
+			QueueSidecarImageKey: defaultSidecarImage,
+		},
+	}, {
+		name:    "runtime class name with wildcard and label selectors",
+		wantErr: false,
+		wantConfig: &Config{
+			RuntimeClassNames: map[string]RuntimeClassNameLabelSelector{
+				"gvisor": {},
+				"kata": {
+					Selector: map[string]string{
+						"some": "value-here",
+					},
+				},
+			},
+			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
+			ProgressDeadline:               ProgressDeadlineDefault,
+			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			QueueSidecarImage:              defaultSidecarImage,
+			QueueSidecarTokenAudiences:     sets.New(""),
+			RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
+			DefaultAffinityType:            defaultAffinityTypeValue,
+		},
+		data: map[string]string{
+			RuntimeClassNameKey: `---
+gvisor: {}
+kata:
+  selector:
+    some: value-here
+`,
+			QueueSidecarImageKey: defaultSidecarImage,
+		},
+	}, {
+		name:    "runtime class name with bad label selectors",
+		wantErr: true,
+		data: map[string]string{
+			QueueSidecarImageKey: defaultSidecarImage,
+			RuntimeClassNameKey: `---
+gvisor: {}
+kata:
+  selector:
+    "-a": " a  a "
+`,
+		},
+	}, {
+		name:    "runtime class name with an unparsable format",
+		wantErr: true,
+		data: map[string]string{
+			QueueSidecarImageKey: defaultSidecarImage,
+			RuntimeClassNameKey:  ` ???; 231424 `,
+		},
+	}, {
+		name:    "invalid runtime class name",
+		wantErr: true,
+		data: map[string]string{
+			QueueSidecarImageKey: defaultSidecarImage,
+			RuntimeClassNameKey: func() string {
+				badValues := []string{
+					"", "A", "ABC", "aBc", "A1", "A-1", "1-A",
+					"-", "a-", "-a", "1-", "-1",
+					"_", "a_", "_a", "a_b", "1_", "_1", "1_2",
+					".", "a.", ".a", "a..b", "1.", ".1", "1..2",
+					" ", "a ", " a", "a b", "1 ", " 1", "1 2",
+					"A.a", "aB.a", "ab.A", "A1.a", "a1.A",
+					"A.1", "aB.1", "A1.1", "1A.1",
+					"0.A", "01.A", "012.A", "1A.a", "1a.A",
+					"A.B.C.D.E", "AA.BB.CC.DD.EE", "a.B.c.d.e", "aa.bB.cc.dd.ee",
+					"a@b", "a,b", "a_b", "a;b",
+					"a:b", "a%b", "a?b", "a$b",
+					strings.Repeat("a", 254),
+				}
+				rcns := map[string]RuntimeClassNameLabelSelector{}
+				for _, v := range badValues {
+					rcns[v] = RuntimeClassNameLabelSelector{
+						Selector: map[string]string{
+							"unique": v,
+						},
+					}
+				}
+				b, err := yaml.Marshal(rcns)
+				if err != nil {
+					panic(err)
+				}
+				return string(b)
+			}(),
+		},
 	}}
 
 	for _, tt := range configTests {
@@ -368,4 +490,122 @@ func TestControllerConfiguration(t *testing.T) {
 func quantity(val string) *resource.Quantity {
 	r := resource.MustParse(val)
 	return &r
+}
+
+func TestPodRuntimeClassName(t *testing.T) {
+	ts := []struct {
+		name              string
+		serviceLabels     map[string]string
+		runtimeClassNames map[string]RuntimeClassNameLabelSelector
+		want              *string
+	}{{
+		name:              "empty",
+		serviceLabels:     map[string]string{},
+		runtimeClassNames: nil,
+		want:              nil,
+	}, {
+		name:          "wildcard set",
+		serviceLabels: map[string]string{},
+		runtimeClassNames: map[string]RuntimeClassNameLabelSelector{
+			"gvisor": {},
+		},
+		want: ptr.String("gvisor"),
+	}, {
+		name: "priority with multiple label selectors and one label set",
+		serviceLabels: map[string]string{
+			"needs-two": "yes",
+		},
+		runtimeClassNames: map[string]RuntimeClassNameLabelSelector{
+			"one": {},
+			"two": {
+				Selector: map[string]string{
+					"needs-two": "yes",
+				},
+			},
+			"three": {
+				Selector: map[string]string{
+					"needs-two":   "yes",
+					"needs-three": "yes",
+				},
+			},
+		},
+		want: ptr.String("two"),
+	}, {
+		name: "priority with multiple label selectors and two labels set",
+		serviceLabels: map[string]string{
+			"needs-two":   "yes",
+			"needs-three": "yes",
+		},
+		runtimeClassNames: map[string]RuntimeClassNameLabelSelector{
+			"one": {},
+			"two": {
+				Selector: map[string]string{
+					"needs-two": "yes",
+				},
+			},
+			"three": {
+				Selector: map[string]string{
+					"needs-two":   "yes",
+					"needs-three": "yes",
+				},
+			},
+		},
+		want: ptr.String("three"),
+	}, {
+		name: "set via label",
+		serviceLabels: map[string]string{
+			"very-cool": "indeed",
+		},
+		runtimeClassNames: map[string]RuntimeClassNameLabelSelector{
+			"gvisor": {},
+			"kata": {
+				Selector: map[string]string{
+					"very-cool": "indeed",
+				},
+			},
+		},
+		want: ptr.String("kata"),
+	}, {
+		name: "no default only labels with set labels",
+		serviceLabels: map[string]string{
+			"very-cool": "indeed",
+		},
+		runtimeClassNames: map[string]RuntimeClassNameLabelSelector{
+			"": {},
+			"kata": {
+				Selector: map[string]string{
+					"very-cool": "indeed",
+				},
+			},
+		},
+		want: ptr.String("kata"),
+	}, {
+		name:          "no default only labels with set no labels",
+		serviceLabels: map[string]string{},
+		runtimeClassNames: map[string]RuntimeClassNameLabelSelector{
+			"": {},
+			"kata": {
+				Selector: map[string]string{
+					"very-cool": "indeed",
+				},
+			},
+		},
+		want: nil,
+	}}
+
+	for _, tt := range ts {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.serviceLabels == nil {
+				tt.serviceLabels = map[string]string{}
+			}
+			defaults := defaultConfig()
+			defaults.RuntimeClassNames = tt.runtimeClassNames
+			got, want := defaults.PodRuntimeClassName(tt.serviceLabels), tt.want
+
+			if !equality.Semantic.DeepEqual(got, want) {
+				t.Errorf("PodRuntimeClassName() = %v, wanted %v", got, want)
+			}
+		})
+	}
 }

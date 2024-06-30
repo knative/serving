@@ -1,6 +1,6 @@
 module knative.dev/serving
 
-go 1.21
+go 1.22
 
 require (
 	github.com/ahmetb/gen-crd-api-reference-docs v0.3.1-0.20210609063737-0067dc6dcea2
@@ -34,10 +34,10 @@ require (
 	k8s.io/code-generator v0.29.2
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00
 	k8s.io/utils v0.0.0-20240102154912-e7106e64919e
-	knative.dev/caching v0.0.0-20240610144728-23ec42b2186b
+	knative.dev/caching v0.0.0-20240625184806-46bd851751d2
 	knative.dev/hack v0.0.0-20240607132042-09143140a254
-	knative.dev/networking v0.0.0-20240607132834-85e269dff522
-	knative.dev/pkg v0.0.0-20240610120318-15e6cdf2f386
+	knative.dev/networking v0.0.0-20240611072033-3b8764c0bb4c
+	knative.dev/pkg v0.0.0-20240626134149-3f6a546ac3a4
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -147,7 +147,7 @@ require (
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/tools v0.22.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240521202816-d264139d666e // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240604185151-ef581f913117 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240528184218-531527333157 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect

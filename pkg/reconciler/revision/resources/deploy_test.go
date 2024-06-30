@@ -407,6 +407,12 @@ func withPrependedVolumeMounts(volumeMounts ...corev1.VolumeMount) containerOpti
 	}
 }
 
+func withRuntimeClass(name string) podSpecOption {
+	return func(ps *corev1.PodSpec) {
+		ps.RuntimeClassName = ptr.String(name)
+	}
+}
+
 func podSpec(containers []corev1.Container, opts ...podSpecOption) *corev1.PodSpec {
 	podSpec := defaultPodSpec.DeepCopy()
 	podSpec.Containers = containers
@@ -1526,6 +1532,113 @@ func TestMakePodSpec(t *testing.T) {
 				}
 			},
 		),
+	}, {
+		name: "with runtime-class-name set",
+		dc: deployment.Config{
+			RuntimeClassNames: map[string]deployment.RuntimeClassNameLabelSelector{
+				"gvisor": {},
+			},
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				Ports:          buildContainerPorts(v1.DefaultUserPort),
+				ReadinessProbe: withHTTPReadinessProbe(v1.DefaultUserPort),
+			}}),
+		),
+		want: podSpec([]corev1.Container{
+			servingContainer(func(container *corev1.Container) {
+				container.Image = "busybox"
+			}),
+			queueContainer(
+				withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"}}`),
+			),
+		}, withRuntimeClass("gvisor")),
+	}, {
+		name: "with runtime-class-name set requiring selector and no label set in revision",
+		dc: deployment.Config{
+			RuntimeClassNames: map[string]deployment.RuntimeClassNameLabelSelector{
+				"gvisor": {
+					Selector: map[string]string{
+						"this-one": "specifically",
+					},
+				},
+			},
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				Ports:          buildContainerPorts(v1.DefaultUserPort),
+				ReadinessProbe: withHTTPReadinessProbe(v1.DefaultUserPort),
+			}}),
+		),
+		want: podSpec([]corev1.Container{
+			servingContainer(func(container *corev1.Container) {
+				container.Image = "busybox"
+			}),
+			queueContainer(
+				withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"}}`),
+			),
+		}),
+	}, {
+		name: "with runtime-class-name set requiring selector and label set in revision",
+		dc: deployment.Config{
+			RuntimeClassNames: map[string]deployment.RuntimeClassNameLabelSelector{
+				"gvisor": {
+					Selector: map[string]string{
+						"this-one": "specifically",
+					},
+				},
+			},
+		},
+		rev: revision("bar", "foo",
+			WithRevisionLabel("this-one", "specifically"),
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				Ports:          buildContainerPorts(v1.DefaultUserPort),
+				ReadinessProbe: withHTTPReadinessProbe(v1.DefaultUserPort),
+			}}),
+		),
+		want: podSpec([]corev1.Container{
+			servingContainer(func(container *corev1.Container) {
+				container.Image = "busybox"
+			}),
+			queueContainer(
+				withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"}}`),
+			),
+		}, withRuntimeClass("gvisor")),
+	}, {
+		name: "with multiple runtime-class-name set and label selector for one",
+		dc: deployment.Config{
+			RuntimeClassNames: map[string]deployment.RuntimeClassNameLabelSelector{
+				"gvisor": {},
+				"kata": {
+					Selector: map[string]string{
+						"specific": "this-one",
+					},
+				},
+			},
+		},
+		rev: revision("bar", "foo",
+			WithRevisionLabel("specific", "this-one"),
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				Ports:          buildContainerPorts(v1.DefaultUserPort),
+				ReadinessProbe: withHTTPReadinessProbe(v1.DefaultUserPort),
+			}}),
+		),
+		want: podSpec([]corev1.Container{
+			servingContainer(func(container *corev1.Container) {
+				container.Image = "busybox"
+			}),
+			queueContainer(
+				withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"}}`),
+			),
+		}, withRuntimeClass("kata")),
 	}}
 
 	for _, test := range tests {

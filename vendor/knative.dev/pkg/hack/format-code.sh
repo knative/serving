@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright 2020 The Knative Authors
+# Copyright 2024 The Knative Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,12 +18,6 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-source $(dirname "$0")/../vendor/knative.dev/hack/library.sh
 
-run_go_tool knative.dev/test-infra/buoy \
-  buoy float ${REPO_ROOT_DIR}/go.mod \
-    --release "$1" --domain k8s.io --ruleset=Release \
-    | xargs -n1 -t go get -d
-
-./hack/update-deps.sh
+go run mvdan.cc/gofumpt@latest -l -w .
 

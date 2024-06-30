@@ -132,7 +132,6 @@ func New(
 	ctx context.Context,
 	controllers []interface{},
 ) (webhook *Webhook, err error) {
-
 	// ServeMux.Handle panics on duplicate paths
 	defer func() {
 		if r := recover(); r != nil {
@@ -177,6 +176,7 @@ func New(
 		// a new secret informer from it.
 		secretInformer := kubeinformerfactory.Get(ctx).Core().V1().Secrets()
 
+		//nolint:gosec // operator configures TLS min version (default is 1.3)
 		webhook.tlsConfig = &tls.Config{
 			MinVersion: opts.TLSMinVersion,
 
@@ -270,11 +270,11 @@ func (wh *Webhook) Run(stop <-chan struct{}) error {
 		Handler:           drainer,
 		Addr:              fmt.Sprint(":", wh.Options.Port),
 		TLSConfig:         wh.tlsConfig,
-		ReadHeaderTimeout: time.Minute, //https://medium.com/a-journey-with-go/go-understand-and-mitigate-slowloris-attack-711c1b1403f6
+		ReadHeaderTimeout: time.Minute, // https://medium.com/a-journey-with-go/go-understand-and-mitigate-slowloris-attack-711c1b1403f6
 		TLSNextProto:      nextProto,
 	}
 
-	var serve = server.ListenAndServe
+	serve := server.ListenAndServe
 
 	if server.TLSConfig != nil && wh.testListener != nil {
 		serve = func() error {

@@ -210,6 +210,9 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 	podSpec := BuildPodSpec(rev, append(BuildMainContainers(rev), *queueContainer), cfg)
 	podSpec.Volumes = append(podSpec.Volumes, extraVolumes...)
 
+	if val := cfg.Deployment.PodRuntimeClassName(rev.ObjectMeta.Labels); podSpec.RuntimeClassName == nil {
+		podSpec.RuntimeClassName = val
+	}
 	if cfg.Observability.EnableVarLogCollection {
 		podSpec.Volumes = append(podSpec.Volumes, varLogVolume)
 
