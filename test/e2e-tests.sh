@@ -108,6 +108,7 @@ restart_pod "${SYSTEM_NAMESPACE}" "app=activator"
 # we need to restart the pod to stop the net-certmanager-controller
 if (( ! HTTPS )); then
   restart_pod "${SYSTEM_NAMESPACE}" "app=controller"
+  kubectl get leases -n "${SYSTEM_NAMESPACE}" -o json | jq -r '.items[] | select(.metadata.name | test("controller.knative.dev.serving.pkg.reconciler.certificate.reconciler")).metadata.name' | xargs kubectl delete lease -n "${SYSTEM_NAMESPACE}"
 fi
 
 kubectl get cm "config-gc" -n "${SYSTEM_NAMESPACE}" -o yaml > "${TMP_DIR}"/config-gc.yaml
@@ -164,6 +165,7 @@ if (( HTTPS )); then
   toggle_feature external-domain-tls Disabled config-network
   # we need to restart the pod to stop the net-certmanager-controller
   restart_pod "${SYSTEM_NAMESPACE}" "app=controller"
+  kubectl get leases -n "${SYSTEM_NAMESPACE}" -o json | jq -r '.items[] | select(.metadata.name | test("controller.knative.dev.serving.pkg.reconciler.certificate.reconciler")).metadata.name' | xargs kubectl delete lease -n "${SYSTEM_NAMESPACE}"
 fi
 
 (( failed )) && fail_test
