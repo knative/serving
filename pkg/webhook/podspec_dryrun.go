@@ -59,7 +59,7 @@ func validatePodSpec(ctx context.Context, ps v1.RevisionSpec, namespace string, 
 		Spec:       ps,
 	}
 	rev.SetDefaults(ctx)
-	podSpec := resources.BuildPodSpec(rev, resources.BuildUserContainers(rev), nil /*configs*/)
+	podSpec := resources.BuildPodSpec(rev, resources.BuildMainContainers(rev), nil /*configs*/)
 
 	// Make a sample pod with the template Revisions & PodSpec and dryrun call to API-server
 	pod := &corev1.Pod{

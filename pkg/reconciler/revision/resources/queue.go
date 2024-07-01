@@ -93,7 +93,7 @@ var (
 	}
 )
 
-func createQueueResources(cfg *deployment.Config, annotations map[string]string, userContainer *corev1.Container, useDefaults bool) corev1.ResourceRequirements {
+func createQueueResources(cfg *deployment.Config, annotations map[string]string, mainContainer *corev1.Container, useDefaults bool) corev1.ResourceRequirements {
 	resourceRequests := corev1.ResourceList{}
 	resourceLimits := corev1.ResourceList{}
 
@@ -135,19 +135,19 @@ func createQueueResources(cfg *deployment.Config, annotations map[string]string,
 	var requestCPU, limitCPU, requestMemory, limitMemory resource.Quantity
 
 	if resourceFraction, ok := fractionFromPercentage(annotations, serving.QueueSidecarResourcePercentageAnnotation); ok {
-		if ok, requestCPU = computeResourceRequirements(userContainer.Resources.Requests.Cpu(), resourceFraction, queueContainerRequestCPU); ok {
+		if ok, requestCPU = computeResourceRequirements(mainContainer.Resources.Requests.Cpu(), resourceFraction, queueContainerRequestCPU); ok {
 			resourceRequests[corev1.ResourceCPU] = requestCPU
 		}
 
-		if ok, limitCPU = computeResourceRequirements(userContainer.Resources.Limits.Cpu(), resourceFraction, queueContainerLimitCPU); ok {
+		if ok, limitCPU = computeResourceRequirements(mainContainer.Resources.Limits.Cpu(), resourceFraction, queueContainerLimitCPU); ok {
 			resourceLimits[corev1.ResourceCPU] = limitCPU
 		}
 
-		if ok, requestMemory = computeResourceRequirements(userContainer.Resources.Requests.Memory(), resourceFraction, queueContainerRequestMemory); ok {
+		if ok, requestMemory = computeResourceRequirements(mainContainer.Resources.Requests.Memory(), resourceFraction, queueContainerRequestMemory); ok {
 			resourceRequests[corev1.ResourceMemory] = requestMemory
 		}
 
-		if ok, limitMemory = computeResourceRequirements(userContainer.Resources.Limits.Memory(), resourceFraction, queueContainerLimitMemory); ok {
+		if ok, limitMemory = computeResourceRequirements(mainContainer.Resources.Limits.Memory(), resourceFraction, queueContainerLimitMemory); ok {
 			resourceLimits[corev1.ResourceMemory] = limitMemory
 		}
 	}
@@ -261,32 +261,32 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 	ports = append(ports, servingPort, queueHTTPSPort)
 
 	// User container (and queue-proxy) readiness probe
-	userContainer := rev.Spec.GetContainer()
-	var queueProxyReadinessProbe, userContainerReadinessProbe *corev1.Probe
-	if userContainer.ReadinessProbe != nil {
+	mainContainer := rev.Spec.GetContainer()
+	var queueProxyReadinessProbe, mainContainerReadinessProbe *corev1.Probe
+	if mainContainer.ReadinessProbe != nil {
 		probePort := userPort
-		if userContainer.ReadinessProbe.HTTPGet != nil && userContainer.ReadinessProbe.HTTPGet.Port.IntValue() != 0 {
-			probePort = userContainer.ReadinessProbe.HTTPGet.Port.IntVal
+		if mainContainer.ReadinessProbe.HTTPGet != nil && mainContainer.ReadinessProbe.HTTPGet.Port.IntValue() != 0 {
+			probePort = mainContainer.ReadinessProbe.HTTPGet.Port.IntVal
 		}
-		if userContainer.ReadinessProbe.TCPSocket != nil && userContainer.ReadinessProbe.TCPSocket.Port.IntValue() != 0 {
-			probePort = userContainer.ReadinessProbe.TCPSocket.Port.IntVal
+		if mainContainer.ReadinessProbe.TCPSocket != nil && mainContainer.ReadinessProbe.TCPSocket.Port.IntValue() != 0 {
+			probePort = mainContainer.ReadinessProbe.TCPSocket.Port.IntVal
 		}
-		if userContainer.ReadinessProbe.GRPC != nil && userContainer.ReadinessProbe.GRPC.Port > 0 {
-			probePort = userContainer.ReadinessProbe.GRPC.Port
+		if mainContainer.ReadinessProbe.GRPC != nil && mainContainer.ReadinessProbe.GRPC.Port > 0 {
+			probePort = mainContainer.ReadinessProbe.GRPC.Port
 		}
 
 		// The activator attempts to detect readiness itself by checking the Queue
 		// Proxy's health endpoint rather than waiting for Kubernetes to check and
 		// propagate the Ready state. We encode the original readiness probes as JSON in an
 		// environment variable for this health endpoint to use.
-		userContainerReadinessProbe = userContainer.ReadinessProbe.DeepCopy()
-		applyReadinessProbeDefaults(userContainerReadinessProbe, probePort)
+		mainContainerReadinessProbe = mainContainer.ReadinessProbe.DeepCopy()
+		applyReadinessProbeDefaults(mainContainerReadinessProbe, probePort)
 
 		// After startup we'll directly use the same http health check endpoint the
 		// execprobe would have used (which will then check the user container).
 		// Unlike the StartupProbe, we don't need to override any of the other settings
 		// except period here. See below.
-		queueProxyReadinessProbe = userContainer.ReadinessProbe.DeepCopy()
+		queueProxyReadinessProbe = mainContainer.ReadinessProbe.DeepCopy()
 		queueProxyReadinessProbe.ProbeHandler = corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Port: intstr.FromInt32(servingPort.ContainerPort),
@@ -300,7 +300,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 
 	// Sidecar readiness probes
 	multiContainerProbingEnabled := cfg.Features.MultiContainerProbing == apicfg.Enabled
-	readinessProbes := []*corev1.Probe{userContainerReadinessProbe}
+	readinessProbes := []*corev1.Probe{mainContainerReadinessProbe}
 	if multiContainerProbingEnabled {
 		for _, sc := range rev.Spec.GetSidecarContainers() {
 			if sc.ReadinessProbe != nil {
@@ -331,8 +331,8 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			return nil, fmt.Errorf("failed to serialize multiple readiness probes: %w", err)
 		}
 
-	} else if userContainerReadinessProbe != nil {
-		readinessProbeJSON, err = readiness.EncodeSingleProbe(userContainerReadinessProbe)
+	} else if mainContainerReadinessProbe != nil {
+		readinessProbeJSON, err = readiness.EncodeSingleProbe(mainContainerReadinessProbe)
 		if err != nil {
 			return nil, fmt.Errorf("failed to serialize single readiness probe: %w", err)
 		}
@@ -344,7 +344,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 	c := &corev1.Container{
 		Name:            QueueContainerName,
 		Image:           cfg.Deployment.QueueSidecarImage,
-		Resources:       createQueueResources(cfg.Deployment, rev.GetAnnotations(), userContainer, useQPResourceDefaults),
+		Resources:       createQueueResources(cfg.Deployment, rev.GetAnnotations(), mainContainer, useQPResourceDefaults),
 		Ports:           ports,
 		StartupProbe:    nil,
 		ReadinessProbe:  queueProxyReadinessProbe,

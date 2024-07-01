@@ -64,8 +64,8 @@ func (in *Defaults) DeepCopyInto(out *Defaults) {
 		x := (*in).DeepCopy()
 		*out = &x
 	}
-	if in.UserContainerNameTemplate != nil {
-		in, out := &in.UserContainerNameTemplate, &out.UserContainerNameTemplate
+	if in.MainContainerNameTemplate != nil {
+		in, out := &in.MainContainerNameTemplate, &out.MainContainerNameTemplate
 		x := (*in).DeepCopy()
 		*out = &x
 	}
