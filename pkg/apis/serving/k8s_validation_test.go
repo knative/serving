@@ -1681,6 +1681,23 @@ func TestUserContainerValidation(t *testing.T) {
 			},
 			want: apis.ErrMissingOneOf("livenessProbe.httpGet", "livenessProbe.tcpSocket", "livenessProbe.exec", "livenessProbe.grpc"),
 		}, {
+			name: "valid with startup probe",
+			c: corev1.Container{
+				Image: "foo",
+				StartupProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+						},
+					},
+				},
+			},
+			want: nil,
+		}, {
 			name: "invalid with multiple handlers",
 			c: corev1.Container{
 				Image: "foo",
