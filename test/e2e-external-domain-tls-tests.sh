@@ -122,11 +122,12 @@ function setup_selfsigned_per_namespace_external_domain_tls() {
   kubectl delete kcert --all -n "${TLS_TEST_NAMESPACE}"
 
   # Enable namespace certificate only for "${TLS_TEST_NAMESPACE}" namespaces
-  selector="matchExpressions:
+  local selector="matchExpressions:
   - key: kubernetes.io/metadata.name
     operator: In
     values: [${TLS_TEST_NAMESPACE}]
   "
+  selector=${selector//$'\n'/\\n}
   toggle_feature namespace-wildcard-cert-selector "$selector" config-network
 
   kubectl apply -f ${E2E_YAML_DIR}/test/config/externaldomaintls/certmanager/selfsigned/
