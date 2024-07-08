@@ -80,7 +80,7 @@ var (
 		ReadinessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
-					Port: intstr.FromInt(int(queueHTTPPort.ContainerPort)),
+					Port: intstr.FromInt32(queueHTTPPort.ContainerPort),
 					HTTPHeaders: []corev1.HTTPHeader{{
 						Name:  netheader.ProbeKey,
 						Value: queue.Name,
@@ -230,7 +230,7 @@ var (
 		}},
 	}
 
-	maxUnavailable    = intstr.FromInt(0)
+	maxUnavailable    = intstr.FromInt32(0)
 	defaultDeployment = &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "foo",
@@ -398,6 +398,12 @@ func withExecReadinessProbe(command []string) *corev1.Probe {
 func withLivenessProbe(handler corev1.ProbeHandler) containerOption {
 	return func(container *corev1.Container) {
 		container.LivenessProbe = &corev1.Probe{ProbeHandler: handler}
+	}
+}
+
+func withStartupProbe(handler corev1.ProbeHandler) containerOption {
+	return func(container *corev1.Container) {
+		container.StartupProbe = &corev1.Probe{ProbeHandler: handler}
 	}
 }
 
@@ -1044,7 +1050,7 @@ func TestMakePodSpec(t *testing.T) {
 					withLivenessProbe(corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
-							Port: intstr.FromInt(v1.DefaultUserPort),
+							Port: intstr.FromInt32(v1.DefaultUserPort),
 						},
 					}),
 				),
@@ -1074,8 +1080,69 @@ func TestMakePodSpec(t *testing.T) {
 					},
 					withLivenessProbe(corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{
-							Port: intstr.FromInt(v1.DefaultUserPort),
+							Port: intstr.FromInt32(v1.DefaultUserPort),
 						},
+					}),
+				),
+				queueContainer(),
+			}),
+	}, {
+		name: "with HTTP startup probe",
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+				StartupProbe: &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+						},
+					},
+				},
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(
+					func(container *corev1.Container) {
+						container.Image = "busybox@sha256:deadbeef"
+					},
+					withStartupProbe(corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+						},
+					}),
+				),
+				queueContainer(),
+			}),
+	}, {
+		name: "with TCP startup probe",
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+				StartupProbe: &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						TCPSocket: &corev1.TCPSocketAction{},
+					}}}},
+			),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(
+					func(container *corev1.Container) {
+						container.Image = "busybox@sha256:deadbeef"
+					},
+					withStartupProbe(corev1.ProbeHandler{
+						TCPSocket: &corev1.TCPSocketAction{},
 					}),
 				),
 				queueContainer(),
