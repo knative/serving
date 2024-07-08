@@ -373,24 +373,6 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 		progressDeadline = int32(pd.Seconds())
 	}
 
-	startupProbeMaxDuration := int32(0)
-	for _, container := range podSpec.Containers {
-		if container.StartupProbe != nil {
-			maxSuccessDuration := container.StartupProbe.PeriodSeconds *
-				container.StartupProbe.SuccessThreshold *
-				container.StartupProbe.TimeoutSeconds
-
-			maxFailDuration := container.StartupProbe.PeriodSeconds *
-				container.StartupProbe.FailureThreshold *
-				container.StartupProbe.TimeoutSeconds
-
-			maxDuration := max(maxSuccessDuration, maxFailDuration)
-			if maxDuration > startupProbeMaxDuration {
-				startupProbeMaxDuration = container.StartupProbe.InitialDelaySeconds + maxDuration
-			}
-		}
-	}
-
 	labels := makeLabels(rev)
 	anns := makeAnnotations(rev)
 
@@ -407,7 +389,7 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 		Spec: appsv1.DeploymentSpec{
 			Replicas:                ptr.Int32(replicaCount),
 			Selector:                makeSelector(rev),
-			ProgressDeadlineSeconds: ptr.Int32(progressDeadline + startupProbeMaxDuration),
+			ProgressDeadlineSeconds: ptr.Int32(progressDeadline),
 			Strategy: appsv1.DeploymentStrategy{
 				Type: appsv1.RollingUpdateDeploymentStrategyType,
 				RollingUpdate: &appsv1.RollingUpdateDeployment{
