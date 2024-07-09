@@ -29,6 +29,7 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
@@ -453,9 +454,17 @@ func TestChangeDefaultDomain(t *testing.T) {
 	}
 
 	// Assert we have exactly one certificate.
-	certs, _ := fakeclient.Get(ctx).NetworkingV1alpha1().Certificates(namespace.Name).List(ctx, metav1.ListOptions{})
-	if len(certs.Items) > 1 {
+	var certs *netv1alpha1.CertificateList
+	err := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
+		var err error
+		certs, err = fakeclient.Get(ctx).NetworkingV1alpha1().Certificates(namespace.Name).List(ctx, metav1.ListOptions{})
+		return len(certs.Items) == 1, err
+	})
+
+	if wait.Interrupted(err) {
 		t.Errorf("Expected 1 certificate, got %d.", len(certs.Items))
+	} else if err != nil {
+		t.Errorf("Unexpected error fetching certificates %v", err)
 	}
 }
 
