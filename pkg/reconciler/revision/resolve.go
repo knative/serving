@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -92,6 +93,12 @@ func (r *digestResolver) Resolve(
 	image string,
 	opt k8schain.Options,
 	registriesToSkip sets.String) (string, error) {
+
+	noDigests, ok := os.LookupEnv("NO_IMAGE_DIGESTS")
+	if ok && strings.ToLower(noDigests) == "true" {
+		return image, nil
+	}
+
 	kc, err := k8schain.New(ctx, r.client, opt)
 	if err != nil {
 		return "", fmt.Errorf("failed to initialize authentication: %w", err)
