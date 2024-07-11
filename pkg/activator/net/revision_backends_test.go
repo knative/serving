@@ -28,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	pkgnet "knative.dev/networking/pkg/apis/networking"
@@ -88,14 +89,14 @@ func revision(revID types.NamespacedName, protocol pkgnet.ProtocolType, cc int64
 	return r
 }
 
-func privateSKSService(revID types.NamespacedName, clusterIP string, ports []corev1.ServicePort) *corev1.Service {
+func privateSKSService(revID types.NamespacedName, ports []corev1.ServicePort) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: revID.Namespace,
 			Name:      names.PrivateService(revID.Name),
 		},
 		Spec: corev1.ServiceSpec{
-			ClusterIP: clusterIP,
+			ClusterIP: corev1.ClusterIPNone,
 			Ports:     ports,
 		},
 	}
@@ -124,7 +125,7 @@ func TestRevisionWatcher(t *testing.T) {
 		dests                 dests
 		protocol              pkgnet.ProtocolType
 		clusterPort           corev1.ServicePort
-		clusterIP             string
+		privateService        string
 		expectUpdates         []revisionDestsUpdate
 		probeHostResponses    map[string][]activatortest.FakeResponse
 		initialClusterIPState bool
@@ -138,8 +139,8 @@ func TestRevisionWatcher(t *testing.T) {
 			Name: "http",
 			Port: 1234,
 		},
-		clusterIP:     "129.0.0.1",
-		expectUpdates: []revisionDestsUpdate{{Dests: sets.New("128.0.0.1:1234")}},
+		privateService: "test-revision-private.test-namespace.svc.cluster.local:1234",
+		expectUpdates:  []revisionDestsUpdate{{Dests: sets.New("128.0.0.1:1234")}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"128.0.0.1:1234": {{
 				Code: http.StatusOK,
@@ -153,8 +154,8 @@ func TestRevisionWatcher(t *testing.T) {
 			Name: "http",
 			Port: 1234,
 		},
-		clusterIP:     "129.0.0.1",
-		expectUpdates: []revisionDestsUpdate{{Dests: sets.New("128.0.0.1:1234")}},
+		privateService: "test-revision-private.test-namespace.svc.cluster.local:1234",
+		expectUpdates:  []revisionDestsUpdate{{Dests: sets.New("128.0.0.1:1234")}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"128.0.0.1:1234": {{
 				Code: http.StatusOK,
@@ -169,10 +170,10 @@ func TestRevisionWatcher(t *testing.T) {
 			Name: "http2",
 			Port: 1234,
 		},
-		clusterIP:     "129.0.0.1",
-		expectUpdates: []revisionDestsUpdate{{Dests: sets.New("128.0.0.1:1234")}},
+		privateService: "test-revision-private.test-namespace.svc.cluster.local:1234",
+		expectUpdates:  []revisionDestsUpdate{{Dests: sets.New("128.0.0.1:1234")}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": {{
+			"test-revision-private.test-namespace.svc.cluster.local:1234": {{
 				Err: errors.New("clusterIP transport error"),
 			}},
 			"128.0.0.1:1234": {{
@@ -181,18 +182,20 @@ func TestRevisionWatcher(t *testing.T) {
 			}},
 		},
 	}, {
-		name:     "single http2 clusterIP",
+		name:     "single http2 hitting private service",
 		dests:    dests{ready: sets.New("128.0.0.1:1234"), notReady: sets.New("128.0.0.2:1234")},
 		protocol: pkgnet.ProtocolH2C,
 		clusterPort: corev1.ServicePort{
-			Name: "http2",
-			Port: 1234,
+			Name:       "http2",
+			TargetPort: intstr.FromInt(1234),
 		},
-		clusterIP:           "129.0.0.1",
+		privateService:      "test-revision-private.test-namespace.svc.cluster.local:1234",
 		noPodAddressability: true,
-		expectUpdates:       []revisionDestsUpdate{{ClusterIPDest: "129.0.0.1:1234", Dests: sets.New("128.0.0.1:1234")}},
+		expectUpdates: []revisionDestsUpdate{
+			{PrivateService: "test-revision-private.test-namespace.svc.cluster.local:1234", Dests: sets.New("128.0.0.1:1234")},
+		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": {{
+			"test-revision-private.test-namespace.svc.cluster.local:1234": {{
 				Code: http.StatusOK,
 				Body: queue.Name,
 			}},
@@ -204,13 +207,13 @@ func TestRevisionWatcher(t *testing.T) {
 			}},
 		},
 	}, {
-		name:      "no pods",
-		dests:     dests{},
-		clusterIP: "129.0.0.1",
+		name:           "no pods",
+		dests:          dests{},
+		privateService: "test-revision-private.test-namespace.svc.cluster.local:1234",
 	}, {
 		name:                  "no pods, was happy",
 		dests:                 dests{},
-		clusterIP:             "129.0.0.1",
+		privateService:        "test-revision-private.test-namespace.svc.cluster.local:1234",
 		initialClusterIPState: true,
 	}, {
 		name:  "single unavailable podIP",
@@ -219,9 +222,9 @@ func TestRevisionWatcher(t *testing.T) {
 			Name: "http",
 			Port: 1234,
 		},
-		clusterIP: "129.0.0.1",
+		privateService: "test-revision-private.test-namespace.svc.cluster.local:1234",
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": {{
+			"test-revision-private.test-namespace.svc.cluster.local:1234": {{
 				Code: http.StatusServiceUnavailable,
 			}},
 			"128.0.0.1:1234": {{
@@ -235,9 +238,9 @@ func TestRevisionWatcher(t *testing.T) {
 			Name: "http",
 			Port: 1234,
 		},
-		clusterIP: "129.0.0.1",
+		privateService: "test-revision-private.test-namespace.svc.cluster.local:1234",
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": {{
+			"test-revision-private.test-namespace.svc.cluster.local:1234": {{
 				Code: http.StatusServiceUnavailable,
 			}},
 			"128.0.0.1:1234": {{
@@ -248,13 +251,13 @@ func TestRevisionWatcher(t *testing.T) {
 		name:  "podIP slow ready",
 		dests: dests{ready: sets.New("128.0.0.1:1234")},
 		clusterPort: corev1.ServicePort{
-			Name: "http",
-			Port: 1234,
+			Name:       "http",
+			TargetPort: intstr.FromInt(1234),
 		},
-		clusterIP:     "129.0.0.1",
-		expectUpdates: []revisionDestsUpdate{{Dests: sets.New("128.0.0.1:1234")}},
+		privateService: "test-revision-private.test-namespace.svc.cluster.local:1234",
+		expectUpdates:  []revisionDestsUpdate{{Dests: sets.New("128.0.0.1:1234")}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": {{
+			"test-revision-private.test-namespace.svc.cluster.local:1234": {{
 				Err: errors.New("clusterIP transport error"),
 			}},
 			"128.0.0.1:1234": {{
@@ -271,8 +274,8 @@ func TestRevisionWatcher(t *testing.T) {
 			Name: "http",
 			Port: 1234,
 		},
-		clusterIP:     "129.0.0.1",
-		expectUpdates: []revisionDestsUpdate{{Dests: sets.New("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.3:1234")}},
+		privateService: "test-revision-private.test-namespace.svc.cluster.local:1234",
+		expectUpdates:  []revisionDestsUpdate{{Dests: sets.New("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.3:1234")}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"128.0.0.1:1234": {{
 				Code: http.StatusOK,
@@ -294,8 +297,8 @@ func TestRevisionWatcher(t *testing.T) {
 			Name: "http",
 			Port: 1234,
 		},
-		clusterIP:     "129.0.0.1",
-		expectUpdates: []revisionDestsUpdate{{Dests: sets.New("128.0.0.2:1234")}},
+		privateService: "test-revision-private.test-namespace.svc.cluster.local:1234",
+		expectUpdates:  []revisionDestsUpdate{{Dests: sets.New("128.0.0.2:1234")}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"128.0.0.1:1234": {{
 				Err: errors.New("clusterIP transport error"),
@@ -312,7 +315,7 @@ func TestRevisionWatcher(t *testing.T) {
 			Name: "http",
 			Port: 4321,
 		},
-		clusterIP: "129.0.0.1",
+		privateService: "test-revision-private.test-namespace.svc.cluster.local:1234",
 		expectUpdates: []revisionDestsUpdate{
 			{Dests: sets.New("128.0.0.2:1234")},
 			{Dests: sets.New("128.0.0.2:1234", "128.0.0.1:1234")},
@@ -333,20 +336,20 @@ func TestRevisionWatcher(t *testing.T) {
 			}},
 		},
 	}, {
-		name:  "clusterIP slow ready, no pod addressability",
+		name:  "private service slow to ready, no pod addressability",
 		dests: dests{ready: sets.New("128.0.0.1:1234")},
 		clusterPort: corev1.ServicePort{
-			Name: "http",
-			Port: 1234,
+			Name:       "http",
+			TargetPort: intstr.FromInt(1234),
 		},
-		clusterIP: "129.0.0.1",
+		privateService: "test-revision-private.test-namespace.svc.cluster.local:1234",
 		expectUpdates: []revisionDestsUpdate{{
-			ClusterIPDest: "129.0.0.1:1234",
-			Dests:         sets.New("128.0.0.1:1234"),
+			PrivateService: "test-revision-private.test-namespace.svc.cluster.local:1234",
+			Dests:          sets.New("128.0.0.1:1234"),
 		}},
 		noPodAddressability: true,
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": {{
+			"test-revision-private.test-namespace.svc.cluster.local:1234": {{
 				Err: errors.New("clusterIP transport error"),
 			}, {
 				Code: http.StatusOK,
@@ -359,20 +362,20 @@ func TestRevisionWatcher(t *testing.T) {
 			}},
 		},
 	}, {
-		name:  "clusterIP ready, no pod addressability",
+		name:  "private service ready, no pod addressability",
 		dests: dests{ready: sets.New("128.0.0.1:1234")},
 		clusterPort: corev1.ServicePort{
-			Name: "http",
-			Port: 1235,
+			Name:       "http",
+			TargetPort: intstr.FromInt(1235),
 		},
 		noPodAddressability: true,
-		clusterIP:           "129.0.0.1",
+		privateService:      "test-revision-private.test-namespace.svc.cluster.local:1235",
 		expectUpdates: []revisionDestsUpdate{{
-			ClusterIPDest: "129.0.0.1:1235",
-			Dests:         sets.New("128.0.0.1:1234"),
+			PrivateService: "test-revision-private.test-namespace.svc.cluster.local:1235",
+			Dests:          sets.New("128.0.0.1:1234"),
 		}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": {{
+			"test-revision-private.test-namespace.svc.cluster.local:1235": {{
 				Code: http.StatusOK,
 				Body: queue.Name,
 			}},
@@ -381,19 +384,19 @@ func TestRevisionWatcher(t *testing.T) {
 			}},
 		},
 	}, {
-		name:  "clusterIP ready, pod fails with non-mesh error then succeeds",
+		name:  "private service ready, pod fails with non-mesh error then succeeds",
 		dests: dests{ready: sets.New("128.0.0.1:1234")},
 		clusterPort: corev1.ServicePort{
-			Name: "http",
-			Port: 1235,
+			Name:       "http",
+			TargetPort: intstr.FromInt(1235),
 		},
 		noPodAddressability: false,
-		clusterIP:           "129.0.0.1",
+		privateService:      "test-revision-private.test-namespace.svc.cluster.local:1234",
 		expectUpdates: []revisionDestsUpdate{
 			{Dests: sets.New("128.0.0.1:1234")},
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": {{
+			"test-revision-private.test-namespace.svc.cluster.local:1234": {{
 				// ClusterIP is healthy, but should not be used.
 				Code: http.StatusOK,
 				Body: queue.Name,
@@ -406,16 +409,16 @@ func TestRevisionWatcher(t *testing.T) {
 			}},
 		},
 	}, {
-		name:  "passthrough lb, clusterIP ready but no fallback",
+		name:  "passthrough lb, private service ready but no fallback",
 		dests: dests{ready: sets.New("128.0.0.1:1234")},
 		clusterPort: corev1.ServicePort{
-			Name: "http",
-			Port: 1235,
+			Name:       "http",
+			TargetPort: intstr.FromInt(1235),
 		},
 		noPodAddressability: true,
-		clusterIP:           "129.0.0.1",
+		privateService:      "test-revision-private.test-namespace.svc.cluster.local:1234",
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": {{
+			"test-revision-private.test-namespace.svc.cluster.local:1234": {{
 				Code: http.StatusOK,
 				Body: queue.Name,
 			}},
@@ -425,16 +428,16 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 		usePassthroughLb: true,
 	}, {
-		name:  "mesh mode enabled: pod ready but should still use cluster IP",
+		name:  "mesh mode enabled: pod ready but should still use private service",
 		dests: dests{ready: sets.New("128.0.0.1:1234")},
 		clusterPort: corev1.ServicePort{
-			Name: "http",
-			Port: 1235,
+			Name:       "http",
+			TargetPort: intstr.FromInt(1235),
 		},
 		noPodAddressability: true,
-		clusterIP:           "129.0.0.1",
+		privateService:      "test-revision-private.test-namespace.svc.cluster.local:1235",
 		expectUpdates: []revisionDestsUpdate{
-			{ClusterIPDest: "129.0.0.1:1235", Dests: sets.New("128.0.0.1:1234")},
+			{PrivateService: "test-revision-private.test-namespace.svc.cluster.local:1235", Dests: sets.New("128.0.0.1:1234")},
 		},
 		meshMode: netcfg.MeshCompatibilityModeEnabled,
 		probeHostResponses: map[string][]activatortest.FakeResponse{
@@ -443,7 +446,7 @@ func TestRevisionWatcher(t *testing.T) {
 				Code: http.StatusOK,
 				Body: queue.Name,
 			}},
-			"129.0.0.1:1234": {{
+			"test-revision-private.test-namespace.svc.cluster.local:1235": {{
 				Code: http.StatusOK,
 				Body: queue.Name,
 			}},
@@ -452,17 +455,17 @@ func TestRevisionWatcher(t *testing.T) {
 		name:  "mesh mode disabled: pod initially returns mesh-compatible error, but don't fallback",
 		dests: dests{ready: sets.New("128.0.0.1:1234")},
 		clusterPort: corev1.ServicePort{
-			Name: "http",
-			Port: 1235,
+			Name:       "http",
+			TargetPort: intstr.FromInt(1235),
 		},
 		noPodAddressability: false,
-		clusterIP:           "129.0.0.1",
+		privateService:      "test-revision-private.test-namespace.svc.cluster.local:1235",
 		expectUpdates: []revisionDestsUpdate{
 			{Dests: sets.New("128.0.0.1:1234")},
 		},
 		meshMode: netcfg.MeshCompatibilityModeDisabled,
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": {{
+			"test-revision-private.test-namespace.svc.cluster.local:1235": {{
 				// Cluster IP healthy, but should not be used.
 				Code: http.StatusOK,
 				Body: queue.Name,
@@ -480,11 +483,11 @@ func TestRevisionWatcher(t *testing.T) {
 		name:  "ready pod in k8s api when mesh-compat disabled",
 		dests: dests{ready: sets.New("128.0.0.1:1234")},
 		clusterPort: corev1.ServicePort{
-			Name: "http",
-			Port: 1235,
+			Name:       "http",
+			TargetPort: intstr.FromInt(1235),
 		},
 		noPodAddressability: false,
-		clusterIP:           "129.0.0.1",
+		privateService:      "test-revision-private.test-namespace.svc.cluster.local:1235",
 		expectUpdates: []revisionDestsUpdate{
 			{Dests: sets.New("128.0.0.1:1234")},
 		},
@@ -526,11 +529,9 @@ func TestRevisionWatcher(t *testing.T) {
 			informer := fakeserviceinformer.Get(ctx)
 
 			revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
-			if tc.clusterIP != "" {
-				svc := privateSKSService(revID, tc.clusterIP, []corev1.ServicePort{tc.clusterPort})
-				fake.CoreV1().Services(svc.Namespace).Create(ctx, svc, metav1.CreateOptions{})
-				informer.Informer().GetIndexer().Add(svc)
-			}
+			svc := privateSKSService(revID, []corev1.ServicePort{tc.clusterPort})
+			fake.CoreV1().Services(svc.Namespace).Create(ctx, svc, metav1.CreateOptions{})
+			informer.Informer().GetIndexer().Add(svc)
 
 			waitInformers, err := rtesting.RunAndSyncInformers(ctx, informer.Informer())
 			if err != nil {
@@ -554,7 +555,7 @@ func TestRevisionWatcher(t *testing.T) {
 				tc.meshMode,
 				true,
 				logger)
-			rw.clusterIPHealthy = tc.initialClusterIPState
+			rw.privateServiceHealthy = tc.initialClusterIPState
 
 			var wg sync.WaitGroup
 			wg.Add(1)
@@ -661,11 +662,11 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
-			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, "129.0.0.1",
-				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
+			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+				[]corev1.ServicePort{{Name: "http", TargetPort: intstr.FromInt(1234)}}),
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": {{
+			"test-revision-private.test-namespace.svc.cluster.local:1234": {{
 				Err: errors.New("clusterIP transport error"),
 			}},
 			"128.0.0.1:1234": {{
@@ -689,11 +690,11 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolH2C),
 		},
 		services: []*corev1.Service{
-			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, "129.0.0.1",
-				[]corev1.ServicePort{{Name: "http2", Port: 1234}}),
+			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+				[]corev1.ServicePort{{Name: "http2", TargetPort: intstr.FromInt(1234)}}),
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": {{
+			"test-revision-private.test-namespace.svc.cluster.local:1234": {{
 				Err: errors.New("clusterIP transport error"),
 			}},
 			"128.0.0.1:1234": {{
@@ -721,9 +722,9 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: "test-revision2"}, pkgnet.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
-			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: "test-revision1"}, "129.0.0.1",
+			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: "test-revision1"},
 				[]corev1.ServicePort{{Name: "http", Port: 2345}}),
-			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: "test-revision2"}, "129.0.0.2",
+			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: "test-revision2"},
 				[]corev1.ServicePort{{Name: "http", Port: 2345}}),
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
@@ -746,11 +747,11 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
-			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, "129.0.0.1",
+			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": {{ // Should not succeed by hitting this cluster IP.
+			"test-revision-private.test-namespace.svc.cluster.local": {{ // Should not succeed by hitting this cluster IP.
 				Code: http.StatusOK,
 				Body: queue.Name,
 			}},
@@ -767,11 +768,11 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
-			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, "129.0.0.1",
-				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
+			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+				[]corev1.ServicePort{{Name: "http", TargetPort: intstr.FromInt(1234)}}),
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": {{
+			"test-revision-private.test-namespace.svc.cluster.local:1234": {{
 				Code: http.StatusOK,
 				Body: queue.Name,
 			}},
@@ -781,8 +782,8 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		},
 		expectDests: map[types.NamespacedName]revisionDestsUpdate{
 			{Namespace: testNamespace, Name: testRevision}: {
-				ClusterIPDest: "129.0.0.1:1234",
-				Dests:         sets.New("128.0.0.1:1234"),
+				PrivateService: "test-revision-private.test-namespace.svc.cluster.local:1234",
+				Dests:          sets.New("128.0.0.1:1234"),
 			},
 		},
 		updateCnt: 1,
@@ -793,11 +794,11 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
-			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, "129.0.0.1",
+			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": {{
+			"test-revision-private.test-namespace.svc.cluster.local": {{
 				Err: errors.New("clusterIP transport error"),
 			}},
 			"128.0.0.1:1234": {{
@@ -813,11 +814,11 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
-			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, "129.0.0.1",
+			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": {{
+			"test-revision-private.test-namespace.svc.cluster.local": {{
 				Err: errors.New("clusterIP transport error"),
 			}},
 			"128.0.0.1:1234": {{
@@ -844,11 +845,11 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			}),
 		},
 		services: []*corev1.Service{
-			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, "129.0.0.1",
+			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": {{
+			"test-revision-private.test-namespace.svc.cluster.local": {{
 				Err: errors.New("clusterIP transport error"),
 			}},
 			"128.0.0.1:1234": {{
@@ -871,11 +872,11 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			}),
 		},
 		services: []*corev1.Service{
-			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, "129.0.0.1",
+			privateSKSService(types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": {{
+			"test-revision-private.test-namespace.svc.cluster.local": {{
 				Err: errors.New("clusterIP transport error"),
 			}},
 			"128.0.0.1:1234": {{
@@ -970,7 +971,6 @@ func TestCheckDestsReadyToNotReady(t *testing.T) {
 
 	svc := privateSKSService(
 		types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-		"129.0.0.1",
 		[]corev1.ServicePort{{Name: "http", Port: 1234}},
 	)
 	fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(ctx, svc, metav1.CreateOptions{})
@@ -1028,7 +1028,7 @@ func TestCheckDestsReadyToNotReady(t *testing.T) {
 	uCh := make(chan revisionDestsUpdate, 1)
 	dCh := make(chan struct{})
 	rw := &revisionWatcher{
-		clusterIPHealthy:        true,
+		privateServiceHealthy:   true,
 		podsAddressable:         true,
 		rev:                     types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 		updateCh:                uCh,
@@ -1113,7 +1113,6 @@ func TestCheckDests(t *testing.T) {
 
 	svc := privateSKSService(
 		types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-		"129.0.0.1",
 		[]corev1.ServicePort{{Name: "http", Port: 1234}},
 	)
 	fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(ctx, svc, metav1.CreateOptions{})
@@ -1133,7 +1132,7 @@ func TestCheckDests(t *testing.T) {
 	uCh := make(chan revisionDestsUpdate, 1)
 	dCh := make(chan struct{})
 	rw := &revisionWatcher{
-		clusterIPHealthy:        true,
+		privateServiceHealthy:   true,
 		podsAddressable:         false,
 		rev:                     types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 		updateCh:                uCh,
@@ -1173,7 +1172,6 @@ func TestCheckDestsSwinging(t *testing.T) {
 
 	svc := privateSKSService(
 		types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-		"10.5.0.1",
 		[]corev1.ServicePort{{Name: "http", Port: 1234}},
 	)
 
@@ -1248,9 +1246,9 @@ func TestCheckDestsSwinging(t *testing.T) {
 	// First not ready, second good, clusterIP: not ready.
 	rw.checkDests(dests{ready: sets.New("10.0.0.1:1234", "10.0.0.2:1234")}, emptyDests())
 	want := revisionDestsUpdate{
-		Rev:           types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-		ClusterIPDest: "",
-		Dests:         sets.New("10.0.0.2:1234"),
+		Rev:            types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+		PrivateService: "",
+		Dests:          sets.New("10.0.0.2:1234"),
 	}
 
 	select {
@@ -1361,7 +1359,6 @@ func TestRevisionDeleted(t *testing.T) {
 
 	svc := privateSKSService(
 		types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-		"129.0.0.1",
 		[]corev1.ServicePort{{Name: "http", Port: 1234}},
 	)
 	fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(ctx, svc, metav1.CreateOptions{})
@@ -1477,7 +1474,6 @@ func TestServiceMoreThanOne(t *testing.T) {
 	for _, num := range []string{"11", "12"} {
 		svc := privateSKSService(
 			types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-			"129.0.0."+num,
 			[]corev1.ServicePort{{Name: "http", Port: 1234}},
 		)
 		// Modify the name so both can be created.
