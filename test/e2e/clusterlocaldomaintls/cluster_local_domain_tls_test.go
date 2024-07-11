@@ -46,8 +46,8 @@ func TestClusterLocalDomainTLSClusterLocalVisibility(t *testing.T) {
 		t.Skip("Alpha features not enabled")
 	}
 
-	if !strings.Contains(test.ServingFlags.IngressClass, "kourier") ||
-		strings.Contains(test.ServingFlags.IngressClass, "contour") {
+	if !strings.Contains(test.ServingFlags.IngressClass, "kourier") &&
+		!strings.Contains(test.ServingFlags.IngressClass, "contour") {
 		t.Skip("Skip this test for non-kourier/contour ingress.")
 	}
 
@@ -97,8 +97,9 @@ func TestClusterLocalDomainTLSClusterExternalVisibility(t *testing.T) {
 		t.Skip("Alpha features not enabled")
 	}
 
-	if !(strings.Contains(test.ServingFlags.IngressClass, "kourier")) {
-		t.Skip("Skip this test for non-kourier ingress.")
+	if !strings.Contains(test.ServingFlags.IngressClass, "kourier") &&
+		!strings.Contains(test.ServingFlags.IngressClass, "contour") {
+		t.Skip("Skip this test for non-kourier/contour ingress.")
 	}
 
 	t.Parallel()
