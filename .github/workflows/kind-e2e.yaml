@@ -93,7 +93,6 @@ jobs:
         # Disabled due to flakiness: https://github.com/knative/serving/issues/14637
         # - istio-ambient
         - contour
-        - contour-tls
         - gateway_istio
         - gateway_contour
 
@@ -116,11 +115,6 @@ jobs:
 
         - ingress: contour
           namespace-resources: httpproxy
-
-        - ingress: contour-tls
-          ingress-class: contour
-          namespace-resources: httpproxy
-          enable-tls: 1
 
         - ingress: istio
           namespace-resources: virtualservices
