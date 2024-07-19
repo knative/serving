@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "720ddb97"
+    knative.dev/example-checksum: "b99000ec"
 data:
   # This is the Go import path for the binary that is containerized
   # and substituted here.
@@ -123,3 +123,12 @@ data:
     #     selector:
     #       use-gvisor: "please"
     runtime-class-name: ""
+
+    # pod-is-always-schedulable can be used to define that Pods in the system will always be
+    # scheduled, and a Revision should not be marked unschedulable.
+    # Setting this to `true` makes sense if you have cluster-autoscaling set up for your cluster
+    # where unschedulable Pods trigger the addition of a new Node and are therefore a short and
+    # transient state.
+    #
+    # See https://github.com/knative/serving/issues/14862
+    pod-is-always-schedulable: "false"
