@@ -36,6 +36,7 @@ import (
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
+	apicfg "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/reconciler/revision/config"
@@ -87,10 +88,13 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 
 			// Update the revision status if pod cannot be scheduled (possibly resource constraints)
 			// If pod cannot be scheduled then we expect the container status to be empty.
-			for _, cond := range pod.Status.Conditions {
-				if cond.Type == corev1.PodScheduled && cond.Status == corev1.ConditionFalse {
-					rev.Status.MarkResourcesAvailableFalse(cond.Reason, cond.Message)
-					break
+			treatPodAsAlwaysSchedulable := config.FromContext(ctx).Features.TreatPodAsAlwaysSchedulable
+			if treatPodAsAlwaysSchedulable != apicfg.Enabled {
+				for _, cond := range pod.Status.Conditions {
+					if cond.Type == corev1.PodScheduled && cond.Status == corev1.ConditionFalse {
+						rev.Status.MarkResourcesAvailableFalse(cond.Reason, cond.Message)
+						break
+					}
 				}
 			}
 

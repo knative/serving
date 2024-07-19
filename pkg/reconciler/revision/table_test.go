@@ -616,6 +616,32 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/pod-schedule-error",
 	}, {
+		Name: "surface no pod schedule errors if treat-pod-as-always-schedulable is enabled",
+		// Test the propagation of the scheduling errors of Pod into the
+		// revision is not happening when treat-pod-as-always-schedulable
+		// is enabled.
+		Objects: []runtime.Object{
+			Revision("foo", "pod-no-schedule-error",
+				WithLogURL,
+				MarkActivating("Deploying", ""),
+				WithRoutingState(v1.RoutingStateActive, fc),
+				withDefaultContainerStatuses(),
+				MarkDeploying("Deploying"),
+				WithRevisionObservedGeneration(1),
+				MarkContainerHealthyUnknown("Deploying"),
+			),
+			pa("foo", "pod-no-schedule-error", WithReachabilityReachable), // PA can't be ready, since no traffic.
+			pod(t, "foo", "pod-no-schedule-error", WithUnschedulableContainer("Insufficient energy", "Unschedulable")),
+			deploy(t, "foo", "pod-no-schedule-error"),
+			image("foo", "pod-no-schedule-error"),
+		},
+		Ctx: defaultconfig.ToContext(context.Background(), &defaultconfig.Config{
+			Features: &defaultconfig.Features{
+				TreatPodAsAlwaysSchedulable: defaultconfig.Enabled,
+			},
+		}),
+		Key: "foo/pod-no-schedule-error",
+	}, {
 		Name: "ready steady state",
 		// Test the transition that Reconcile makes when Endpoints become ready on the
 		// SKS owned services, which is signalled by pa having service name.
@@ -758,11 +784,18 @@ func TestReconcile(t *testing.T) {
 			resolver:            &nopResolver{},
 		}
 
+		cfg := reconcilerTestConfig()
+
+		apiCfgOverride := defaultconfig.FromContext(ctx)
+		if apiCfgOverride != nil {
+			cfg.Config.Features = apiCfgOverride.Features
+		}
+
 		return revisionreconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
 			listers.GetRevisionLister(), controller.GetEventRecorder(ctx), r,
 			controller.Options{
 				ConfigStore: &testConfigStore{
-					config: reconcilerTestConfig(),
+					config: cfg,
 				},
 			})
 	}))
