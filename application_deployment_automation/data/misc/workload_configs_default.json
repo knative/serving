@@ -1,0 +1,12 @@
+{
+    "test_name": "example_test",
+    "test_duration_in_seconds": 5760,
+    "random_seed": 100,
+    "blocking_cli": false,
+    "endpoint": "generic",
+    "instances":{},
+"perf_monitoring":{
+    "runtime_script": null,
+    "post_script": null
+}
+}

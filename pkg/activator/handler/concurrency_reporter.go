@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"sync"
 	"time"
-
+	"fmt"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
@@ -186,6 +186,7 @@ func (cr *ConcurrencyReporter) computeReport(now time.Time) (msgs []asmetrics.St
 		// always a concurrency of 1 and the actual concurrency reported over
 		// the reporting period might be < 1.
 		adjustedConcurrency := math.Max(report.AverageConcurrency-firstAdj, 0)
+		fmt.Printf("\nThe average reported concurrency is %v and firstAdj is %v\n", report.AverageConcurrency, firstAdj)
 		adjustedCount := report.RequestCount - firstAdj
 		msgs = append(msgs, asmetrics.StatMessage{
 			Key: key,
@@ -245,8 +246,10 @@ func (cr *ConcurrencyReporter) Handler(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		revisionKey := RevIDFrom(r.Context())
 
+		fmt.Printf("\nthe request id for incoming request is: %v\n", r.Header.Get("X-Request-Id"))
 		stat := cr.handleRequestIn(netstats.ReqEvent{Key: revisionKey, Type: netstats.ReqIn, Time: time.Now()})
 		defer func() {
+			fmt.Printf("\nthe request id for outgoing request is: %v\n", r.Header.Get("X-Request-Id"))
 			cr.handleRequestOut(stat, netstats.ReqEvent{Key: revisionKey, Type: netstats.ReqOut, Time: time.Now()})
 		}()
 

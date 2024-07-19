@@ -48,6 +48,8 @@ spec:
                   app: autoscaler
               topologyKey: kubernetes.io/hostname
             weight: 100
+      nodeSelector:
+        kubernetes.io/hostname: node1 
 
       serviceAccountName: controller
       containers:

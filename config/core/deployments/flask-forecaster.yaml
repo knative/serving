@@ -1,0 +1,145 @@
+# Copyright 2018 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forecaster
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
+    app.kubernetes.io/name: forecaster
+    app.kubernetes.io/part-of: knative-serving
+    app.kubernetes.io/version: devel
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: forecaster
+  template:
+    metadata:
+      annotations:
+        cluster-forecaster.kubernetes.io/safe-to-evict: "false"
+      labels:
+        app: forecaster
+        serving.knative.dev/release: devel
+        app.kubernetes.io/name: forecaster
+        app.kubernetes.io/part-of: knative-serving
+        app.kubernetes.io/version: devel
+    spec:
+      # To avoid node becoming SPOF, spread our replicas to different nodes.
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: forecaster
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      nodeSelector:
+        kubernetes.io/hostname: node1
+
+      serviceAccountName: controller
+      containers:
+      - name: forecaster
+        # This is the Go import path for the binary that is containerized
+        # and substituted here.
+        image: docker.io/nmunshi28/flask-forecaster@sha256:ba0db27d4a667a2f928e0d2e020a4f0c3f56f26b3e242bf6bf922cbab8bb1dc2
+
+        resources:
+          requests:
+            cpu: 200m
+            memory: 1000Mi
+          limits:
+            cpu: 500m
+            memory: 3000Mi
+
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: SYSTEM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: CONFIG_LOGGING_NAME
+          value: config-logging
+        - name: CONFIG_OBSERVABILITY_NAME
+          value: config-observability
+        # TODO(https://github.com/knative/pkg/pull/953): Remove stackdriver specific config
+        - name: METRICS_DOMAIN
+          value: knative.dev/serving
+
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: false
+          capabilities:
+            drop:
+            - all
+
+        ports:
+        - name: metrics
+          containerPort: 9090
+        - name: profiling
+          containerPort: 8008
+        - name: websocket
+          containerPort: 8080
+
+        # readinessProbe:
+        #   httpGet:
+        #     port: 8080
+        #     httpHeaders:
+        #     - name: k-kubelet-probe
+        #       value: "forecaster"
+        # livenessProbe:
+        #   httpGet:
+        #     port: 8080
+        #     httpHeaders:
+        #     - name: k-kubelet-probe
+        #       value: "forecaster"
+        #   failureThreshold: 6
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: forecaster
+    serving.knative.dev/release: devel
+    app.kubernetes.io/name: forecaster
+    app.kubernetes.io/part-of: knative-serving
+    app.kubernetes.io/version: devel
+  name: forecaster
+  namespace: knative-serving
+spec:
+  ports:
+  # Define metrics and profiling for them to be accessible within service meshes.
+  # - name: http-metrics
+  #   port: 9090
+  #   targetPort: 9090
+  # - name: http-profiling
+  #   port: 8008
+  #   targetPort: 8008
+  - name: http
+    port: 5000
+    targetPort: 5000
+  selector:
+    app: forecaster

@@ -189,6 +189,7 @@ func Main(opts ...Option) error {
 			Name:      env.ServingRevision,
 		}.String()),
 		zap.String(logkey.Pod, env.ServingPod))
+	logger.Infof("this is the trace id for the pod: %v %v \n\n", env.ServingPod, env.ServingPodIP)
 
 	d.Logger = logger
 	d.Transport = buildTransport(env)
@@ -305,6 +306,8 @@ func Main(opts ...Option) error {
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 		logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
 		drainer.Drain()
+
+		logger.Infof("terminated pod name: %v %v \n\n", env.ServingPod)
 
 		for name, srv := range httpServers {
 			logger.Info("Shutting down server: ", name)

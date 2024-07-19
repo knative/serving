@@ -76,6 +76,8 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
       restartPolicy: Never
+      nodeSelector:
+        kubernetes.io/hostname: node1
   backoffLimit: 10
 
 ---

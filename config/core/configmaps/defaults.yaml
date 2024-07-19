@@ -24,6 +24,7 @@ metadata:
   annotations:
     knative.dev/example-checksum: "5b64ff5c"
 data:
+  container-concurrency: "1"
   _example: |
     ################################
     #                              #

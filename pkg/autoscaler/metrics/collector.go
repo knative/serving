@@ -18,6 +18,7 @@ package metrics
 
 import (
 	"errors"
+	"math"
 	"sync"
 	"time"
 
@@ -49,6 +50,61 @@ var (
 type StatsScraperFactory func(*autoscalingv1alpha1.Metric, *zap.SugaredLogger) (StatsScraper, error)
 
 var emptyStat = Stat{}
+var nonEmptyStat = Stat{
+	PodName:                          scraperPodName,
+	AverageConcurrentRequests:        0,
+	AverageProxiedConcurrentRequests: 0,
+	RequestCount:                     0,
+	ProxiedRequestCount:              0,
+	Timestamp:                        0,
+}
+
+func createPerAppInstance(concurrencyStatTrace []float64, mutatedConcurrencyStatTrace []float64, timestampTraceC []float64, forecasted_result ForecastResult, alreadyRecorded bool, forecasted_pods float64, maintainance_pods float64, coarse_policy_timer_start int32, coarse_policy_timer_end int32, coarse_policy_timer_array []float64, policy_type string, perPodConcurrency float64, mutated_value float64, maxPodsSoFar float64) PerAppStruct {
+	return PerAppStruct{concurrencyStatTrace: concurrencyStatTrace, mutatedConcurrencyStatTrace: mutatedConcurrencyStatTrace, timestampTraceC: timestampTraceC, forecasted_result: forecasted_result, alreadyRecorded: alreadyRecorded, forecasted_pods: forecasted_pods, maintainance_pods: maintainance_pods, coarse_policy_timer_start: coarse_policy_timer_start, coarse_policy_timer_end: coarse_policy_timer_end, coarse_policy_timer_array: coarse_policy_timer_array, policy_type: policy_type, perPodConcurrency: perPodConcurrency, mutated_value: mutated_value, maxPodsSoFar: maxPodsSoFar}
+}
+
+func fill_per_instance_map(key types.NamespacedName, logger *zap.SugaredLogger) {
+	// Check if the key is missing
+	if _, ok := per_instance_map.Load(key); !ok {
+		logger.Infof("entering for key %v", key)
+		per_instance_map.Store(key, createPerAppInstance(
+			make([]float64, 0),
+			make([]float64, 0),
+			make([]float64, 0),
+			ForecastResult{},
+			false,
+			0,
+			0,
+			0,
+			60,
+			make([]float64, 60),
+			"custom",
+			1,
+			0,
+			0,
+		))
+	}
+}
+
+var per_instance_map sync.Map // make(map[types.NamespacedName]PerAppStruct)
+
+type PerAppStruct struct {
+	concurrencyStatTrace        []float64
+	mutatedConcurrencyStatTrace []float64
+	timestampTraceC             []float64
+	forecasted_result           ForecastResult
+	SDD                         int32
+	alreadyRecorded             bool
+	forecasted_pods             float64
+	maintainance_pods           float64
+	coarse_policy_timer_start   int32
+	coarse_policy_timer_end     int32
+	coarse_policy_timer_array   []float64
+	policy_type                 string
+	perPodConcurrency           float64
+	mutated_value               float64
+	maxPodsSoFar                float64
+}
 
 // StatMessage wraps a Stat with identifying information so it can be routed
 // to the correct receiver.
@@ -314,6 +370,8 @@ func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clo
 					continue
 				}
 
+				fill_per_instance_map(key, logger)
+
 				stat, err := scraper.Scrape(c.currentMetric().Spec.StableWindow)
 				if err != nil {
 					logger.Errorw("Failed to scrape metrics", zap.Error(err))
@@ -321,8 +379,44 @@ func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clo
 				if c.updateLastError(err) {
 					callback(key)
 				}
-				if stat != emptyStat {
-					c.record(clock.Now(), stat)
+				if value, ok := per_instance_map.Load(key); ok {
+					if entry, ok := value.(PerAppStruct); ok {
+						// logger.Infof("concStatTrace:[%v] %v", key, entry.concurrencyStatTrace, key)
+						// logger.Infof("mutatedConcStatTrace:[%v] %v", key, entry.mutatedConcurrencyStatTrace, key)
+						// logger.Infof("timestampTraceConc:[%v] %v", key, entry.timestampTraceC, key)
+
+						if entry.policy_type == "custom" {
+							entry = coarse_policy(logger, c, clock, stat, key, entry)
+
+							if stat != emptyStat && !entry.alreadyRecorded { //  && stat != nonEmptyStat
+								logger.Infof("I do recognize this stat %v and the mutation is %v", stat, entry.mutated_value)
+								c.record(clock.Now(), stat)
+							}
+
+							entry.alreadyRecorded = false
+
+						} else if entry.policy_type == "vanilla" {
+							actual_elem := stat.AverageConcurrentRequests
+							entry.coarse_policy_timer_array[entry.coarse_policy_timer_start%entry.coarse_policy_timer_end] = actual_elem
+							// logger.Infof("new element: %v at time: %v array state: %v", stat.AverageConcurrentRequests, entry.coarse_policy_timer_start, entry.coarse_policy_timer_array)
+
+							entry.coarse_policy_timer_start += 1
+
+							if entry.coarse_policy_timer_end-entry.coarse_policy_timer_start == 0 {
+								// average_elem := sum_float(entry.coarse_policy_timer_array) / float64(len(entry.coarse_policy_timer_array))
+								entry.coarse_policy_timer_start = 0
+								// entry.concurrencyStatTrace = append(entry.concurrencyStatTrace, average_elem)
+								// entry.timestampTraceC = append(entry.timestampTraceC, float64(time.Now().UnixNano()/int64(time.Microsecond))/1000000.0)
+
+							}
+
+							if stat != emptyStat {
+								// logger.Infof("this is the stat %+v\n", stat)
+								c.record(clock.Now(), stat)
+							}
+						}
+						per_instance_map.Store(key, entry)
+					}
 				}
 			}
 		}
@@ -413,4 +507,107 @@ func (dst *Stat) average(sample, total float64) {
 	dst.AverageProxiedConcurrentRequests = dst.AverageProxiedConcurrentRequests / sample * total
 	dst.RequestCount = dst.RequestCount / sample * total
 	dst.ProxiedRequestCount = dst.ProxiedRequestCount / sample * total
+}
+
+func coarse_policy(logger *zap.SugaredLogger, c *collection, clock clock.WithTicker, stat Stat, key types.NamespacedName, entry PerAppStruct) PerAppStruct {
+
+	entry = fill_trace(logger, stat, entry, key)
+
+	if entry.mutated_value != 0 {
+		entry = record_new_stat(logger, c, clock, stat, key, entry)
+	}
+	return entry
+}
+
+func fill_trace(logger *zap.SugaredLogger, stat Stat, entry PerAppStruct, key types.NamespacedName) PerAppStruct {
+	max_sliding_window_elements := 504
+	// keep updating the timer array with the pods required per second
+	entry.coarse_policy_timer_array[entry.coarse_policy_timer_start%entry.coarse_policy_timer_end] = stat.AverageConcurrentRequests
+	logger.Infof("[concurrency] new element: %v at time: %v array state: %v", stat.AverageConcurrentRequests, entry.coarse_policy_timer_start, entry.coarse_policy_timer_array)
+	entry.coarse_policy_timer_start += 1
+	logger.Infof("added one %v for key %v", entry.coarse_policy_timer_start, key)
+	entry.maxPodsSoFar = math.Max(entry.maxPodsSoFar, stat.AverageConcurrentRequests)
+
+	if entry.coarse_policy_timer_end-entry.coarse_policy_timer_start == 0 {
+		// take the average of the last n elements to eventually send it to the forecaster
+		average_elem := sum_float(entry.coarse_policy_timer_array) / float64(len(entry.coarse_policy_timer_array))
+		if len(entry.concurrencyStatTrace) >= max_sliding_window_elements {
+			entry.concurrencyStatTrace = entry.concurrencyStatTrace[len(entry.concurrencyStatTrace)-max_sliding_window_elements+1:]
+			entry.timestampTraceC = entry.timestampTraceC[len(entry.timestampTraceC)-max_sliding_window_elements+1:]
+		}
+		entry.concurrencyStatTrace = append(entry.concurrencyStatTrace, average_elem)
+		entry.timestampTraceC = append(entry.timestampTraceC, float64(time.Now().UnixNano()/int64(time.Microsecond))/1000000.0)
+		entry.coarse_policy_timer_start = 0
+		// TODO: instead of mutating later lets calculated forecasted result here.
+		entry = new_calculation(logger, stat, average_elem, entry, key)
+		entry.mutated_value = entry.maintainance_pods
+		logger.Infof("actual elem %v mutation %v", average_elem, entry.mutated_value)
+		// TODO: this is the forecasted value instead of the actual realised value
+		if len(entry.mutatedConcurrencyStatTrace) >= max_sliding_window_elements {
+			entry.mutatedConcurrencyStatTrace = entry.mutatedConcurrencyStatTrace[len(entry.mutatedConcurrencyStatTrace)-max_sliding_window_elements+1:]
+		}
+		entry.mutatedConcurrencyStatTrace = append(entry.mutatedConcurrencyStatTrace, entry.mutated_value)
+		logger.Infof("timer re-initialized and added new elements : %v", average_elem)
+		logger.Infof("change complete at %v", time.Now())
+	}
+
+	// This needs to be outside the above calculation because this is per sec while the coarse policy can be after n time steps
+	// if the actual value is something bigger than what we want then scale up!
+	if entry.mutated_value < stat.AverageConcurrentRequests {
+		logger.Infof("The actual value is bigger %v > %v", stat.AverageConcurrentRequests, entry.mutated_value)
+		entry.mutated_value = math.Max(entry.mutated_value, stat.AverageConcurrentRequests)
+
+	}
+
+	return entry
+}
+
+func new_calculation(logger *zap.SugaredLogger, stat Stat, avg_elem float64, entry PerAppStruct, key types.NamespacedName) PerAppStruct {
+	entry = get_forecast(logger, entry, key)
+	var currTrace = []float64{}
+	currTrace = entry.forecasted_result.ForecastedTrace
+	if len(entry.forecasted_result.ForecastedTrace) != 0 {
+		// TODO: change this to single element only
+		logger.Infof("forecasted trace here: ", currTrace)
+		entry.forecasted_pods = math.Min(entry.maxPodsSoFar, currTrace[0])
+	}
+	entry.maintainance_pods = entry.forecasted_pods
+	return entry
+}
+
+func record_new_stat(logger *zap.SugaredLogger, c *collection, clock clock.WithTicker, stat Stat, key types.NamespacedName, entry PerAppStruct) PerAppStruct {
+	if stat != emptyStat {
+		entry.alreadyRecorded = true
+		logger.Info("I have already recorded this so dont record it again!")
+	}
+	c.record(clock.Now(), Stat{
+		PodName:                          scraperPodName,
+		AverageConcurrentRequests:        entry.mutated_value,
+		AverageProxiedConcurrentRequests: stat.AverageProxiedConcurrentRequests, // stat.AverageProxiedConcurrentRequests
+		RequestCount:                     0,
+		ProxiedRequestCount:              0,
+		Timestamp:                        0,
+	})
+	return entry
+}
+
+func get_forecast(logger *zap.SugaredLogger, entry PerAppStruct, key types.NamespacedName) PerAppStruct {
+	min_elements_under_consideration := 504
+	if len(entry.concurrencyStatTrace) <= min_elements_under_consideration {
+		entry.forecasted_result = ForecastHandler(1, entry.concurrencyStatTrace, key)
+	} else {
+		// todo: changed this line
+		logger.Infof("changing to min_elements_under_consideration elements only: %v", len(entry.concurrencyStatTrace[len(entry.concurrencyStatTrace)-min_elements_under_consideration:]))
+		entry.forecasted_result = ForecastHandler(1, entry.concurrencyStatTrace[len(entry.concurrencyStatTrace)-min_elements_under_consideration:], key)
+	}
+	logger.Infof("entry inside get_forecast %v", len(entry.concurrencyStatTrace))
+	return entry
+}
+
+func sum_float(buffer []float64) float64 {
+	var res float64 = 0
+	for i := 0; i < len(buffer); i++ {
+		res += buffer[i]
+	}
+	return res
 }

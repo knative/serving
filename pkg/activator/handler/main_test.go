@@ -28,6 +28,7 @@ import (
 	"sync"
 	"testing"
 
+	"go.uber.org/zap"
 	netprobe "knative.dev/networking/pkg/http/probe"
 	"knative.dev/pkg/logging"
 	pkgnet "knative.dev/pkg/network"
@@ -179,7 +180,7 @@ func TestActivatorChainHandlerWithFullDuplex(t *testing.T) {
 		t.Fatalf("Failed to parse echo URL: %v", err)
 	}
 
-	proxy := pkghttp.NewHeaderPruningReverseProxy(echoURL.Host, "", []string{}, false)
+	proxy := pkghttp.NewHeaderPruningReverseProxy(make(map[string]*zap.SugaredLogger), echoURL.Host, "", []string{}, false)
 	proxy.FlushInterval = 0
 	proxyWithMiddleware := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proxy.ServeHTTP(w, r)

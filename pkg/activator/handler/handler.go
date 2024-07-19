@@ -23,7 +23,8 @@ import (
 	"net/http/httputil"
 	"strconv"
 	"strings"
-
+	"time"
+	"fmt"
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
@@ -126,9 +127,9 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 
 	var proxy *httputil.ReverseProxy
 	if a.tls {
-		proxy = pkghttp.NewHeaderPruningReverseProxy(useSecurePort(target), hostOverride, activator.RevisionHeaders, true /* uss HTTPS */)
+		proxy = pkghttp.NewHeaderPruningReverseProxy(map[string]*zap.SugaredLogger{}, useSecurePort(target), hostOverride, activator.RevisionHeaders, true /* uss HTTPS */)
 	} else {
-		proxy = pkghttp.NewHeaderPruningReverseProxy(target, hostOverride, activator.RevisionHeaders, false /* use HTTPS */)
+		proxy = pkghttp.NewHeaderPruningReverseProxy(map[string]*zap.SugaredLogger{}, target, hostOverride, activator.RevisionHeaders, false /* use HTTPS */)
 	}
 
 	proxy.BufferPool = a.bufferPool
@@ -141,6 +142,7 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 		pkghandler.Error(a.logger.With(zap.String(logkey.Key, revID.String())))(w, req, err)
 	}
 
+	fmt.Printf("[%v] request data: %v \n\n", time.Now().UTC().String(), r)
 	proxy.ServeHTTP(w, r)
 }
 

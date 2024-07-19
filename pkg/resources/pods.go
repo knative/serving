@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"fmt"
 	"sort"
 	"time"
 
@@ -25,6 +26,8 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"knative.dev/serving/pkg/apis/serving"
 )
+
+var podNameTimeMap = make(map[string][2]string)
 
 // PodAccessor provides access to various dimensions of pods listing
 // and querying for a given bound revision.
@@ -53,6 +56,13 @@ func (pa PodAccessor) PodCountsByState() (ready, notReady, pending, terminating 
 	}
 
 	for _, p := range pods {
+		fmt.Printf("\npod name: %v is ready %v", p.ObjectMeta.Name, p.Status.Conditions)
+		// fmt.Printf("\npod name to count mapping: %v\n", podNameTimeMap)
+		for _, cond := range p.Status.Conditions {
+			if cond.Type == "Ready" && cond.Status == "True" {
+				fmt.Printf("\n pod name: %v this is the start time: %v\n", p.ObjectMeta.Name, cond.LastTransitionTime)
+			}
+		}
 		switch p.Status.Phase {
 		case corev1.PodPending:
 			pending++

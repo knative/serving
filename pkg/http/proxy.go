@@ -19,6 +19,8 @@ package http
 import (
 	"net/http"
 	"net/http/httputil"
+	"time"
+	"go.uber.org/zap"
 
 	netheader "knative.dev/networking/pkg/http/header"
 )
@@ -32,7 +34,7 @@ const NoHostOverride = ""
 // If hostOverride is not an empty string, the outgoing request's Host header will be
 // replaced with that explicit value and the passthrough loadbalancing header will be
 // set to enable pod-addressability.
-func NewHeaderPruningReverseProxy(target, hostOverride string, headersToRemove []string, useHTTPS bool) *httputil.ReverseProxy {
+func NewHeaderPruningReverseProxy(map_logger map[string]*zap.SugaredLogger, target, hostOverride string, headersToRemove []string, useHTTPS bool) *httputil.ReverseProxy {
 	return &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
 			if useHTTPS {
@@ -55,6 +57,9 @@ func NewHeaderPruningReverseProxy(target, hostOverride string, headersToRemove [
 
 			for _, h := range headersToRemove {
 				req.Header.Del(h)
+			}
+			if logger, ok := map_logger["logger"]; ok {
+				logger.Infof("[%v] the request %v \n and hopefully the pod is also there", time.Now().UTC().String(), req.Header)
 			}
 		},
 	}

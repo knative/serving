@@ -118,6 +118,8 @@ spec:
           periodSeconds: 10
           failureThreshold: 12
           initialDelaySeconds: 15
+      nodeSelector:
+        kubernetes.io/hostname: node1 
 
       # The activator (often) sits on the dataplane, and may proxy long (e.g.
       # streaming, websockets) requests.  We give a long grace period for the

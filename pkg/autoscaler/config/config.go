@@ -36,30 +36,32 @@ const (
 	// metrics buckets.
 	BucketSize = 1 * time.Second
 
-	defaultTargetUtilization = 0.7
+	defaultTargetUtilization = 1.0
 )
 
 func defaultConfig() *autoscalerconfig.Config {
 	return &autoscalerconfig.Config{
 		EnableScaleToZero:                  true,
 		ContainerConcurrencyTargetFraction: defaultTargetUtilization,
-		ContainerConcurrencyTargetDefault:  100,
+		ContainerConcurrencyTargetDefault:  1,
 		// TODO(#1956): Tune target usage based on empirical data.
 		TargetUtilization: defaultTargetUtilization,
 		RPSTargetDefault:  200,
 		MaxScaleUpRate:    1000,
-		MaxScaleDownRate:  2,
+		MaxScaleDownRate:  200,
 		// TODO(#11926): Consider changing to -1 to default to activator always in path unless overridden
-		TargetBurstCapacity:           211,
-		PanicWindowPercentage:         10,
-		ActivatorCapacity:             100,
-		PanicThresholdPercentage:      200,
-		StableWindow:                  60 * time.Second,
-		ScaleToZeroGracePeriod:        30 * time.Second,
+		TargetBurstCapacity:      211,
+		PanicWindowPercentage:    10,
+		ActivatorCapacity:        200,
+		PanicThresholdPercentage: 200,
+		StableWindow:             6 * time.Second,
+		ScaleToZeroGracePeriod:   6 * time.Second,
+		// StableWindow:                  6 * time.Second,
+		// ScaleToZeroGracePeriod:        6 * time.Second,
 		ScaleToZeroPodRetentionPeriod: 0 * time.Second,
 		ScaleDownDelay:                0 * time.Second,
 		PodAutoscalerClass:            autoscaling.KPA,
-		AllowZeroInitialScale:         false,
+		AllowZeroInitialScale:         true,
 		InitialScale:                  1,
 		MinScale:                      0,
 		MaxScale:                      0,

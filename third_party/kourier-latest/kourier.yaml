@@ -408,6 +408,8 @@ spec:
               memory: 500Mi
       restartPolicy: Always
       serviceAccountName: net-kourier
+      nodeSelector:
+        kubernetes.io/hostname: node1
 ---
 apiVersion: v1
 kind: Service

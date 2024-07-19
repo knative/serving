@@ -20,6 +20,7 @@ import (
 	"context"
 	"net/http"
 	"time"
+	"fmt"
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
@@ -185,6 +186,7 @@ func (h *appRequestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		// If ServeHTTP panics, recover, record the failure and panic again.
 		err := recover()
 		latency := time.Since(startTime)
+		fmt.Printf("\n[queue-proxy] the request came in at: %v and was responded to at: %v the response duration is: %v for the request %v \n", startTime, time.Now(), float64(latency.Milliseconds()), r)
 		if err != nil {
 			ctx := metrics.AugmentWithResponse(h.statsCtx, http.StatusInternalServerError)
 			pkgmetrics.RecordBatch(ctx, appRequestCountM.M(1),

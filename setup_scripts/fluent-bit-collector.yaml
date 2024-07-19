@@ -1,0 +1,170 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: logging
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: log-collector-config
+  namespace: logging
+  labels:
+    k8s-app: log-collector
+data:
+  # Configuration files: server, input, filters and output
+  # ======================================================
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         1
+        Log_Level     info
+        Daemon        on
+        HTTP_Server   On
+        HTTP_Listen   0.0.0.0
+        HTTP_Port     2020
+        Trace_Error   On
+
+    @INCLUDE input-forward.conf
+    @INCLUDE filter-simplify.conf
+    @INCLUDE output-files.conf
+
+  input-forward.conf: |
+    [INPUT]
+        Name              forward
+        Port              ${FLUENT_PORT}
+
+  # This filter simplifies the fluentbit "tag" which is used to choose the
+  # output filename. First match Knative services, then match pods with an "app"
+  # label, then use the pod name.
+  filter-simplify.conf: |
+    [FILTER]
+      Name      rewrite_tag
+      Match     kube.*
+      Rule      $kubernetes['labels']['serving.knative.dev/configuration'] ^(.+)$ knative.$kubernetes['namespace_name'].$1.log false
+
+    [FILTER]
+      Name      rewrite_tag
+      Match     kube.*
+      Rule      $kubernetes['labels']['app'] ^(.+)$ app.$kubernetes['namespace_name'].$1.log false
+
+    [FILTER]
+      Name      rewrite_tag
+      Match     kube.*
+      Rule      $kubernetes['pod_name'] ^(.+)$ pod.$kubernetes['namespace_name'].$1.log false
+
+  output-files.conf: |
+    [OUTPUT]
+        Name            file
+        Path            /logs
+        Format          plain
+        Match           *
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: log-nginx-config
+  namespace: logging
+  labels:
+    k8s-app: log-collector
+data:
+  nginx.conf: |
+    events {
+    }
+
+    http {
+      include mime.types;
+      default_type application/octet-stream;
+      sendfile on;
+
+      server {
+        listen 8080;
+        server_name localhost;
+
+        location / {
+          root html;
+          autoindex on;
+        }
+      }
+    }
+  mime.types: |
+    types {
+      text/html        html htm shtml;
+      text/plain       txt log;
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: log-collector
+  namespace: logging
+  labels:
+    k8s-apps: log-collector
+spec:
+  ports:
+  - port: 24224
+    name: forward
+  - port: 80
+    name: viewer
+    targetPort: viewer
+  selector:
+    k8s-apps: log-collector
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: log-collector
+  namespace: logging
+  labels:
+    k8s-apps: log-collector
+spec:
+  selector:
+    matchLabels:
+      k8s-apps: log-collector
+  serviceName: log-collector
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        k8s-apps: log-collector
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: node1
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: fluent-bit
+        image: fluent/fluent-bit:1.5
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 24224
+        volumeMounts:
+        - name: logs
+          mountPath: /logs
+        - name: fluentd-config
+          mountPath: /fluent-bit/etc/
+        env:
+        - name: FLUENT_PORT
+          value: "24224"
+      - name: nginx
+        image: registry.k8s.io/nginx-slim:0.8
+        ports:
+        - containerPort: 8080
+          name: viewer
+        volumeMounts:
+        - name: logs
+          mountPath: /usr/share/nginx/html
+        - name: nginx-config
+          mountPath: /etc/nginx
+      volumes:
+        - name: fluentd-config
+          configMap:
+            name: log-collector-config
+        - name: nginx-config
+          configMap:
+            name: log-nginx-config
+  volumeClaimTemplates:
+  - metadata:
+      name: logs
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 10Gi

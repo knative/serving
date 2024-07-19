@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"go.uber.org/zap"
 
 	netheader "knative.dev/networking/pkg/http/header"
 )
@@ -87,7 +88,7 @@ func TestNewHeaderPruningProxy(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			proxy := NewHeaderPruningReverseProxy(serverURL.Host, test.host, []string{
+			proxy := NewHeaderPruningReverseProxy(make(map[string]*zap.SugaredLogger), serverURL.Host, test.host, []string{
 				"header-to-remove-1",
 				"header-to-remove-2",
 			}, false /* use HTTPS */)
@@ -178,7 +179,7 @@ func TestNewHeaderPruningProxyHTTPS(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			proxy := NewHeaderPruningReverseProxy(serverURL.Host, test.host, []string{
+			proxy := NewHeaderPruningReverseProxy(make(map[string]*zap.SugaredLogger), serverURL.Host, test.host, []string{
 				"header-to-remove-1",
 				"header-to-remove-2",
 			}, true /* use HTTPS */)
