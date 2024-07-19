@@ -77,6 +77,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 			SecurePodDefaults:                Enabled,
 			QueueProxyResourceDefaults:       Enabled,
 			TagHeaderBasedRouting:            Enabled,
+			TreatPodAsAlwaysSchedulable:      Enabled,
 		}),
 		data: map[string]string{
 			"multi-container":                              "Enabled",
@@ -97,6 +98,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"secure-pod-defaults":                          "Enabled",
 			"queueproxy.resource-defaults":                 "Enabled",
 			"tag-header-based-routing":                     "Enabled",
+			"treat-pod-as-always-schedulable":              "Enabled",
 		},
 	}, {
 		name:    "multi-container Allowed",
@@ -593,6 +595,33 @@ func TestFeaturesConfiguration(t *testing.T) {
 			}),
 			data: map[string]string{
 				"kubernetes.podspec-dnsconfig": "Disabled",
+			},
+		}, {
+			name:    "treat-pod-as-always-schedulable Allowed",
+			wantErr: false,
+			wantFeatures: defaultWith(&Features{
+				TreatPodAsAlwaysSchedulable: Allowed,
+			}),
+			data: map[string]string{
+				"treat-pod-as-always-schedulable": "Allowed",
+			},
+		}, {
+			name:    "treat-pod-as-always-schedulable Enabled",
+			wantErr: false,
+			wantFeatures: defaultWith(&Features{
+				TreatPodAsAlwaysSchedulable: Enabled,
+			}),
+			data: map[string]string{
+				"treat-pod-as-always-schedulable": "Enabled",
+			},
+		}, {
+			name:    "treat-pod-as-always-schedulable Disabled",
+			wantErr: false,
+			wantFeatures: defaultWith(&Features{
+				TreatPodAsAlwaysSchedulable: Disabled,
+			}),
+			data: map[string]string{
+				"treat-pod-as-always-schedulable": "Disabled",
 			},
 		}}
 

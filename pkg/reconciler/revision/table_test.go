@@ -615,6 +615,9 @@ func TestReconcile(t *testing.T) {
 			Object: pa("foo", "pod-schedule-error", WithReachabilityUnreachable),
 		}},
 		Key: "foo/pod-schedule-error",
+		Ctx: defaultconfig.ToContext(context.Background(), &defaultconfig.Config{Features: &defaultconfig.Features{
+			TreatPodAsAlwaysSchedulable: defaultconfig.Disabled,
+		}}),
 	}, {
 		Name: "ready steady state",
 		// Test the transition that Reconcile makes when Endpoints become ready on the
