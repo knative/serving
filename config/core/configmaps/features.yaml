@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "552d0483"
+    knative.dev/example-checksum: "9ff569ad"
 data:
   _example: |-
     ################################
@@ -140,8 +140,21 @@ data:
 
     # Indicates whether hostIPC support is enabled
     #
-    # Disabled by default
+    # WARNING: Cannot safely be disabled once enabled.
+    # See https://knative.dev/docs/serving/configuration/feature-flags/#kubernetes-host-ipc
     kubernetes.podspec-hostipc: "disabled"
+
+    # Indicates whether hostPID support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
+    # See https://knative.dev/docs/serving/configuration/feature-flags/#kubernetes-host-pid
+    kubernetes.podspec-hostpid: "disabled"
+
+    # Indicates whether hostNetwork support is enabled
+    #
+    # WARNING: Cannot safely be disabled once enabled.
+    # See See https://knative.dev/docs/serving/configuration/feature-flags/#kubernetes-host-network
+    kubernetes.podspec-hostnetwork: "disabled"
 
     # Indicates whether Kubernetes PriorityClassName support is enabled
     #
