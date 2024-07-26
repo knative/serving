@@ -20,6 +20,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"strings"
 
 	"go.uber.org/zap"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -52,6 +53,18 @@ func main() {
 	for _, dep := range []string{"domain-mapping", "domainmapping-webhook", "net-certmanager-controller", "net-certmanager-webhook"} {
 		if err = client.AppsV1().Deployments(system.Namespace()).Delete(context.Background(), dep, metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
 			logger.Fatal("failed to delete deployment ", dep, ": ", err)
+		}
+	}
+
+	leases, err := client.CoordinationV1().Leases(system.Namespace()).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		logger.Fatal("failed to fetch leases: ", err)
+	}
+	for _, lease := range leases.Items {
+		if strings.HasPrefix(lease.Name, "domainmapping") || strings.HasPrefix(lease.Name, "net-certmanager") {
+			if err = client.CoordinationV1().Leases(system.Namespace()).Delete(context.Background(), lease.Name, metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
+				logger.Fatalf("failed to delete lease %s: %v", lease.Name, err)
+			}
 		}
 	}
 
