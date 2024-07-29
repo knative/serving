@@ -122,8 +122,6 @@ func TestTLSCertificateRotation(t *testing.T) {
 		t.Skip("Skip this test for non-kourier/contour ingress.")
 	}
 
-	t.Parallel()
-
 	clients := test.Setup(t)
 
 	names := test.ResourceNames{
