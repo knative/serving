@@ -138,18 +138,72 @@ function calcRetcode() {
   echo "$rc"
 }
 
+# Print error message.
+# Parameters: $* - error message to be displayed
+function error() {
+  local first="$1"
+  shift
+  local args=("ERROR: $first" "$@")
+  gum_banner \
+      --color '#D00' \
+      --padding '1 3' \
+      --border double \
+      "${args[@]}" > /dev/stderr
+}
+
 # Print error message and call exit(n) where n calculated from the error message.
 # Parameters: $1..$n - error message to be displayed
 # Globals: abort_retcode will change the default retcode to be returned
 function abort() {
-  make_banner '*' "ERROR: $*" >&2
+  error "$@"
   readonly abort_retcode="${abort_retcode:-$(calcRetcode "$*")}"
   exit "$abort_retcode"
+}
+
+# Simple header for logging purposes.
+function header() {
+  local upper
+  upper="$(echo "$*" | tr '[:lower:]' '[:upper:]')"
+  gum_banner \
+    --border double \
+    --color 44 \
+    --padding '1 3' \
+    "$upper"
+}
+
+# Simple subheader for logging purposes.
+function subheader() {
+  gum_banner \
+      --color 45 \
+      "$@"
+}
+
+# Simple log step for logging purposes.
+function log.step() {
+  echo "=== $*" | gum_style --foreground 44
+}
+
+# Simple log for logging purposes.
+function log() {
+  echo "--- $*" | gum_style --foreground 45
+}
+
+# Simple warning banner for logging purposes.
+function warning() {
+  local first="$1"
+  shift
+  local args=("WARN: $first" "$@")
+  gum_banner \
+    --color '#DD0' \
+    --padding '1 3' \
+    --border rounded \
+    "${args[@]}" > /dev/stderr
 }
 
 # Display a box banner.
 # Parameters: $1 - character to use for the box.
 #             $2 - banner message.
+# Deprecated: Use `gum_banner` instead.
 function make_banner() {
   local msg="$1$1$1$1 $2 $1$1$1$1"
   local border="${msg//[^$1]/$1}"
@@ -161,25 +215,62 @@ function make_banner() {
   fi
 }
 
-# Simple header for logging purposes.
-function header() {
-  local upper="$(echo $1 | tr a-z A-Z)"
-  make_banner "=" "${upper}"
+# Display a fancy box banner.
+# Parameters:
+#   [--border <type>] - a gum border type for the box, defaults to 'rounded'
+#   [--color <color>] - a gum color for the box, defaults to '0''
+#   [--padding <padding>] - a gum padding for the box, defaults to '0 1'
+#   $* - banner message.
+function gum_banner() {
+  local border='rounded'
+  local color='0'
+  local padding='0 1'
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --border)
+        border="$2"
+        shift 2
+        ;;
+      --color)
+        color="$2"
+        shift 2
+        ;;
+      --padding)
+        padding="$2"
+        shift 2
+        ;;
+      *)
+        break
+        ;;
+    esac
+  done
+  local args=(
+    --align center
+    --border "$border"
+    --foreground "$color"
+    --border-foreground "$color"
+    --padding "$padding"
+    "$@"
+  )
+  # TODO: Remove once logs have timestamps on Prow, details see:
+  #       https://github.com/kubernetes/test-infra/issues/10100
+  if (( IS_PROW )); then
+    local dt
+    # RFC3339Nano format with 3 digits of ns without timezone offset
+    dt="$(TZ='UTC' date --rfc-3339=ns | sed -E 's/\.([0-9]{3})[0-9]+.+$/.\1/')"
+    args+=('' "at $dt")
+  fi
+  gum_style "${args[@]}"
 }
 
-# Simple subheader for logging purposes.
-function subheader() {
-  make_banner "-" "$1"
-}
-
-# Simple warning banner for logging purposes.
-function warning() {
-  make_banner '!' "WARN: $*" >&2
+# Simple info banner for logging purposes.
+function gum_style() {
+  go_run github.com/charmbracelet/gum@v0.14.1 style "$@"
 }
 
 # Checks whether the given function exists.
 function function_exists() {
-  [[ "$(type -t $1)" == "function" ]]
+  [[ "$(type -t "$1")" == "function" ]]
 }
 
 # GitHub Actions aware output grouping.
@@ -187,7 +278,7 @@ function group() {
   # End the group is there is already a group.
   if [ -z ${__GROUP_TRACKER+x} ]; then
     export __GROUP_TRACKER="grouping"
-    trap end_group EXIT
+    add_trap end_group EXIT
   else
     end_group
   fi
@@ -198,10 +289,10 @@ function group() {
 # GitHub Actions aware output grouping.
 function start_group() {
   if [[ -n ${GITHUB_WORKFLOW:-} ]]; then
-    echo "::group::$@"
-    trap end_group EXIT
+    echo "::group::$*"
+    add_trap end_group EXIT
   else
-    echo "--- $@"
+    log "$@"
   fi
 }
 
@@ -517,7 +608,7 @@ function report_go_test() {
   echo "Test log (ANSI) written to ${ansilog}"
 
   htmllog="${logfile/.jsonl/.html}"
-  go_run github.com/buildkite/terminal-to-html/v3/cmd/terminal-to-html@v3.11.0 \
+  go_run github.com/buildkite/terminal-to-html/v3/cmd/terminal-to-html@v3.10.0 \
     --preview < "$ansilog" > "$htmllog"
   echo "Test log (HTML) written to ${htmllog}"
 
@@ -682,18 +773,18 @@ function go_update_deps() {
 
 function __clean_goworksum_if_exists() {
   if [ -f "$REPO_ROOT_DIR/go.work.sum" ]; then
-    echo "=== Cleaning the go.work.sum file"
-    true > "$REPO_ROOT_DIR/go.work.sum"
+    log.step 'Cleaning the go.work.sum file'
+    truncate --size 0 "$REPO_ROOT_DIR/go.work.sum"
   fi
 }
 
 function __remove_goworksum_if_empty() {
   if [ -f "$REPO_ROOT_DIR/go.work" ]; then
-    echo "=== Syncing the go workspace"
+    log.step 'Syncing the go workspace'
     go work sync
   fi
   if ! [ -s "$REPO_ROOT_DIR/go.work.sum" ]; then
-    echo "=== Removing empty go.work.sum"
+    log.step 'Removing empty go.work.sum'
     rm -f "$REPO_ROOT_DIR/go.work.sum"
   fi
 }
@@ -706,7 +797,7 @@ function __go_update_deps_for_module() {
   export GONOSUMDB="${GONOSUMDB:-},knative.dev/*"
   export GONOPROXY="${GONOPROXY:-},knative.dev/*"
 
-  echo "=== Update Deps for Golang module: $(go_mod_module_name)"
+  log.step "Update Deps for Golang module: $(go_mod_module_name)"
 
   local UPGRADE=0
   local RELEASE="v9000.1" # release v9000 is so far in the future, it will always pick the default branch.
@@ -752,7 +843,12 @@ function __go_update_deps_for_module() {
 
   if [[ "${FORCE_VENDOR:-false}" == "true" ]] || [ -d vendor ]; then
     group "Go mod vendor"
-    go mod vendor 2>&1 |  grep -v "ignoring symlink" || true
+    # Call go work vendor for Go 1.22+ and go.work file exists.
+    if [ -f "$REPO_ROOT_DIR/go.work" ] && go help work vendor &>/dev/null; then
+      go work vendor
+    else
+      go mod vendor
+    fi
   else
     go mod download -x
   fi
@@ -785,22 +881,32 @@ function go_mod_module_name() {
   go_run knative.dev/toolbox/modscope@latest current
 }
 
+function __is_checkout_onto_gopath() {
+  ! [ "${REPO_ROOT_DIR##"$(go env GOPATH)"}" = "$REPO_ROOT_DIR" ]
+}
+
 # Return a GOPATH to a temp directory. Works around the out-of-GOPATH issues
 # for k8s client gen mixed with go mod.
 # Intended to be used like:
 #   export GOPATH=$(go_mod_gopath_hack)
 function go_mod_gopath_hack() {
-    # Skip this if the directory is already checked out onto the GOPATH.
-  if [[ "${REPO_ROOT_DIR##$(go env GOPATH)}" != "$REPO_ROOT_DIR" ]]; then
+  # Skip this if the directory is already checked out onto the GOPATH.
+  if __is_checkout_onto_gopath; then
     go env GOPATH
     return
   fi
 
-  local TMP_DIR="$(mktemp -d)"
-  local TMP_REPO_PATH="${TMP_DIR}/src/$(go_mod_module_name)"
-  mkdir -p "$(dirname "${TMP_REPO_PATH}")" && ln -s "${REPO_ROOT_DIR}" "${TMP_REPO_PATH}"
+  local TMP_GOPATH TMP_REPO_PATH
+  TMP_GOPATH="$TMPDIR/go"
+  TMP_REPO_PATH="${TMP_GOPATH}/src/$(go_mod_module_name)"
+  if [ -d "${TMP_REPO_PATH}" ]; then
+    echo "${TMP_GOPATH}"
+    return
+  fi
+  mkdir -p "$(dirname "${TMP_REPO_PATH}")"
+  ln -s "${REPO_ROOT_DIR}" "${TMP_REPO_PATH}"
 
-  echo "${TMP_DIR}"
+  echo "${TMP_GOPATH}"
 }
 
 # Run kntest tool
@@ -1014,6 +1120,7 @@ function latest_version() {
 
 # Initializations that depend on previous functions.
 # These MUST come last.
+MODULE_NAME="$(go_mod_module_name)"
 
 readonly _TEST_INFRA_SCRIPTS_DIR="$(dirname $(get_canonical_path "${BASH_SOURCE[0]}"))"
 readonly REPO_NAME_FORMATTED="Knative $(capitalize "${REPO_NAME//-/ }")"
