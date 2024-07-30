@@ -32,6 +32,11 @@ import (
 	"knative.dev/pkg/system"
 )
 
+const (
+	networkingCertificatesReconcilerLease      = "controller.knative.dev.networking.pkg.certificates.reconciler.reconciler"
+	controlProtocolCertificatesReconcilerLease = "controller.knative.dev.control-protocol.pkg.certificates.reconciler.reconciler"
+)
+
 func main() {
 	logger := setupLogger()
 	defer logger.Sync()
@@ -60,8 +65,11 @@ func main() {
 	if err != nil {
 		logger.Fatal("failed to fetch leases: ", err)
 	}
+
 	for _, lease := range leases.Items {
-		if strings.HasPrefix(lease.Name, "domainmapping") || strings.HasPrefix(lease.Name, "net-certmanager") {
+		if strings.HasPrefix(lease.Name, "domainmapping") ||
+			strings.HasPrefix(lease.Name, "net-certmanager") ||
+			strings.HasPrefix(lease.Name, networkingCertificatesReconcilerLease) || strings.HasPrefix(lease.Name, controlProtocolCertificatesReconcilerLease) {
 			if err = client.CoordinationV1().Leases(system.Namespace()).Delete(context.Background(), lease.Name, metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
 				logger.Fatalf("failed to delete lease %s: %v", lease.Name, err)
 			}
