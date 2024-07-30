@@ -17,7 +17,7 @@
 # This is a helper script for Knative release scripts.
 # See README.md for instructions on how to use it.
 
-source $(dirname "${BASH_SOURCE[0]}")/library.sh
+source "$(dirname "${BASH_SOURCE[0]}")/library.sh"
 
 # Organization name in GitHub; defaults to Knative.
 readonly ORG_NAME="${ORG_NAME:-knative}"
@@ -37,9 +37,9 @@ readonly RELEASE_SIGNING_IDENTITY="signer@knative-releases.iam.gserviceaccount.c
 readonly GEO_REPLICATION=(us eu asia)
 
 # Simple banner for logging purposes.
-# Parameters: $1 - message to display.
+# Parameters: $* - message to display.
 function banner() {
-    make_banner "@" "$1"
+  subheader "$*"
 }
 
 # Tag images in the yaml files if $TAG is not empty.
