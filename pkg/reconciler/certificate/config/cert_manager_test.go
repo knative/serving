@@ -121,6 +121,34 @@ func TestIssuerRef(t *testing.T) {
 				clusterLocalIssuerRefKey: "kind: ClusterIssuer\nname: system-internal-issuer",
 			},
 		},
+	}, {
+		name:    "all issuer valid",
+		wantErr: false,
+		wantConfig: &CertManagerConfig{
+			IssuerRef: &cmmeta.ObjectReference{
+				Name: "letsencrypt-issuer",
+				Kind: "ClusterIssuer",
+			},
+			ClusterLocalIssuerRef: &cmmeta.ObjectReference{
+				Name: "system-internal-issuer",
+				Kind: "ClusterIssuer",
+			},
+			SystemInternalIssuerRef: &cmmeta.ObjectReference{
+				Name: "system-internal-issuer",
+				Kind: "ClusterIssuer",
+			},
+		},
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      CertManagerConfigName,
+			},
+			Data: map[string]string{
+				clusterLocalIssuerRefKey: "kind: ClusterIssuer\nname: system-internal-issuer",
+				systemInternalIssuerRef:  "kind: ClusterIssuer\nname: system-internal-issuer",
+				issuerRefKey:             "kind: ClusterIssuer\nname: letsencrypt-issuer",
+			},
+		},
 	}}
 
 	for _, tt := range isserRefCases {
