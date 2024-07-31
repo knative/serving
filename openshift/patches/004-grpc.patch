@@ -1,0 +1,67 @@
+diff --git a/test/e2e/grpc_test.go b/test/e2e/grpc_test.go
+index cab0aa22d..ee64c3b29 100644
+--- a/test/e2e/grpc_test.go
++++ b/test/e2e/grpc_test.go
+@@ -34,7 +34,6 @@ import (
+ 
+ 	"golang.org/x/sync/errgroup"
+ 	"google.golang.org/grpc"
+-	"google.golang.org/grpc/credentials"
+ 	"google.golang.org/grpc/credentials/insecure"
+ 
+ 	corev1 "k8s.io/api/core/v1"
+@@ -68,9 +67,6 @@ func hasPort(u string) bool {
+ 
+ func dial(ctx *TestContext, host, domain string) (*grpc.ClientConn, error) {
+ 	defaultPort := "80"
+-	if test.ServingFlags.HTTPS {
+-		defaultPort = "443"
+-	}
+ 	if !hasPort(host) {
+ 		host = net.JoinHostPort(host, defaultPort)
+ 	}
+@@ -83,12 +79,6 @@ func dial(ctx *TestContext, host, domain string) (*grpc.ClientConn, error) {
+ 	}
+ 
+ 	creds := insecure.NewCredentials()
+-	if test.ServingFlags.HTTPS {
+-		tlsConfig := test.TLSClientConfig(context.Background(), ctx.t.Logf, ctx.clients)
+-		// Set ServerName for pseudo hostname with TLS.
+-		tlsConfig.ServerName = domain
+-		creds = credentials.NewTLS(tlsConfig)
+-	}
+ 
+ 	return grpc.Dial(
+ 		host,
+@@ -324,11 +314,6 @@ func streamTest(tc *TestContext, host, domain string) {
+ 
+ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
+ 	t.Helper()
+-	// TODO: https option with parallel leads to flakes.
+-	// https://github.com/knative/serving/issues/11387
+-	if !test.ServingFlags.HTTPS {
+-		t.Parallel()
+-	}
+ 
+ 	// Setup
+ 	clients := Setup(t)
+@@ -369,16 +354,13 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
+ 	}
+ 
+ 	host := url.Host
+-	if !test.ServingFlags.ResolvableDomain {
++	if true {
+ 		addr, mapper, err := ingress.GetIngressEndpoint(context.Background(), clients.KubeClient, pkgTest.Flags.IngressEndpoint)
+ 		if err != nil {
+ 			t.Fatal("Could not get service endpoint:", err)
+ 		}
+-		if test.ServingFlags.HTTPS {
+-			host = net.JoinHostPort(addr, mapper("443"))
+-		} else {
+-			host = net.JoinHostPort(addr, mapper("80"))
+-		}
++
++		host = net.JoinHostPort(addr, mapper("80"))
+ 	}
+ 
+ 	f(&TestContext{

@@ -1,0 +1,146 @@
+{
+  "spec": {
+    "workloads": [
+      {
+        "name": "activator",
+        "replicas": 2,
+        "resources": [
+          {
+            "container": "activator",
+            "requests": {
+              "cpu": "500m",
+              "memory": "1000Mi"
+            },
+            "limits": {
+              "cpu": "2000m",
+              "memory": "4000Mi"
+            }
+          }
+        ],
+        "tolerations": [
+          {
+            "key": "knative-activator",
+            "operator": "Equal",
+            "effect": "NoSchedule",
+            "value": "true"
+          }
+        ],
+        "nodeSelector": {
+          "knative-activator": "true"
+        }
+      },
+      {
+        "name": "controller",
+        "tolerations": [
+          {
+            "key": "serverless",
+            "operator": "Equal",
+            "effect": "NoSchedule",
+            "value": "true"
+          }
+        ],
+        "nodeSelector": {
+          "serverless": "true"
+        }
+      },
+      {
+        "name": "domain-mapping",
+        "tolerations": [
+          {
+            "key": "serverless",
+            "operator": "Equal",
+            "effect": "NoSchedule",
+            "value": "true"
+          }
+        ],
+        "nodeSelector": {
+          "serverless": "true"
+        }
+      },
+      {
+        "name": "domainmapping-webhook",
+        "tolerations": [
+          {
+            "key": "serverless",
+            "operator": "Equal",
+            "effect": "NoSchedule",
+            "value": "true"
+          }
+        ],
+        "nodeSelector": {
+          "serverless": "true"
+        }
+      },
+      {
+        "name": "net-kourier-controller",
+        "tolerations": [
+          {
+            "key": "serverless",
+            "operator": "Equal",
+            "effect": "NoSchedule",
+            "value": "true"
+          }
+        ],
+        "nodeSelector": {
+          "serverless": "true"
+        }
+      },
+      {
+        "name": "autoscaler",
+        "tolerations": [
+          {
+            "key": "serverless",
+            "operator": "Equal",
+            "effect": "NoSchedule",
+            "value": "true"
+          }
+        ],
+        "nodeSelector": {
+          "serverless": "true"
+        }
+      },
+      {
+        "name": "webhook",
+        "tolerations": [
+          {
+            "key": "serverless",
+            "operator": "Equal",
+            "effect": "NoSchedule",
+            "value": "true"
+          }
+        ],
+        "nodeSelector": {
+          "serverless": "true"
+        }
+      },
+      {
+        "name": "autoscaler-hpa",
+        "tolerations": [
+          {
+            "key": "serverless",
+            "operator": "Equal",
+            "effect": "NoSchedule",
+            "value": "true"
+          }
+        ],
+        "nodeSelector": {
+          "serverless": "true"
+        }
+      },
+      {
+        "name": "3scale-kourier-gateway",
+        "tolerations": [
+          {
+            "key": "knative-ingress",
+            "operator": "Equal",
+            "effect": "NoSchedule",
+            "value": "true"
+          }
+        ],
+        "nodeSelector": {
+          "knative-ingress": "true"
+        }
+      }
+    ]
+  }
+}

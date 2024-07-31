@@ -1,0 +1,79 @@
+diff --git a/vendor/knative.dev/pkg/test/spoof/openshift_checks.go b/vendor/knative.dev/pkg/test/spoof/openshift_checks.go
+new file mode 100644
+index 000000000..acaebe95b
+--- /dev/null
++++ b/vendor/knative.dev/pkg/test/spoof/openshift_checks.go
+@@ -0,0 +1,40 @@
++package spoof
++
++import (
++	"fmt"
++	"net/http"
++	"strings"
++)
++
++// isUnknownAuthority checks if the error contains "certificate signed by unknown authority".
++// This error happens when OpenShift Route starts/changes to use passthrough mode. It takes a little bit time to be synced.
++func isUnknownAuthority(err error) bool {
++	return err != nil && strings.Contains(err.Error(), "certificate signed by unknown authority")
++}
++
++// RetryingRouteInconsistency retries common requests seen when creating a new route
++// - 503 to account for Openshift route inconsistency (https://jira.coreos.com/browse/SRVKS-157)
++func RouteInconsistencyRetryChecker(resp *Response) (bool, error) {
++	if resp.StatusCode == http.StatusServiceUnavailable {
++		return true, fmt.Errorf("retrying route inconsistency request: %s", resp)
++	}
++	return false, nil
++}
++
++// RouteInconsistencyMultiRetryChecker retries common requests seen when creating a new route
++// - 503 to account for Openshift route inconsistency (https://jira.coreos.com/browse/SRVKS-157)
++func RouteInconsistencyMultiRetryChecker() ResponseChecker {
++	const neededSuccesses = 32
++	var successes int
++	return func(resp *Response) (bool, error) {
++		if resp.StatusCode == http.StatusServiceUnavailable {
++			successes = 0
++			return true, fmt.Errorf("retrying route inconsistency request: %s", resp)
++		}
++		successes++
++		if successes < neededSuccesses {
++			return true, fmt.Errorf("successful requests: %d, required: %d", successes, neededSuccesses)
++		}
++		return false, nil
++	}
++}
+diff --git a/vendor/knative.dev/pkg/test/spoof/spoof.go b/vendor/knative.dev/pkg/test/spoof/spoof.go
+index 147a64adc..5ee44906e 100644
+--- a/vendor/knative.dev/pkg/test/spoof/spoof.go
++++ b/vendor/knative.dev/pkg/test/spoof/spoof.go
+@@ -164,7 +164,7 @@ func (sc *SpoofingClient) Do(req *http.Request, errorRetryCheckers ...interface{
+ // If no retry checkers are specified `DefaultErrorRetryChecker` will be used.
+ func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker, checkers ...interface{}) (*Response, error) {
+ 	if len(checkers) == 0 {
+-		checkers = []interface{}{ErrorRetryChecker(DefaultErrorRetryChecker), ResponseRetryChecker(DefaultResponseRetryChecker)}
++		checkers = []interface{}{ErrorRetryChecker(DefaultErrorRetryChecker), ResponseRetryChecker(DefaultResponseRetryChecker), ResponseRetryChecker(RouteInconsistencyRetryChecker)}
+ 	}
+ 
+ 	var resp *Response
+@@ -252,6 +252,9 @@ func DefaultErrorRetryChecker(err error) (bool, error) {
+ 	if isNoRouteToHostError(err) {
+ 		return true, fmt.Errorf("retrying for 'no route to host' error: %w", err)
+ 	}
++	if isUnknownAuthority(err) {
++		return true, fmt.Errorf("retrying for certificate signed by unknown authority: %w", err)
++	}
+ 	return false, err
+ }
+ 
+@@ -328,6 +331,9 @@ func (sc *SpoofingClient) endpointState(
+ }
+ 
+ func (sc *SpoofingClient) Check(req *http.Request, inState ResponseChecker, checkers ...interface{}) (*Response, error) {
++	if len(checkers) == 0 {
++		checkers = []interface{}{ErrorRetryChecker(DefaultErrorRetryChecker), ResponseRetryChecker(DefaultResponseRetryChecker), ResponseRetryChecker(RouteInconsistencyMultiRetryChecker())}
++	}
+ 	resp, err := sc.Do(req, checkers...)
+ 	if err != nil {
+ 		return nil, err

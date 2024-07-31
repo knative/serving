@@ -934,11 +934,8 @@ func TestRevisionDefaulting(t *testing.T) {
 						ReadinessProbe: defaultProbe,
 						Resources:      defaultResources,
 						SecurityContext: &corev1.SecurityContext{
-							RunAsNonRoot:             ptr.Bool(true),
 							AllowPrivilegeEscalation: ptr.Bool(false),
-							SeccompProfile: &corev1.SeccompProfile{
-								Type: corev1.SeccompProfileTypeRuntimeDefault,
-							},
+							RunAsNonRoot:             ptr.Bool(true),
 							Capabilities: &corev1.Capabilities{
 								Drop: []corev1.Capability{"ALL"},
 								Add:  []corev1.Capability{"NET_BIND_SERVICE"},
@@ -948,11 +945,8 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name:      "sidecar",
 						Resources: defaultResources,
 						SecurityContext: &corev1.SecurityContext{
-							RunAsNonRoot:             ptr.Bool(true),
 							AllowPrivilegeEscalation: ptr.Bool(false),
-							SeccompProfile: &corev1.SeccompProfile{
-								Type: corev1.SeccompProfileTypeRuntimeDefault,
-							},
+							RunAsNonRoot:             ptr.Bool(true),
 							Capabilities: &corev1.Capabilities{
 								Drop: []corev1.Capability{"ALL"},
 							},
@@ -961,11 +955,8 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name:      "special-sidecar",
 						Resources: defaultResources,
 						SecurityContext: &corev1.SecurityContext{
-							RunAsNonRoot:             ptr.Bool(true),
 							AllowPrivilegeEscalation: ptr.Bool(true),
-							SeccompProfile: &corev1.SeccompProfile{
-								Type: corev1.SeccompProfileTypeRuntimeDefault,
-							},
+							RunAsNonRoot:             ptr.Bool(true),
 							Capabilities: &corev1.Capabilities{
 								Add:  []corev1.Capability{"NET_ADMIN"},
 								Drop: []corev1.Capability{},
@@ -975,12 +966,12 @@ func TestRevisionDefaulting(t *testing.T) {
 					InitContainers: []corev1.Container{{
 						Name: "special-init",
 						SecurityContext: &corev1.SecurityContext{
-							RunAsNonRoot:             ptr.Bool(true),
 							AllowPrivilegeEscalation: ptr.Bool(true),
 							SeccompProfile: &corev1.SeccompProfile{
 								Type:             corev1.SeccompProfileTypeLocalhost,
 								LocalhostProfile: ptr.String("special"),
 							},
+							RunAsNonRoot: ptr.Bool(true),
 							Capabilities: &corev1.Capabilities{
 								Add: []corev1.Capability{"NET_ADMIN"},
 							},
@@ -1038,8 +1029,8 @@ func TestRevisionDefaulting(t *testing.T) {
 						ReadinessProbe: defaultProbe,
 						Resources:      defaultResources,
 						SecurityContext: &corev1.SecurityContext{
-							RunAsNonRoot:             ptr.Bool(true),
 							AllowPrivilegeEscalation: ptr.Bool(false),
+							RunAsNonRoot:             ptr.Bool(true),
 							Capabilities: &corev1.Capabilities{
 								Drop: []corev1.Capability{"ALL"},
 							},
@@ -1048,8 +1039,8 @@ func TestRevisionDefaulting(t *testing.T) {
 					InitContainers: []corev1.Container{{
 						Name: "init",
 						SecurityContext: &corev1.SecurityContext{
-							RunAsNonRoot:             ptr.Bool(true),
 							AllowPrivilegeEscalation: ptr.Bool(false),
+							RunAsNonRoot:             ptr.Bool(true),
 							Capabilities: &corev1.Capabilities{
 								Drop: []corev1.Capability{"ALL"},
 							},

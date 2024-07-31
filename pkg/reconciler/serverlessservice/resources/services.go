@@ -60,11 +60,10 @@ func MakePublicService(sks *v1alpha1.ServerlessService) *corev1.Service {
 
 func makePublicServicePorts(sks *v1alpha1.ServerlessService) []corev1.ServicePort {
 	ports := []corev1.ServicePort{{
-		Name:        pkgnet.ServicePortName(sks.Spec.ProtocolType),
-		Protocol:    corev1.ProtocolTCP,
-		AppProtocol: pkgnet.AppProtocol(sks.Spec.ProtocolType),
-		Port:        int32(pkgnet.ServicePort(sks.Spec.ProtocolType)),
-		TargetPort:  targetPort(sks),
+		Name:       pkgnet.ServicePortName(sks.Spec.ProtocolType),
+		Protocol:   corev1.ProtocolTCP,
+		Port:       int32(pkgnet.ServicePort(sks.Spec.ProtocolType)),
+		TargetPort: targetPort(sks),
 	}, {
 		// The HTTPS port is used when activator-ca is enabled.
 		// Although it is not used by default, we put it here as it should be harmless
@@ -145,10 +144,9 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
-				Name:        pkgnet.ServicePortName(sks.Spec.ProtocolType),
-				Protocol:    corev1.ProtocolTCP,
-				AppProtocol: pkgnet.AppProtocol(sks.Spec.ProtocolType),
-				Port:        pkgnet.ServiceHTTPPort,
+				Name:     pkgnet.ServicePortName(sks.Spec.ProtocolType),
+				Protocol: corev1.ProtocolTCP,
+				Port:     pkgnet.ServiceHTTPPort,
 				// This one is matching the public one, since this is the
 				// port queue-proxy listens on.
 				TargetPort: targetPort(sks),

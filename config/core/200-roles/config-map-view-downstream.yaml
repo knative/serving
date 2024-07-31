@@ -1,0 +1,25 @@
+# Extra role for downstream, so that users can get the autoscaling CM to fetch defaults.
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: knative-serving
+  name: openshift-serverless-view-serving-configmaps
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["config-autoscaler"]
+    verbs: ["get", "list", "watch"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: openshift-serverless-view-serving-configmaps
+  namespace: knative-serving
+subjects:
+  - kind: Group
+    name: system:authenticated
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: openshift-serverless-view-serving-configmaps

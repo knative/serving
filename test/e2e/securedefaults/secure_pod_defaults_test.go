@@ -60,9 +60,6 @@ func TestSecureDefaults(t *testing.T) {
 	if revisionSC.AllowPrivilegeEscalation == nil || *revisionSC.AllowPrivilegeEscalation {
 		t.Errorf("Expected allowPrivilegeEscalation: false, got %v", revisionSC.AllowPrivilegeEscalation)
 	}
-	if revisionSC.SeccompProfile == nil || revisionSC.SeccompProfile.Type != v1.SeccompProfileTypeRuntimeDefault {
-		t.Errorf("Expected seccompProfile to be RuntimeDefault, got: %v", revisionSC.SeccompProfile)
-	}
 }
 
 func TestUnsafePermitted(t *testing.T) {

@@ -35,6 +35,8 @@ import (
 	"testing"
 	"time"
 
+	"knative.dev/networking/pkg/apis/networking"
+
 	"knative.dev/pkg/test/spoof"
 
 	corev1 "k8s.io/api/core/v1"
@@ -83,6 +85,9 @@ func TestBYOCertificate(t *testing.T) {
 	secret, err := clients.KubeClient.CoreV1().Secrets(test.ServingFlags.TestNamespace).Create(ctx, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: test.AppendRandomString("byocert-secret"),
+			Labels: map[string]string{
+				networking.CertificateUIDLabelKey: "byocert-secret",
+			},
 		},
 		Type: corev1.SecretTypeTLS,
 		Data: map[string][]byte{

@@ -1,0 +1,147 @@
+diff --git a/pkg/apis/serving/v1/revision_defaults.go b/pkg/apis/serving/v1/revision_defaults.go
+index 2b3f5f2f2..b0960e6c3 100644
+--- a/pkg/apis/serving/v1/revision_defaults.go
++++ b/pkg/apis/serving/v1/revision_defaults.go
+@@ -189,21 +189,14 @@ func (rs *RevisionSpec) defaultSecurityContext(psc *corev1.PodSecurityContext, c
+ 	if updatedSC.AllowPrivilegeEscalation == nil {
+ 		updatedSC.AllowPrivilegeEscalation = ptr.Bool(false)
+ 	}
+-	if psc.SeccompProfile == nil || psc.SeccompProfile.Type == "" {
+-		if updatedSC.SeccompProfile == nil {
+-			updatedSC.SeccompProfile = &corev1.SeccompProfile{}
+-		}
+-		if updatedSC.SeccompProfile.Type == "" {
+-			updatedSC.SeccompProfile.Type = corev1.SeccompProfileTypeRuntimeDefault
+-		}
+-	}
++
+ 	if updatedSC.Capabilities == nil {
+ 		updatedSC.Capabilities = &corev1.Capabilities{}
+ 		updatedSC.Capabilities.Drop = []corev1.Capability{"ALL"}
+ 		// Default in NET_BIND_SERVICE to allow binding to low-numbered ports.
+ 		needsLowPort := false
+ 		for _, p := range container.Ports {
+-			if p.ContainerPort < 1024 {
++			if p.ContainerPort > 0 && p.ContainerPort < 1024 {
+ 				needsLowPort = true
+ 				break
+ 			}
+@@ -212,11 +205,9 @@ func (rs *RevisionSpec) defaultSecurityContext(psc *corev1.PodSecurityContext, c
+ 			updatedSC.Capabilities.Add = []corev1.Capability{"NET_BIND_SERVICE"}
+ 		}
+ 	}
+-
+-	if psc.RunAsNonRoot == nil {
++	if psc.RunAsNonRoot == nil && updatedSC.RunAsNonRoot == nil {
+ 		updatedSC.RunAsNonRoot = ptr.Bool(true)
+ 	}
+-
+ 	if *updatedSC != (corev1.SecurityContext{}) {
+ 		container.SecurityContext = updatedSC
+ 	}
+diff --git a/pkg/apis/serving/v1/revision_defaults_test.go b/pkg/apis/serving/v1/revision_defaults_test.go
+index 0fe5e6507..401cac325 100644
+--- a/pkg/apis/serving/v1/revision_defaults_test.go
++++ b/pkg/apis/serving/v1/revision_defaults_test.go
+@@ -900,11 +900,8 @@ func TestRevisionDefaulting(t *testing.T) {
+ 						ReadinessProbe: defaultProbe,
+ 						Resources:      defaultResources,
+ 						SecurityContext: &corev1.SecurityContext{
+-							RunAsNonRoot:             ptr.Bool(true),
+ 							AllowPrivilegeEscalation: ptr.Bool(false),
+-							SeccompProfile: &corev1.SeccompProfile{
+-								Type: corev1.SeccompProfileTypeRuntimeDefault,
+-							},
++							RunAsNonRoot:             ptr.Bool(true),
+ 							Capabilities: &corev1.Capabilities{
+ 								Drop: []corev1.Capability{"ALL"},
+ 								Add:  []corev1.Capability{"NET_BIND_SERVICE"},
+@@ -914,11 +911,8 @@ func TestRevisionDefaulting(t *testing.T) {
+ 						Name:      "sidecar",
+ 						Resources: defaultResources,
+ 						SecurityContext: &corev1.SecurityContext{
+-							RunAsNonRoot:             ptr.Bool(true),
+ 							AllowPrivilegeEscalation: ptr.Bool(false),
+-							SeccompProfile: &corev1.SeccompProfile{
+-								Type: corev1.SeccompProfileTypeRuntimeDefault,
+-							},
++							RunAsNonRoot:             ptr.Bool(true),
+ 							Capabilities: &corev1.Capabilities{
+ 								Drop: []corev1.Capability{"ALL"},
+ 							},
+@@ -927,11 +921,8 @@ func TestRevisionDefaulting(t *testing.T) {
+ 						Name:      "special-sidecar",
+ 						Resources: defaultResources,
+ 						SecurityContext: &corev1.SecurityContext{
+-							RunAsNonRoot:             ptr.Bool(true),
+ 							AllowPrivilegeEscalation: ptr.Bool(true),
+-							SeccompProfile: &corev1.SeccompProfile{
+-								Type: corev1.SeccompProfileTypeRuntimeDefault,
+-							},
++							RunAsNonRoot:             ptr.Bool(true),
+ 							Capabilities: &corev1.Capabilities{
+ 								Add:  []corev1.Capability{"NET_ADMIN"},
+ 								Drop: []corev1.Capability{},
+@@ -941,12 +932,12 @@ func TestRevisionDefaulting(t *testing.T) {
+ 					InitContainers: []corev1.Container{{
+ 						Name: "special-init",
+ 						SecurityContext: &corev1.SecurityContext{
+-							RunAsNonRoot:             ptr.Bool(true),
+ 							AllowPrivilegeEscalation: ptr.Bool(true),
+ 							SeccompProfile: &corev1.SeccompProfile{
+ 								Type:             corev1.SeccompProfileTypeLocalhost,
+ 								LocalhostProfile: ptr.String("special"),
+ 							},
++							RunAsNonRoot: ptr.Bool(true),
+ 							Capabilities: &corev1.Capabilities{
+ 								Add: []corev1.Capability{"NET_ADMIN"},
+ 							},
+@@ -1004,8 +995,8 @@ func TestRevisionDefaulting(t *testing.T) {
+ 						ReadinessProbe: defaultProbe,
+ 						Resources:      defaultResources,
+ 						SecurityContext: &corev1.SecurityContext{
+-							RunAsNonRoot:             ptr.Bool(true),
+ 							AllowPrivilegeEscalation: ptr.Bool(false),
++							RunAsNonRoot:             ptr.Bool(true),
+ 							Capabilities: &corev1.Capabilities{
+ 								Drop: []corev1.Capability{"ALL"},
+ 							},
+@@ -1014,8 +1005,8 @@ func TestRevisionDefaulting(t *testing.T) {
+ 					InitContainers: []corev1.Container{{
+ 						Name: "init",
+ 						SecurityContext: &corev1.SecurityContext{
+-							RunAsNonRoot:             ptr.Bool(true),
+ 							AllowPrivilegeEscalation: ptr.Bool(false),
++							RunAsNonRoot:             ptr.Bool(true),
+ 							Capabilities: &corev1.Capabilities{
+ 								Drop: []corev1.Capability{"ALL"},
+ 							},
+diff --git a/test/e2e/securedefaults/secure_pod_defaults_test.go b/test/e2e/securedefaults/secure_pod_defaults_test.go
+index af1498dee..96e4839a9 100644
+--- a/test/e2e/securedefaults/secure_pod_defaults_test.go
++++ b/test/e2e/securedefaults/secure_pod_defaults_test.go
+@@ -60,9 +60,6 @@ func TestSecureDefaults(t *testing.T) {
+ 	if revisionSC.AllowPrivilegeEscalation == nil || *revisionSC.AllowPrivilegeEscalation {
+ 		t.Errorf("Expected allowPrivilegeEscalation: false, got %v", revisionSC.AllowPrivilegeEscalation)
+ 	}
+-	if revisionSC.SeccompProfile == nil || revisionSC.SeccompProfile.Type != v1.SeccompProfileTypeRuntimeDefault {
+-		t.Errorf("Expected seccompProfile to be RuntimeDefault, got: %v", revisionSC.SeccompProfile)
+-	}
+ }
+
+ func TestUnsafePermitted(t *testing.T) {
+diff --git a/pkg/reconciler/revision/resources/queue.go b/pkg/reconciler/revision/resources/queue.go
+index 1fb964a53..b8cd617ef 100644
+--- a/pkg/reconciler/revision/resources/queue.go
++++ b/pkg/reconciler/revision/resources/queue.go
+@@ -86,9 +86,6 @@ var (
+ 		Capabilities: &corev1.Capabilities{
+ 			Drop: []corev1.Capability{"ALL"},
+ 		},
+-		SeccompProfile: &corev1.SeccompProfile{
+-			Type: corev1.SeccompProfileTypeRuntimeDefault,
+-		},
+ 	}
+ )
+
+

@@ -48,7 +48,7 @@ metadata:
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
 spec:
-  minAvailable: 80%
+  minAvailable: 1
   selector:
     matchLabels:
       app: webhook

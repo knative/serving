@@ -1,0 +1,1805 @@
+diff --git a/Makefile b/Makefile
+index ccd342372..7963cf412 100644
+--- a/Makefile
++++ b/Makefile
+@@ -6,6 +6,7 @@ CORE_IMAGES=./cmd/activator ./cmd/autoscaler ./cmd/autoscaler-hpa ./cmd/controll
+ TEST_IMAGES=$(shell find ./test/test_images ./test/test_images/multicontainer -mindepth 1 -maxdepth 1 -type d)
+ # Exclude wrapper images like multicontainer and initcontainers as those are just ko convenience wrappers used upstream. The openshift serverless tests use other images to run.
+ TEST_IMAGES_WITHOUT_WRAPPERS=$(shell find ./test/test_images ./test/test_images/multicontainer -mindepth 1 -maxdepth 1 -type d -not -name multicontainer -not -name initcontainers)
++PERF_IMAGES=$(shell find ./test/performance/benchmarks -mindepth 1 -maxdepth 1)
+ BRANCH=
+ TEST=
+ IMAGE=
+@@ -26,6 +27,12 @@ test-install:
+ 	done
+ .PHONY: test-install
+
++perf-install:
++	for img in $(PERF_IMAGES); do \
++		go install $$img ; \
++	done
++.PHONY: perf-install
++
+ test-e2e:
+ 	./openshift/e2e-tests.sh
+ .PHONY: test-e2e
+@@ -68,8 +75,9 @@ test-e2e-local:
+
+ # Generate Dockerfiles for core and test images used by ci-operator. The files need to be committed manually.
+ generate-dockerfiles:
+-	./openshift/ci-operator/generate-dockerfiles.sh openshift/ci-operator/knative-images $(CORE_IMAGES)
+-	./openshift/ci-operator/generate-dockerfiles.sh openshift/ci-operator/knative-test-images $(TEST_IMAGES_WITHOUT_WRAPPERS)
++	./openshift/ci-operator/generate-dockerfiles.sh openshift/ci-operator/knative-images $(CORE_IMAGES); \
++	./openshift/ci-operator/generate-dockerfiles.sh openshift/ci-operator/knative-test-images $(TEST_IMAGES_WITHOUT_WRAPPERS); \
++    ./openshift/ci-operator/generate-dockerfiles.sh openshift/ci-operator/knative-perf-images $(PERF_IMAGES)
+ .PHONY: generate-dockerfiles
+
+ # Generate an aggregated knative yaml file with replaced image references
+diff --git a/openshift/ci-operator/Dockerfile.in b/openshift/ci-operator/Dockerfile.in
+index 1c31865cc..7bd47161b 100644
+--- a/openshift/ci-operator/Dockerfile.in
++++ b/openshift/ci-operator/Dockerfile.in
+@@ -2,7 +2,7 @@
+ FROM registry.ci.openshift.org/openshift/release:rhel-8-release-golang-1.22-openshift-4.17 as builder
+
+ COPY . .
+-RUN make install test-install
++RUN make install test-install perf-install
+
+ FROM registry.access.redhat.com/ubi8/ubi-minimal
+ USER 65532
+diff --git a/openshift/ci-operator/Dockerfile_with_kodata.in b/openshift/ci-operator/Dockerfile_with_kodata.in
+index 9d84e5ecc..572d91c25 100644
+--- a/openshift/ci-operator/Dockerfile_with_kodata.in
++++ b/openshift/ci-operator/Dockerfile_with_kodata.in
+@@ -2,7 +2,7 @@
+ FROM registry.ci.openshift.org/openshift/release:rhel-8-release-golang-1.22-openshift-4.17 as builder
+
+ COPY . .
+-RUN make install test-install
++RUN make install test-install perf-install
+
+ FROM registry.access.redhat.com/ubi8/ubi-minimal
+ USER 65532
+diff --git a/test/performance/README.md b/test/performance/README.md
+index a4906039a..f17f7cffc 100644
+--- a/test/performance/README.md
++++ b/test/performance/README.md
+@@ -76,6 +76,52 @@ export INFLUX_TOKEN=$(kubectl get secret local-influx-influxdb2-auth -o "jsonpat
+ ./visualization/setup-influx-db.sh
+ ```
+
++### Elastic Search / Opensearch
++
++```bash
++helm repo add opensearch https://opensearch-project.github.io/helm-charts/
++helm repo update
++helm search repo opensearch
++helm install my-deployment opensearch/opensearch
++helm install dashboards opensearch/opensearch-dashboards
++
++export ES_URL=https://localhost:9200
++oc port-forward svc/opensearch-cluster-master 9200:9200
++export ES_USERNAME=admin
++export ES_PASSWORD=admin
++
++# Creates an index template
++./test/performance/visualization/setup-es-index.sh
++
++# Sample log entry to create:
++
++curl -u elastic:Y*A_Ce=+0wbsV8C-b+u* -k -X POST "https://localhost:9200/knative-serving-data-plane/_doc" -H 'Content-Type: application/json' -d'
++{
++  "@timestamp": "2023-09-12T11:23:23+03:00",
++  "_measurement": "Knative Serving dataplane probe",
++  "activator-pod-count": "2",
++  "tags": [{"JOB_NAME": "custom", "t21":"t2"}]
++}
++'
++
++SYSTEM_NAMESPACE=knative-serving
++JOB_NAME="local"
++BUILD_ID="local"
++USE_OPEN_SEARCH=true
++export ES_URL=https://admin:admin@opensearch-cluster-master.default.svc.cluster.local:9200
++
++
++kubectl create secret generic performance-test-config -n "default" \
++  --from-literal=esurl="${ES_URL}" \
++  --from-literal=esusername="${ES_USERNAME}" \
++  --from-literal=espassword="${ES_PASSWORD}" \
++  --from-literal=jobname="${JOB_NAME}" \
++  --from-literal=buildid="${BUILD_ID}"
++
++ko apply -f ./test/performance/benchmarks/dataplane-probe/dataplane-probe-setup.yaml
++sed "s|@SYSTEM_NAMESPACE@|$SYSTEM_NAMESPACE|g" ./test/performance/benchmarks/dataplane-probe/dataplane-probe-deployment.yaml | sed "s|@KO_DOCKER_REPO@|$KO_DOCKER_REPO|g" | sed "s|@USE_OPEN_SEARCH@|\"$USE_OPEN_SEARCH\"|g" | sed "s|@USE_ES@|'false'|g" | ko apply --sbom=none -Bf -
++```
++
+ ### Local grafana dashboards
+
+ Use an existing grafana instance or create one on your cluster, [see docs](https://grafana.com/docs/grafana/latest/setup-grafana/installation/kubernetes/).
+diff --git a/test/performance/benchmarks/dataplane-probe/dataplane-probe-activator.yaml b/test/performance/benchmarks/dataplane-probe/dataplane-probe-activator.yaml
+index af0d32631..9c2b2da4d 100644
+--- a/test/performance/benchmarks/dataplane-probe/dataplane-probe-activator.yaml
++++ b/test/performance/benchmarks/dataplane-probe/dataplane-probe-activator.yaml
+@@ -51,16 +51,40 @@ spec:
+           env:
+             - name: SYSTEM_NAMESPACE
+               value: $SYSTEM_NAMESPACE
++            - name: USE_OPEN_SEARCH
++              value: $USE_OPEN_SEARCH
++            - name: USE_ES
++              value: $USE_ES
+             - name: INFLUX_URL
+               valueFrom:
+                 secretKeyRef:
+                   name: performance-test-config
+                   key: influxurl
++                  optional: true
+             - name: INFLUX_TOKEN
+               valueFrom:
+                 secretKeyRef:
+                   name: performance-test-config
+                   key: influxtoken
++                  optional: true
++            - name: ES_URL
++              valueFrom:
++                secretKeyRef:
++                  name: performance-test-config
++                  key: esurl
++                  optional: true
++            - name: ES_USERNAME
++              valueFrom:
++                secretKeyRef:
++                  name: performance-test-config
++                  key: esusername
++                  optional: true
++            - name: ES_PASSWORD
++              valueFrom:
++                secretKeyRef:
++                  name: performance-test-config
++                  key: espassword
++                  optional: true
+             - name: JOB_NAME
+               valueFrom:
+                 secretKeyRef:
+diff --git a/test/performance/benchmarks/dataplane-probe/dataplane-probe-deployment.yaml b/test/performance/benchmarks/dataplane-probe/dataplane-probe-deployment.yaml
+index dd32a9929..a9fc2ba58 100644
+--- a/test/performance/benchmarks/dataplane-probe/dataplane-probe-deployment.yaml
++++ b/test/performance/benchmarks/dataplane-probe/dataplane-probe-deployment.yaml
+@@ -51,16 +51,40 @@ spec:
+           env:
+             - name: SYSTEM_NAMESPACE
+               value: $SYSTEM_NAMESPACE
++            - name: USE_OPEN_SEARCH
++              value: $USE_OPEN_SEARCH
++            - name: USE_ES
++              value: $USE_ES
+             - name: INFLUX_URL
+               valueFrom:
+                 secretKeyRef:
+                   name: performance-test-config
+                   key: influxurl
++                  optional: true
+             - name: INFLUX_TOKEN
+               valueFrom:
+                 secretKeyRef:
+                   name: performance-test-config
+                   key: influxtoken
++                  optional: true
++            - name: ES_URL
++              valueFrom:
++                secretKeyRef:
++                  name: performance-test-config
++                  key: esurl
++                  optional: true
++            - name: ES_USERNAME
++              valueFrom:
++                secretKeyRef:
++                  name: performance-test-config
++                  key: esusername
++                  optional: true
++            - name: ES_PASSWORD
++              valueFrom:
++                secretKeyRef:
++                  name: performance-test-config
++                  key: espassword
++                  optional: true
+             - name: JOB_NAME
+               valueFrom:
+                 secretKeyRef:
+diff --git a/test/performance/benchmarks/dataplane-probe/dataplane-probe-queue.yaml b/test/performance/benchmarks/dataplane-probe/dataplane-probe-queue.yaml
+index 63737a5df..6fc01ccd6 100644
+--- a/test/performance/benchmarks/dataplane-probe/dataplane-probe-queue.yaml
++++ b/test/performance/benchmarks/dataplane-probe/dataplane-probe-queue.yaml
+@@ -51,16 +51,40 @@ spec:
+           env:
+             - name: SYSTEM_NAMESPACE
+               value: $SYSTEM_NAMESPACE
++            - name: USE_OPEN_SEARCH
++              value: $USE_OPEN_SEARCH
++            - name: USE_ES
++              value: $USE_ES
+             - name: INFLUX_URL
+               valueFrom:
+                 secretKeyRef:
+                   name: performance-test-config
+                   key: influxurl
++                  optional: true
+             - name: INFLUX_TOKEN
+               valueFrom:
+                 secretKeyRef:
+                   name: performance-test-config
+                   key: influxtoken
++                  optional: true
++            - name: ES_URL
++              valueFrom:
++                secretKeyRef:
++                  name: performance-test-config
++                  key: esurl
++                  optional: true
++            - name: ES_USERNAME
++              valueFrom:
++                secretKeyRef:
++                  name: performance-test-config
++                  key: esusername
++                  optional: true
++            - name: ES_PASSWORD
++              valueFrom:
++                secretKeyRef:
++                  name: performance-test-config
++                  key: espassword
++                  optional: true
+             - name: JOB_NAME
+               valueFrom:
+                 secretKeyRef:
+@@ -75,6 +99,9 @@ spec:
+             requests:
+               cpu: 1000m
+               memory: 3Gi
++            limits:
++              cpu: 1000m
++              memory: 3Gi
+           securityContext:
+             seccompProfile:
+               type: RuntimeDefault
+diff --git a/test/performance/benchmarks/dataplane-probe/main.go b/test/performance/benchmarks/dataplane-probe/main.go
+index 58693daa3..ff0a8b37b 100644
+--- a/test/performance/benchmarks/dataplane-probe/main.go
++++ b/test/performance/benchmarks/dataplane-probe/main.go
+@@ -118,11 +118,11 @@ func main() {
+ 	targeter := vegeta.NewStaticTargeter(t.target)
+ 	attacker := vegeta.NewAttacker(vegeta.Timeout(30 * time.Second))
+
+-	influxReporter, err := performance.NewInfluxReporter(map[string]string{"target": *target})
++	reporter, err := performance.NewDataPointReporterFactory(map[string]string{"target": *target}, benchmarkName)
+ 	if err != nil {
+-		log.Fatalf("failed to create influx reporter: %v", err.Error())
++		log.Fatalf("failed to create reporter: %v", err.Error())
+ 	}
+-	defer influxReporter.FlushAndShutdown()
++	defer reporter.FlushAndShutdown()
+
+ 	// Start the attack!
+ 	results := attacker.Attack(targeter, rate, *duration, "load-test")
+@@ -140,7 +140,7 @@ LOOP:
+
+ 		case ds := <-deploymentStatus:
+ 			// Report number of ready activators.
+-			influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{"activator-pod-count": ds.ReadyReplicas})
++			reporter.AddDataPoint(benchmarkName, map[string]interface{}{"activator-pod-count": float64(ds.ReadyReplicas)})
+
+ 		case res, ok := <-results:
+ 			if ok {
+@@ -156,12 +156,12 @@ LOOP:
+ 	metricResults.Close()
+
+ 	// Report the results
+-	influxReporter.AddDataPointsForMetrics(metricResults, benchmarkName)
++	reporter.AddDataPointsForMetrics(metricResults, benchmarkName)
+ 	_ = vegeta.NewTextReporter(metricResults).Report(os.Stdout)
+
+ 	if err := checkSLA(metricResults, t.slaMin, t.slaMax, rate, *duration); err != nil {
+ 		// make sure to still write the stats
+-		influxReporter.FlushAndShutdown()
++		reporter.FlushAndShutdown()
+ 		log.Fatalf(err.Error())
+ 	}
+
+diff --git a/test/performance/benchmarks/load-test/load-test-0-direct.yaml b/test/performance/benchmarks/load-test/load-test-0-direct.yaml
+index 30c1a9973..c0190a69f 100644
+--- a/test/performance/benchmarks/load-test/load-test-0-direct.yaml
++++ b/test/performance/benchmarks/load-test/load-test-0-direct.yaml
+@@ -53,16 +53,40 @@ spec:
+             value: $KO_DOCKER_REPO
+           - name: SYSTEM_NAMESPACE
+             value: $SYSTEM_NAMESPACE
++          - name: USE_OPEN_SEARCH
++            value: $USE_OPEN_SEARCH
++          - name: USE_ES
++            value: $USE_ES
+           - name: INFLUX_URL
+             valueFrom:
+               secretKeyRef:
+                 name: performance-test-config
+                 key: influxurl
++                optional: true
+           - name: INFLUX_TOKEN
+             valueFrom:
+               secretKeyRef:
+                 name: performance-test-config
+                 key: influxtoken
++                optional: true
++          - name: ES_URL
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: esurl
++                optional: true
++          - name: ES_USERNAME
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: esusername
++                optional: true
++          - name: ES_PASSWORD
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: espassword
++                optional: true
+           - name: JOB_NAME
+             valueFrom:
+               secretKeyRef:
+diff --git a/test/performance/benchmarks/load-test/load-test-200-direct.yaml b/test/performance/benchmarks/load-test/load-test-200-direct.yaml
+index 9443f62f3..da4f8fb30 100644
+--- a/test/performance/benchmarks/load-test/load-test-200-direct.yaml
++++ b/test/performance/benchmarks/load-test/load-test-200-direct.yaml
+@@ -53,16 +53,40 @@ spec:
+             value: $KO_DOCKER_REPO
+           - name: SYSTEM_NAMESPACE
+             value: $SYSTEM_NAMESPACE
++          - name: USE_OPEN_SEARCH
++            value: $USE_OPEN_SEARCH
++          - name: USE_ES
++            value: $USE_ES
+           - name: INFLUX_URL
+             valueFrom:
+               secretKeyRef:
+                 name: performance-test-config
+                 key: influxurl
++                optional: true
+           - name: INFLUX_TOKEN
+             valueFrom:
+               secretKeyRef:
+                 name: performance-test-config
+                 key: influxtoken
++                optional: true
++          - name: ES_URL
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: esurl
++                optional: true
++          - name: ES_USERNAME
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: esusername
++                optional: true
++          - name: ES_PASSWORD
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: espassword
++                optional: true
+           - name: JOB_NAME
+             valueFrom:
+               secretKeyRef:
+diff --git a/test/performance/benchmarks/load-test/load-test-always-direct.yaml b/test/performance/benchmarks/load-test/load-test-always-direct.yaml
+index 64c1e99a5..2c7b6295d 100644
+--- a/test/performance/benchmarks/load-test/load-test-always-direct.yaml
++++ b/test/performance/benchmarks/load-test/load-test-always-direct.yaml
+@@ -53,16 +53,40 @@ spec:
+             value: $KO_DOCKER_REPO
+           - name: SYSTEM_NAMESPACE
+             value: $SYSTEM_NAMESPACE
++          - name: USE_OPEN_SEARCH
++            value: $USE_OPEN_SEARCH
++          - name: USE_ES
++            value: $USE_ES
+           - name: INFLUX_URL
+             valueFrom:
+               secretKeyRef:
+                 name: performance-test-config
+                 key: influxurl
++                optional: true
+           - name: INFLUX_TOKEN
+             valueFrom:
+               secretKeyRef:
+                 name: performance-test-config
+                 key: influxtoken
++                optional: true
++          - name: ES_URL
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: esurl
++                optional: true
++          - name: ES_USERNAME
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: esusername
++                optional: true
++          - name: ES_PASSWORD
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: espassword
++                optional: true
+           - name: JOB_NAME
+             valueFrom:
+               secretKeyRef:
+diff --git a/test/performance/benchmarks/load-test/main.go b/test/performance/benchmarks/load-test/main.go
+index 4e55b942d..336bb88da 100644
+--- a/test/performance/benchmarks/load-test/main.go
++++ b/test/performance/benchmarks/load-test/main.go
+@@ -62,11 +62,11 @@ func main() {
+ 	ctx, cancel := context.WithTimeout(ctx, 8*time.Minute)
+ 	defer cancel()
+
+-	influxReporter, err := performance.NewInfluxReporter(map[string]string{"flavor": *flavor})
++	reporter, err := performance.NewDataPointReporterFactory(map[string]string{"flavor": *flavor}, benchmarkName)
+ 	if err != nil {
+-		log.Fatalf("failed to create influx reporter: %v", err.Error())
++		log.Fatalf("failed to create data point reporter: %v", err.Error())
+ 	}
+-	defer influxReporter.FlushAndShutdown()
++	defer reporter.FlushAndShutdown()
+
+ 	log.Print("Starting the load test.")
+ 	// Ramp up load from 1k to 3k in 2 minute steps.
+@@ -98,22 +98,22 @@ func main() {
+ 		log.Fatalf("Error creating the pacer: %v", err)
+ 	}
+ 	resultsChan := vegeta.NewAttacker().Attack(targeter, pacer, 3*duration, "load-test")
+-	metricResults := processResults(ctx, resultsChan, influxReporter, selector)
++	metricResults := processResults(ctx, resultsChan, &reporter, selector)
+
+ 	// Report the results
+-	influxReporter.AddDataPointsForMetrics(metricResults, benchmarkName)
++	reporter.AddDataPointsForMetrics(metricResults, benchmarkName)
+ 	_ = vegeta.NewTextReporter(metricResults).Report(os.Stdout)
+
+ 	if err := checkSLA(metricResults, pacers, durations); err != nil {
+ 		// make sure to still write the stats
+-		influxReporter.FlushAndShutdown()
++		reporter.FlushAndShutdown()
+ 		log.Fatalf(err.Error())
+ 	}
+
+ 	log.Println("Load test finished")
+ }
+
+-func processResults(ctx context.Context, results <-chan *vegeta.Result, reporter *performance.InfluxReporter, selector labels.Selector) *vegeta.Metrics {
++func processResults(ctx context.Context, results <-chan *vegeta.Result, reporter *performance.DataPointReporter, selector labels.Selector) *vegeta.Metrics {
+ 	ctx, cancel := context.WithCancel(ctx)
+ 	deploymentStatus := performance.FetchDeploymentsStatus(ctx, namespace, selector, time.Second)
+ 	sksMode := performance.FetchSKSStatus(ctx, namespace, selector, time.Second)
+@@ -141,8 +141,8 @@ func processResults(ctx context.Context, results <-chan *vegeta.Result, reporter
+
+ 		case ds := <-deploymentStatus:
+ 			// Add a sample point for the deployment status
+-			reporter.AddDataPoint(benchmarkName,
+-				map[string]interface{}{"ready-replicas": ds.ReadyReplicas, "desired-replicas": ds.DesiredReplicas})
++			(*reporter).AddDataPoint(benchmarkName,
++				map[string]interface{}{"ready-replicas": float64(ds.ReadyReplicas), "desired-replicas": float64(ds.DesiredReplicas)})
+
+ 		case sksm := <-sksMode:
+ 			// Add a sample point for the serverless service mode
+@@ -150,8 +150,8 @@ func processResults(ctx context.Context, results <-chan *vegeta.Result, reporter
+ 			if sksm.Mode == netv1alpha1.SKSOperationModeProxy {
+ 				mode = 1.0
+ 			}
+-			reporter.AddDataPoint(benchmarkName,
+-				map[string]interface{}{"sks": mode, "num-activators": sksm.NumActivators})
++			(*reporter).AddDataPoint(benchmarkName,
++				map[string]interface{}{"sks": mode, "num-activators": float64(sksm.NumActivators)})
+ 		}
+ 	}
+ }
+diff --git a/test/performance/benchmarks/real-traffic-test/main.go b/test/performance/benchmarks/real-traffic-test/main.go
+index bad45b394..718831c64 100644
+--- a/test/performance/benchmarks/real-traffic-test/main.go
++++ b/test/performance/benchmarks/real-traffic-test/main.go
+@@ -115,11 +115,11 @@ func main() {
+ 		log.Fatal("Failed to setup clients: ", err)
+ 	}
+
+-	influxReporter, err := performance.NewInfluxReporter(map[string]string{"number-of-services": strconv.Itoa(*numberOfServices)})
++	reporter, err := performance.NewDataPointReporterFactory(map[string]string{"number-of-services": strconv.Itoa(*numberOfServices)}, benchmarkName)
+ 	if err != nil {
+-		log.Fatalf("failed to create influx reporter: %v", err.Error())
++		log.Fatalf("failed to create reporter: %v", err.Error())
+ 	}
+-	defer influxReporter.FlushAndShutdown()
++	defer reporter.FlushAndShutdown()
+
+ 	log.Printf("Creating %d Knative Services", *numberOfServices)
+ 	services, cleanup, err := createServices(clients, *numberOfServices)
+@@ -179,12 +179,12 @@ LOOP:
+ 	metricResults.Close()
+
+ 	// Report the results
+-	influxReporter.AddDataPointsForMetrics(metricResults, benchmarkName)
++	reporter.AddDataPointsForMetrics(metricResults, benchmarkName)
+ 	_ = vegeta.NewTextReporter(metricResults).Report(os.Stdout)
+
+ 	if err := checkSLA(metricResults, rate); err != nil {
+ 		cleanup()
+-		influxReporter.FlushAndShutdown()
++		reporter.FlushAndShutdown()
+ 		log.Fatal(err.Error())
+ 	}
+
+diff --git a/test/performance/benchmarks/real-traffic-test/real-traffic-test.yaml b/test/performance/benchmarks/real-traffic-test/real-traffic-test.yaml
+index 5154b38a3..f4f47ec5a 100644
+--- a/test/performance/benchmarks/real-traffic-test/real-traffic-test.yaml
++++ b/test/performance/benchmarks/real-traffic-test/real-traffic-test.yaml
+@@ -47,23 +47,48 @@ spec:
+       - name: load-test
+         image: ko://knative.dev/serving/test/performance/benchmarks/real-traffic-test
+         args:
+-        - "-number-of-services=50"
+-        - "-requests-per-second=2000"
++          - "-number-of-services=50"
++          - "-requests-per-second=2000"
++          - $IMAGE_TEMPLATE_REPLACE
+         env:
+           - name: KO_DOCKER_REPO
+             value: $KO_DOCKER_REPO
+           - name: SYSTEM_NAMESPACE
+             value: $SYSTEM_NAMESPACE
++          - name: USE_OPEN_SEARCH
++            value: $USE_OPEN_SEARCH
++          - name: USE_ES
++            value: $USE_ES
+           - name: INFLUX_URL
+             valueFrom:
+               secretKeyRef:
+                 name: performance-test-config
+                 key: influxurl
++                optional: true
+           - name: INFLUX_TOKEN
+             valueFrom:
+               secretKeyRef:
+                 name: performance-test-config
+                 key: influxtoken
++                optional: true
++          - name: ES_URL
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: esurl
++                optional: true
++          - name: ES_USERNAME
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: esusername
++                optional: true
++          - name: ES_PASSWORD
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: espassword
++                optional: true
+           - name: JOB_NAME
+             valueFrom:
+               secretKeyRef:
+diff --git a/test/performance/benchmarks/reconciliation-delay/main.go b/test/performance/benchmarks/reconciliation-delay/main.go
+index 1c7f600b4..4c7dcdd91 100644
+--- a/test/performance/benchmarks/reconciliation-delay/main.go
++++ b/test/performance/benchmarks/reconciliation-delay/main.go
+@@ -108,28 +108,28 @@ func main() {
+ 		fatalf("Unable to watch services: %v", err)
+ 	}
+ 	defer serviceWI.Stop()
+-	serviceSeen := sets.Set[string]{}
++	serviceSeen := make(sets.String)
+
+ 	configurationWI, err := sc.ServingV1().Configurations(namespace).Watch(ctx, lo)
+ 	if err != nil {
+ 		fatalf("Unable to watch configurations: %v", err)
+ 	}
+ 	defer configurationWI.Stop()
+-	configurationSeen := sets.Set[string]{}
++	configurationSeen := make(sets.String)
+
+ 	routeWI, err := sc.ServingV1().Routes(namespace).Watch(ctx, lo)
+ 	if err != nil {
+ 		fatalf("Unable to watch routes: %v", err)
+ 	}
+ 	defer routeWI.Stop()
+-	routeSeen := sets.Set[string]{}
++	routeSeen := make(sets.String)
+
+ 	revisionWI, err := sc.ServingV1().Revisions(namespace).Watch(ctx, lo)
+ 	if err != nil {
+ 		fatalf("Unable to watch revisions: %v", err)
+ 	}
+ 	defer revisionWI.Stop()
+-	revisionSeen := sets.Set[string]{}
++	revisionSeen := make(sets.String)
+
+ 	nc := networkingclient.Get(ctx)
+ 	ingressWI, err := nc.NetworkingV1alpha1().Ingresses(namespace).Watch(ctx, lo)
+@@ -137,29 +137,29 @@ func main() {
+ 		fatalf("Unable to watch ingresss: %v", err)
+ 	}
+ 	defer ingressWI.Stop()
+-	ingressSeen := sets.Set[string]{}
++	ingressSeen := make(sets.String)
+
+ 	sksWI, err := nc.NetworkingV1alpha1().ServerlessServices(namespace).Watch(ctx, lo)
+ 	if err != nil {
+ 		fatalf("Unable to watch skss: %v", err)
+ 	}
+ 	defer sksWI.Stop()
+-	sksSeen := sets.Set[string]{}
++	sksSeen := make(sets.String)
+
+ 	paWI, err := sc.AutoscalingV1alpha1().PodAutoscalers(namespace).Watch(ctx, lo)
+ 	if err != nil {
+ 		fatalf("Unable to watch pas: %v", err)
+ 	}
+ 	defer paWI.Stop()
+-	paSeen := sets.Set[string]{}
++	paSeen := make(sets.String)
+
+ 	tick := time.NewTicker(*frequency)
+ 	metricResults := func() *vegeta.Metrics {
+-		influxReporter, err := performance.NewInfluxReporter(map[string]string{})
++		reporter, err := performance.NewDataPointReporterFactory(map[string]string{}, benchmarkName)
+ 		if err != nil {
+-			fatalf(fmt.Sprintf("failed to create influx reporter: %v", err.Error()))
++			fatalf(fmt.Sprintf("failed to create data point reporter: %v", err.Error()))
+ 		}
+-		defer influxReporter.FlushAndShutdown()
++		defer reporter.FlushAndShutdown()
+
+ 		// We use vegeta.Metrics here as a metrics collector because it already contains logic to calculate percentiles
+ 		mr := &vegeta.Metrics{}
+@@ -184,7 +184,7 @@ func main() {
+ 					break
+ 				}
+ 				svc := event.Object.(*v1.Service)
+-				handleEvent(influxReporter, mr, svc, svc.Status.Status, serviceSeen, "Service")
++				handleEvent(&reporter, mr, svc, svc.Status.Status, serviceSeen, "Service")
+
+ 			case event := <-configurationWI.ResultChan():
+ 				if event.Type != watch.Modified {
+@@ -192,7 +192,7 @@ func main() {
+ 					break
+ 				}
+ 				cfg := event.Object.(*v1.Configuration)
+-				handleEvent(influxReporter, mr, cfg, cfg.Status.Status, configurationSeen, "Configuration")
++				handleEvent(&reporter, mr, cfg, cfg.Status.Status, configurationSeen, "Configuration")
+
+ 			case event := <-routeWI.ResultChan():
+ 				if event.Type != watch.Modified {
+@@ -200,7 +200,7 @@ func main() {
+ 					break
+ 				}
+ 				rt := event.Object.(*v1.Route)
+-				handleEvent(influxReporter, mr, rt, rt.Status.Status, routeSeen, "Route")
++				handleEvent(&reporter, mr, rt, rt.Status.Status, routeSeen, "Route")
+
+ 			case event := <-revisionWI.ResultChan():
+ 				if event.Type != watch.Modified {
+@@ -208,7 +208,7 @@ func main() {
+ 					break
+ 				}
+ 				rev := event.Object.(*v1.Revision)
+-				handleEvent(influxReporter, mr, rev, rev.Status.Status, revisionSeen, "Revision")
++				handleEvent(&reporter, mr, rev, rev.Status.Status, revisionSeen, "Revision")
+
+ 			case event := <-ingressWI.ResultChan():
+ 				if event.Type != watch.Modified {
+@@ -216,7 +216,7 @@ func main() {
+ 					break
+ 				}
+ 				ing := event.Object.(*netv1alpha1.Ingress)
+-				handleEvent(influxReporter, mr, ing, ing.Status.Status, ingressSeen, "Ingress")
++				handleEvent(&reporter, mr, ing, ing.Status.Status, ingressSeen, "Ingress")
+
+ 			case event := <-sksWI.ResultChan():
+ 				if event.Type != watch.Modified {
+@@ -224,7 +224,7 @@ func main() {
+ 					break
+ 				}
+ 				ing := event.Object.(*netv1alpha1.ServerlessService)
+-				handleEvent(influxReporter, mr, ing, ing.Status.Status, sksSeen, "ServerlessService")
++				handleEvent(&reporter, mr, ing, ing.Status.Status, sksSeen, "ServerlessService")
+
+ 			case event := <-paWI.ResultChan():
+ 				if event.Type != watch.Modified {
+@@ -232,7 +232,7 @@ func main() {
+ 					break
+ 				}
+ 				pa := event.Object.(*autoscalingv1alpha1.PodAutoscaler)
+-				handleEvent(influxReporter, mr, pa, pa.Status.Status, paSeen, "PodAutoscaler")
++				handleEvent(&reporter, mr, pa, pa.Status.Status, paSeen, "PodAutoscaler")
+ 			}
+ 		}
+ 	}()
+@@ -271,8 +271,8 @@ func getService() *v1.Service {
+ 	return v1test.Service(rn, sos...)
+ }
+
+-func handleEvent(influxReporter *performance.InfluxReporter, metricResults *vegeta.Metrics, svc kmeta.Accessor,
+-	status duckv1.Status, seen sets.Set[string], metric string) {
++func handleEvent(reporter *performance.DataPointReporter, metricResults *vegeta.Metrics, svc kmeta.Accessor,
++	status duckv1.Status, seen sets.String, metric string) {
+ 	if seen.Has(svc.GetName()) {
+ 		return
+ 	}
+@@ -288,7 +288,7 @@ func handleEvent(influxReporter *performance.InfluxReporter, metricResults *vege
+ 	elapsed := ready.Sub(created)
+
+ 	if cc.Status == corev1.ConditionTrue {
+-		influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{metric: elapsed.Seconds()})
++		(*reporter).AddDataPoint(benchmarkName, map[string]interface{}{metric: elapsed.Seconds()})
+ 		result := vegeta.Result{
+ 			Latency: elapsed,
+ 		}
+diff --git a/test/performance/benchmarks/reconciliation-delay/reconciliation-delay.yaml b/test/performance/benchmarks/reconciliation-delay/reconciliation-delay.yaml
+index 3f5be345a..a78680542 100644
+--- a/test/performance/benchmarks/reconciliation-delay/reconciliation-delay.yaml
++++ b/test/performance/benchmarks/reconciliation-delay/reconciliation-delay.yaml
+@@ -49,21 +49,46 @@ spec:
+         args:
+         - "-duration=15m"
+         - "-frequency=5s"
++        - $IMAGE_TEMPLATE_REPLACE
+         env:
+           - name: KO_DOCKER_REPO
+             value: $KO_DOCKER_REPO
+           - name: SYSTEM_NAMESPACE
+             value: $SYSTEM_NAMESPACE
++          - name: USE_OPEN_SEARCH
++            value: $USE_OPEN_SEARCH
++          - name: USE_ES
++            value: $USE_ES
+           - name: INFLUX_URL
+             valueFrom:
+               secretKeyRef:
+                 name: performance-test-config
+                 key: influxurl
++                optional: true
+           - name: INFLUX_TOKEN
+             valueFrom:
+               secretKeyRef:
+                 name: performance-test-config
+                 key: influxtoken
++                optional: true
++          - name: ES_URL
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: esurl
++                optional: true
++          - name: ES_USERNAME
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: esusername
++                optional: true
++          - name: ES_PASSWORD
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: espassword
++                optional: true
+           - name: JOB_NAME
+             valueFrom:
+               secretKeyRef:
+diff --git a/test/performance/benchmarks/rollout-probe/main.go b/test/performance/benchmarks/rollout-probe/main.go
+index 288125138..8f1144ea0 100644
+--- a/test/performance/benchmarks/rollout-probe/main.go
++++ b/test/performance/benchmarks/rollout-probe/main.go
+@@ -114,11 +114,11 @@ func main() {
+ 	})
+ 	log.Print("Running rollout probe test with selector: ", selector)
+
+-	influxReporter, err := performance.NewInfluxReporter(map[string]string{"target": *target})
++	reporter, err := performance.NewDataPointReporterFactory(map[string]string{"target": *target}, benchmarkName)
+ 	if err != nil {
+-		log.Fatalf("failed to create influx reporter: %v", err.Error())
++		log.Fatalf("failed to create data point reporter: %v", err.Error())
+ 	}
+-	defer influxReporter.FlushAndShutdown()
++	defer reporter.FlushAndShutdown()
+
+ 	// Setup background metric processes
+ 	deploymentStatus := performance.FetchDeploymentsStatus(ctx, namespace, selector, time.Second)
+@@ -175,12 +175,12 @@ LOOP:
+ 			// If it is the first one -- report it.
+ 			if strings.Contains(ds.DeploymentName, firstRev) {
+ 				// Add a sample point for the deployment status.
+-				influxReporter.AddDataPoint(benchmarkName,
+-					map[string]interface{}{"desired-pods": ds.DesiredReplicas, "available-pods": ds.ReadyReplicas})
++				reporter.AddDataPoint(benchmarkName,
++					map[string]interface{}{"desired-pods": float64(ds.DesiredReplicas), "available-pods": float64(ds.ReadyReplicas)})
+ 			} else if secondRev != "" && strings.Contains(ds.DeploymentName, secondRev) {
+ 				// Otherwise report the pods for the new deployment.
+-				influxReporter.AddDataPoint(benchmarkName,
+-					map[string]interface{}{"desired-pods-new": ds.DesiredReplicas, "available-pods-new": ds.ReadyReplicas})
++				reporter.AddDataPoint(benchmarkName,
++					map[string]interface{}{"desired-pods-new": float64(ds.DesiredReplicas), "available-pods-new": float64(ds.ReadyReplicas)})
+ 				// Ignore all other revisions' deployments if there are, since
+ 				// they are from previous test run iterations, and we don't care about
+ 				// their reported scale values (should be 0 & 100 depending on which
+@@ -208,12 +208,12 @@ LOOP:
+ 	metricResults.Close()
+
+ 	// Report the results
+-	influxReporter.AddDataPointsForMetrics(metricResults, benchmarkName)
++	reporter.AddDataPointsForMetrics(metricResults, benchmarkName)
+ 	_ = vegeta.NewTextReporter(metricResults).Report(os.Stdout)
+
+ 	if err := checkSLA(metricResults, rate); err != nil {
+ 		// make sure to still write the stats
+-		influxReporter.FlushAndShutdown()
++		reporter.FlushAndShutdown()
+ 		log.Fatalf(err.Error())
+ 	}
+
+diff --git a/test/performance/benchmarks/rollout-probe/rollout-probe-activator-direct-lin.yaml b/test/performance/benchmarks/rollout-probe/rollout-probe-activator-direct-lin.yaml
+index d926ffd90..f4df6d2b9 100644
+--- a/test/performance/benchmarks/rollout-probe/rollout-probe-activator-direct-lin.yaml
++++ b/test/performance/benchmarks/rollout-probe/rollout-probe-activator-direct-lin.yaml
+@@ -52,16 +52,40 @@ spec:
+             value: $KO_DOCKER_REPO
+           - name: SYSTEM_NAMESPACE
+             value: $SYSTEM_NAMESPACE
++          - name: USE_OPEN_SEARCH
++            value: $USE_OPEN_SEARCH
++          - name: USE_ES
++            value: $USE_ES
+           - name: INFLUX_URL
+             valueFrom:
+               secretKeyRef:
+                 name: performance-test-config
+                 key: influxurl
++                optional: true
+           - name: INFLUX_TOKEN
+             valueFrom:
+               secretKeyRef:
+                 name: performance-test-config
+                 key: influxtoken
++                optional: true
++          - name: ES_URL
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: esurl
++                optional: true
++          - name: ES_USERNAME
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: esusername
++                optional: true
++          - name: ES_PASSWORD
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: espassword
++                optional: true
+           - name: JOB_NAME
+             valueFrom:
+               secretKeyRef:
+diff --git a/test/performance/benchmarks/rollout-probe/rollout-probe-activator-direct.yaml b/test/performance/benchmarks/rollout-probe/rollout-probe-activator-direct.yaml
+index f4c2bfbf0..5d31e242c 100644
+--- a/test/performance/benchmarks/rollout-probe/rollout-probe-activator-direct.yaml
++++ b/test/performance/benchmarks/rollout-probe/rollout-probe-activator-direct.yaml
+@@ -52,16 +52,40 @@ spec:
+             value: $KO_DOCKER_REPO
+           - name: SYSTEM_NAMESPACE
+             value: $SYSTEM_NAMESPACE
++          - name: USE_OPEN_SEARCH
++            value: $USE_OPEN_SEARCH
++          - name: USE_ES
++            value: $USE_ES
+           - name: INFLUX_URL
+             valueFrom:
+               secretKeyRef:
+                 name: performance-test-config
+                 key: influxurl
++                optional: true
+           - name: INFLUX_TOKEN
+             valueFrom:
+               secretKeyRef:
+                 name: performance-test-config
+                 key: influxtoken
++                optional: true
++          - name: ES_URL
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: esurl
++                optional: true
++          - name: ES_USERNAME
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: esusername
++                optional: true
++          - name: ES_PASSWORD
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: espassword
++                optional: true
+           - name: JOB_NAME
+             valueFrom:
+               secretKeyRef:
+diff --git a/test/performance/benchmarks/rollout-probe/rollout-probe-queue-proxy-direct.yaml b/test/performance/benchmarks/rollout-probe/rollout-probe-queue-proxy-direct.yaml
+index 59705f94a..60ef86ae1 100644
+--- a/test/performance/benchmarks/rollout-probe/rollout-probe-queue-proxy-direct.yaml
++++ b/test/performance/benchmarks/rollout-probe/rollout-probe-queue-proxy-direct.yaml
+@@ -52,16 +52,40 @@ spec:
+             value: $KO_DOCKER_REPO
+           - name: SYSTEM_NAMESPACE
+             value: $SYSTEM_NAMESPACE
++          - name: USE_OPEN_SEARCH
++            value: $USE_OPEN_SEARCH
++          - name: USE_ES
++            value: $USE_ES
+           - name: INFLUX_URL
+             valueFrom:
+               secretKeyRef:
+                 name: performance-test-config
+                 key: influxurl
++                optional: true
+           - name: INFLUX_TOKEN
+             valueFrom:
+               secretKeyRef:
+                 name: performance-test-config
+                 key: influxtoken
++                optional: true
++          - name: ES_URL
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: esurl
++                optional: true
++          - name: ES_USERNAME
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: esusername
++                optional: true
++          - name: ES_PASSWORD
++            valueFrom:
++              secretKeyRef:
++                name: performance-test-config
++                key: espassword
++                optional: true
+           - name: JOB_NAME
+             valueFrom:
+               secretKeyRef:
+diff --git a/test/performance/benchmarks/scale-from-zero/main.go b/test/performance/benchmarks/scale-from-zero/main.go
+index 2c527c74b..886847e42 100644
+--- a/test/performance/benchmarks/scale-from-zero/main.go
++++ b/test/performance/benchmarks/scale-from-zero/main.go
+@@ -127,11 +127,11 @@ func main() {
+ 		log.Fatal("Failed to setup clients: ", err)
+ 	}
+
+-	influxReporter, err := performance.NewInfluxReporter(map[string]string{"parallel": strconv.Itoa(*parallelCount)})
++	reporter, err := performance.NewDataPointReporterFactory(map[string]string{"parallel": strconv.Itoa(*parallelCount)}, benchmarkName)
+ 	if err != nil {
+-		log.Fatalf("Failed to create InfluxReporter: %v", err)
++		log.Fatalf("Failed to create data point reporter: %v", err)
+ 	}
+-	defer influxReporter.FlushAndShutdown()
++	defer reporter.FlushAndShutdown()
+
+ 	// We use vegeta.Metrics here as a metrics collector because it already contains logic to calculate percentiles
+ 	vegetaReporter := performance.NewVegetaReporter()
+@@ -155,18 +155,18 @@ func main() {
+ 		fatalf("Failed to wait for all services to scale to zero: %v", err)
+ 	}
+
+-	parallelScaleFromZero(ctx, clients, services, influxReporter, vegetaReporter)
++	parallelScaleFromZero(ctx, clients, services, &reporter, vegetaReporter)
+
+ 	metricResults := vegetaReporter.StopAndCollectMetrics()
+
+ 	// Report the results
+-	influxReporter.AddDataPointsForMetrics(metricResults, benchmarkName)
++	reporter.AddDataPointsForMetrics(metricResults, benchmarkName)
+ 	_ = vegeta.NewTextReporter(metricResults).Report(os.Stdout)
+
+ 	sla := slas[*parallelCount]
+ 	if err := checkSLA(metricResults, sla.p95min, sla.p95max, sla.latencyMax, *parallelCount); err != nil {
+ 		// make sure to still write the stats
+-		influxReporter.FlushAndShutdown()
++		reporter.FlushAndShutdown()
+ 		log.Fatalf(err.Error())
+ 	}
+
+@@ -250,7 +250,7 @@ func waitForScaleToZero(ctx context.Context, objs []*v1test.ResourceObjects) err
+ 	return g.Wait()
+ }
+
+-func parallelScaleFromZero(ctx context.Context, clients *test.Clients, objs []*v1test.ResourceObjects, reporter *performance.InfluxReporter, vegetaReporter *performance.VegetaReporter) {
++func parallelScaleFromZero(ctx context.Context, clients *test.Clients, objs []*v1test.ResourceObjects, reporter *performance.DataPointReporter, vegetaReporter *performance.VegetaReporter) {
+ 	count := len(objs)
+ 	var wg sync.WaitGroup
+ 	wg.Add(count)
+@@ -261,16 +261,16 @@ func parallelScaleFromZero(ctx context.Context, clients *test.Clients, objs []*v
+ 			serviceReadyDuration, deploymentUpdatedDuration, err := runScaleFromZero(ctx, clients, ndx, objs[ndx])
+ 			if err == nil {
+ 				vegetaReporter.AddResult(&vegeta.Result{Latency: serviceReadyDuration})
+-				reporter.AddDataPoint(benchmarkName, map[string]interface{}{
++				(*reporter).AddDataPoint(benchmarkName, map[string]interface{}{
+ 					"service-ready-latency": serviceReadyDuration.Milliseconds(),
+ 				})
+-				reporter.AddDataPoint(benchmarkName, map[string]interface{}{
++				(*reporter).AddDataPoint(benchmarkName, map[string]interface{}{
+ 					"deployment-updated-latency": deploymentUpdatedDuration.Milliseconds(),
+ 				})
+ 			} else {
+ 				// Add 1 to the error metric whenever there is an error.
+-				reporter.AddDataPoint(benchmarkName, map[string]interface{}{
+-					"errors": 1,
++				(*reporter).AddDataPoint(benchmarkName, map[string]interface{}{
++					"errors": float64(1),
+ 				})
+ 			}
+ 		}()
+diff --git a/test/performance/benchmarks/scale-from-zero/scale-from-zero-1.yaml b/test/performance/benchmarks/scale-from-zero/scale-from-zero-1.yaml
+index 2968910ce..887677e05 100644
+--- a/test/performance/benchmarks/scale-from-zero/scale-from-zero-1.yaml
++++ b/test/performance/benchmarks/scale-from-zero/scale-from-zero-1.yaml
+@@ -46,22 +46,47 @@ spec:
+         - name: scale-from-zero
+           image: ko://knative.dev/serving/test/performance/benchmarks/scale-from-zero
+           args:
+-            - "-parallel=1"
++          - "-parallel=1"
++          - $IMAGE_TEMPLATE_REPLACE
+           env:
+             - name: KO_DOCKER_REPO
+               value: $KO_DOCKER_REPO
+             - name: SYSTEM_NAMESPACE
+               value: $SYSTEM_NAMESPACE
++            - name: USE_OPEN_SEARCH
++              value: $USE_OPEN_SEARCH
++            - name: USE_ES
++              value: $USE_ES
+             - name: INFLUX_URL
+               valueFrom:
+                 secretKeyRef:
+                   name: performance-test-config
+                   key: influxurl
++                  optional: true
+             - name: INFLUX_TOKEN
+               valueFrom:
+                 secretKeyRef:
+                   name: performance-test-config
+                   key: influxtoken
++                  optional: true
++            - name: ES_URL
++              valueFrom:
++                secretKeyRef:
++                  name: performance-test-config
++                  key: esurl
++                  optional: true
++            - name: ES_USERNAME
++              valueFrom:
++                secretKeyRef:
++                  name: performance-test-config
++                  key: esusername
++                  optional: true
++            - name: ES_PASSWORD
++              valueFrom:
++                secretKeyRef:
++                  name: performance-test-config
++                  key: espassword
++                  optional: true
+             - name: JOB_NAME
+               valueFrom:
+                 secretKeyRef:
+diff --git a/test/performance/benchmarks/scale-from-zero/scale-from-zero-100.yaml b/test/performance/benchmarks/scale-from-zero/scale-from-zero-100.yaml
+index eb0c1f9e7..22b7d1ef2 100644
+--- a/test/performance/benchmarks/scale-from-zero/scale-from-zero-100.yaml
++++ b/test/performance/benchmarks/scale-from-zero/scale-from-zero-100.yaml
+@@ -47,21 +47,46 @@ spec:
+           image: ko://knative.dev/serving/test/performance/benchmarks/scale-from-zero
+           args:
+             - "-parallel=100"
++            - $IMAGE_TEMPLATE_REPLACE
+           env:
+             - name: KO_DOCKER_REPO
+               value: $KO_DOCKER_REPO
+             - name: SYSTEM_NAMESPACE
+               value: $SYSTEM_NAMESPACE
++            - name: USE_OPEN_SEARCH
++              value: $USE_OPEN_SEARCH
++            - name: USE_ES
++              value: $USE_ES
+             - name: INFLUX_URL
+               valueFrom:
+                 secretKeyRef:
+                   name: performance-test-config
+                   key: influxurl
++                  optional: true
+             - name: INFLUX_TOKEN
+               valueFrom:
+                 secretKeyRef:
+                   name: performance-test-config
+                   key: influxtoken
++                  optional: true
++            - name: ES_URL
++              valueFrom:
++                secretKeyRef:
++                  name: performance-test-config
++                  key: esurl
++                  optional: true
++            - name: ES_USERNAME
++              valueFrom:
++                secretKeyRef:
++                  name: performance-test-config
++                  key: esusername
++                  optional: true
++            - name: ES_PASSWORD
++              valueFrom:
++                secretKeyRef:
++                  name: performance-test-config
++                  key: espassword
++                  optional: true
+             - name: JOB_NAME
+               valueFrom:
+                 secretKeyRef:
+diff --git a/test/performance/benchmarks/scale-from-zero/scale-from-zero-25.yaml b/test/performance/benchmarks/scale-from-zero/scale-from-zero-25.yaml
+index 33a9d6e90..4dceeb7f7 100644
+--- a/test/performance/benchmarks/scale-from-zero/scale-from-zero-25.yaml
++++ b/test/performance/benchmarks/scale-from-zero/scale-from-zero-25.yaml
+@@ -47,21 +47,46 @@ spec:
+           image: ko://knative.dev/serving/test/performance/benchmarks/scale-from-zero
+           args:
+             - "-parallel=25"
++            - $IMAGE_TEMPLATE_REPLACE
+           env:
+             - name: KO_DOCKER_REPO
+               value: $KO_DOCKER_REPO
+             - name: SYSTEM_NAMESPACE
+               value: $SYSTEM_NAMESPACE
++            - name: USE_OPEN_SEARCH
++              value: $USE_OPEN_SEARCH
++            - name: USE_ES
++              value: $USE_ES
+             - name: INFLUX_URL
+               valueFrom:
+                 secretKeyRef:
+                   name: performance-test-config
+                   key: influxurl
++                  optional: true
+             - name: INFLUX_TOKEN
+               valueFrom:
+                 secretKeyRef:
+                   name: performance-test-config
+                   key: influxtoken
++                  optional: true
++            - name: ES_URL
++              valueFrom:
++                secretKeyRef:
++                  name: performance-test-config
++                  key: esurl
++                  optional: true
++            - name: ES_USERNAME
++              valueFrom:
++                secretKeyRef:
++                  name: performance-test-config
++                  key: esusername
++                  optional: true
++            - name: ES_PASSWORD
++              valueFrom:
++                secretKeyRef:
++                  name: performance-test-config
++                  key: espassword
++                  optional: true
+             - name: JOB_NAME
+               valueFrom:
+                 secretKeyRef:
+diff --git a/test/performance/benchmarks/scale-from-zero/scale-from-zero-5.yaml b/test/performance/benchmarks/scale-from-zero/scale-from-zero-5.yaml
+index 356049086..13457d914 100644
+--- a/test/performance/benchmarks/scale-from-zero/scale-from-zero-5.yaml
++++ b/test/performance/benchmarks/scale-from-zero/scale-from-zero-5.yaml
+@@ -47,21 +47,46 @@ spec:
+           image: ko://knative.dev/serving/test/performance/benchmarks/scale-from-zero
+           args:
+             - "-parallel=5"
++            - $IMAGE_TEMPLATE_REPLACE
+           env:
+             - name: KO_DOCKER_REPO
+               value: $KO_DOCKER_REPO
+             - name: SYSTEM_NAMESPACE
+               value: $SYSTEM_NAMESPACE
++            - name: USE_OPEN_SEARCH
++              value: $USE_OPEN_SEARCH
++            - name: USE_ES
++              value: $USE_ES
+             - name: INFLUX_URL
+               valueFrom:
+                 secretKeyRef:
+                   name: performance-test-config
+                   key: influxurl
++                  optional: true
+             - name: INFLUX_TOKEN
+               valueFrom:
+                 secretKeyRef:
+                   name: performance-test-config
+                   key: influxtoken
++                  optional: true
++            - name: ES_URL
++              valueFrom:
++                secretKeyRef:
++                  name: performance-test-config
++                  key: esurl
++                  optional: true
++            - name: ES_USERNAME
++              valueFrom:
++                secretKeyRef:
++                  name: performance-test-config
++                  key: esusername
++                  optional: true
++            - name: ES_PASSWORD
++              valueFrom:
++                secretKeyRef:
++                  name: performance-test-config
++                  key: espassword
++                  optional: true
+             - name: JOB_NAME
+               valueFrom:
+                 secretKeyRef:
+diff --git a/test/performance/performance/es.go b/test/performance/performance/es.go
+new file mode 100644
+index 000000000..6a7794e46
+--- /dev/null
++++ b/test/performance/performance/es.go
+@@ -0,0 +1,109 @@
++package performance
++
++import (
++	"log"
++	"os"
++	"strings"
++	"time"
++
++	vegeta "github.com/tsenart/vegeta/v12/lib"
++	indexers2 "knative.dev/serving/test/performance/performance/indexers"
++)
++
++const (
++	ESServerURLSEnv  = "ES_URL"
++	UseOpenSearcnEnv = "USE_OPEN_SEARCH"
++	UseESEnv         = "USE_ES"
++)
++
++// ESReporter wraps an ES based indexer
++type ESReporter struct {
++	access *indexers2.Indexer
++	tags   map[string]string
++}
++
++func sanitizeIndex(index string) string {
++	indexRaw := strings.ToLower(index)
++	return strings.Replace(indexRaw, " ", "-", -1)
++}
++
++func splitServers(envURLS string) []string {
++	var addrs []string
++	list := strings.Split(envURLS, ",")
++	for _, u := range list {
++		addrs = append(addrs, strings.TrimSpace(u))
++	}
++	return addrs
++}
++
++func NewESReporter(tags map[string]string, indexerType indexers2.IndexerType, index string) (*ESReporter, error) {
++	var servers []string
++
++	if v, b := os.LookupEnv(ESServerURLSEnv); b {
++		servers = splitServers(v)
++	}
++	indexer, err := indexers2.NewIndexer(indexers2.IndexerConfig{
++		Type:               indexerType,
++		Index:              sanitizeIndex(index),
++		Servers:            servers,
++		InsecureSkipVerify: true,
++	})
++	if err != nil {
++		return nil, err
++	}
++
++	buildID, found := os.LookupEnv(buildIDKey)
++	if found {
++		tags[buildIDKey] = buildID
++	}
++	jobName, found := os.LookupEnv(jobNameKey)
++	if found {
++		tags[jobNameKey] = jobName
++	}
++
++	return &ESReporter{
++		access: indexer,
++		tags:   tags,
++	}, nil
++}
++
++func (esr *ESReporter) AddDataPointsForMetrics(m *vegeta.Metrics, benchmarkName string) {
++	metrics := []map[string]interface{}{
++		{
++			"requests":     float64(m.Requests),
++			"rate":         m.Rate,
++			"throughput":   m.Throughput,
++			"duration":     float64(m.Duration),
++			"latency-mean": float64(m.Latencies.Mean),
++			"latency-min":  float64(m.Latencies.Min),
++			"latency-max":  float64(m.Latencies.Max),
++			"latency-p95":  float64(m.Latencies.P95),
++			"success":      m.Success,
++			"errors":       float64(len(m.Errors)),
++			"bytes-in":     float64(m.BytesIn.Total),
++			"bytes-out":    float64(m.BytesOut.Total),
++		},
++	}
++
++	for _, m := range metrics {
++		esr.AddDataPoint(benchmarkName, m)
++	}
++}
++
++func (esr *ESReporter) AddDataPoint(measurement string, fields map[string]interface{}) {
++	p := fields
++	p["_measurement"] = measurement
++	p["tags"] = esr.tags
++	// Use the same format as in influxdb
++	p["@timestamp"] = time.Now().Format(time.RFC3339Nano)
++	docs := []interface{}{p}
++	msg, err := (*esr.access).Index(docs, indexers2.IndexingOpts{})
++	if err != nil {
++		log.Printf("Indexing failed: %s", err.Error())
++	}
++	log.Printf("%s\n", msg)
++}
++
++func (esr *ESReporter) FlushAndShutdown() {
++
++}
+diff --git a/test/performance/performance/indexers/elastic.go b/test/performance/performance/indexers/elastic.go
+new file mode 100644
+index 000000000..c7b48726e
+--- /dev/null
++++ b/test/performance/performance/indexers/elastic.go
+@@ -0,0 +1,132 @@
++// Copyright 2023 The go-commons Authors.
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package indexers
++
++import (
++	"bytes"
++	"context"
++	"crypto/sha256"
++	"crypto/tls"
++	"encoding/hex"
++	"encoding/json"
++	"fmt"
++	"net/http"
++	"runtime"
++	"strings"
++	"sync"
++	"time"
++
++	elasticsearch "github.com/elastic/go-elasticsearch/v7"
++	"github.com/elastic/go-elasticsearch/v7/esutil"
++)
++
++const elastic = "elastic"
++
++// Elastic ElasticSearch instance
++type Elastic struct {
++	index string
++}
++
++// ESClient elasticsearch client instance
++var ESClient *elasticsearch.Client
++
++// Init function
++func init() {
++	indexerMap[elastic] = &Elastic{}
++}
++
++// Returns new indexer for elastic search
++func (esIndexer *Elastic) new(indexerConfig IndexerConfig) error {
++	var err error
++	if indexerConfig.Index == "" {
++		return fmt.Errorf("index name not specified")
++	}
++	esIndex := strings.ToLower(indexerConfig.Index)
++	cfg := elasticsearch.Config{
++		Addresses: indexerConfig.Servers,
++		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: indexerConfig.InsecureSkipVerify}},
++	}
++	ESClient, err = elasticsearch.NewClient(cfg)
++	if err != nil {
++		return fmt.Errorf("error creating the ES client: %s", err)
++	}
++	r, err := ESClient.Cluster.Health()
++	if err != nil {
++		return fmt.Errorf("ES health check failed: %s", err)
++	}
++	if r.StatusCode != 200 {
++		return fmt.Errorf("unexpected ES status code: %d", r.StatusCode)
++	}
++	esIndexer.index = esIndex
++	r, _ = ESClient.Indices.Exists([]string{esIndex})
++	if r.IsError() {
++		r, _ = ESClient.Indices.Create(esIndex)
++		if r.IsError() {
++			return fmt.Errorf("error creating index %s on ES: %s", esIndex, r.String())
++		}
++	}
++	return nil
++}
++
++// Index uses bulkIndexer to index the documents in the given index
++func (esIndexer *Elastic) Index(documents []interface{}, opts IndexingOpts) (string, error) {
++	var statString string
++	var indexerStatsLock sync.Mutex
++	indexerStats := make(map[string]int)
++	hasher := sha256.New()
++	bi, err := esutil.NewBulkIndexer(esutil.BulkIndexerConfig{
++		Client:     ESClient,
++		Index:      esIndexer.index,
++		FlushBytes: 5e+6,
++		NumWorkers: runtime.NumCPU(),
++		Timeout:    10 * time.Minute, // TODO: hardcoded
++	})
++	if err != nil {
++		return "", fmt.Errorf("Error creating the indexer: %s", err)
++	}
++	start := time.Now().UTC()
++	for _, document := range documents {
++		j, err := json.Marshal(document)
++		if err != nil {
++			return "", fmt.Errorf("Cannot encode document %s: %s", document, err)
++		}
++		hasher.Write(j)
++		err = bi.Add(
++			context.Background(),
++			esutil.BulkIndexerItem{
++				Action:     "index",
++				Body:       bytes.NewReader(j),
++				DocumentID: hex.EncodeToString(hasher.Sum(nil)),
++				OnSuccess: func(c context.Context, bii esutil.BulkIndexerItem, biri esutil.BulkIndexerResponseItem) {
++					indexerStatsLock.Lock()
++					defer indexerStatsLock.Unlock()
++					indexerStats[biri.Result]++
++				},
++			},
++		)
++		if err != nil {
++			return "", fmt.Errorf("Unexpected ES indexing error: %s", err)
++		}
++		hasher.Reset()
++	}
++	if err := bi.Close(context.Background()); err != nil {
++		return "", fmt.Errorf("Unexpected ES error: %s", err)
++	}
++	dur := time.Since(start)
++	for stat, val := range indexerStats {
++		statString += fmt.Sprintf(" %s=%d", stat, val)
++	}
++	return fmt.Sprintf("Indexing finished in %v:%v", dur.Truncate(time.Millisecond), statString), nil
++}
+diff --git a/test/performance/performance/indexers/opensearch.go b/test/performance/performance/indexers/opensearch.go
+new file mode 100644
+index 000000000..d8e17bda9
+--- /dev/null
++++ b/test/performance/performance/indexers/opensearch.go
+@@ -0,0 +1,132 @@
++// Copyright 2023 The go-commons Authors.
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package indexers
++
++import (
++	"bytes"
++	"context"
++	"crypto/sha256"
++	"crypto/tls"
++	"encoding/hex"
++	"encoding/json"
++	"fmt"
++	"net/http"
++	"runtime"
++	"strings"
++	"sync"
++	"time"
++
++	opensearch "github.com/opensearch-project/opensearch-go"
++	opensearchutil "github.com/opensearch-project/opensearch-go/opensearchutil"
++)
++
++const indexer = "opensearch"
++
++// OSClient OpenSearch client instance
++var OSClient *opensearch.Client
++
++// OpenSearch OpenSearch instance
++type OpenSearch struct {
++	index string
++}
++
++// Init function
++func init() {
++	indexerMap[indexer] = &OpenSearch{}
++}
++
++// Returns new indexer for OpenSearch
++func (OpenSearchIndexer *OpenSearch) new(indexerConfig IndexerConfig) error {
++	var err error
++	if indexerConfig.Index == "" {
++		return fmt.Errorf("index name not specified")
++	}
++	OpenSearchIndex := strings.ToLower(indexerConfig.Index)
++	cfg := opensearch.Config{
++		Addresses: indexerConfig.Servers,
++		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: indexerConfig.InsecureSkipVerify}},
++	}
++	OSClient, err = opensearch.NewClient(cfg)
++	if err != nil {
++		return fmt.Errorf("error creating the OpenSearch client: %s", err)
++	}
++	r, err := OSClient.Cluster.Health()
++	if err != nil {
++		return fmt.Errorf("OpenSearch health check failed: %s", err)
++	}
++	if r.StatusCode != 200 {
++		return fmt.Errorf("unexpected OpenSearch status code: %d", r.StatusCode)
++	}
++	OpenSearchIndexer.index = OpenSearchIndex
++	r, _ = OSClient.Indices.Exists([]string{OpenSearchIndex})
++	if r.IsError() {
++		r, _ = OSClient.Indices.Create(OpenSearchIndex)
++		if r.IsError() {
++			return fmt.Errorf("error creating index %s on OpenSearch: %s", OpenSearchIndex, r.String())
++		}
++	}
++	return nil
++}
++
++// Index uses bulkIndexer to index the documents in the given index
++func (OpenSearchIndexer *OpenSearch) Index(documents []interface{}, opts IndexingOpts) (string, error) {
++	var statString string
++	var indexerStatsLock sync.Mutex
++	indexerStats := make(map[string]int)
++	hasher := sha256.New()
++	bi, err := opensearchutil.NewBulkIndexer(opensearchutil.BulkIndexerConfig{
++		Client:     OSClient,
++		Index:      OpenSearchIndexer.index,
++		FlushBytes: 5e+6,
++		NumWorkers: runtime.NumCPU(),
++		Timeout:    10 * time.Minute, // TODO: hardcoded
++	})
++	if err != nil {
++		return "", fmt.Errorf("Error creating the indexer: %s", err)
++	}
++	start := time.Now().UTC()
++	for _, document := range documents {
++		j, err := json.Marshal(document)
++		if err != nil {
++			return "", fmt.Errorf("Cannot encode document %s: %s", document, err)
++		}
++		hasher.Write(j)
++		err = bi.Add(
++			context.Background(),
++			opensearchutil.BulkIndexerItem{
++				Action:     "index",
++				Body:       bytes.NewReader(j),
++				DocumentID: hex.EncodeToString(hasher.Sum(nil)),
++				OnSuccess: func(c context.Context, bii opensearchutil.BulkIndexerItem, biri opensearchutil.BulkIndexerResponseItem) {
++					indexerStatsLock.Lock()
++					defer indexerStatsLock.Unlock()
++					indexerStats[biri.Result]++
++				},
++			},
++		)
++		if err != nil {
++			return "", fmt.Errorf("Unexpected OpenSearch indexing error: %s", err)
++		}
++		hasher.Reset()
++	}
++	if err := bi.Close(context.Background()); err != nil {
++		return "", fmt.Errorf("Unexpected OpenSearch error: %s", err)
++	}
++	dur := time.Since(start)
++	for stat, val := range indexerStats {
++		statString += fmt.Sprintf(" %s=%d", stat, val)
++	}
++	return fmt.Sprintf("Indexing finished in %v:%v", dur.Truncate(time.Millisecond), statString), nil
++}
+diff --git a/test/performance/performance/indexers/types.go b/test/performance/performance/indexers/types.go
+new file mode 100644
+index 000000000..2317c746a
+--- /dev/null
++++ b/test/performance/performance/indexers/types.go
+@@ -0,0 +1,77 @@
++// Copyright 2023 The go-commons Authors.
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package indexers
++
++import "fmt"
++
++// Types of indexers
++const (
++	// Elastic indexer that sends metrics to the configured ES instance
++	ElasticIndexer IndexerType = "elastic"
++	// OpenSearch indexer that sends metrics to the configured Search Instance
++	OpenSearchIndexer IndexerType = "opensearch"
++	// Local indexer that writes metrics to local directory
++	LocalIndexer IndexerType = "local"
++)
++
++var indexerMap = make(map[IndexerType]Indexer)
++
++// Indexer interface
++type Indexer interface {
++	Index([]interface{}, IndexingOpts) (string, error)
++	new(IndexerConfig) error
++}
++
++// Indexing options
++type IndexingOpts struct {
++	MetricName string // MetricName, required for local indexer
++}
++
++// IndexerType type of indexer
++type IndexerType string
++
++// IndexerConfig holds the indexer configuration
++type IndexerConfig struct {
++	// Type type of indexer
++	Type IndexerType `yaml:"type"`
++	// Servers List of ElasticSearch instances
++	Servers []string `yaml:"esServers"`
++	// Index index to send documents to server
++	Index string `yaml:"defaultIndex"`
++	// InsecureSkipVerify disable TLS ceriticate verification
++	InsecureSkipVerify bool `yaml:"insecureSkipVerify"`
++	// Directory to save metrics files in
++	MetricsDirectory string `yaml:"metricsDirectory"`
++	// Create tarball
++	CreateTarball bool `yaml:"createTarball"`
++	// TarBall name
++	TarballName string `yaml:"tarballName"`
++}
++
++// NewIndexer creates a new Indexer with the specified IndexerConfig
++func NewIndexer(indexerConfig IndexerConfig) (*Indexer, error) {
++	var indexer Indexer
++	var exists bool
++	cfg := indexerConfig
++	if indexer, exists = indexerMap[cfg.Type]; exists {
++		err := indexer.new(indexerConfig)
++		if err != nil {
++			return &indexer, err
++		}
++	} else {
++		return &indexer, fmt.Errorf("Indexer not found: %s", cfg.Type)
++	}
++	return &indexer, nil
++}
+diff --git a/test/performance/performance/reporter.go b/test/performance/performance/reporter.go
+new file mode 100644
+index 000000000..6a3c41539
+--- /dev/null
++++ b/test/performance/performance/reporter.go
+@@ -0,0 +1,55 @@
++package performance
++
++import (
++	"os"
++	"strconv"
++
++	vegeta "github.com/tsenart/vegeta/v12/lib"
++	"knative.dev/serving/test/performance/performance/indexers"
++)
++
++type DataPointReporter interface {
++	AddDataPoint(measurement string, fields map[string]interface{})
++	AddDataPointsForMetrics(m *vegeta.Metrics, benchmarkName string)
++	FlushAndShutdown()
++}
++
++func NewDataPointReporterFactory(tags map[string]string, index string) (DataPointReporter, error) {
++	var reporter DataPointReporter
++	var err error
++	useDefaultReporter := true
++
++	if v, b := os.LookupEnv(UseESEnv); b {
++		if b, err = strconv.ParseBool(v); err == nil {
++			if b {
++				useDefaultReporter = false
++				reporter, err = NewESReporter(tags, indexers.ElasticIndexer, index)
++				if err != nil {
++					return nil, err
++				}
++			}
++		}
++	}
++
++	if v, b := os.LookupEnv(UseOpenSearcnEnv); b {
++		if b, err = strconv.ParseBool(v); err == nil {
++			if b {
++				useDefaultReporter = false
++				reporter, err = NewESReporter(tags, indexers.OpenSearchIndexer, index)
++				if err != nil {
++					return nil, err
++				}
++			}
++		}
++	}
++
++	if useDefaultReporter {
++		reporter, err = NewInfluxReporter(tags)
++		if err != nil {
++			return nil, err
++		}
++	}
++
++	rep := interface{}(reporter).(DataPointReporter)
++	return rep, nil
++}

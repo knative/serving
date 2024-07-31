@@ -1,0 +1,16 @@
+diff --git a/test/e2e/clusterlocaldomaintls/cluster_local_domain_tls_test.go b/test/e2e/clusterlocaldomaintls/cluster_local_domain_tls_test.go
+index 7390e3a52..02cc48316 100644
+--- a/test/e2e/clusterlocaldomaintls/cluster_local_domain_tls_test.go
++++ b/test/e2e/clusterlocaldomaintls/cluster_local_domain_tls_test.go
+@@ -129,8 +129,9 @@ func TestClusterLocalDomainTLSClusterExternalVisibility(t *testing.T) {
+ 		t.Fatalf("Internal URL scheme of service %v was not https", names.Service)
+ 	}
+ 
+-	if externalURL.Scheme != "http" {
+-		t.Fatalf("External URL scheme of service %v was not http", names.Service)
++	// On OpenShift this is always https
++	if externalURL.Scheme != "https" {
++		t.Fatalf("External URL scheme of service %v was not https", names.Service)
+ 	}
+ 
+ 	// Check normal access on external domain

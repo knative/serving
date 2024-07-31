@@ -1,0 +1,240 @@
+diff --git a/pkg/reconciler/route/resources/service.go b/pkg/reconciler/route/resources/service.go
+index 5967cf2cd..2a19da758 100644
+--- a/pkg/reconciler/route/resources/service.go
++++ b/pkg/reconciler/route/resources/service.go
+@@ -60,10 +60,9 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1.Route, tagName str
+ 			ExternalName:    domainName,
+ 			SessionAffinity: corev1.ServiceAffinityNone,
+ 			Ports: []corev1.ServicePort{{
+-				Name:        netapi.ServicePortNameH2C,
+-				AppProtocol: &netapi.AppProtocolH2C,
+-				Port:        int32(80),
+-				TargetPort:  intstr.FromInt(80),
++				Name:       netapi.ServicePortNameH2C,
++				Port:       int32(80),
++				TargetPort: intstr.FromInt(80),
+ 			}},
+ 		},
+ 	}, nil
+@@ -102,10 +101,9 @@ func MakeK8sService(ctx context.Context, route *v1.Route, tagName string, ingres
+ 			ObjectMeta: makeServiceObjectMeta(hostname, route),
+ 			Spec: corev1.ServiceSpec{
+ 				Ports: []corev1.ServicePort{{
+-					Name:        netapi.ServicePortNameH2C,
+-					AppProtocol: &netapi.AppProtocolH2C,
+-					Port:        int32(80),
+-					TargetPort:  intstr.FromInt(80),
++					Name:       netapi.ServicePortNameH2C,
++					Port:       int32(80),
++					TargetPort: intstr.FromInt(80),
+ 				}},
+ 			},
+ 		},
+@@ -130,9 +128,8 @@ func MakeK8sService(ctx context.Context, route *v1.Route, tagName string, ingres
+ 					IP: balancer.IP,
+ 				}},
+ 				Ports: []corev1.EndpointPort{{
+-					Name:        netapi.ServicePortNameH2C,
+-					AppProtocol: &netapi.AppProtocolH2C,
+-					Port:        int32(80),
++					Name: netapi.ServicePortNameH2C,
++					Port: int32(80),
+ 				}},
+ 			}},
+ 		}
+diff --git a/pkg/reconciler/route/resources/service_test.go b/pkg/reconciler/route/resources/service_test.go
+index 36de58b19..1664fb466 100644
+--- a/pkg/reconciler/route/resources/service_test.go
++++ b/pkg/reconciler/route/resources/service_test.go
+@@ -54,10 +54,9 @@ var (
+ 	}
+
+ 	expectedPorts = []corev1.ServicePort{{
+-		Name:        netapi.ServicePortNameH2C,
+-		AppProtocol: &netapi.AppProtocolH2C,
+-		Port:        int32(80),
+-		TargetPort:  intstr.FromInt(80),
++		Name:       netapi.ServicePortNameH2C,
++		Port:       int32(80),
++		TargetPort: intstr.FromInt(80),
+ 	}}
+ )
+
+@@ -124,9 +123,8 @@ func TestMakeK8SService(t *testing.T) {
+ 				IP: "some-ip",
+ 			}},
+ 			Ports: []corev1.EndpointPort{{
+-				Name:        netapi.ServicePortNameH2C,
+-				AppProtocol: &netapi.AppProtocolH2C,
+-				Port:        int32(80),
++				Name: netapi.ServicePortNameH2C,
++				Port: int32(80),
+ 			}},
+ 		}},
+ 	}, {
+@@ -202,9 +200,8 @@ func TestMakeK8SService(t *testing.T) {
+ 				IP: "some-ip",
+ 			}},
+ 			Ports: []corev1.EndpointPort{{
+-				Name:        netapi.ServicePortNameH2C,
+-				AppProtocol: &netapi.AppProtocolH2C,
+-				Port:        int32(80),
++				Name: netapi.ServicePortNameH2C,
++				Port: int32(80),
+ 			}},
+ 		}},
+ 	}, {
+@@ -395,10 +392,9 @@ func TestMakePlaceholderService(t *testing.T) {
+ 				ExternalName:    tt.expectedExternalName,
+ 				SessionAffinity: corev1.ServiceAffinityNone,
+ 				Ports: []corev1.ServicePort{{
+-					Name:        netapi.ServicePortNameH2C,
+-					AppProtocol: &netapi.AppProtocolH2C,
+-					Port:        int32(80),
+-					TargetPort:  intstr.FromInt(80),
++					Name:       netapi.ServicePortNameH2C,
++					Port:       int32(80),
++					TargetPort: intstr.FromInt(80),
+ 				}},
+ 			}
+
+diff --git a/pkg/reconciler/serverlessservice/resources/services.go b/pkg/reconciler/serverlessservice/resources/services.go
+index 5672fc12e..7ad61ad67 100644
+--- a/pkg/reconciler/serverlessservice/resources/services.go
++++ b/pkg/reconciler/serverlessservice/resources/services.go
+@@ -60,11 +60,10 @@ func MakePublicService(sks *v1alpha1.ServerlessService) *corev1.Service {
+
+ func makePublicServicePorts(sks *v1alpha1.ServerlessService) []corev1.ServicePort {
+ 	ports := []corev1.ServicePort{{
+-		Name:        pkgnet.ServicePortName(sks.Spec.ProtocolType),
+-		Protocol:    corev1.ProtocolTCP,
+-		AppProtocol: pkgnet.AppProtocol(sks.Spec.ProtocolType),
+-		Port:        int32(pkgnet.ServicePort(sks.Spec.ProtocolType)),
+-		TargetPort:  targetPort(sks),
++		Name:       pkgnet.ServicePortName(sks.Spec.ProtocolType),
++		Protocol:   corev1.ProtocolTCP,
++		Port:       int32(pkgnet.ServicePort(sks.Spec.ProtocolType)),
++		TargetPort: targetPort(sks),
+ 	}, {
+ 		// The HTTPS port is used when activator-ca is enabled.
+ 		// Although it is not used by default, we put it here as it should be harmless
+@@ -145,10 +144,9 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
+ 		},
+ 		Spec: corev1.ServiceSpec{
+ 			Ports: []corev1.ServicePort{{
+-				Name:        pkgnet.ServicePortName(sks.Spec.ProtocolType),
+-				Protocol:    corev1.ProtocolTCP,
+-				AppProtocol: pkgnet.AppProtocol(sks.Spec.ProtocolType),
+-				Port:        pkgnet.ServiceHTTPPort,
++				Name:     pkgnet.ServicePortName(sks.Spec.ProtocolType),
++				Protocol: corev1.ProtocolTCP,
++				Port:     pkgnet.ServiceHTTPPort,
+ 				// This one is matching the public one, since this is the
+ 				// port queue-proxy listens on.
+ 				TargetPort: targetPort(sks),
+diff --git a/pkg/reconciler/serverlessservice/resources/services_test.go b/pkg/reconciler/serverlessservice/resources/services_test.go
+index 0690f52d3..61f7bad02 100644
+--- a/pkg/reconciler/serverlessservice/resources/services_test.go
++++ b/pkg/reconciler/serverlessservice/resources/services_test.go
+@@ -182,11 +182,10 @@ func TestMakePublicService(t *testing.T) {
+ 		}),
+ 		want: svc(networking.ServiceTypePublic, func(s *corev1.Service) {
+ 			s.Spec.Ports = []corev1.ServicePort{{
+-				Name:        pkgnet.ServicePortNameH2C,
+-				Protocol:    corev1.ProtocolTCP,
+-				AppProtocol: &pkgnet.AppProtocolH2C,
+-				Port:        pkgnet.ServiceHTTP2Port,
+-				TargetPort:  intstr.FromInt(networking.BackendHTTP2Port),
++				Name:       pkgnet.ServicePortNameH2C,
++				Protocol:   corev1.ProtocolTCP,
++				Port:       pkgnet.ServiceHTTP2Port,
++				TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
+ 			}, {
+ 				Name:       pkgnet.ServicePortNameHTTPS,
+ 				Protocol:   corev1.ProtocolTCP,
+@@ -203,11 +202,10 @@ func TestMakePublicService(t *testing.T) {
+ 		}),
+ 		want: svc(networking.ServiceTypePublic, func(s *corev1.Service) {
+ 			s.Spec.Ports = []corev1.ServicePort{{
+-				Name:        pkgnet.ServicePortNameH2C,
+-				Protocol:    corev1.ProtocolTCP,
+-				AppProtocol: &pkgnet.AppProtocolH2C,
+-				Port:        pkgnet.ServiceHTTP2Port,
+-				TargetPort:  intstr.FromInt(networking.BackendHTTP2Port),
++				Name:       pkgnet.ServicePortNameH2C,
++				Protocol:   corev1.ProtocolTCP,
++				Port:       pkgnet.ServiceHTTP2Port,
++				TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
+ 			}, {
+ 				Name:       pkgnet.ServicePortNameHTTPS,
+ 				Protocol:   corev1.ProtocolTCP,
+@@ -224,11 +222,10 @@ func TestMakePublicService(t *testing.T) {
+ 		}),
+ 		want: svc(networking.ServiceTypePublic, func(s *corev1.Service) {
+ 			s.Spec.Ports = []corev1.ServicePort{{
+-				Name:        pkgnet.ServicePortNameH2C,
+-				Protocol:    corev1.ProtocolTCP,
+-				AppProtocol: &pkgnet.AppProtocolH2C,
+-				Port:        pkgnet.ServiceHTTP2Port,
+-				TargetPort:  intstr.FromInt(networking.BackendHTTP2Port),
++				Name:       pkgnet.ServicePortNameH2C,
++				Protocol:   corev1.ProtocolTCP,
++				Port:       pkgnet.ServiceHTTP2Port,
++				TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
+ 			}, {
+ 				Name:       pkgnet.ServicePortNameHTTPS,
+ 				Protocol:   corev1.ProtocolTCP,
+@@ -473,11 +470,10 @@ func TestMakePrivateService(t *testing.T) {
+ 		}, privateSvcMod, func(s *corev1.Service) {
+ 			// And now patch port to be http2.
+ 			s.Spec.Ports[0] = corev1.ServicePort{
+-				Name:        pkgnet.ServicePortNameH2C,
+-				Protocol:    corev1.ProtocolTCP,
+-				AppProtocol: &pkgnet.AppProtocolH2C,
+-				Port:        pkgnet.ServiceHTTPPort,
+-				TargetPort:  intstr.FromInt(networking.BackendHTTP2Port),
++				Name:       pkgnet.ServicePortNameH2C,
++				Protocol:   corev1.ProtocolTCP,
++				Port:       pkgnet.ServiceHTTPPort,
++				TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
+ 			}
+ 			s.Spec.Ports[5] = corev1.ServicePort{
+ 				Name:       pkgnet.ServicePortNameH2C + "-istio",
+diff --git a/pkg/reconciler/serverlessservice/serverlessservice_test.go b/pkg/reconciler/serverlessservice/serverlessservice_test.go
+index 3a743236f..2682f6806 100644
+--- a/pkg/reconciler/serverlessservice/serverlessservice_test.go
++++ b/pkg/reconciler/serverlessservice/serverlessservice_test.go
+@@ -803,7 +803,6 @@ func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment
+ func withHTTP2Priv(svc *corev1.Service) {
+ 	svc.Spec.Ports[0].Name = "http2"
+ 	svc.Spec.Ports[0].TargetPort = intstr.FromInt(networking.BackendHTTP2Port)
+-	svc.Spec.Ports[0].AppProtocol = &pkgnet.AppProtocolH2C
+
+ 	svc.Spec.Ports[5].Name = "http2-istio"
+ 	svc.Spec.Ports[5].Port = networking.BackendHTTP2Port
+@@ -813,7 +812,6 @@ func withHTTP2Priv(svc *corev1.Service) {
+ func withHTTP2(svc *corev1.Service) {
+ 	svc.Spec.Ports[0].Port = pkgnet.ServiceHTTP2Port
+ 	svc.Spec.Ports[0].Name = "http2"
+-	svc.Spec.Ports[0].AppProtocol = &pkgnet.AppProtocolH2C
+ 	svc.Spec.Ports[0].TargetPort = intstr.FromInt(networking.BackendHTTP2Port)
+ }
+
+diff --git a/pkg/testing/functional.go b/pkg/testing/functional.go
+index f0ee41eb7..c04d5c9e3 100644
+--- a/pkg/testing/functional.go
++++ b/pkg/testing/functional.go
+@@ -256,10 +256,9 @@ func WithExternalName(name string) K8sServiceOption {
+ 	return func(svc *corev1.Service) {
+ 		svc.Spec.ExternalName = name
+ 		svc.Spec.Ports = []corev1.ServicePort{{
+-			Name:        networking.ServicePortNameH2C,
+-			AppProtocol: &networking.AppProtocolH2C,
+-			Port:        int32(80),
+-			TargetPort:  intstr.FromInt(80),
++			Name:       networking.ServicePortNameH2C,
++			Port:       int32(80),
++			TargetPort: intstr.FromInt(80),
+ 		}}
+ 	}
+ }

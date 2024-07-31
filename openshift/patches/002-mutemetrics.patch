@@ -1,0 +1,30 @@
+diff --git a/vendor/knative.dev/pkg/controller/stats_reporter.go b/vendor/knative.dev/pkg/controller/stats_reporter.go
+index 6735285db..67ec3d6a1 100644
+--- a/vendor/knative.dev/pkg/controller/stats_reporter.go
++++ b/vendor/knative.dev/pkg/controller/stats_reporter.go
+@@ -199,7 +199,7 @@ func (r *reporter) ReportReconcile(duration time.Duration, success string, key t
+ 		return err
+ 	}
+ 
+-	metrics.RecordBatch(ctx, reconcileCountStat.M(1),
+-		reconcileLatencyStat.M(duration.Milliseconds()))
++	// TODO skonto: fix latency histograms
++	metrics.Record(ctx, reconcileCountStat.M(1))
+ 	return nil
+ }
+diff --git a/vendor/knative.dev/pkg/webhook/stats_reporter.go b/vendor/knative.dev/pkg/webhook/stats_reporter.go
+index 9d64634fe..a735367e3 100644
+--- a/vendor/knative.dev/pkg/webhook/stats_reporter.go
++++ b/vendor/knative.dev/pkg/webhook/stats_reporter.go
+@@ -99,9 +99,8 @@ func (r *reporter) ReportRequest(req *admissionv1.AdmissionRequest, resp *admiss
+ 		return err
+ 	}
+ 
+-	metrics.RecordBatch(ctx, requestCountM.M(1),
+-		// Convert time.Duration in nanoseconds to milliseconds
+-		responseTimeInMsecM.M(float64(d.Milliseconds())))
++	// TODO skonto: fix latency histograms
++	metrics.Record(ctx, requestCountM.M(1))
+ 	return nil
+ }
+ 

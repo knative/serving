@@ -1,0 +1,26 @@
+diff --git a/config/core/deployments/activator-hpa.yaml b/config/core/deployments/activator-hpa.yaml
+index 75c74798d..27ae13f2e 100644
+--- a/config/core/deployments/activator-hpa.yaml
++++ b/config/core/deployments/activator-hpa.yaml
+@@ -50,7 +50,7 @@ metadata:
+     app.kubernetes.io/name: knative-serving
+     app.kubernetes.io/version: devel
+ spec:
+-  minAvailable: 80%
++  minAvailable: 1
+   selector:
+     matchLabels:
+       app: activator
+diff --git a/config/core/deployments/webhook-hpa.yaml b/config/core/deployments/webhook-hpa.yaml
+index 6a2ae587c..7c95f13bb 100644
+--- a/config/core/deployments/webhook-hpa.yaml
++++ b/config/core/deployments/webhook-hpa.yaml
+@@ -48,7 +48,7 @@ metadata:
+     app.kubernetes.io/name: knative-serving
+     app.kubernetes.io/version: devel
+ spec:
+-  minAvailable: 80%
++  minAvailable: 1
+   selector:
+     matchLabels:
+       app: webhook

@@ -1,140 +1,120 @@
-# This file is auto-generated from peribolos.
-# Do not modify this file, instead modify peribolos/knative.yaml
-
 aliases:
-  client-reviewers:
-  - itsmurugappan
-  client-wg-leads:
-  - dsimansk
-  - rhuss
-  client-writers:
-  - dsimansk
-  - maximilien
-  - rhuss
-  - vyasgun
-  docs-reviewers:
-  - nainaz
-  - retocode
-  - skonto
-  docs-writers:
-  - csantanapr
-  - retocode
-  - skonto
-  eventing-reviewers:
-  - Leo6Leo
-  - aslom
-  - cali0707
-  - creydr
-  eventing-wg-leads:
-  - pierDipi
-  eventing-writers:
-  - aliok
-  - cali0707
-  - creydr
-  - lionelvillard
-  - matzew
-  - pierDipi
-  func-reviewers:
-  - jrangelramos
-  - nainaz
-  func-writers:
-  - gauron99
-  - jrangelramos
-  - lance
-  - lkingland
-  - matejvasek
-  - matzew
-  - salaboy
-  functions-wg-leads:
-  - lkingland
-  - salaboy
-  knative-admin:
-  - aliok
-  - cardil
-  - davidhadas
-  - dprotaso
-  - dsimansk
-  - evankanderson
-  - knative-automation
-  - knative-prow-releaser-robot
-  - knative-prow-robot
-  - knative-prow-updater-robot
-  - knative-test-reporter-robot
-  - nainaz
-  - psschwei
-  - salaboy
-  - upodroid
-  knative-release-leads: []
-  knative-robots:
-  - knative-automation
-  - knative-prow-releaser-robot
-  - knative-prow-robot
-  - knative-prow-updater-robot
-  - knative-test-reporter-robot
-  operations-reviewers:
-  - aliok
-  - houshengbo
-  - matzew
-  - maximilien
-  operations-wg-leads:
-  - houshengbo
-  operations-writers:
-  - aliok
-  - houshengbo
-  - matzew
-  - maximilien
-  productivity-leads:
-  - cardil
-  - upodroid
-  productivity-reviewers:
-  - evankanderson
-  - mgencur
-  productivity-wg-leads:
-  - cardil
-  - upodroid
-  productivity-writers:
-  - cardil
-  - upodroid
-  security-wg-leads:
-  - davidhadas
-  - evankanderson
-  security-writers:
-  - davidhadas
-  - evankanderson
   serving-approvers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - nak3
   - ReToCode
+  - rhuss
   - skonto
   serving-reviewers:
-  - izabelacg
-  - retocode
-  - skonto
-  serving-triage:
-  - izabelacg
-  - retocode
-  - skonto
-  serving-wg-leads:
-  - dprotaso
-  serving-writers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - nak3
   - ReToCode
-  - dprotaso
+  - rhuss
   - skonto
-  steering-committee:
-  - aliok
-  - evankanderson
-  - nainaz
-  - salaboy
-  technical-oversight-committee:
-  - davidhadas
-  - dprotaso
-  - dsimansk
-  - psschwei
-  ux-wg-leads:
-  - cali0707
-  - leo6leo
-  - mmejia02
-  - zainabhusain227
-  ux-writers:
-  - cali0707
-  - leo6leo
-  - mmejia02
-  - zainabhusain227
+
+  serving-api-approvers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - nak3
+  - ReToCode
+  - rhuss
+  - skonto
+  serving-api-reviewers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - nak3
+  - ReToCode
+  - rhuss
+  - skonto
+
+  autoscaling-approvers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - nak3
+  - ReToCode
+  - rhuss
+  - skonto
+  autoscaling-reviewers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - nak3
+  - ReToCode
+  - rhuss
+  - skonto
+
+  monitoring-approvers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - nak3
+  - ReToCode
+  - rhuss
+  - skonto
+  monitoring-reviewers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - nak3
+  - ReToCode
+  - rhuss
+  - skonto
+
+  productivity-approvers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - nak3
+  - ReToCode
+  - rhuss
+  - skonto
+  productivity-reviewers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - nak3
+  - ReToCode
+  - rhuss
+  - skonto
+
+  networking-approvers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - nak3
+  - ReToCode
+  - rhuss
+  - skonto
+  networking-reviewers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - nak3
+  - ReToCode
+  - rhuss
+  - skonto
+
+  build-approvers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - nak3
+  - ReToCode
+  - rhuss
+  - skonto
+  build-reviewers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - nak3
+  - ReToCode
+  - rhuss
+  - skonto
+

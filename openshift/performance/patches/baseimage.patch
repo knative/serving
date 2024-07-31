@@ -1,0 +1,15 @@
+diff --git a/.ko.yaml b/.ko.yaml
+index bceaa1320..5ab3cdd8c 100644
+--- a/.ko.yaml
++++ b/.ko.yaml
+@@ -2,4 +2,10 @@
+ defaultBaseImage: registry.access.redhat.com/ubi8/ubi-minimal:latest
+ baseImageOverrides:
+   knative.dev/serving/test/test_images/runtime: gcr.io/distroless/static:nonroot
++  knative.dev/serving/test/performance/benchmarks/rollout-probe: gcr.io/distroless/static:nonroot
++  knative.dev/serving/test/performance/benchmarks/dataplane-probe: gcr.io/distroless/static:nonroot
++  knative.dev/serving/test/performance/benchmarks/load-test: gcr.io/distroless/static:nonroot
++  knativedev/serving/test/performance/benchmarks/real-traffic-test: gcr.io/distroless/static:nonroot
++  knative.dev/serving/test/performance/benchmarks/scale-from-zero: gcr.io/distroless/static:nonroot
++  knative.dev/serving/test/performance/benchmarks/reconciliation-delay: gcr.io/distroless/static:nonroot
+   knative.dev/serving/vendor/github.com/tsenart/vegeta/v12: ubuntu:latest

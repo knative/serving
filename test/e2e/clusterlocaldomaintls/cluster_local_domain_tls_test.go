@@ -131,8 +131,9 @@ func TestClusterLocalDomainTLSClusterExternalVisibility(t *testing.T) {
 		t.Fatalf("Internal URL scheme of service %v was not https", names.Service)
 	}
 
-	if externalURL.Scheme != "http" {
-		t.Fatalf("External URL scheme of service %v was not http", names.Service)
+	// On OpenShift this is always https
+	if externalURL.Scheme != "https" {
+		t.Fatalf("External URL scheme of service %v was not https", names.Service)
 	}
 
 	// Check normal access on external domain
