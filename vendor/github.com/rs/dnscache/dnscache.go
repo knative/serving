@@ -246,17 +246,50 @@ func (r *Resolver) storeLocked(key string, rrs []string, used bool, err error) {
 	}
 }
 
-var defaultResolver = &defaultResolverWithTrace{}
+var defaultResolver = &defaultResolverWithTrace{
+	ipVersion: "ip",
+}
+
+// Create a new resolver that only resolves to IPv4 Addresses when looking up Hosts.
+// Example:
+//
+//	resolver := dnscache.Resolver{
+//	  Resolver: NewResolverOnlyV4(),
+//	}
+func NewResolverOnlyV4() DNSResolver {
+	return &defaultResolverWithTrace{
+		ipVersion: "ip4",
+	}
+}
+
+// Create a new resolver that only resolves to IPv6 Addresses when looking up Hosts.
+// Example:
+//
+//	resolver := dnscache.Resolver{
+//	  Resolver: NewResolverOnlyV6(),
+//	}
+func NewResolverOnlyV6() DNSResolver {
+	return &defaultResolverWithTrace{
+		ipVersion: "ip6",
+	}
+}
 
 // defaultResolverWithTrace calls `LookupIP` instead of `LookupHost` on `net.DefaultResolver` in order to cause invocation of the `DNSStart`
 // and `DNSDone` hooks. By implementing `DNSResolver`, backward compatibility can be ensured.
-type defaultResolverWithTrace struct{}
+type defaultResolverWithTrace struct {
+	ipVersion string
+}
 
 func (d *defaultResolverWithTrace) LookupHost(ctx context.Context, host string) (addrs []string, err error) {
+	ipVersion := d.ipVersion
+	if ipVersion != "ip" && ipVersion != "ip4" && ipVersion != "ip6" {
+		ipVersion = "ip"
+	}
+
 	// `net.Resolver#LookupHost` does not cause invocation of `net.Resolver#lookupIPAddr`, therefore the `DNSStart` and `DNSDone` tracing hooks
 	// built into the stdlib are never called. `LookupIP`, despite it's name, can also be used to lookup a hostname but does cause these hooks to be
 	// triggered. The format of the reponse is different, therefore it needs this thin wrapper converting it.
-	rawIPs, err := net.DefaultResolver.LookupIP(ctx, "ip", host)
+	rawIPs, err := net.DefaultResolver.LookupIP(ctx, ipVersion, host)
 	if err != nil {
 		return nil, err
 	}

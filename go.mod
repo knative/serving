@@ -16,7 +16,7 @@ require (
 	github.com/hashicorp/golang-lru v1.0.2
 	github.com/influxdata/influxdb-client-go/v2 v2.9.0
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/tsenart/vegeta/v12 v12.11.1
+	github.com/tsenart/vegeta/v12 v12.11.3
 	go.opencensus.io v0.24.0
 	go.uber.org/atomic v1.10.0
 	go.uber.org/automaxprocs v1.5.3
@@ -34,10 +34,10 @@ require (
 	k8s.io/code-generator v0.29.2
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00
 	k8s.io/utils v0.0.0-20240102154912-e7106e64919e
-	knative.dev/caching v0.0.0-20240716132144-989f54c83776
-	knative.dev/hack v0.0.0-20240719133331-9c9eed6f6679
-	knative.dev/networking v0.0.0-20240716111826-bab7f2a3e556
-	knative.dev/pkg v0.0.0-20240716082220-4355f0c73608
+	knative.dev/caching v0.0.0-20240730152355-c601f824cec3
+	knative.dev/hack v0.0.0-20240730131549-0a23232167bc
+	knative.dev/networking v0.0.0-20240730152525-543181c32243
+	knative.dev/pkg v0.0.0-20240730131544-0e7ffe491d5e
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -75,7 +75,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
-	github.com/c2h5oh/datasize v0.0.0-20220606134207-859f65c6625b // indirect
+	github.com/c2h5oh/datasize v0.0.0-20231215233829-aa82cc1e6500 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20221002210726-e883f69e0206 // indirect
@@ -126,10 +126,10 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.19.1 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
-	github.com/prometheus/common v0.54.0 // indirect
-	github.com/prometheus/procfs v0.12.0 // indirect
+	github.com/prometheus/common v0.55.0 // indirect
+	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/prometheus/statsd_exporter v0.22.7 // indirect
-	github.com/rs/dnscache v0.0.0-20211102005908-e0241e321417 // indirect
+	github.com/rs/dnscache v0.0.0-20230804202142-fc85eb664529 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
@@ -149,7 +149,7 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240604185151-ef581f913117 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240528184218-531527333157 // indirect
-	google.golang.org/protobuf v1.34.1 // indirect
+	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

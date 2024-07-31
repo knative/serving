@@ -170,7 +170,7 @@ github.com/blang/semver/v4
 # github.com/blendle/zapdriver v1.3.1
 ## explicit; go 1.12
 github.com/blendle/zapdriver
-# github.com/c2h5oh/datasize v0.0.0-20220606134207-859f65c6625b
+# github.com/c2h5oh/datasize v0.0.0-20231215233829-aa82cc1e6500
 ## explicit
 github.com/c2h5oh/datasize
 # github.com/census-instrumentation/opencensus-proto v0.4.1
@@ -477,13 +477,12 @@ github.com/prometheus/client_golang/prometheus/promhttp
 # github.com/prometheus/client_model v0.6.1
 ## explicit; go 1.19
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.54.0
+# github.com/prometheus/common v0.55.0
 ## explicit; go 1.20
 github.com/prometheus/common/expfmt
-github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
 github.com/prometheus/common/model
-# github.com/prometheus/procfs v0.12.0
-## explicit; go 1.19
+# github.com/prometheus/procfs v0.15.1
+## explicit; go 1.20
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
@@ -492,7 +491,7 @@ github.com/prometheus/procfs/internal/util
 github.com/prometheus/statsd_exporter/pkg/level
 github.com/prometheus/statsd_exporter/pkg/mapper
 github.com/prometheus/statsd_exporter/pkg/mapper/fsm
-# github.com/rs/dnscache v0.0.0-20211102005908-e0241e321417
+# github.com/rs/dnscache v0.0.0-20230804202142-fc85eb664529
 ## explicit; go 1.12
 github.com/rs/dnscache
 # github.com/russross/blackfriday/v2 v2.1.0
@@ -508,8 +507,8 @@ github.com/spf13/pflag
 ## explicit
 github.com/tsenart/go-tsz
 github.com/tsenart/go-tsz/testdata
-# github.com/tsenart/vegeta/v12 v12.11.1
-## explicit; go 1.20
+# github.com/tsenart/vegeta/v12 v12.11.3
+## explicit; go 1.22
 github.com/tsenart/vegeta/v12
 github.com/tsenart/vegeta/v12/internal/resolver
 github.com/tsenart/vegeta/v12/lib
@@ -753,8 +752,8 @@ google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
-# google.golang.org/protobuf v1.34.1
-## explicit; go 1.17
+# google.golang.org/protobuf v1.34.2
+## explicit; go 1.20
 google.golang.org/protobuf/encoding/protodelim
 google.golang.org/protobuf/encoding/protojson
 google.golang.org/protobuf/encoding/prototext
@@ -1324,7 +1323,7 @@ k8s.io/utils/pointer
 k8s.io/utils/ptr
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20240716132144-989f54c83776
+# knative.dev/caching v0.0.0-20240730152355-c601f824cec3
 ## explicit; go 1.22
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -1345,10 +1344,10 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/hack v0.0.0-20240719133331-9c9eed6f6679
+# knative.dev/hack v0.0.0-20240730131549-0a23232167bc
 ## explicit; go 1.21
 knative.dev/hack
-# knative.dev/networking v0.0.0-20240716111826-bab7f2a3e556
+# knative.dev/networking v0.0.0-20240730152525-543181c32243
 ## explicit; go 1.22
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1387,7 +1386,7 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20240716082220-4355f0c73608
+# knative.dev/pkg v0.0.0-20240730131544-0e7ffe491d5e
 ## explicit; go 1.22
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
