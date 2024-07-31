@@ -118,7 +118,7 @@ func TestIssuerRef(t *testing.T) {
 				Name:      CertManagerConfigName,
 			},
 			Data: map[string]string{
-				clusterLocalIssuerRefKey: "kind: ClusterIssuer\nname: system-internal-issuer",
+				systemInternalIssuerRef: "kind: ClusterIssuer\nname: system-internal-issuer",
 			},
 		},
 	}, {
@@ -157,7 +157,9 @@ func TestIssuerRef(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("Test: %q; NewCertManagerConfigFromConfigMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
 			}
-			if diff := cmp.Diff(actualConfig, tt.wantConfig); diff != "" {
+
+			if !cmp.Equal(actualConfig, tt.wantConfig) {
+				t.Log(cmp.Diff(actualConfig, tt.wantConfig))
 				t.Fatalf("Want %v, but got %v", tt.wantConfig, actualConfig)
 			}
 		})
