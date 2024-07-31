@@ -1,0 +1,67 @@
+---
+# Copyright 2020 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  generateName: storage-version-migration-serving-
+  namespace: knative-serving
+  labels:
+    app: storage-version-migration-serving
+    app.kubernetes.io/name: knative-serving
+    app.kubernetes.io/component: storage-version-migration-job
+    app.kubernetes.io/version: "release-v1.2"
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 10
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+      labels:
+        app: storage-version-migration-serving
+        app.kubernetes.io/name: knative-serving
+        app.kubernetes.io/component: storage-version-migration-job
+        app.kubernetes.io/version: "release-v1.2"
+    spec:
+      serviceAccountName: controller
+      restartPolicy: OnFailure
+      containers:
+      - name: migrate
+        # This is the Go import path for the binary that is containerized
+        # and substituted here.
+        image: ko://knative.dev/pkg/apiextensions/storageversion/cmd/migrate
+        args:
+          - "services.serving.knative.dev"
+          - "configurations.serving.knative.dev"
+          - "revisions.serving.knative.dev"
+          - "routes.serving.knative.dev"
+          - "domainmappings.serving.knative.dev"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 1000m
+            memory: 1000Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+              - ALL
+          
+            
