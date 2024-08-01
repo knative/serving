@@ -51,9 +51,9 @@ type CertManagerConfig struct {
 func NewCertManagerConfigFromConfigMap(configMap *corev1.ConfigMap) (*CertManagerConfig, error) {
 	// Use Knative self-signed ClusterIssuer as default
 	config := &CertManagerConfig{
-		IssuerRef:               knativeSelfSignedIssuer,
-		ClusterLocalIssuerRef:   knativeSelfSignedIssuer,
-		SystemInternalIssuerRef: knativeSelfSignedIssuer,
+		IssuerRef:               knativeSelfSignedIssuer.DeepCopy(),
+		ClusterLocalIssuerRef:   knativeSelfSignedIssuer.DeepCopy(),
+		SystemInternalIssuerRef: knativeSelfSignedIssuer.DeepCopy(),
 	}
 
 	if v, ok := configMap.Data[issuerRefKey]; ok {
