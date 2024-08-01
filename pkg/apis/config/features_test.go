@@ -69,6 +69,9 @@ func TestFeaturesConfiguration(t *testing.T) {
 			PodSpecRuntimeClassName:          Enabled,
 			PodSpecSecurityContext:           Enabled,
 			PodSpecShareProcessNamespace:     Enabled,
+			PodSpecHostIPC:                   Enabled,
+			PodSpecHostPID:                   Enabled,
+			PodSpecHostNetwork:               Enabled,
 			PodSpecTolerations:               Enabled,
 			PodSpecPriorityClassName:         Enabled,
 			PodSpecSchedulerName:             Enabled,
@@ -89,6 +92,9 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"kubernetes.podspec-runtimeclassname":          "Enabled",
 			"kubernetes.podspec-securitycontext":           "Enabled",
 			"kubernetes.podspec-shareprocessnamespace":     "Enabled",
+			"kubernetes.podspec-hostipc":                   "Enabled",
+			"kubernetes.podspec-hostpid":                   "Enabled",
+			"kubernetes.podspec-hostnetwork":               "Enabled",
 			"kubernetes.podspec-tolerations":               "Enabled",
 			"kubernetes.podspec-priorityclassname":         "Enabled",
 			"kubernetes.podspec-schedulername":             "Enabled",
@@ -593,6 +599,60 @@ func TestFeaturesConfiguration(t *testing.T) {
 			}),
 			data: map[string]string{
 				"kubernetes.podspec-dnsconfig": "Disabled",
+			},
+		}, {
+			name:    "kubernetes.podspec-hostipc Enabled",
+			wantErr: false,
+			wantFeatures: defaultWith(&Features{
+				PodSpecHostIPC: Enabled,
+			}),
+			data: map[string]string{
+				"kubernetes.podspec-hostipc": "Enabled",
+			},
+		}, {
+			name:    "kubernetes.podspec-hostipc Disabled",
+			wantErr: false,
+			wantFeatures: defaultWith(&Features{
+				PodSpecHostIPC: Disabled,
+			}),
+			data: map[string]string{
+				"kubernetes.podspec-hostipc": "Disabled",
+			},
+		}, {
+			name:    "kubernetes.podspec-hostpid Enabled",
+			wantErr: false,
+			wantFeatures: defaultWith(&Features{
+				PodSpecHostPID: Enabled,
+			}),
+			data: map[string]string{
+				"kubernetes.podspec-hostpid": "Enabled",
+			},
+		}, {
+			name:    "kubernetes.podspec-hostpid Disabled",
+			wantErr: false,
+			wantFeatures: defaultWith(&Features{
+				PodSpecHostPID: Disabled,
+			}),
+			data: map[string]string{
+				"kubernetes.podspec-hostpid": "Disabled",
+			},
+		}, {
+			name:    "kubernetes.podspec-hostnetwork Enabled",
+			wantErr: false,
+			wantFeatures: defaultWith(&Features{
+				PodSpecHostNetwork: Enabled,
+			}),
+			data: map[string]string{
+				"kubernetes.podspec-hostnetwork": "Enabled",
+			},
+		}, {
+			name:    "kubernetes.podspec-hostnetwork Disabled",
+			wantErr: false,
+			wantFeatures: defaultWith(&Features{
+				PodSpecHostNetwork: Disabled,
+			}),
+			data: map[string]string{
+				"kubernetes.podspec-hostnetwork": "Disabled",
 			},
 		}}
 

@@ -988,6 +988,18 @@ spec:
                             description: This is accessible behind a feature flag - kubernetes.podspec-hostaliases
                             type: object
                             x-kubernetes-preserve-unknown-fields: true
+                        hostIPC:
+                          description: This is accessible behind a feature flag - kubernetes.podspec-hostipc
+                          type: boolean
+                          x-kubernetes-preserve-unknown-fields: true
+                        hostNetwork:
+                          description: This is accessible behind a feature flag - kubernetes.podspec-hostnetwork
+                          type: boolean
+                          x-kubernetes-preserve-unknown-fields: true
+                        hostPID:
+                          description: This is accessible behind a feature flag - kubernetes.podspec-hostpid
+                          type: boolean
+                          x-kubernetes-preserve-unknown-fields: true
                         idleTimeoutSeconds:
                           description: |-
                             IdleTimeoutSeconds is the maximum duration in seconds a request will be allowed
