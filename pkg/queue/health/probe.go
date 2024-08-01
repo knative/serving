@@ -162,17 +162,20 @@ func http2UpgradeProbe(config HTTPProbeConfigOptions) (int, error) {
 func HTTPProbe(config HTTPProbeConfigOptions) error {
 	if config.MaxProtoMajor == 0 {
 		// If we don't know if the connection supports HTTP2, we will try it.
-		// Once we get a non-error response, we won't try again.
 		// If maxProto is 0, container is not ready, so we don't know whether http2 is supported.
 		// If maxProto is 1, we know we're ready, but we also can't upgrade, so just return.
 		// If maxProto is 2, we know we can upgrade to http2
+		// If we get an error response, we will assume that the connection is HTTP1, as we can not guarantee if the service can handle the OPTIONS request
 		maxProto, err := http2UpgradeProbe(config)
-		if err != nil {
-			return fmt.Errorf("failed to run HTTP2 upgrade probe with error: %w", err)
-		}
 		config.MaxProtoMajor = maxProto
 		if config.MaxProtoMajor == 1 {
 			return nil
+		}
+
+		if err != nil {
+			// we default to HTTP1 because the options request did not work
+			// however, we do not know if the container is ready yet, so we still need to probe
+			config.MaxProtoMajor = 1
 		}
 	}
 	httpClient := &http.Client{
