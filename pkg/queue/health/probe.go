@@ -160,7 +160,8 @@ func http2UpgradeProbe(config HTTPProbeConfigOptions) (int, error) {
 
 // HTTPProbe checks that HTTP connection can be established to the address.
 func HTTPProbe(config HTTPProbeConfigOptions) error {
-	if config.MaxProtoMajor == 0 {
+	configMaxProto := config.MaxProtoMajor
+	if configMaxProto == 0 {
 		// If we don't know if the connection supports HTTP2, we will try it.
 		// If maxProto is 0, container is not ready, so we don't know whether http2 is supported.
 		// If maxProto is 1, we know we're ready, but we also can't upgrade, so just return.
@@ -199,6 +200,10 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 
 	res, err := httpClient.Do(req)
 	if err != nil {
+		if configMaxProto == 0 {
+			// we guessed that http1 was supported, but it also failed. Let's try the options request again next probe
+			config.MaxProtoMajor = 0
+		}
 		return err
 	}
 
@@ -210,6 +215,10 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 	}()
 
 	if !isHTTPProbeReady(res) {
+		if configMaxProto == 0 {
+			// we guessed that http1 was supported, but it also failed. Let's try the options request again next probe
+			config.MaxProtoMajor = 0
+		}
 		return fmt.Errorf("HTTP probe did not respond Ready, got status code: %d", res.StatusCode)
 	}
 
