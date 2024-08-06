@@ -507,7 +507,7 @@ github.com/spf13/pflag
 ## explicit
 github.com/tsenart/go-tsz
 github.com/tsenart/go-tsz/testdata
-# github.com/tsenart/vegeta/v12 v12.11.3
+# github.com/tsenart/vegeta/v12 v12.12.0
 ## explicit; go 1.22
 github.com/tsenart/vegeta/v12
 github.com/tsenart/vegeta/v12/internal/resolver
@@ -625,7 +625,7 @@ golang.org/x/oauth2/google/internal/stsexchange
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
-# golang.org/x/sync v0.7.0
+# golang.org/x/sync v0.8.0
 ## explicit; go 1.18
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
@@ -1323,7 +1323,7 @@ k8s.io/utils/pointer
 k8s.io/utils/ptr
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20240730152355-c601f824cec3
+# knative.dev/caching v0.0.0-20240805055809-0a5c1ed07f7a
 ## explicit; go 1.22
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -1347,7 +1347,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 # knative.dev/hack v0.0.0-20240801232131-441a19fc9ead
 ## explicit; go 1.21
 knative.dev/hack
-# knative.dev/networking v0.0.0-20240730152525-543181c32243
+# knative.dev/networking v0.0.0-20240802083044-f1702380495f
 ## explicit; go 1.22
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1386,7 +1386,7 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20240730131544-0e7ffe491d5e
+# knative.dev/pkg v0.0.0-20240805063731-c88d5dad9653
 ## explicit; go 1.22
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate

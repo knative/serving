@@ -16,13 +16,13 @@ require (
 	github.com/hashicorp/golang-lru v1.0.2
 	github.com/influxdata/influxdb-client-go/v2 v2.9.0
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/tsenart/vegeta/v12 v12.11.3
+	github.com/tsenart/vegeta/v12 v12.12.0
 	go.opencensus.io v0.24.0
 	go.uber.org/atomic v1.10.0
 	go.uber.org/automaxprocs v1.5.3
 	go.uber.org/zap v1.27.0
 	golang.org/x/net v0.27.0
-	golang.org/x/sync v0.7.0
+	golang.org/x/sync v0.8.0
 	golang.org/x/sys v0.22.0
 	golang.org/x/time v0.5.0
 	google.golang.org/api v0.183.0
@@ -34,10 +34,10 @@ require (
 	k8s.io/code-generator v0.29.2
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00
 	k8s.io/utils v0.0.0-20240102154912-e7106e64919e
-	knative.dev/caching v0.0.0-20240730152355-c601f824cec3
+	knative.dev/caching v0.0.0-20240805055809-0a5c1ed07f7a
 	knative.dev/hack v0.0.0-20240801232131-441a19fc9ead
-	knative.dev/networking v0.0.0-20240730152525-543181c32243
-	knative.dev/pkg v0.0.0-20240730131544-0e7ffe491d5e
+	knative.dev/networking v0.0.0-20240802083044-f1702380495f
+	knative.dev/pkg v0.0.0-20240805063731-c88d5dad9653
 	sigs.k8s.io/yaml v1.4.0
 )
 
