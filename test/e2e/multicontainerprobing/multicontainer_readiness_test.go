@@ -171,10 +171,17 @@ func TestMultiContainerReadinessDifferentProbeTypes(t *testing.T) {
 			Ports: []corev1.ContainerPort{{
 				ContainerPort: 8080,
 			}},
-		}, { // Sidecar with TCPSocket readiness and liveness probes.
+		}, { // Sidecar with TCPSocket startup, readiness and liveness probes.
 			Image: pkgTest.ImagePath(names.Sidecars[0]),
 			Env: []corev1.EnvVar{
 				{Name: "PORT", Value: "8881"},
+			},
+			StartupProbe: &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					TCPSocket: &corev1.TCPSocketAction{
+						Port: intstr.FromInt32(8881),
+					},
+				},
 			},
 			ReadinessProbe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
@@ -190,10 +197,18 @@ func TestMultiContainerReadinessDifferentProbeTypes(t *testing.T) {
 					},
 				},
 			},
-		}, { // Sidecar with HTTPGet readiness and Exec liveness probes.
+		}, { // Sidecar with HTTPGet startup, HTTPGet readiness and Exec liveness probes.
 			Image: pkgTest.ImagePath(names.Sidecars[1]),
 			Env: []corev1.EnvVar{
 				{Name: "PORT", Value: "8882"},
+			},
+			StartupProbe: &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/healthz/readiness",
+						Port: intstr.FromInt32(8882),
+					},
+				},
 			},
 			ReadinessProbe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
@@ -210,10 +225,17 @@ func TestMultiContainerReadinessDifferentProbeTypes(t *testing.T) {
 					},
 				},
 			},
-		}, { // Sidecar with GRPC readiness and liveness probes.
+		}, { // Sidecar with GRPC startup, readiness and liveness probes.
 			Image: pkgTest.ImagePath(names.Sidecars[2]),
 			Env: []corev1.EnvVar{
 				{Name: "PORT", Value: "8883"},
+			},
+			StartupProbe: &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					GRPC: &corev1.GRPCAction{
+						Port: 8883,
+					},
+				},
 			},
 			ReadinessProbe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
