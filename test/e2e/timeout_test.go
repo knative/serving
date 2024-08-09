@@ -114,11 +114,29 @@ func TestRevisionTimeout(t *testing.T) {
 		expectedStatus:     http.StatusOK,
 		sleep:              2 * time.Second,
 	}, {
+		// FIXME icg
+		// shouldn't this use sleep instead of initialSleep. It seems here the timeout
+		// is reached because it exceeded timeoutSeconds instead of idleTimeoutSeconds
 		name:               "exceeds idle timeout",
 		timeoutSeconds:     15,
 		idleTimeoutSeconds: 7,
 		expectedStatus:     http.StatusGatewayTimeout,
 		initialSleep:       20 * time.Second,
+	}, {
+		name:               "exceeds idle timeout - new",
+		timeoutSeconds:     20,
+		idleTimeoutSeconds: 5,
+		expectedStatus:     http.StatusGatewayTimeout,
+		initialSleep:       3 * time.Second,
+		sleep:              7 * time.Second,
+	}, {
+		// FIXME icg
+		// copied from ./test/conformance/api/v1/revision_timeout_test.go but with updated status code
+		name:           "exceeds total timeout after first byte",
+		timeoutSeconds: 10,
+		expectedStatus: http.StatusGatewayTimeout,
+		sleep:          15 * time.Second,
+		initialSleep:   0,
 	}}
 
 	for _, tc := range testCases {
@@ -160,7 +178,7 @@ func TestRevisionTimeout(t *testing.T) {
 			}
 
 			if err := sendRequestWithTimeout(t, clients, serviceURL, tc.initialSleep, tc.sleep, tc.expectedStatus); err != nil {
-				t.Errorf("Failed request with initialSleep %v, sleep %v, with revision timeout %ds, response start timeout %ds idle timeout %ds, expecting status %v: %v",
+				t.Errorf("Failed request with initialSleep %v, sleep %v, with revision timeout %ds, response start timeout %ds, idle timeout %ds, expecting status %v: %v",
 					tc.initialSleep, tc.sleep, tc.timeoutSeconds, tc.responseStartTimeoutSeconds, tc.idleTimeoutSeconds, tc.expectedStatus, err)
 			}
 		})
