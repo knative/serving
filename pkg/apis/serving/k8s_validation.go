@@ -387,7 +387,7 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 	case 0:
 		errs = errs.Also(apis.ErrMissingField("containers"))
 	case 1:
-		errs = errs.Also(ValidateUserContainer(ctx, ps.Containers[0], volumes, port).
+		errs = errs.Also(ValidateMainContainer(ctx, ps.Containers[0], volumes, port).
 			ViaFieldIndex("containers", 0))
 	default:
 		errs = errs.Also(validateContainers(ctx, ps.Containers, volumes, port))
@@ -444,7 +444,7 @@ func validateContainers(ctx context.Context, containers []corev1.Container, volu
 		if len(containers[i].Ports) == 0 {
 			errs = errs.Also(validateSidecarContainer(WithinSidecarContainer(ctx), containers[i], volumes).ViaFieldIndex("containers", i))
 		} else {
-			errs = errs.Also(ValidateUserContainer(WithinUserContainer(ctx), containers[i], volumes, port).ViaFieldIndex("containers", i))
+			errs = errs.Also(ValidateMainContainer(WithinMainContainer(ctx), containers[i], volumes, port).ViaFieldIndex("containers", i))
 		}
 	}
 	return errs
@@ -550,8 +550,8 @@ func validateInitContainer(ctx context.Context, container corev1.Container, volu
 	return errs.Also(validate(WithinInitContainer(ctx), container, volumes))
 }
 
-// ValidateUserContainer validate fields for serving containers
-func ValidateUserContainer(ctx context.Context, container corev1.Container, volumes map[string]corev1.Volume, port corev1.ContainerPort) (errs *apis.FieldError) {
+// ValidateMainContainer validate fields for serving containers
+func ValidateMainContainer(ctx context.Context, container corev1.Container, volumes map[string]corev1.Volume, port corev1.ContainerPort) (errs *apis.FieldError) {
 	// Liveness Probes
 	errs = errs.Also(validateProbe(container.LivenessProbe, &port, true).ViaField("livenessProbe"))
 	// Readiness Probes
@@ -757,12 +757,12 @@ func validateContainerPortBasic(port corev1.ContainerPort) *apis.FieldError {
 	return errs
 }
 
-func validateReadinessProbe(p *corev1.Probe, port *corev1.ContainerPort, isUserContainer bool) *apis.FieldError {
+func validateReadinessProbe(p *corev1.Probe, port *corev1.ContainerPort, isMainContainer bool) *apis.FieldError {
 	if p == nil {
 		return nil
 	}
 
-	errs := validateProbe(p, port, isUserContainer)
+	errs := validateProbe(p, port, isMainContainer)
 
 	if p.PeriodSeconds < 0 {
 		errs = errs.Also(apis.ErrOutOfBoundsValue(p.PeriodSeconds, 0, math.MaxInt32, "periodSeconds"))
@@ -804,7 +804,7 @@ func validateReadinessProbe(p *corev1.Probe, port *corev1.ContainerPort, isUserC
 	return errs
 }
 
-func validateProbe(p *corev1.Probe, port *corev1.ContainerPort, isUserContainer bool) *apis.FieldError {
+func validateProbe(p *corev1.Probe, port *corev1.ContainerPort, isMainContainer bool) *apis.FieldError {
 	if p == nil {
 		return nil
 	}
@@ -819,7 +819,7 @@ func validateProbe(p *corev1.Probe, port *corev1.ContainerPort, isUserContainer 
 		handlers = append(handlers, "httpGet")
 		errs = errs.Also(apis.CheckDisallowedFields(*h.HTTPGet, *HTTPGetActionMask(h.HTTPGet))).ViaField("httpGet")
 		getPort := h.HTTPGet.Port
-		if isUserContainer {
+		if isMainContainer {
 			if getPort.StrVal != "" && getPort.StrVal != port.Name {
 				errs = errs.Also(apis.ErrInvalidValue(getPort.String(), "httpGet.port", "Probe port must match container port"))
 			}
@@ -833,7 +833,7 @@ func validateProbe(p *corev1.Probe, port *corev1.ContainerPort, isUserContainer 
 		handlers = append(handlers, "tcpSocket")
 		errs = errs.Also(apis.CheckDisallowedFields(*h.TCPSocket, *TCPSocketActionMask(h.TCPSocket))).ViaField("tcpSocket")
 		tcpPort := h.TCPSocket.Port
-		if isUserContainer {
+		if isMainContainer {
 			if tcpPort.StrVal != "" && tcpPort.StrVal != port.Name {
 				errs = errs.Also(apis.ErrInvalidValue(tcpPort.String(), "tcpSocket.port", "Probe port must match container port"))
 			}
@@ -983,12 +983,12 @@ func warnDefaultContainerSecurityContext(_ context.Context, psc *corev1.PodSecur
 
 // This is attached to contexts as they are passed down through a user container
 // being validated.
-type userContainer struct{}
+type mainContainer struct{}
 
-// WithinUserContainer notes on the context that further validation or defaulting
+// WithinMainContainer notes on the context that further validation or defaulting
 // is within the context of a user container in the revision.
-func WithinUserContainer(ctx context.Context) context.Context {
-	return context.WithValue(ctx, userContainer{}, struct{}{})
+func WithinMainContainer(ctx context.Context) context.Context {
+	return context.WithValue(ctx, mainContainer{}, struct{}{})
 }
 
 // This is attached to contexts as they are passed down through a sidecar container
