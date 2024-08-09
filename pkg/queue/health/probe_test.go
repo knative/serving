@@ -201,6 +201,48 @@ func TestHTTPProbeAutoHTTP2(t *testing.T) {
 	}
 }
 
+func TestHTTPProbeAutoHTTP2FailedUpgrade(t *testing.T) {
+	h2cHeaders := map[string]string{
+		"Connection": "Upgrade, HTTP2-Settings",
+		"Upgrade":    "h2c",
+	}
+	expectedPath := "/health"
+	var callCount atomic.Int32
+
+	server := newH2cTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		count := callCount.Inc()
+		if r.Method == http.MethodOptions {
+			// make sure that the correct headers are present on the options request
+			for key, value := range h2cHeaders {
+				if r.Header.Get(key) != value {
+					t.Errorf("Key %v = %v was supposed to be present in the request", key, value)
+				}
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+		} else {
+			w.WriteHeader(http.StatusOK)
+		}
+		if count > 2 {
+			t.Error("Expected probe to make two requests only")
+		}
+	})
+
+	action := newHTTPGetAction(t, server.URL)
+	action.Path = expectedPath
+
+	config := HTTPProbeConfigOptions{
+		Timeout:       time.Second,
+		HTTPGetAction: action,
+		MaxProtoMajor: 0,
+	}
+	if err := HTTPProbe(config); err != nil {
+		t.Error("Expected probe to succeed but it failed with", err)
+	}
+	if count := callCount.Load(); count != 2 {
+		t.Errorf("Unexpected call count %d", count)
+	}
+}
+
 func TestHTTPSchemeProbeSuccess(t *testing.T) {
 	server := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
