@@ -31,6 +31,7 @@ import (
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
+	"knative.dev/serving/pkg/apis/config"
 )
 
 const (
@@ -105,4 +106,14 @@ func AddTestAnnotation(t testing.TB, m metav1.ObjectMeta) {
 	kmeta.UnionMaps(m.Annotations, map[string]string{
 		testAnnotation: t.Name(),
 	})
+}
+
+// UserContainerRestarted checks if the container was restarted.
+func UserContainerRestarted(pod *corev1.Pod) bool {
+	for _, status := range pod.Status.ContainerStatuses {
+		if status.Name == config.DefaultUserContainerName && status.RestartCount > 0 {
+			return true
+		}
+	}
+	return false
 }

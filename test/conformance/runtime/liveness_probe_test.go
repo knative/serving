@@ -31,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	pkgtest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
-	"knative.dev/serving/pkg/apis/config"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	v1opts "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -99,7 +98,7 @@ func TestLivenessWithFail(t *testing.T) {
 	}
 	for i := range podList.Items {
 		pod := &podList.Items[i]
-		if strings.Contains(pod.Name, deploymentName) && userContainerRestarted(pod) {
+		if strings.Contains(pod.Name, deploymentName) && test.UserContainerRestarted(pod) {
 			t.Fatal("User container unexpectedly restarted")
 		}
 	}
@@ -131,7 +130,7 @@ func TestLivenessWithFail(t *testing.T) {
 		func(p *corev1.PodList) (bool, error) {
 			for i := range p.Items {
 				pod := &p.Items[i]
-				if strings.Contains(pod.Name, deploymentName) && userContainerRestarted(pod) {
+				if strings.Contains(pod.Name, deploymentName) && test.UserContainerRestarted(pod) {
 					return true, nil
 				}
 			}
@@ -169,13 +168,4 @@ func atLeastNumLivenessChecks(t *testing.T, expectedChecks int) spoof.ResponseCh
 		}
 		return false, nil
 	}
-}
-
-func userContainerRestarted(pod *corev1.Pod) bool {
-	for _, status := range pod.Status.ContainerStatuses {
-		if status.Name == config.DefaultUserContainerName && status.RestartCount > 0 {
-			return true
-		}
-	}
-	return false
 }

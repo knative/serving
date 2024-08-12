@@ -437,6 +437,14 @@ func WithLivenessProbe(p *corev1.Probe) ServiceOption {
 	}
 }
 
+// WithStartupProbe sets the provided probe to be the startup
+// probe on the service.
+func WithStartupProbe(p *corev1.Probe) ServiceOption {
+	return func(s *v1.Service) {
+		s.Spec.Template.Spec.Containers[0].StartupProbe = p
+	}
+}
+
 // MarkConfigurationNotReconciled calls the function of the same name on the Service's status.
 func MarkConfigurationNotReconciled(service *v1.Service) {
 	service.Status.MarkConfigurationNotReconciled()
