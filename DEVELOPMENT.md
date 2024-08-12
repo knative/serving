@@ -23,18 +23,6 @@ Start by creating [a GitHub account](https://github.com/join), then set up
 
 ### Install requirements
 
-#### Getting started with GitHub Codespaces
-
-To get started, create a codespace for this repository by clicking this 👇
-
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new?hide_repo_select=true&ref=main&repo=118828329)
-
-A codespace will open in a web-based version of Visual Studio Code. The [dev container](.devcontainer/devcontainer.json) is fully configured with software needed for this project. It creates a local container registry, a Kind cluster and deploys Knative Serving and Knative Ingress. If you use a codespace, then you can directly skip to the [Iterating](#Iterating) section of this document.
-
-**Note**: Dev containers is an open spec which is supported by [GitHub Codespaces](https://github.com/codespaces) and [other tools](https://containers.dev/supporting).
-
-#### Local Setup
-
 You must install these tools:
 
 1. [`go`](https://golang.org/doc/install): The language `Knative Serving` is
