@@ -91,13 +91,20 @@ k8s.io/api/core/v1.PodSpec:
       description: 'EnableServiceLinks indicates whether information about services should be injected into pod''s environment variables, matching the syntax of Docker links. Optional: Knative defaults this to false.'
     HostAliases:
       description: "This is accessible behind a feature flag - kubernetes.podspec-hostaliases"
+      additionalMarkers:
+        - kubebuilder:validation:DropListMapMarkers
       itemOverride:
         description: "This is accessible behind a feature flag - kubernetes.podspec-hostaliases"
         additionalMarkers:
         # # Part of a feature flag - so we want to omit the schema and preserve unknown fields
         - kubebuilder:validation:DropProperties
         - kubebuilder:pruning:PreserveUnknownFields
+    Containers:
+      additionalMarkers:
+        - kubebuilder:validation:DropListMapMarkers
     InitContainers:
+      additionalMarkers:
+        - kubebuilder:validation:DropListMapMarkers
       itemOverride:
         description: "This is accessible behind a feature flag - kubernetes.podspec-init-containers"
         additionalMarkers:
