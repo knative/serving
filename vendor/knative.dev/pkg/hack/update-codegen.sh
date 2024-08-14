@@ -41,7 +41,14 @@ ${REPO_ROOT_DIR}/hack/generate-knative.sh "injection" \
 # Based on: https://github.com/kubernetes/kubernetes/blob/8ddabd0da5cc54761f3216c08e99fa1a9f7ee2c5/hack/lib/init.sh#L116
 # The '-path' is a hack to workaround the lack of portable `-depth 2`.
 K8S_TYPES=$(find ./vendor/k8s.io/api -type d -path '*/*/*/*/*/*' | cut -d'/' -f 5-6 | sort | sed 's@/@:@g' |
-  grep -v "admission:" | grep -v "imagepolicy:" | grep -v "abac:" | grep -v "componentconfig:")
+  grep -v "abac:" | \
+  grep -v "admission:" | \
+  grep -v "admissionregistration:" \
+  grep -v "componentconfig:" | \
+  grep -v "imagepolicy:" | \
+  grep -v "resource:" | \
+  grep -v "storagemigration:" \
+)
 
 OUTPUT_PKG="knative.dev/pkg/client/injection/kube" \
 VERSIONED_CLIENTSET_PKG="k8s.io/client-go/kubernetes" \
@@ -65,24 +72,19 @@ VERSIONED_CLIENTSET_PKG="k8s.io/apiextensions-apiserver/pkg/client/clientset/cli
 group "Knative Codegen"
 
 # Only deepcopy the Duck types, as they are not real resources.
-${CODEGEN_PKG}/generate-groups.sh "deepcopy" \
-  knative.dev/pkg/client knative.dev/pkg/apis \
-  "duck:v1alpha1,v1beta1,v1" \
-  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
-
-# Depends on generate-groups.sh to install bin/deepcopy-gen
-go run k8s.io/code-generator/cmd/deepcopy-gen  --input-dirs \
-  $(echo \
+go run k8s.io/code-generator/cmd/deepcopy-gen \
+  --output-file zz_generated.deepcopy.go \
+  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt \
   knative.dev/pkg/apis \
+  knative.dev/pkg/apis/duck/v1alpha1 \
+  knative.dev/pkg/apis/duck/v1beta1 \
+  knative.dev/pkg/apis/duck/v1 \
   knative.dev/pkg/tracker \
   knative.dev/pkg/logging \
   knative.dev/pkg/metrics \
   knative.dev/pkg/testing \
   knative.dev/pkg/testing/duck \
-  knative.dev/pkg/webhook/resourcesemantics/conversion/internal \
-  | sed "s/ /,/g") \
-  -O zz_generated.deepcopy \
-  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
+  knative.dev/pkg/webhook/resourcesemantics/conversion/internal
 
 group "Update deps post-codegen"
 
