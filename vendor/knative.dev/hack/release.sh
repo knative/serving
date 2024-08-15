@@ -694,6 +694,8 @@ function main() {
   (( SKIP_TESTS )) && echo "- Tests will NOT be run" || echo "- Tests will be run"
   if (( TAG_RELEASE )); then
     echo "- Artifacts will be tagged '${TAG}'"
+    # We want to add git tags to the container images built by ko
+    KO_FLAGS+=" --tags=latest,${TAG}"
   else
     echo "- Artifacts WILL NOT be tagged"
   fi
