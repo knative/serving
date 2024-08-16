@@ -7,6 +7,7 @@
 [![Slack Status](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](https://cloud-native.slack.com/archives/C04LGHDR9K7)
 [![codecov](https://codecov.io/gh/knative/serving/branch/main/graph/badge.svg)](https://codecov.io/gh/knative/serving)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/5913/badge)](https://bestpractices.coreinfrastructure.org/projects/5913)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/knative/serving/badge)](https://scorecard.dev/viewer/?uri=github.com/knative/serving)
 
 Knative Serving builds on Kubernetes to support deploying and serving of
 applications and functions as serverless containers. Serving is easy to get
