@@ -397,9 +397,11 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 	if ok, err := rw.probeClusterIP(dest); err != nil {
 		rw.logger.Errorw("Failed to probe clusterIP "+dest, zap.Error(err))
 	} else if ok {
-		// We can reach here only iff pods are not successfully individually probed
+		// We can reach here only if pods are not successfully individually probed
 		// but ClusterIP conversely has been successfully probed.
-		rw.podsAddressable = false
+		if rw.meshMode == netcfg.MeshCompatibilityModeEnabled {
+			rw.podsAddressable = false
+		}
 		rw.logger.Debugf("ClusterIP is successfully probed: %s (ready backends: %d)", dest, len(curDests.ready))
 		rw.clusterIPHealthy = true
 		rw.healthyPods = nil
