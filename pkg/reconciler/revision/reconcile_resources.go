@@ -173,12 +173,14 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 	// We no longer require immutability, so need to reconcile PA each time.
 	tmpl := resources.MakePA(rev, deployment)
 	logger.Debugf("Desired PASpec: %#v", tmpl.Spec)
-	if !equality.Semantic.DeepEqual(tmpl.Spec, pa.Spec) {
-		diff, _ := kmp.SafeDiff(tmpl.Spec, pa.Spec) // Can't realistically fail on PASpec.
-		logger.Infof("PA %s needs reconciliation, diff(-want,+got):\n%s", pa.Name, diff)
+	if !equality.Semantic.DeepEqual(tmpl.Spec, pa.Spec) || !equality.Semantic.DeepEqual(tmpl.Annotations, pa.Annotations) {
+		diffSpec, _ := kmp.SafeDiff(tmpl.Spec, pa.Spec) // Can't realistically fail on PASpec.
+		diffAnnotations, _ := kmp.SafeDiff(tmpl.Annotations, pa.Annotations)
+		logger.Infof("PA %s needs reconciliation, diff(-want,+got):\n%s\n%s", pa.Name, diffAnnotations, diffSpec)
 
 		want := pa.DeepCopy()
 		want.Spec = tmpl.Spec
+		want.Annotations = tmpl.Annotations
 		if pa, err = c.client.AutoscalingV1alpha1().PodAutoscalers(ns).Update(ctx, want, metav1.UpdateOptions{}); err != nil {
 			return fmt.Errorf("failed to update PA %q: %w", paName, err)
 		}
