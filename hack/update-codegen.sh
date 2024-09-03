@@ -101,6 +101,8 @@ ${GOPATH}/bin/deepcopy-gen \
   -i knative.dev/serving/pkg/autoscaler/config/autoscalerconfig \
   -i knative.dev/serving/pkg/autoscaler/scaling \
   -i knative.dev/serving/pkg/deployment \
+  -i knative.dev/serving/pkg/reconciler/certificate/config \
+  -i knative.dev/serving/pkg/apis/serving/v1alpha1 \
   -i knative.dev/serving/pkg/gc
 
 group "Generating API reference docs"
