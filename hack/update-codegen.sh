@@ -62,10 +62,6 @@ group "Kubernetes Codegen"
 
 source "${CODEGEN_PKG}/kube_codegen.sh"
 
-kube::codegen::gen_helpers \
-  --boilerplate "${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt" \
-  "${REPO_ROOT_DIR}/pkg/apis"
-
 kube::codegen::gen_client \
   --boilerplate "${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt" \
   --output-dir "${REPO_ROOT_DIR}/pkg/client" \
@@ -97,15 +93,9 @@ ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
 
 group "Deepcopy Gen"
 
-${GOPATH}/bin/deepcopy-gen \
-  --output-file zz_generated.deepcopy.go \
-  --go-header-file "${boilerplate}" \
-  knative.dev/serving/pkg/apis/config \
-  knative.dev/serving/pkg/reconciler/route/config \
-  knative.dev/serving/pkg/autoscaler/config/autoscalerconfig \
-  knative.dev/serving/pkg/autoscaler/scaling \
-  knative.dev/serving/pkg/deployment \
-  knative.dev/serving/pkg/gc
+kube::codegen::gen_helpers \
+  --boilerplate "${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt" \
+  "${REPO_ROOT_DIR}/pkg"
 
 group "Generating API reference docs"
 
