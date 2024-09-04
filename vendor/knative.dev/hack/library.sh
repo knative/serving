@@ -774,7 +774,7 @@ function go_update_deps() {
 function __clean_goworksum_if_exists() {
   if [ -f "$REPO_ROOT_DIR/go.work.sum" ]; then
     log.step 'Cleaning the go.work.sum file'
-    truncate --size 0 "$REPO_ROOT_DIR/go.work.sum"
+    truncate -s 0 "$REPO_ROOT_DIR/go.work.sum"
   fi
 }
 

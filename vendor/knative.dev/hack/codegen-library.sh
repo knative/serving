@@ -133,16 +133,18 @@ function restore-changes-if-its-copyright-year-only() {
   local difflist
   log "Cleaning up generated code"
   difflist="$(mktemp)"
-  git diff --exit-code --name-only > "$difflist"
-  # list git changes and skip those which differ only in the boilerplate year
-  while read -r file; do
-    # check if the file contains just the change in the boilerplate year
-    if [ "$(LANG=C git diff --exit-code --shortstat -- "$file")" = ' 1 file changed, 1 insertion(+), 1 deletion(-)' ] && \
-        [[ "$(git diff --exit-code -U1 -- "$file" | grep -Ec '^[+-]\s*[*#]?\s*Copyright 2[0-9]{3}')" -eq 2 ]]; then
-      # restore changes to that file
-      git checkout -- "$file"
-    fi
-  done < "$difflist"
+  if ! git diff --exit-code --name-only > /dev/null; then
+    # list git changes and skip those which differ only in the boilerplate year
+    git diff --name-only > "$difflist"  
+    while read -r file; do
+      # check if the file contains just the change in the boilerplate year
+      if [ "$(LANG=C git diff --exit-code --shortstat -- "$file")" = ' 1 file changed, 1 insertion(+), 1 deletion(-)' ] && \
+          [[ "$(git diff --exit-code -U1 -- "$file" | grep -Ec '^[+-]\s*[*#]?\s*Copyright 2[0-9]{3}')" -eq 2 ]]; then
+        # restore changes to that file
+        git checkout -- "$file"
+      fi
+    done < "$difflist"
+  fi
   rm -f "$difflist"
 }
 
