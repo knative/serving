@@ -9,7 +9,6 @@ aliases:
   - rhuss
   client-writers:
   - dsimansk
-  - maximilien
   - rhuss
   - vyasgun
   docs-reviewers:
@@ -76,14 +75,12 @@ aliases:
   - aliok
   - houshengbo
   - matzew
-  - maximilien
   operations-wg-leads:
   - houshengbo
   operations-writers:
   - aliok
   - houshengbo
   - matzew
-  - maximilien
   productivity-leads:
   - cardil
   - upodroid
