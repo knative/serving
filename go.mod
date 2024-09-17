@@ -12,7 +12,7 @@ require (
 	github.com/google/go-containerregistry v0.13.0
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20230209165335-3624968304fd
 	github.com/google/gofuzz v1.2.0
-	github.com/gorilla/websocket v1.5.1
+	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/golang-lru v1.0.2
 	github.com/influxdata/influxdb-client-go/v2 v2.9.0
 	github.com/kelseyhightower/envconfig v1.4.0
@@ -161,6 +161,3 @@ require (
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
-
-// TODO: https://github.com/knative/serving/issues/14597
-replace github.com/gorilla/websocket => github.com/gorilla/websocket v1.5.0
