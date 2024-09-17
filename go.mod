@@ -26,7 +26,7 @@ require (
 	golang.org/x/sys v0.25.0
 	golang.org/x/time v0.6.0
 	google.golang.org/api v0.183.0
-	google.golang.org/grpc v1.66.0
+	google.golang.org/grpc v1.66.2
 	k8s.io/api v0.30.3
 	k8s.io/apiextensions-apiserver v0.30.3
 	k8s.io/apimachinery v0.30.3
@@ -34,10 +34,10 @@ require (
 	k8s.io/code-generator v0.30.3
 	k8s.io/kube-openapi v0.0.0-20240808142205-8e686545bdb8
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
-	knative.dev/caching v0.0.0-20240909014459-1bbe214d75e7
+	knative.dev/caching v0.0.0-20240917105744-d1191d7426a6
 	knative.dev/hack v0.0.0-20240909014011-fc6a8452af6d
-	knative.dev/networking v0.0.0-20240912132036-ed319d7a8e69
-	knative.dev/pkg v0.0.0-20240912132815-3002873b449c
+	knative.dev/networking v0.0.0-20240916143514-6c832c6e62a9
+	knative.dev/pkg v0.0.0-20240917091217-aaab500c26c4
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -141,11 +141,11 @@ require (
 	go.opentelemetry.io/otel/trace v1.24.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.27.0 // indirect
-	golang.org/x/mod v0.20.0 // indirect
+	golang.org/x/mod v0.21.0 // indirect
 	golang.org/x/oauth2 v0.22.0 // indirect
 	golang.org/x/term v0.24.0 // indirect
 	golang.org/x/text v0.18.0 // indirect
-	golang.org/x/tools v0.24.0 // indirect
+	golang.org/x/tools v0.25.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240808171019-573a1156607a // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240808171019-573a1156607a // indirect
