@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"knative.dev/pkg/kmap"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -48,11 +49,11 @@ import (
 )
 
 var (
-	servingContainerName         = "serving-container"
-	sidecarContainerName         = "sidecar-container-1"
-	sidecarContainerName2        = "sidecar-container-2"
-	sidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
-	defaultServingContainer      = &corev1.Container{
+	servingContainerName    = "serving-container"
+	sidecarContainerName    = "sidecar-container-1"
+	sidecarContainerName2   = "sidecar-container-2"
+	sidecarIstioInjectLabel = "sidecar.istio.io/inject"
+	defaultServingContainer = &corev1.Container{
 		Name:                     servingContainerName,
 		Image:                    "busybox",
 		Ports:                    buildContainerPorts(v1.DefaultUserPort),
@@ -1786,16 +1787,16 @@ func TestMakeDeployment(t *testing.T) {
 			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
-			withoutLabels, func(revision *v1.Revision) {
-				revision.Annotations = map[string]string{
-					sidecarIstioInjectAnnotation: "false",
+			func(revision *v1.Revision) {
+				revision.Labels = map[string]string{
+					sidecarIstioInjectLabel: "false",
 				}
 			}),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
-			deploy.Annotations = kmeta.UnionMaps(deploy.Annotations,
-				map[string]string{sidecarIstioInjectAnnotation: "false"})
-			deploy.Spec.Template.Annotations = kmeta.UnionMaps(deploy.Spec.Template.Annotations,
-				map[string]string{sidecarIstioInjectAnnotation: "false"})
+			deploy.Labels = kmap.Union(deploy.Labels,
+				map[string]string{sidecarIstioInjectLabel: "false"})
+			deploy.Spec.Template.Labels = kmap.Union(deploy.Spec.Template.Labels,
+				map[string]string{sidecarIstioInjectLabel: "false"})
 		}),
 	}, {
 		name: "with progress-deadline override",
