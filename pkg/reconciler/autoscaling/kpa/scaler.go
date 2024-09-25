@@ -19,6 +19,8 @@ package kpa
 import (
 	"context"
 	"fmt"
+	"k8s.io/client-go/dynamic"
+	"knative.dev/serving/pkg/reconciler/autoscaling"
 	"net/http"
 	"time"
 
@@ -43,7 +45,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -372,5 +373,30 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 	}
 
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
-	return desiredScale, ks.applyScale(ctx, pa, desiredScale, ps)
+
+	// Operate different types of workloads.
+	scaleType := autoscaling.ScalerTypeFactory(pa.Spec.ScaleTargetRef)
+	if scaler, ok := autoscaling.ScalerTypes[scaleType]; ok {
+		err = scaler.ApplyScale(ctx, pa, desiredScale)
+	} else {
+		if sff, ok := autoscaling.ScalerFactories[scaleType]; ok {
+			s, err := sff(ctx, ks)
+			if err != nil {
+				return desiredScale, err
+			}
+			autoscaling.ScalerTypes[scaleType] = s
+			return desiredScale, s.ApplyScale(ctx, pa, desiredScale)
+		}
+	}
+	return desiredScale, err
+}
+
+// GetDynamicClient Get the default dynamic client
+func (ks *scaler) GetDynamicClient() dynamic.Interface {
+	return ks.dynamicClient
+}
+
+// GetListerFactory Get the ListerFactory function related to the corresponding workload.
+func (ks *scaler) GetListerFactory() func(schema.GroupVersionResource) (cache.GenericLister, error) {
+	return ks.listerFactory
 }
