@@ -42,9 +42,7 @@ import (
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
 	"knative.dev/serving/pkg/resources"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -296,36 +294,6 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1
 	}
 }
 
-func (ks *scaler) applyScale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, desiredScale int32,
-	ps *autoscalingv1alpha1.PodScalable) error {
-	logger := logging.FromContext(ctx)
-
-	gvr, name, err := resources.ScaleResourceArguments(pa.Spec.ScaleTargetRef)
-	if err != nil {
-		return err
-	}
-
-	psNew := ps.DeepCopy()
-	psNew.Spec.Replicas = &desiredScale
-	patch, err := duck.CreatePatch(ps, psNew)
-	if err != nil {
-		return err
-	}
-	patchBytes, err := patch.MarshalJSON()
-	if err != nil {
-		return err
-	}
-
-	_, err = ks.dynamicClient.Resource(*gvr).Namespace(pa.Namespace).Patch(ctx, ps.Name, types.JSONPatchType,
-		patchBytes, metav1.PatchOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to apply scale %d to scale target %s: %w", desiredScale, name, err)
-	}
-
-	logger.Debug("Successfully scaled to ", desiredScale)
-	return nil
-}
-
 // scale attempts to scale the given PA's target reference to the desired scale.
 func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, sks *netv1alpha1.ServerlessService, desiredScale int32) (int32, error) {
 	asConfig := config.FromContext(ctx).Autoscaler
@@ -373,7 +341,7 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 	}
 
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
-
+	return desiredScale, ks.applyScale(ctx, pa, desiredScale, ps)
 	// Operate different types of workloads.
 	scaleType := autoscaling.ScalerTypeFactory(pa.Spec.ScaleTargetRef)
 	if scaler, ok := autoscaling.ScalerTypes[scaleType]; ok {
