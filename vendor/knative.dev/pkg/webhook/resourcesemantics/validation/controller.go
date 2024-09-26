@@ -86,9 +86,10 @@ func newController(ctx context.Context, name string, optsFunc ...OptionFunc) *co
 		handlers:  opts.types,
 		callbacks: opts.callbacks,
 
-		withContext:           opts.wc,
-		disallowUnknownFields: opts.DisallowUnknownFields(),
-		secretName:            woptions.SecretName,
+		withContext:               opts.wc,
+		disallowUnknownFields:     opts.DisallowUnknownFields(),
+		secretName:                woptions.SecretName,
+		disableNamespaceOwnership: woptions.DisableNamespaceOwnership,
 
 		client:       client,
 		vwhlister:    vwhInformer.Lister(),

@@ -69,8 +69,9 @@ type reconciler struct {
 	mwhlister    admissionlisters.MutatingWebhookConfigurationLister
 	secretlister corelisters.SecretLister
 
-	disallowUnknownFields bool
-	secretName            string
+	disallowUnknownFields     bool
+	secretName                string
+	disableNamespaceOwnership bool
 }
 
 // CallbackFunc is the function to be invoked.
@@ -218,12 +219,14 @@ func (ac *reconciler) reconcileMutatingWebhook(ctx context.Context, caCert []byt
 
 	current := configuredWebhook.DeepCopy()
 
-	ns, err := ac.client.CoreV1().Namespaces().Get(ctx, system.Namespace(), metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to fetch namespace: %w", err)
+	if !ac.disableNamespaceOwnership {
+		ns, err := ac.client.CoreV1().Namespaces().Get(ctx, system.Namespace(), metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to fetch namespace: %w", err)
+		}
+		nsRef := *metav1.NewControllerRef(ns, corev1.SchemeGroupVersion.WithKind("Namespace"))
+		current.OwnerReferences = []metav1.OwnerReference{nsRef}
 	}
-	nsRef := *metav1.NewControllerRef(ns, corev1.SchemeGroupVersion.WithKind("Namespace"))
-	current.OwnerReferences = []metav1.OwnerReference{nsRef}
 
 	for i, wh := range current.Webhooks {
 		if wh.Name != current.Name {

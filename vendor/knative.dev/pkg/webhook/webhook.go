@@ -81,6 +81,10 @@ type Options struct {
 	// before shutting down.
 	GracePeriod time.Duration
 
+	// DisableNamespaceOwnership configures whether the webhook adds an owner reference for the SYSTEM_NAMESPACE
+	// Disabling this is useful when you expect the webhook configuration to be managed by something other than knative
+	DisableNamespaceOwnership bool
+
 	// ControllerOptions encapsulates options for creating a new controller,
 	// including throttling and stats behavior.
 	ControllerOptions *controller.ControllerOptions

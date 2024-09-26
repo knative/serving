@@ -58,7 +58,8 @@ type reconciler struct {
 	vwhlister    admissionlisters.ValidatingWebhookConfigurationLister
 	secretlister corelisters.SecretLister
 
-	secretName string
+	secretName                string
+	disableNamespaceOwnership bool
 }
 
 var (
@@ -138,13 +139,15 @@ func (ac *reconciler) reconcileValidatingWebhook(ctx context.Context, caCert []b
 
 	webhook := configuredWebhook.DeepCopy()
 
-	// Set the owner to namespace.
-	ns, err := ac.client.CoreV1().Namespaces().Get(ctx, system.Namespace(), metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to fetch namespace: %w", err)
+	if !ac.disableNamespaceOwnership {
+		// Set the owner to namespace.
+		ns, err := ac.client.CoreV1().Namespaces().Get(ctx, system.Namespace(), metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to fetch namespace: %w", err)
+		}
+		nsRef := *metav1.NewControllerRef(ns, corev1.SchemeGroupVersion.WithKind("Namespace"))
+		webhook.OwnerReferences = []metav1.OwnerReference{nsRef}
 	}
-	nsRef := *metav1.NewControllerRef(ns, corev1.SchemeGroupVersion.WithKind("Namespace"))
-	webhook.OwnerReferences = []metav1.OwnerReference{nsRef}
 
 	for i, wh := range webhook.Webhooks {
 		if wh.Name != webhook.Name {
