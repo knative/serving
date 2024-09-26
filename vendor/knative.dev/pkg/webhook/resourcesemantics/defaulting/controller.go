@@ -100,9 +100,10 @@ func newController(ctx context.Context, name string, optsFunc ...OptionFunc) *co
 		handlers:  opts.types,
 		callbacks: opts.callbacks,
 
-		withContext:           opts.wc,
-		disallowUnknownFields: opts.disallowUnknownFields,
-		secretName:            wopts.SecretName,
+		withContext:               opts.wc,
+		disallowUnknownFields:     opts.disallowUnknownFields,
+		secretName:                wopts.SecretName,
+		disableNamespaceOwnership: wopts.DisableNamespaceOwnership,
 
 		client:       client,
 		mwhlister:    mwhInformer.Lister(),
