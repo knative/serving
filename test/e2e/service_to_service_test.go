@@ -138,13 +138,14 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 	withInternalVisibility := rtesting.WithServiceLabel(
 		netapi.VisibilityLabelKey, serving.VisibilityClusterLocal)
 
+	withIstioSidecarInject := rtesting.WithServiceLabel("sidecar.istio.io/inject", strconv.FormatBool(injectB))
+
 	test.EnsureTearDown(t, clients, &testNames)
 
 	resources, err := v1test.CreateServiceReady(t, clients, &testNames,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
-			"sidecar.istio.io/inject":          strconv.FormatBool(injectB),
-		}), withInternalVisibility)
+		}), withInternalVisibility, withIstioSidecarInject)
 	if err != nil {
 		t.Fatal("Failed to create a service:", err)
 	}

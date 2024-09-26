@@ -25,13 +25,12 @@ metadata:
 spec:
   template:
     metadata:
-      annotations:
-        sidecar.istio.io/inject: "false"
       labels:
         app: "default-domain"
         app.kubernetes.io/component: default-domain-job
         app.kubernetes.io/name: knative-serving
         app.kubernetes.io/version: devel
+        sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: controller
       containers:

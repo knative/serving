@@ -79,9 +79,7 @@ func TestProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 
 	serviceOptions := []rtesting.ServiceOption{
 		rtesting.WithEnv(envVars...),
-		rtesting.WithConfigAnnotations(map[string]string{
-			"sidecar.istio.io/inject": strconv.FormatBool(inject),
-		}),
+		rtesting.WithServiceLabel("sidecar.istio.io/inject", strconv.FormatBool(inject)),
 	}
 
 	resources, err := v1test.CreateServiceReady(t, clients, &names, serviceOptions...)
