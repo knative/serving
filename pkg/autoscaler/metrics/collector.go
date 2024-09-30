@@ -80,6 +80,12 @@ type MetricClient interface {
 	// StableAndPanicRPS returns both the stable and the panic RPS
 	// for the given replica as of the given time.
 	StableAndPanicRPS(key types.NamespacedName, now time.Time) (float64, float64, error)
+
+	// Pause pauses the pod scrapper of the collection with specified Key.
+	Pause(key types.NamespacedName)
+
+	// Resume pauses the pod scrapper of the collection with specified Key.
+	Resume(key types.NamespacedName)
 }
 
 // MetricCollector manages collection of metrics for many entities.
@@ -146,6 +152,26 @@ func (c *MetricCollector) Delete(namespace, name string) {
 	if collection, ok := c.collections[key]; ok {
 		collection.close()
 		delete(c.collections, key)
+	}
+}
+
+// Pause pauses the pod scrapper of the collection with specified Key.
+func (c *MetricCollector) Pause(key types.NamespacedName) {
+	c.collectionsMutex.RLock()
+	defer c.collectionsMutex.RUnlock()
+
+	if collection, exists := c.collections[key]; exists {
+		collection.pause()
+	}
+}
+
+// Resume resume the pod scrapper of the collection with specified Key.
+func (c *MetricCollector) Resume(key types.NamespacedName) {
+	c.collectionsMutex.RLock()
+	defer c.collectionsMutex.RUnlock()
+
+	if collection, exists := c.collections[key]; exists {
+		collection.resume()
 	}
 }
 
@@ -245,6 +271,8 @@ type (
 		lastErr error
 		grp     sync.WaitGroup
 		stopCh  chan struct{}
+		// Pause scrape
+		pauseCh chan bool
 	}
 )
 
@@ -288,7 +316,8 @@ func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clo
 			metric.Spec.PanicWindow, config.BucketSize),
 		scraper: scraper,
 
-		stopCh: make(chan struct{}),
+		stopCh:  make(chan struct{}),
+		pauseCh: make(chan bool),
 	}
 
 	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
@@ -299,12 +328,18 @@ func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clo
 		defer c.grp.Done()
 
 		scrapeTicker := clock.NewTicker(scrapeTickInterval)
+		var pause bool
 		defer scrapeTicker.Stop()
 		for {
 			select {
 			case <-c.stopCh:
 				return
+			case pause = <-c.pauseCh:
 			case <-scrapeTicker.C():
+				if pause {
+					continue
+				}
+
 				scraper := c.getScraper()
 				if scraper == nil {
 					// Don't scrape empty target service.
@@ -413,4 +448,14 @@ func (dst *Stat) average(sample, total float64) {
 	dst.AverageProxiedConcurrentRequests = dst.AverageProxiedConcurrentRequests / sample * total
 	dst.RequestCount = dst.RequestCount / sample * total
 	dst.ProxiedRequestCount = dst.ProxiedRequestCount / sample * total
+}
+
+// pause pauses the pod scraper of the current collection.
+func (c *collection) pause() {
+	c.pauseCh <- true
+}
+
+// resume resumes the pod scraper of the current collection.
+func (c *collection) resume() {
+	c.pauseCh <- false
 }

@@ -280,6 +280,8 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 	case spec.TargetBurstCapacity > 0:
 		totCap := float64(originalReadyPodsCount) * spec.TotalValue
 		excessBCF = math.Floor(totCap - spec.TargetBurstCapacity - observedPanicValue)
+	case spec.TargetBurstCapacity == -1:
+		a.metricClient.Pause(metricKey)
 	}
 
 	if debugEnabled {
