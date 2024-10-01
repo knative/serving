@@ -19,7 +19,7 @@ require (
 	github.com/tsenart/vegeta/v12 v12.12.0
 	go.opencensus.io v0.24.0
 	go.uber.org/atomic v1.10.0
-	go.uber.org/automaxprocs v1.5.3
+	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/net v0.29.0
 	golang.org/x/sync v0.8.0
@@ -37,7 +37,7 @@ require (
 	knative.dev/caching v0.0.0-20240923134629-abecea6b8cbe
 	knative.dev/hack v0.0.0-20240909014011-fc6a8452af6d
 	knative.dev/networking v0.0.0-20240925061159-939600981bda
-	knative.dev/pkg v0.0.0-20240926013127-c4843b746d24
+	knative.dev/pkg v0.0.0-20240930065954-503173341499
 	sigs.k8s.io/yaml v1.4.0
 )
 
