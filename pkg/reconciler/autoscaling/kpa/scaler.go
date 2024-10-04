@@ -40,7 +40,6 @@ import (
 	"knative.dev/serving/pkg/activator"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
-	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	kparesources "knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
@@ -336,7 +335,7 @@ func (ks *scaler) applyScale(ctx context.Context, pa *autoscalingv1alpha1.PodAut
 }
 
 // scale attempts to scale the given PA's target reference to the desired scale.
-func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, sks *netv1alpha1.ServerlessService, desiredScale int32, client clientset.Interface, podCounter *resources.PodAccessor) (int32, error) {
+func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, sks *netv1alpha1.ServerlessService, desiredScale int32, podCounter *resources.PodAccessor) (int32, error) {
 	asConfig := config.FromContext(ctx).Autoscaler
 	logger := logging.FromContext(ctx)
 
@@ -414,10 +413,9 @@ func checkForPodErrorsBeforeScalingDown(logger *zap.SugaredLogger, pod *corev1.P
 						pa.Status.MarkWithScaleFailures(v1.ExitCodeReason(t.ExitCode),
 							v1.RevisionContainerExitingMessage("container exited with no error"))
 						break
-					} else {
-						pa.Status.MarkWithScaleFailures(v1.ExitCodeReason(t.ExitCode), v1.RevisionContainerExitingMessage(t.Message))
-						break
 					}
+					pa.Status.MarkWithScaleFailures(v1.ExitCodeReason(t.ExitCode), v1.RevisionContainerExitingMessage(t.Message))
+					break
 				} else if w := status.State.Waiting; w != nil {
 					logger.Debugf("marking pa as failed: %s: %s", w.Reason, w.Message)
 					pa.Status.MarkWithScaleFailures(w.Reason, w.Message)

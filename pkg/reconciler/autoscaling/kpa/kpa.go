@@ -122,7 +122,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
-	want, err := c.scaler.scale(ctx, pa, sks, decider.Status.DesiredScale, c.Client, &podCounter)
+	want, err := c.scaler.scale(ctx, pa, sks, decider.Status.DesiredScale, &podCounter)
 	if err != nil {
 		return fmt.Errorf("error scaling target: %w", err)
 	}
