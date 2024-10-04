@@ -35,6 +35,7 @@ var podCondSet = apis.NewLivingConditionSet(
 	PodAutoscalerConditionActive,
 	PodAutoscalerConditionScaleTargetInitialized,
 	PodAutoscalerConditionSKSReady,
+	PodAutoscalerConditionScaleTargetScaled,
 )
 
 // GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
@@ -215,6 +216,12 @@ func (pas *PodAutoscalerStatus) MarkScaleTargetInitialized() {
 	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionScaleTargetInitialized)
 }
 
+// ScaleTargetNotScaledAfterFailure returns true if the PodAutoscaler's scale target has been
+// scaled successfully.
+func (pas *PodAutoscalerStatus) ScaleTargetNotScaledAfterFailure() bool {
+	return pas.GetCondition(PodAutoscalerConditionScaleTargetScaled).IsFalse()
+}
+
 // MarkSKSReady marks the PA condition denoting that SKS is ready.
 func (pas *PodAutoscalerStatus) MarkSKSReady() {
 	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionSKSReady)
@@ -248,6 +255,16 @@ func (pas *PodAutoscalerStatus) MarkActivating(reason, message string) {
 // MarkInactive marks the PA as inactive.
 func (pas *PodAutoscalerStatus) MarkInactive(reason, message string) {
 	podCondSet.Manage(pas).MarkFalse(PodAutoscalerConditionActive, reason, message)
+}
+
+// MarkWithNoScaleFailures marks the PA as free of scale failures.
+func (pas *PodAutoscalerStatus) MarkWithNoScaleFailures() {
+	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionScaleTargetScaled)
+}
+
+// MarkWithScaleFailures marks the PA as failed due to scale failures.
+func (pas *PodAutoscalerStatus) MarkWithScaleFailures(reason, message string) {
+	podCondSet.Manage(pas).MarkFalse(PodAutoscalerConditionScaleTargetScaled, reason, message)
 }
 
 // MarkResourceNotOwned changes the "Active" condition to false to reflect that the

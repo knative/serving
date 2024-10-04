@@ -234,6 +234,13 @@ func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *autoscalingv1alpha1.PodA
 	case corev1.ConditionTrue:
 		rs.MarkActiveTrue()
 	}
+
+	// Mark resource unavailable if we scaled back to zero, but we never achieved the required scale
+	// and deployment status was not updated properly byt K8s. For example due to a temporary image pull error.
+	if ps.IsScaleTargetInitialized() && !resUnavailable && ps.ScaleTargetNotScaledAfterFailure() {
+		condScaled := ps.GetCondition(autoscalingv1alpha1.PodAutoscalerConditionScaleTargetScaled)
+		rs.MarkResourcesAvailableFalse(condScaled.Reason, condScaled.Message)
+	}
 }
 
 // ResourceNotOwnedMessage constructs the status message if ownership on the

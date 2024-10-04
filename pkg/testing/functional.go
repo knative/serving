@@ -103,6 +103,16 @@ func WithScaleTargetInitialized(pa *autoscalingv1alpha1.PodAutoscaler) {
 	pa.Status.MarkScaleTargetInitialized()
 }
 
+// WithScaleTargetNoScaleFailures updates the PA to reflect that there were no scale failures
+func WithScaleTargetNoScaleFailures(pa *autoscalingv1alpha1.PodAutoscaler) {
+	pa.Status.MarkWithNoScaleFailures()
+}
+
+// WithScaleTargetScaleFailures updates the PA to reflect that there were scale failures
+func WithScaleTargetScaleFailures(pa *autoscalingv1alpha1.PodAutoscaler, reason, message string) {
+	pa.Status.MarkWithScaleFailures(reason, message)
+}
+
 // WithPAStatusService annotates PA Status with the provided service name.
 func WithPAStatusService(svc string) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {

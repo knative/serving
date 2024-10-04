@@ -44,6 +44,18 @@ func NewPodAccessor(lister corev1listers.PodLister, namespace, revisionName stri
 	}
 }
 
+// GetAnyPod returns a pod for the revision that owns the pa, if any
+func (pa PodAccessor) GetAnyPod() (pod *corev1.Pod, err error) {
+	pods, err := pa.podsLister.List(pa.selector)
+	if err != nil {
+		return nil, err
+	}
+	if len(pods) != 0 {
+		return pods[0], nil
+	}
+	return nil, nil
+}
+
 // PodCountsByState returns number of pods for the revision grouped by their state, that is
 // of interest to knative (e.g. ignoring failed or terminated pods).
 func (pa PodAccessor) PodCountsByState() (ready, notReady, pending, terminating int, err error) {
