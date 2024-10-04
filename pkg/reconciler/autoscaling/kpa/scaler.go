@@ -19,14 +19,15 @@ package kpa
 import (
 	"context"
 	"fmt"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	revresurces "knative.dev/serving/pkg/reconciler/revision/resources"
 	"net/http"
 	"time"
 
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	"knative.dev/pkg/logging"
+
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	revresources "knative.dev/serving/pkg/reconciler/revision/resources"
 
 	netapis "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -401,7 +402,7 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 func checkForPodErrorsBeforeScalingDown(logger *zap.SugaredLogger, pod *corev1.Pod, pa *autoscalingv1alpha1.PodAutoscaler) {
 	if pod != nil {
 		for _, status := range pod.Status.ContainerStatuses {
-			if status.Name != revresurces.QueueContainerName {
+			if status.Name != revresources.QueueContainerName {
 				if t := status.LastTerminationState.Terminated; t != nil {
 					logger.Debugf("marking exiting with: %d/%s", t.ExitCode, t.Message)
 					if t.ExitCode == 0 && t.Message == "" {
