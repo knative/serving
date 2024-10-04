@@ -107,7 +107,7 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 	i := 0
 	for name, ip := range activatorPods {
 		t.Logf("Waiting for %s to scale to zero", namesScaleToZero.Revision)
-		if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resourcesScaleToZero.Revision), clients); err != nil {
+		if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resourcesScaleToZero.Revision), clients, ""); err != nil {
 			t.Fatal("Failed to scale to zero:", err)
 		}
 

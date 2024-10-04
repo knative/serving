@@ -129,4 +129,35 @@ func TestResourceQuotaError(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to validate revision state:", err)
 	}
+
+	// We should check what happens after deployment scales to zero. Deployment's progress deadline should expire.
+	deploymentName := revisionName + "-deployment"
+	if err := WaitForScaleToZero(t, deploymentName, clients, "rq-test"); err != nil {
+		t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", deploymentName, err)
+	}
+
+	t.Log("When the containers are not scheduled, the revision should have error status.")
+	err = v1test.CheckRevisionState(clients.ServingClient, revisionName, func(r *v1.Revision) (bool, error) {
+		cond := r.Status.GetCondition(v1.RevisionConditionReady)
+		if cond != nil {
+			if strings.Contains(cond.Message, errorMsgQuota) && cond.IsFalse() {
+				return true, nil
+			}
+			// Can fail with either a progress deadline exceeded error
+			if cond.Reason == progressDeadlineReason {
+				return true, nil
+			}
+			// wait for the container creation
+			if cond.Reason == waitReason {
+				return false, nil
+			}
+			return true, fmt.Errorf("the revision %s was not marked with expected error condition (Reason=%q, Message=%q), but with (Reason=%q, Message=%q)",
+				revisionName, revisionReason, errorMsgQuota, cond.Reason, cond.Message)
+		}
+		return false, nil
+	})
+
+	if err != nil {
+		t.Fatal("Failed to validate revision state:", err)
+	}
 }

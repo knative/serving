@@ -114,10 +114,15 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	if err := c.ReconcileMetric(ctx, pa, resolveScrapeTarget(ctx, pa)); err != nil {
 		return fmt.Errorf("error reconciling Metric: %w", err)
 	}
+	podCounter := resourceutil.NewPodAccessor(c.podsLister, pa.Namespace, pa.Labels[serving.RevisionLabelKey])
+
+	if err != nil {
+		return fmt.Errorf("error getting a pod for the revision: %w", err)
+	}
 
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
-	want, err := c.scaler.scale(ctx, pa, sks, decider.Status.DesiredScale)
+	want, err := c.scaler.scale(ctx, pa, sks, decider.Status.DesiredScale, c.Client, &podCounter)
 	if err != nil {
 		return fmt.Errorf("error scaling target: %w", err)
 	}
@@ -145,7 +150,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	}
 
 	// Compare the desired and observed resources to determine our situation.
-	podCounter := resourceutil.NewPodAccessor(c.podsLister, pa.Namespace, pa.Labels[serving.RevisionLabelKey])
 	ready, notReady, pending, terminating, err := podCounter.PodCountsByState()
 	if err != nil {
 		return fmt.Errorf("error getting pod counts: %w", err)
@@ -272,6 +276,7 @@ func computeActiveCondition(ctx context.Context, pa *autoscalingv1alpha1.PodAuto
 	minReady := activeThreshold(ctx, pa)
 	if pc.ready >= minReady && pa.Status.ServiceName != "" {
 		pa.Status.MarkScaleTargetInitialized()
+		pa.Status.MarkWithNoScaleFailures()
 	}
 
 	switch {
