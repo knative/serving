@@ -41,6 +41,7 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	defaultconfig "knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
@@ -744,6 +745,37 @@ func TestReconcile(t *testing.T) {
 			PodSpecPersistentVolumeClaim: defaultconfig.Enabled,
 			PodSpecPersistentVolumeWrite: defaultconfig.Enabled,
 		}}),
+	}, {
+		Name: "revision becomes not ready when PA reports a failed container",
+		Objects: []runtime.Object{
+			Revision("foo", "container-failed",
+				WithLogURL,
+				MarkRevisionReady,
+				withDefaultContainerStatuses(),
+				WithRevisionLabel(serving.RoutingStateLabelKey, "active"),
+			),
+			pa("foo", "container-failed",
+				WithPAStatusScaleTargetScaleFailures("ImagePullBackOff", "Back-off pulling image..."),
+				WithScaleTargetInitialized,
+				WithTraffic,
+				WithReachabilityReachable,
+				WithPAStatusService("something"),
+			),
+			readyDeploy(deploy(t, "foo", "container-failed")),
+			image("foo", "container-failed"),
+		},
+		Key: "foo/container-failed",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Revision("foo", "container-failed",
+				WithLogURL,
+				MarkInactive("ImagePullBackOff", "Back-off pulling image..."),
+				MarkResourcesUnavailable("ImagePullBackOff", "Back-off pulling image..."),
+				MarkContainerHealthy(),
+				withDefaultContainerStatuses(),
+				WithRevisionObservedGeneration(1),
+				WithRevisionLabel(serving.RoutingStateLabelKey, "active"),
+			),
+		}},
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, _ configmap.Watcher) controller.Reconciler {

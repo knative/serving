@@ -388,7 +388,7 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 		if err != nil {
 			return desiredScale, fmt.Errorf("error getting pod counts: %w", err)
 		}
-		if ready == 0 {
+		if ready == 0 && currentScale > 0 {
 			var pod *corev1.Pod
 			pod, err = podCounter.GetAnyPod()
 			if err != nil {

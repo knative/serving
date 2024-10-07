@@ -216,9 +216,9 @@ func (pas *PodAutoscalerStatus) MarkScaleTargetInitialized() {
 	podCondSet.Manage(pas).MarkTrue(PodAutoscalerConditionScaleTargetInitialized)
 }
 
-// ScaleTargetNotScaledAfterFailure returns true if the PodAutoscaler's scale target has been
-// scaled successfully.
-func (pas *PodAutoscalerStatus) ScaleTargetNotScaledAfterFailure() bool {
+// ScaleTargetNotScaled returns true if the PodAutoscaler's scale target has failed
+// to scaled.
+func (pas *PodAutoscalerStatus) ScaleTargetNotScaled() bool {
 	return pas.GetCondition(PodAutoscalerConditionScaleTargetScaled).IsFalse()
 }
 
