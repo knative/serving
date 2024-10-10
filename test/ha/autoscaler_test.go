@@ -77,7 +77,7 @@ func TestAutoscalerHA(t *testing.T) {
 	t.Log("Got initial leader set:", leaders)
 
 	t.Logf("Waiting for %s to scale to zero", names.Revision)
-	if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
+	if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients, ""); err != nil {
 		t.Fatal("Failed to scale to zero:", err)
 	}
 
