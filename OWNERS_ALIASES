@@ -123,14 +123,14 @@ aliases:
   - skonto
   steering-committee:
   - aliok
-  - evankanderson
-  - nainaz
-  - salaboy
-  technical-oversight-committee:
   - davidhadas
   - dprotaso
   - dsimansk
+  - evankanderson
+  - nainaz
   - psschwei
+  - salaboy
+  technical-oversight-committee: []
   ux-wg-leads:
   - cali0707
   - leo6leo
