@@ -158,6 +158,12 @@ func MarkContainerHealthyUnknown(reason string) RevisionOption {
 	}
 }
 
+func MarkContainerHealthyFalse(reason string) RevisionOption {
+	return func(r *v1.Revision) {
+		r.Status.MarkContainerHealthyFalse(reason, "")
+	}
+}
+
 // MarkProgressDeadlineExceeded calls the method of the same name on the Revision
 // with the message we expect the Revision Reconciler to pass.
 func MarkProgressDeadlineExceeded(message string) RevisionOption {
