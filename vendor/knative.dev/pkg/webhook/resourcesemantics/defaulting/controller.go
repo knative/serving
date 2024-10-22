@@ -84,6 +84,12 @@ func newController(ctx context.Context, name string, optsFunc ...OptionFunc) *co
 		f(opts)
 	}
 
+	// if this environment variable is set, it overrides the value in the Options
+	disableNamespaceOwnership := webhook.DisableNamespaceOwnershipFromEnv()
+	if disableNamespaceOwnership != nil {
+		wopts.DisableNamespaceOwnership = *disableNamespaceOwnership
+	}
+
 	key := types.NamespacedName{Name: name}
 
 	wh := &reconciler{
