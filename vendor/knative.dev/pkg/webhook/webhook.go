@@ -166,12 +166,6 @@ func New(
 		return nil, fmt.Errorf("unsupported TLS version: %d", opts.TLSMinVersion)
 	}
 
-	// if the environment variable is set, it overrides the value in the Options
-	disableNamespaceOwnership := DisableNamespaceOwnershipFromEnv()
-	if disableNamespaceOwnership != nil {
-		opts.DisableNamespaceOwnership = *disableNamespaceOwnership
-	}
-
 	syncCtx, cancel := context.WithCancel(context.Background())
 
 	webhook = &Webhook{

@@ -70,6 +70,12 @@ func newController(ctx context.Context, name string, optsFunc ...OptionFunc) *co
 		f(opts)
 	}
 
+	// if this environment variable is set, it overrides the value in the Options
+	disableNamespaceOwnership := webhook.DisableNamespaceOwnershipFromEnv()
+	if disableNamespaceOwnership != nil {
+		woptions.DisableNamespaceOwnership = *disableNamespaceOwnership
+	}
+
 	wh := &reconciler{
 		LeaderAwareFuncs: pkgreconciler.LeaderAwareFuncs{
 			// Have this reconciler enqueue our singleton whenever it becomes leader.
