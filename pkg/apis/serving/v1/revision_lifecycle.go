@@ -200,6 +200,13 @@ func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *autoscalingv1alpha1.PodA
 		// that implies that |service.endpoints| > 0.
 		rs.MarkResourcesAvailableTrue()
 		rs.MarkContainerHealthyTrue()
+
+		// Mark resource unavailable if we are scaling back to zero, but we never achieved the required scale
+		// and deployment status was not updated properly by K8s. For example due to an image pull error.
+		if ps.ScaleTargetNotScaled() {
+			condScaled := ps.GetCondition(autoscalingv1alpha1.PodAutoscalerConditionScaleTargetScaled)
+			rs.MarkResourcesAvailableFalse(condScaled.Reason, condScaled.Message)
+		}
 	}
 
 	// Mark resource unavailable if we don't have a Service Name and the deployment is ready
