@@ -129,9 +129,9 @@ func updateRouteAnnotation(acc kmeta.Accessor, routeName string, diffAnn map[str
 			return
 		}
 		valSet.Delete(routeName)
-		sorted := valSet.UnsortedList()
-		sort.Strings(sorted)
-		diffAnn[serving.RoutesAnnotationKey] = strings.Join(sorted, ",")
+		routeNames := valSet.UnsortedList()
+		sort.Strings(routeNames)
+		diffAnn[serving.RoutesAnnotationKey] = strings.Join(routeNames, ",")
 
 	case !has && !remove:
 		if len(valSet) == 0 {
@@ -139,9 +139,9 @@ func updateRouteAnnotation(acc kmeta.Accessor, routeName string, diffAnn map[str
 			return
 		}
 		valSet.Insert(routeName)
-		sorted := valSet.UnsortedList()
-		sort.Strings(sorted)
-		diffAnn[serving.RoutesAnnotationKey] = strings.Join(sorted, ",")
+		routeNames := valSet.UnsortedList()
+		sort.Strings(routeNames)
+		diffAnn[serving.RoutesAnnotationKey] = strings.Join(routeNames, ",")
 	}
 }
 
