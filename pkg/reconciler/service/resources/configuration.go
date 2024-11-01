@@ -49,9 +49,9 @@ func MakeConfigurationFromExisting(service *v1.Service, existing *v1.Configurati
 	routeName := names.Route(service)
 	set := labeler.GetListAnnValue(existing.Annotations, serving.RoutesAnnotationKey)
 	set.Insert(routeName)
-	sorted := set.UnsortedList()
-	sort.Strings(sorted)
-	anns[serving.RoutesAnnotationKey] = strings.Join(sorted, ",")
+	routeNames := set.UnsortedList()
+	sort.Strings(routeNames)
+	anns[serving.RoutesAnnotationKey] = strings.Join(routeNames, ",")
 
 	return &v1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
