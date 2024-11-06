@@ -62,14 +62,9 @@ aliases:
   - knative-test-reporter-robot
   - nainaz
   - psschwei
-  - retocode
   - salaboy
-  - skonto
   - upodroid
-  knative-release-leads:
-  - dsimansk
-  - retocode
-  - skonto
+  knative-release-leads: []
   knative-robots:
   - knative-automation
   - knative-prow-releaser-robot
