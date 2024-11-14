@@ -26,10 +26,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/apis"
+	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
-
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
+	cconfig "knative.dev/serving/pkg/reconciler/configuration/config"
 )
 
 func TestConfigurationDefaulting(t *testing.T) {
@@ -156,6 +157,59 @@ func TestConfigurationDefaulting(t *testing.T) {
 				},
 			},
 		},
+	}, {
+		name: "run latest with identical timeout defaults",
+		in: &Configuration{
+			Spec: ConfigurationSpec{
+				Template: RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							EnableServiceLinks: ptr.Bool(true),
+							Containers: []corev1.Container{{
+								Image: "busybox",
+							}},
+						},
+						ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+					},
+				},
+			},
+		},
+		want: &Configuration{
+			Spec: ConfigurationSpec{
+				Template: RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							EnableServiceLinks: ptr.Bool(true),
+							Containers: []corev1.Container{{
+								Name:           config.DefaultUserContainerName,
+								Image:          "busybox",
+								Resources:      defaultResources,
+								ReadinessProbe: defaultProbe,
+							}},
+						},
+						TimeoutSeconds:       ptr.Int64(423),
+						ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+					},
+				},
+			},
+		},
+		ctx: func() context.Context {
+			logger := logtesting.TestLogger(t)
+			s := cconfig.NewStore(logger)
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
+			s.OnConfigChanged(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: config.DefaultsConfigName,
+				},
+				Data: map[string]string{
+					"revision-timeout-seconds":                "423",
+					"revision-response-start-timeout-seconds": "423",
+					"revision-idle-timeout-seconds":           "423",
+				},
+			})
+
+			return s.ToContext(context.Background())
+		}(),
 	}}
 
 	for _, test := range tests {
