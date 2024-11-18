@@ -760,7 +760,7 @@ google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
-# google.golang.org/protobuf v1.35.1
+# google.golang.org/protobuf v1.35.2
 ## explicit; go 1.21
 google.golang.org/protobuf/encoding/protodelim
 google.golang.org/protobuf/encoding/protojson
@@ -1339,7 +1339,7 @@ k8s.io/utils/pointer
 k8s.io/utils/ptr
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20241115112144-5522d1afbedb
+# knative.dev/caching v0.0.0-20241117213646-cb95f78b72f6
 ## explicit; go 1.22.7
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -1363,7 +1363,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 # knative.dev/hack v0.0.0-20241106013728-b7995315deb5
 ## explicit; go 1.21
 knative.dev/hack
-# knative.dev/networking v0.0.0-20241115112044-5272a36dd4e5
+# knative.dev/networking v0.0.0-20241118075147-929a5d5f19d0
 ## explicit; go 1.22.7
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1402,7 +1402,7 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20241115112044-215048add14b
+# knative.dev/pkg v0.0.0-20241118074447-a7fd9b10bb9f
 ## explicit; go 1.22.7
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
