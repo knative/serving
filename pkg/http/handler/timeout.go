@@ -127,9 +127,8 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		case <-timeout.C():
 			timeoutDrained = true
-			if tw.tryTimeoutAndWriteError(h.body) {
-				return
-			}
+			tw.timeoutAndWriteError(h.body)
+			return
 		case now := <-idleTimeoutCh:
 			timedOut, timeToNextTimeout := tw.tryIdleTimeoutAndWriteError(now, revIdleTimeout, h.body)
 			if timedOut {
