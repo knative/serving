@@ -125,7 +125,15 @@ aliases:
   - nainaz
   - psschwei
   - salaboy
-  technical-oversight-committee: []
+  technical-oversight-committee:
+  - aliok
+  - davidhadas
+  - dprotaso
+  - dsimansk
+  - evankanderson
+  - nainaz
+  - psschwei
+  - salaboy
   ux-wg-leads:
   - cali0707
   - leo6leo
