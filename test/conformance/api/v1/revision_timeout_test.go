@@ -37,7 +37,7 @@ import (
 
 // sendRequest send a request to "endpoint", returns error if unexpected response code, nil otherwise.
 func sendRequest(t *testing.T, clients *test.Clients, endpoint *url.URL,
-	initialSleep, sleep time.Duration, expectedResponseCode int) error {
+	initialSleep, sleep time.Duration, expectedResponseCode int, expectedBody string) error {
 	client, err := pkgtest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, endpoint.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		return fmt.Errorf("error creating Spoofing client: %w", err)
@@ -68,7 +68,12 @@ func sendRequest(t *testing.T, clients *test.Clients, endpoint *url.URL,
 	if expectedResponseCode != resp.StatusCode {
 		return fmt.Errorf("response status code = %v, want = %v, response = %v", resp.StatusCode, expectedResponseCode, resp)
 	}
-
+	if expectedBody != "" {
+		gotBody := string(resp.Body)
+		if expectedBody != gotBody {
+			return fmt.Errorf("response body = %v, want = %v, response = %v", gotBody, expectedBody, resp)
+		}
+	}
 	return nil
 }
 
@@ -99,6 +104,7 @@ func TestRevisionTimeout(t *testing.T) {
 		expectedStatus: http.StatusOK,
 		sleep:          15 * time.Second,
 		initialSleep:   0,
+		expectedBody:   "activator request timeout",
 	}}
 
 	for _, tc := range testCases {
@@ -136,7 +142,7 @@ func TestRevisionTimeout(t *testing.T) {
 				t.Fatalf("Error probing %s: %v", serviceURL, err)
 			}
 
-			if err := sendRequest(t, clients, serviceURL, tc.initialSleep, tc.sleep, tc.expectedStatus); err != nil {
+			if err := sendRequest(t, clients, serviceURL, tc.initialSleep, tc.sleep, tc.expectedStatus, tc.expectedBody); err != nil {
 				t.Errorf("Failed request with initialSleep %v, sleep %v, with revision timeout %ds, expecting status %v: %v",
 					tc.initialSleep, tc.sleep, tc.timeoutSeconds, tc.expectedStatus, err)
 			}
