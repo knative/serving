@@ -21,6 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"net/http"
 	"os"
@@ -298,7 +299,7 @@ func checkSLA(results *vegeta.Metrics, rate vegeta.ConstantPacer) error {
 	}
 
 	// SLA 2: making sure the defined vegeta rates is met
-	if results.Rate == rate.Rate(time.Second) {
+	if math.Round(results.Rate) == rate.Rate(time.Second) {
 		log.Printf("SLA 2 passed. vegeta rate is %f", rate.Rate(time.Second))
 	} else {
 		return fmt.Errorf("SLA 2 failed. vegeta rate is %f, expected Rate is %f", results.Rate, rate.Rate(time.Second))
