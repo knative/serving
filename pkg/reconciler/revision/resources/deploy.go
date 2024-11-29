@@ -376,6 +376,12 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 	labels := makeLabels(rev)
 	anns := makeAnnotations(rev)
 
+	// Set revisionHistoryLimit from config-deployment.yaml or use default
+	revisionHistoryLimit := int32(cfg.Deployment.RevisionHistoryLimit) // e.g., 2 or 0
+	if revisionHistoryLimit == 0 {
+		revisionHistoryLimit = 2 // Default to 2 if not configured as 0
+	}
+
 	// Slowly but steadily roll the deployment out, to have the least possible impact.
 	maxUnavailable := intstr.FromInt(0)
 	return &appsv1.Deployment{
@@ -390,6 +396,7 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 			Replicas:                ptr.Int32(replicaCount),
 			Selector:                makeSelector(rev),
 			ProgressDeadlineSeconds: ptr.Int32(progressDeadline),
+			RevisionHistoryLimit:    ptr.Int32(revisionHistoryLimit),
 			Strategy: appsv1.DeploymentStrategy{
 				Type: appsv1.RollingUpdateDeploymentStrategyType,
 				RollingUpdate: &appsv1.RollingUpdateDeployment{

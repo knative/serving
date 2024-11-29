@@ -19,6 +19,7 @@ package deployment
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -241,6 +242,17 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 			}
 		}
 	}
+
+	if val, ok := configMap["revisionHistoryLimit"]; ok {
+		limit, err := strconv.Atoi(val)
+		if err != nil {
+			return nil, fmt.Errorf("invalid revisionHistoryLimit value %s: %w", val, err)
+		}
+		nc.RevisionHistoryLimit = int32(limit)
+	} else {
+		nc.RevisionHistoryLimit = 2 // Default value if not set
+	}
+
 	return nc, nil
 }
 
@@ -309,4 +321,7 @@ type Config struct {
 
 	// RuntimeClassNames specifies which runtime the Pod will use
 	RuntimeClassNames map[string]RuntimeClassNameLabelSelector
+
+	// RevisionHistoryLimit is the maximum number of old replicas to retain.
+	RevisionHistoryLimit int32
 }
