@@ -5,12 +5,6 @@ run:
     - e2e
     - upgrade
 
-  skip-dirs:
-    - pkg/client
-
-  skip-files:
-    - ".pb.go$"
-
 linters:
   enable:
     - asciicheck
@@ -41,6 +35,12 @@ linters-settings:
         alias: autoscalingv1alpha1
 
 issues:
+  exclude-dirs:
+    - pkg/client
+
+  exclude-files:
+    - ".pb.go$"
+
   include:
     # Disable excluding issues about comments from golint.
     - EXC0002
