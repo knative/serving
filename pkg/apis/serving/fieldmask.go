@@ -710,7 +710,7 @@ func SecurityContextMask(ctx context.Context, in *corev1.SecurityContext) *corev
 	// SeccompProfile defaults to "unconstrained", but the safe values are
 	// "RuntimeDefault" or "Localhost" (with localhost path set)
 	out.SeccompProfile = in.SeccompProfile
-	// Allow setting Privileged to only false
+	// Only allow setting Privileged to false
 	if in.Privileged != nil && !*in.Privileged {
 		out.Privileged = in.Privileged
 	}

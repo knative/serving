@@ -58,7 +58,6 @@ k8s.io/api/core/v1.PodSpec:
     - ImagePullSecrets
     - EnableServiceLinks
     - AutomountServiceAccountToken
-    - Privileged
     # Properties behind feature flags
     - Affinity
     - DNSConfig
@@ -330,6 +329,7 @@ k8s.io/api/core/v1.SecurityContext:
     - RunAsNonRoot
     - RunAsUser
     - SeccompProfile
+    - Privileged
 k8s.io/api/core/v1.Capabilities:
   fieldMask:
     - Add
