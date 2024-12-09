@@ -33,6 +33,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	netcfg "knative.dev/networking/pkg/config"
+	"knative.dev/networking/pkg/http/header"
 	pkgmetrics "knative.dev/pkg/metrics"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -298,10 +299,10 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 					return err
 				}
 
-				if s.usePassthroughLb {
-					req.Host = s.host
-					req.Header.Add("Knative-Direct-Lb", "true")
-				}
+				// if s.usePassthroughLb {
+				req.Host = s.host
+				req.Header.Add(header.PassthroughLoadbalancingKey, "true")
+				// }
 
 				stat, err := s.directClient.Do(req)
 				if err == nil {
