@@ -66,6 +66,10 @@ func VolumeSourceMask(ctx context.Context, in *corev1.VolumeSource) *corev1.Volu
 		out.PersistentVolumeClaim = in.PersistentVolumeClaim
 	}
 
+	if cfg.Features.PodSpecVolumesHostPath != config.Disabled {
+		out.HostPath = in.HostPath
+	}
+
 	// Too many disallowed fields to list
 
 	return out
