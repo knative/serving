@@ -108,6 +108,11 @@ const (
 	PodAutoscalerConditionActive apis.ConditionType = "Active"
 	// PodAutoscalerConditionSKSReady is set when SKS is ready.
 	PodAutoscalerConditionSKSReady = "SKSReady"
+	// PodAutoscalerConditionScaleTargetScaled is set when scaling the revision is successful.
+	// There are cases where there are pod failures during scaling eg. from zero but
+	// K8s does not properly propagate the failure to the deployment. In those cases
+	// progressdeadline is not enough.
+	PodAutoscalerConditionScaleTargetScaled apis.ConditionType = "ScaleTargetScaled"
 )
 
 // PodAutoscalerStatus communicates the observed state of the PodAutoscaler (from the controller).
