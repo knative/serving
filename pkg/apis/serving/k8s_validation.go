@@ -297,6 +297,8 @@ func validateEmptyDirFields(dir *corev1.EmptyDirVolumeSource) *apis.FieldError {
 
 func validateHostPathVolumeSource(hostPath *corev1.HostPathVolumeSource) *apis.FieldError {
 	var errs *apis.FieldError
+	// This is checked at the K8s side for host Path so better validate early
+	// ref: https://bit.ly/4gcWAVK
 	if len(hostPath.Path) == 0 {
 		errs = errs.Also(apis.ErrInvalidValue("''", "path"))
 		return errs
