@@ -1233,6 +1233,10 @@ spec:
                                 description: This is accessible behind a feature flag - kubernetes.podspec-emptydir
                                 type: object
                                 x-kubernetes-preserve-unknown-fields: true
+                              hostPath:
+                                description: This is accessible behind a feature flag - kubernetes.podspec-hostpath
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
                               name:
                                 description: |-
                                   name of the volume.

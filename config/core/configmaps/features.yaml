@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "9ff569ad"
+    knative.dev/example-checksum: "63a13754"
 data:
   _example: |-
     ################################
@@ -199,6 +199,14 @@ data:
     # 1. Enabled: enabling EmptyDir volume support
     # 2. Disabled: disabling EmptyDir volume support
     kubernetes.podspec-volumes-emptydir: "enabled"
+
+    # Controls whether volume support for HostPath is enabled or not.
+    # WARNING: Cannot safely be disabled once enabled.
+    # WARNING: If you can avoid using a hostPath volume, you should.
+    # Please read https://kubernetes.io/docs/concepts/storage/volumes/#hostpath before enabling this feature.
+    # 1. Enabled: enabling HostPath volume support
+    # 2. Disabled: disabling HostPath volume support
+    kubernetes.podspec-volumes-hostpath: "disabled"
 
     # Controls whether init containers support is enabled or not.
     # 1. Enabled: enabling init containers support
