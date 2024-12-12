@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"sort"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -48,7 +49,9 @@ func MakeConfigurationFromExisting(service *v1.Service, existing *v1.Configurati
 	routeName := names.Route(service)
 	set := labeler.GetListAnnValue(existing.Annotations, serving.RoutesAnnotationKey)
 	set.Insert(routeName)
-	anns[serving.RoutesAnnotationKey] = strings.Join(set.UnsortedList(), ",")
+	routeNames := set.UnsortedList()
+	sort.Strings(routeNames)
+	anns[serving.RoutesAnnotationKey] = strings.Join(routeNames, ",")
 
 	return &v1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
