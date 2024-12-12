@@ -18,6 +18,7 @@ package labeler
 
 import (
 	"context"
+	"sort"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -128,7 +129,9 @@ func updateRouteAnnotation(acc kmeta.Accessor, routeName string, diffAnn map[str
 			return
 		}
 		valSet.Delete(routeName)
-		diffAnn[serving.RoutesAnnotationKey] = strings.Join(valSet.UnsortedList(), ",")
+		routeNames := valSet.UnsortedList()
+		sort.Strings(routeNames)
+		diffAnn[serving.RoutesAnnotationKey] = strings.Join(routeNames, ",")
 
 	case !has && !remove:
 		if len(valSet) == 0 {
@@ -136,7 +139,9 @@ func updateRouteAnnotation(acc kmeta.Accessor, routeName string, diffAnn map[str
 			return
 		}
 		valSet.Insert(routeName)
-		diffAnn[serving.RoutesAnnotationKey] = strings.Join(valSet.UnsortedList(), ",")
+		routeNames := valSet.UnsortedList()
+		sort.Strings(routeNames)
+		diffAnn[serving.RoutesAnnotationKey] = strings.Join(routeNames, ",")
 	}
 }
 
