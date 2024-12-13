@@ -78,6 +78,9 @@ const (
 	// load balancers to not load balance the respective request but to
 	// send it to the request's target directly.
 	PassthroughLoadbalancingKey = "K-Passthrough-Lb"
+
+	// IgnoreMetricsKey is used to mark requests that should not be counted in metrics.
+	IgnoreMetricsKey = "K-Ignore-Metrics"
 )
 
 // User Agent Key & Values
@@ -133,6 +136,11 @@ func IsProbe(r *http.Request) bool {
 func IsKubeletProbe(r *http.Request) bool {
 	return strings.HasPrefix(r.Header.Get("User-Agent"), KubeProbeUAPrefix) ||
 		r.Header.Get(KubeletProbeKey) != ""
+}
+
+// IsMetricsIgnored returns true if the request is marked to be ignored by metrics.
+func IsMetricsIgnored(r *http.Request) bool {
+  return r.Header.Get(IgnoreMetricsKey) != ""
 }
 
 // RewriteHostIn removes the `Host` header from the inbound (server) request
