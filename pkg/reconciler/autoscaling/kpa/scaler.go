@@ -164,6 +164,13 @@ func applyBounds(min, max, x int32) int32 {
 	return x
 }
 
+func applyMaxBound(max, x int32) int32 {
+	if max != 0 && x > max {
+		return max
+	}
+	return x
+}
+
 func durationMax(d1, d2 time.Duration) time.Duration {
 	if d1 < d2 {
 		return d2
@@ -330,7 +337,7 @@ func (ks *scaler) applyScale(ctx context.Context, pa *autoscalingv1alpha1.PodAut
 }
 
 // scale attempts to scale the given PA's target reference to the desired scale.
-func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, sks *netv1alpha1.ServerlessService, desiredScale int32) (int32, error) {
+func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, sks *netv1alpha1.ServerlessService, desiredScale int32, inRollout bool) (int32, error) {
 	asConfig := config.FromContext(ctx).Autoscaler
 	logger := logging.FromContext(ctx)
 
@@ -352,9 +359,18 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 		}
 		min = intMax(initialScale, min)
 	}
-	if newScale := applyBounds(min, max, desiredScale); newScale != desiredScale {
-		logger.Debugf("Adjusting desiredScale to meet the min and max bounds before applying: %d -> %d", desiredScale, newScale)
-		desiredScale = newScale
+
+	if inRollout {
+		logger.Infof("In rollout for %s with desired: %d", pa.Name, desiredScale)
+		if newScale := applyMaxBound(max, desiredScale); newScale != desiredScale {
+			logger.Debugf("Adjusting desiredScale for %s to meet the max bound before applying (as we are in a rollout): %d -> %d", pa.Name, desiredScale, newScale)
+			desiredScale = newScale
+		}
+	} else {
+		if newScale := applyBounds(min, max, desiredScale); newScale != desiredScale {
+			logger.Debugf("Adjusting desiredScale for %s to meet the min and max bounds before applying: %d -> %d", pa.Name, desiredScale, newScale)
+			desiredScale = newScale
+		}
 	}
 
 	desiredScale, shouldApplyScale := ks.handleScaleToZero(ctx, pa, sks, desiredScale)

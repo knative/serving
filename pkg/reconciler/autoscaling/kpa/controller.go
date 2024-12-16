@@ -28,6 +28,7 @@ import (
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
 	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
+	serviceinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/service"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 
 	"knative.dev/pkg/configmap"
@@ -57,6 +58,7 @@ func NewController(
 	podsInformer := filteredpodinformer.Get(ctx, serving.RevisionUID)
 	metricInformer := metricinformer.Get(ctx)
 	psInformerFactory := podscalable.Get(ctx)
+	serviceInformer := serviceinformer.Get(ctx)
 
 	onlyKPAClass := pkgreconciler.AnnotationFilterFunc(
 		autoscaling.ClassAnnotationKey, autoscaling.KPA, false /*allowUnset*/)
@@ -67,6 +69,7 @@ func NewController(
 			NetworkingClient: networkingclient.Get(ctx),
 			SKSLister:        sksInformer.Lister(),
 			MetricLister:     metricInformer.Lister(),
+			ServiceInformer:  serviceInformer.Lister(),
 		},
 		podsLister: podsInformer.Lister(),
 		deciders:   deciders,

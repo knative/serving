@@ -49,6 +49,9 @@ const (
 
 	// AllowHTTPFullDuplexFeatureKey gates the use of http1 full duplex per workload
 	AllowHTTPFullDuplexFeatureKey = "features.knative.dev/http-full-duplex"
+
+	// SkipMinScaleDuringRollout gates skipping minScale when we are in a rollout
+	SkipMinScaleDuringRollout = "features.knative.dev/skip-min-scale-during-rollout"
 )
 
 // Feature config map keys that are used in schema-tweak
