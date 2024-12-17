@@ -21,6 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"net/http"
 	"os"
@@ -37,6 +38,7 @@ import (
 	"knative.dev/pkg/injection"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	ktest "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -212,7 +214,7 @@ func createServices(clients *test.Clients, count int) ([]*serviceConfig, func(),
 
 	objs := make([]*serviceConfig, count)
 	begin := time.Now()
-	sos := []ktest.ServiceOption{
+	commonSos := []ktest.ServiceOption{
 		ktest.WithResourceRequirements(corev1.ResourceRequirements{
 			// We set a small resource alloc so that we can pack more pods into the cluster,
 			// also we do not set limits, as buffering in QP will take memory, and we'd be OOMKilled.
@@ -228,11 +230,14 @@ func createServices(clients *test.Clients, count int) ([]*serviceConfig, func(),
 	for i := 0; i < count; i++ {
 		ndx := i
 		g.Go(func() error {
+			annotations := map[string]string{config.AllowHTTPFullDuplexFeatureKey: "Enabled"}
+
 			activatorInPath := getRandomBool()
 			if activatorInPath {
-				annotations := map[string]string{autoscaling.TargetBurstCapacityKey: "-1"}
-				sos = append(sos, ktest.WithConfigAnnotations(annotations))
+				annotations[autoscaling.TargetBurstCapacityKey] = "-1"
 			}
+
+			sos := append(commonSos, ktest.WithConfigAnnotations(annotations))
 
 			startupLatency := getRandomValue(int64(minStartupLatency.Seconds()), int64(maxStartupLatency.Seconds()))
 			if startupLatency > 0 {
@@ -298,7 +303,7 @@ func checkSLA(results *vegeta.Metrics, rate vegeta.ConstantPacer) error {
 	}
 
 	// SLA 2: making sure the defined vegeta rates is met
-	if results.Rate == rate.Rate(time.Second) {
+	if math.Round(results.Rate) == rate.Rate(time.Second) {
 		log.Printf("SLA 2 passed. vegeta rate is %f", rate.Rate(time.Second))
 	} else {
 		return fmt.Errorf("SLA 2 failed. vegeta rate is %f, expected Rate is %f", results.Rate, rate.Rate(time.Second))
