@@ -26,6 +26,9 @@ import (
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	"knative.dev/pkg/logging"
 
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	revresources "knative.dev/serving/pkg/reconciler/revision/resources"
+
 	netapis "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	nethttp "knative.dev/networking/pkg/http"
@@ -40,6 +43,8 @@ import (
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
 	"knative.dev/serving/pkg/resources"
 
+	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -326,7 +331,7 @@ func (ks *scaler) applyScale(ctx context.Context, pa *autoscalingv1alpha1.PodAut
 }
 
 // scale attempts to scale the given PA's target reference to the desired scale.
-func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, sks *netv1alpha1.ServerlessService, desiredScale int32) (int32, error) {
+func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, sks *netv1alpha1.ServerlessService, desiredScale int32, podCounter *resources.PodAccessor) (int32, error) {
 	asConfig := config.FromContext(ctx).Autoscaler
 	logger := logging.FromContext(ctx)
 
@@ -371,6 +376,47 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 		return desiredScale, nil
 	}
 
+	// Before we apply scale to zero and since we have failed to activate, check if any pod is in waiting state
+	// This should capture any case where we scale from zero and regular progressDeadline expiration will not be hit due to K8s limitations
+	// when not being in a deployment rollout.
+	if desiredScale == 0 && podCounter != nil {
+		ready, _, _, _, err := podCounter.PodCountsByState()
+		if err != nil {
+			return desiredScale, fmt.Errorf("error getting pod counts: %w", err)
+		}
+		if ready == 0 && currentScale > 0 {
+			var pod *corev1.Pod
+			pod, err = podCounter.GetAnyPod()
+			if err != nil {
+				return desiredScale, fmt.Errorf("error getting a pod: %w", err)
+			}
+			checkForPodErrorsBeforeScalingDown(logger, pod, pa)
+		}
+	}
+
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
 	return desiredScale, ks.applyScale(ctx, pa, desiredScale, ps)
+}
+
+func checkForPodErrorsBeforeScalingDown(logger *zap.SugaredLogger, pod *corev1.Pod, pa *autoscalingv1alpha1.PodAutoscaler) {
+	if pod != nil {
+		for _, status := range pod.Status.ContainerStatuses {
+			if status.Name != revresources.QueueContainerName {
+				if t := status.LastTerminationState.Terminated; t != nil {
+					logger.Debugf("marking exiting with: %d/%s", t.ExitCode, t.Message)
+					if t.ExitCode == 0 && t.Message == "" {
+						// In cases where there is no error message, we should still provide some exit message in the status
+						pa.Status.MarkWithScaleFailures(v1.ExitCodeReason(t.ExitCode),
+							v1.RevisionContainerExitingMessage("container exited with no error"))
+						break
+					}
+					pa.Status.MarkWithScaleFailures(v1.ExitCodeReason(t.ExitCode), v1.RevisionContainerExitingMessage(t.Message))
+					break
+				} else if w := status.State.Waiting; w != nil {
+					logger.Debugf("marking pa as failed: %s: %s", w.Reason, w.Message)
+					pa.Status.MarkWithScaleFailures(w.Reason, w.Message)
+				}
+			}
+		}
+	}
 }
