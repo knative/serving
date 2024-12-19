@@ -34,8 +34,6 @@ func TestTimeoutWriterAllowsForAdditionalWritesBeforeTimeout(t *testing.T) {
 	clock := clock.RealClock{}
 	handler := &timeoutWriter{w: recorder, clock: clock}
 	handler.WriteHeader(http.StatusOK)
-	handler.tryTimeoutAndWriteError("error")
-	handler.tryResponseStartTimeoutAndWriteError("error")
 	handler.tryIdleTimeoutAndWriteError(clock.Now(), 10*time.Second, "error")
 	if _, err := io.WriteString(handler, "test"); err != nil {
 		t.Fatalf("handler.Write() = %v, want no error", err)
