@@ -12,6 +12,7 @@ k8s.io/api/core/v1.VolumeSource:
     # Following are behind feature flags
     - EmptyDir
     - PersistentVolumeClaim
+    - HostPath
 k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource:
   description: "This is accessible behind a feature flag - kubernetes.podspec-persistent-volume-claim"
   additionalMarkers:
@@ -20,6 +21,12 @@ k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource:
   - kubebuilder:pruning:PreserveUnknownFields
 k8s.io/api/core/v1.EmptyDirVolumeSource:
   description: "This is accessible behind a feature flag - kubernetes.podspec-emptydir"
+  additionalMarkers:
+  # Part of a feature flag - so we want to omit the schema and preserve unknown fields
+  - kubebuilder:validation:DropProperties
+  - kubebuilder:pruning:PreserveUnknownFields
+k8s.io/api/core/v1.HostPathVolumeSource:
+  description: "This is accessible behind a feature flag - kubernetes.podspec-hostpath"
   additionalMarkers:
   # Part of a feature flag - so we want to omit the schema and preserve unknown fields
   - kubebuilder:validation:DropProperties

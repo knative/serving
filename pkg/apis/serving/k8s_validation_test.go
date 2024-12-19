@@ -171,6 +171,13 @@ func withMultiContainerProbesEnabled() configOption {
 	}
 }
 
+func withPodSpecVolumesHostPathEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecVolumesHostPath = config.Enabled
+		return cfg
+	}
+}
+
 func withPodSpecDNSPolicyEnabled() configOption {
 	return func(cfg *config.Config) *config.Config {
 		cfg.Features.PodSpecDNSPolicy = config.Enabled
@@ -2911,6 +2918,49 @@ func TestVolumeValidation(t *testing.T) {
 			Message: `Persistent volume write support is disabled, but found persistent volume claim myclaim that is not read-only`,
 		}).Also(
 			&apis.FieldError{Message: "must not set the field(s)", Paths: []string{"persistentVolumeClaim"}}),
+	}, {
+		name: "hostPath volume",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: "foo/foo",
+				},
+			},
+		},
+		cfgOpts: []configOption{withPodSpecVolumesHostPathEnabled()},
+	}, {
+		name: "invalid hostPath volume, invalid type",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: "foo/foo",
+					Type: (*corev1.HostPathType)(ptr.String("wrong")),
+				},
+			},
+		},
+		cfgOpts: []configOption{withPodSpecVolumesHostPathEnabled()},
+		want: &apis.FieldError{
+			Message: `invalid value: wrong`,
+			Paths:   []string{"hostPath.type"},
+			Details: "unknown type",
+		},
+	}, {
+		name: "invalid hostPath volume, empty path",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: "",
+				},
+			},
+		},
+		cfgOpts: []configOption{withPodSpecVolumesHostPathEnabled()},
+		want: &apis.FieldError{
+			Message: `invalid value: ''`,
+			Paths:   []string{"hostPath.path"},
+		},
 	}, {
 		name: "no volume source",
 		v: corev1.Volume{
