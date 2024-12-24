@@ -13,11 +13,9 @@ aliases:
   - vyasgun
   docs-reviewers:
   - nainaz
-  - retocode
   - skonto
   docs-writers:
   - csantanapr
-  - retocode
   - skonto
   eventing-reviewers:
   - Leo6Leo
@@ -100,20 +98,16 @@ aliases:
   - davidhadas
   - evankanderson
   serving-approvers:
-  - ReToCode
   - skonto
   serving-reviewers:
   - izabelacg
-  - retocode
   - skonto
   serving-triage:
   - izabelacg
-  - retocode
   - skonto
   serving-wg-leads:
   - dprotaso
   serving-writers:
-  - ReToCode
   - dprotaso
   - skonto
   steering-committee:
