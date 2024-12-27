@@ -107,7 +107,6 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag("kubernetes.containerspec-addcapabilities", &nc.ContainerSpecAddCapabilities),
 		asFlag("kubernetes.podspec-tolerations", &nc.PodSpecTolerations),
 		asFlag("kubernetes.podspec-volumes-emptydir", &nc.PodSpecVolumesEmptyDir),
-		asFlag("kubernetes.podspec-hostipc", &nc.PodSpecHostIPC),
 		asFlag("kubernetes.podspec-hostpid", &nc.PodSpecHostPID),
 		asFlag("kubernetes.podspec-hostnetwork", &nc.PodSpecHostNetwork),
 		asFlag("kubernetes.podspec-init-containers", &nc.PodSpecInitContainers),

@@ -18,27 +18,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-# Install patched schemagen into a temporary directory.
-#
-# We need a patched version because
-# 1. There's a bug that makes our URL types unusable
-#    see https://github.com/kubernetes-sigs/controller-tools/issues/560
-# 2. We need specialized logic to filter down the surface of PodSpec we allow in Knative.
-#    The respective config for this is in `schemapatch-config.yaml`
-export GOBIN
-GOBIN=$(mktemp -d)
-export PATH="$GOBIN:$PATH"
 
-(
-  cd "$GOBIN"
-  mkdir controller-tools
-  cd controller-tools
-  go mod init tools
-  # Pinned for reproducible builds.
-  go mod edit -replace=sigs.k8s.io/controller-tools@v0.9.0=github.com/dprotaso/controller-tools@knative
-  go get -d sigs.k8s.io/controller-tools/cmd/controller-gen@v0.9.0
-  go install sigs.k8s.io/controller-tools/cmd/controller-gen
-)
 
 # Create a backup for every linked CRD.
 links=$(find "$(dirname "$0")/../config/core/300-resources" -type l)
@@ -46,11 +26,12 @@ for link in $links; do
   cp "$link" "$link.bkp"
 done
 
-controller-gen \
+go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.5 \
   schemapatch:manifests=config/core/300-resources,generateEmbeddedObjectMeta=true \
-  typeOverrides="$(dirname $0)/schemapatch-config.yaml" \
   output:dir=config/core/300-resources \
   paths=./pkg/apis/...
+
+go run ./cmd/schema-tweak
 
 # Restore linked CRDs.
 for link in $links; do
