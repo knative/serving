@@ -58,6 +58,16 @@ var overrides = []override{{
 }, {
 	crdName: "revisions.serving.knative.dev",
 	entries: revSpecOverrides("spec"),
+}, {
+	crdName: "podautoscalers.autoscaling.internal.knative.dev",
+	entries: []entry{{
+		path: "spec.scaleTargetRef",
+		allowedFields: sets.New(
+			"apiVersion",
+			"kind",
+			"name",
+		),
+	}},
 }}
 
 func revSpecOverrides(prefixPath string) []entry {
