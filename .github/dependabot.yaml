@@ -8,5 +8,5 @@ updates:
     interval: "monthly"
   groups:
     github-actions:
-    patterns:
-    - "*"
+      patterns:
+      - "*"
