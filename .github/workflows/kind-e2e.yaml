@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
     - name: setup-go
       uses: knative/actions/setup-go@main
@@ -35,7 +35,7 @@ jobs:
         mkdir -p ~/artifacts/build
         mkdir -p ~/artifacts/registry
 
-    - uses: actions/cache@v4
+    - uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
       with:
         path: |
           ~/.cache/go-build
@@ -46,7 +46,7 @@ jobs:
 
     # Install the latest release of ko
     - name: Install ko
-      uses: ko-build/setup-ko@v0.7
+      uses: ko-build/setup-ko@3aebd0597dc1e9d1a26bcfdb7cbeb19c131d3037 # v0.7
 
     - name: Setup Registry
       run: |
@@ -68,7 +68,7 @@ jobs:
       run: |
         ./test/upload-test-images.sh
 
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a # v4.3.6
       with:
         name: artifacts
         path: ~/artifacts
@@ -155,7 +155,7 @@ jobs:
     - name: setup-go
       uses: knative/actions/setup-go@main
 
-    - uses: actions/cache@v4
+    - uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
       with:
         path: |
           ~/.cache/go-build
@@ -164,13 +164,13 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
 
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
       with:
         name: artifacts
         path: ~/artifacts
 
     - name: setup kind
-      uses: chainguard-dev/actions/setup-kind@main
+      uses: chainguard-dev/actions/setup-kind@141bf225e9c19c34304ee9d06e9be9c44a6d8765 # main
       with:
         k8s-version: ${{ matrix.k8s-version }}
         kind-worker-count: 4
@@ -186,7 +186,7 @@ jobs:
         sudo mv gotestsum /usr/local/bin
         echo "::endgroup::"
 
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       with:
         fetch-depth: 0
 
@@ -220,7 +220,7 @@ jobs:
           --ingress-class=${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev \
           ${{ matrix.test-flags }}
 
-    - uses: chainguard-dev/actions/kind-diag@main
+    - uses: chainguard-dev/actions/kind-diag@141bf225e9c19c34304ee9d06e9be9c44a6d8765 # main
       # Only upload logs on failure.
       if: ${{ failure() }}
       with:
