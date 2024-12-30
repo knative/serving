@@ -81,10 +81,9 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 			logger.Errorw("Error getting pods", zap.Error(err))
 			return nil
 		}
-		if len(pods.Items) > 0 {
-			// Arbitrarily grab the very first pod, as they all should be crashing
-			pod := pods.Items[0]
 
+	podsLoop:
+		for _, pod := range pods.Items {
 			// Update the revision status if pod cannot be scheduled (possibly resource constraints)
 			// If pod cannot be scheduled then we expect the container status to be empty.
 			for _, cond := range pod.Status.Conditions {
@@ -94,27 +93,45 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 				}
 			}
 
+			// if a Pod is terminating already, we do not care it being not ready because this is expected to be the case
+			if pod.DeletionTimestamp != nil {
+				continue
+			}
+
+			// if a Pod is ready, then do not check it. The fact it is ready may not yet be reflected on the Deployment status.
+			for _, condition := range pod.Status.Conditions {
+				if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
+					continue podsLoop
+				}
+			}
+
+			// Iterate the container status and report the first failure
 			for _, status := range pod.Status.ContainerStatuses {
-				if status.Name != resources.QueueContainerName {
-					if t := status.LastTerminationState.Terminated; t != nil {
-						logger.Infof("marking exiting with: %d/%s", t.ExitCode, t.Message)
-						if t.ExitCode == 0 && t.Message == "" {
-							// In cases where there is no error message, we should still provide some exit message in the status
-							rev.Status.MarkContainerHealthyFalse(v1.ExitCodeReason(t.ExitCode),
-								v1.RevisionContainerExitingMessage("container exited with no error"))
-							break
-						} else {
-							rev.Status.MarkContainerHealthyFalse(v1.ExitCodeReason(t.ExitCode), v1.RevisionContainerExitingMessage(t.Message))
-							break
-						}
-					} else if w := status.State.Waiting; w != nil && hasDeploymentTimedOut(deployment) {
-						logger.Infof("marking resources unavailable with: %s: %s", w.Reason, w.Message)
-						rev.Status.MarkResourcesAvailableFalse(w.Reason, w.Message)
-						break
+				if status.Name == resources.QueueContainerName {
+					continue
+				}
+
+				if t := status.LastTerminationState.Terminated; t != nil {
+					logger.Infof("marking exiting with: %d/%s", t.ExitCode, t.Message)
+					if t.ExitCode == 0 && t.Message == "" {
+						// In cases where there is no error message, we should still provide some exit message in the status
+						rev.Status.MarkContainerHealthyFalse(v1.ExitCodeReason(t.ExitCode),
+							v1.RevisionContainerExitingMessage("container exited with no error"))
+					} else {
+						rev.Status.MarkContainerHealthyFalse(v1.ExitCodeReason(t.ExitCode), v1.RevisionContainerExitingMessage(t.Message))
 					}
+					break podsLoop
+				} else if w := status.State.Waiting; w != nil && hasDeploymentTimedOut(deployment) {
+					logger.Infof("marking resources unavailable with: %s: %s", w.Reason, w.Message)
+					rev.Status.MarkResourcesAvailableFalse(w.Reason, w.Message)
+					break podsLoop
 				}
 			}
 		}
+	}
+
+	if deployment.Status.ReadyReplicas > 0 {
+		rev.Status.MarkContainerHealthyTrue()
 	}
 
 	return nil

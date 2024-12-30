@@ -41,6 +41,7 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	defaultconfig "knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
@@ -544,7 +545,7 @@ func TestReconcile(t *testing.T) {
 				WithRoutingState(v1.RoutingStateActive, fc),
 			),
 			pa("foo", "pull-backoff", WithReachabilityReachable), // pa can't be ready since deployment times out.
-			pod(t, "foo", "pull-backoff", WithWaitingContainer("pull-backoff", "ImagePullBackoff", "can't pull it")),
+			pod(t, "foo", "pull-backoff", WithPodCondition(corev1.PodReady, corev1.ConditionFalse, "ContainersNotReady"), WithWaitingContainer("pull-backoff", "ImagePullBackoff", "can't pull it")),
 			timeoutDeploy(deploy(t, "foo", "pull-backoff"), "Timed out!"),
 			image("foo", "pull-backoff"),
 		},
@@ -570,7 +571,7 @@ func TestReconcile(t *testing.T) {
 				WithRoutingState(v1.RoutingStateActive, fc),
 				WithLogURL, allUnknownConditions, MarkActive),
 			pa("foo", "pod-error", WithReachabilityReachable), // PA can't be ready, since no traffic.
-			pod(t, "foo", "pod-error", WithFailingContainer("pod-error", 5, "I failed man!")),
+			pod(t, "foo", "pod-error", WithPodCondition(corev1.PodReady, corev1.ConditionFalse, "ContainersNotReady"), WithFailingContainer("pod-error", 5, "I failed man!")),
 			deploy(t, "foo", "pod-error"),
 			image("foo", "pod-error"),
 		},
@@ -742,6 +743,60 @@ func TestReconcile(t *testing.T) {
 			PodSpecPersistentVolumeClaim: defaultconfig.Enabled,
 			PodSpecPersistentVolumeWrite: defaultconfig.Enabled,
 		}}),
+	}, {
+		Name: "revision's ContainerHealthy turns back to True if the deployment is healthy",
+		Objects: []runtime.Object{
+			Revision("foo", "container-unhealthy",
+				WithLogURL,
+				MarkRevisionReady,
+				withDefaultContainerStatuses(),
+				WithRevisionLabel(serving.RoutingStateLabelKey, "active"),
+				MarkContainerHealthyFalse("ExitCode137"),
+			),
+			pa("foo", "container-unhealthy",
+				WithPASKSReady,
+				WithScaleTargetInitialized,
+				WithTraffic,
+				WithReachabilityReachable,
+				WithPAStatusService("something"),
+			),
+			readyDeploy(deploy(t, "foo", "container-unhealthy", withReplicas(1))),
+			image("foo", "container-unhealthy"),
+		},
+		Key: "foo/container-unhealthy",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Revision("foo", "container-unhealthy",
+				WithLogURL,
+				MarkRevisionReady,
+				withDefaultContainerStatuses(),
+				WithRevisionLabel(serving.RoutingStateLabelKey, "active"),
+			),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon all resources being ready"),
+		},
+	}, {
+		Name: "revision's ContainerHealthy stays True even if the last Pod with restarts terminates",
+		Objects: []runtime.Object{
+			Revision("foo", "container-healthy",
+				WithLogURL,
+				MarkRevisionReady,
+				withDefaultContainerStatuses(),
+				WithRevisionLabel(serving.RoutingStateLabelKey, "active"),
+				MarkContainerHealthyTrue(),
+			),
+			pa("foo", "container-healthy",
+				WithPASKSReady,
+				WithScaleTargetInitialized,
+				WithTraffic,
+				WithReachabilityReachable,
+				WithPAStatusService("something"),
+			),
+			WithDeletionTimestamp(pod(t, "foo", "container-healthy", WithPodCondition(corev1.PodReady, corev1.ConditionFalse, "ContainersNotReady"), WithFailingContainer("crashed-at-some-point", 128, "OOMKilled"))),
+			readyDeploy(deploy(t, "foo", "container-healthy", withReplicas(0))),
+			image("foo", "container-healthy"),
+		},
+		Key: "foo/container-healthy",
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, _ configmap.Watcher) controller.Reconciler {
@@ -851,6 +906,19 @@ func allUnknownConditions(r *v1.Revision) {
 
 type configOption func(*config.Config)
 
+type deploymentOption func(*appsv1.Deployment)
+
+// withReplicas configures the number of replicas on the Deployment
+func withReplicas(replicas int32) deploymentOption {
+	return func(d *appsv1.Deployment) {
+		d.Spec.Replicas = &replicas
+		d.Status.AvailableReplicas = replicas
+		d.Status.ReadyReplicas = replicas
+		d.Status.Replicas = replicas
+		d.Status.UpdatedReplicas = replicas
+	}
+}
+
 func deploy(t *testing.T, namespace, name string, opts ...interface{}) *appsv1.Deployment {
 	t.Helper()
 	cfg := reconcilerTestConfig()
@@ -876,6 +944,13 @@ func deploy(t *testing.T, namespace, name string, opts ...interface{}) *appsv1.D
 	if err != nil {
 		t.Fatal("failed to create deployment")
 	}
+
+	for _, opt := range opts {
+		if deploymentOpt, ok := opt.(deploymentOption); ok {
+			deploymentOpt(deployment)
+		}
+	}
+
 	return deployment
 }
 
