@@ -28,7 +28,7 @@ jobs:
     - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
     - name: setup-go
-      uses: knative/actions/setup-go@8d6af971ff477fdd929367f4c33c865ba0082b13 # main
+      uses: knative/actions/setup-go@main
 
     - name: Setup Cache Directories
       run: |
@@ -153,7 +153,7 @@ jobs:
 
     steps:
     - name: setup-go
-      uses: knative/actions/setup-go@8d6af971ff477fdd929367f4c33c865ba0082b13 # main
+      uses: knative/actions/setup-go@main
 
     - uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
       with:
@@ -170,7 +170,7 @@ jobs:
         path: ~/artifacts
 
     - name: setup kind
-      uses: chainguard-dev/actions/setup-kind@2faf313e789d339d91d3c4a73445ccdf90e5272d # main
+      uses: chainguard-dev/actions/setup-kind@141bf225e9c19c34304ee9d06e9be9c44a6d8765 # main
       with:
         k8s-version: ${{ matrix.k8s-version }}
         kind-worker-count: 4
@@ -220,7 +220,7 @@ jobs:
           --ingress-class=${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev \
           ${{ matrix.test-flags }}
 
-    - uses: chainguard-dev/actions/kind-diag@2faf313e789d339d91d3c4a73445ccdf90e5272d # main
+    - uses: chainguard-dev/actions/kind-diag@141bf225e9c19c34304ee9d06e9be9c44a6d8765 # main
       # Only upload logs on failure.
       if: ${{ failure() }}
       with:
