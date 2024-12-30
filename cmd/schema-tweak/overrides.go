@@ -135,12 +135,16 @@ func revSpecOverrides(prefixPath string) []entry {
 		allowedFields: sets.New(
 			"allowPrivilegeEscalation",
 			"capabilities",
+			"privileged",
 			"readOnlyRootFilesystem",
 			"runAsGroup",
 			"runAsNonRoot",
 			"runAsUser",
 			"seccompProfile",
 		),
+	}, {
+		path:        "containers.securityContext.privileged",
+		description: "Run container in privileged mode. This can only be set to explicitly to 'false'",
 	}, {
 		path: "containers.securityContext.capabilities",
 		allowedFields: sets.New(
