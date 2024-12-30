@@ -2704,6 +2704,15 @@ func getCommonContainerValidationTestCases() []containerValidationTestCase {
 			},
 			want: apis.ErrDisallowedFields("securityContext.privileged"),
 		}, {
+			name: "allowed setting security context field Privileged to false",
+			c: corev1.Container{
+				Image: "foo",
+				SecurityContext: &corev1.SecurityContext{
+					Privileged: ptr.Bool(false),
+				},
+			},
+			want: nil,
+		}, {
 			name: "too large uid",
 			c: corev1.Container{
 				Image: "foo",
