@@ -695,10 +695,7 @@ spec:
                                         x-kubernetes-list-type: atomic
                                   privileged:
                                     description: |-
-                                      Run container in privileged mode.
-                                      Processes in privileged containers are essentially equivalent to root on the host.
-                                      Defaults to false.
-                                      Note that this field cannot be set when spec.os.name is windows.
+                                      Run container in privileged mode. This can only be set to explicitly to 'false'
                                     type: boolean
                                   readOnlyRootFilesystem:
                                     description: |-
