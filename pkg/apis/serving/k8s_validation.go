@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"math"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -162,11 +161,6 @@ func validateVolume(ctx context.Context, volume corev1.Volume) *apis.FieldError 
 		specified = append(specified, "persistentVolumeClaim")
 	}
 
-	if vs.HostPath != nil {
-		specified = append(specified, "hostPath")
-		errs = errs.Also(validateHostPathVolumeSource(vs.HostPath).ViaField("hostPath"))
-	}
-
 	if len(specified) == 0 {
 		fieldPaths := []string{"secret", "configMap", "projected"}
 		cfg := config.FromContextOrDefaults(ctx)
@@ -175,9 +169,6 @@ func validateVolume(ctx context.Context, volume corev1.Volume) *apis.FieldError 
 		}
 		if cfg.Features.PodSpecPersistentVolumeClaim == config.Enabled {
 			fieldPaths = append(fieldPaths, "persistentVolumeClaim")
-		}
-		if cfg.Features.PodSpecVolumesHostPath == config.Enabled {
-			fieldPaths = append(fieldPaths, "hostPath")
 		}
 		errs = errs.Also(apis.ErrMissingOneOf(fieldPaths...))
 	} else if len(specified) > 1 {
@@ -291,52 +282,6 @@ func validateEmptyDirFields(dir *corev1.EmptyDirVolumeSource) *apis.FieldError {
 		if dir.SizeLimit.Value() < 0 {
 			errs = errs.Also(apis.ErrInvalidValue(dir.SizeLimit, "sizeLimit"))
 		}
-	}
-	return errs
-}
-
-func validateHostPathVolumeSource(hostPath *corev1.HostPathVolumeSource) *apis.FieldError {
-	var errs *apis.FieldError
-	// This is checked at the K8s side for host Path so better validate early
-	// ref: https://bit.ly/4gcWAVK
-	if len(hostPath.Path) == 0 {
-		errs = errs.Also(apis.ErrInvalidValue("''", "path"))
-		return errs
-	}
-	errs = errs.Also(validatePathNoBacksteps(hostPath.Path, "path"))
-	errs = errs.Also(validateHostPathType(hostPath.Type, "type"))
-	return errs
-}
-
-// validatePathNoBacksteps makes sure the targetPath does not have any `..` path elements when split
-//
-// This assumes the OS of the apiserver and the nodes are the same. The same check should be done
-// on the node to ensure there are no backsteps.
-func validatePathNoBacksteps(targetPath string, fldPath string) *apis.FieldError {
-	var errs *apis.FieldError
-	parts := strings.Split(filepath.ToSlash(targetPath), "/")
-	for _, item := range parts {
-		if item == ".." {
-			errs = errs.Also(apis.ErrInvalidValue(targetPath, fldPath, "must not contain '..'"))
-			break // even for `../../..`, one error is sufficient to make the point
-		}
-	}
-	return errs
-}
-
-func validateHostPathType(hostPathType *corev1.HostPathType, fldPath string) *apis.FieldError {
-	var errs *apis.FieldError
-	supportedHostPathTypes := sets.New(
-		corev1.HostPathUnset,
-		corev1.HostPathDirectoryOrCreate,
-		corev1.HostPathDirectory,
-		corev1.HostPathFileOrCreate,
-		corev1.HostPathFile,
-		corev1.HostPathSocket,
-		corev1.HostPathCharDev,
-		corev1.HostPathBlockDev)
-	if hostPathType != nil && !supportedHostPathTypes.Has(*hostPathType) {
-		errs = errs.Also(apis.ErrInvalidValue(*hostPathType, fldPath, "unknown type"))
 	}
 	return errs
 }
