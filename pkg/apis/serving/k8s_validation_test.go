@@ -2910,7 +2910,6 @@ func TestVolumeValidation(t *testing.T) {
 			},
 		},
 		cfgOpts: []configOption{withPodSpecVolumesHostPathEnabled()},
-		want:    nil,
 	}, {
 		name: "hostPath volume with feature disabled",
 		v: corev1.Volume{
