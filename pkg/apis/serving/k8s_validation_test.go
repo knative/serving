@@ -129,6 +129,13 @@ func withPodSpecPersistentVolumeClaimEnabled() configOption {
 	}
 }
 
+func withPodSpecVolumesHostPathEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecVolumesHostPath = config.Enabled
+		return cfg
+	}
+}
+
 func withPodSpecPersistentVolumeWriteEnabled() configOption {
 	return func(cfg *config.Config) *config.Config {
 		cfg.Features.PodSpecPersistentVolumeWrite = config.Enabled
@@ -2892,6 +2899,38 @@ func TestVolumeValidation(t *testing.T) {
 		},
 		want:    apis.ErrInvalidValue(-1, "emptyDir.sizeLimit"),
 		cfgOpts: []configOption{withPodSpecVolumesEmptyDirEnabled()},
+	}, {
+		name: "valid hostPath volume with feature enabled",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: "/valid/path",
+				},
+			},
+		},
+		cfgOpts: []configOption{withPodSpecVolumesHostPathEnabled()},
+		want:    nil,
+	}, {
+		name: "hostPath volume with feature disabled",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: "/valid/path",
+				},
+			},
+		},
+		want: (&apis.FieldError{
+			Message: `HostPath volume support is disabled, but found HostPath volume foo`,
+		}),
+	}, {
+		name: "missing hostPath volume when required",
+		v: corev1.Volume{
+			Name: "foo",
+		},
+		cfgOpts: []configOption{withPodSpecVolumesHostPathEnabled()},
+		want:    apis.ErrMissingOneOf("secret", "configMap", "projected", "emptyDir", "hostPath"),
 	}, {
 		name: "valid PVC with PVC feature enabled",
 		v: corev1.Volume{
