@@ -74,6 +74,10 @@ func processFile(file fs.DirEntry) {
 		log.Fatalln("failed to marshal CRD", err)
 	}
 
+	if err = enc.Close(); err != nil {
+		log.Fatalln("failed to close yaml encoder", err)
+	}
+
 	if err = os.WriteFile(filename, buf.Bytes(), file.Type().Perm()); err != nil {
 		log.Fatalln("failed to write CRD", err)
 	}
