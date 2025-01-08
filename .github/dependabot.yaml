@@ -10,3 +10,7 @@ updates:
     github-actions:
       patterns:
       - "*"
+  ignore:
+  # Following actions aren't versioned
+  - dependency-name: "chainguard-dev/actions/*"
+  - dependency-name: "knative/actions/*"
