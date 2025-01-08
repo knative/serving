@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+	"knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
@@ -81,22 +82,22 @@ func revSpecOverrides(prefixPath string) []entry {
 			"volumes",
 		).Insert(revisionSpecFields()...),
 		featureFlagFields: []flagField{
-			{name: "affinity", flag: "kubernetes.podspec-affinity"},
-			{name: "dnsConfig", flag: "kubernetes.podspec-dnsconfig"},
-			{name: "dnsPolicy", flag: "kubernetes.podspec-dnspolicy"},
-			{name: "hostAliases", flag: "kubernetes.podspec-hostaliases"},
-			{name: "hostIPC", flag: "kubernetes.podspec-hostipc"},
-			{name: "hostNetwork", flag: "kubernetes.podspec-hostnetwork"},
-			{name: "hostPID", flag: "kubernetes.podspec-hostpid"},
-			{name: "initContainers", flag: "kubernetes.podspec-init-containers"},
-			{name: "nodeSelector", flag: "kubernetes.podspec-nodeselector"},
-			{name: "priorityClassName", flag: "kubernetes.podspec-priorityclassname"},
-			{name: "runtimeClassName", flag: "kubernetes.podspec-runtimeclassname"},
-			{name: "schedulerName", flag: "kubernetes.podspec-schedulername"},
-			{name: "securityContext", flag: "kubernetes.podspec-securitycontext"},
-			{name: "shareProcessNamespace", flag: "kubernetes.podspec-shareprocessnamespace"},
-			{name: "tolerations", flag: "kubernetes.podspec-tolerations"},
-			{name: "topologySpreadConstraints", flag: "kubernetes.podspec-topologyspreadconstraints"},
+			{name: "affinity", flag: config.FeaturePodSpecAffinity},
+			{name: "dnsConfig", flag: config.FeaturePodSpecDNSConfig},
+			{name: "dnsPolicy", flag: config.FeaturePodSpecDNSPolicy},
+			{name: "hostAliases", flag: config.FeaturePodSpecHostAliases},
+			{name: "hostIPC", flag: config.FeaturePodSpecHostIPC},
+			{name: "hostNetwork", flag: config.FeaturePodSpecHostNetwork},
+			{name: "hostPID", flag: config.FeaturePodSpecHostPID},
+			{name: "initContainers", flag: config.FeaturePodSpecInitContainers},
+			{name: "nodeSelector", flag: config.FeaturePodSpecNodeSelector},
+			{name: "priorityClassName", flag: config.FeaturePodSpecPriorityClassName},
+			{name: "runtimeClassName", flag: config.FeaturePodSpecRuntimeClassName},
+			{name: "schedulerName", flag: config.FeaturePodSpecSchedulerName},
+			{name: "securityContext", flag: config.FeaturePodSpecSecurityContext},
+			{name: "shareProcessNamespace", flag: config.FeaturePodSpecShareProcessNamespace},
+			{name: "tolerations", flag: config.FeaturePodSpecTolerations},
+			{name: "topologySpreadConstraints", flag: config.FeaturePodSpecTopologySpreadConstraints},
 		},
 	}, {
 		path:         "containers",
@@ -152,8 +153,9 @@ func revSpecOverrides(prefixPath string) []entry {
 			"drop",
 		),
 	}, {
-		path:        "containers.securityContext.capabilities.add",
-		description: "This is accessible behind a feature flag - kubernetes.containerspec-addcapabilities",
+		path: "containers.securityContext.capabilities.add",
+		description: fmt.Sprintf("This is accessible behind a feature flag - %s",
+			config.FeatureContainerSpecAddCapabilities),
 	}, {
 		path: "containers.resources",
 		allowedFields: sets.New(
@@ -175,10 +177,10 @@ func revSpecOverrides(prefixPath string) []entry {
 		),
 		featureFlagFields: []flagField{{
 			name: "fieldRef",
-			flag: "kubernetes.podspec-fieldref",
+			flag: config.FeaturePodSpecFieldRef,
 		}, {
 			name: "resourceFieldRef",
-			flag: "kubernetes.podspec-fieldref",
+			flag: config.FeaturePodSpecFieldRef,
 		}},
 	}, {
 		path: "containers.env.valueFrom.configMapKeyRef",
@@ -236,13 +238,13 @@ func revSpecOverrides(prefixPath string) []entry {
 		),
 		featureFlagFields: []flagField{{
 			name: "emptyDir",
-			flag: "kubernetes.podspec-emptydir",
+			flag: config.FeaturePodSpecEmptyDir,
 		}, {
 			name: "persistentVolumeClaim",
-			flag: "kubernetes.podspec-persistent-volume-claim",
+			flag: config.FeaturePodSpecPVClaim,
 		}, {
 			name: "hostPath",
-			flag: "kubernetes.podspec-hostpath",
+			flag: config.FeaturePodSpecHostPath,
 		}},
 	}, {
 		path: "volumes.secret",

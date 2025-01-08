@@ -1183,12 +1183,12 @@ spec:
                                 x-kubernetes-map-type: atomic
                               emptyDir:
                                 description: |-
-                                  This is accessible behind a feature flag - kubernetes.podspec-emptydir
+                                  This is accessible behind a feature flag - kubernetes.podspec-volumes-emptydir
                                 type: object
                                 x-kubernetes-preserve-unknown-fields: true
                               hostPath:
                                 description: |-
-                                  This is accessible behind a feature flag - kubernetes.podspec-hostpath
+                                  This is accessible behind a feature flag - kubernetes.podspec-volumes-hostpath
                                 type: object
                                 x-kubernetes-preserve-unknown-fields: true
                               name:
