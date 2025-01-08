@@ -240,6 +240,9 @@ func revSpecOverrides(prefixPath string) []entry {
 		}, {
 			name: "persistentVolumeClaim",
 			flag: "kubernetes.podspec-persistent-volume-claim",
+		}, {
+			name: "hostPath",
+			flag: "kubernetes.podspec-hostpath",
 		}},
 	}, {
 		path: "volumes.secret",
