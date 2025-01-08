@@ -2922,6 +2922,9 @@ func TestVolumeValidation(t *testing.T) {
 		},
 		want: (&apis.FieldError{
 			Message: `HostPath volume support is disabled, but found HostPath volume foo`,
+		}).Also(
+			&apis.FieldError{
+				Message: "must not set the field(s)", Paths: []string{"hostPath"}
 		}),
 	}, {
 		name: "missing hostPath volume when required",
