@@ -19,6 +19,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -28,8 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+const resourcesDir = "config/core/300-resources"
+
 func main() {
-	resourcesDir := "config/core/300-resources"
 	files, err := os.ReadDir(resourcesDir)
 	if err != nil {
 		log.Fatalln("failed to read CRD directory", err)
@@ -40,35 +42,40 @@ func main() {
 			continue
 		}
 
-		fmt.Println("Processing", file.Name())
+		processFile(file)
+	}
 
-		filename := filepath.Join(resourcesDir, file.Name())
+}
 
-		fbytes, err := os.ReadFile(filename)
-		if err != nil {
-			log.Fatalln("failed to read CRD", err)
-		}
+func processFile(file fs.DirEntry) {
+	fmt.Println("Processing", file.Name())
 
-		var root yaml.Node
-		if err := yaml.Unmarshal(fbytes, &root); err != nil {
-			log.Fatalln("failed to unmarshal CRD", err)
-		}
+	filename := filepath.Join(resourcesDir, file.Name())
 
-		buf := bytes.Buffer{}
+	fbytes, err := os.ReadFile(filename)
+	if err != nil {
+		log.Fatalln("failed to read CRD", err)
+	}
 
-		enc := yaml.NewEncoder(&buf)
-		enc.SetIndent(2)
+	var root yaml.Node
+	if err := yaml.Unmarshal(fbytes, &root); err != nil {
+		log.Fatalln("failed to unmarshal CRD", err)
+	}
 
-		// document node => content[0] => crd map
-		applyOverrides(root.Content[0])
+	buf := bytes.Buffer{}
 
-		if err = enc.Encode(&root); err != nil {
-			log.Fatalln("failed to marshal CRD", err)
-		}
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
 
-		if err = os.WriteFile(filename, buf.Bytes(), file.Type().Perm()); err != nil {
-			log.Fatalln("failed to write CRD", err)
-		}
+	// document node => content[0] => crd map
+	applyOverrides(root.Content[0])
+
+	if err = enc.Encode(&root); err != nil {
+		log.Fatalln("failed to marshal CRD", err)
+	}
+
+	if err = os.WriteFile(filename, buf.Bytes(), file.Type().Perm()); err != nil {
+		log.Fatalln("failed to write CRD", err)
 	}
 
 }
