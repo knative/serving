@@ -61,8 +61,12 @@ aliases:
   - nainaz
   - psschwei
   - salaboy
+  - skonto
   - upodroid
-  knative-release-leads: []
+  knative-release-leads:
+  - dprotaso
+  - dsimansk
+  - skonto
   knative-robots:
   - knative-automation
   - knative-prow-releaser-robot
