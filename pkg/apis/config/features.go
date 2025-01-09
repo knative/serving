@@ -51,6 +51,32 @@ const (
 	AllowHTTPFullDuplexFeatureKey = "features.knative.dev/http-full-duplex"
 )
 
+// Feature config map keys that are used in schema-tweak
+const (
+	FeatureContainerSpecAddCapabilities     = "kubernetes.containerspec-addcapabilities"
+	FeaturePodSpecAffinity                  = "kubernetes.podspec-affinity"
+	FeaturePodSpecDNSConfig                 = "kubernetes.podspec-dnsconfig"
+	FeaturePodSpecDNSPolicy                 = "kubernetes.podspec-dnspolicy"
+	FeaturePodSpecDryRun                    = "kubernetes.podspec-dryrun"
+	FeaturePodSpecEmptyDir                  = "kubernetes.podspec-volumes-emptydir"
+	FeaturePodSpecFieldRef                  = "kubernetes.podspec-fieldref"
+	FeaturePodSpecHostAliases               = "kubernetes.podspec-hostaliases"
+	FeaturePodSpecHostIPC                   = "kubernetes.podspec-hostipc"
+	FeaturePodSpecHostNetwork               = "kubernetes.podspec-hostnetwork"
+	FeaturePodSpecHostPID                   = "kubernetes.podspec-hostpid"
+	FeaturePodSpecHostPath                  = "kubernetes.podspec-volumes-hostpath"
+	FeaturePodSpecInitContainers            = "kubernetes.podspec-init-containers"
+	FeaturePodSpecNodeSelector              = "kubernetes.podspec-nodeselector"
+	FeaturePodSpecPVClaim                   = "kubernetes.podspec-persistent-volume-claim"
+	FeaturePodSpecPriorityClassName         = "kubernetes.podspec-priorityclassname"
+	FeaturePodSpecRuntimeClassName          = "kubernetes.podspec-runtimeclassname"
+	FeaturePodSpecSchedulerName             = "kubernetes.podspec-schedulername"
+	FeaturePodSpecSecurityContext           = "kubernetes.podspec-securitycontext"
+	FeaturePodSpecShareProcessNamespace     = "kubernetes.podspec-shareprocessnamespace"
+	FeaturePodSpecTolerations               = "kubernetes.podspec-tolerations"
+	FeaturePodSpecTopologySpreadConstraints = "kubernetes.podspec-topologyspreadconstraints"
+)
+
 func defaultFeaturesConfig() *Features {
 	return &Features{
 		MultiContainer:                   Enabled,
@@ -91,37 +117,38 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 	nc := defaultFeaturesConfig()
 
 	if err := cm.Parse(data,
+		asFlag("autodetect-http2", &nc.AutoDetectHTTP2),
+		asFlag("kubernetes.podspec-dryrun", &nc.PodSpecDryRun),
+		asFlag("kubernetes.podspec-persistent-volume-write", &nc.PodSpecPersistentVolumeWrite),
 		asFlag("multi-container", &nc.MultiContainer),
 		asFlag("multi-container-probing", &nc.MultiContainerProbing),
-		asFlag("kubernetes.podspec-affinity", &nc.PodSpecAffinity),
-		asFlag("kubernetes.podspec-topologyspreadconstraints", &nc.PodSpecTopologySpreadConstraints),
-		asFlag("kubernetes.podspec-dryrun", &nc.PodSpecDryRun),
-		asFlag("kubernetes.podspec-hostaliases", &nc.PodSpecHostAliases),
-		asFlag("kubernetes.podspec-fieldref", &nc.PodSpecFieldRef),
-		asFlag("kubernetes.podspec-nodeselector", &nc.PodSpecNodeSelector),
-		asFlag("kubernetes.podspec-runtimeclassname", &nc.PodSpecRuntimeClassName),
-		asFlag("kubernetes.podspec-securitycontext", &nc.PodSpecSecurityContext),
-		asFlag("kubernetes.podspec-shareprocessnamespace", &nc.PodSpecShareProcessNamespace),
-		asFlag("kubernetes.podspec-hostipc", &nc.PodSpecHostIPC),
-		asFlag("kubernetes.podspec-priorityclassname", &nc.PodSpecPriorityClassName),
-		asFlag("kubernetes.podspec-schedulername", &nc.PodSpecSchedulerName),
-		asFlag("kubernetes.containerspec-addcapabilities", &nc.ContainerSpecAddCapabilities),
-		asFlag("kubernetes.podspec-tolerations", &nc.PodSpecTolerations),
-		asFlag("kubernetes.podspec-volumes-emptydir", &nc.PodSpecVolumesEmptyDir),
-		asFlag("kubernetes.podspec-volumes-hostpath", &nc.PodSpecVolumesHostPath),
-		asFlag("kubernetes.podspec-hostipc", &nc.PodSpecHostIPC),
-		asFlag("kubernetes.podspec-hostpid", &nc.PodSpecHostPID),
-		asFlag("kubernetes.podspec-hostnetwork", &nc.PodSpecHostNetwork),
-		asFlag("kubernetes.podspec-init-containers", &nc.PodSpecInitContainers),
-		asFlag("kubernetes.podspec-persistent-volume-claim", &nc.PodSpecPersistentVolumeClaim),
-		asFlag("kubernetes.podspec-persistent-volume-write", &nc.PodSpecPersistentVolumeWrite),
-		asFlag("kubernetes.podspec-dnspolicy", &nc.PodSpecDNSPolicy),
-		asFlag("kubernetes.podspec-dnsconfig", &nc.PodSpecDNSConfig),
+		asFlag("queueproxy.mount-podinfo", &nc.QueueProxyMountPodInfo),
+		asFlag("queueproxy.resource-defaults", &nc.QueueProxyResourceDefaults),
 		asFlag("secure-pod-defaults", &nc.SecurePodDefaults),
 		asFlag("tag-header-based-routing", &nc.TagHeaderBasedRouting),
-		asFlag("queueproxy.resource-defaults", &nc.QueueProxyResourceDefaults),
-		asFlag("queueproxy.mount-podinfo", &nc.QueueProxyMountPodInfo),
-		asFlag("autodetect-http2", &nc.AutoDetectHTTP2)); err != nil {
+		asFlag(FeatureContainerSpecAddCapabilities, &nc.ContainerSpecAddCapabilities),
+		asFlag(FeaturePodSpecAffinity, &nc.PodSpecAffinity),
+		asFlag(FeaturePodSpecDNSConfig, &nc.PodSpecDNSConfig),
+		asFlag(FeaturePodSpecDNSPolicy, &nc.PodSpecDNSPolicy),
+		asFlag(FeaturePodSpecEmptyDir, &nc.PodSpecVolumesEmptyDir),
+		asFlag(FeaturePodSpecFieldRef, &nc.PodSpecFieldRef),
+		asFlag(FeaturePodSpecHostAliases, &nc.PodSpecHostAliases),
+		asFlag(FeaturePodSpecHostIPC, &nc.PodSpecHostIPC),
+		asFlag(FeaturePodSpecHostIPC, &nc.PodSpecHostIPC),
+		asFlag(FeaturePodSpecHostNetwork, &nc.PodSpecHostNetwork),
+		asFlag(FeaturePodSpecHostPID, &nc.PodSpecHostPID),
+		asFlag(FeaturePodSpecHostPath, &nc.PodSpecVolumesHostPath),
+		asFlag(FeaturePodSpecInitContainers, &nc.PodSpecInitContainers),
+		asFlag(FeaturePodSpecNodeSelector, &nc.PodSpecNodeSelector),
+		asFlag(FeaturePodSpecPVClaim, &nc.PodSpecPersistentVolumeClaim),
+		asFlag(FeaturePodSpecPriorityClassName, &nc.PodSpecPriorityClassName),
+		asFlag(FeaturePodSpecRuntimeClassName, &nc.PodSpecRuntimeClassName),
+		asFlag(FeaturePodSpecSchedulerName, &nc.PodSpecSchedulerName),
+		asFlag(FeaturePodSpecSecurityContext, &nc.PodSpecSecurityContext),
+		asFlag(FeaturePodSpecShareProcessNamespace, &nc.PodSpecShareProcessNamespace),
+		asFlag(FeaturePodSpecTolerations, &nc.PodSpecTolerations),
+		asFlag(FeaturePodSpecTopologySpreadConstraints, &nc.PodSpecTopologySpreadConstraints),
+	); err != nil {
 		return nil, err
 	}
 	return nc, nil
