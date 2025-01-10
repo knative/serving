@@ -41,22 +41,24 @@ var metricsKind = v1alpha1.SchemeGroupVersion.WithKind("Metric")
 
 // Get takes name of the metric, and returns the corresponding metric object, and an error if there is any.
 func (c *FakeMetrics) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Metric, err error) {
+	emptyResult := &v1alpha1.Metric{}
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(metricsResource, c.ns, name), &v1alpha1.Metric{})
+		Invokes(testing.NewGetActionWithOptions(metricsResource, c.ns, name, options), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Metric), err
 }
 
 // List takes label and field selectors, and returns the list of Metrics that match those selectors.
 func (c *FakeMetrics) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.MetricList, err error) {
+	emptyResult := &v1alpha1.MetricList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(metricsResource, metricsKind, c.ns, opts), &v1alpha1.MetricList{})
+		Invokes(testing.NewListActionWithOptions(metricsResource, metricsKind, c.ns, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -75,40 +77,43 @@ func (c *FakeMetrics) List(ctx context.Context, opts v1.ListOptions) (result *v1
 // Watch returns a watch.Interface that watches the requested metrics.
 func (c *FakeMetrics) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(metricsResource, c.ns, opts))
+		InvokesWatch(testing.NewWatchActionWithOptions(metricsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a metric and creates it.  Returns the server's representation of the metric, and an error, if there is any.
 func (c *FakeMetrics) Create(ctx context.Context, metric *v1alpha1.Metric, opts v1.CreateOptions) (result *v1alpha1.Metric, err error) {
+	emptyResult := &v1alpha1.Metric{}
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(metricsResource, c.ns, metric), &v1alpha1.Metric{})
+		Invokes(testing.NewCreateActionWithOptions(metricsResource, c.ns, metric, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Metric), err
 }
 
 // Update takes the representation of a metric and updates it. Returns the server's representation of the metric, and an error, if there is any.
 func (c *FakeMetrics) Update(ctx context.Context, metric *v1alpha1.Metric, opts v1.UpdateOptions) (result *v1alpha1.Metric, err error) {
+	emptyResult := &v1alpha1.Metric{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(metricsResource, c.ns, metric), &v1alpha1.Metric{})
+		Invokes(testing.NewUpdateActionWithOptions(metricsResource, c.ns, metric, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Metric), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeMetrics) UpdateStatus(ctx context.Context, metric *v1alpha1.Metric, opts v1.UpdateOptions) (*v1alpha1.Metric, error) {
+func (c *FakeMetrics) UpdateStatus(ctx context.Context, metric *v1alpha1.Metric, opts v1.UpdateOptions) (result *v1alpha1.Metric, err error) {
+	emptyResult := &v1alpha1.Metric{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(metricsResource, "status", c.ns, metric), &v1alpha1.Metric{})
+		Invokes(testing.NewUpdateSubresourceActionWithOptions(metricsResource, "status", c.ns, metric, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Metric), err
 }
@@ -123,7 +128,7 @@ func (c *FakeMetrics) Delete(ctx context.Context, name string, opts v1.DeleteOpt
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeMetrics) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(metricsResource, c.ns, listOpts)
+	action := testing.NewDeleteCollectionActionWithOptions(metricsResource, c.ns, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.MetricList{})
 	return err
@@ -131,11 +136,12 @@ func (c *FakeMetrics) DeleteCollection(ctx context.Context, opts v1.DeleteOption
 
 // Patch applies the patch and returns the patched metric.
 func (c *FakeMetrics) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Metric, err error) {
+	emptyResult := &v1alpha1.Metric{}
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(metricsResource, c.ns, name, pt, data, subresources...), &v1alpha1.Metric{})
+		Invokes(testing.NewPatchSubresourceActionWithOptions(metricsResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.Metric), err
 }

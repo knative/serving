@@ -20,12 +20,11 @@ package v1
 
 import (
 	"context"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	gentype "k8s.io/client-go/gentype"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	scheme "knative.dev/serving/pkg/client/clientset/versioned/scheme"
 )
@@ -40,6 +39,7 @@ type RoutesGetter interface {
 type RouteInterface interface {
 	Create(ctx context.Context, route *v1.Route, opts metav1.CreateOptions) (*v1.Route, error)
 	Update(ctx context.Context, route *v1.Route, opts metav1.UpdateOptions) (*v1.Route, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
 	UpdateStatus(ctx context.Context, route *v1.Route, opts metav1.UpdateOptions) (*v1.Route, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
@@ -52,144 +52,18 @@ type RouteInterface interface {
 
 // routes implements RouteInterface
 type routes struct {
-	client rest.Interface
-	ns     string
+	*gentype.ClientWithList[*v1.Route, *v1.RouteList]
 }
 
 // newRoutes returns a Routes
 func newRoutes(c *ServingV1Client, namespace string) *routes {
 	return &routes{
-		client: c.RESTClient(),
-		ns:     namespace,
+		gentype.NewClientWithList[*v1.Route, *v1.RouteList](
+			"routes",
+			c.RESTClient(),
+			scheme.ParameterCodec,
+			namespace,
+			func() *v1.Route { return &v1.Route{} },
+			func() *v1.RouteList { return &v1.RouteList{} }),
 	}
-}
-
-// Get takes name of the route, and returns the corresponding route object, and an error if there is any.
-func (c *routes) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.Route, err error) {
-	result = &v1.Route{}
-	err = c.client.Get().
-		Namespace(c.ns).
-		Resource("routes").
-		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// List takes label and field selectors, and returns the list of Routes that match those selectors.
-func (c *routes) List(ctx context.Context, opts metav1.ListOptions) (result *v1.RouteList, err error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	result = &v1.RouteList{}
-	err = c.client.Get().
-		Namespace(c.ns).
-		Resource("routes").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Watch returns a watch.Interface that watches the requested routes.
-func (c *routes) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	opts.Watch = true
-	return c.client.Get().
-		Namespace(c.ns).
-		Resource("routes").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Watch(ctx)
-}
-
-// Create takes the representation of a route and creates it.  Returns the server's representation of the route, and an error, if there is any.
-func (c *routes) Create(ctx context.Context, route *v1.Route, opts metav1.CreateOptions) (result *v1.Route, err error) {
-	result = &v1.Route{}
-	err = c.client.Post().
-		Namespace(c.ns).
-		Resource("routes").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(route).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Update takes the representation of a route and updates it. Returns the server's representation of the route, and an error, if there is any.
-func (c *routes) Update(ctx context.Context, route *v1.Route, opts metav1.UpdateOptions) (result *v1.Route, err error) {
-	result = &v1.Route{}
-	err = c.client.Put().
-		Namespace(c.ns).
-		Resource("routes").
-		Name(route.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(route).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *routes) UpdateStatus(ctx context.Context, route *v1.Route, opts metav1.UpdateOptions) (result *v1.Route, err error) {
-	result = &v1.Route{}
-	err = c.client.Put().
-		Namespace(c.ns).
-		Resource("routes").
-		Name(route.Name).
-		SubResource("status").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(route).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Delete takes name of the route and deletes it. Returns an error if one occurs.
-func (c *routes) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	return c.client.Delete().
-		Namespace(c.ns).
-		Resource("routes").
-		Name(name).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *routes) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
-	}
-	return c.client.Delete().
-		Namespace(c.ns).
-		Resource("routes").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// Patch applies the patch and returns the patched route.
-func (c *routes) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Route, err error) {
-	result = &v1.Route{}
-	err = c.client.Patch(pt).
-		Namespace(c.ns).
-		Resource("routes").
-		Name(name).
-		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
 }

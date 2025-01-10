@@ -41,22 +41,24 @@ var revisionsKind = v1.SchemeGroupVersion.WithKind("Revision")
 
 // Get takes name of the revision, and returns the corresponding revision object, and an error if there is any.
 func (c *FakeRevisions) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.Revision, err error) {
+	emptyResult := &v1.Revision{}
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(revisionsResource, c.ns, name), &v1.Revision{})
+		Invokes(testing.NewGetActionWithOptions(revisionsResource, c.ns, name, options), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.Revision), err
 }
 
 // List takes label and field selectors, and returns the list of Revisions that match those selectors.
 func (c *FakeRevisions) List(ctx context.Context, opts metav1.ListOptions) (result *v1.RevisionList, err error) {
+	emptyResult := &v1.RevisionList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(revisionsResource, revisionsKind, c.ns, opts), &v1.RevisionList{})
+		Invokes(testing.NewListActionWithOptions(revisionsResource, revisionsKind, c.ns, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -75,40 +77,43 @@ func (c *FakeRevisions) List(ctx context.Context, opts metav1.ListOptions) (resu
 // Watch returns a watch.Interface that watches the requested revisions.
 func (c *FakeRevisions) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(revisionsResource, c.ns, opts))
+		InvokesWatch(testing.NewWatchActionWithOptions(revisionsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a revision and creates it.  Returns the server's representation of the revision, and an error, if there is any.
 func (c *FakeRevisions) Create(ctx context.Context, revision *v1.Revision, opts metav1.CreateOptions) (result *v1.Revision, err error) {
+	emptyResult := &v1.Revision{}
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(revisionsResource, c.ns, revision), &v1.Revision{})
+		Invokes(testing.NewCreateActionWithOptions(revisionsResource, c.ns, revision, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.Revision), err
 }
 
 // Update takes the representation of a revision and updates it. Returns the server's representation of the revision, and an error, if there is any.
 func (c *FakeRevisions) Update(ctx context.Context, revision *v1.Revision, opts metav1.UpdateOptions) (result *v1.Revision, err error) {
+	emptyResult := &v1.Revision{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(revisionsResource, c.ns, revision), &v1.Revision{})
+		Invokes(testing.NewUpdateActionWithOptions(revisionsResource, c.ns, revision, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.Revision), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeRevisions) UpdateStatus(ctx context.Context, revision *v1.Revision, opts metav1.UpdateOptions) (*v1.Revision, error) {
+func (c *FakeRevisions) UpdateStatus(ctx context.Context, revision *v1.Revision, opts metav1.UpdateOptions) (result *v1.Revision, err error) {
+	emptyResult := &v1.Revision{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(revisionsResource, "status", c.ns, revision), &v1.Revision{})
+		Invokes(testing.NewUpdateSubresourceActionWithOptions(revisionsResource, "status", c.ns, revision, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.Revision), err
 }
@@ -123,7 +128,7 @@ func (c *FakeRevisions) Delete(ctx context.Context, name string, opts metav1.Del
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeRevisions) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(revisionsResource, c.ns, listOpts)
+	action := testing.NewDeleteCollectionActionWithOptions(revisionsResource, c.ns, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1.RevisionList{})
 	return err
@@ -131,11 +136,12 @@ func (c *FakeRevisions) DeleteCollection(ctx context.Context, opts metav1.Delete
 
 // Patch applies the patch and returns the patched revision.
 func (c *FakeRevisions) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Revision, err error) {
+	emptyResult := &v1.Revision{}
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(revisionsResource, c.ns, name, pt, data, subresources...), &v1.Revision{})
+		Invokes(testing.NewPatchSubresourceActionWithOptions(revisionsResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.Revision), err
 }
