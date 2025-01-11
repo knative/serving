@@ -1668,7 +1668,7 @@ func pollDeciders(deciders *testDeciders, namespace, name string, cond func(*sca
 	wait.PollUntilContextTimeout(context.Background(), 10*time.Millisecond, 3*time.Second, true, func(context.Context) (bool, error) {
 		decider, err = deciders.Get(context.Background(), namespace, name)
 		if err != nil {
-			return false, nil
+			return false, nil //nolint:nilerr
 		}
 		return cond == nil || cond(decider), nil
 	})

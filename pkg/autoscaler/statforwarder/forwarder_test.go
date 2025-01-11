@@ -141,7 +141,7 @@ func TestForwarderReconcile(t *testing.T) {
 		got, err := el.Get(bucket1)
 		if err != nil {
 			lastErr = err
-			return false, nil
+			return false, nil //nolint:nilerr
 		}
 
 		if !cmp.Equal(wantSubsets, got.Subsets) {
@@ -166,7 +166,7 @@ func TestForwarderReconcile(t *testing.T) {
 		got, err := el.Get(bucket1)
 		if err != nil {
 			lastErr = err
-			return false, nil
+			return false, nil //nolint:nilerr
 		}
 
 		if !cmp.Equal(wantSubsets, got.Subsets) {

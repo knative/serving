@@ -209,7 +209,7 @@ func TestDestroyPodTimely(t *testing.T) {
 			// The podToDelete must be deleted.
 			return true, nil
 		} else if err != nil {
-			return false, nil
+			return false, nil //nolint:nilerr
 		}
 
 		latestPodState = pod

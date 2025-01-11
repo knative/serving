@@ -259,7 +259,7 @@ func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n string
 		if err != nil {
 			lastErr = err
 			// Do not return the error to cause a retry.
-			return false, nil
+			return false, nil //nolint:nilerr
 		}
 
 		if equality.Semantic.DeepEqual(wantSubsets, e.Subsets) {
@@ -270,7 +270,7 @@ func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n string
 		want.Subsets = wantSubsets
 		if _, lastErr = f.kc.CoreV1().Endpoints(ns).Update(ctx, want, metav1.UpdateOptions{}); lastErr != nil {
 			// Do not return the error to cause a retry.
-			return false, nil
+			return false, nil //nolint:nilerr
 		}
 
 		f.logger.Infof("Bucket Endpoints %s updated with IP %s", n, f.selfIP)

@@ -387,7 +387,7 @@ func TestMultiContainerProbeStartFailingAfterReady(t *testing.T) {
 	if err := wait.PollUntilContextTimeout(context.Background(), time.Second, 60*time.Second, true, func(context.Context) (bool, error) {
 		endpoint, err := endpoints.Get(context.Background(), privateSvcName, metav1.GetOptions{})
 		if err != nil {
-			return false, nil
+			return false, nil //nolint:nilerr
 		}
 		latestReady = resources.ReadyAddressCount(endpoint)
 		return latestReady == 0, nil

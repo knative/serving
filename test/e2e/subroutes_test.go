@@ -174,7 +174,7 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 		}
 		// Check subroute2 is cluster local
 		if isClusterLocal, err := isTrafficClusterLocal(r.Status.Traffic, subrouteTag2); err != nil {
-			return false, nil
+			return false, nil //nolint:nilerr
 		} else if isClusterLocal {
 			return false, nil
 		}

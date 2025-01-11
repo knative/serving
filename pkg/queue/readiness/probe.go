@@ -197,7 +197,7 @@ func (p *wrappedProbe) doProbe(probe func(time.Duration) error) error {
 			// We'll log the lastProbeErr if we don't eventually succeed.
 			lastProbeErr = err
 			failCount++
-			return false, nil
+			return false, nil //nolint:nilerr
 		}
 
 		p.count++
