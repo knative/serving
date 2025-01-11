@@ -70,7 +70,7 @@ func TestRequestMetricHandler(t *testing.T) {
 
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", bytes.NewBufferString(""))
-			if test.newHeader != nil && len(test.newHeader) != 0 {
+			if len(test.newHeader) != 0 {
 				for k, v := range test.newHeader {
 					req.Header.Add(k, v)
 				}
