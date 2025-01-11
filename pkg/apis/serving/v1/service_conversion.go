@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+//nolint:stylecheck // ignore complaints about receiver having different names
 package v1
 
 import (
@@ -24,15 +25,11 @@ import (
 )
 
 // ConvertTo implements apis.Convertible
-//
-//nolint:stylecheck
 func (source *Service) ConvertTo(_ context.Context, sink apis.Convertible) error {
 	return fmt.Errorf("v1 is the highest known version, got: %T", sink)
 }
 
 // ConvertFrom implements apis.Convertible
-//
-//nolint:stylecheck
 func (sink *Service) ConvertFrom(_ context.Context, source apis.Convertible) error {
 	return fmt.Errorf("v1 is the highest known version, got: %T", source)
 }

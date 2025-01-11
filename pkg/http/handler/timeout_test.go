@@ -113,7 +113,7 @@ func testTimeoutScenario(t *testing.T, scenarios []timeoutHandlerTestScenario) {
 
 			defer func() {
 				if scenario.wantPanic {
-					if recovered := recover(); recovered != http.ErrAbortHandler { //nolint // False positive for errors.Is check
+					if recovered := recover(); recovered != http.ErrAbortHandler {
 						t.Errorf("Recover = %v, want: %v", recovered, http.ErrAbortHandler)
 					}
 				}

@@ -60,7 +60,6 @@ func NewInfluxReporter(tags map[string]string) (*InfluxReporter, error) {
 	client := influxdb2.NewClientWithOptions(url, token,
 		influxdb2.DefaultOptions().
 			SetUseGZip(true).
-			//nolint:gosec // We explicitly don't need to check certs here since this is test code.
 			SetTLSConfig(&tls.Config{InsecureSkipVerify: true}))
 
 	writeAPI := client.WriteAPI(org, bucket)
