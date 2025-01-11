@@ -192,7 +192,6 @@ func TestShouldHaveCgroupReadOnly(t *testing.T) {
 			t.Errorf("For cgroup %s cgroup.ReadOnly = %v, want: %v", cgroup.Name, *cgroup.ReadOnly, want)
 		}
 	}
-
 }
 
 func createResources() corev1.ResourceRequirements {

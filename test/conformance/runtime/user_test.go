@@ -107,5 +107,4 @@ func TestShouldRunAsUserContainerDefault(t *testing.T) {
 	if got, want := ri.Host.User.EUID, unprivilegedUserID; got != want {
 		t.Errorf("euid = %d, want: %d", got, want)
 	}
-
 }

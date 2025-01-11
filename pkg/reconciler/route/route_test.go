@@ -100,7 +100,6 @@ func newTestSetup(t *testing.T, opts ...reconcilerOption) (
 	ctrl *controller.Impl,
 	configMapWatcher *configmap.ManualWatcher,
 	cf context.CancelFunc) {
-
 	ctx, cf, informers = SetupFakeContextWithCancel(t)
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 	ctrl = newController(ctx, configMapWatcher, &clock.RealClock{}, opts...)

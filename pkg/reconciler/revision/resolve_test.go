@@ -492,7 +492,6 @@ func TestNewResolverTransport(t *testing.T) {
 			} else if tc.wantErr && err == nil {
 				t.Error("Didn't get an error when we wanted it")
 			} else if err == nil {
-
 				// If we didn't get an error, make sure everything we wanted to happen happened.
 				//nolint:staticcheck // ignore deprecation since we're not asserting system roots
 				subjects := tr.TLSClientConfig.RootCAs.Subjects()
@@ -540,7 +539,6 @@ func TestNewResolverTransport_TLSMinVersion(t *testing.T) {
 			if tr, err := newResolverTransport(path, 100, 100); err != nil {
 				t.Error("Got unexpected err:", err)
 			} else if err == nil {
-
 				if diff := cmp.Diff(tc.expectedMinTLS, tr.TLSClientConfig.MinVersion); diff != "" {
 					t.Errorf("expected min TLS version does not match: %s", diff)
 				}

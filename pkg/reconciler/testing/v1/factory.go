@@ -202,5 +202,4 @@ func AssertTrackingObject(gvk schema.GroupVersionKind, namespace, name string) f
 
 		t.Errorf("Object was not tracked - %s, Name=%s, Namespace=%s", gvk.String(), name, namespace)
 	}
-
 }

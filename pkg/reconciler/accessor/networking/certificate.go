@@ -41,7 +41,6 @@ type CertificateAccessor interface {
 // ReconcileCertificate reconciles Certificate to the desired status.
 func ReconcileCertificate(ctx context.Context, owner kmeta.Accessor, desired *v1alpha1.Certificate,
 	certAccessor CertificateAccessor) (*v1alpha1.Certificate, error) {
-
 	recorder := controller.GetEventRecorder(ctx)
 	if recorder == nil {
 		return nil, fmt.Errorf("recorder for reconciling Certificate %s/%s is not created", desired.Namespace, desired.Name)
@@ -66,7 +65,6 @@ func ReconcileCertificate(ctx context.Context, owner kmeta.Accessor, desired *v1
 	} else if !equality.Semantic.DeepEqual(cert.Spec, desired.Spec) ||
 		!equality.Semantic.DeepEqual(cert.Annotations, desired.Annotations) ||
 		!equality.Semantic.DeepEqual(cert.Labels, desired.Labels) {
-
 		// Don't modify the informers copy
 		existing := cert.DeepCopy()
 		existing.Spec = desired.Spec

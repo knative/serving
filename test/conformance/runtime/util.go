@@ -37,7 +37,6 @@ func fetchRuntimeInfo(
 	t *testing.T,
 	clients *test.Clients,
 	opts ...interface{}) (*test.ResourceNames, *types.RuntimeInfo, error) {
-
 	names := &test.ResourceNames{Image: test.Runtime}
 	t.Helper()
 	names.Service = test.ObjectNameForTest(t)
@@ -85,7 +84,6 @@ func splitOpts(opts ...interface{}) ([]v1testing.ServiceOption, []interface{}, e
 		default:
 			return nil, nil, fmt.Errorf("invalid option type: %T", t)
 		}
-
 	}
 	return serviceOpts, reqOpts, nil
 }

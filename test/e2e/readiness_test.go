@@ -87,7 +87,6 @@ func TestReadinessAlternatePort(t *testing.T) {
 	); err != nil {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.HelloWorldText, err)
 	}
-
 }
 
 func TestReadinessPathAndQuery(t *testing.T) {

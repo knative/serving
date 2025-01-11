@@ -220,7 +220,6 @@ func TestBreakerUpdateConcurrency(t *testing.T) {
 	if got, want := b.Capacity(), 0; got != want {
 		t.Errorf("Capacity() = %d, want: %d", got, want)
 	}
-
 }
 
 // Test empty semaphore, token cannot be acquired

@@ -330,7 +330,6 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		if err != nil {
 			return nil, fmt.Errorf("failed to serialize multiple readiness probes: %w", err)
 		}
-
 	} else if userContainerReadinessProbe != nil {
 		readinessProbeJSON, err = readiness.EncodeSingleProbe(userContainerReadinessProbe)
 		if err != nil {

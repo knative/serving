@@ -108,5 +108,4 @@ func TestHelloHTTP2WithEmptyPortName(t *testing.T) {
 	); err != nil {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected status code %v: %v", url, names.Route, http.StatusUpgradeRequired, err)
 	}
-
 }

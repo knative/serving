@@ -441,7 +441,6 @@ func TestConfigurationFailurePropagation(t *testing.T) {
 	apistest.CheckConditionFailed(svc, ServiceConditionReady, t)
 	apistest.CheckConditionFailed(svc, ServiceConditionConfigurationsReady, t)
 	apistest.CheckConditionOngoing(svc, ServiceConditionRoutesReady, t)
-
 }
 
 func TestConfigurationFailureRecovery(t *testing.T) {

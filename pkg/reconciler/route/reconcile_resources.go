@@ -83,7 +83,6 @@ func (c *Reconciler) reconcileIngress(
 		if !equality.Semantic.DeepEqual(ingress.Spec, desired.Spec) ||
 			!equality.Semantic.DeepEqual(ingress.Annotations, desired.Annotations) ||
 			!equality.Semantic.DeepEqual(ingress.Labels, desired.Labels) {
-
 			// It is notable that one reason for differences here may be defaulting.
 			// When that is the case, the Update will end up being a nop because the
 			// webhook will bring them into alignment and no new reconciliation will occur.
@@ -253,7 +252,6 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 				// else:
 				//   clusterIPs are immutable thus any transition requires a recreate
 				//   ie. "None" <=> "" (blank - request an IP)
-
 			} else /* types are the same and not clusterIP */ {
 				canUpdate = true
 			}

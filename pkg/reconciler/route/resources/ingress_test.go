@@ -1340,7 +1340,6 @@ func TestMakeIngressACMEChallenges(t *testing.T) {
 	if !cmp.Equal(expected, ci.Rules) {
 		t.Error("Unexpected rules (-want, +got):", cmp.Diff(expected, ci.Rules))
 	}
-
 }
 
 func TestMakeIngressFailToGenerateDomain(t *testing.T) {

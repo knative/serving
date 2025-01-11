@@ -85,7 +85,6 @@ func TestServiceCreateListAndDelete(t *testing.T) {
 	if err := v1test.DeleteService(clients, names.Service); err != nil {
 		t.Fatal("Error deleting Service")
 	}
-
 }
 
 // TestServiceCreateAndUpdate tests both Creation and Update paths for a service. The test performs a series of Update/Validate steps to ensure that

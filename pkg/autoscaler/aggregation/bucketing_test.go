@@ -638,7 +638,6 @@ func TestRoundToNDigits(t *testing.T) {
 	if got, want := roundToNDigits(6, 12345), 12345.; got != want {
 		t.Errorf("Rounding = %v, want: %v", got, want)
 	}
-
 }
 
 func (t *TimedFloat64Buckets) forEachBucket(now time.Time, acc func(time time.Time, bucket float64)) {

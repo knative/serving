@@ -44,7 +44,6 @@ func main() {
 
 		processFile(file)
 	}
-
 }
 
 func processFile(file fs.DirEntry) {
@@ -81,7 +80,6 @@ func processFile(file fs.DirEntry) {
 	if err = os.WriteFile(filename, buf.Bytes(), file.Type().Perm()); err != nil {
 		log.Fatalln("failed to write CRD", err)
 	}
-
 }
 
 func applyOverrides(root *yaml.Node) {
@@ -184,7 +182,6 @@ func updateFeatureFlagProperty(root *yaml.Node, f flagField) {
 			Value: "true",
 		},
 	)
-
 }
 
 func filterAllowedFields(node *yaml.Node, allowed sets.Set[string], features []flagField) {

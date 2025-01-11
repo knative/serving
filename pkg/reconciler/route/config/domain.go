@@ -131,7 +131,6 @@ func (c *Domain) LookupDomainForLabels(labels map[string]string) string {
 		return "svc." + network.GetClusterDomainName()
 	}
 	for k, v := range c.Domains {
-
 		// Ignore if selector doesn't match, or decrease the specificity.
 		if !v.Selector.Matches(labels) || v.Selector.specificity() < specificity {
 			continue

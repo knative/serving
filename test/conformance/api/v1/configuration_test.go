@@ -70,7 +70,6 @@ func TestConfigurationGetAndList(t *testing.T) {
 	if !configurationFound {
 		t.Fatal("The Configuration that was previously created was not found by listing all Configurations.")
 	}
-
 }
 
 func TestUpdateConfigurationMetadata(t *testing.T) {

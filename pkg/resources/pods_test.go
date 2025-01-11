@@ -99,7 +99,6 @@ func TestPodReadyUnreadyCount(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-
 			kubeClient := fakek8s.NewSimpleClientset()
 			podsClient := kubeinformers.NewSharedInformerFactory(kubeClient, 0).Core().V1().Pods()
 			for _, p := range tc.pods {
@@ -207,7 +206,6 @@ func TestPodIPsSortedByAge(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-
 			kubeClient := fakek8s.NewSimpleClientset()
 			podsClient := kubeinformers.NewSharedInformerFactory(kubeClient, 0).Core().V1().Pods()
 			for _, p := range tc.pods {
@@ -412,7 +410,6 @@ func TestPodIPsSplitByAge(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-
 			kubeClient := fakek8s.NewSimpleClientset()
 			podsClient := kubeinformers.NewSharedInformerFactory(kubeClient, 0).Core().V1().Pods()
 			for _, p := range tc.pods {

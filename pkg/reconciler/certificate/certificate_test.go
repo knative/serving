@@ -908,5 +908,4 @@ func cmSolverService(hostname, namespace string) *corev1.Service {
 			}},
 		},
 	}
-
 }

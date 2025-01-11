@@ -84,7 +84,6 @@ func newTestController(t *testing.T, configs []*corev1.ConfigMap, opts ...reconc
 	[]controller.Informer,
 	*controller.Impl,
 	*configmap.ManualWatcher) {
-
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 	t.Cleanup(cancel) // cancel is reentrant, so if necessary callers can call it directly, if needed.
 	configMapWatcher := &configmap.ManualWatcher{Namespace: system.Namespace()}

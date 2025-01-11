@@ -95,7 +95,6 @@ func MakeCertManagerCertificate(cmConfig *config.CertManagerConfig, knCert *v1al
 
 			commonName = Prefix + knCert.Spec.Domain
 			dnsNames = append(dnsNames, commonName)
-
 		} else {
 			//If there was no domain, we can't shorten anything. We must error.
 			return nil, &apis.Condition{

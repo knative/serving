@@ -234,7 +234,6 @@ func TestActivatorChainHandlerWithFullDuplex(t *testing.T) {
 
 		wg.Wait()
 	}
-
 }
 
 func send(client *http.Client, url string, body []byte, rHost string) error {

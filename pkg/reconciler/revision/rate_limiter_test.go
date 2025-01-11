@@ -63,7 +63,6 @@ func TestItemExponentialFailureRateLimiter(t *testing.T) {
 	if e, a := 0*time.Millisecond, limiter.When("one"); e != a {
 		t.Errorf("expected %v, got %v", e, a)
 	}
-
 }
 
 func TestItemExponentialFailureRateLimiterOverFlow(t *testing.T) {
@@ -96,5 +95,4 @@ func TestItemExponentialFailureRateLimiterOverFlow(t *testing.T) {
 	if e, a := 1000*time.Hour, limiter.When("overflow2"); e != a {
 		t.Errorf("expected %v, got %v", e, a)
 	}
-
 }

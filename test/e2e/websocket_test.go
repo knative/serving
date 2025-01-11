@@ -327,7 +327,6 @@ func TestWebSocketWithTimeout(t *testing.T) {
 		tc := tc
 
 		t.Run(tc.name, func(t *testing.T) {
-
 			names := test.ResourceNames{
 				Service: test.ObjectNameForTest(t),
 				Image:   wsServerTestImageName,

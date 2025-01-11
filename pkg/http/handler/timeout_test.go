@@ -398,7 +398,6 @@ func TestTimeoutHandler(t *testing.T) {
 	}}
 
 	testTimeoutScenario(t, scenarios)
-
 }
 
 func BenchmarkTimeoutHandler(b *testing.B) {

@@ -98,7 +98,6 @@ func TestGetContainerConcurrency(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestRevisionIsReady(t *testing.T) {
@@ -597,7 +596,6 @@ func TestPropagateAutoscalerStatus_NoOverridingResourcesAvailable(t *testing.T) 
 
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("ready is %v", tc), func(t *testing.T) {
-
 			r := &RevisionStatus{}
 			r.InitializeConditions()
 			apistest.CheckConditionOngoing(r, RevisionConditionReady, t)

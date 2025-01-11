@@ -71,7 +71,6 @@ func TestGeneration(t *testing.T) {
 	if e, a := int64(5), r.GetGeneration(); e != a {
 		t.Errorf("getgeneration mismatch expected: %d got: %d", e, a)
 	}
-
 }
 
 func TestInactiveFor(t *testing.T) {

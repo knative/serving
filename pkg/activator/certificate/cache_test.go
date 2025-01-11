@@ -43,7 +43,6 @@ import (
 )
 
 func TestReconcile(t *testing.T) {
-
 	tests := []struct {
 		name         string
 		secret       *corev1.Secret

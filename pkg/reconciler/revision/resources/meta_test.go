@@ -98,7 +98,6 @@ func TestMakeLabels(t *testing.T) {
 			if diff := cmp.Diff(wantSelector, gotSelector); diff != "" {
 				t.Error("makeLabels (-want, +got) =", diff)
 			}
-
 		})
 	}
 }

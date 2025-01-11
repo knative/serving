@@ -132,7 +132,6 @@ func TestExtraServiceValidation(t *testing.T) {
 				t.Errorf("Validate got='%v', want='%v'", got.Error(), test.want)
 			}
 		})
-
 	}
 }
 
@@ -217,7 +216,6 @@ func TestConfigurationValidation(t *testing.T) {
 				t.Errorf("Validate got='%v', want='%v'", got.Error(), test.want)
 			}
 		})
-
 	}
 }
 

@@ -66,5 +66,4 @@ func TestRevisionGetAndList(t *testing.T) {
 	if !revisionFound {
 		t.Fatal("The Revision that was previously created was not found by listing all Revisions.")
 	}
-
 }

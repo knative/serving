@@ -1126,7 +1126,6 @@ func TestObserveReady(t *testing.T) {
 		t.Errorf("ObserveReady generated mismatched config: diff(-want,+got):\n%s",
 			cmp.Diff(want, ro))
 	}
-
 }
 
 func TestAdjustPercentage(t *testing.T) {
@@ -1358,7 +1357,6 @@ func TestValidateFailures(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestConfigDone(t *testing.T) {

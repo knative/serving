@@ -89,7 +89,6 @@ func collect(
 		if staleCount >= maxIdx {
 			return nil // Reaches max revs to delete
 		}
-
 	}
 
 	nonStaleCount := count - staleCount

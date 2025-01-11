@@ -115,7 +115,6 @@ func generateTraffic(
 	pacer vegeta.Pacer,
 	stopChan chan struct{},
 	target vegeta.Target) error {
-
 	// The 0 duration means that the attack will only be controlled by the `Stop` function.
 	results := attacker.Attack(vegeta.NewStaticTargeter(target), pacer, 0, "load-test")
 	defer attacker.Stop()
@@ -151,7 +150,6 @@ func generateTraffic(
 }
 
 func newVegetaHTTPClient(ctx *TestContext, url *url.URL) *http.Client {
-
 	vegetaTransportDefaults := func(transport *http.Transport) *http.Transport {
 		transport.MaxIdleConnsPerHost = vegeta.DefaultConnections
 		transport.MaxConnsPerHost = vegeta.DefaultMaxConnections
