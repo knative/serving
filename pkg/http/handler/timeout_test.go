@@ -403,7 +403,7 @@ func TestTimeoutHandler(t *testing.T) {
 func BenchmarkTimeoutHandler(b *testing.B) {
 	writes := [][]byte{[]byte("this"), []byte("is"), []byte("a"), []byte("test")}
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 		for _, write := range writes {
 			w.Write(write)
 		}

@@ -116,7 +116,7 @@ func TestAggressiveFailureNotLoggedOnSuccess(t *testing.T) {
 		// Fail a few times before succeeding to ensure no failures are
 		// misleadingly logged as long as we eventually succeed.
 		if polled.Inc() > 3 {
-			w.WriteHeader(200)
+			w.WriteHeader(http.StatusOK)
 			return
 		}
 

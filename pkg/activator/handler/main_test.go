@@ -238,7 +238,7 @@ func TestActivatorChainHandlerWithFullDuplex(t *testing.T) {
 
 func send(client *http.Client, url string, body []byte, rHost string) error {
 	r := bytes.NewBuffer(body)
-	req, err := http.NewRequest("POST", url, r)
+	req, err := http.NewRequest(http.MethodPost, url, r)
 
 	if rHost != "" {
 		req.Host = rHost
