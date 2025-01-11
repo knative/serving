@@ -19,7 +19,9 @@ package kpa
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	"knative.dev/pkg/apis/duck"
@@ -126,7 +128,7 @@ func paToProbeTarget(pa *autoscalingv1alpha1.PodAutoscaler) string {
 	svc := pkgnet.GetServiceHostname(pa.Status.ServiceName, pa.Namespace)
 	port := netapis.ServicePort(pa.Spec.ProtocolType)
 
-	return fmt.Sprintf("http://%s:%d/%s", svc, port, nethttp.HealthCheckPath)
+	return fmt.Sprintf("http://%s/%s", net.JoinHostPort(svc, strconv.Itoa(port)), nethttp.HealthCheckPath)
 }
 
 // activatorProbe returns true if via probe it determines that the
