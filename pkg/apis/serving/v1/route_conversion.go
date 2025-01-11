@@ -24,11 +24,15 @@ import (
 )
 
 // ConvertTo implements apis.Convertible
+//
+//nolint:stylecheck
 func (source *Route) ConvertTo(_ context.Context, sink apis.Convertible) error {
 	return fmt.Errorf("v1 is the highest known version, got: %T", sink)
 }
 
 // ConvertFrom implements apis.Convertible
+//
+//nolint:stylecheck
 func (sink *Route) ConvertFrom(_ context.Context, source apis.Convertible) error {
 	return fmt.Errorf("v1 is the highest known version, got: %T", source)
 }
