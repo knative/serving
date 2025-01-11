@@ -125,7 +125,7 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 	}
 
 	if isClusterLocal, err := isTrafficClusterLocal(resources.Route.Status.Traffic, subrouteTag1); err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	} else if isClusterLocal {
 		t.Fatalf("Expected subroutes with tag %s to be not cluster local", subrouteTag1)
 	}
@@ -198,12 +198,12 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 
 	clusterLocalRoute, err := clients.ServingClient.Routes.Get(context.Background(), resources.Route.Name, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
 	for _, tag := range []string{subrouteTag1, subrouteTag2} {
 		if isClusterLocal, err := isTrafficClusterLocal(clusterLocalRoute.Status.Traffic, tag); err != nil {
-			t.Fatalf(err.Error())
+			t.Fatal(err)
 		} else if !isClusterLocal {
 			t.Fatalf("Expected subroute with tag %s to be cluster local", tag)
 		}
@@ -266,7 +266,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 
 	svcpatchBytes, err := duck.CreateBytePatch(svc, svcCopy)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
 	if _, err = clients.KubeClient.CoreV1().Services(test.ServingFlags.TestNamespace).Patch(context.Background(), serviceName, types.JSONPatchType, svcpatchBytes, metav1.PatchOptions{}); err != nil {
@@ -316,19 +316,19 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 
 	publicRoute, err := clients.ServingClient.Routes.Get(context.Background(), resources.Route.Name, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
 	// Check subroute 2 is public.
 	if isClusterLocal, err := isTrafficClusterLocal(publicRoute.Status.Traffic, subrouteTag2); err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	} else if isClusterLocal {
 		t.Fatalf("Expected subroute with tag %s to be not cluster local", subrouteTag2)
 	}
 
 	// Check subroute1 is  private. This check is expected to fail on v0.8.1 and earlier as subroute1 becomes public)
 	if isClusterLocal, err := isTrafficClusterLocal(publicRoute.Status.Traffic, subrouteTag1); err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	} else if !isClusterLocal {
 		t.Fatalf("Expected subroute with tag %s to be cluster local", subrouteTag1)
 	}
@@ -345,7 +345,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 
 	svc1patchBytes, err := duck.CreateBytePatch(svc1, svc1Copy)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
 	if _, err = clients.KubeClient.CoreV1().Services(test.ServingFlags.TestNamespace).Patch(context.Background(), serviceName1, types.JSONPatchType, svc1patchBytes, metav1.PatchOptions{}); err != nil {
@@ -357,7 +357,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 	}
 
 	if isClusterLocal, err := isTrafficClusterLocal(publicRoute.Status.Traffic, subrouteTag1); err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	} else if !isClusterLocal {
 		t.Fatalf("Expected subroute with tag %s to be cluster local", subrouteTag1)
 	}

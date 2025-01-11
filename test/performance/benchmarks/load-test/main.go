@@ -107,7 +107,7 @@ func main() {
 	if err := checkSLA(metricResults, pacers, durations); err != nil {
 		// make sure to still write the stats
 		influxReporter.FlushAndShutdown()
-		log.Fatalf(err.Error())
+		log.Fatal(err)
 	}
 
 	log.Println("Load test finished")

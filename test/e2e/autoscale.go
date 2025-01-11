@@ -342,7 +342,7 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 			}
 
 			mes := fmt.Sprintf("revision %q #replicas: %v, want at least: %v", ctx.resources.Revision.Name, got, minPods)
-			ctx.t.Logf(mes)
+			ctx.t.Log(mes)
 			// verify that the number of pods doesn't go down while we are scaling up.
 			if got < minPods {
 				return fmt.Errorf("interim scale didn't fulfill constraints: %s\ndeployment state: %s", mes, spew.Sdump(d))
@@ -374,7 +374,7 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 			}
 
 			mes := fmt.Sprintf("revision %q #replicas: %v, want between [%v, %v]", ctx.resources.Revision.Name, got, targetPods-1, maxPods)
-			ctx.t.Logf(mes)
+			ctx.t.Log(mes)
 			if got < targetPods-1 || got > maxPods {
 				return fmt.Errorf("final scale didn't fulfill constraints: %s\ndeployment state: %s", mes, spew.Sdump(d))
 			}

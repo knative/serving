@@ -82,7 +82,7 @@ func main() {
 	startInformers()
 
 	if *target == "" {
-		log.Fatalf("-target is a required flag.")
+		log.Fatal("-target is a required flag.")
 	}
 
 	// We cron quite often, so make sure that we don't severely overrun to
@@ -214,7 +214,7 @@ LOOP:
 	if err := checkSLA(metricResults, rate); err != nil {
 		// make sure to still write the stats
 		influxReporter.FlushAndShutdown()
-		log.Fatalf(err.Error())
+		log.Fatal(err)
 	}
 
 	log.Println("Load test finished")

@@ -167,7 +167,7 @@ func main() {
 	if err := checkSLA(metricResults, sla.p95min, sla.p95max, sla.latencyMax, *parallelCount); err != nil {
 		// make sure to still write the stats
 		influxReporter.FlushAndShutdown()
-		log.Fatalf(err.Error())
+		log.Fatal(err)
 	}
 
 	log.Println("Scale from zero test completed")

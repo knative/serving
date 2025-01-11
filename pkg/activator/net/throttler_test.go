@@ -568,7 +568,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			}); err != nil {
 				t.Fatal("Timed out waiting for the capacity to be updated")
 			}
-			t.Log("This activator idx =", rt.activatorIndex)
+			t.Log("This activator idx =", rt.activatorIndex.Load())
 
 			tryContext, cancel2 := context.WithTimeout(context.Background(), 1*time.Second)
 			defer cancel2()

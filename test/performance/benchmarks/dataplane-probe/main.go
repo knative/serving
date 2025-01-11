@@ -162,7 +162,7 @@ LOOP:
 	if err := checkSLA(metricResults, t.slaMin, t.slaMax, rate, *duration); err != nil {
 		// make sure to still write the stats
 		influxReporter.FlushAndShutdown()
-		log.Fatalf(err.Error())
+		log.Fatal(err)
 	}
 
 	log.Println("Dataplane probe test finished")
