@@ -90,7 +90,7 @@ func dial(ctx *TestContext, host, domain string) (*grpc.ClientConn, error) {
 		creds = credentials.NewTLS(tlsConfig)
 	}
 
-	return grpc.Dial(
+	return grpc.NewClient(
 		host,
 		grpc.WithAuthority(domain),
 		grpc.WithTransportCredentials(creds),

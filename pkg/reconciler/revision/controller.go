@@ -120,11 +120,11 @@ func newControllerWithOptions(
 
 	userAgent := fmt.Sprintf("knative/%s (serving)", changeset.Get())
 
-	digestResolveQueue := workqueue.NewNamedRateLimitingQueue(workqueue.NewMaxOfRateLimiter(
+	digestResolveQueue := workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.NewTypedMaxOfRateLimiter(
 		newItemExponentialFailureRateLimiter(1*time.Second, 1000*time.Second),
 		// 10 qps, 100 bucket size.  This is only for retry speed and its only the overall factor (not per item)
-		&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(10), 100)},
-	), "digests")
+		&workqueue.TypedBucketRateLimiter[any]{Limiter: rate.NewLimiter(rate.Limit(10), 100)},
+	), workqueue.TypedRateLimitingQueueConfig[any]{Name: "digests"})
 
 	resolver := newBackgroundResolver(logger, &digestResolver{client: kubeclient.Get(ctx), transport: transport, userAgent: userAgent}, digestResolveQueue, impl.EnqueueKey)
 	resolver.Start(ctx.Done(), digestResolutionWorkers)

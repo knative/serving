@@ -237,7 +237,6 @@ func GRPCProbe(config GRPCProbeConfigOptions) error {
 
 	opts := []grpc.DialOption{
 		grpc.WithUserAgent(netheader.KubeProbeUAPrefix + config.KubeMajor + "/" + config.KubeMinor),
-		grpc.WithBlock(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()), // credentials are currently not supported
 		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
 			return dialer.DialContext(ctx, "tcp", addr)
@@ -249,7 +248,7 @@ func GRPCProbe(config GRPCProbeConfigOptions) error {
 	defer cancel()
 
 	addr := net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", config.Port))
-	conn, err := grpc.DialContext(ctx, addr, opts...)
+	conn, err := grpc.NewClient(addr, opts...)
 
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {

@@ -148,7 +148,7 @@ func TestResolveInBackground(t *testing.T) {
 			}
 
 			logger := logtesting.TestLogger(t)
-			subject := newBackgroundResolver(logger, tt.resolver, workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()), cb)
+			subject := newBackgroundResolver(logger, tt.resolver, workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any]()), cb)
 
 			stop := make(chan struct{})
 			done := subject.Start(stop, 10)
@@ -210,7 +210,7 @@ func TestRateLimitPerItem(t *testing.T) {
 	}
 
 	baseDelay := 50 * time.Millisecond
-	queue := workqueue.NewRateLimitingQueue(newItemExponentialFailureRateLimiter(baseDelay, 5*time.Second))
+	queue := workqueue.NewTypedRateLimitingQueue(newItemExponentialFailureRateLimiter(baseDelay, 5*time.Second))
 
 	enqueue := make(chan struct{})
 	subject := newBackgroundResolver(logger, resolver, queue, func(types.NamespacedName) {

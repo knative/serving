@@ -42,7 +42,7 @@ type backgroundResolver struct {
 	resolver imageResolver
 	enqueue  func(types.NamespacedName)
 
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[any]
 
 	mu      sync.RWMutex
 	results map[types.NamespacedName]*resolveResult
@@ -78,7 +78,7 @@ type workItem struct {
 	image string
 }
 
-func newBackgroundResolver(logger *zap.SugaredLogger, resolver imageResolver, queue workqueue.RateLimitingInterface, enqueue func(types.NamespacedName)) *backgroundResolver {
+func newBackgroundResolver(logger *zap.SugaredLogger, resolver imageResolver, queue workqueue.TypedRateLimitingInterface[any], enqueue func(types.NamespacedName)) *backgroundResolver {
 	r := &backgroundResolver{
 		logger: logger,
 

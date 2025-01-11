@@ -29,9 +29,7 @@ import (
 	"knative.dev/serving/test"
 )
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
+var mathrand = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 // Algorithm from https://stackoverflow.com/a/21854246
 
@@ -105,7 +103,7 @@ func sleep(d time.Duration) string {
 
 func randSleep(randSleepTimeMean time.Duration, randSleepTimeStdDev int) string {
 	start := time.Now()
-	randRes := time.Duration(rand.NormFloat64()*float64(randSleepTimeStdDev))*time.Millisecond + randSleepTimeMean
+	randRes := time.Duration(mathrand.NormFloat64()*float64(randSleepTimeStdDev))*time.Millisecond + randSleepTimeMean
 	time.Sleep(randRes)
 	return fmt.Sprintf("Randomly slept for %v.\n", time.Since(start))
 }

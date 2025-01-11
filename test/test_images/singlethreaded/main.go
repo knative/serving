@@ -30,7 +30,7 @@ import (
 var isLocked = atomic.NewBool(false)
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	if isLocked.CAS(false /*was unlocked*/, true /*lock*/) {
+	if isLocked.CompareAndSwap(false /*was unlocked*/, true /*lock*/) {
 		defer isLocked.Store(false)
 		time.Sleep(500 * time.Millisecond)
 		fmt.Fprintf(w, "One at a time")
