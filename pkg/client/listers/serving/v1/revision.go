@@ -19,8 +19,8 @@ limitations under the License.
 package v1
 
 import (
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -38,25 +38,17 @@ type RevisionLister interface {
 
 // revisionLister implements the RevisionLister interface.
 type revisionLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v1.Revision]
 }
 
 // NewRevisionLister returns a new RevisionLister.
 func NewRevisionLister(indexer cache.Indexer) RevisionLister {
-	return &revisionLister{indexer: indexer}
-}
-
-// List lists all Revisions in the indexer.
-func (s *revisionLister) List(selector labels.Selector) (ret []*v1.Revision, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.Revision))
-	})
-	return ret, err
+	return &revisionLister{listers.New[*v1.Revision](indexer, v1.Resource("revision"))}
 }
 
 // Revisions returns an object that can list and get Revisions.
 func (s *revisionLister) Revisions(namespace string) RevisionNamespaceLister {
-	return revisionNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return revisionNamespaceLister{listers.NewNamespaced[*v1.Revision](s.ResourceIndexer, namespace)}
 }
 
 // RevisionNamespaceLister helps list and get Revisions.
@@ -74,26 +66,5 @@ type RevisionNamespaceLister interface {
 // revisionNamespaceLister implements the RevisionNamespaceLister
 // interface.
 type revisionNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all Revisions in the indexer for a given namespace.
-func (s revisionNamespaceLister) List(selector labels.Selector) (ret []*v1.Revision, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.Revision))
-	})
-	return ret, err
-}
-
-// Get retrieves the Revision from the indexer for a given namespace and name.
-func (s revisionNamespaceLister) Get(name string) (*v1.Revision, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1.Resource("revision"), name)
-	}
-	return obj.(*v1.Revision), nil
+	listers.ResourceIndexer[*v1.Revision]
 }

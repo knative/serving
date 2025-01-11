@@ -1199,10 +1199,14 @@ spec:
                                     type: integer
                                     format: int32
                                   sources:
-                                    description: sources is the list of volume projections
+                                    description: |-
+                                      sources is the list of volume projections. Each entry in this list
+                                      handles one source.
                                     type: array
                                     items:
-                                      description: Projection that may be projected along with other supported volume types
+                                      description: |-
+                                        Projection that may be projected along with other supported volume types.
+                                        Exactly one of these fields must be set.
                                       type: object
                                       properties:
                                         configMap:

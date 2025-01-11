@@ -19,8 +19,8 @@ limitations under the License.
 package v1beta1
 
 import (
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 	v1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
 )
@@ -38,25 +38,17 @@ type DomainMappingLister interface {
 
 // domainMappingLister implements the DomainMappingLister interface.
 type domainMappingLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v1beta1.DomainMapping]
 }
 
 // NewDomainMappingLister returns a new DomainMappingLister.
 func NewDomainMappingLister(indexer cache.Indexer) DomainMappingLister {
-	return &domainMappingLister{indexer: indexer}
-}
-
-// List lists all DomainMappings in the indexer.
-func (s *domainMappingLister) List(selector labels.Selector) (ret []*v1beta1.DomainMapping, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.DomainMapping))
-	})
-	return ret, err
+	return &domainMappingLister{listers.New[*v1beta1.DomainMapping](indexer, v1beta1.Resource("domainmapping"))}
 }
 
 // DomainMappings returns an object that can list and get DomainMappings.
 func (s *domainMappingLister) DomainMappings(namespace string) DomainMappingNamespaceLister {
-	return domainMappingNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return domainMappingNamespaceLister{listers.NewNamespaced[*v1beta1.DomainMapping](s.ResourceIndexer, namespace)}
 }
 
 // DomainMappingNamespaceLister helps list and get DomainMappings.
@@ -74,26 +66,5 @@ type DomainMappingNamespaceLister interface {
 // domainMappingNamespaceLister implements the DomainMappingNamespaceLister
 // interface.
 type domainMappingNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all DomainMappings in the indexer for a given namespace.
-func (s domainMappingNamespaceLister) List(selector labels.Selector) (ret []*v1beta1.DomainMapping, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.DomainMapping))
-	})
-	return ret, err
-}
-
-// Get retrieves the DomainMapping from the indexer for a given namespace and name.
-func (s domainMappingNamespaceLister) Get(name string) (*v1beta1.DomainMapping, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1beta1.Resource("domainmapping"), name)
-	}
-	return obj.(*v1beta1.DomainMapping), nil
+	listers.ResourceIndexer[*v1beta1.DomainMapping]
 }

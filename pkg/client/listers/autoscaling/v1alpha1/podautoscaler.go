@@ -19,8 +19,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 	v1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 )
@@ -38,25 +38,17 @@ type PodAutoscalerLister interface {
 
 // podAutoscalerLister implements the PodAutoscalerLister interface.
 type podAutoscalerLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v1alpha1.PodAutoscaler]
 }
 
 // NewPodAutoscalerLister returns a new PodAutoscalerLister.
 func NewPodAutoscalerLister(indexer cache.Indexer) PodAutoscalerLister {
-	return &podAutoscalerLister{indexer: indexer}
-}
-
-// List lists all PodAutoscalers in the indexer.
-func (s *podAutoscalerLister) List(selector labels.Selector) (ret []*v1alpha1.PodAutoscaler, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.PodAutoscaler))
-	})
-	return ret, err
+	return &podAutoscalerLister{listers.New[*v1alpha1.PodAutoscaler](indexer, v1alpha1.Resource("podautoscaler"))}
 }
 
 // PodAutoscalers returns an object that can list and get PodAutoscalers.
 func (s *podAutoscalerLister) PodAutoscalers(namespace string) PodAutoscalerNamespaceLister {
-	return podAutoscalerNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return podAutoscalerNamespaceLister{listers.NewNamespaced[*v1alpha1.PodAutoscaler](s.ResourceIndexer, namespace)}
 }
 
 // PodAutoscalerNamespaceLister helps list and get PodAutoscalers.
@@ -74,26 +66,5 @@ type PodAutoscalerNamespaceLister interface {
 // podAutoscalerNamespaceLister implements the PodAutoscalerNamespaceLister
 // interface.
 type podAutoscalerNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all PodAutoscalers in the indexer for a given namespace.
-func (s podAutoscalerNamespaceLister) List(selector labels.Selector) (ret []*v1alpha1.PodAutoscaler, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.PodAutoscaler))
-	})
-	return ret, err
-}
-
-// Get retrieves the PodAutoscaler from the indexer for a given namespace and name.
-func (s podAutoscalerNamespaceLister) Get(name string) (*v1alpha1.PodAutoscaler, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha1.Resource("podautoscaler"), name)
-	}
-	return obj.(*v1alpha1.PodAutoscaler), nil
+	listers.ResourceIndexer[*v1alpha1.PodAutoscaler]
 }
