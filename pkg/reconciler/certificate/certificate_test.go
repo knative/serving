@@ -19,8 +19,8 @@ package certificate
 import (
 	"context"
 	"errors"
-	"fmt"
 	"hash/adler32"
+	"strconv"
 	"testing"
 	"time"
 
@@ -898,7 +898,7 @@ func cmSolverService(hostname, namespace string) *corev1.Service {
 			Name:      "cm-solver-" + hostname,
 			Namespace: namespace,
 			Labels: map[string]string{
-				httpDomainLabel: fmt.Sprintf("%d", adler32.Checksum([]byte(hostname))),
+				httpDomainLabel: strconv.FormatUint(uint64(adler32.Checksum([]byte(hostname))), 10),
 			},
 		},
 		Spec: corev1.ServiceSpec{

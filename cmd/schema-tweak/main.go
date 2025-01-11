@@ -147,7 +147,7 @@ func updateFeatureFlags(node *yaml.Node, features []flagField) {
 }
 
 func updateFeatureFlagProperty(root *yaml.Node, f flagField) {
-	desc := fmt.Sprintf("This is accessible behind a feature flag - %s", f.flag)
+	desc := "This is accessible behind a feature flag - " + f.flag
 
 	setString(root, "description", desc)
 

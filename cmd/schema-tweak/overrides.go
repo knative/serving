@@ -153,9 +153,8 @@ func revSpecOverrides(prefixPath string) []entry {
 			"drop",
 		),
 	}, {
-		path: "containers.securityContext.capabilities.add",
-		description: fmt.Sprintf("This is accessible behind a feature flag - %s",
-			config.FeatureContainerSpecAddCapabilities),
+		path:        "containers.securityContext.capabilities.add",
+		description: "This is accessible behind a feature flag - " + config.FeatureContainerSpecAddCapabilities,
 	}, {
 		path: "containers.resources",
 		allowedFields: sets.New(
@@ -345,7 +344,7 @@ func revSpecOverrides(prefixPath string) []entry {
 
 	for _, probe := range probes {
 		entries = append(entries, entry{
-			path: fmt.Sprintf("containers.%s", probe),
+			path: "containers." + probe,
 			allowedFields: sets.New(
 				"initialDelaySeconds",
 				"timeoutSeconds",

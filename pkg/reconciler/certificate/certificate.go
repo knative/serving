@@ -18,6 +18,7 @@ package certificate
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"hash/adler32"
 	"strconv"
@@ -105,7 +106,7 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 	cmCert, errCondition := resources.MakeCertManagerCertificate(cmConfig, knCert)
 	if errCondition != nil {
 		knCert.Status.MarkFailed(errCondition.Reason, errCondition.Message)
-		return fmt.Errorf(errCondition.Message)
+		return errors.New(errCondition.Message)
 	}
 
 	cmCert, err := c.reconcileCMCertificate(ctx, knCert, cmCert)

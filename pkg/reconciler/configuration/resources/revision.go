@@ -19,6 +19,7 @@ package resources
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -104,7 +105,7 @@ func RevisionLabelValueForKey(key string, config metav1.Object) string {
 	case serving.ServiceLabelKey:
 		return config.GetLabels()[serving.ServiceLabelKey]
 	case serving.ConfigurationGenerationLabelKey:
-		return fmt.Sprint(config.GetGeneration())
+		return strconv.FormatInt(config.GetGeneration(), 10)
 	case serving.ConfigurationUIDLabelKey:
 		return string(config.GetUID())
 	case serving.ServiceUIDLabelKey:

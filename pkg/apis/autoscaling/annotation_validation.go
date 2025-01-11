@@ -268,9 +268,9 @@ func validateInitialScale(config *autoscalerconfig.Config, m map[string]string) 
 		if err != nil {
 			return apis.ErrInvalidValue(v, k)
 		} else if initScaleInt < 0 {
-			return apis.ErrInvalidValue(v, fmt.Sprintf("%s must be greater than 0", k))
+			return apis.ErrInvalidValue(v, k+" must be greater than 0")
 		} else if !config.AllowZeroInitialScale && initScaleInt == 0 {
-			return apis.ErrInvalidValue(v, fmt.Sprintf("%s=0 not allowed by cluster", k))
+			return apis.ErrInvalidValue(v, k+"=0 not allowed by cluster")
 		}
 	}
 	return nil

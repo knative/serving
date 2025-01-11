@@ -24,6 +24,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -247,7 +248,7 @@ func GRPCProbe(config GRPCProbeConfigOptions) error {
 
 	defer cancel()
 
-	addr := net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", config.Port))
+	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(int(config.Port)))
 	conn, err := grpc.NewClient(addr, opts...)
 
 	if err != nil {

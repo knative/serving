@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
@@ -50,8 +51,8 @@ func sendRequest(t *testing.T, clients *test.Clients, endpoint *url.URL,
 	}()
 	u, _ := url.Parse(endpoint.String())
 	q := u.Query()
-	q.Set("initialTimeout", fmt.Sprint(initialSleep.Milliseconds()))
-	q.Set("timeout", fmt.Sprint(sleep.Milliseconds()))
+	q.Set("initialTimeout", strconv.FormatInt(initialSleep.Milliseconds(), 10))
+	q.Set("timeout", strconv.FormatInt(sleep.Milliseconds(), 10))
 	u.RawQuery = q.Encode()
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {

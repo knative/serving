@@ -18,6 +18,7 @@ package gc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -128,7 +129,7 @@ func parseDisabledOrDuration(val string, toSet *time.Duration) error {
 			return err
 		}
 		if parsed < 0 {
-			return fmt.Errorf("must be non-negative")
+			return errors.New("must be non-negative")
 		}
 		*toSet = parsed
 	}

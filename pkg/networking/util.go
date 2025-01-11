@@ -2,7 +2,7 @@ package networking
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"strings"
 
 	"knative.dev/networking/pkg/apis/networking"
@@ -22,7 +22,7 @@ func GetHTTPOption(ctx context.Context, networkConfig *netcfg.Config, annotation
 		case netcfg.HTTPRedirected:
 			return netv1alpha1.HTTPOptionRedirected, nil
 		default:
-			return "", fmt.Errorf("incorrect http-protocol annotation: " + protocol)
+			return "", errors.New("incorrect http-protocol annotation: " + protocol)
 		}
 	}
 

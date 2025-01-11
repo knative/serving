@@ -28,6 +28,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -192,7 +193,7 @@ func CreateDialContext(ctx context.Context, t *testing.T, ing *v1alpha1.Ingress,
 				return nil, err
 			}
 			for _, sp := range svc.Spec.Ports {
-				if fmt.Sprint(sp.Port) == port {
+				if strconv.Itoa(int(sp.Port)) == port {
 					return dial(ctx, "tcp", fmt.Sprintf("%s:%d", pkgTest.Flags.IngressEndpoint, sp.NodePort))
 				}
 			}

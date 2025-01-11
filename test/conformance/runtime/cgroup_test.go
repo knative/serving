@@ -20,6 +20,7 @@ limitations under the License.
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -49,7 +50,7 @@ func isCgroupsV2(mounts []*types.Mount) (bool, error) {
 			return mount.Type == "cgroup2", nil
 		}
 	}
-	return false, fmt.Errorf("Failed to find cgroup mount on /sys/fs/cgroup")
+	return false, errors.New("Failed to find cgroup mount on /sys/fs/cgroup")
 }
 
 // TestMustHaveCgroupConfigured verifies that the Linux cgroups are configured based on the specified
@@ -72,14 +73,14 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 	// size (4k, 8k, 16k, 64k) as some environments apply rounding to the closest page
 	// size multiple, see https://github.com/kubernetes/kubernetes/issues/82230.
 	var expectedCgroupsV1 = map[string]string{
-		"/sys/fs/cgroup/memory/memory.limit_in_bytes": fmt.Sprintf("%d", resources.Limits.Memory().Value()&^4095), // floor() to 4K pages
-		"/sys/fs/cgroup/cpu/cpu.shares":               fmt.Sprintf("%d", resources.Requests.Cpu().MilliValue()*1024/1000)}
+		"/sys/fs/cgroup/memory/memory.limit_in_bytes": strconv.FormatInt(resources.Limits.Memory().Value()&^4095, 10), // floor() to 4K pages
+		"/sys/fs/cgroup/cpu/cpu.shares":               strconv.FormatInt(resources.Requests.Cpu().MilliValue()*1024/1000, 10)}
 
 	var expectedCgroupsV2 = map[string]string{
-		"/sys/fs/cgroup/memory.max": fmt.Sprintf("%d", resources.Limits.Memory().Value()&^4095), // floor() to 4K pages
+		"/sys/fs/cgroup/memory.max": strconv.FormatInt(resources.Limits.Memory().Value()&^4095, 10), // floor() to 4K pages
 		// Convert cgroup v1 cpu.shares value to cgroup v2 cpu.weight
 		// https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/2254-cgroup-v2#phase-1-convert-from-cgroups-v1-settings-to-v2
-		"/sys/fs/cgroup/cpu.weight": fmt.Sprintf("%d", ((((resources.Requests.Cpu().MilliValue()*1024/1000)-2)*9999)/262142)+1),
+		"/sys/fs/cgroup/cpu.weight": strconv.FormatInt(((((resources.Requests.Cpu().MilliValue()*1024/1000)-2)*9999)/262142)+1, 10),
 	}
 
 	cgroups := ri.Host.Cgroups

@@ -17,7 +17,6 @@ limitations under the License.
 package handler
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -126,14 +125,14 @@ func BenchmarkProbeHandler(b *testing.B) {
 
 	for _, test := range tests {
 		req.Header = test.headers
-		b.Run(fmt.Sprintf("%s-sequential", test.label), func(b *testing.B) {
+		b.Run(test.label+"-sequential", func(b *testing.B) {
 			resp := httptest.NewRecorder()
 			for j := 0; j < b.N; j++ {
 				handler.ServeHTTP(resp, req)
 			}
 		})
 
-		b.Run(fmt.Sprintf("%s-parallel", test.label), func(b *testing.B) {
+		b.Run(test.label+"-parallel", func(b *testing.B) {
 			b.RunParallel(func(pb *testing.PB) {
 				resp := httptest.NewRecorder()
 				for pb.Next() {

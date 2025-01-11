@@ -19,8 +19,8 @@ package revision
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/rand"
+	"strconv"
 	"testing"
 	"time"
 
@@ -543,7 +543,7 @@ func TestGlobalResyncOnDefaultCMChange(t *testing.T) {
 				Name:      config.DefaultsConfigName,
 			},
 			Data: map[string]string{
-				"container-concurrency": fmt.Sprint(pos),
+				"container-concurrency": strconv.FormatInt(pos, 10),
 			},
 		})
 

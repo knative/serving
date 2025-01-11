@@ -30,6 +30,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -92,7 +93,7 @@ func fakeRegistry(t *testing.T, repo, username, password, ua string, img v1.Imag
 				t.Error("Digest() =", err)
 			}
 			w.Header().Set("Content-Type", string(mt))
-			w.Header().Set("Content-Length", fmt.Sprint(sz))
+			w.Header().Set("Content-Length", strconv.FormatInt(sz, 10))
 			w.Header().Set("Docker-Content-Digest", digest.String())
 		default:
 			t.Error("Unexpected path:", r.URL.Path)
