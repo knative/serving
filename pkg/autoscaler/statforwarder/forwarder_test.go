@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -99,10 +98,10 @@ func TestForwarderReconcile(t *testing.T) {
 		t.Fatal("Failed to start informers:", err)
 	}
 
-	os.Setenv("POD_IP", testIP1)
+	t.Setenv("POD_IP", testIP1)
 	f1 := New(ctx, testBs)
 	must(t, LeaseBasedProcessor(ctx, f1, noOp))
-	os.Setenv("POD_IP", testIP2)
+	t.Setenv("POD_IP", testIP2)
 	f2 := New(ctx, testBs)
 	must(t, LeaseBasedProcessor(ctx, f2, noOp))
 
@@ -195,7 +194,7 @@ func TestForwarderRetryOnSvcCreationFailure(t *testing.T) {
 		waitInformers()
 	}()
 
-	os.Setenv("POD_IP", testIP1)
+	t.Setenv("POD_IP", testIP1)
 	must(t, LeaseBasedProcessor(ctx, New(ctx, testBs), noOp))
 
 	svcCreation := 0
@@ -236,7 +235,7 @@ func TestForwarderRetryOnEndpointsCreationFailure(t *testing.T) {
 		waitInformers()
 	}()
 
-	os.Setenv("POD_IP", testIP1)
+	t.Setenv("POD_IP", testIP1)
 	must(t, LeaseBasedProcessor(ctx, New(ctx, testBs), noOp))
 
 	endpointsCreation := 0
@@ -278,7 +277,7 @@ func TestForwarderRetryOnEndpointsUpdateFailure(t *testing.T) {
 		waitInformers()
 	}()
 
-	os.Setenv("POD_IP", testIP1)
+	t.Setenv("POD_IP", testIP1)
 	must(t, LeaseBasedProcessor(ctx, New(ctx, testBs), noOp))
 
 	endpointsUpdate := 0
@@ -327,7 +326,7 @@ func TestForwarderSkipReconciling(t *testing.T) {
 		waitInformers()
 	}()
 
-	os.Setenv("POD_IP", testIP1)
+	t.Setenv("POD_IP", testIP1)
 	must(t, LeaseBasedProcessor(ctx, New(ctx, testBs), noOp))
 
 	svcCreated := make(chan struct{})
@@ -422,7 +421,7 @@ func TestProcess(t *testing.T) {
 		acceptCount++
 		acceptCh <- acceptCount
 	}
-	os.Setenv("POD_IP", testIP1)
+	t.Setenv("POD_IP", testIP1)
 	f := New(ctx, hash.NewBucketSet(sets.New(bucket1, bucket2)))
 	must(t, LeaseBasedProcessor(ctx, f, accept))
 
