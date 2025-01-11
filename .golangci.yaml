@@ -1,74 +1,215 @@
 run:
   timeout: 10m
-
+  allow-parallel-runners: true
+  exclude-dirs:
+  - pkg/client
   build-tags:
-    - e2e
-    - upgrade
+  - e2e
+  - hpa
+  - upgrade
 
-  skip-dirs:
-    - pkg/client
+output:
+  sort-results: true
+  sort-order:
+  - linter
+  - file
+  show-stats: true
 
-  skip-files:
-    - ".pb.go$"
-
-linters:
-  enable:
-    - asciicheck
-    - depguard
-    - errorlint
-    - gosec
-    - importas
-    - prealloc
-    - revive
-    - stylecheck
-    - tparallel
-    - unconvert
-    - unparam
-  disable:
-    - errcheck
-
-linters-settings:
-  depguard:
-    rules:
-      main:
-        deny:
-          - pkg: sync/atomic
-            desc: "please use type-safe atomics from go.uber.org/atomic"
-  importas:
-    no-unaliased: true
-    alias:
-      - pkg: knative.dev/serving/pkg/apis/autoscaling/v1alpha1
-        alias: autoscalingv1alpha1
 
 issues:
-  include:
-    # Disable excluding issues about comments from golint.
-    - EXC0002
-
+  uniq-by-line: true
+  max-issues-per-linter: 0
+  max-same-issues: 0
   exclude-rules:
-    - path: test # Excludes /test, *_test.go etc.
-      linters:
-        - gosec
-        - unparam
+  - path: test # Excludes /test, *_test.go etc.
+    linters:
+    - gosec
+    - unparam
+    - noctx
+    - protogetter
+  - linters: ["gocritic"]
+    # Fixes are non-trivial do in a follow up
+    text: "ifElseChain"
 
-    # Ignore "context.Context should be the first parameter of a function" errors in tests.
-    # See: https://github.com/golang/lint/issues/422
-    - path: test
-      text: "context.Context should be the first"
-      linters:
-        - revive
+linters-settings:
+  # goimports:
+  #   local-prefixes: knative.dev/pkg
+  gomodguard:
+    blocked:
+      modules:
+      - github.com/ghodss/yaml:
+          recommendations:
+            - sigs.k8s.io/yaml
+      - go.uber.org/atomic:
+          recommendations:
+          - sync/atomic
+      - io/ioutil:
+          recommendations:
+          - os
+          - io
+      - github.com/hashicorp/go-multierror:
+          reason: "use errors.Join"
+          recommendations:
+          - errors
+      - go.uber.org/multierr:
+          reason: "use errors.Join"
+          recommendations:
+          - errors
+  revive:
+    rules:
+    # use unparam linter instead - defaults are better
+    - name: unused-parameter
+      disabled: true
 
-    # Allow source and sink receivers in conversion code for clarity.
-    - path: _conversion\.go
-      text: "ST1016:"
-      linters:
-        - stylecheck
-    - path: _conversion\.go
-      text: "receiver name"
-      linters:
-        - revive
+linters:
+  disable:
+    - errcheck
+  enable:
+    # Check for pass []any as any in variadic func(...any).
+    - asasalint
 
-    # This check has quite a few false positives where there isn't much value in the package comment.
-    - text: "ST1000: at least one file in a package should have a package comment"
-      linters:
-        - stylecheck
+    # Only use ASCII chars in indentifiers
+    - asciicheck
+
+    # Dangerous unicode characters
+    - bidichk
+
+    # Checks whether HTTP response body is closed successfully.
+    - bodyclose
+
+    # Canonicalheader checks whether net/http.Header uses canonical header.
+    - canonicalheader
+
+    # TODO - do a follow up PR
+    # # Containedctx is a linter that detects struct contained context.Context
+    # # field.
+    # - containedctx
+
+    # TODO - do a follow up PR
+    # # Check whether the function uses a non-inherited context.
+    # - contextcheck
+
+    # Copyloopvar is a linter detects places where loop variables are copied.
+    - copyloopvar
+
+    # Check declaration order of types, consts, vars and funcs.
+    - decorder
+
+    # Check for two durations multiplied together.
+    - durationcheck
+
+    # Checks that sentinel errors are prefixed with the Err- and error types
+    # are suffixed with the -Error.
+    - errname
+
+    # Errorlint is a linter for that can be used to find code that will cause
+    # problems with the error wrapping scheme introduced in Go 1.13.
+    - errorlint
+
+    # Detects nested contexts in loops.
+    - fatcontext
+
+    # Checks that go compiler directive comments (//go:) are valid.
+    - gocheckcompilerdirectives
+
+    # Provides diagnostics that check for bugs, performance and style issues.
+    # Extensible without recompilation through dynamic rules.
+    # Dynamic rules are written declaratively with AST patterns, filters,
+    # report message and optional suggestion.
+    - gocritic
+
+    # Gofmt checks whether code was gofmt-ed. By default this tool runs
+    # with -s option to check for code simplification.
+    - gofmt
+
+    # Gofumpt checks whether code was gofumpt-ed.
+    - gofumpt
+
+     # Check import statements are formatted according to the 'goimport'
+     # command. Reformat imports in autofix mode.
+    - goimports
+
+    # See config below
+    - gomodguard
+
+    # Inspects source code for security problems.
+    - gosec
+
+      # Linter that specializes in simplifying code.
+    - gosimple
+    - govet
+
+    # Intrange is a linter to find places where for loops could make use of
+    # an integer range.
+    - intrange
+
+    # Checks key value pairs for common logger libraries (kitlog,klog,logr,zap).
+    - loggercheck
+
+    # Finds slice declarations with non-zero initial length.
+    - makezero
+
+    # Reports wrong mirror patterns of bytes/strings usage
+    - mirror
+
+    # Finds commonly misspelled English words.
+    - misspell
+
+    # Finds the code that returns nil even if it checks that the error is not nil.
+    - nilerr
+
+    # Finds sending HTTP request without context.Context.
+    - noctx
+
+    # Reports ill-formed or insufficient nolint directives.
+    - nolintlint
+
+    # Checks for misuse of Sprintf to construct a host with port in a URL.
+    - nosprintfhostport
+
+    # Checks that fmt.Sprintf can be replaced with a faster alternative.
+    - perfsprint
+
+    # Finds slice declarations that could potentially be pre-allocated.
+    - prealloc
+
+    # Reports direct reads from proto message fields when getters should be used.
+    - protogetter
+
+    # Checks that package variables are not reassigned.
+    - reassign
+
+    # Fast, configurable, extensible, flexible, and beautiful linter for
+    # Go. Drop-in replacement of golint.
+    - revive
+
+    # Checks for mistakes with OpenTelemetry/Census spans.
+    - spancheck
+
+    # Stylecheck is a replacement for golint.
+    - stylecheck
+
+    # Tenv is analyzer that detects using os.Setenv instead of t.Setenv
+    # since Go1.17.
+    - tenv
+
+    # Linter checks if examples are testable (have an expected output).
+    - testableexamples
+
+    # Remove unnecessary type conversions.
+    - unconvert
+
+    # Reports unused function parameters and results in your code.
+    - unparam
+
+    # A linter that detect the possibility to use variables/constants from the
+    # Go standard library.
+    - usestdlibvars
+
+    # Finds wasted assignment statements.
+    - wastedassign
+
+    # Whitespace is a linter that checks for unnecessary newlines at the start
+    # and end of functions, if, for, etc.
+    - whitespace
+
