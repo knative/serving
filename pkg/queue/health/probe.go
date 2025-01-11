@@ -126,6 +126,7 @@ func http2UpgradeProbe(config HTTPProbeConfigOptions) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("error constructing probe url %w", err)
 	}
+	//nolint:noctx // timeout is specified on the http.Client above
 	req, err := http.NewRequest(http.MethodOptions, url.String(), nil)
 	if err != nil {
 		return 0, fmt.Errorf("error constructing probe request %w", err)
@@ -183,6 +184,7 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 	if err != nil {
 		return fmt.Errorf("error constructing probe url %w", err)
 	}
+	//nolint:noctx // timeout is specified on the http.Client above
 	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 	if err != nil {
 		return fmt.Errorf("error constructing probe request %w", err)
