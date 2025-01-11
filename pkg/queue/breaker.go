@@ -21,8 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
-
-	"go.uber.org/atomic"
+	"sync/atomic"
 )
 
 var (
@@ -103,7 +102,7 @@ func (b *Breaker) tryAcquirePending() bool {
 		if cur == b.totalSlots {
 			return false
 		}
-		if b.inFlight.CAS(cur, cur+1) {
+		if b.inFlight.CompareAndSwap(cur, cur+1) {
 			return true
 		}
 	}
@@ -111,7 +110,7 @@ func (b *Breaker) tryAcquirePending() bool {
 
 // releasePending releases a slot on the pending "queue".
 func (b *Breaker) releasePending() {
-	b.inFlight.Dec()
+	b.inFlight.Add(-1)
 }
 
 // Reserve reserves an execution slot in the breaker, to permit
@@ -204,7 +203,7 @@ func (s *semaphore) tryAcquire() bool {
 			return false
 		}
 		in++
-		if s.state.CAS(old, pack(capacity, in)) {
+		if s.state.CompareAndSwap(old, pack(capacity, in)) {
 			return true
 		}
 	}
@@ -227,7 +226,7 @@ func (s *semaphore) acquire(ctx context.Context) error {
 		}
 
 		in++
-		if s.state.CAS(old, pack(capacity, in)) {
+		if s.state.CompareAndSwap(old, pack(capacity, in)) {
 			return nil
 		}
 	}
@@ -246,7 +245,7 @@ func (s *semaphore) release() {
 		}
 
 		in--
-		if s.state.CAS(old, pack(capacity, in)) {
+		if s.state.CompareAndSwap(old, pack(capacity, in)) {
 			if in < capacity {
 				select {
 				case s.queue <- struct{}{}:
@@ -275,7 +274,7 @@ func (s *semaphore) updateCapacity(size int) {
 			return
 		}
 
-		if s.state.CAS(old, pack(s64, in)) {
+		if s.state.CompareAndSwap(old, pack(s64, in)) {
 			if s64 > capacity {
 				for i := uint64(0); i < s64-capacity; i++ {
 					select {

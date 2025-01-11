@@ -21,8 +21,8 @@ import (
 	"net/http"
 	"sort"
 	"sync"
+	"sync/atomic"
 
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -190,15 +190,18 @@ func newRevisionThrottler(revID types.NamespacedName,
 		revBreaker = queue.NewBreaker(breakerParams)
 		lbp = newRoundRobinPolicy()
 	}
-	return &revisionThrottler{
+	t := &revisionThrottler{
 		revID:                revID,
 		containerConcurrency: containerConcurrency,
 		breaker:              revBreaker,
 		logger:               logger,
 		protocol:             proto,
-		activatorIndex:       *atomic.NewInt32(-1), // Start with unknown.
 		lbPolicy:             lbp,
 	}
+
+	// Start with unknown
+	t.activatorIndex.Store(-1)
+	return t
 }
 
 func noop() {}

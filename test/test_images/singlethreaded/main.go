@@ -20,14 +20,13 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"sync/atomic"
 	"time"
-
-	"go.uber.org/atomic"
 
 	"knative.dev/serving/test"
 )
 
-var isLocked = atomic.NewBool(false)
+var isLocked atomic.Bool
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	if isLocked.CompareAndSwap(false /*was unlocked*/, true /*lock*/) {
@@ -41,5 +40,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	isLocked.Store(false)
 	test.ListenAndServeGracefully(":8080", handler)
 }

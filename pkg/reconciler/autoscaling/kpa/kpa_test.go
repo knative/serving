@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -58,7 +59,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"go.opencensus.io/resource"
-	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
 	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -1677,27 +1677,23 @@ func pollDeciders(deciders *testDeciders, namespace, name string, cond func(*sca
 
 func newTestDeciders() *testDeciders {
 	return &testDeciders{
-		createCallCount:    atomic.NewUint32(0),
-		createCall:         make(chan struct{}, 1),
-		deleteCallCount:    atomic.NewUint32(0),
-		deleteCall:         make(chan struct{}, 5),
-		updateCallCount:    atomic.NewUint32(0),
-		updateCall:         make(chan struct{}, 1),
-		deleteBeforeCreate: atomic.NewBool(false),
+		createCall: make(chan struct{}, 1),
+		deleteCall: make(chan struct{}, 5),
+		updateCall: make(chan struct{}, 1),
 	}
 }
 
 type testDeciders struct {
-	createCallCount *atomic.Uint32
+	createCallCount atomic.Uint32
 	createCall      chan struct{}
 
-	deleteCallCount *atomic.Uint32
+	deleteCallCount atomic.Uint32
 	deleteCall      chan struct{}
 
-	updateCallCount *atomic.Uint32
+	updateCallCount atomic.Uint32
 	updateCall      chan struct{}
 
-	deleteBeforeCreate *atomic.Bool
+	deleteBeforeCreate atomic.Bool
 	decider            *scaling.Decider
 	mutex              sync.Mutex
 }

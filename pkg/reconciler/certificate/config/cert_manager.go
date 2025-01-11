@@ -17,10 +17,9 @@ limitations under the License.
 package config
 
 import (
-	"github.com/ghodss/yaml"
-
 	cmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/yaml"
 )
 
 const (

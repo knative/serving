@@ -20,8 +20,7 @@ import (
 	"bufio"
 	"net"
 	"net/http"
-
-	"go.uber.org/atomic"
+	"sync/atomic"
 
 	"knative.dev/pkg/websocket"
 )

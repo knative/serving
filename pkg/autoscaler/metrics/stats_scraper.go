@@ -24,11 +24,11 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
@@ -276,7 +276,8 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 	pods = append(pods, youngPods...)
 
 	grp, egCtx := errgroup.WithContext(context.Background())
-	idx := atomic.NewInt32(-1)
+	var idx atomic.Int32
+	idx.Store(-1)
 	var sawNonMeshError atomic.Bool
 	// Start |sampleSize| threads to scan in parallel.
 	for i := 0; i < sampleSize; i++ {
@@ -285,7 +286,7 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 			// scanning pods down the line.
 			for {
 				// Acquire next pod.
-				myIdx := int(idx.Inc())
+				myIdx := int(idx.Add(1))
 				// All out?
 				if myIdx >= len(pods) {
 					return errPodsExhausted

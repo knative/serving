@@ -23,11 +23,11 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"go.uber.org/atomic"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
@@ -125,7 +125,7 @@ func TestHTTPProbeNoAutoHTTP2IfDisabled(t *testing.T) {
 
 	var callCount atomic.Int32
 	server := newH2cTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		count := callCount.Inc()
+		count := callCount.Add(1)
 		if count == 1 {
 			// This is the h2c handshake, we won't do anything.
 			for key, value := range h2cHeaders {
@@ -165,7 +165,7 @@ func TestHTTPProbeAutoHTTP2(t *testing.T) {
 	var callCount atomic.Int32
 
 	server := newH2cTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		count := callCount.Inc()
+		count := callCount.Add(1)
 		if count == 1 {
 			// This is the h2c handshake, we won't do anything.
 			for key, value := range h2cHeaders {

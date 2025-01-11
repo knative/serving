@@ -25,10 +25,10 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	netheader "knative.dev/networking/pkg/http/header"

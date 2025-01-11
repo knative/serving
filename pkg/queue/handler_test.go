@@ -24,10 +24,10 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
-	"go.uber.org/atomic"
 	netheader "knative.dev/networking/pkg/http/header"
 	netstats "knative.dev/networking/pkg/http/stats"
 	"knative.dev/serving/pkg/activator"
@@ -175,7 +175,7 @@ func TestHandlerReqEvent(t *testing.T) {
 func TestIgnoreProbe(t *testing.T) {
 	// Verifies that probes don't queue.
 	resp := make(chan struct{})
-	c := atomic.NewInt32(0)
+	var c atomic.Int32
 	// Ensure we can receive 3 requests with CC=1.
 	go func() {
 		to := time.After(3 * time.Second)
@@ -197,7 +197,7 @@ func TestIgnoreProbe(t *testing.T) {
 	}()
 
 	var httpHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
-		c.Inc()
+		c.Add(1)
 		<-resp
 		if !netheader.IsKubeletProbe(r) {
 			t.Error("Request was not a probe")
