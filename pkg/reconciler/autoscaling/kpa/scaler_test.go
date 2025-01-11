@@ -803,7 +803,7 @@ func TestActivatorProbe(t *testing.T) {
 		name: "ok",
 		rt: func(r *http.Request) (*http.Response, error) {
 			rsp := httptest.NewRecorder()
-			rsp.Write([]byte(activator.Name))
+			rsp.WriteString(activator.Name)
 			return rsp.Result(), nil
 		},
 		wantRes: true,
@@ -812,7 +812,7 @@ func TestActivatorProbe(t *testing.T) {
 		rt: func(r *http.Request) (*http.Response, error) {
 			rsp := httptest.NewRecorder()
 			rsp.Code = http.StatusBadRequest
-			rsp.Write([]byte("wrong header, I guess?"))
+			rsp.WriteString("wrong header, I guess?")
 			return rsp.Result(), nil
 		},
 		wantErr: true,
@@ -820,7 +820,7 @@ func TestActivatorProbe(t *testing.T) {
 		name: "wrong body",
 		rt: func(r *http.Request) (*http.Response, error) {
 			rsp := httptest.NewRecorder()
-			rsp.Write([]byte("haxoorprober"))
+			rsp.WriteString("haxoorprober")
 			return rsp.Result(), nil
 		},
 		wantErr: true,
