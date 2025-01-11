@@ -342,7 +342,6 @@ func (c *Reconciler) reconcileRollout(
 		return curRO
 	}
 	// Get the current rollout state as described by the traffic.
-	nextStepTime := int64(0)
 	logger := logging.FromContext(ctx).Desugar().With(
 		zap.Int("durationSecs", rd))
 	logger.Debug("Rollout is enabled. Stepping from previous state.")

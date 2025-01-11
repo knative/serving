@@ -29,8 +29,7 @@ import (
 // `target` is the target value of scaling metric that we autoscaler will aim for;
 // `total` is the maximum possible value of scaling metric that is permitted on the pod.
 func ResolveMetricTarget(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig.Config) (target, total float64) {
-	tu := 0.
-
+	var tu float64
 	switch pa.Metric() {
 	case autoscaling.RPS:
 		total = config.RPSTargetDefault
