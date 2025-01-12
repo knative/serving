@@ -631,6 +631,7 @@ func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP st
 
 	// We are using List to have the IP addresses sorted for consistent results.
 	epsL := sets.List(epSet)
+	//nolint:gosec // number of k8s replicas is bounded by int32
 	newNA, newAI := int32(len(epsL)), int32(inferIndex(epsL, selfIP))
 	if newAI == -1 {
 		// No need to do anything, this activator is not in path.

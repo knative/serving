@@ -264,7 +264,7 @@ func (s *semaphore) release() {
 
 // updateCapacity updates the capacity of the semaphore to the desired size.
 func (s *semaphore) updateCapacity(size int) {
-	s64 := uint64(size)
+	s64 := uint64(size) //nolint:gosec // TODO(dprotaso) capacity should be uint
 	for {
 		old := s.state.Load()
 		capacity, in := unpack(old)
@@ -292,7 +292,7 @@ func (s *semaphore) updateCapacity(size int) {
 // Capacity is the capacity of the semaphore.
 func (s *semaphore) Capacity() int {
 	capacity, _ := unpack(s.state.Load())
-	return int(capacity)
+	return int(capacity) //nolint:gosec // TODO(dprotaso) - capacity should be uint64
 }
 
 // unpack takes an uint64 and returns two uint32 (as uint64) comprised of the leftmost

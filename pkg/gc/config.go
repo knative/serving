@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -111,6 +112,9 @@ func parseDisabledOrInt64(val string, toSet *int64) error {
 		parsed, err := strconv.ParseUint(val, 10, 64)
 		if err != nil {
 			return err
+		}
+		if parsed > math.MaxInt64 {
+			return fmt.Errorf("value should be lower than %v", math.MaxInt64)
 		}
 		*toSet = int64(parsed)
 	}

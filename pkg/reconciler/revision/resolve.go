@@ -65,6 +65,7 @@ func newResolverTransport(path string, maxIdleConns, maxIdleConnsPerHost int) (*
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.MaxIdleConns = maxIdleConns
 	transport.MaxIdleConnsPerHost = maxIdleConnsPerHost
+	//nolint:gosec // quay.io still required 1.2 - bump if they've moved up
 	transport.TLSClientConfig = &tls.Config{
 		MinVersion: tlsMinVersionFromEnv(tls.VersionTLS12),
 		RootCAs:    pool,

@@ -118,7 +118,7 @@ func newAutoscaler(
 		delayWindow: delayWindow,
 
 		panicTime:    pt,
-		maxPanicPods: int32(curC),
+		maxPanicPods: int32(curC), //nolint:gosec // k8s replica count is bounded by int32
 	}
 }
 
