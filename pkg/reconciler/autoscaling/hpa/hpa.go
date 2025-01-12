@@ -98,7 +98,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 		// as initialized until the current replicas are >= the min-scale value.
 		if !pa.Status.IsScaleTargetInitialized() {
 			ms := activeThreshold(ctx, pa)
-			if hpa.Status.CurrentReplicas >= int32(ms) {
+			if hpa.Status.CurrentReplicas >= ms {
 				pa.Status.MarkScaleTargetInitialized()
 			}
 		}
