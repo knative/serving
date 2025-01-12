@@ -268,6 +268,7 @@ func dial(serverURL string) (*websocket.Conn, error) {
 	dialer := &websocket.Dialer{
 		HandshakeTimeout: time.Second,
 	}
+	//nolint:bodyclose
 	statSink, _, err := dialer.Dial(u.String(), nil)
 	return statSink, err
 }

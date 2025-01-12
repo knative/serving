@@ -77,6 +77,7 @@ func connect(t *testing.T, clients *test.Clients, domain, timeout string) (*webs
 			dialer.TLSClientConfig.ServerName = domain // Set ServerName for pseudo hostname with TLS.
 		}
 
+		//nolint:bodyclose
 		c, resp, err := dialer.Dial(u.String(), http.Header{"Host": {domain}})
 		if err == nil {
 			t.Log("WebSocket connection established.")
