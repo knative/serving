@@ -633,7 +633,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "ingresses"),
 		},
 		WantCreates: []runtime.Object{
-			//This is the Create we see for the ingress, but we induce a failure.
+			// This is the Create we see for the ingress, but we induce a failure.
 			simpleIngress(
 				Route("default", "ingress-create-failure", WithConfigTarget("config"),
 					WithURL),
@@ -2753,7 +2753,7 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 				},
 				Spec: netv1alpha1.CertificateSpec{
 					DNSNames:   []string{"becomes-ready.default.example.com"},
-					Domain:     "example.com", //Need this to pass, otherwise extra event updating the Cert with missing Domain will cause test to fail
+					Domain:     "example.com", // Need this to pass, otherwise extra event updating the Cert with missing Domain will cause test to fail
 					SecretName: "route-12-34",
 				},
 				Status: netv1alpha1.CertificateStatus{
@@ -2876,7 +2876,7 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 				},
 				Spec: netv1alpha1.CertificateSpec{
 					DNSNames:   []string{"becomes-ready.default.example.com"},
-					Domain:     "example.com", //Need this to pass, otherwise extra event updating the Cert with missing Domain will cause test to fail
+					Domain:     "example.com", // Need this to pass, otherwise extra event updating the Cert with missing Domain will cause test to fail
 					SecretName: "route-12-34",
 				},
 				Status: netv1alpha1.CertificateStatus{

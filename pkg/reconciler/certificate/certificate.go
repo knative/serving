@@ -218,7 +218,7 @@ func (c *Reconciler) setHTTP01Challenges(ctx context.Context, knCert *v1alpha1.C
 				logger.Info("No challenge service found for shortened commonname, could be cached? continuing")
 				continue
 			}
-			//If the cert is renewing, it could be possible that this isn't an error. Should this change depending on the case?
+			// If the cert is renewing, it could be possible that this isn't an error. Should this change depending on the case?
 			return fmt.Errorf("no challenge solver service for domain %s; selector=%v", dnsName, selector)
 		}
 

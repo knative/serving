@@ -153,7 +153,7 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 		t.Fatal("Failed to patch service:", err)
 	}
 
-	//Create subroute2 in kservice.
+	// Create subroute2 in kservice.
 	ksvcCopy := resources.Service.DeepCopy()
 	ksvcCopyRouteTraffic := append(ksvcCopy.Spec.Traffic,
 		v1.TrafficTarget{

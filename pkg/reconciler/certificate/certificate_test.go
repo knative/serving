@@ -703,7 +703,7 @@ func TestReconcile_HTTP01Challenges(t *testing.T) {
 				}),
 		}},
 	}, {
-		//It is possible for a challenge to not be created for a k.{{Domain}} dnsname, since it may have already been created in a previous Kservice
+		// It is possible for a challenge to not be created for a k.{{Domain}} dnsname, since it may have already been created in a previous Kservice
 		Name: "set Status.HTTP01Challenges on Knative certificate when shortened domain with prefix (k.) is reused",
 		Key:  "foo/knCert",
 		Objects: []runtime.Object{

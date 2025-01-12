@@ -54,7 +54,7 @@ func MakeCertManagerCertificate(cmConfig *config.CertManagerConfig, knCert *v1al
 	// The KCert controller requests new certs with same domain names, but a different CN if spec.domain is set and the other domain name would be too long
 	// cert-manager Certificates are updated only if the existing domain name kept them from being issued.
 	if len(commonName) > longest {
-		//if we have a domain field, we can attempt to shorten, or check if we are dealing with a domainMapping
+		// if we have a domain field, we can attempt to shorten, or check if we are dealing with a domainMapping
 		if knCert.Spec.Domain != "" {
 			// if the domain and commonName pulled from DNSNames are the same, we are dealing with a domainmapping
 			if knCert.Spec.Domain == commonName {
@@ -96,7 +96,7 @@ func MakeCertManagerCertificate(cmConfig *config.CertManagerConfig, knCert *v1al
 			commonName = Prefix + knCert.Spec.Domain
 			dnsNames = append(dnsNames, commonName)
 		} else {
-			//If there was no domain, we can't shorten anything. We must error.
+			// If there was no domain, we can't shorten anything. We must error.
 			return nil, &apis.Condition{
 				Type:   CreateCertManagerCertificateCondition,
 				Status: corev1.ConditionFalse,

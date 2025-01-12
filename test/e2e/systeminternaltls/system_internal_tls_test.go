@@ -71,7 +71,7 @@ func TestSystemInternalTLS(t *testing.T) {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	//The request made here should be enough to trigger some request logs on the Activator and QueueProxy
+	// The request made here should be enough to trigger some request logs on the Activator and QueueProxy
 	t.Log("Checking Endpoint state")
 	url := resources.Route.Status.URL.URL()
 	checkEndpointState(t, clients, url)

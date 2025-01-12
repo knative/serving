@@ -472,7 +472,7 @@ func ContainerPortMask(in *corev1.ContainerPort) *corev1.ContainerPort {
 	out.Name = in.Name
 	out.Protocol = in.Protocol
 
-	//Disallowed fields
+	// Disallowed fields
 	// This list is unnecessary, but added here for clarity
 	out.HostIP = ""
 	out.HostPort = 0
