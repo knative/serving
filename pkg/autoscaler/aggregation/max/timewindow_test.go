@@ -121,9 +121,9 @@ func BenchmarkLargeTimeWindowAscendingRecord(b *testing.B) {
 }
 
 func BenchmarkLargeTimeWindowDescendingRecord(b *testing.B) {
-	for _, duration := range []time.Duration{5, 15, 30, 45} {
-		b.Run(fmt.Sprintf("duration-%d-minutes", duration), func(b *testing.B) {
-			w := NewTimeWindow(duration*time.Minute, 1*time.Second)
+	for _, d := range []int{5, 15, 30, 45} {
+		b.Run(fmt.Sprintf("duration-%v-minutes", d), func(b *testing.B) {
+			w := NewTimeWindow(time.Duration(d)*time.Minute, 1*time.Second)
 			now := time.Now()
 
 			for i := 0; i < b.N; i++ {

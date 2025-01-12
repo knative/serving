@@ -620,13 +620,13 @@ func TestMetricCollectorAggregate(t *testing.T) {
 		rpsPanicBuckets:         aggregation.NewTimedFloat64Buckets(m.Spec.PanicWindow, config.BucketSize),
 	}
 	now := time.Now()
-	for i := time.Duration(0); i < 10; i++ {
+	for i := range 10 {
 		stat := Stat{
 			PodName:                   "testPod",
 			AverageConcurrentRequests: float64(i + 5),
 			RequestCount:              float64(i + 5),
 		}
-		c.record(now.Add(i*time.Second), stat)
+		c.record(now.Add(time.Duration(i)*time.Second), stat)
 	}
 
 	now = now.Add(9 * time.Second)

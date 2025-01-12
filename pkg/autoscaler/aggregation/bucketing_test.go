@@ -343,8 +343,8 @@ func TestTimedFloat64BucketsHoles(t *testing.T) {
 	now := time.Now()
 	buckets := NewTimedFloat64Buckets(5*time.Second, granularity)
 
-	for i := time.Duration(0); i < 5; i++ {
-		buckets.Record(now.Add(i*time.Second), float64(i+1))
+	for i := range 5 {
+		buckets.Record(now.Add(time.Duration(i)*time.Second), float64(i+1))
 	}
 
 	sum := 0.
