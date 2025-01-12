@@ -50,7 +50,6 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		autoscaling.MetricAggregationAlgorithmLinear,
 		autoscaling.MetricAggregationAlgorithmWeightedExponential,
 	} {
-		algo := algo
 		t.Run("aggregation-"+algo, func(t *testing.T) {
 			t.Parallel()
 			ctx := SetupSvc(t,
@@ -122,7 +121,6 @@ func TestAutoscaleSustaining(t *testing.T) {
 		autoscaling.MetricAggregationAlgorithmLinear,
 		autoscaling.MetricAggregationAlgorithmWeightedExponential,
 	} {
-		algo := algo
 		t.Run("aggregation-"+algo, func(t *testing.T) {
 			// When traffic increases, a knative app should scale up and sustain the scale
 			// as long as the traffic sustains, despite whether it is switching modes between

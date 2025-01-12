@@ -479,7 +479,6 @@ func TestNewResolverTransport(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	for i, tc := range cases {
-		i, tc := i, tc
 		t.Run(fmt.Sprintf("cases[%d]", i), func(t *testing.T) {
 			// Setup.
 			path, err := writeCertFile(tmpDir, tc.certBundle, tc.certBundleContents)

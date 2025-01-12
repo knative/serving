@@ -261,7 +261,6 @@ func (rw *revisionWatcher) probePodIPs(ready, notReady sets.Set[string]) (succee
 			continue
 		}
 
-		dest := dest // Standard Go concurrency pattern.
 		probeGroup.Go(func() error {
 			ok, notMesh, err := rw.probe(ctx, dest)
 			if ok && (ready.Has(dest) || rw.enableProbeOptimisation) {

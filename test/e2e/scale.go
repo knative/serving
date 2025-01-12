@@ -87,8 +87,6 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 	})
 
 	for i := 0; i < scale; i++ {
-		// https://golang.org/doc/faq#closures_and_goroutines
-		i := i
 		t.Run(fmt.Sprintf("%03d-of-%03d", i, scale), func(t *testing.T) {
 			t.Parallel()
 

@@ -324,8 +324,6 @@ func TestWebSocketWithTimeout(t *testing.T) {
 		expectError:        true,
 	}}
 	for _, tc := range testCases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			names := test.ResourceNames{
 				Service: test.ObjectNameForTest(t),

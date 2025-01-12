@@ -297,7 +297,6 @@ func TestDestroyPodWithRequests(t *testing.T) {
 
 	// Start several requests staggered with 1s delay.
 	for i := 1; i < 7; i++ {
-		i := i
 		t.Logf("Starting request %d at %v", i, time.Now())
 		eg.Go(func() error {
 			req, err := http.NewRequestWithContext(egCtx, http.MethodGet, u.String(), nil)

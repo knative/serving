@@ -198,7 +198,6 @@ func generateGRPCTraffic(ctx *TestContext, concurrentRequests int, host, domain 
 	var grp errgroup.Group
 
 	for i := 0; i < concurrentRequests; i++ {
-		i := i
 		grp.Go(func() error {
 			for j := 0; ; j++ {
 				select {

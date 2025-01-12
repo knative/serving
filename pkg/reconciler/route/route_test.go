@@ -1461,7 +1461,6 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 	}}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.expectedDomainSuffix, func(t *testing.T) {
 			ctx, informers, ctrl, watcher, cf := newTestSetup(t)
 

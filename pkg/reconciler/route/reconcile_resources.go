@@ -221,7 +221,6 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 
 	eg, egCtx := errgroup.WithContext(ctx)
 	for _, from := range pairs {
-		from := from
 		eg.Go(func() error {
 			to, err := resources.MakeK8sService(egCtx, route, from.Tag, ingress, resources.IsClusterLocalService(from.Service))
 			if err != nil {
