@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	userHeaderKey   = "this-was-user-set"
+	userHeaderKey   = "This-Was-User-Set"
 	userHeaderValue = "a value"
 )
 
