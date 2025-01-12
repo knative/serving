@@ -954,7 +954,7 @@ func TestInfiniteBreaker(t *testing.T) {
 	// Verify we call the thunk when we have achieved capacity.
 	// Twice.
 	for i := 0; i < 2; i++ {
-		ctx, cancel = context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 		res := false
 		if err := b.Maybe(ctx, func() { res = true }); err != nil {

@@ -101,7 +101,7 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 		// Set up our Controller from the fakes.
 		c := ctor(ctx, &ls, configmap.NewStaticWatcher())
 		// Update the context with the stuff we decorated it with.
-		r.Ctx = ctx
+		r.Ctx = ctx //nolint:fatcontext
 
 		// The Reconciler won't do any work until it becomes the leader.
 		if la, ok := c.(reconciler.LeaderAware); ok {

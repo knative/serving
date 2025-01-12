@@ -3354,6 +3354,7 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 		if row.Ctx == nil {
 			row.Ctx = context.Background()
 		}
+		//nolint:fatcontext
 		table[i].Ctx = context.WithValue(row.Ctx, enableExternalDomainTLSKey, true)
 	}
 	table.Test(t, MakeFactory(NewTestReconciler))
