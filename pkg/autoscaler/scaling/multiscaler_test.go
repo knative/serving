@@ -418,12 +418,14 @@ func TestSameSign(t *testing.T) {
 	tests := []struct {
 		a, b int32
 		want bool
-	}{{1982, 1984, true},
+	}{
+		{1982, 1984, true},
 		{-1984, -1988, true},
 		{-1988, 2006, false},
 		{-2006, 2009, false},
 		{0, 1, true}, // 0 is considered positive for our needs
-		{0, -42, false}}
+		{0, -42, false},
+	}
 	for _, test := range tests {
 		if got, want := sameSign(test.a, test.b), test.want; got != want {
 			t.Errorf("%d <=> %d: got: %v, want: %v", test.a, test.b, got, want)

@@ -245,8 +245,8 @@ func WithRevisionPVC() RevisionOption {
 			VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 				ClaimName: "myclaim",
 				ReadOnly:  false,
-			}}},
-		}
+			}},
+		}}
 		r.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{{
 			Name:      "claimvolume",
 			MountPath: "/data",

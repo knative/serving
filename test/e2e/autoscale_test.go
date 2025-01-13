@@ -298,7 +298,6 @@ func TestTargetBurstCapacityZero(t *testing.T) {
 		test.ServingFlags.TestNamespace,
 		time.Minute,
 	)
-
 	if err != nil {
 		t.Error(err)
 	}
@@ -359,7 +358,8 @@ func TestActivationScale(t *testing.T) {
 			Class:             autoscaling.KPA,
 			Metric:            autoscaling.Concurrency,
 			Target:            6,
-			TargetUtilization: 0.7},
+			TargetUtilization: 0.7,
+		},
 		test.Options{},
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.ActivationScaleKey: strconv.Itoa(activationScale),

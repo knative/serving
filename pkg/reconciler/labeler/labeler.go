@@ -31,8 +31,10 @@ type Reconciler struct {
 }
 
 // Check that our Reconciler implements routereconciler.Interface
-var _ routereconciler.Interface = (*Reconciler)(nil)
-var _ routereconciler.Finalizer = (*Reconciler)(nil)
+var (
+	_ routereconciler.Interface = (*Reconciler)(nil)
+	_ routereconciler.Finalizer = (*Reconciler)(nil)
+)
 
 // FinalizeKind removes all Route reference metadata from its traffic targets.
 // This does not modify or observe spec for the Route itself.

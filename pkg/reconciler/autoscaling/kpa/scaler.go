@@ -172,7 +172,8 @@ func durationMax(d1, d2 time.Duration) time.Duration {
 }
 
 func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler,
-	sks *netv1alpha1.ServerlessService, desiredScale int32) (int32, bool) {
+	sks *netv1alpha1.ServerlessService, desiredScale int32,
+) (int32, bool) {
 	if desiredScale != 0 {
 		return desiredScale, true
 	}
@@ -298,7 +299,8 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1
 }
 
 func (ks *scaler) applyScale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, desiredScale int32,
-	ps *autoscalingv1alpha1.PodScalable) error {
+	ps *autoscalingv1alpha1.PodScalable,
+) error {
 	logger := logging.FromContext(ctx)
 
 	gvr, name, err := resources.ScaleResourceArguments(pa.Spec.ScaleTargetRef)

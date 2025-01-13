@@ -244,8 +244,8 @@ func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n string
 			Name:     autoscalerPortName,
 			Port:     autoscalerPort,
 			Protocol: corev1.ProtocolTCP,
-		}}},
-	}
+		}},
+	}}
 
 	exists := true
 	var lastErr error

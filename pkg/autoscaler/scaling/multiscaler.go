@@ -193,7 +193,8 @@ type MultiScaler struct {
 func NewMultiScaler(
 	stopCh <-chan struct{},
 	uniScalerFactory UniScalerFactory,
-	logger *zap.SugaredLogger) *MultiScaler {
+	logger *zap.SugaredLogger,
+) *MultiScaler {
 	return &MultiScaler{
 		scalers:          make(map[types.NamespacedName]*scalerRunner),
 		scalersStopCh:    stopCh,

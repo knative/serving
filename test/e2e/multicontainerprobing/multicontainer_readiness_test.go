@@ -55,73 +55,76 @@ func TestMultiContainerReadiness(t *testing.T) {
 		},
 	}
 
-	containers := []corev1.Container{
-		{
-			Image: pkgTest.ImagePath(names.Image),
-			Ports: []corev1.ContainerPort{{
-				ContainerPort: 8881,
-			}},
-			Env: []corev1.EnvVar{
-				// A port in the next container to forward requests to.
-				{Name: "FORWARD_PORT", Value: "8882"},
-			},
-			ReadinessProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
-						Port: intstr.FromInt32(8881),
-					}},
-			},
-		}, { // Sidecar with readiness probe.
-			Image: pkgTest.ImagePath(names.Sidecars[0]),
-			Env: []corev1.EnvVar{
-				{Name: "PORT", Value: "8882"},
-				{Name: "FORWARD_PORT", Value: "8883"},
-			},
-			ReadinessProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
-						Port: intstr.FromInt32(8882),
-					}},
-			},
-		}, { // Sidecar with liveness probe.
-			Image: pkgTest.ImagePath(names.Sidecars[1]),
-			Env: []corev1.EnvVar{
-				{Name: "PORT", Value: "8883"},
-				{Name: "FORWARD_PORT", Value: "8884"},
-			},
-			LivenessProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
-						Port: intstr.FromInt32(8883),
-					}},
-			},
-		}, { // Sidecar with both readiness and liveness probes.
-			Image: pkgTest.ImagePath(names.Sidecars[2]),
-			Env: []corev1.EnvVar{
-				{Name: "PORT", Value: "8884"},
-				// Delay readiness. The Knative service should be ready only after all containers
-				// are ready and the subsequent request should pass.
-				{Name: "READY_DELAY", Value: "10s"},
-			},
-			ReadinessProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/healthz",
-						Port: intstr.FromInt32(8884),
-					}},
-			},
-			LivenessProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/healthz",
-						Port: intstr.FromInt32(8884),
-					}},
+	containers := []corev1.Container{{
+		Image: pkgTest.ImagePath(names.Image),
+		Ports: []corev1.ContainerPort{{
+			ContainerPort: 8881,
+		}},
+		Env: []corev1.EnvVar{
+			// A port in the next container to forward requests to.
+			{Name: "FORWARD_PORT", Value: "8882"},
+		},
+		ReadinessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/",
+					Port: intstr.FromInt32(8881),
+				},
 			},
 		},
-	}
+	}, { // Sidecar with readiness probe.
+		Image: pkgTest.ImagePath(names.Sidecars[0]),
+		Env: []corev1.EnvVar{
+			{Name: "PORT", Value: "8882"},
+			{Name: "FORWARD_PORT", Value: "8883"},
+		},
+		ReadinessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/",
+					Port: intstr.FromInt32(8882),
+				},
+			},
+		},
+	}, { // Sidecar with liveness probe.
+		Image: pkgTest.ImagePath(names.Sidecars[1]),
+		Env: []corev1.EnvVar{
+			{Name: "PORT", Value: "8883"},
+			{Name: "FORWARD_PORT", Value: "8884"},
+		},
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/",
+					Port: intstr.FromInt32(8883),
+				},
+			},
+		},
+	}, { // Sidecar with both readiness and liveness probes.
+		Image: pkgTest.ImagePath(names.Sidecars[2]),
+		Env: []corev1.EnvVar{
+			{Name: "PORT", Value: "8884"},
+			// Delay readiness. The Knative service should be ready only after all containers
+			// are ready and the subsequent request should pass.
+			{Name: "READY_DELAY", Value: "10s"},
+		},
+		ReadinessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/healthz",
+					Port: intstr.FromInt32(8884),
+				},
+			},
+		},
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/healthz",
+					Port: intstr.FromInt32(8884),
+				},
+			},
+		},
+	}}
 
 	test.EnsureTearDown(t, clients, &names)
 
@@ -311,7 +314,8 @@ func TestMultiContainerProbeStartFailingAfterReady(t *testing.T) {
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: "/healthz/readiness",
 						Port: intstr.FromInt32(8080),
-					}},
+					},
+				},
 			},
 		}, {
 			Image: pkgTest.ImagePath(names.Sidecars[0]),
@@ -323,7 +327,8 @@ func TestMultiContainerProbeStartFailingAfterReady(t *testing.T) {
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: "/healthz/readiness",
 						Port: intstr.FromInt32(8881),
-					}},
+					},
+				},
 			},
 		},
 	}

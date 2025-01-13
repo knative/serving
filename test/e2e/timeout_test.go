@@ -38,7 +38,8 @@ import (
 
 // sendRequestWithTimeout send a request to "endpoint", returns error if unexpected response code, nil otherwise.
 func sendRequestWithTimeout(t *testing.T, clients *test.Clients, endpoint *url.URL,
-	initialSleep, sleep time.Duration, expectedResponseCode int) error {
+	initialSleep, sleep time.Duration, expectedResponseCode int,
+) error {
 	client, err := pkgtest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, endpoint.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		return fmt.Errorf("error creating Spoofing client: %w", err)

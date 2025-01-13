@@ -855,7 +855,8 @@ func TestMultipleActivators(t *testing.T) {
 		},
 		Subsets: []corev1.EndpointSubset{
 			*epSubset(8012, "http", []string{"130.0.0.1", "130.0.0.2"},
-				nil)},
+				nil),
+		},
 	}
 	fake.CoreV1().Endpoints(testNamespace).Create(ctx, publicEp, metav1.CreateOptions{})
 	endpoints.Informer().GetIndexer().Add(publicEp)

@@ -214,11 +214,11 @@ func main() {
 	ah := activatorhandler.New(ctx, throttler, transport, networkConfig.EnableMeshPodAddressability, logger, tlsEnabled)
 	ah = handler.NewTimeoutHandler(ah, "activator request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
 		if rev := activatorhandler.RevisionFrom(r.Context()); rev != nil {
-			var responseStartTimeout = 0 * time.Second
+			responseStartTimeout := 0 * time.Second
 			if rev.Spec.ResponseStartTimeoutSeconds != nil {
 				responseStartTimeout = time.Duration(*rev.Spec.ResponseStartTimeoutSeconds) * time.Second
 			}
-			var idleTimeout = 0 * time.Second
+			idleTimeout := 0 * time.Second
 			if rev.Spec.IdleTimeoutSeconds != nil {
 				idleTimeout = time.Duration(*rev.Spec.IdleTimeoutSeconds) * time.Second
 			}

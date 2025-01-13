@@ -41,9 +41,7 @@ const (
 	benchmarkName = "Knative Serving load test"
 )
 
-var (
-	flavor = flag.String("flavor", "", "The flavor of the benchmark to run.")
-)
+var flavor = flag.String("flavor", "", "The flavor of the benchmark to run.")
 
 func main() {
 	ctx := signals.NewContext()

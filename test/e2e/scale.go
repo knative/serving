@@ -174,7 +174,6 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 					url = s.Status.URL.URL()
 					return v1test.IsServiceReady(s)
 				}, "ServiceUpdatedWithURL")
-
 				if err != nil {
 					t.Error("WaitForServiceState(w/ Domain) =", err)
 					return fmt.Errorf("WaitForServiceState(w/ Domain) failed: %w", err)

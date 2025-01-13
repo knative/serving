@@ -64,7 +64,8 @@ func TestAutoscalerBucketSet(t *testing.T) {
 	}
 
 	want = []string{
-		"autoscaler-bucket-00-of-03", "autoscaler-bucket-01-of-03", "autoscaler-bucket-02-of-03"}
+		"autoscaler-bucket-00-of-03", "autoscaler-bucket-01-of-03", "autoscaler-bucket-02-of-03",
+	}
 	if got := bucketNames(AutoscalerBucketSet(3).Buckets()); !cmp.Equal(got, want) {
 		t.Errorf("AutoscalerBucketSet = %v, want = %v", got, want)
 	}

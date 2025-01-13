@@ -163,7 +163,6 @@ func gatherBackingActivators(ctx context.Context, client kubernetes.Interface, n
 	for _, rev := range revs {
 		endpoints := client.CoreV1().Endpoints(namespace)
 		e, err := endpoints.Get(ctx, rev, metav1.GetOptions{})
-
 		if err != nil {
 			return nil, fmt.Errorf("failed to gather %s endpoints: %w", rev, err)
 		}

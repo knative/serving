@@ -604,6 +604,7 @@ func TestTimedFloat64BucketsWindowUpdateNoOp(t *testing.T) {
 		t.Errorf("FirstWrite after update = %v, want: %v", got, want)
 	}
 }
+
 func BenchmarkWindowAverage(b *testing.B) {
 	// Window lengths in secs.
 	for _, wl := range []int{30, 60, 120, 240, 600} {

@@ -279,7 +279,8 @@ func parallelScaleFromZero(ctx context.Context, clients *test.Clients, objs []*v
 }
 
 func runScaleFromZero(ctx context.Context, clients *test.Clients, idx int, ro *v1test.ResourceObjects) (
-	time.Duration, time.Duration, error) {
+	time.Duration, time.Duration, error,
+) {
 	selector := labels.SelectorFromSet(labels.Set{
 		serving.ServiceLabelKey: ro.Service.Name,
 	})

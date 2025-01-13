@@ -62,7 +62,8 @@ func newRevisionAccessor(
 	tracker tracker.Interface,
 	lister listers.RevisionLister,
 	indexer cache.Indexer,
-	clock clock.PassiveClock) *revisionAccessor {
+	clock clock.PassiveClock,
+) *revisionAccessor {
 	return &revisionAccessor{
 		client:  client,
 		tracker: tracker,
@@ -74,7 +75,8 @@ func newRevisionAccessor(
 
 // makeMetadataPatch makes a metadata map to be patched or nil if no changes are needed.
 func makeMetadataPatch(
-	acc kmeta.Accessor, routeName string, addRoutingState, remove bool, clock clock.PassiveClock) (map[string]interface{}, error) {
+	acc kmeta.Accessor, routeName string, addRoutingState, remove bool, clock clock.PassiveClock,
+) (map[string]interface{}, error) {
 	labels := map[string]interface{}{}
 	annotations := map[string]interface{}{}
 
@@ -195,7 +197,8 @@ func newConfigurationAccessor(
 	tracker tracker.Interface,
 	lister listers.ConfigurationLister,
 	indexer cache.Indexer,
-	clock clock.PassiveClock) *configurationAccessor {
+	clock clock.PassiveClock,
+) *configurationAccessor {
 	return &configurationAccessor{
 		client:  client,
 		tracker: tracker,

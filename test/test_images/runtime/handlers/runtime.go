@@ -45,7 +45,8 @@ func runtimeHandler(w http.ResponseWriter, r *http.Request) {
 
 	k := &types.RuntimeInfo{
 		Request: requestInfo(r),
-		Host: &types.HostInfo{EnvVars: env(),
+		Host: &types.HostInfo{
+			EnvVars:    env(),
 			Files:      fileInfo(filePaths...),
 			FileAccess: fileAccessAttempt(excludeFilePaths(filePaths, fileAccessExclusions)...),
 			Cgroups:    cgroups(cgroupPaths()...),

@@ -84,7 +84,6 @@ func DeploymentFailurePreUpgrade() pkgupgrade.Operation {
 				autoscaling.MaxScaleAnnotation.Key(): "1",
 			}
 		})
-
 		if err != nil {
 			c.T.Fatal("Failed to create Service:", err)
 		}
@@ -137,7 +136,6 @@ func DeploymentFailurePreUpgrade() pkgupgrade.Operation {
 			},
 			metav1.CreateOptions{},
 		)
-
 		if err != nil {
 			c.T.Fatal("Failed to create bad webhook:", err)
 		}

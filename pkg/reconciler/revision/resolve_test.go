@@ -503,6 +503,7 @@ func TestNewResolverTransport(t *testing.T) {
 		})
 	}
 }
+
 func TestNewResolverTransport_TLSMinVersion(t *testing.T) {
 	cases := []struct {
 		name           string

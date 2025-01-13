@@ -69,7 +69,6 @@ func TestLivenessWithFail(t *testing.T) {
 				PeriodSeconds:    1,
 				FailureThreshold: 3,
 			}))
-
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}

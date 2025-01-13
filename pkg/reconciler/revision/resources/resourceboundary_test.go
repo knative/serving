@@ -38,13 +38,12 @@ func TestResourceBoundary(t *testing.T) {
 		boundary: queueContainerRequestCPU,
 		resource: resource.MustParse("15m"),
 		want:     resource.MustParse("25m"),
-	},
-		{
-			name:     "resource lower than min boundary",
-			boundary: queueContainerRequestCPU,
-			resource: resource.MustParse("110m"),
-			want:     resource.MustParse("100m"),
-		}}
+	}, {
+		name:     "resource lower than min boundary",
+		boundary: queueContainerRequestCPU,
+		resource: resource.MustParse("110m"),
+		want:     resource.MustParse("100m"),
+	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

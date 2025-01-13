@@ -43,9 +43,7 @@ import (
 // HTTPScheme is the string representation of http.
 const HTTPScheme string = "http"
 
-var (
-	ErrDomainName = errors.New("domain name error")
-)
+var ErrDomainName = errors.New("domain name error")
 
 // GetAllDomainsAndTags returns all of the domains and tags(including subdomains) associated with a Route
 func GetAllDomainsAndTags(ctx context.Context, r *v1.Route, names []string, visibility map[string]netv1alpha1.IngressVisibility) (map[string]string, error) {

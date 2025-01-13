@@ -114,7 +114,8 @@ func generateTraffic(
 	attacker *vegeta.Attacker,
 	pacer vegeta.Pacer,
 	stopChan chan struct{},
-	target vegeta.Target) error {
+	target vegeta.Target,
+) error {
 	// The 0 duration means that the attack will only be controlled by the `Stop` function.
 	results := attacker.Attack(vegeta.NewStaticTargeter(target), pacer, 0, "load-test")
 	defer attacker.Stop()
@@ -165,7 +166,6 @@ func newVegetaHTTPClient(ctx *TestContext, url *url.URL) *http.Client {
 		test.AddRootCAtoTransport(context.Background(), ctx.t.Logf, ctx.Clients(), test.ServingFlags.HTTPS),
 		vegetaTransportDefaults,
 	)
-
 	if err != nil {
 		ctx.t.Fatal("Error creating spoofing client:", err)
 	}

@@ -206,7 +206,6 @@ func generateGRPCTraffic(ctx *TestContext, concurrentRequests int, host, domain 
 				default:
 					want := fmt.Sprintf("Hello! stream:%d request: %d", i, j)
 					got, err := pingGRPC(ctx, host, domain, want)
-
 					if err != nil {
 						return fmt.Errorf("ping gRPC error: %w", err)
 					}

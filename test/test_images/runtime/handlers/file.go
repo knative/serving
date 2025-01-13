@@ -44,7 +44,8 @@ func fileInfo(paths ...string) map[string]types.FileInfo {
 			Perm:       perm,
 			ModTime:    file.ModTime(),
 			SourceFile: source,
-			IsDir:      &dir}
+			IsDir:      &dir,
+		}
 	}
 	return files
 }

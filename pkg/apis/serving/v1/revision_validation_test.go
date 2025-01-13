@@ -458,7 +458,8 @@ func TestRevisionSpecValidation(t *testing.T) {
 					"revision-timeout-seconds":                "25",
 					"max-revision-timeout-seconds":            "50",
 					"revision-response-start-timeout-seconds": "10",
-					"revision-idle-timeout-seconds":           "10"},
+					"revision-idle-timeout-seconds":           "10",
+				},
 			})
 			return s.ToContext(ctx)
 		},
@@ -574,7 +575,8 @@ func TestImmutableFields(t *testing.T) {
 					"revision-timeout-seconds":                "25",
 					"max-revision-timeout-seconds":            "50",
 					"revision-response-start-timeout-seconds": "10",
-					"revision-idle-timeout-seconds":           "10"},
+					"revision-idle-timeout-seconds":           "10",
+				},
 			})
 			return s.ToContext(ctx)
 		},

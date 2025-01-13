@@ -412,6 +412,7 @@ func TestConfigurationLabelValidation(t *testing.T) {
 		})
 	}
 }
+
 func TestImmutableConfigurationFields(t *testing.T) {
 	tests := []struct {
 		name string
@@ -751,8 +752,10 @@ func TestConfigurationAnnotationUpdate(t *testing.T) {
 			},
 			Spec: getConfigurationSpec("helloworld:foo"),
 		},
-		want: (&apis.FieldError{Message: "annotation value is immutable",
-			Paths: []string{serving.CreatorAnnotation}}).ViaField("metadata.annotations"),
+		want: (&apis.FieldError{
+			Message: "annotation value is immutable",
+			Paths:   []string{serving.CreatorAnnotation},
+		}).ViaField("metadata.annotations"),
 	}, {
 		name: "update creator annotation with spec changes",
 		this: &Configuration{
@@ -775,8 +778,10 @@ func TestConfigurationAnnotationUpdate(t *testing.T) {
 			},
 			Spec: getConfigurationSpec("helloworld:foo"),
 		},
-		want: (&apis.FieldError{Message: "annotation value is immutable",
-			Paths: []string{serving.CreatorAnnotation}}).ViaField("metadata.annotations"),
+		want: (&apis.FieldError{
+			Message: "annotation value is immutable",
+			Paths:   []string{serving.CreatorAnnotation},
+		}).ViaField("metadata.annotations"),
 	}, {
 		name: "update lastModifier annotation without spec changes",
 		this: &Configuration{

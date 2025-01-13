@@ -227,7 +227,6 @@ func TestRevisionIsFailed(t *testing.T) {
 		name: "Unknown condition status should not be failed",
 		status: RevisionStatus{
 			Status: duckv1.Status{
-
 				Conditions: duckv1.Conditions{{
 					Type:   RevisionConditionReady,
 					Status: corev1.ConditionUnknown,

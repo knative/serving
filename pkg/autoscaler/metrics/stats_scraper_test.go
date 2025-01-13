@@ -42,27 +42,25 @@ import (
 	. "knative.dev/pkg/reconciler/testing"
 )
 
-var (
-	testStats = []Stat{{
-		PodName:                          "pod-1",
-		AverageConcurrentRequests:        3.0,
-		AverageProxiedConcurrentRequests: 2.0,
-		RequestCount:                     5,
-		ProxiedRequestCount:              4,
-	}, {
-		PodName:                          "pod-2",
-		AverageConcurrentRequests:        5.0,
-		AverageProxiedConcurrentRequests: 4.0,
-		RequestCount:                     7,
-		ProxiedRequestCount:              6,
-	}, {
-		PodName:                          "pod-3",
-		AverageConcurrentRequests:        3.0,
-		AverageProxiedConcurrentRequests: 2.0,
-		RequestCount:                     5,
-		ProxiedRequestCount:              4,
-	}}
-)
+var testStats = []Stat{{
+	PodName:                          "pod-1",
+	AverageConcurrentRequests:        3.0,
+	AverageProxiedConcurrentRequests: 2.0,
+	RequestCount:                     5,
+	ProxiedRequestCount:              4,
+}, {
+	PodName:                          "pod-2",
+	AverageConcurrentRequests:        5.0,
+	AverageProxiedConcurrentRequests: 4.0,
+	RequestCount:                     7,
+	ProxiedRequestCount:              6,
+}, {
+	PodName:                          "pod-3",
+	AverageConcurrentRequests:        3.0,
+	AverageProxiedConcurrentRequests: 2.0,
+	RequestCount:                     5,
+	ProxiedRequestCount:              4,
+}}
 
 const (
 	testRevision  = "just-a-test-revision"
@@ -537,8 +535,10 @@ func TestScrapeReportErrorIfAnyFails(t *testing.T) {
 	makePods(ctx, "pods-", 2, metav1.Now())
 
 	// 1 success and 10 failures so one scrape fails permanently through retries.
-	client := newTestScrapeClient(testStats, []error{nil, errTest, errTest,
-		errTest, errTest, errTest, errTest, errTest, errTest, errTest, errTest})
+	client := newTestScrapeClient(testStats, []error{
+		nil, errTest, errTest,
+		errTest, errTest, errTest, errTest, errTest, errTest, errTest, errTest,
+	})
 	scraper := serviceScraperForTest(ctx, t, netcfg.MeshCompatibilityModeAuto, client, client, false /*podsAddressable*/, false /*passthroughLb*/)
 
 	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
@@ -789,7 +789,8 @@ func TestPodDirectPassthroughScrapeNoneSucceed(t *testing.T) {
 }
 
 func serviceScraperForTest(ctx context.Context, t *testing.T, meshMode netcfg.MeshCompatibilityMode, directClient, meshClient scrapeClient,
-	podsAddressable bool, usePassthroughLb bool) *serviceScraper {
+	podsAddressable bool, usePassthroughLb bool,
+) *serviceScraper {
 	metric := testMetric()
 	accessor := resources.NewPodAccessor(
 		fakepodsinformer.Get(ctx).Lister(),

@@ -36,7 +36,8 @@ import (
 func fetchRuntimeInfo(
 	t *testing.T,
 	clients *test.Clients,
-	opts ...interface{}) (*test.ResourceNames, *types.RuntimeInfo, error) {
+	opts ...interface{},
+) (*test.ResourceNames, *types.RuntimeInfo, error) {
 	names := &test.ResourceNames{Image: test.Runtime}
 	t.Helper()
 	names.Service = test.ObjectNameForTest(t)

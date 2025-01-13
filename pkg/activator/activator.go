@@ -25,11 +25,9 @@ const (
 	RevisionHeaderNamespace = "Knative-Serving-Namespace"
 )
 
-var (
-	// RevisionHeaders are the headers the activator uses to identify the
-	// revision. They are removed before reaching the user container.
-	RevisionHeaders = []string{
-		RevisionHeaderName,
-		RevisionHeaderNamespace,
-	}
-)
+// RevisionHeaders are the headers the activator uses to identify the
+// revision. They are removed before reaching the user container.
+var RevisionHeaders = []string{
+	RevisionHeaderName,
+	RevisionHeaderNamespace,
+}

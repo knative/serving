@@ -114,7 +114,8 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.ResponseWriter,
-	r *http.Request, target string, tracingEnabled bool, usePassthroughLb bool) {
+	r *http.Request, target string, tracingEnabled bool, usePassthroughLb bool,
+) {
 	netheader.RewriteHostIn(r)
 	r.Header.Set(netheader.ProxyKey, activator.Name)
 

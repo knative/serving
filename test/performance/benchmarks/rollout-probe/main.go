@@ -46,29 +46,27 @@ var (
 	duration = flag.Duration("duration", 5*time.Minute, "The duration of the probe")
 )
 
-var (
-	// Map the above to our benchmark targets.
-	targets = map[string]struct{ target vegeta.Target }{
-		"queue-proxy-with-cc": {
-			target: vegeta.Target{
-				Method: http.MethodGet,
-				URL:    "http://queue-proxy-with-cc.default.svc.cluster.local?sleep=100",
-			},
+// Map the above to our benchmark targets.
+var targets = map[string]struct{ target vegeta.Target }{
+	"queue-proxy-with-cc": {
+		target: vegeta.Target{
+			Method: http.MethodGet,
+			URL:    "http://queue-proxy-with-cc.default.svc.cluster.local?sleep=100",
 		},
-		"activator-with-cc": {
-			target: vegeta.Target{
-				Method: http.MethodGet,
-				URL:    "http://activator-with-cc.default.svc.cluster.local?sleep=100",
-			},
+	},
+	"activator-with-cc": {
+		target: vegeta.Target{
+			Method: http.MethodGet,
+			URL:    "http://activator-with-cc.default.svc.cluster.local?sleep=100",
 		},
-		"activator-with-cc-lin": {
-			target: vegeta.Target{
-				Method: http.MethodGet,
-				URL:    "http://activator-with-cc-lin.default.svc.cluster.local?sleep=100",
-			},
+	},
+	"activator-with-cc-lin": {
+		target: vegeta.Target{
+			Method: http.MethodGet,
+			URL:    "http://activator-with-cc-lin.default.svc.cluster.local?sleep=100",
 		},
-	}
-)
+	},
+}
 
 const (
 	namespace     = "default"

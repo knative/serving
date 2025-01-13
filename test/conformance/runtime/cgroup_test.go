@@ -72,11 +72,12 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 	// It's important to make sure that the memory limit is divisible by common page
 	// size (4k, 8k, 16k, 64k) as some environments apply rounding to the closest page
 	// size multiple, see https://github.com/kubernetes/kubernetes/issues/82230.
-	var expectedCgroupsV1 = map[string]string{
+	expectedCgroupsV1 := map[string]string{
 		"/sys/fs/cgroup/memory/memory.limit_in_bytes": strconv.FormatInt(resources.Limits.Memory().Value()&^4095, 10), // floor() to 4K pages
-		"/sys/fs/cgroup/cpu/cpu.shares":               strconv.FormatInt(resources.Requests.Cpu().MilliValue()*1024/1000, 10)}
+		"/sys/fs/cgroup/cpu/cpu.shares":               strconv.FormatInt(resources.Requests.Cpu().MilliValue()*1024/1000, 10),
+	}
 
-	var expectedCgroupsV2 = map[string]string{
+	expectedCgroupsV2 := map[string]string{
 		"/sys/fs/cgroup/memory.max": strconv.FormatInt(resources.Limits.Memory().Value()&^4095, 10), // floor() to 4K pages
 		// Convert cgroup v1 cpu.shares value to cgroup v2 cpu.weight
 		// https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/2254-cgroup-v2#phase-1-convert-from-cgroups-v1-settings-to-v2
@@ -199,7 +200,8 @@ func createResources() corev1.ResourceRequirements {
 	resources := corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse(toMilliValue(cpuLimit)),
-			corev1.ResourceMemory: resource.MustParse(strconv.Itoa(memoryLimit) + "Mi")},
+			corev1.ResourceMemory: resource.MustParse(strconv.Itoa(memoryLimit) + "Mi"),
+		},
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU: resource.MustParse(toMilliValue(cpuRequest)),
 		},

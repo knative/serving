@@ -423,7 +423,8 @@ func TestGetReadyCondition(t *testing.T) {
 			Status:  cmmeta.ConditionTrue,
 			Reason:  "ready",
 			Message: "ready",
-		}}, {
+		},
+	}, {
 		name:          "not ready",
 		cmCertificate: makeTestCertificate(cmmeta.ConditionFalse, cmv1.CertificateConditionReady, "not ready", "not ready"),
 		want: &cmv1.CertificateCondition{
@@ -431,7 +432,8 @@ func TestGetReadyCondition(t *testing.T) {
 			Status:  cmmeta.ConditionFalse,
 			Reason:  "not ready",
 			Message: "not ready",
-		}}, {
+		},
+	}, {
 		name:          "unknow",
 		cmCertificate: makeTestCertificate(cmmeta.ConditionUnknown, cmv1.CertificateConditionReady, "unknown", "unknown"),
 		want: &cmv1.CertificateCondition{
@@ -439,12 +441,12 @@ func TestGetReadyCondition(t *testing.T) {
 			Status:  cmmeta.ConditionUnknown,
 			Reason:  "unknown",
 			Message: "unknown",
-		}}, {
+		},
+	}, {
 		name:          "condition not ready",
 		cmCertificate: makeTestCertificate(cmmeta.ConditionTrue, cmv1.CertificateConditionIssuing, "Renewing", "Renewing certificate"),
 		want:          nil,
-	},
-	}
+	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

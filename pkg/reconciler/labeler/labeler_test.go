@@ -370,8 +370,10 @@ func revTraffic(name string, latest bool) v1.TrafficTarget {
 
 func routeWithTraffic(namespace, name string, spec, status v1.TrafficTarget, opts ...RouteOption) *v1.Route {
 	return Route(namespace, name,
-		append([]RouteOption{WithSpecTraffic(spec), WithStatusTraffic(status), WithInitRouteConditions,
-			MarkTrafficAssigned, MarkCertificateReady, MarkIngressReady, WithRouteObservedGeneration}, opts...)...)
+		append([]RouteOption{
+			WithSpecTraffic(spec), WithStatusTraffic(status), WithInitRouteConditions,
+			MarkTrafficAssigned, MarkCertificateReady, MarkIngressReady, WithRouteObservedGeneration,
+		}, opts...)...)
 }
 
 func simpleRunLatest(namespace, name, config string, opts ...RouteOption) *v1.Route {

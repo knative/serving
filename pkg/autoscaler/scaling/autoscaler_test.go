@@ -566,13 +566,15 @@ func TestAutoscalerUpdateTarget(t *testing.T) {
 
 // For table tests and tests that don't care about changing scale.
 func newTestAutoscalerNoPC(targetValue, targetBurstCapacity float64,
-	metrics metrics.MetricClient) *autoscaler {
+	metrics metrics.MetricClient,
+) *autoscaler {
 	a, _ := newTestAutoscaler(targetValue, targetBurstCapacity, metrics)
 	return a
 }
 
 func newTestAutoscaler(targetValue, targetBurstCapacity float64,
-	metrics metrics.MetricClient) (*autoscaler, *fakePodCounter) {
+	metrics metrics.MetricClient,
+) (*autoscaler, *fakePodCounter) {
 	return newTestAutoscalerWithScalingMetric(targetValue, targetBurstCapacity,
 		metrics, "concurrency", false /*panic*/)
 }

@@ -60,7 +60,7 @@ func TestProbeRuntime(t *testing.T) {
 	}
 	clients := test.Setup(t)
 
-	var testCases = []struct {
+	testCases := []struct {
 		// name of the test case, which will be inserted in names of routes, configurations, etc.
 		// Use a short name here to avoid hitting the 63-character limit in names
 		// (e.g., "service-to-service-call-svc-cluster-local-uagkdshh-frkml-service" is too long.)

@@ -231,7 +231,8 @@ func main() {
 }
 
 func uniScalerFactoryFunc(podLister corev1listers.PodLister,
-	metricClient asmetrics.MetricClient) scaling.UniScalerFactory {
+	metricClient asmetrics.MetricClient,
+) scaling.UniScalerFactory {
 	return func(decider *scaling.Decider) (scaling.UniScaler, error) {
 		configName := decider.Labels[serving.ConfigurationLabelKey]
 		if configName == "" {

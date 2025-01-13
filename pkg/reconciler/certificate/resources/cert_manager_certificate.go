@@ -177,7 +177,8 @@ func MakeCertManagerCertificate(cmConfig *config.CertManagerConfig, knCert *v1al
 			SecretTemplate: &cmv1.CertificateSecretTemplate{
 				Labels: map[string]string{
 					networking.CertificateUIDLabelKey: string(knCert.GetUID()),
-				}},
+				},
+			},
 		},
 	}
 	return cert, nil

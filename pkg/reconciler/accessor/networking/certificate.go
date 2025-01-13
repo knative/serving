@@ -40,7 +40,8 @@ type CertificateAccessor interface {
 
 // ReconcileCertificate reconciles Certificate to the desired status.
 func ReconcileCertificate(ctx context.Context, owner kmeta.Accessor, desired *v1alpha1.Certificate,
-	certAccessor CertificateAccessor) (*v1alpha1.Certificate, error) {
+	certAccessor CertificateAccessor,
+) (*v1alpha1.Certificate, error) {
 	recorder := controller.GetEventRecorder(ctx)
 	if recorder == nil {
 		return nil, fmt.Errorf("recorder for reconciling Certificate %s/%s is not created", desired.Namespace, desired.Name)

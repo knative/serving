@@ -83,7 +83,6 @@ func TestProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 	}
 
 	resources, err := v1test.CreateServiceReady(t, clients, &names, serviceOptions...)
-
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}

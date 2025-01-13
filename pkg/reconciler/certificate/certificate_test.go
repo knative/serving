@@ -265,7 +265,8 @@ func TestReconcile(t *testing.T) {
 			knCert("knCert", "foo"),
 			cmCertWithStatus("knCert", "foo", correctDNSNames, []cmv1.CertificateCondition{{
 				Type:   cmv1.CertificateConditionReady,
-				Status: cmmeta.ConditionTrue}}, nil),
+				Status: cmmeta.ConditionTrue,
+			}}, nil),
 			nonHTTP01Issuer,
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -289,7 +290,8 @@ func TestReconcile(t *testing.T) {
 			knCert("knCert", "foo"),
 			cmCertWithStatus("knCert", "foo", correctDNSNames, []cmv1.CertificateCondition{{
 				Type:   cmv1.CertificateConditionReady,
-				Status: cmmeta.ConditionUnknown}}, nil),
+				Status: cmmeta.ConditionUnknown,
+			}}, nil),
 			nonHTTP01Issuer,
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -313,7 +315,8 @@ func TestReconcile(t *testing.T) {
 			knCert("knCert", "foo"),
 			cmCertWithStatus("knCert", "foo", correctDNSNames, []cmv1.CertificateCondition{{
 				Type:   cmv1.CertificateConditionReady,
-				Status: cmmeta.ConditionFalse}}, nil),
+				Status: cmmeta.ConditionFalse,
+			}}, nil),
 			nonHTTP01Issuer,
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -666,7 +669,8 @@ func TestReconcile_HTTP01Challenges(t *testing.T) {
 			cmCertWithStatus("knCert", "foo", correctDNSNames, []cmv1.CertificateCondition{{
 				Type:   cmv1.CertificateConditionReady,
 				Status: cmmeta.ConditionFalse,
-				Reason: "InProgress"}}, nil),
+				Reason: "InProgress",
+			}}, nil),
 			knCert("knCert", "foo"),
 			http01Issuer,
 		},

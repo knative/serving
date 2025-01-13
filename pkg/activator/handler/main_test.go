@@ -260,7 +260,6 @@ func send(client *http.Client, url string, body []byte, rHost string) error {
 	bd := io.Reader(resp.Body)
 
 	rec, err := io.ReadAll(bd)
-
 	if err != nil {
 		return fmt.Errorf("failed to read body: %w", err)
 	}

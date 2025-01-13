@@ -28,11 +28,9 @@ import (
 	"go.opencensus.io/tag"
 )
 
-var (
-	// contextCache stores the metrics recorder contexts in an LRU cache.
-	// Hashicorp LRU cache is synchronized.
-	contextCache *lru.Cache
-)
+// contextCache stores the metrics recorder contexts in an LRU cache.
+// Hashicorp LRU cache is synchronized.
+var contextCache *lru.Cache
 
 // This is a fairly arbitrary number but we want it to be higher than the
 // number of active revisions a single activator might be handling, to avoid

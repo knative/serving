@@ -40,7 +40,8 @@ func collect(
 	ctx context.Context,
 	client clientset.Interface,
 	revisionLister listers.RevisionLister,
-	config *v1.Configuration) pkgreconciler.Event {
+	config *v1.Configuration,
+) pkgreconciler.Event {
 	cfg := configns.FromContext(ctx).RevisionGC
 	logger := logging.FromContext(ctx)
 

@@ -68,7 +68,8 @@ func New(
 	namespace, revision string,
 	metricClient metrics.MetricClient,
 	podCounter resources.EndpointsCounter,
-	deciderSpec *DeciderSpec) UniScaler {
+	deciderSpec *DeciderSpec,
+) UniScaler {
 	var delayer *max.TimeWindow
 	if deciderSpec.ScaleDownDelay > 0 {
 		delayer = max.NewTimeWindow(deciderSpec.ScaleDownDelay, tickInterval)
@@ -84,7 +85,8 @@ func newAutoscaler(
 	metricClient metrics.MetricClient,
 	podCounter podCounter,
 	deciderSpec *DeciderSpec,
-	delayWindow *max.TimeWindow) *autoscaler {
+	delayWindow *max.TimeWindow,
+) *autoscaler {
 	// We always start in the panic mode, if the deployment is scaled up over 1 pod.
 	// If the scale is 0 or 1, normal Autoscaler behavior is fine.
 	// When Autoscaler restarts we lose metric history, which causes us to

@@ -83,7 +83,8 @@ func newTestController(t *testing.T, configs []*corev1.ConfigMap, opts ...reconc
 	context.CancelFunc,
 	[]controller.Informer,
 	*controller.Impl,
-	*configmap.ManualWatcher) {
+	*configmap.ManualWatcher,
+) {
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 	t.Cleanup(cancel) // cancel is reentrant, so if necessary callers can call it directly, if needed.
 	configMapWatcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
@@ -399,16 +400,18 @@ func TestResolutionFailed(t *testing.T) {
 }
 
 func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
-	ctx, _, _, controller, watcher := newTestController(t, []*corev1.ConfigMap{{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace(),
-			Name:      metrics.ConfigMapName(),
+	ctx, _, _, controller, watcher := newTestController(t, []*corev1.ConfigMap{
+		testDeploymentCM(),
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      metrics.ConfigMapName(),
+			},
+			Data: map[string]string{
+				"logging.enable-var-log-collection": "true",
+				"logging.revision-url-template":     "http://old-logging.test.com?filter=${REVISION_UID}",
+			},
 		},
-		Data: map[string]string{
-			"logging.enable-var-log-collection": "true",
-			"logging.revision-url-template":     "http://old-logging.test.com?filter=${REVISION_UID}",
-		},
-	}, testDeploymentCM(),
 	})
 	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace)
 

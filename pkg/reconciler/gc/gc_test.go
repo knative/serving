@@ -523,7 +523,8 @@ func runTest(
 	cfgMap *config.Config,
 	revs []*v1.Revision,
 	cfg *v1.Configuration,
-	wantDeletes []clientgotesting.DeleteActionImpl) {
+	wantDeletes []clientgotesting.DeleteActionImpl,
+) {
 	t.Helper()
 	ctx, _ := SetupFakeContext(t)
 	ctx = config.ToContext(ctx, cfgMap)

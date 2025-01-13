@@ -220,7 +220,6 @@ func TestLivenessProbeAwareOfStartupProbe(t *testing.T) {
 				FailureThreshold: 3,
 			}),
 	)
-
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}

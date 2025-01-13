@@ -60,7 +60,7 @@ func TestConfigurationGetAndList(t *testing.T) {
 	if len(list.Items) < 1 {
 		t.Fatal("Listing should return at least one Configuration")
 	}
-	var configurationFound = false
+	configurationFound := false
 	for _, configuration := range list.Items {
 		t.Logf("Configuration Returned: %s", configuration.Name)
 		if configuration.Name == config.Name {

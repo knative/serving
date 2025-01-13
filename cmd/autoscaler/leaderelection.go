@@ -66,7 +66,6 @@ func setupSharedElector(ctx context.Context, controllers []*controller.Impl) (le
 	noopEnqueue := func(reconciler.Bucket, types.NamespacedName) {}
 
 	el, err := leaderelection.BuildElector(ctx, coalesce(reconcilers), queueName, noopEnqueue)
-
 	if err != nil {
 		return nil, err
 	}

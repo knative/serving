@@ -46,7 +46,8 @@ func mounts() []*types.Mount {
 			Device:  ms[0],
 			Path:    ms[1],
 			Type:    ms[2],
-			Options: strings.Split(ms[3], ",")})
+			Options: strings.Split(ms[3], ","),
+		})
 	}
 
 	if err := sc.Err(); err != nil {

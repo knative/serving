@@ -251,7 +251,6 @@ func GRPCProbe(config GRPCProbeConfigOptions) error {
 
 	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(int(config.Port)))
 	conn, err := grpc.NewClient(addr, opts...)
-
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return fmt.Errorf("failed to connect service %q within %v: %w", addr, config.Timeout, err)
@@ -268,7 +267,6 @@ func GRPCProbe(config GRPCProbeConfigOptions) error {
 	resp, err := client.Check(metadata.NewOutgoingContext(ctx, make(metadata.MD)), &grpchealth.HealthCheckRequest{
 		Service: ptr.StringValue(config.Service),
 	})
-
 	if err != nil {
 		stat, ok := status.FromError(err)
 		if ok {

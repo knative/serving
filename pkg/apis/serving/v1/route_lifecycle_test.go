@@ -106,7 +106,6 @@ func TestRouteIsReady(t *testing.T) {
 		name: "Unknown condition status should not be ready",
 		status: RouteStatus{
 			Status: duckv1.Status{
-
 				Conditions: duckv1.Conditions{{
 					Type:   RouteConditionReady,
 					Status: corev1.ConditionUnknown,
@@ -205,7 +204,6 @@ func TestRouteIsFailed(t *testing.T) {
 		name: "Unknown condition status should not be failed",
 		status: RouteStatus{
 			Status: duckv1.Status{
-
 				Conditions: duckv1.Conditions{{
 					Type:   RouteConditionReady,
 					Status: corev1.ConditionUnknown,

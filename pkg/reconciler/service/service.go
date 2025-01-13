@@ -55,7 +55,8 @@ type Reconciler struct {
 // NewReconciler creates the reference to the Reconciler based on clientset.Interface, listers.ConfigurationLister,
 // listers.RevisionLister and listers.RouteLister.
 func NewReconciler(client clientset.Interface, configurationLister listers.ConfigurationLister,
-	revisionLister listers.RevisionLister, routeLister listers.RouteLister) *Reconciler {
+	revisionLister listers.RevisionLister, routeLister listers.RouteLister,
+) *Reconciler {
 	return &Reconciler{
 		client:              client,
 		configurationLister: configurationLister,

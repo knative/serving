@@ -45,8 +45,10 @@ import (
 	"knative.dev/serving/test/types"
 )
 
-type RequestOption func(*http.Request)
-type ResponseExpectation func(response *http.Response) error
+type (
+	RequestOption       func(*http.Request)
+	ResponseExpectation func(response *http.Response) error
+)
 
 func RuntimeRequest(ctx context.Context, t *testing.T, client *http.Client, url string, opts ...RequestOption) *types.RuntimeInfo {
 	return RuntimeRequestWithExpectations(ctx, t, client, url,
@@ -61,7 +63,8 @@ func RuntimeRequest(ctx context.Context, t *testing.T, client *http.Client, url 
 func RuntimeRequestWithExpectations(ctx context.Context, t *testing.T, client *http.Client, url string,
 	responseExpectations []ResponseExpectation,
 	allowDialError bool,
-	opts ...RequestOption) *types.RuntimeInfo {
+	opts ...RequestOption,
+) *types.RuntimeInfo {
 	t.Helper()
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
@@ -75,7 +78,6 @@ func RuntimeRequestWithExpectations(ctx context.Context, t *testing.T, client *h
 	}
 
 	resp, err := client.Do(req)
-
 	if err != nil {
 		if !allowDialError || !IsDialError(err) {
 			t.Error("Error making GET request:", err)
@@ -173,7 +175,7 @@ func CreateDialContext(ctx context.Context, t *testing.T, ing *v1alpha1.Ingress,
 		t.Fatalf("Unable to retrieve Kubernetes service %s/%s: %v", namespace, name, err)
 	}
 
-	var dialBackoff = wait.Backoff{
+	dialBackoff := wait.Backoff{
 		Duration: 50 * time.Millisecond,
 		Factor:   1.4,
 		Jitter:   0.1, // At most 10% jitter.

@@ -71,7 +71,7 @@ func TestServiceCreateListAndDelete(t *testing.T) {
 	if len(list.Items) < 1 {
 		t.Fatal("Listing should return at least one Service")
 	}
-	var serviceFound = false
+	serviceFound := false
 	for _, service := range list.Items {
 		t.Logf("Service Returned: %s", service.Name)
 		if service.Name == names.Service {

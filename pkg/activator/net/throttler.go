@@ -171,7 +171,8 @@ type revisionThrottler struct {
 func newRevisionThrottler(revID types.NamespacedName,
 	containerConcurrency int, proto string,
 	breakerParams queue.BreakerParams,
-	logger *zap.SugaredLogger) *revisionThrottler {
+	logger *zap.SugaredLogger,
+) *revisionThrottler {
 	logger = logger.With(zap.String(logkey.Key, revID.String()))
 	var (
 		revBreaker breaker

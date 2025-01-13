@@ -56,7 +56,8 @@ func checkForExpectedResponses(ctx context.Context, t testing.TB, clients *test.
 }
 
 func validateDomains(t testing.TB, clients *test.Clients, serviceName string,
-	baseExpected []string, tagExpectationPairs []tagExpectation) error {
+	baseExpected []string, tagExpectationPairs []tagExpectation,
+) error {
 	service, err := clients.ServingClient.Services.Get(context.Background(), serviceName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("could not query service traffic status: %w", err)

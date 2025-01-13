@@ -43,46 +43,44 @@ var (
 	minDefault = 100 * time.Millisecond
 )
 
-var (
-	// Map the above to our benchmark targets.
-	targets = map[string]struct {
-		target vegeta.Target
-		slaMin time.Duration
-		slaMax time.Duration
-	}{
-		"deployment": {
-			target: vegeta.Target{
-				Method: http.MethodGet,
-				URL:    "http://deployment.default.svc.cluster.local?sleep=100",
-			},
-			// vanilla deployment falls in the +5ms range. This does not have Knative or Istio components
-			// on the dataplane, and so it is intended as a canary to flag environmental
-			// problems that might be causing contemporaneous Knative or Istio runs to fall out of SLA.
-			slaMin: minDefault,
-			slaMax: 105 * time.Millisecond,
+// Map the above to our benchmark targets.
+var targets = map[string]struct {
+	target vegeta.Target
+	slaMin time.Duration
+	slaMax time.Duration
+}{
+	"deployment": {
+		target: vegeta.Target{
+			Method: http.MethodGet,
+			URL:    "http://deployment.default.svc.cluster.local?sleep=100",
 		},
-		"queue": {
-			target: vegeta.Target{
-				Method: http.MethodGet,
-				URL:    "http://queue-proxy.default.svc.cluster.local?sleep=100",
-			},
-			// hitting a Knative Service
-			// going through JUST the queue-proxy falls in the +10ms range.
-			slaMin: minDefault,
-			slaMax: 110 * time.Millisecond,
+		// vanilla deployment falls in the +5ms range. This does not have Knative or Istio components
+		// on the dataplane, and so it is intended as a canary to flag environmental
+		// problems that might be causing contemporaneous Knative or Istio runs to fall out of SLA.
+		slaMin: minDefault,
+		slaMax: 105 * time.Millisecond,
+	},
+	"queue": {
+		target: vegeta.Target{
+			Method: http.MethodGet,
+			URL:    "http://queue-proxy.default.svc.cluster.local?sleep=100",
 		},
-		"activator": {
-			target: vegeta.Target{
-				Method: http.MethodGet,
-				URL:    "http://activator.default.svc.cluster.local?sleep=100",
-			},
-			// hitting a Knative Service
-			// going through BOTH the activator and queue-proxy falls in the +10ms range.
-			slaMin: minDefault,
-			slaMax: 110 * time.Millisecond,
+		// hitting a Knative Service
+		// going through JUST the queue-proxy falls in the +10ms range.
+		slaMin: minDefault,
+		slaMax: 110 * time.Millisecond,
+	},
+	"activator": {
+		target: vegeta.Target{
+			Method: http.MethodGet,
+			URL:    "http://activator.default.svc.cluster.local?sleep=100",
 		},
-	}
-)
+		// hitting a Knative Service
+		// going through BOTH the activator and queue-proxy falls in the +10ms range.
+		slaMin: minDefault,
+		slaMax: 110 * time.Millisecond,
+	},
+}
 
 func main() {
 	ctx := signals.NewContext()

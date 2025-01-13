@@ -81,7 +81,8 @@ func TestRequestLogs(t *testing.T) {
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.MinScaleAnnotationKey: "1",
 			autoscaling.MaxScaleAnnotationKey: "1",
-		})}...)
+		}),
+	}...)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %q: %v", names.Service, err)
 	}
@@ -135,7 +136,6 @@ func theOnlyPod(clients *test.Clients, ns, rev string) (corev1.Pod, error) {
 	pods, err := clients.KubeClient.CoreV1().Pods(ns).List(context.Background(), metav1.ListOptions{
 		LabelSelector: labels.Set{"app": rev}.String(),
 	})
-
 	if err != nil {
 		return corev1.Pod{}, err
 	}

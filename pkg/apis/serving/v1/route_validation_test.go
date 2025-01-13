@@ -641,8 +641,10 @@ func TestRouteAnnotationUpdate(t *testing.T) {
 			},
 			Spec: getRouteSpec("old"),
 		},
-		wantErr: (&apis.FieldError{Message: "annotation value is immutable",
-			Paths: []string{serving.CreatorAnnotation}}).ViaField("metadata.annotations"),
+		wantErr: (&apis.FieldError{
+			Message: "annotation value is immutable",
+			Paths:   []string{serving.CreatorAnnotation},
+		}).ViaField("metadata.annotations"),
 	}, {
 		name: "update creator annotation with spec changes",
 		this: &Route{
@@ -665,8 +667,10 @@ func TestRouteAnnotationUpdate(t *testing.T) {
 			},
 			Spec: getRouteSpec("old"),
 		},
-		wantErr: (&apis.FieldError{Message: "annotation value is immutable",
-			Paths: []string{serving.CreatorAnnotation}}).ViaField("metadata.annotations"),
+		wantErr: (&apis.FieldError{
+			Message: "annotation value is immutable",
+			Paths:   []string{serving.CreatorAnnotation},
+		}).ViaField("metadata.annotations"),
 	}, {
 		name: "update lastModifier annotation without spec changes",
 		this: &Route{

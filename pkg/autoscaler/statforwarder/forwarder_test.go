@@ -132,8 +132,8 @@ func TestForwarderReconcile(t *testing.T) {
 			Name:     autoscalerPortName,
 			Port:     autoscalerPort,
 			Protocol: corev1.ProtocolTCP,
-		}}},
-	}
+		}},
+	}}
 
 	// Check the endpoints got updated.
 	el := endpoints.Lister().Endpoints(testNs)

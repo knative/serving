@@ -169,7 +169,8 @@ func TestExecHandler(t *testing.T) {
 		ProbeHandler: corev1.ProbeHandler{
 			Exec: &corev1.ExecAction{
 				Command: []string{"echo", "hello"},
-			}},
+			},
+		},
 	}})
 
 	if pb.ProbeContainer() {

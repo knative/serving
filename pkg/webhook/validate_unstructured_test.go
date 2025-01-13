@@ -34,15 +34,13 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
-var (
-	validMetadata = map[string]interface{}{
-		"name":      "valid",
-		"namespace": "foo",
-		"annotations": map[string]interface{}{
-			config.DryRunFeatureKey: "enabled",
-		},
-	}
-)
+var validMetadata = map[string]interface{}{
+	"name":      "valid",
+	"namespace": "foo",
+	"annotations": map[string]interface{}{
+		config.DryRunFeatureKey: "enabled",
+	},
+}
 
 func TestUnstructuredValidation(t *testing.T) {
 	tests := []struct {

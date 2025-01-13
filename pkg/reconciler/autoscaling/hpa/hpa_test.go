@@ -490,6 +490,7 @@ func withScales(d, a int32) PodAutoscalerOption {
 		pa.Status.DesiredScale, pa.Status.ActualScale = ptr.Int32(d), ptr.Int32(a)
 	}
 }
+
 func withHPAScaleStatus(d, a int32) hpaOption {
 	return func(hpa *autoscalingv2.HorizontalPodAutoscaler) {
 		hpa.Status.DesiredReplicas, hpa.Status.CurrentReplicas = d, a

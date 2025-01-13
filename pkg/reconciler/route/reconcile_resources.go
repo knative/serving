@@ -118,7 +118,6 @@ func (c *Reconciler) deleteOrphanedServices(ctx context.Context, r *v1.Route, ac
 
 	routeLabelSelector := labels.SelectorFromSet(labels.Set{serving.RouteLabelKey: r.Name})
 	allServices, err := c.serviceLister.Services(ns).List(routeLabelSelector)
-
 	if err != nil {
 		return fmt.Errorf("failed to fetch existing services: %w", err)
 	}
@@ -326,7 +325,8 @@ func deserializeRollout(ctx context.Context, ro string) *traffic.Rollout {
 
 func (c *Reconciler) reconcileRollout(
 	ctx context.Context, r *v1.Route, tc *traffic.Config,
-	ingress *netv1alpha1.Ingress) *traffic.Rollout {
+	ingress *netv1alpha1.Ingress,
+) *traffic.Rollout {
 	cfg := config.FromContext(ctx)
 
 	// Is there rollout duration specified?

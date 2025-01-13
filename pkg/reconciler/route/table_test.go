@@ -65,9 +65,7 @@ import (
 
 const testIngressClass = "ingress-class-foo"
 
-var (
-	fakeCurTime = time.Unix(1e9, 0)
-)
+var fakeCurTime = time.Unix(1e9, 0)
 
 type key int
 
@@ -3660,7 +3658,8 @@ func url(s string) *apis.URL {
 type rolloutOption func(*traffic.Rollout)
 
 func simpleRollout(cfg string, revs []traffic.RevisionRollout,
-	now time.Time, ros ...rolloutOption) IngressOption {
+	now time.Time, ros ...rolloutOption,
+) IngressOption {
 	return func(i *netv1alpha1.Ingress) {
 		r := &traffic.Rollout{
 			Configurations: []*traffic.ConfigurationRollout{{
