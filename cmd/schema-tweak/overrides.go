@@ -405,8 +405,8 @@ func revSpecOverrides(prefixPath string) []entry {
 
 func revisionSpecFields() []string {
 	var (
-		fields  []string
 		revType = reflect.TypeOf(v1.RevisionSpec{})
+		fields  = make([]string, 0, revType.NumField())
 	)
 
 	for i := range revType.NumField() {
