@@ -67,7 +67,7 @@ const (
 	// different user-agent.  So we augment the probes with this header.
 	//
 	// Deprecated: use knative.dev/networking/pkg/http/header.KubeletProbeKey
-	KubeletProbeHeaderName = header.KubeletProbeKey
+	KubeletProbeHeaderName = header.KubeletProbeKey //nolint:staticheck
 
 	// UserAgentKey is the constant for header "User-Agent".
 	//

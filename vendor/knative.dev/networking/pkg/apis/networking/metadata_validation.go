@@ -24,19 +24,17 @@ import (
 	"knative.dev/pkg/apis"
 )
 
-var (
-	allowedAnnotations = sets.New[string](
-		IngressClassAnnotationKey,
-		CertificateClassAnnotationKey,
-		DisableAutoTLSAnnotationKey,
-		DisableExternalDomainTLSAnnotationKey,
-		HTTPOptionAnnotationKey,
+var allowedAnnotations = sets.New[string](
+	IngressClassAnnotationKey,
+	CertificateClassAnnotationKey,
+	DisableAutoTLSAnnotationKey,
+	DisableExternalDomainTLSAnnotationKey,
+	HTTPOptionAnnotationKey,
 
-		IngressClassAnnotationAltKey,
-		CertificateClassAnnotationAltKey,
-		DisableAutoTLSAnnotationAltKey,
-		HTTPProtocolAnnotationKey,
-	)
+	IngressClassAnnotationAltKey,
+	CertificateClassAnnotationAltKey,
+	DisableAutoTLSAnnotationAltKey,
+	HTTPProtocolAnnotationKey,
 )
 
 // ValidateAnnotations validates that `annotations` in `metadata` stanza of the

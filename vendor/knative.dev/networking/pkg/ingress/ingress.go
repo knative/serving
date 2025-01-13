@@ -18,6 +18,7 @@ package ingress
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -46,7 +47,7 @@ func InsertProbe(ing *v1alpha1.Ingress) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to compute the hash of the Ingress: %w", err)
 	}
-	hash := fmt.Sprintf("%x", bytes)
+	hash := hex.EncodeToString(bytes[:])
 
 	for _, rule := range ing.Spec.Rules {
 		if rule.HTTP == nil {

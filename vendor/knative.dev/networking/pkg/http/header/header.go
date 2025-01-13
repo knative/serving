@@ -59,7 +59,7 @@ const (
 	// Prior to this deprecation, Istio with mTLS rewrote probes and their probes passed a
 	// different user-agent.  Therefore, this header was added to augment the probes.
 	//
-	// Deprecated: this custom request header is no longer necessary since Istio now propagates the
+	// This custom request header is no longer necessary since Istio now propagates the
 	// original request header `User-Agent` sent by the kubelet (e.g., User-Agent: kube-probe/1.29).
 	// For updated usage, please utilize knative.dev/networking/pkg/http/header.UserAgentKey and
 	// knative.dev/networking/pkg/http/header.KubeProbeUAPrefix
