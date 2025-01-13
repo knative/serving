@@ -187,7 +187,7 @@ func checkSLA(results *vegeta.Metrics, pacers []vegeta.Pacer, durations []time.D
 	var expectedSum float64
 	var expectedRequests uint64
 	for i := 0; i < len(pacers); i++ {
-		expectedSum = expectedSum + pacers[i].Rate(time.Second)*durations[i].Seconds()
+		expectedSum += pacers[i].Rate(time.Second) * durations[i].Seconds()
 	}
 	expectedRequests = uint64(expectedSum)
 	if results.Requests >= expectedRequests-(expectedRequests/1000) {

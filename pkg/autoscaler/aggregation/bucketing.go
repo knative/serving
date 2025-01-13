@@ -166,7 +166,7 @@ func (t *WeightedFloat64Buckets) WindowAverage(now time.Time) float64 {
 	if now.After(t.lastWrite) {
 		numZ := now.Sub(t.lastWrite) / t.granularity
 		// Skip to this multiplier directly: m*(1-m)^(nz-1).
-		multiplier = multiplier * math.Pow(1-t.smoothingCoeff, float64(numZ))
+		multiplier *= math.Pow(1-t.smoothingCoeff, float64(numZ))
 		// Reduce effective number of buckets.
 		numB -= int(numZ)
 	}

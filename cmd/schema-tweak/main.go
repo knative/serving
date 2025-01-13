@@ -213,8 +213,7 @@ func filterAllowedFields(node *yaml.Node, allowed sets.Set[string], features []f
 func dropRequiredFields(node *yaml.Node, fields sets.Set[string]) {
 	dataType := dataType(node)
 
-	switch dataType {
-	case "array":
+	if dataType == "array" {
 		node = items(node)
 	}
 

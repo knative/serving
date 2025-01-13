@@ -37,8 +37,8 @@ func handler(w http.ResponseWriter, _ *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer res.Body.Close()
 	resp, err := io.ReadAll(res.Body)
+	res.Body.Close()
 	if err != nil {
 		log.Fatal(err)
 	}

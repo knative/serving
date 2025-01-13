@@ -32,8 +32,12 @@ issues:
     text: "ifElseChain"
 
 linters-settings:
-  # goimports:
-  #   local-prefixes: knative.dev/pkg
+  gocritic:
+    disabled-checks:
+    # we typically have this pattern during setup
+    - exitAfterDefer
+    # a lot cases we have are legit
+    - appendAssign
   gomodguard:
     blocked:
       modules:

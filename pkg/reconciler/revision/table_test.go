@@ -806,11 +806,11 @@ func deployImagePullSecrets(deploy *appsv1.Deployment, secretName string) *appsv
 	return deploy
 }
 
-func imagePullSecrets(Revision *caching.Image, secretName string) *caching.Image {
-	Revision.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{
+func imagePullSecrets(img *caching.Image, secretName string) *caching.Image {
+	img.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{
 		Name: secretName,
 	}}
-	return Revision
+	return img
 }
 
 func changeContainers(deploy *appsv1.Deployment) *appsv1.Deployment {

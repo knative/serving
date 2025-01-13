@@ -104,9 +104,10 @@ func execProbeMain() {
 	if err != nil {
 		log.Fatal("Failed to probe: ", err)
 	}
-	defer resp.Body.Close()
+	resp.Body.Close()
 	if resp.StatusCode > 299 {
 		os.Exit(1)
+		return
 	}
 	os.Exit(0)
 }

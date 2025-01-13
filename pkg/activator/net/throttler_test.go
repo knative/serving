@@ -19,6 +19,7 @@ package net
 import (
 	"context"
 	"errors"
+	"slices"
 	"strconv"
 	"sync"
 	"testing"
@@ -1177,7 +1178,7 @@ func TestAssignSlice(t *testing.T) {
 		}
 	})
 	t.Run("idx=1 na=3", func(t *testing.T) {
-		cp := append(trackers[:0:0], trackers...)
+		cp := slices.Clone(trackers)
 		got := assignSlice(cp, 1, 3)
 		if !cmp.Equal(got, trackers[1:2], opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, trackers[0:1],
@@ -1203,7 +1204,7 @@ func TestAssignSlice(t *testing.T) {
 			dest: "3",
 			b:    queue.NewBreaker(testBreakerParams),
 		}}
-		cp := append(trackers[:0:0], trackers...)
+		cp := slices.Clone(trackers)
 		got := assignSlice(cp, 1, 2)
 		want := trackers[1:2]
 		if !cmp.Equal(got, want, opt) {

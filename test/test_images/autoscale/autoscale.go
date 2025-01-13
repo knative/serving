@@ -34,7 +34,7 @@ var mathrand = rand.New(rand.NewSource(time.Now().UnixNano()))
 // Algorithm from https://stackoverflow.com/a/21854246
 
 // Only primes less than or equal to N will be generated
-func primes(N int) []int {
+func primes(N int) []int { //nolint
 	var x, y, n int
 	nsqrt := math.Sqrt(float64(N))
 
