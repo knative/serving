@@ -228,7 +228,7 @@ type ControllerOptions struct {
 	WorkQueueName string
 	Logger        *zap.SugaredLogger
 	Reporter      StatsReporter
-	RateLimiter   workqueue.RateLimiter
+	RateLimiter   workqueue.TypedRateLimiter[any]
 	Concurrency   int
 }
 
@@ -236,7 +236,7 @@ type ControllerOptions struct {
 // provided Reconciler as it is enqueued.
 func NewContext(ctx context.Context, r Reconciler, options ControllerOptions) *Impl {
 	if options.RateLimiter == nil {
-		options.RateLimiter = workqueue.DefaultControllerRateLimiter()
+		options.RateLimiter = workqueue.DefaultTypedControllerRateLimiter[any]()
 	}
 	if options.Reporter == nil {
 		options.Reporter = MustNewStatsReporter(options.WorkQueueName, options.Logger)
@@ -263,7 +263,7 @@ func NewContext(ctx context.Context, r Reconciler, options ControllerOptions) *I
 }
 
 // WorkQueue permits direct access to the work queue.
-func (c *Impl) WorkQueue() workqueue.RateLimitingInterface {
+func (c *Impl) WorkQueue() workqueue.TypedRateLimitingInterface[any] {
 	return c.workQueue
 }
 

@@ -135,7 +135,7 @@ func ExternalTypesViaHub(t *testing.T, scheme, hubs *runtime.Scheme, fuzzerFuncs
 			continue
 		}
 
-		if reflect.PtrTo(objType).AssignableTo(metaV1ListType) {
+		if reflect.PointerTo(objType).AssignableTo(metaV1ListType) {
 			continue
 		}
 

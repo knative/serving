@@ -39,10 +39,8 @@ type ClusterDomainClaim struct {
 	Spec ClusterDomainClaimSpec `json:"spec,omitempty"`
 }
 
-var (
-	// Check that we can create OwnerReferences to a ClusterDomainClaim.
-	_ kmeta.OwnerRefable = (*ClusterDomainClaim)(nil)
-)
+// Check that we can create OwnerReferences to a ClusterDomainClaim.
+var _ kmeta.OwnerRefable = (*ClusterDomainClaim)(nil)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

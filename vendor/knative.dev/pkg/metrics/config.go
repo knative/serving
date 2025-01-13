@@ -232,7 +232,7 @@ func prometheusPort() (int, error) {
 		return defaultPrometheusPort, nil
 	}
 
-	pp, err := strconv.ParseUint(ppStr, 10, 16)
+	pp, err := strconv.ParseInt(ppStr, 10, 16)
 	if err != nil {
 		return -1, fmt.Errorf("the environment variable %q could not be parsed as a port number: %w",
 			prometheusPortEnvName, err)

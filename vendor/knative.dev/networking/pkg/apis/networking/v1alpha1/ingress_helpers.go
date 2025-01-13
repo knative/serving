@@ -27,13 +27,13 @@ import (
 func (i *Ingress) GetIngressTLSForVisibility(visibility IngressVisibility) []IngressTLS {
 	ingressTLS := make([]IngressTLS, 0, len(i.Spec.TLS))
 
-	if i.Spec.TLS == nil || len(i.Spec.TLS) == 0 {
+	if len(i.Spec.TLS) == 0 {
 		return ingressTLS
 	}
 
 	for _, rule := range i.Spec.Rules {
 		if rule.Visibility == visibility {
-			if rule.Hosts == nil || len(rule.Hosts) == 0 {
+			if len(rule.Hosts) == 0 {
 				return ingressTLS
 			}
 
