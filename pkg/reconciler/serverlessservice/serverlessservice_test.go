@@ -881,10 +881,10 @@ func endpointspriv(namespace, name string, eo ...EndpointsOption) *corev1.Endpoi
 func withNSubsets(numSS, numAddr int) EndpointsOption {
 	return func(ep *corev1.Endpoints) {
 		ep.Subsets = make([]corev1.EndpointSubset, numSS)
-		for i := 0; i < numSS; i++ {
+		for i := range numSS {
 			ep.Subsets[i].Ports = []corev1.EndpointPort{{Port: 8012}, {Port: 8013}}
 			ep.Subsets[i].Addresses = make([]corev1.EndpointAddress, numAddr)
-			for j := 0; j < numAddr; j++ {
+			for j := range numAddr {
 				ep.Subsets[i].Addresses[j].IP = fmt.Sprintf("10.1.%d.%d", i+1, j+1)
 			}
 		}

@@ -62,7 +62,7 @@ func TestReportStats(t *testing.T) {
 	received := make(chan struct{})
 	output := make([][]byte, len(inputs))
 	go func() {
-		for i := 0; i < len(inputs); i++ {
+		for i := range inputs {
 			output[i] = <-results
 		}
 		close(received)

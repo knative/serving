@@ -147,7 +147,7 @@ func loadBalancingTest(ctx *TestContext, host, domain string) {
 		return count
 	}
 
-	for i := 0; i < wantHosts; i++ {
+	for range wantHosts {
 		grp.Go(func() error {
 			for {
 				select {
@@ -197,7 +197,7 @@ func loadBalancingTest(ctx *TestContext, host, domain string) {
 func generateGRPCTraffic(ctx *TestContext, concurrentRequests int, host, domain string, stopChan chan struct{}) error {
 	var grp errgroup.Group
 
-	for i := 0; i < concurrentRequests; i++ {
+	for i := range concurrentRequests {
 		grp.Go(func() error {
 			for j := 0; ; j++ {
 				select {
@@ -288,7 +288,7 @@ func streamTest(tc *TestContext, host, domain string) {
 	}
 
 	const count = 3
-	for i := 0; i < count; i++ {
+	for i := range count {
 		tc.t.Logf("Sending stream %d of %d", i+1, count)
 
 		want := "This is a short message!"

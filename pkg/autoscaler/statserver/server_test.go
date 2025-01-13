@@ -214,12 +214,12 @@ func BenchmarkStatServer(b *testing.B) {
 	// the respective number of active revisions, sending via the activator.
 	for _, size := range []int{1, 2, 5, 10, 20, 50, 100} {
 		msgs := make([]metrics.StatMessage, 0, size)
-		for i := 0; i < size; i++ {
+		for range size {
 			msgs = append(msgs, msg1)
 		}
 
 		b.Run(fmt.Sprintf("proto-encoding-%d-msgs", len(msgs)), func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				if err := sendProto(statSink, msgs); err != nil {
 					b.Fatal("Expected send to succeed, but got:", err)
 				}

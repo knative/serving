@@ -242,7 +242,7 @@ func BenchmarkRequestLogHandlerNoTemplate(b *testing.B) {
 	resp := httptest.NewRecorder()
 
 	b.Run("sequential", func(b *testing.B) {
-		for j := 0; j < b.N; j++ {
+		for range b.N {
 			handler.ServeHTTP(resp, req)
 		}
 	})
@@ -267,7 +267,7 @@ func BenchmarkRequestLogHandlerDefaultTemplate(b *testing.B) {
 	resp := httptest.NewRecorder()
 
 	b.Run("sequential", func(b *testing.B) {
-		for j := 0; j < b.N; j++ {
+		for range b.N {
 			handler.ServeHTTP(resp, req)
 		}
 	})

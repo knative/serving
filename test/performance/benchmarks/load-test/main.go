@@ -186,7 +186,7 @@ func checkSLA(results *vegeta.Metrics, pacers []vegeta.Pacer, durations []time.D
 	// SLA 4: making sure the defined vegeta total requests is met
 	var expectedSum float64
 	var expectedRequests uint64
-	for i := 0; i < len(pacers); i++ {
+	for i := range pacers {
 		expectedSum += pacers[i].Rate(time.Second) * durations[i].Seconds()
 	}
 	expectedRequests = uint64(expectedSum)

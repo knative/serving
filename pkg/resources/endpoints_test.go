@@ -140,11 +140,11 @@ func endpoints(readyIPCount, notReadyIPCount int) *corev1.Endpoints {
 	addresses := make([]corev1.EndpointAddress, readyIPCount)
 	notReadyAddresses := make([]corev1.EndpointAddress, notReadyIPCount)
 
-	for i := 0; i < readyIPCount; i++ {
+	for i := range readyIPCount {
 		addresses[i] = corev1.EndpointAddress{IP: fmt.Sprint("127.0.0.", i*3+1)}
 	}
 
-	for i := 0; i < notReadyIPCount; i++ {
+	for i := range notReadyIPCount {
 		notReadyAddresses[i] = corev1.EndpointAddress{IP: fmt.Sprint("127.0.0.", i*3+2)}
 	}
 

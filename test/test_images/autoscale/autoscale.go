@@ -69,7 +69,7 @@ func primes(N int) []int { //nolint
 	isPrime[3] = true
 
 	primes := make([]int, 0, 1270606)
-	for x = 0; x < len(isPrime)-1; x++ {
+	for range len(isPrime) - 1 {
 		if isPrime[x] {
 			primes = append(primes, x)
 		}

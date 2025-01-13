@@ -108,7 +108,7 @@ func BenchmarkHealthHandler(b *testing.B) {
 		req.Header = test.headers
 		b.Run(test.label+"-sequential", func(b *testing.B) {
 			resp := httptest.NewRecorder()
-			for j := 0; j < b.N; j++ {
+			for range b.N {
 				handler.ServeHTTP(resp, req)
 			}
 		})

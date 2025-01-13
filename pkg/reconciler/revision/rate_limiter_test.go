@@ -67,14 +67,14 @@ func TestItemExponentialFailureRateLimiter(t *testing.T) {
 
 func TestItemExponentialFailureRateLimiterOverFlow(t *testing.T) {
 	limiter := newItemExponentialFailureRateLimiter(1*time.Millisecond, 1000*time.Second)
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		limiter.When("one")
 	}
 	if e, a := 16*time.Millisecond, limiter.When("one"); e != a {
 		t.Errorf("expected %v, got %v", e, a)
 	}
 
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		limiter.When("overflow1")
 	}
 	if e, a := 1000*time.Second, limiter.When("overflow1"); e != a {
@@ -82,14 +82,14 @@ func TestItemExponentialFailureRateLimiterOverFlow(t *testing.T) {
 	}
 
 	limiter = newItemExponentialFailureRateLimiter(1*time.Minute, 1000*time.Hour)
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		limiter.When("two")
 	}
 	if e, a := 2*time.Minute, limiter.When("two"); e != a {
 		t.Errorf("expected %v, got %v", e, a)
 	}
 
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		limiter.When("overflow2")
 	}
 	if e, a := 1000*time.Hour, limiter.When("overflow2"); e != a {

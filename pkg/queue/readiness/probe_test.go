@@ -292,7 +292,7 @@ func TestHTTPManyParallel(t *testing.T) {
 	}})
 
 	var grp errgroup.Group
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		grp.Go(func() error {
 			if !pb.ProbeContainer() {
 				return errors.New("failed to probe container")

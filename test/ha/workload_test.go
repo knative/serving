@@ -85,7 +85,7 @@ func TestWorkloadHA(t *testing.T) {
 			prober.Spawn(resources.Service.Status.URL.URL())
 			defer assertSLO(t, prober, 1)
 
-			for i := 0; i < repetitionCount; i++ {
+			for range repetitionCount {
 				deleteUserPods(t, ctx, clients, names.Service)
 			}
 

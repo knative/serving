@@ -280,7 +280,7 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 	idx.Store(-1)
 	var sawNonMeshError atomic.Bool
 	// Start |sampleSize| threads to scan in parallel.
-	for i := 0; i < sampleSize; i++ {
+	for range sampleSize {
 		grp.Go(func() error {
 			// If a given pod failed to scrape, we want to continue
 			// scanning pods down the line.
@@ -379,7 +379,7 @@ func (s *serviceScraper) scrapeService(window time.Duration) (Stat, error) {
 
 	grp, egCtx := errgroup.WithContext(context.Background())
 	youngPodCutOffSecs := window.Seconds()
-	for i := 0; i < sampleSize; i++ {
+	for range sampleSize {
 		grp.Go(func() error {
 			for tries := 1; ; tries++ {
 				stat, err := s.tryScrape(egCtx, scrapedPods)

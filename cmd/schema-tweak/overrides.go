@@ -409,7 +409,7 @@ func revisionSpecFields() []string {
 		revType = reflect.TypeOf(v1.RevisionSpec{})
 	)
 
-	for i := 0; i < revType.NumField(); i++ {
+	for i := range revType.NumField() {
 		if revType.Field(i).Name == "PodSpec" {
 			continue
 		}

@@ -158,7 +158,7 @@ func TestResolveInBackground(t *testing.T) {
 				<-done
 			}()
 
-			for i := 0; i < 2; i++ {
+			for i := range 2 {
 				t.Run(fmt.Sprint("iteration", i), func(t *testing.T) {
 					logger := logtesting.TestLogger(t)
 					initContainerStatuses, statuses, err := subject.Resolve(logger, fakeRevision, k8schain.Options{ServiceAccountName: "san"}, sets.New("skip"), timeout)
@@ -226,7 +226,7 @@ func TestRateLimitPerItem(t *testing.T) {
 	}()
 
 	revision := rev("rev", "img1", "img2")
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		subject.Clear(types.NamespacedName{Name: revision.Name, Namespace: revision.Namespace})
 		start := time.Now()
 		initResolution, resolution, err := subject.Resolve(logger, revision, k8schain.Options{ServiceAccountName: "san"}, sets.New("skip"), 0)

@@ -197,7 +197,7 @@ func BenchmarkUnmarshallingProtoData(b *testing.B) {
 			b.Fatal(err)
 		}
 		b.Run(bm.name, func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_, err = statFromProto(bytes.NewReader(bodyBytes))
 				if err != nil {
 					b.Fatal(err)

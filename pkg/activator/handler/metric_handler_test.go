@@ -134,7 +134,7 @@ func BenchmarkMetricHandler(b *testing.B) {
 	resp := httptest.NewRecorder()
 	b.Run("sequential", func(b *testing.B) {
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil).WithContext(reqCtx)
-		for j := 0; j < b.N; j++ {
+		for range b.N {
 			handler.ServeHTTP(resp, req)
 		}
 	})

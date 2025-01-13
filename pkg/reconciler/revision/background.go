@@ -100,7 +100,7 @@ func (r *backgroundResolver) Start(stop <-chan struct{}, maxInFlight int) (done 
 
 	// Run the worker threads.
 	wg.Add(maxInFlight)
-	for i := 0; i < maxInFlight; i++ {
+	for range maxInFlight {
 		go func() {
 			defer wg.Done()
 			for {

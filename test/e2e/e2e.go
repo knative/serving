@@ -128,13 +128,13 @@ func waitForActivatorEndpoints(ctx *TestContext) error {
 		wantAct = int(sks.Spec.NumActivators)
 		aset = make(sets.Set[string], wantAct)
 		for _, ss := range actEps.Subsets {
-			for i := 0; i < len(ss.Addresses); i++ {
+			for i := range len(ss.Addresses) {
 				aset.Insert(ss.Addresses[i].IP)
 			}
 		}
 		svcSet = make(sets.Set[string], wantAct)
 		for _, ss := range svcEps.Subsets {
-			for i := 0; i < len(ss.Addresses); i++ {
+			for i := range len(ss.Addresses) {
 				svcSet.Insert(ss.Addresses[i].IP)
 			}
 		}

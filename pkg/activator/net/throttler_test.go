@@ -276,7 +276,7 @@ func TestThrottlerCalculateCapacity(t *testing.T) {
 
 func makeTrackers(num, cc int) []*podTracker {
 	x := make([]*podTracker, num)
-	for i := 0; i < num; i++ {
+	for i := range num {
 		x[i] = newPodTracker(strconv.Itoa(i), nil)
 		if cc > 0 {
 			x[i].b = queue.NewBreaker(queue.BreakerParams{
@@ -584,7 +584,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			})
 
 			gotDests := sets.New[string]()
-			for i := 0; i < tc.requests; i++ {
+			for range tc.requests {
 				result := <-resultChan
 				gotDests.Insert(result.dest)
 			}
@@ -911,7 +911,7 @@ func (t *Throttler) try(ctx context.Context, requests int, try func(string) erro
 	resultChan := make(chan tryResult)
 
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
-	for i := 0; i < requests; i++ {
+	for range requests {
 		go func() {
 			var result tryResult
 			if err := t.Try(ctx, revID, func(dest string) error {
@@ -954,7 +954,7 @@ func TestInfiniteBreaker(t *testing.T) {
 
 	// Verify we call the thunk when we have achieved capacity.
 	// Twice.
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 		res := false

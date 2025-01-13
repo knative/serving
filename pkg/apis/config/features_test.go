@@ -697,7 +697,7 @@ func defaultWith(p *Features) *Features {
 	f := defaultFeaturesConfig()
 	pType := reflect.ValueOf(p).Elem()
 	fType := reflect.ValueOf(f).Elem()
-	for i := 0; i < pType.NumField(); i++ {
+	for i := range pType.NumField() {
 		if pType.Field(i).Interface().(Flag) != "" {
 			fType.Field(i).Set(pType.Field(i))
 		}

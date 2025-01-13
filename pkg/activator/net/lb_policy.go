@@ -102,7 +102,7 @@ func newRoundRobinPolicy() lbPolicy {
 
 		// Now for |targets| elements and check every next one in
 		// round robin fashion.
-		for i := 0; i < l; i++ {
+		for i := range l {
 			p := (idx + i) % l
 			if cb, ok := targets[p].Reserve(ctx); ok {
 				// We want to start with the next index.

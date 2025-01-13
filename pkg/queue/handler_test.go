@@ -52,7 +52,7 @@ func TestHandlerBreakerQueueFull(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "http://localhost:8081/time", nil)
 	resps := make(chan *httptest.ResponseRecorder)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		go func() {
 			rec := httptest.NewRecorder()
 			h(rec, req)
@@ -73,7 +73,7 @@ func TestHandlerBreakerQueueFull(t *testing.T) {
 
 	// Allow the remaining requests to pass.
 	close(resp)
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		res := <-resps
 		if got, want := res.Code, http.StatusOK; got != want {
 			t.Errorf("Code = %d, want: %d", got, want)
@@ -265,7 +265,7 @@ func BenchmarkProxyHandler(b *testing.B) {
 		h := ProxyHandler(tc.breaker, stats, true /*tracingEnabled*/, baseHandler)
 		b.Run("sequential-"+tc.label, func(b *testing.B) {
 			resp := httptest.NewRecorder()
-			for j := 0; j < b.N; j++ {
+			for range b.N {
 				h(resp, req)
 			}
 		})

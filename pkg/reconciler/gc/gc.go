@@ -75,7 +75,7 @@ func collect(
 	// If we need `min` to remain, this is the max count of rev can delete.
 	maxIdx := len(revs) - min
 	staleCount := 0
-	for i := 0; i < count; i++ {
+	for i := range count {
 		rev := revs[i]
 		if !isRevisionStale(cfg, rev, logger) {
 			continue

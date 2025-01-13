@@ -253,7 +253,7 @@ func TestSemaphoreAcquireHasCapacity(t *testing.T) {
 	tryAcquire(sem, gotChan)
 	sem.updateCapacity(1) // Allows 1 acquire
 
-	for i := 0; i < want; i++ {
+	for range want {
 		select {
 		case <-gotChan:
 			// Successfully acquired a token.
@@ -380,7 +380,7 @@ func BenchmarkBreakerMaybe(b *testing.B) {
 		breaker := NewBreaker(BreakerParams{QueueDepth: 10000000, MaxConcurrency: c, InitialCapacity: c})
 
 		b.Run(fmt.Sprintf("%d-sequential", c), func(b *testing.B) {
-			for j := 0; j < b.N; j++ {
+			for range b.N {
 				breaker.Maybe(context.Background(), op)
 			}
 		})
@@ -400,7 +400,7 @@ func BenchmarkBreakerReserve(b *testing.B) {
 	breaker := NewBreaker(BreakerParams{QueueDepth: 1, MaxConcurrency: 10000000, InitialCapacity: 10000000})
 
 	b.Run("sequential", func(b *testing.B) {
-		for j := 0; j < b.N; j++ {
+		for range b.N {
 			free, got := breaker.Reserve(context.Background())
 			op()
 			if got {

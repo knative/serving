@@ -232,7 +232,7 @@ func BenchmarkPodRevisionContext(b *testing.B) {
 	for _, revisions := range []int{1, 1024, 4095, 0xFFFF, 409600} {
 		b.Run(fmt.Sprintf("sequential-%d-revisions", revisions), func(b *testing.B) {
 			contextCache.Purge()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				rev := "name" + strconv.Itoa(rand.Intn(revisions))
 				PodRevisionContext("pod", "container", "ns", "svc", "cfg", rev)
 			}

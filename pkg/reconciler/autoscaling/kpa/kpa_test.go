@@ -1784,7 +1784,7 @@ func newTestRevision(namespace, name string) *v1.Revision {
 
 func makeReadyPods(num int, ns, n string) []runtime.Object {
 	r := make([]runtime.Object, num)
-	for i := 0; i < num; i++ {
+	for i := range num {
 		p := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      n + strconv.Itoa(i),

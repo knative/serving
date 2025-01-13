@@ -413,7 +413,7 @@ func BenchmarkTimeoutHandler(b *testing.B) {
 
 	b.Run("sequential", func(b *testing.B) {
 		resp := httptest.NewRecorder()
-		for j := 0; j < b.N; j++ {
+		for range b.N {
 			handler.ServeHTTP(resp, req)
 		}
 	})

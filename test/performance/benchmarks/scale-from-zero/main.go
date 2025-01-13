@@ -177,7 +177,7 @@ func createServices(clients *test.Clients, count int) ([]*v1test.ResourceObjects
 	testNames := make([]*test.ResourceNames, count)
 
 	// Initialize our service names.
-	for i := 0; i < count; i++ {
+	for i := range count {
 		testNames[i] = &test.ResourceNames{
 			Service: test.AppendRandomString(fmt.Sprintf("%s-%02d", serviceName, i)),
 			// The crd.go helpers will convert to the actual image path.
@@ -186,7 +186,7 @@ func createServices(clients *test.Clients, count int) ([]*v1test.ResourceObjects
 	}
 
 	cleanupNames := func() {
-		for i := 0; i < count; i++ {
+		for i := range count {
 			test.TearDown(clients, testNames[i])
 		}
 	}
@@ -211,7 +211,7 @@ func createServices(clients *test.Clients, count int) ([]*v1test.ResourceObjects
 		ktest.WithServiceLabel(netapi.VisibilityLabelKey, serving.VisibilityClusterLocal),
 	}
 	g := errgroup.Group{}
-	for i := 0; i < count; i++ {
+	for i := range count {
 		ndx := i
 		g.Go(func() error {
 			var err error
@@ -230,7 +230,7 @@ func createServices(clients *test.Clients, count int) ([]*v1test.ResourceObjects
 
 func waitForScaleToZero(ctx context.Context, objs []*v1test.ResourceObjects) error {
 	g := errgroup.Group{}
-	for i := 0; i < len(objs); i++ {
+	for i := range objs {
 		idx := i
 		ro := objs[i]
 		g.Go(func() error {
@@ -254,7 +254,7 @@ func parallelScaleFromZero(ctx context.Context, clients *test.Clients, objs []*v
 	count := len(objs)
 	var wg sync.WaitGroup
 	wg.Add(count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		ndx := i
 		go func() {
 			defer wg.Done()

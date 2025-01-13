@@ -276,7 +276,7 @@ func (s *semaphore) updateCapacity(size int) {
 
 		if s.state.CompareAndSwap(old, pack(s64, in)) {
 			if s64 > capacity {
-				for i := uint64(0); i < s64-capacity; i++ {
+				for range s64 - capacity {
 					select {
 					case s.queue <- struct{}{}:
 					default:

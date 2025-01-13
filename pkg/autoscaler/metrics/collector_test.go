@@ -176,12 +176,12 @@ func TestMetricCollectorScraperMovingTime(t *testing.T) {
 	coll.CreateOrUpdate(&defaultMetric)
 
 	// Tick three times.  Time doesn't matter since we use the time on the Stat.
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		mtp.Channel <- now
 	}
 	now = now.Add(time.Second)
 	fc.SetTime(now)
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		mtp.Channel <- now
 	}
 	var gotRPS, gotConcurrency, panicRPS, panicConcurrency float64
@@ -252,7 +252,7 @@ func TestMetricCollectorScraper(t *testing.T) {
 	coll.CreateOrUpdate(&defaultMetric)
 
 	// Tick three times.  Time doesn't matter since we use the time on the Stat.
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		mtp.Channel <- now
 	}
 	var gotRPS, gotConcurrency, panicRPS, panicConcurrency float64
@@ -341,7 +341,7 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	noTargetMetric.Spec.ScrapeTarget = ""
 	coll.CreateOrUpdate(&noTargetMetric)
 	// Tick three times.  Time doesn't matter since we use the time on the Stat.
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		mtp.Channel <- now
 		now = now.Add(time.Second)
 		fc.SetTime(now)

@@ -79,7 +79,7 @@ func testStatsWithTime(n int, youngestSecs float64) []Stat {
 		RequestCount:                     2,
 		ProxiedRequestCount:              4,
 	}
-	for i := 0; i < n; i++ {
+	for i := range n {
 		s := tmpl
 		s.PodName = "pod-" + strconv.Itoa(i)
 		s.AverageConcurrentRequests = float64((i + 1) * 2)
@@ -693,7 +693,7 @@ func TestOldPodsFallback(t *testing.T) {
 	client := newTestScrapeClient(testStats, func() []error {
 		r := make([]error, numPods)
 		// This will fail all the old pods.
-		for i := 0; i < oldPods; i++ {
+		for i := range oldPods {
 			r[i] = errors.New("bad-hair-day")
 		}
 		// But succeed all the youngs.
@@ -850,7 +850,7 @@ func TestURLFromTarget(t *testing.T) {
 }
 
 func makePods(ctx context.Context, prefix string, n int, startTime metav1.Time) {
-	for i := 0; i < n; i++ {
+	for i := range n {
 		p := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      prefix + strconv.Itoa(i),
