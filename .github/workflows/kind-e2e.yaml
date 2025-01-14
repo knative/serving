@@ -170,7 +170,7 @@ jobs:
         path: ~/artifacts
 
     - name: setup kind
-      uses: chainguard-dev/actions/setup-kind@main
+      uses: chainguard-dev/actions/setup-kind@1f79ee3c1d554f67a5344933e2cadfa4b58d300d
       with:
         k8s-version: ${{ matrix.k8s-version }}
         kind-worker-count: 4
