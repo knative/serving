@@ -18,9 +18,11 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"go.uber.org/zap"
 	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +34,8 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	cconfig "knative.dev/serving/pkg/reconciler/configuration/config"
 )
+
+const defaultTimeoutSeconds = 400
 
 func TestConfigurationDefaulting(t *testing.T) {
 	tests := []struct {
@@ -187,29 +191,22 @@ func TestConfigurationDefaulting(t *testing.T) {
 								ReadinessProbe: defaultProbe,
 							}},
 						},
-						TimeoutSeconds:       ptr.Int64(423),
+						TimeoutSeconds:       ptr.Int64(defaultTimeoutSeconds),
 						ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 					},
 				},
 			},
 		},
-		ctx: func() context.Context {
-			logger := logtesting.TestLogger(t)
-			s := cconfig.NewStore(logger)
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
-			s.OnConfigChanged(&corev1.ConfigMap{
+		ctx: defaultConfigurationContextWithStore(logtesting.TestLogger(t), corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}},
+			corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
 				},
 				Data: map[string]string{
-					"revision-timeout-seconds":                "423",
-					"revision-response-start-timeout-seconds": "423",
-					"revision-idle-timeout-seconds":           "423",
-				},
-			})
-
-			return s.ToContext(context.Background())
-		}(),
+					"revision-timeout-seconds":                fmt.Sprintf("%d", defaultTimeoutSeconds),
+					"revision-response-start-timeout-seconds": fmt.Sprintf("%d", defaultTimeoutSeconds),
+					"revision-idle-timeout-seconds":           fmt.Sprintf("%d", defaultTimeoutSeconds),
+				}})(context.Background()),
 	}}
 
 	for _, test := range tests {
@@ -380,5 +377,15 @@ func TestConfigurationUserInfo(t *testing.T) {
 				t.Errorf("Annotations = %v, want: %v, diff (-got, +want): %s", got, want, cmp.Diff(got, want))
 			}
 		})
+	}
+}
+
+func defaultConfigurationContextWithStore(logger *zap.SugaredLogger, cms ...corev1.ConfigMap) func(ctx context.Context) context.Context {
+	return func(ctx context.Context) context.Context {
+		s := cconfig.NewStore(logger)
+		for _, cm := range cms {
+			s.OnConfigChanged(&cm)
+		}
+		return s.ToContext(ctx)
 	}
 }
