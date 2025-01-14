@@ -26,10 +26,12 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	pkgtest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
@@ -115,7 +117,7 @@ func TestProbeRuntime(t *testing.T) {
 					Image:   test.Readiness,
 				}
 
-				test.EnsureTearDown(t, clients, &names)
+				// test.EnsureTearDown(t, clients, &names)
 
 				t.Log("Creating a new Service")
 				resources, err := v1test.CreateServiceReady(t, clients, &names,
@@ -143,6 +145,14 @@ func TestProbeRuntime(t *testing.T) {
 					test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
 					spoof.WithHeader(test.ServingFlags.RequestHeader()),
 				); err != nil {
+					pods, err := clients.KubeClient.CoreV1().Pods(resources.Service.Namespace).List(context.Background(), metav1.ListOptions{})
+					if err != nil {
+						for _, p := range pods.Items {
+							if strings.HasPrefix(p.Name, resources.Service.Name) {
+								t.Logf("Pod %s is %s", p.Name, p.Status.Phase)
+							}
+						}
+					}
 					t.Fatalf("The endpoint for Route %s at %s didn't return success: %v", names.Route, url, err)
 				}
 			})
