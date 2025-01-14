@@ -34,6 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	pkgtest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/logstream"
 	"knative.dev/pkg/test/spoof"
 	v1opts "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
@@ -112,6 +113,11 @@ func TestProbeRuntime(t *testing.T) {
 
 			t.Run(name, func(t *testing.T) {
 				t.Parallel()
+				// hack for this test only
+				if test.ServingFlags.DisableLogStream {
+					cancel := logstream.Start(t)
+					defer cancel()
+				}
 				names := test.ResourceNames{
 					Service: test.ObjectNameForTest(t),
 					Image:   test.Readiness,
@@ -153,7 +159,20 @@ func TestProbeRuntime(t *testing.T) {
 							}
 						}
 					}
-					t.Fatalf("The endpoint for Route %s at %s didn't return success: %v", names.Route, url, err)
+					if _, err = pkgtest.CheckEndpointState(
+						context.Background(),
+						clients.KubeClient,
+						t.Logf,
+						url,
+						spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.HelloWorldText)),
+						"readinessIsReady",
+						test.ServingFlags.ResolvableDomain,
+						test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+						spoof.WithHeader(test.ServingFlags.RequestHeader()),
+					); err != nil {
+						t.Fatalf("The endpoint for Route %s at %s didn't return success: %v", names.Route, url, err)
+					}
+
 				}
 			})
 		}
