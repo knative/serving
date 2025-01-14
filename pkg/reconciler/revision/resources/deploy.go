@@ -37,7 +37,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/kubectl/pkg/cmd/util/podcmd"
 
 	apiconfig "knative.dev/serving/pkg/apis/config"
 	deploymentconfig "knative.dev/serving/pkg/deployment"
@@ -319,22 +318,6 @@ func getUserPort(rev *v1.Revision) int32 {
 	return v1.DefaultUserPort
 }
 
-func getUserContainerName(rev *v1.Revision) string {
-	if len(rev.Spec.PodSpec.Containers) == 1 {
-		return rev.Spec.PodSpec.Containers[0].Name
-	}
-
-	// Use the same logic BuildUserContainers uses
-	for _, container := range rev.Spec.PodSpec.Containers {
-		if len(container.Ports) > 0 {
-			return container.Name
-		}
-	}
-
-	// Default to an empty string to signal that the annotation shouldn't be set
-	return ""
-}
-
 func buildContainerPorts(userPort int32) []corev1.ContainerPort {
 	return []corev1.ContainerPort{{
 		Name:          v1.UserPortName,
@@ -392,11 +375,6 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 
 	labels := makeLabels(rev)
 	anns := makeAnnotations(rev)
-
-	// Add default container annotation to the pod spec.
-	if userContainerName := getUserContainerName(rev); userContainerName != "" {
-		anns[podcmd.DefaultContainerAnnotationName] = userContainerName
-	}
 
 	// Slowly but steadily roll the deployment out, to have the least possible impact.
 	maxUnavailable := intstr.FromInt(0)

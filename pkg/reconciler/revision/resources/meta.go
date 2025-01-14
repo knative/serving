@@ -19,6 +19,7 @@ package resources
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/kubectl/pkg/cmd/util/podcmd"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -56,7 +57,30 @@ func makeLabels(revision *v1.Revision) map[string]string {
 }
 
 func makeAnnotations(revision *v1.Revision) map[string]string {
-	return kmeta.FilterMap(revision.GetAnnotations(), excludeAnnotations.Has)
+	annotations := kmeta.FilterMap(revision.GetAnnotations(), excludeAnnotations.Has)
+
+	// Add default container annotation to the pod spec.
+	if userContainerName := getUserContainerName(revision); userContainerName != "" {
+		annotations[podcmd.DefaultContainerAnnotationName] = userContainerName
+	}
+
+	return annotations
+}
+
+func getUserContainerName(revision *v1.Revision) string {
+	if len(revision.Spec.PodSpec.Containers) == 1 {
+		return revision.Spec.PodSpec.Containers[0].Name
+	}
+
+	// Use the same logic BuildUserContainers uses
+	for _, container := range revision.Spec.PodSpec.Containers {
+		if len(container.Ports) > 0 {
+			return container.Name
+		}
+	}
+
+	// Default to an empty string to signal that the annotation shouldn't be set
+	return ""
 }
 
 // makeSelector constructs the Selector we will apply to K8s resources.
