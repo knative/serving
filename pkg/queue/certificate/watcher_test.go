@@ -136,11 +136,11 @@ func createAndSaveCertificate(san, dir string) error {
 		Bytes: x509.MarshalPKCS1PrivateKey(pk),
 	})
 
-	if err := os.WriteFile(dir+"/"+certificates.CertName, caPEM.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(dir+"/"+certificates.CertName, caPEM.Bytes(), 0o644); err != nil {
 		return err
 	}
 
-	return os.WriteFile(dir+"/"+certificates.PrivateKeyName, caPrivKeyPEM.Bytes(), 0644)
+	return os.WriteFile(dir+"/"+certificates.PrivateKeyName, caPrivKeyPEM.Bytes(), 0o644)
 }
 
 func getSAN(c *tls.Certificate) (string, error) {

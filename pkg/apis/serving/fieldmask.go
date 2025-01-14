@@ -389,7 +389,6 @@ func HandlerMask(in *corev1.ProbeHandler) *corev1.ProbeHandler {
 	out.GRPC = in.GRPC
 
 	return out
-
 }
 
 // ExecActionMask performs a _shallow_ copy of the Kubernetes ExecAction object to a new
@@ -473,7 +472,7 @@ func ContainerPortMask(in *corev1.ContainerPort) *corev1.ContainerPort {
 	out.Name = in.Name
 	out.Protocol = in.Protocol
 
-	//Disallowed fields
+	// Disallowed fields
 	// This list is unnecessary, but added here for clarity
 	out.HostIP = ""
 	out.HostPort = 0
@@ -552,7 +551,6 @@ func ConfigMapKeySelectorMask(in *corev1.ConfigMapKeySelector) *corev1.ConfigMap
 	out.LocalObjectReference = in.LocalObjectReference
 
 	return out
-
 }
 
 // SecretKeySelectorMask performs a _shallow_ copy of the Kubernetes SecretKeySelector object to a new
@@ -571,7 +569,6 @@ func SecretKeySelectorMask(in *corev1.SecretKeySelector) *corev1.SecretKeySelect
 	out.LocalObjectReference = in.LocalObjectReference
 
 	return out
-
 }
 
 // ConfigMapEnvSourceMask performs a _shallow_ copy of the Kubernetes ConfigMapEnvSource object to a new
@@ -589,7 +586,6 @@ func ConfigMapEnvSourceMask(in *corev1.ConfigMapEnvSource) *corev1.ConfigMapEnvS
 	out.LocalObjectReference = in.LocalObjectReference
 
 	return out
-
 }
 
 // SecretEnvSourceMask performs a _shallow_ copy of the Kubernetes SecretEnvSource object to a new
@@ -607,7 +603,6 @@ func SecretEnvSourceMask(in *corev1.SecretEnvSource) *corev1.SecretEnvSource {
 	out.LocalObjectReference = in.LocalObjectReference
 
 	return out
-
 }
 
 // EnvFromSourceMask performs a _shallow_ copy of the Kubernetes EnvFromSource object to a new
@@ -643,7 +638,6 @@ func ResourceRequirementsMask(in *corev1.ResourceRequirements) *corev1.ResourceR
 	out.Requests = in.Requests
 
 	return out
-
 }
 
 // PodSecurityContextMask performs a _shallow_ copy of the Kubernetes PodSecurityContext object into a new

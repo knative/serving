@@ -731,8 +731,10 @@ func TestServiceAnnotationUpdate(t *testing.T) {
 			},
 			Spec: getServiceSpec("helloworld:foo"),
 		},
-		want: (&apis.FieldError{Message: "annotation value is immutable",
-			Paths: []string{serving.CreatorAnnotation}}).ViaField("metadata.annotations"),
+		want: (&apis.FieldError{
+			Message: "annotation value is immutable",
+			Paths:   []string{serving.CreatorAnnotation},
+		}).ViaField("metadata.annotations"),
 	}, {
 		name: "update lastModifier without spec changes",
 		this: &Service{

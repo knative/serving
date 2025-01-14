@@ -86,7 +86,7 @@ func BenchmarkStoreToContext(b *testing.B) {
 	store.OnConfigChanged(tracingConfig)
 
 	b.Run("sequential", func(b *testing.B) {
-		for j := 0; j < b.N; j++ {
+		for range b.N {
 			store.ToContext(context.Background())
 		}
 	})

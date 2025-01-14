@@ -40,7 +40,8 @@ func collect(
 	ctx context.Context,
 	client clientset.Interface,
 	revisionLister listers.RevisionLister,
-	config *v1.Configuration) pkgreconciler.Event {
+	config *v1.Configuration,
+) pkgreconciler.Event {
 	cfg := configns.FromContext(ctx).RevisionGC
 	logger := logging.FromContext(ctx)
 
@@ -75,7 +76,7 @@ func collect(
 	// If we need `min` to remain, this is the max count of rev can delete.
 	maxIdx := len(revs) - min
 	staleCount := 0
-	for i := 0; i < count; i++ {
+	for i := range count {
 		rev := revs[i]
 		if !isRevisionStale(cfg, rev, logger) {
 			continue
@@ -89,7 +90,6 @@ func collect(
 		if staleCount >= maxIdx {
 			return nil // Reaches max revs to delete
 		}
-
 	}
 
 	nonStaleCount := count - staleCount

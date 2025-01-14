@@ -21,8 +21,8 @@ import (
 	"net/http"
 	"sort"
 	"sync"
+	"sync/atomic"
 
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -171,7 +171,8 @@ type revisionThrottler struct {
 func newRevisionThrottler(revID types.NamespacedName,
 	containerConcurrency int, proto string,
 	breakerParams queue.BreakerParams,
-	logger *zap.SugaredLogger) *revisionThrottler {
+	logger *zap.SugaredLogger,
+) *revisionThrottler {
 	logger = logger.With(zap.String(logkey.Key, revID.String()))
 	var (
 		revBreaker breaker
@@ -190,15 +191,18 @@ func newRevisionThrottler(revID types.NamespacedName,
 		revBreaker = queue.NewBreaker(breakerParams)
 		lbp = newRoundRobinPolicy()
 	}
-	return &revisionThrottler{
+	t := &revisionThrottler{
 		revID:                revID,
 		containerConcurrency: containerConcurrency,
 		breaker:              revBreaker,
 		logger:               logger,
 		protocol:             proto,
-		activatorIndex:       *atomic.NewInt32(-1), // Start with unknown.
 		lbPolicy:             lbp,
 	}
+
+	// Start with unknown
+	t.activatorIndex.Store(-1)
+	return t
 }
 
 func noop() {}
@@ -243,7 +247,7 @@ func (rt *revisionThrottler) try(ctx context.Context, function func(string) erro
 }
 
 func (rt *revisionThrottler) calculateCapacity(backendCount, numTrackers, activatorCount int) int {
-	targetCapacity := 0
+	var targetCapacity int
 	if numTrackers > 0 {
 		// Capacity is computed based off of number of trackers,
 		// when using pod direct routing.
@@ -309,7 +313,7 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 		assigned := rt.podTrackers
 		if rt.containerConcurrency > 0 {
 			rt.resetTrackers()
-			assigned = assignSlice(rt.podTrackers, ai, ac, rt.containerConcurrency)
+			assigned = assignSlice(rt.podTrackers, ai, ac)
 		}
 		rt.logger.Debugf("Trackers %d/%d: assignment: %v", ai, ac, assigned)
 		// The actual write out of the assigned trackers has to be under lock.
@@ -375,7 +379,7 @@ func pickIndices(numTrackers, selfIndex, numActivators int) (beginIndex, endInde
 // for this Activator instance. This only matters in case of direct
 // to pod IP routing, and is irrelevant, when ClusterIP is used.
 // assignSlice should receive podTrackers sorted by address.
-func assignSlice(trackers []*podTracker, selfIndex, numActivators, cc int) []*podTracker {
+func assignSlice(trackers []*podTracker, selfIndex, numActivators int) []*podTracker {
 	// When we're unassigned, doesn't matter what we return.
 	lt := len(trackers)
 	if selfIndex == -1 || lt <= 1 {
@@ -628,6 +632,7 @@ func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP st
 
 	// We are using List to have the IP addresses sorted for consistent results.
 	epsL := sets.List(epSet)
+	//nolint:gosec // number of k8s replicas is bounded by int32
 	newNA, newAI := int32(len(epsL)), int32(inferIndex(epsL, selfIP))
 	if newAI == -1 {
 		// No need to do anything, this activator is not in path.

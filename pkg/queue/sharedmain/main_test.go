@@ -172,7 +172,7 @@ func TestQueueTraceSpans(t *testing.T) {
 				spanNames = append([]string{"queue_wait"}, spanNames...)
 			}
 			gs := []string{}
-			for i := 0; i < len(gotSpans); i++ {
+			for i := range gotSpans {
 				gs = append(gs, gotSpans[i].Name)
 			}
 			t.Log(spanNames)

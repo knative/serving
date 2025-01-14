@@ -70,7 +70,7 @@ func TestRequestMetricHandler(t *testing.T) {
 
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", bytes.NewBufferString(""))
-			if test.newHeader != nil && len(test.newHeader) != 0 {
+			if len(test.newHeader) != 0 {
 				for k, v := range test.newHeader {
 					req.Header.Add(k, v)
 				}
@@ -134,7 +134,7 @@ func BenchmarkMetricHandler(b *testing.B) {
 	resp := httptest.NewRecorder()
 	b.Run("sequential", func(b *testing.B) {
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil).WithContext(reqCtx)
-		for j := 0; j < b.N; j++ {
+		for range b.N {
 			handler.ServeHTTP(resp, req)
 		}
 	})

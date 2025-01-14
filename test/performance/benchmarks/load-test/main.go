@@ -41,9 +41,7 @@ const (
 	benchmarkName = "Knative Serving load test"
 )
 
-var (
-	flavor = flag.String("flavor", "", "The flavor of the benchmark to run.")
-)
+var flavor = flag.String("flavor", "", "The flavor of the benchmark to run.")
 
 func main() {
 	ctx := signals.NewContext()
@@ -107,7 +105,7 @@ func main() {
 	if err := checkSLA(metricResults, pacers, durations); err != nil {
 		// make sure to still write the stats
 		influxReporter.FlushAndShutdown()
-		log.Fatalf(err.Error())
+		log.Fatal(err)
 	}
 
 	log.Println("Load test finished")
@@ -186,8 +184,8 @@ func checkSLA(results *vegeta.Metrics, pacers []vegeta.Pacer, durations []time.D
 	// SLA 4: making sure the defined vegeta total requests is met
 	var expectedSum float64
 	var expectedRequests uint64
-	for i := 0; i < len(pacers); i++ {
-		expectedSum = expectedSum + pacers[i].Rate(time.Second)*durations[i].Seconds()
+	for i := range pacers {
+		expectedSum += pacers[i].Rate(time.Second) * durations[i].Seconds()
 	}
 	expectedRequests = uint64(expectedSum)
 	if results.Requests >= expectedRequests-(expectedRequests/1000) {

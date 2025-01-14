@@ -190,7 +190,7 @@ func routeURLHTTP(route *servingv1.Route) (bool, error) {
 }
 
 func routeTLSDisabled(route *servingv1.Route) (bool, error) {
-	var cond = route.Status.GetCondition("CertificateProvisioned")
+	cond := route.Status.GetCondition("CertificateProvisioned")
 	return cond.Status == "True" && cond.Reason == "TLSNotEnabled", nil
 }
 
@@ -235,7 +235,8 @@ func createHTTPSClient(t *testing.T, clients *test.Clients, objects *v1test.Reso
 		Transport: &http.Transport{
 			DialContext:     dialer,
 			TLSClientConfig: tlsConfig,
-		}}
+		},
+	}
 }
 
 func createHTTPClient(t *testing.T, clients *test.Clients, objects *v1test.ResourceObjects) *http.Client {
@@ -249,5 +250,6 @@ func createHTTPClient(t *testing.T, clients *test.Clients, objects *v1test.Resou
 		Transport: &http.Transport{
 			DialContext:     dialer,
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}}
+		},
+	}
 }

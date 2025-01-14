@@ -18,6 +18,7 @@ package readiness
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -164,9 +165,9 @@ func (p *Probe) probeContainerImpl() bool {
 			case innerProbe.Exec != nil:
 				// Should never be reachable. Exec probes to be translated to
 				// TCP probes when container is built.
-				return fmt.Errorf("exec probe not supported")
+				return errors.New("exec probe not supported")
 			default:
-				return fmt.Errorf("no probe found")
+				return errors.New("no probe found")
 			}
 		})
 	}
@@ -196,7 +197,7 @@ func (p *wrappedProbe) doProbe(probe func(time.Duration) error) error {
 			// We'll log the lastProbeErr if we don't eventually succeed.
 			lastProbeErr = err
 			failCount++
-			return false, nil
+			return false, nil //nolint:nilerr
 		}
 
 		p.count++

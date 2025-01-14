@@ -19,6 +19,7 @@ package net
 import (
 	"context"
 	"errors"
+	"slices"
 	"strconv"
 	"sync"
 	"testing"
@@ -275,7 +276,7 @@ func TestThrottlerCalculateCapacity(t *testing.T) {
 
 func makeTrackers(num, cc int) []*podTracker {
 	x := make([]*podTracker, num)
-	for i := 0; i < num; i++ {
+	for i := range num {
 		x[i] = newPodTracker(strconv.Itoa(i), nil)
 		if cc > 0 {
 			x[i].b = queue.NewBreaker(queue.BreakerParams{
@@ -568,7 +569,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			}); err != nil {
 				t.Fatal("Timed out waiting for the capacity to be updated")
 			}
-			t.Log("This activator idx =", rt.activatorIndex)
+			t.Log("This activator idx =", rt.activatorIndex.Load())
 
 			tryContext, cancel2 := context.WithTimeout(context.Background(), 1*time.Second)
 			defer cancel2()
@@ -583,7 +584,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			})
 
 			gotDests := sets.New[string]()
-			for i := 0; i < tc.requests; i++ {
+			for range tc.requests {
 				result := <-resultChan
 				gotDests.Insert(result.dest)
 			}
@@ -854,7 +855,8 @@ func TestMultipleActivators(t *testing.T) {
 		},
 		Subsets: []corev1.EndpointSubset{
 			*epSubset(8012, "http", []string{"130.0.0.1", "130.0.0.2"},
-				nil)},
+				nil),
+		},
 	}
 	fake.CoreV1().Endpoints(testNamespace).Create(ctx, publicEp, metav1.CreateOptions{})
 	endpoints.Informer().GetIndexer().Add(publicEp)
@@ -910,7 +912,7 @@ func (t *Throttler) try(ctx context.Context, requests int, try func(string) erro
 	resultChan := make(chan tryResult)
 
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
-	for i := 0; i < requests; i++ {
+	for range requests {
 		go func() {
 			var result tryResult
 			if err := t.Try(ctx, revID, func(dest string) error {
@@ -953,8 +955,8 @@ func TestInfiniteBreaker(t *testing.T) {
 
 	// Verify we call the thunk when we have achieved capacity.
 	// Twice.
-	for i := 0; i < 2; i++ {
-		ctx, cancel = context.WithCancel(context.Background())
+	for range 2 {
+		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 		res := false
 		if err := b.Maybe(ctx, func() { res = true }); err != nil {
@@ -1156,43 +1158,43 @@ func TestAssignSlice(t *testing.T) {
 		dest: "3",
 	}}
 	t.Run("notrackers", func(t *testing.T) {
-		got := assignSlice([]*podTracker{}, 0 /*selfIdx*/, 1 /*numAct*/, 42 /*cc*/)
+		got := assignSlice([]*podTracker{}, 0 /*selfIdx*/, 1 /*numAct*/)
 		if !cmp.Equal(got, []*podTracker{}, opt) {
 			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
 				cmp.Diff([]*podTracker{}, got, opt))
 		}
 	})
 	t.Run("idx=1, na=1", func(t *testing.T) {
-		got := assignSlice(trackers, 1, 1, 1982)
+		got := assignSlice(trackers, 1, 1)
 		if !cmp.Equal(got, trackers, opt) {
 			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
 				cmp.Diff(trackers, got, opt))
 		}
 	})
 	t.Run("idx=-1", func(t *testing.T) {
-		got := assignSlice(trackers, -1, 1, 1982)
+		got := assignSlice(trackers, -1, 1)
 		if !cmp.Equal(got, trackers, opt) {
 			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
 				cmp.Diff(trackers, got, opt))
 		}
 	})
-	t.Run("idx=1", func(t *testing.T) {
-		cp := append(trackers[:0:0], trackers...)
-		got := assignSlice(cp, 1, 3, 1984)
+	t.Run("idx=1 na=3", func(t *testing.T) {
+		cp := slices.Clone(trackers)
+		got := assignSlice(cp, 1, 3)
 		if !cmp.Equal(got, trackers[1:2], opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, trackers[0:1],
 				cmp.Diff(trackers[1:2], got, opt))
 		}
 	})
 	t.Run("len=1", func(t *testing.T) {
-		got := assignSlice(trackers[0:1], 1, 3, 1988)
+		got := assignSlice(trackers[0:1], 1, 3)
 		if !cmp.Equal(got, trackers[0:1], opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, trackers[0:1],
 				cmp.Diff(trackers[0:1], got, opt))
 		}
 	})
 
-	t.Run("idx=1, cc=5", func(t *testing.T) {
+	t.Run("idx=1, breaker", func(t *testing.T) {
 		trackers := []*podTracker{{
 			dest: "1",
 			b:    queue.NewBreaker(testBreakerParams),
@@ -1203,30 +1205,8 @@ func TestAssignSlice(t *testing.T) {
 			dest: "3",
 			b:    queue.NewBreaker(testBreakerParams),
 		}}
-		cp := append(trackers[:0:0], trackers...)
-		got := assignSlice(cp, 1, 2, 5)
-		want := trackers[1:2]
-		if !cmp.Equal(got, want, opt) {
-			t.Errorf("Got=%v, want: %v; diff: %s", got, want,
-				cmp.Diff(want, got, opt))
-		}
-		if got, want := got[0].b.Capacity(), 0; got != want {
-			t.Errorf("Capacity for the tail pod = %d, want: %d", got, want)
-		}
-	})
-	t.Run("idx=1, cc=6", func(t *testing.T) {
-		trackers := []*podTracker{{
-			dest: "1",
-			b:    queue.NewBreaker(testBreakerParams),
-		}, {
-			dest: "2",
-			b:    queue.NewBreaker(testBreakerParams),
-		}, {
-			dest: "3",
-			b:    queue.NewBreaker(testBreakerParams),
-		}}
-		cp := append(trackers[:0:0], trackers...)
-		got := assignSlice(cp, 1, 2, 6)
+		cp := slices.Clone(trackers)
+		got := assignSlice(cp, 1, 2)
 		want := trackers[1:2]
 		if !cmp.Equal(got, want, opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, want,

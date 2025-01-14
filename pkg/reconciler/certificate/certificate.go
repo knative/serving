@@ -18,6 +18,7 @@ package certificate
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"hash/adler32"
 	"strconv"
@@ -105,7 +106,7 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 	cmCert, errCondition := resources.MakeCertManagerCertificate(cmConfig, knCert)
 	if errCondition != nil {
 		knCert.Status.MarkFailed(errCondition.Reason, errCondition.Message)
-		return fmt.Errorf(errCondition.Message)
+		return errors.New(errCondition.Message)
 	}
 
 	cmCert, err := c.reconcileCMCertificate(ctx, knCert, cmCert)
@@ -217,7 +218,7 @@ func (c *Reconciler) setHTTP01Challenges(ctx context.Context, knCert *v1alpha1.C
 				logger.Info("No challenge service found for shortened commonname, could be cached? continuing")
 				continue
 			}
-			//If the cert is renewing, it could be possible that this isn't an error. Should this change depending on the case?
+			// If the cert is renewing, it could be possible that this isn't an error. Should this change depending on the case?
 			return fmt.Errorf("no challenge solver service for domain %s; selector=%v", dnsName, selector)
 		}
 

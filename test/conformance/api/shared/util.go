@@ -73,7 +73,7 @@ func sendRequests(ctx context.Context, client *spoof.SpoofingClient, url *url.UR
 	// Launch "num" requests, recording the responses we get in "responses".
 	g, gCtx := errgroup.WithContext(ctx)
 	g.SetLimit(8)
-	for i := 0; i < num; i++ {
+	for i := range num {
 		// We don't index into "responses" inside the goroutine to avoid a race, see #1545.
 		result := &responses[i]
 		g.Go(func() error {

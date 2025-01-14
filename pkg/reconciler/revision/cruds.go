@@ -38,7 +38,6 @@ func (c *Reconciler) createDeployment(ctx context.Context, rev *v1.Revision) (*a
 	cfgs := config.FromContext(ctx)
 
 	deployment, err := resources.MakeDeployment(rev, cfgs)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to make deployment: %w", err)
 	}

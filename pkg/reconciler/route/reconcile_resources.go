@@ -83,7 +83,6 @@ func (c *Reconciler) reconcileIngress(
 		if !equality.Semantic.DeepEqual(ingress.Spec, desired.Spec) ||
 			!equality.Semantic.DeepEqual(ingress.Annotations, desired.Annotations) ||
 			!equality.Semantic.DeepEqual(ingress.Labels, desired.Labels) {
-
 			// It is notable that one reason for differences here may be defaulting.
 			// When that is the case, the Update will end up being a nop because the
 			// webhook will bring them into alignment and no new reconciliation will occur.
@@ -119,7 +118,6 @@ func (c *Reconciler) deleteOrphanedServices(ctx context.Context, r *v1.Route, ac
 
 	routeLabelSelector := labels.SelectorFromSet(labels.Set{serving.RouteLabelKey: r.Name})
 	allServices, err := c.serviceLister.Services(ns).List(routeLabelSelector)
-
 	if err != nil {
 		return fmt.Errorf("failed to fetch existing services: %w", err)
 	}
@@ -222,7 +220,6 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 
 	eg, egCtx := errgroup.WithContext(ctx)
 	for _, from := range pairs {
-		from := from
 		eg.Go(func() error {
 			to, err := resources.MakeK8sService(egCtx, route, from.Tag, ingress, resources.IsClusterLocalService(from.Service))
 			if err != nil {
@@ -253,7 +250,6 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 				// else:
 				//   clusterIPs are immutable thus any transition requires a recreate
 				//   ie. "None" <=> "" (blank - request an IP)
-
 			} else /* types are the same and not clusterIP */ {
 				canUpdate = true
 			}
@@ -329,7 +325,8 @@ func deserializeRollout(ctx context.Context, ro string) *traffic.Rollout {
 
 func (c *Reconciler) reconcileRollout(
 	ctx context.Context, r *v1.Route, tc *traffic.Config,
-	ingress *netv1alpha1.Ingress) *traffic.Rollout {
+	ingress *netv1alpha1.Ingress,
+) *traffic.Rollout {
 	cfg := config.FromContext(ctx)
 
 	// Is there rollout duration specified?
@@ -344,7 +341,6 @@ func (c *Reconciler) reconcileRollout(
 		return curRO
 	}
 	// Get the current rollout state as described by the traffic.
-	nextStepTime := int64(0)
 	logger := logging.FromContext(ctx).Desugar().With(
 		zap.Int("durationSecs", rd))
 	logger.Debug("Rollout is enabled. Stepping from previous state.")

@@ -578,7 +578,6 @@ func TestReconcile(t *testing.T) {
 		return configreconciler.NewReconciler(ctx, logging.FromContext(ctx),
 			servingclient.Get(ctx), listers.GetConfigurationLister(),
 			controller.GetEventRecorder(ctx), r)
-
 	}))
 }
 

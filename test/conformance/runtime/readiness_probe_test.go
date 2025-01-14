@@ -60,7 +60,7 @@ func TestProbeRuntime(t *testing.T) {
 	}
 	clients := test.Setup(t)
 
-	var testCases = []struct {
+	testCases := []struct {
 		// name of the test case, which will be inserted in names of routes, configurations, etc.
 		// Use a short name here to avoid hitting the 63-character limit in names
 		// (e.g., "service-to-service-call-svc-cluster-local-uagkdshh-frkml-service" is too long.)
@@ -101,9 +101,7 @@ func TestProbeRuntime(t *testing.T) {
 	}}
 
 	for _, tc := range testCases {
-		tc := tc
 		for _, period := range []int32{0, 1} {
-			period := period
 			name := tc.name
 			if period > 0 {
 				// period > 0 opts out of the custom knative startup probing behaviour.
@@ -169,7 +167,6 @@ func TestProbeRuntimeAfterStartup(t *testing.T) {
 	}
 
 	for _, period := range []int32{0, 1} {
-		period := period
 		t.Run(fmt.Sprintf("periodSeconds=%d", period), func(t *testing.T) {
 			t.Parallel()
 			clients := test.Setup(t)

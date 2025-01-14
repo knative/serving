@@ -22,11 +22,10 @@ import (
 	"errors"
 	"flag"
 	"log"
-	"os"
-
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 
 	"knative.dev/serving/test"
 )

@@ -99,7 +99,6 @@ func TestPodReadyUnreadyCount(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-
 			kubeClient := fakek8s.NewSimpleClientset()
 			podsClient := kubeinformers.NewSharedInformerFactory(kubeClient, 0).Core().V1().Pods()
 			for _, p := range tc.pods {
@@ -207,7 +206,6 @@ func TestPodIPsSortedByAge(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-
 			kubeClient := fakek8s.NewSimpleClientset()
 			podsClient := kubeinformers.NewSharedInformerFactory(kubeClient, 0).Core().V1().Pods()
 			for _, p := range tc.pods {
@@ -339,18 +337,18 @@ func phasedPod(name string, phase corev1.PodPhase) *corev1.Pod {
 func podsInPhases(running, pending, terminating int) []*corev1.Pod {
 	pods := make([]*corev1.Pod, 0, running+pending+terminating)
 
-	for i := 0; i < running; i++ {
+	for i := range running {
 		pods = append(pods, phasedPod("running-pod-"+strconv.Itoa(i), corev1.PodRunning))
 	}
 
 	now := metav1.Now()
-	for i := 0; i < terminating; i++ {
+	for i := range terminating {
 		p := phasedPod("terminating-pod-"+strconv.Itoa(i), corev1.PodRunning)
 		p.DeletionTimestamp = &now
 		pods = append(pods, p)
 	}
 
-	for i := 0; i < pending; i++ {
+	for i := range pending {
 		pods = append(pods, phasedPod("pending-pod-"+strconv.Itoa(i), corev1.PodPending))
 	}
 	return pods
@@ -412,7 +410,6 @@ func TestPodIPsSplitByAge(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-
 			kubeClient := fakek8s.NewSimpleClientset()
 			podsClient := kubeinformers.NewSharedInformerFactory(kubeClient, 0).Core().V1().Pods()
 			for _, p := range tc.pods {

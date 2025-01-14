@@ -551,7 +551,8 @@ func newTestRevision(namespace, name string) *v1.Revision {
 }
 
 func testIngressParams(t *testing.T, r *v1.Route, trafficOpts ...func(tc *traffic.Config)) (*traffic.Config,
-	[]netv1alpha1.IngressTLS) {
+	[]netv1alpha1.IngressTLS,
+) {
 	tc := &traffic.Config{
 		Targets: map[string]traffic.RevisionTargets{
 			traffic.DefaultTarget: {{

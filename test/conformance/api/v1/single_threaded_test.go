@@ -86,7 +86,7 @@ func TestSingleConcurrency(t *testing.T) {
 	duration := 20 * time.Second
 	t.Logf("Maintaining %d concurrent requests for %v.", concurrency, duration)
 	group, egCtx := errgroup.WithContext(context.Background())
-	for i := 0; i < concurrency; i++ {
+	for i := range concurrency {
 		threadIdx := i
 		group.Go(func() error {
 			requestIdx := 0

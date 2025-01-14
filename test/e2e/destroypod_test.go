@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
@@ -114,7 +115,7 @@ func TestDestroyPodInflight(t *testing.T) {
 	// The timeout app sleeps for the time passed via the timeout query parameter in milliseconds
 	u, _ := url.Parse(routeURL.String())
 	q := u.Query()
-	q.Set("timeout", fmt.Sprint(timeoutRequestDuration.Milliseconds()))
+	q.Set("timeout", strconv.FormatInt(timeoutRequestDuration.Milliseconds(), 10))
 	u.RawQuery = q.Encode()
 	req, err := http.NewRequestWithContext(egCtx, http.MethodGet, u.String(), nil)
 	if err != nil {
@@ -208,7 +209,7 @@ func TestDestroyPodTimely(t *testing.T) {
 			// The podToDelete must be deleted.
 			return true, nil
 		} else if err != nil {
-			return false, nil
+			return false, nil //nolint:nilerr
 		}
 
 		latestPodState = pod
@@ -296,7 +297,6 @@ func TestDestroyPodWithRequests(t *testing.T) {
 
 	// Start several requests staggered with 1s delay.
 	for i := 1; i < 7; i++ {
-		i := i
 		t.Logf("Starting request %d at %v", i, time.Now())
 		eg.Go(func() error {
 			req, err := http.NewRequestWithContext(egCtx, http.MethodGet, u.String(), nil)

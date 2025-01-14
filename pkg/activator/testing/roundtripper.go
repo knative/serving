@@ -21,9 +21,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
+	"sync/atomic"
 	"time"
-
-	"go.uber.org/atomic"
 
 	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/serving/pkg/queue"
@@ -130,7 +129,7 @@ func (rt *FakeRoundTripper) RT(req *http.Request) (*http.Response, error) {
 	}
 
 	if req.Header.Get(netheader.ProbeKey) != "" {
-		rt.NumProbes.Inc()
+		rt.NumProbes.Add(1)
 		resp := rt.popResponse(req.URL.Host)
 
 		err := delayResponse(resp)

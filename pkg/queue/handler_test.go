@@ -24,10 +24,10 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
-	"go.uber.org/atomic"
 	netheader "knative.dev/networking/pkg/http/header"
 	netstats "knative.dev/networking/pkg/http/stats"
 	"knative.dev/serving/pkg/activator"
@@ -52,7 +52,7 @@ func TestHandlerBreakerQueueFull(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "http://localhost:8081/time", nil)
 	resps := make(chan *httptest.ResponseRecorder)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		go func() {
 			rec := httptest.NewRecorder()
 			h(rec, req)
@@ -73,7 +73,7 @@ func TestHandlerBreakerQueueFull(t *testing.T) {
 
 	// Allow the remaining requests to pass.
 	close(resp)
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		res := <-resps
 		if got, want := res.Code, http.StatusOK; got != want {
 			t.Errorf("Code = %d, want: %d", got, want)
@@ -175,7 +175,7 @@ func TestHandlerReqEvent(t *testing.T) {
 func TestIgnoreProbe(t *testing.T) {
 	// Verifies that probes don't queue.
 	resp := make(chan struct{})
-	c := atomic.NewInt32(0)
+	var c atomic.Int32
 	// Ensure we can receive 3 requests with CC=1.
 	go func() {
 		to := time.After(3 * time.Second)
@@ -197,7 +197,7 @@ func TestIgnoreProbe(t *testing.T) {
 	}()
 
 	var httpHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
-		c.Inc()
+		c.Add(1)
 		<-resp
 		if !netheader.IsKubeletProbe(r) {
 			t.Error("Request was not a probe")
@@ -265,7 +265,7 @@ func BenchmarkProxyHandler(b *testing.B) {
 		h := ProxyHandler(tc.breaker, stats, true /*tracingEnabled*/, baseHandler)
 		b.Run("sequential-"+tc.label, func(b *testing.B) {
 			resp := httptest.NewRecorder()
-			for j := 0; j < b.N; j++ {
+			for range b.N {
 				h(resp, req)
 			}
 		})

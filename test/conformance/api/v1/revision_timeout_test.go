@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
@@ -37,7 +38,8 @@ import (
 
 // sendRequest send a request to "endpoint", returns error if unexpected response code, nil otherwise.
 func sendRequest(t *testing.T, clients *test.Clients, endpoint *url.URL,
-	initialSleep, sleep time.Duration, expectedResponseCode int) error {
+	initialSleep, sleep time.Duration, expectedResponseCode int,
+) error {
 	client, err := pkgtest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, endpoint.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	if err != nil {
 		return fmt.Errorf("error creating Spoofing client: %w", err)
@@ -50,8 +52,8 @@ func sendRequest(t *testing.T, clients *test.Clients, endpoint *url.URL,
 	}()
 	u, _ := url.Parse(endpoint.String())
 	q := u.Query()
-	q.Set("initialTimeout", fmt.Sprint(initialSleep.Milliseconds()))
-	q.Set("timeout", fmt.Sprint(sleep.Milliseconds()))
+	q.Set("initialTimeout", strconv.FormatInt(initialSleep.Milliseconds(), 10))
+	q.Set("timeout", strconv.FormatInt(sleep.Milliseconds(), 10))
 	u.RawQuery = q.Encode()
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
@@ -102,8 +104,6 @@ func TestRevisionTimeout(t *testing.T) {
 	}}
 
 	for _, tc := range testCases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 

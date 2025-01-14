@@ -53,7 +53,6 @@ func AnnotateLoggerWithName(ctx context.Context, name string) context.Context {
 		With(zap.String(logkey.ControllerType, name))
 
 	return logging.WithLogger(ctx, logger)
-
 }
 
 // NewController initializes the controller and is called by the generated code

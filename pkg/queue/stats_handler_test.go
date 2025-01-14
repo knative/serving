@@ -26,7 +26,7 @@ import (
 
 func TestStatsHandler(t *testing.T) {
 	proto := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("served-by", "protobuf")
+		w.Header().Set("Served-By", "protobuf")
 	})
 
 	reporter := NewStatsHandler(proto)
@@ -66,7 +66,7 @@ func TestStatsHandler(t *testing.T) {
 			w := httptest.NewRecorder()
 			reporter.ServeHTTP(w, r)
 
-			if got, want := w.Header().Get("served-by"), test.expect; got != want {
+			if got, want := w.Header().Get("Served-By"), test.expect; got != want {
 				t.Errorf("Expected to be served %s but was served %s", want, got)
 			}
 		})

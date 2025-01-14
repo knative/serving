@@ -23,10 +23,10 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"text/template"
 	"time"
 
-	"go.uber.org/atomic"
 	netheader "knative.dev/networking/pkg/http/header"
 )
 
@@ -85,7 +85,8 @@ func RequestLogTemplateInputGetterFromRevision(rev *RequestLogRevision) RequestL
 
 // NewRequestLogHandler creates an http.Handler that logs request logs to an io.Writer.
 func NewRequestLogHandler(h http.Handler, w io.Writer, templateStr string,
-	inputGetter RequestLogTemplateInputGetter, enableProbeRequestLog bool) (*RequestLogHandler, error) {
+	inputGetter RequestLogTemplateInputGetter, enableProbeRequestLog bool,
+) (*RequestLogHandler, error) {
 	reqHandler := &RequestLogHandler{
 		handler:               h,
 		writer:                w,

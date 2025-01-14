@@ -106,7 +106,7 @@ func BenchmarkHandlerChain(b *testing.B) {
 
 	b.Run("sequential", func(b *testing.B) {
 		req := request()
-		for j := 0; j < b.N; j++ {
+		for range b.N {
 			test(req, b)
 		}
 	})
@@ -213,18 +213,18 @@ func TestActivatorChainHandlerWithFullDuplex(t *testing.T) {
 	}
 
 	body := make([]byte, bodySize)
-	for i := 0; i < cap(body); i++ {
+	for i := range cap(body) {
 		body[i] = 42
 	}
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		var wg sync.WaitGroup
 		wg.Add(parallelism)
-		for i := 0; i < parallelism; i++ {
+		for i := range parallelism {
 			go func(i int) {
 				defer wg.Done()
 
-				for i := 0; i < 100; i++ {
+				for range 100 {
 					if err := send(c, proxyServer.URL, body, "test-host"); err != nil {
 						t.Errorf("error during request: %v", err)
 					}
@@ -234,12 +234,11 @@ func TestActivatorChainHandlerWithFullDuplex(t *testing.T) {
 
 		wg.Wait()
 	}
-
 }
 
 func send(client *http.Client, url string, body []byte, rHost string) error {
 	r := bytes.NewBuffer(body)
-	req, err := http.NewRequest("POST", url, r)
+	req, err := http.NewRequest(http.MethodPost, url, r)
 
 	if rHost != "" {
 		req.Host = rHost
@@ -261,7 +260,6 @@ func send(client *http.Client, url string, body []byte, rHost string) error {
 	bd := io.Reader(resp.Body)
 
 	rec, err := io.ReadAll(bd)
-
 	if err != nil {
 		return fmt.Errorf("failed to read body: %w", err)
 	}

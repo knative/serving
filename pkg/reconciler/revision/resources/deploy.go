@@ -58,7 +58,6 @@ var (
 		SubPathExpr: "$(K_INTERNAL_POD_NAMESPACE)_$(K_INTERNAL_POD_NAME)_",
 	}
 
-	//nolint:gosec // Volume, not hardcoded credentials
 	varTokenVolume = corev1.Volume{
 		Name: "knative-token-volume",
 		VolumeSource: corev1.VolumeSource{
@@ -74,7 +73,6 @@ var (
 		ReadOnly:  true,
 	}
 
-	//nolint:gosec // VolumeMount, not hardcoded credentials
 	varTokenVolumeMount = corev1.VolumeMount{
 		Name:      varTokenVolume.Name,
 		MountPath: queue.TokenDirectory,

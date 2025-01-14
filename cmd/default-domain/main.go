@@ -218,7 +218,7 @@ func main() {
 		}
 		ipAddr, err := net.ResolveIPAddr("ip", address.Hostname)
 		if err != nil {
-			logger.Fatalw("Error resolving the IP address of %q", address.Hostname, zap.Error(err))
+			logger.Fatalw(fmt.Sprintf("Error resolving the IP address of %q", address.Hostname), zap.Error(err))
 		}
 		ip = ipAddr.String()
 	}

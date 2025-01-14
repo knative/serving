@@ -21,7 +21,6 @@ package systeminternaltls
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 	"os"
 	"strings"
@@ -72,7 +71,7 @@ func TestSystemInternalTLS(t *testing.T) {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	//The request made here should be enough to trigger some request logs on the Activator and QueueProxy
+	// The request made here should be enough to trigger some request logs on the Activator and QueueProxy
 	t.Log("Checking Endpoint state")
 	url := resources.Route.Status.URL.URL()
 	checkEndpointState(t, clients, url)
@@ -96,7 +95,7 @@ func TestSystemInternalTLS(t *testing.T) {
 
 	t.Log("Checking Queue-Proxy logs")
 	pods, err = clients.KubeClient.CoreV1().Pods("serving-tests").List(context.TODO(), v1.ListOptions{
-		LabelSelector: fmt.Sprintf("serving.knative.dev/configuration=%s", names.Config),
+		LabelSelector: "serving.knative.dev/configuration=" + names.Config,
 	})
 	if err != nil {
 		t.Fatalf("Failed to get pods: %v", err)
@@ -198,7 +197,7 @@ func TestTLSCertificateRotation(t *testing.T) {
 
 	t.Log("Checking queue-proxy logs")
 	pods, err := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).List(context.TODO(), v1.ListOptions{
-		LabelSelector: fmt.Sprintf("serving.knative.dev/configuration=%s", names.Config),
+		LabelSelector: "serving.knative.dev/configuration=" + names.Config,
 	})
 	if err != nil {
 		t.Fatal(err)

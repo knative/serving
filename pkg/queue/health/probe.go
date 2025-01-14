@@ -24,6 +24,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -105,7 +106,6 @@ func autoDowngradingTransport(opt HTTPProbeConfigOptions) http.RoundTripper {
 
 var transport = func() *http.Transport {
 	t := http.DefaultTransport.(*http.Transport).Clone()
-	//nolint:gosec // We explicitly don't need to check certs here.
 	t.TLSClientConfig.InsecureSkipVerify = true
 	return t
 }()
@@ -126,6 +126,7 @@ func http2UpgradeProbe(config HTTPProbeConfigOptions) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("error constructing probe url %w", err)
 	}
+	//nolint:noctx // timeout is specified on the http.Client above
 	req, err := http.NewRequest(http.MethodOptions, url.String(), nil)
 	if err != nil {
 		return 0, fmt.Errorf("error constructing probe request %w", err)
@@ -183,6 +184,7 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 	if err != nil {
 		return fmt.Errorf("error constructing probe url %w", err)
 	}
+	//nolint:noctx // timeout is specified on the http.Client above
 	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 	if err != nil {
 		return fmt.Errorf("error constructing probe request %w", err)
@@ -226,7 +228,6 @@ func isHTTPProbeReady(res *http.Response) bool {
 
 // GRPCProbe checks that gRPC connection can be established to the address.
 func GRPCProbe(config GRPCProbeConfigOptions) error {
-
 	// Use k8s.io/kubernetes/pkg/probe/dialer_others.go to correspond to OSs other than Windows
 	dialer := &net.Dialer{
 		Control: func(network, address string, c syscall.RawConn) error {
@@ -238,7 +239,6 @@ func GRPCProbe(config GRPCProbeConfigOptions) error {
 
 	opts := []grpc.DialOption{
 		grpc.WithUserAgent(netheader.KubeProbeUAPrefix + config.KubeMajor + "/" + config.KubeMinor),
-		grpc.WithBlock(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()), // credentials are currently not supported
 		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
 			return dialer.DialContext(ctx, "tcp", addr)
@@ -249,9 +249,8 @@ func GRPCProbe(config GRPCProbeConfigOptions) error {
 
 	defer cancel()
 
-	addr := net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", config.Port))
-	conn, err := grpc.DialContext(ctx, addr, opts...)
-
+	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(int(config.Port)))
+	conn, err := grpc.NewClient(addr, opts...)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return fmt.Errorf("failed to connect service %q within %v: %w", addr, config.Timeout, err)
@@ -268,7 +267,6 @@ func GRPCProbe(config GRPCProbeConfigOptions) error {
 	resp, err := client.Check(metadata.NewOutgoingContext(ctx, make(metadata.MD)), &grpchealth.HealthCheckRequest{
 		Service: ptr.StringValue(config.Service),
 	})
-
 	if err != nil {
 		stat, ok := status.FromError(err)
 		if ok {

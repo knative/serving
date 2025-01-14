@@ -196,7 +196,7 @@ func BenchmarkNewRequestMetricsHandler(b *testing.B) {
 	req := httptest.NewRequest(http.MethodPost, targetURI, nil)
 
 	b.Run("sequential", func(b *testing.B) {
-		for j := 0; j < b.N; j++ {
+		for range b.N {
 			handler.ServeHTTP(resp, req)
 		}
 	})
@@ -297,7 +297,7 @@ func BenchmarkRequestMetricsHandler(b *testing.B) {
 
 	b.Run("sequential", func(b *testing.B) {
 		resp := httptest.NewRecorder()
-		for j := 0; j < b.N; j++ {
+		for range b.N {
 			handler.ServeHTTP(resp, req)
 		}
 	})
@@ -324,7 +324,7 @@ func BenchmarkAppRequestMetricsHandler(b *testing.B) {
 
 	b.Run("sequential", func(b *testing.B) {
 		resp := httptest.NewRecorder()
-		for j := 0; j < b.N; j++ {
+		for range b.N {
 			handler.ServeHTTP(resp, req)
 		}
 	})

@@ -111,7 +111,6 @@ func TestEncodeSingleProbe(t *testing.T) {
 	}
 
 	jsonProbe, err := EncodeSingleProbe(probe)
-
 	if err != nil {
 		t.Fatalf("Expected no errer, got: %#v", err)
 	}
@@ -143,7 +142,6 @@ func TestEncodeMultipleProbes(t *testing.T) {
 	}}
 
 	jsonProbe, err := EncodeMultipleProbes(probes)
-
 	if err != nil {
 		t.Fatalf("Expected no errer, got: %#v", err)
 	}

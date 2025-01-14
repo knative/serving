@@ -110,7 +110,6 @@ func TestCapabilitiesMask_SecurePodDefaultsEnabled(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestVolumeSourceMask(t *testing.T) {
@@ -879,7 +878,6 @@ func TestPodSecurityContextMask_FeatureEnabled(t *testing.T) {
 }
 
 func TestPodSecurityContextMask_SecurePodDefaultsEnabled(t *testing.T) {
-
 	// Ensure that users can opt out of better security by explicitly
 	// requesting the Kubernetes default, which is "Unconfined".
 	want := &corev1.PodSecurityContext{

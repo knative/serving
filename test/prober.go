@@ -24,9 +24,8 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"testing"
-
-	"go.uber.org/atomic"
 
 	"golang.org/x/sync/errgroup"
 	pkgTest "knative.dev/pkg/test"
@@ -162,16 +161,16 @@ func (m *manager) Spawn(url *url.URL) Prober {
 				return nil
 			default:
 				res, err := client.Do(req)
-				if p.requests.Inc() == p.minimumProbes {
+				if p.requests.Add(1) == p.minimumProbes {
 					close(p.minDoneCh)
 				}
 				if err != nil {
 					p.logf("%q error: %v", p.url, err)
-					p.failures.Inc()
+					p.failures.Add(1)
 				} else if res.StatusCode != http.StatusOK {
 					p.logf("%q status = %d, want: %d", p.url, res.StatusCode, http.StatusOK)
 					p.logf("response: %s", res)
-					p.failures.Inc()
+					p.failures.Add(1)
 				}
 			}
 		}

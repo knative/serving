@@ -206,6 +206,7 @@ func TestValidateObjectMetadata(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			if c.ctx == nil {
+				//nolint:fatcontext
 				c.ctx = config.ToContext(context.Background(), &config.Config{Autoscaler: &autoscalerconfig.Config{AllowZeroInitialScale: false}})
 			}
 			err := ValidateObjectMetadata(c.ctx, c.objectMeta, c.allowAutoscaling)
@@ -306,7 +307,7 @@ func TestValidateContainerConcurrency(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.ctx == nil {
-				tc.ctx = context.Background()
+				tc.ctx = context.Background() //nolint:fatcontext
 			}
 			err := ValidateContainerConcurrency(tc.ctx, tc.containerConcurrency)
 			if got, want := err.Error(), tc.expectErr.Error(); got != want {

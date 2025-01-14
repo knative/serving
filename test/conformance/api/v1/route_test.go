@@ -123,7 +123,7 @@ func TestRouteGetAndList(t *testing.T) {
 	if err != nil {
 		t.Fatal("Getting routes failed")
 	}
-	var routeFound = false
+	routeFound := false
 	for _, routeItem := range routes.Items {
 		t.Logf("Route Returned: %s", routeItem.Name)
 		if routeItem.Name == route.Name {

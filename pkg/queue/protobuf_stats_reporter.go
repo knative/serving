@@ -18,9 +18,8 @@ package queue
 
 import (
 	"net/http"
+	"sync/atomic"
 	"time"
-
-	"go.uber.org/atomic"
 
 	"github.com/gogo/protobuf/proto"
 

@@ -132,9 +132,9 @@ func TestTimedFloat64BucketsSimple(t *testing.T) {
 func TestTimedFloat64BucketsManyReps(t *testing.T) {
 	trunc1 := time.Now().Truncate(granularity)
 	buckets := NewTimedFloat64Buckets(time.Minute, granularity)
-	for p := 0; p < 5; p++ {
+	for p := range 5 {
 		trunc1 = trunc1.Add(granularity)
-		for t := 0; t < 5; t++ {
+		for t := range 5 {
 			buckets.Record(trunc1, float64(p+t))
 		}
 	}
@@ -168,9 +168,9 @@ func TestTimedFloat64BucketsManyRepsWithNonMonotonicalOrder(t *testing.T) {
 	buckets := NewTimedFloat64Buckets(time.Minute, granularity)
 
 	d := []int{0, 3, 2, 1, 4}
-	for p := 0; p < 5; p++ {
+	for p := range 5 {
 		end = start.Add(time.Duration(d[p]) * granularity)
-		for t := 0; t < 5; t++ {
+		for t := range 5 {
 			buckets.Record(end, float64(p+t))
 		}
 	}
@@ -222,7 +222,7 @@ func TestTimedFloat64BucketsWeightedAverage(t *testing.T) {
 	}
 
 	// Fill the whole window, with [2, 3, 4, 5, 6]
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		buckets.Record(now.Add(time.Duration(2+i)*time.Second), float64(i+2))
 	}
 	// Manually compute wanted average.
@@ -343,8 +343,8 @@ func TestTimedFloat64BucketsHoles(t *testing.T) {
 	now := time.Now()
 	buckets := NewTimedFloat64Buckets(5*time.Second, granularity)
 
-	for i := time.Duration(0); i < 5; i++ {
-		buckets.Record(now.Add(i*time.Second), float64(i+1))
+	for i := range 5 {
+		buckets.Record(now.Add(time.Duration(i)*time.Second), float64(i+1))
 	}
 
 	sum := 0.
@@ -604,6 +604,7 @@ func TestTimedFloat64BucketsWindowUpdateNoOp(t *testing.T) {
 		t.Errorf("FirstWrite after update = %v, want: %v", got, want)
 	}
 }
+
 func BenchmarkWindowAverage(b *testing.B) {
 	// Window lengths in secs.
 	for _, wl := range []int{30, 60, 120, 240, 600} {
@@ -612,10 +613,10 @@ func BenchmarkWindowAverage(b *testing.B) {
 			buckets := NewTimedFloat64Buckets(time.Duration(wl)*time.Second,
 				time.Second /*granularity*/)
 			// Populate with some random data.
-			for i := 0; i < wl; i++ {
+			for i := range wl {
 				buckets.Record(tn.Add(time.Duration(i)*time.Second), rand.Float64()*100)
 			}
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				buckets.WindowAverage(tn.Add(time.Duration(wl) * time.Second))
 			}
 		})
@@ -638,7 +639,6 @@ func TestRoundToNDigits(t *testing.T) {
 	if got, want := roundToNDigits(6, 12345), 12345.; got != want {
 		t.Errorf("Rounding = %v, want: %v", got, want)
 	}
-
 }
 
 func (t *TimedFloat64Buckets) forEachBucket(now time.Time, acc func(time time.Time, bucket float64)) {
@@ -651,7 +651,7 @@ func (t *TimedFloat64Buckets) forEachBucket(now time.Time, acc func(time time.Ti
 	numBuckets := len(t.buckets) - int(now.Sub(t.lastWrite)/t.granularity)
 	bucketTime := t.lastWrite // Always aligned with granularity.
 	si := t.timeToIndex(bucketTime)
-	for i := 0; i < numBuckets; i++ {
+	for range numBuckets {
 		tIdx := si % len(t.buckets)
 		acc(bucketTime, t.buckets[tIdx])
 		si--

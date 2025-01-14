@@ -43,20 +43,23 @@ func ProbeHandler(prober func() bool, tracingEnabled bool) http.HandlerFunc {
 		if ph != queue.Name {
 			http.Error(w, badProbeTemplate+ph, http.StatusBadRequest)
 			probeSpan.Annotate([]trace.Attribute{
-				trace.StringAttribute("queueproxy.probe.error", badProbeTemplate+ph)}, "error")
+				trace.StringAttribute("queueproxy.probe.error", badProbeTemplate+ph),
+			}, "error")
 			return
 		}
 
 		if prober == nil {
 			http.Error(w, "no probe", http.StatusInternalServerError)
 			probeSpan.Annotate([]trace.Attribute{
-				trace.StringAttribute("queueproxy.probe.error", "no probe")}, "error")
+				trace.StringAttribute("queueproxy.probe.error", "no probe"),
+			}, "error")
 			return
 		}
 
 		if !prober() {
 			probeSpan.Annotate([]trace.Attribute{
-				trace.StringAttribute("queueproxy.probe.error", "container not ready")}, "error")
+				trace.StringAttribute("queueproxy.probe.error", "container not ready"),
+			}, "error")
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}

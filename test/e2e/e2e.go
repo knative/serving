@@ -112,11 +112,11 @@ func waitForActivatorEndpoints(ctx *TestContext) error {
 		actEps, err := ctx.clients.KubeClient.CoreV1().Endpoints(
 			system.Namespace()).Get(context.Background(), networking.ActivatorServiceName, metav1.GetOptions{})
 		if err != nil {
-			return false, nil
+			return false, nil //nolint:nilerr
 		}
 		sks, err := ctx.clients.NetworkingClient.ServerlessServices.Get(context.Background(), ctx.resources.Revision.Name, metav1.GetOptions{})
 		if err != nil {
-			return false, nil
+			return false, nil //nolint:nilerr
 		}
 
 		svcEps, err := ctx.clients.KubeClient.CoreV1().Endpoints(test.ServingFlags.TestNamespace).Get(
@@ -128,13 +128,13 @@ func waitForActivatorEndpoints(ctx *TestContext) error {
 		wantAct = int(sks.Spec.NumActivators)
 		aset = make(sets.Set[string], wantAct)
 		for _, ss := range actEps.Subsets {
-			for i := 0; i < len(ss.Addresses); i++ {
+			for i := range len(ss.Addresses) {
 				aset.Insert(ss.Addresses[i].IP)
 			}
 		}
 		svcSet = make(sets.Set[string], wantAct)
 		for _, ss := range svcEps.Subsets {
-			for i := 0; i < len(ss.Addresses); i++ {
+			for i := range len(ss.Addresses) {
 				svcSet.Insert(ss.Addresses[i].IP)
 			}
 		}
@@ -219,7 +219,7 @@ func PrivateServiceName(t *testing.T, clients *test.Clients, revision string) st
 	if err := wait.PollUntilContextTimeout(context.Background(), time.Second, 1*time.Minute, true, func(context.Context) (bool, error) {
 		sks, err := clients.NetworkingClient.ServerlessServices.Get(context.Background(), revision, metav1.GetOptions{})
 		if err != nil {
-			return false, nil
+			return false, nil //nolint:nilerr
 		}
 		privateServiceName = sks.Status.PrivateServiceName
 		return privateServiceName != "", nil

@@ -80,7 +80,6 @@ func TestPodScheduleError(t *testing.T) {
 		}
 		return false, nil
 	}, "ContainerUnscheduleable")
-
 	if err != nil {
 		t.Fatal("Failed to validate service state:", err)
 	}
@@ -102,7 +101,6 @@ func TestPodScheduleError(t *testing.T) {
 		}
 		return false, nil
 	})
-
 	if err != nil {
 		t.Fatal("Failed to validate revision state:", err)
 	}

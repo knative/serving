@@ -263,7 +263,6 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, dm *v1beta1.DomainMap
 	} else if !equality.Semantic.DeepEqual(ingress.Spec, desired.Spec) ||
 		!equality.Semantic.DeepEqual(ingress.Annotations, desired.Annotations) ||
 		!equality.Semantic.DeepEqual(ingress.Labels, desired.Labels) {
-
 		// Don't modify the informers copy
 		origin := ingress.DeepCopy()
 		origin.Spec = desired.Spec

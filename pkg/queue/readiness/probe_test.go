@@ -26,11 +26,11 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -115,8 +115,8 @@ func TestAggressiveFailureNotLoggedOnSuccess(t *testing.T) {
 	tsURL := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		// Fail a few times before succeeding to ensure no failures are
 		// misleadingly logged as long as we eventually succeed.
-		if polled.Inc() > 3 {
-			w.WriteHeader(200)
+		if polled.Add(1) > 3 {
+			w.WriteHeader(http.StatusOK)
 			return
 		}
 
@@ -169,7 +169,8 @@ func TestExecHandler(t *testing.T) {
 		ProbeHandler: corev1.ProbeHandler{
 			Exec: &corev1.ExecAction{
 				Command: []string{"echo", "hello"},
-			}},
+			},
+		},
 	}})
 
 	if pb.ProbeContainer() {
@@ -271,7 +272,7 @@ func TestHTTPSuccess(t *testing.T) {
 func TestHTTPManyParallel(t *testing.T) {
 	var count atomic.Int32
 	tsURL := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		if count.Inc() == 1 {
+		if count.Add(1) == 1 {
 			// Add a small amount of work to allow the requests below to collapse into one.
 			time.Sleep(200 * time.Millisecond)
 		}
@@ -292,7 +293,7 @@ func TestHTTPManyParallel(t *testing.T) {
 	}})
 
 	var grp errgroup.Group
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		grp.Go(func() error {
 			if !pb.ProbeContainer() {
 				return errors.New("failed to probe container")
@@ -488,7 +489,7 @@ func TestKnHTTPSuccessWithRetry(t *testing.T) {
 	var count atomic.Int32
 	tsURL := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		// Fail the very first request.
-		if count.Inc() == 1 {
+		if count.Add(1) == 1 {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -519,7 +520,7 @@ func TestKnHTTPSuccessWithThreshold(t *testing.T) {
 
 	var count atomic.Int32
 	tsURL := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		count.Inc()
+		count.Add(1)
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -552,7 +553,7 @@ func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 
 	var count atomic.Int32
 	tsURL := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		if count.Inc() == requestFailure {
+		if count.Add(1) == requestFailure {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}

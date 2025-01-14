@@ -52,6 +52,7 @@ var (
 )
 
 func TestHTTPScrapeClientScrapeHappyCaseWithOptionals(t *testing.T) {
+	//nolint:bodyclose
 	hClient := newTestHTTPClient(makeProtoResponse(http.StatusOK, stat, netheader.ProtobufMIMEType), nil)
 	sClient := newHTTPScrapeClient(hClient)
 	req, err := http.NewRequest(http.MethodGet, testURL, nil)
@@ -114,6 +115,7 @@ func TestHTTPScrapeClientScrapeProtoErrorCases(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
+			//nolint:bodyclose
 			hClient := newTestHTTPClient(makeProtoResponse(test.responseCode, test.stat, test.responseType), test.responseErr)
 			sClient := newHTTPScrapeClient(hClient)
 			req, err := http.NewRequest(http.MethodGet, testURL, nil)
@@ -195,7 +197,7 @@ func BenchmarkUnmarshallingProtoData(b *testing.B) {
 			b.Fatal(err)
 		}
 		b.Run(bm.name, func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_, err = statFromProto(bytes.NewReader(bodyBytes))
 				if err != nil {
 					b.Fatal(err)

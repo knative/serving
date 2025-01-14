@@ -114,8 +114,8 @@ func generateTraffic(
 	attacker *vegeta.Attacker,
 	pacer vegeta.Pacer,
 	stopChan chan struct{},
-	target vegeta.Target) error {
-
+	target vegeta.Target,
+) error {
 	// The 0 duration means that the attack will only be controlled by the `Stop` function.
 	results := attacker.Attack(vegeta.NewStaticTargeter(target), pacer, 0, "load-test")
 	defer attacker.Stop()
@@ -151,7 +151,6 @@ func generateTraffic(
 }
 
 func newVegetaHTTPClient(ctx *TestContext, url *url.URL) *http.Client {
-
 	vegetaTransportDefaults := func(transport *http.Transport) *http.Transport {
 		transport.MaxIdleConnsPerHost = vegeta.DefaultConnections
 		transport.MaxConnsPerHost = vegeta.DefaultMaxConnections
@@ -167,7 +166,6 @@ func newVegetaHTTPClient(ctx *TestContext, url *url.URL) *http.Client {
 		test.AddRootCAtoTransport(context.Background(), ctx.t.Logf, ctx.Clients(), test.ServingFlags.HTTPS),
 		vegetaTransportDefaults,
 	)
-
 	if err != nil {
 		ctx.t.Fatal("Error creating spoofing client:", err)
 	}
@@ -344,7 +342,7 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 			}
 
 			mes := fmt.Sprintf("revision %q #replicas: %v, want at least: %v", ctx.resources.Revision.Name, got, minPods)
-			ctx.t.Logf(mes)
+			ctx.t.Log(mes)
 			// verify that the number of pods doesn't go down while we are scaling up.
 			if got < minPods {
 				return fmt.Errorf("interim scale didn't fulfill constraints: %s\ndeployment state: %s", mes, spew.Sdump(d))
@@ -376,7 +374,7 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 			}
 
 			mes := fmt.Sprintf("revision %q #replicas: %v, want between [%v, %v]", ctx.resources.Revision.Name, got, targetPods-1, maxPods)
-			ctx.t.Logf(mes)
+			ctx.t.Log(mes)
 			if got < targetPods-1 || got > maxPods {
 				return fmt.Errorf("final scale didn't fulfill constraints: %s\ndeployment state: %s", mes, spew.Sdump(d))
 			}

@@ -21,14 +21,11 @@ import (
 	"errors"
 	"fmt"
 	"math"
-
-	"go.uber.org/atomic"
+	"sync/atomic"
 )
 
-var (
-	// ErrRequestQueueFull indicates the breaker queue depth was exceeded.
-	ErrRequestQueueFull = errors.New("pending request queue full")
-)
+// ErrRequestQueueFull indicates the breaker queue depth was exceeded.
+var ErrRequestQueueFull = errors.New("pending request queue full")
 
 // MaxBreakerCapacity is the largest valid value for the MaxConcurrency value of BreakerParams.
 // This is limited by the maximum size of a chan struct{} in the current implementation.
@@ -103,7 +100,7 @@ func (b *Breaker) tryAcquirePending() bool {
 		if cur == b.totalSlots {
 			return false
 		}
-		if b.inFlight.CAS(cur, cur+1) {
+		if b.inFlight.CompareAndSwap(cur, cur+1) {
 			return true
 		}
 	}
@@ -111,7 +108,7 @@ func (b *Breaker) tryAcquirePending() bool {
 
 // releasePending releases a slot on the pending "queue".
 func (b *Breaker) releasePending() {
-	b.inFlight.Dec()
+	b.inFlight.Add(-1)
 }
 
 // Reserve reserves an execution slot in the breaker, to permit
@@ -204,7 +201,7 @@ func (s *semaphore) tryAcquire() bool {
 			return false
 		}
 		in++
-		if s.state.CAS(old, pack(capacity, in)) {
+		if s.state.CompareAndSwap(old, pack(capacity, in)) {
 			return true
 		}
 	}
@@ -227,7 +224,7 @@ func (s *semaphore) acquire(ctx context.Context) error {
 		}
 
 		in++
-		if s.state.CAS(old, pack(capacity, in)) {
+		if s.state.CompareAndSwap(old, pack(capacity, in)) {
 			return nil
 		}
 	}
@@ -246,7 +243,7 @@ func (s *semaphore) release() {
 		}
 
 		in--
-		if s.state.CAS(old, pack(capacity, in)) {
+		if s.state.CompareAndSwap(old, pack(capacity, in)) {
 			if in < capacity {
 				select {
 				case s.queue <- struct{}{}:
@@ -265,7 +262,7 @@ func (s *semaphore) release() {
 
 // updateCapacity updates the capacity of the semaphore to the desired size.
 func (s *semaphore) updateCapacity(size int) {
-	s64 := uint64(size)
+	s64 := uint64(size) //nolint:gosec // TODO(dprotaso) capacity should be uint
 	for {
 		old := s.state.Load()
 		capacity, in := unpack(old)
@@ -275,9 +272,9 @@ func (s *semaphore) updateCapacity(size int) {
 			return
 		}
 
-		if s.state.CAS(old, pack(s64, in)) {
+		if s.state.CompareAndSwap(old, pack(s64, in)) {
 			if s64 > capacity {
-				for i := uint64(0); i < s64-capacity; i++ {
+				for range s64 - capacity {
 					select {
 					case s.queue <- struct{}{}:
 					default:
@@ -293,7 +290,7 @@ func (s *semaphore) updateCapacity(size int) {
 // Capacity is the capacity of the semaphore.
 func (s *semaphore) Capacity() int {
 	capacity, _ := unpack(s.state.Load())
-	return int(capacity)
+	return int(capacity) //nolint:gosec // TODO(dprotaso) - capacity should be uint64
 }
 
 // unpack takes an uint64 and returns two uint32 (as uint64) comprised of the leftmost

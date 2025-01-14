@@ -35,11 +35,9 @@ const (
 	DomainTypeWildcard = "wildcard"
 )
 
-var (
-	// DefaultDomain holds the domain that Route's live under by default
-	// when no label selector-based options apply.
-	DefaultDomain = "svc." + network.GetClusterDomainName()
-)
+// DefaultDomain holds the domain that Route's live under by default
+// when no label selector-based options apply.
+var DefaultDomain = "svc." + network.GetClusterDomainName()
 
 // LabelSelector represents map of {key,value} pairs. A single {key,value} in the
 // map is equivalent to a requirement key == value. The requirements are ANDed.
@@ -131,7 +129,6 @@ func (c *Domain) LookupDomainForLabels(labels map[string]string) string {
 		return "svc." + network.GetClusterDomainName()
 	}
 	for k, v := range c.Domains {
-
 		// Ignore if selector doesn't match, or decrease the specificity.
 		if !v.Selector.Matches(labels) || v.Selector.specificity() < specificity {
 			continue

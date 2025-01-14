@@ -46,7 +46,8 @@ type Base struct {
 
 // ReconcileSKS reconciles a ServerlessService based on the given PodAutoscaler.
 func (c *Base) ReconcileSKS(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler,
-	mode nv1alpha1.ServerlessServiceOperationMode, numActivators int32) (*nv1alpha1.ServerlessService, error) {
+	mode nv1alpha1.ServerlessServiceOperationMode, numActivators int32,
+) (*nv1alpha1.ServerlessService, error) {
 	logger := logging.FromContext(ctx)
 
 	sksName := anames.SKS(pa.Name)

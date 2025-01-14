@@ -92,7 +92,7 @@ func TestMakeCertificates(t *testing.T) {
 }
 
 func TestMakeCertificates_FilterLastAppliedAnno(t *testing.T) {
-	var orgRoute = Route("default", "route", WithRouteUID("12345"), WithRouteLabel(map[string]string{"label-from-route": "foo", serving.RouteLabelKey: "foo"}),
+	orgRoute := Route("default", "route", WithRouteUID("12345"), WithRouteLabel(map[string]string{"label-from-route": "foo", serving.RouteLabelKey: "foo"}),
 		WithRouteAnnotation(map[string]string{corev1.LastAppliedConfigAnnotation: "something-last-applied", networking.CertificateClassAnnotationKey: "passdown-cert"}))
 	want := []*netv1alpha1.Certificate{
 		{

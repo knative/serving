@@ -241,5 +241,4 @@ func TestMakeIngress(t *testing.T) {
 			}
 		})
 	}
-
 }

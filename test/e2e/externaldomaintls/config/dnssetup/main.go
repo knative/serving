@@ -109,7 +109,6 @@ func waitForDNSRecordVisible(record *config.DNSRecord) error {
 			if !valid {
 				return false, nil
 			}
-
 		}
 		return true, nil
 	}); err != nil {

@@ -55,11 +55,11 @@ func mainHandler(
 	breaker := buildBreaker(logger, env)
 	tracingEnabled := env.TracingConfigBackend != tracingconfig.None
 	timeout := time.Duration(env.RevisionTimeoutSeconds) * time.Second
-	var responseStartTimeout = 0 * time.Second
+	responseStartTimeout := 0 * time.Second
 	if env.RevisionResponseStartTimeoutSeconds != 0 {
 		responseStartTimeout = time.Duration(env.RevisionResponseStartTimeoutSeconds) * time.Second
 	}
-	var idleTimeout = 0 * time.Second
+	idleTimeout := 0 * time.Second
 	if env.RevisionIdleTimeoutSeconds != 0 {
 		idleTimeout = time.Duration(env.RevisionIdleTimeoutSeconds) * time.Second
 	}

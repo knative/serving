@@ -98,7 +98,6 @@ func TestGetContainerConcurrency(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestRevisionIsReady(t *testing.T) {
@@ -228,7 +227,6 @@ func TestRevisionIsFailed(t *testing.T) {
 		name: "Unknown condition status should not be failed",
 		status: RevisionStatus{
 			Status: duckv1.Status{
-
 				Conditions: duckv1.Conditions{{
 					Type:   RevisionConditionReady,
 					Status: corev1.ConditionUnknown,
@@ -597,7 +595,6 @@ func TestPropagateAutoscalerStatus_NoOverridingResourcesAvailable(t *testing.T) 
 
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("ready is %v", tc), func(t *testing.T) {
-
 			r := &RevisionStatus{}
 			r.InitializeConditions()
 			apistest.CheckConditionOngoing(r, RevisionConditionReady, t)

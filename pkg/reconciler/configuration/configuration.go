@@ -116,7 +116,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 		config.Status.MarkLatestCreatedFailed(lcr.Name, rc.GetMessage())
 
 		if !equality.Semantic.DeepEqual(beforeReady, config.Status.GetCondition(v1.ConfigurationConditionReady)) {
-
 			if lcr.Name == config.Status.LatestReadyRevisionName {
 				recorder.Eventf(config, corev1.EventTypeWarning, "LatestReadyFailed",
 					"Latest ready revision %q has failed", lcr.Name)

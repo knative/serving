@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -315,7 +316,7 @@ func TestMakeCertManagerCertificateLongCommonName(t *testing.T) {
 }
 
 func TestMakeCertManagerCertificateDomainMappingIsTooLong(t *testing.T) {
-	wantError := fmt.Errorf("error creating cert-manager certificate: CommonName (this.is.aaaaaaaaaaaaaaa.reallyreallyreallyreallyreallylong.domainmapping) longer than 63 characters")
+	wantError := errors.New("error creating cert-manager certificate: CommonName (this.is.aaaaaaaaaaaaaaa.reallyreallyreallyreallyreallylong.domainmapping) longer than 63 characters")
 	cert, gotError := MakeCertManagerCertificate(cmConfig, &v1alpha1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-cert-from-domain-mapping",
@@ -346,7 +347,7 @@ func TestMakeCertManagerCertificateDomainMappingIsTooLong(t *testing.T) {
 }
 
 func TestMakeCertManagerCertificateDomainIsTooLong(t *testing.T) {
-	wantError := fmt.Errorf("error creating cert-manager certificate: CommonName (aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com)(length: 64) too long, prepending short prefix of (k.)(length: 2) will be longer than 64 bytes")
+	wantError := errors.New("error creating cert-manager certificate: CommonName (aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.com)(length: 64) too long, prepending short prefix of (k.)(length: 2) will be longer than 64 bytes")
 	cert, gotError := MakeCertManagerCertificate(cmConfig, certWithLongDomain)
 
 	if cert != nil {
@@ -359,7 +360,7 @@ func TestMakeCertManagerCertificateDomainIsTooLong(t *testing.T) {
 }
 
 func TestMakeCertManagerCertificateIssuerNotSet(t *testing.T) {
-	wantError := fmt.Errorf("error creating cert-manager certificate: issuerRef was not set in config-certmanager")
+	wantError := errors.New("error creating cert-manager certificate: issuerRef was not set in config-certmanager")
 
 	cmConfigNoIssuer := cmConfig.DeepCopy()
 	cmConfigNoIssuer.IssuerRef = nil
@@ -376,7 +377,7 @@ func TestMakeCertManagerCertificateIssuerNotSet(t *testing.T) {
 }
 
 func TestMakeCertManagerCertificateLocalIssuerNotSet(t *testing.T) {
-	wantError := fmt.Errorf("error creating cert-manager certificate: clusterLocalIssuerRef was not set in config-certmanager")
+	wantError := errors.New("error creating cert-manager certificate: clusterLocalIssuerRef was not set in config-certmanager")
 
 	cmConfigNoIssuer := cmConfig.DeepCopy()
 	cmConfigNoIssuer.ClusterLocalIssuerRef = nil
@@ -393,7 +394,7 @@ func TestMakeCertManagerCertificateLocalIssuerNotSet(t *testing.T) {
 }
 
 func TestMakeCertManagerCertificateSystemInternalIssuerNotSet(t *testing.T) {
-	wantError := fmt.Errorf("error creating cert-manager certificate: systemInternalIssuerRef was not set in config-certmanager")
+	wantError := errors.New("error creating cert-manager certificate: systemInternalIssuerRef was not set in config-certmanager")
 
 	cmConfigNoIssuer := cmConfig.DeepCopy()
 	cmConfigNoIssuer.SystemInternalIssuerRef = nil
@@ -422,7 +423,8 @@ func TestGetReadyCondition(t *testing.T) {
 			Status:  cmmeta.ConditionTrue,
 			Reason:  "ready",
 			Message: "ready",
-		}}, {
+		},
+	}, {
 		name:          "not ready",
 		cmCertificate: makeTestCertificate(cmmeta.ConditionFalse, cmv1.CertificateConditionReady, "not ready", "not ready"),
 		want: &cmv1.CertificateCondition{
@@ -430,7 +432,8 @@ func TestGetReadyCondition(t *testing.T) {
 			Status:  cmmeta.ConditionFalse,
 			Reason:  "not ready",
 			Message: "not ready",
-		}}, {
+		},
+	}, {
 		name:          "unknow",
 		cmCertificate: makeTestCertificate(cmmeta.ConditionUnknown, cmv1.CertificateConditionReady, "unknown", "unknown"),
 		want: &cmv1.CertificateCondition{
@@ -438,12 +441,12 @@ func TestGetReadyCondition(t *testing.T) {
 			Status:  cmmeta.ConditionUnknown,
 			Reason:  "unknown",
 			Message: "unknown",
-		}}, {
+		},
+	}, {
 		name:          "condition not ready",
 		cmCertificate: makeTestCertificate(cmmeta.ConditionTrue, cmv1.CertificateConditionIssuing, "Renewing", "Renewing certificate"),
 		want:          nil,
-	},
-	}
+	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

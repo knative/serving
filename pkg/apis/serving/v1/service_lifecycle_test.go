@@ -199,7 +199,6 @@ func TestServiceIsFailed(t *testing.T) {
 		name: "Unknown condition status should not be failed",
 		status: ServiceStatus{
 			Status: duckv1.Status{
-
 				Conditions: duckv1.Conditions{{
 					Type:   ServiceConditionReady,
 					Status: corev1.ConditionUnknown,
@@ -441,7 +440,6 @@ func TestConfigurationFailurePropagation(t *testing.T) {
 	apistest.CheckConditionFailed(svc, ServiceConditionReady, t)
 	apistest.CheckConditionFailed(svc, ServiceConditionConfigurationsReady, t)
 	apistest.CheckConditionOngoing(svc, ServiceConditionRoutesReady, t)
-
 }
 
 func TestConfigurationFailureRecovery(t *testing.T) {

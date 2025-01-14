@@ -54,9 +54,11 @@ type PodScalableStatus struct {
 	Replicas int32 `json:"replicas,omitempty"`
 }
 
-var _ duck.Populatable = (*PodScalable)(nil)
-var _ duck.Implementable = (*PodScalable)(nil)
-var _ apis.Listable = (*PodScalable)(nil)
+var (
+	_ duck.Populatable   = (*PodScalable)(nil)
+	_ duck.Implementable = (*PodScalable)(nil)
+	_ apis.Listable      = (*PodScalable)(nil)
+)
 
 // GetFullType implements duck.Implementable
 func (*PodScalable) GetFullType() duck.Populatable {

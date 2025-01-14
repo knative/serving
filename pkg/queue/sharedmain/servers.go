@@ -46,6 +46,6 @@ func metricsServer(reporter *queue.ProtobufStatsReporter) *http.Server {
 	return &http.Server{
 		Addr:              ":" + strconv.Itoa(networking.AutoscalingQueueMetricsPort),
 		Handler:           metricsMux,
-		ReadHeaderTimeout: time.Minute, //https://medium.com/a-journey-with-go/go-understand-and-mitigate-slowloris-attack-711c1b1403f6
+		ReadHeaderTimeout: time.Minute, // https://medium.com/a-journey-with-go/go-understand-and-mitigate-slowloris-attack-711c1b1403f6
 	}
 }

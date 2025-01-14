@@ -55,7 +55,7 @@ func TestRevisionGetAndList(t *testing.T) {
 	if err != nil {
 		t.Fatal("Getting revisions failed")
 	}
-	var revisionFound = false
+	revisionFound := false
 	for _, revisionItem := range revisions.Items {
 		t.Logf("Revision Returned: %s", revisionItem.Name)
 		if revisionItem.Name == revision.Name {
@@ -66,5 +66,4 @@ func TestRevisionGetAndList(t *testing.T) {
 	if !revisionFound {
 		t.Fatal("The Revision that was previously created was not found by listing all Revisions.")
 	}
-
 }

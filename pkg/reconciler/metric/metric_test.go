@@ -19,10 +19,10 @@ package metric
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
-	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -270,12 +270,12 @@ type testCollector struct {
 }
 
 func (c *testCollector) CreateOrUpdate(metric *autoscalingv1alpha1.Metric) error {
-	c.createOrUpdateCalls.Inc()
+	c.createOrUpdateCalls.Add(1)
 	return c.createOrUpdateError
 }
 
 func (c *testCollector) Delete(namespace, name string) {
-	c.deleteCalls.Inc()
+	c.deleteCalls.Add(1)
 }
 
 func (c *testCollector) Watch(func(types.NamespacedName)) {}

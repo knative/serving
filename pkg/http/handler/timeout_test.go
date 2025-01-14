@@ -398,13 +398,12 @@ func TestTimeoutHandler(t *testing.T) {
 	}}
 
 	testTimeoutScenario(t, scenarios)
-
 }
 
 func BenchmarkTimeoutHandler(b *testing.B) {
 	writes := [][]byte{[]byte("this"), []byte("is"), []byte("a"), []byte("test")}
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 		for _, write := range writes {
 			w.Write(write)
 		}
@@ -414,7 +413,7 @@ func BenchmarkTimeoutHandler(b *testing.B) {
 
 	b.Run("sequential", func(b *testing.B) {
 		resp := httptest.NewRecorder()
-		for j := 0; j < b.N; j++ {
+		for range b.N {
 			handler.ServeHTTP(resp, req)
 		}
 	})

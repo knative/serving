@@ -458,7 +458,8 @@ func TestRevisionSpecValidation(t *testing.T) {
 					"revision-timeout-seconds":                "25",
 					"max-revision-timeout-seconds":            "50",
 					"revision-response-start-timeout-seconds": "10",
-					"revision-idle-timeout-seconds":           "10"},
+					"revision-idle-timeout-seconds":           "10",
+				},
 			})
 			return s.ToContext(ctx)
 		},
@@ -574,7 +575,8 @@ func TestImmutableFields(t *testing.T) {
 					"revision-timeout-seconds":                "25",
 					"max-revision-timeout-seconds":            "50",
 					"revision-response-start-timeout-seconds": "10",
-					"revision-idle-timeout-seconds":           "10"},
+					"revision-idle-timeout-seconds":           "10",
+				},
 			})
 			return s.ToContext(ctx)
 		},
@@ -989,7 +991,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		},
 		want: (&apis.FieldError{
 			Message: "invalid value: 0",
-			Paths:   []string{fmt.Sprintf("%s=0 not allowed by cluster", autoscaling.InitialScaleAnnotationKey)},
+			Paths:   []string{autoscaling.InitialScaleAnnotationKey + "=0 not allowed by cluster"},
 		}).ViaField("metadata.annotations"),
 	}, {
 		name: "Valid initial scale when cluster allows zero",

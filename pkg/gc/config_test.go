@@ -17,6 +17,8 @@ limitations under the License.
 package gc
 
 import (
+	"math"
+	"strconv"
 	"testing"
 	"time"
 
@@ -69,6 +71,12 @@ func TestOurConfig(t *testing.T) {
 		fail: true,
 		data: map[string]string{
 			"max-non-active-revisions": "-2",
+		},
+	}, {
+		name: "invalid integer value > maxint64",
+		fail: true,
+		data: map[string]string{
+			"max-non-active-revisions": strconv.FormatUint(math.MaxUint64, 10),
 		},
 	}, {
 		name: "invalid max less than min",

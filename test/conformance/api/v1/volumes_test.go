@@ -450,7 +450,7 @@ func TestProjectedServiceAccountToken(t *testing.T) {
 					Path:     tokenPath,
 				},
 			}},
-			DefaultMode: ptr.Int32(0444), // Ensure everybody can read the mounted files.
+			DefaultMode: ptr.Int32(0o444), // Ensure everybody can read the mounted files.
 		},
 	})
 	withSubpath := func(svc *v1.Service) {

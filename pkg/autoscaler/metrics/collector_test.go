@@ -176,12 +176,12 @@ func TestMetricCollectorScraperMovingTime(t *testing.T) {
 	coll.CreateOrUpdate(&defaultMetric)
 
 	// Tick three times.  Time doesn't matter since we use the time on the Stat.
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		mtp.Channel <- now
 	}
 	now = now.Add(time.Second)
 	fc.SetTime(now)
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		mtp.Channel <- now
 	}
 	var gotRPS, gotConcurrency, panicRPS, panicConcurrency float64
@@ -252,7 +252,7 @@ func TestMetricCollectorScraper(t *testing.T) {
 	coll.CreateOrUpdate(&defaultMetric)
 
 	// Tick three times.  Time doesn't matter since we use the time on the Stat.
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		mtp.Channel <- now
 	}
 	var gotRPS, gotConcurrency, panicRPS, panicConcurrency float64
@@ -341,7 +341,7 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	noTargetMetric.Spec.ScrapeTarget = ""
 	coll.CreateOrUpdate(&noTargetMetric)
 	// Tick three times.  Time doesn't matter since we use the time on the Stat.
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		mtp.Channel <- now
 		now = now.Add(time.Second)
 		fc.SetTime(now)
@@ -620,13 +620,13 @@ func TestMetricCollectorAggregate(t *testing.T) {
 		rpsPanicBuckets:         aggregation.NewTimedFloat64Buckets(m.Spec.PanicWindow, config.BucketSize),
 	}
 	now := time.Now()
-	for i := time.Duration(0); i < 10; i++ {
+	for i := range 10 {
 		stat := Stat{
 			PodName:                   "testPod",
 			AverageConcurrentRequests: float64(i + 5),
 			RequestCount:              float64(i + 5),
 		}
-		c.record(now.Add(i*time.Second), stat)
+		c.record(now.Add(time.Duration(i)*time.Second), stat)
 	}
 
 	now = now.Add(9 * time.Second)

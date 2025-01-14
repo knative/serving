@@ -341,8 +341,10 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: config("update-route-and-config-labels", "foo", WithRunLatestRollout, WithConfigLabel("new-label", "new-value")),
 		}, {
-			Object: route("update-route-and-config-labels", "foo", WithRunLatestRollout, WithRouteLabel(map[string]string{"new-label": "new-value",
-				"serving.knative.dev/service": "update-route-and-config-labels"})),
+			Object: route("update-route-and-config-labels", "foo", WithRunLatestRollout, WithRouteLabel(map[string]string{
+				"new-label":                   "new-value",
+				"serving.knative.dev/service": "update-route-and-config-labels",
+			})),
 		}},
 	}, {
 		Name: "update route config labels ignoring serving.knative.dev/route",
@@ -357,8 +359,10 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: config("update-child-labels-ignore-route-label", "foo", WithRunLatestRollout, WithConfigLabel("new-label", "new-value")),
 		}, {
-			Object: route("update-child-labels-ignore-route-label", "foo", WithRunLatestRollout, WithRouteLabel(map[string]string{"new-label": "new-value",
-				"serving.knative.dev/service": "update-child-labels-ignore-route-label"})),
+			Object: route("update-child-labels-ignore-route-label", "foo", WithRunLatestRollout, WithRouteLabel(map[string]string{
+				"new-label":                   "new-value",
+				"serving.knative.dev/service": "update-child-labels-ignore-route-label",
+			})),
 		}},
 	}, {
 		Name: "bad configuration update",

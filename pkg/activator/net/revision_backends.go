@@ -25,9 +25,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
@@ -137,7 +137,8 @@ func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol 
 	transport http.RoundTripper, serviceLister corev1listers.ServiceLister,
 	usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode,
 	enableProbeOptimisation bool,
-	logger *zap.SugaredLogger) *revisionWatcher {
+	logger *zap.SugaredLogger,
+) *revisionWatcher {
 	ctx, cancel := context.WithCancel(ctx)
 	return &revisionWatcher{
 		stopCh:                  ctx.Done(),
@@ -261,7 +262,6 @@ func (rw *revisionWatcher) probePodIPs(ready, notReady sets.Set[string]) (succee
 			continue
 		}
 
-		dest := dest // Standard Go concurrency pattern.
 		probeGroup.Go(func() error {
 			ok, notMesh, err := rw.probe(ctx, dest)
 			if ok && (ready.Has(dest) || rw.enableProbeOptimisation) {
@@ -470,7 +470,8 @@ func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper, usePa
 
 // newRevisionBackendsManagerWithProbeFrequency creates a fully spec'd RevisionBackendsManager.
 func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.RoundTripper,
-	usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode, probeFreq time.Duration) *revisionBackendsManager {
+	usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode, probeFreq time.Duration,
+) *revisionBackendsManager {
 	rbm := &revisionBackendsManager{
 		ctx:              ctx,
 		revisionLister:   revisioninformer.Get(ctx).Lister(),

@@ -566,13 +566,15 @@ func TestAutoscalerUpdateTarget(t *testing.T) {
 
 // For table tests and tests that don't care about changing scale.
 func newTestAutoscalerNoPC(targetValue, targetBurstCapacity float64,
-	metrics metrics.MetricClient) *autoscaler {
+	metrics metrics.MetricClient,
+) *autoscaler {
 	a, _ := newTestAutoscaler(targetValue, targetBurstCapacity, metrics)
 	return a
 }
 
 func newTestAutoscaler(targetValue, targetBurstCapacity float64,
-	metrics metrics.MetricClient) (*autoscaler, *fakePodCounter) {
+	metrics metrics.MetricClient,
+) (*autoscaler, *fakePodCounter) {
 	return newTestAutoscalerWithScalingMetric(targetValue, targetBurstCapacity,
 		metrics, "concurrency", false /*panic*/)
 }
@@ -633,7 +635,7 @@ func TestStartInPanicMode(t *testing.T) {
 	}
 
 	pc := &fakePodCounter{}
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		pc.readyCount = i
 		a := newAutoscaler(context.Background(), testNamespace, testRevision, metrics, pc, deciderSpec, nil)
 		if !a.panicTime.IsZero() {
@@ -731,7 +733,7 @@ func BenchmarkAutoscaler(b *testing.B) {
 	a := newTestAutoscalerNoPC(10, 101, metrics)
 	now := time.Now()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Scale(logtesting.TestLogger(b), now)
 	}
 }

@@ -62,7 +62,8 @@ func TestGCReconcile(t *testing.T) {
 					MaxNonActiveRevisions:     gc.Disabled,
 				},
 			},
-		}}
+		},
+	}
 
 	fc := clocktest.NewFakePassiveClock(time.Now())
 	table := TableTest{{

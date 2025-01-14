@@ -6,7 +6,6 @@ require (
 	github.com/ahmetb/gen-crd-api-reference-docs v0.3.1-0.20210609063737-0067dc6dcea2
 	github.com/cert-manager/cert-manager v1.13.3
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-	github.com/ghodss/yaml v1.0.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/go-cmp v0.6.0
 	github.com/google/go-containerregistry v0.13.0
@@ -18,7 +17,6 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/tsenart/vegeta/v12 v12.12.0
 	go.opencensus.io v0.24.0
-	go.uber.org/atomic v1.10.0
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/net v0.34.0

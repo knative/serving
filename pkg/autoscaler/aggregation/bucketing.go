@@ -166,13 +166,13 @@ func (t *WeightedFloat64Buckets) WindowAverage(now time.Time) float64 {
 	if now.After(t.lastWrite) {
 		numZ := now.Sub(t.lastWrite) / t.granularity
 		// Skip to this multiplier directly: m*(1-m)^(nz-1).
-		multiplier = multiplier * math.Pow(1-t.smoothingCoeff, float64(numZ))
+		multiplier *= math.Pow(1-t.smoothingCoeff, float64(numZ))
 		// Reduce effective number of buckets.
 		numB -= int(numZ)
 	}
 	startIdx := t.timeToIndex(t.lastWrite) + totalB // To ensure always positive % operation.
 	ret := 0.
-	for i := 0; i < numB; i++ {
+	for i := range numB {
 		effectiveIdx := (startIdx - i) % totalB
 		v := t.buckets[effectiveIdx] * multiplier
 		ret += v
@@ -336,7 +336,7 @@ func (t *TimedFloat64Buckets) ResizeWindow(w time.Duration) {
 		// `newBuckets` buckets.
 		oldNumBuckets := len(t.buckets)
 		tIdx := t.timeToIndex(t.lastWrite)
-		for i := 0; i < min(numBuckets, oldNumBuckets); i++ {
+		for range min(numBuckets, oldNumBuckets) {
 			oi := tIdx % oldNumBuckets
 			ni := tIdx % numBuckets
 			newBuckets[ni] = t.buckets[oi]

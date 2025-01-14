@@ -51,7 +51,6 @@ func TestEgressTraffic(t *testing.T) {
 			Name:  targetHostEnvName,
 			Value: targetHostDomain,
 		}))
-
 	if err != nil {
 		t.Fatal("Failed to create a service:", err)
 	}

@@ -85,7 +85,6 @@ func TestShouldRunAsUserContainerDefault(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 	_, ri, err := fetchRuntimeInfo(t, clients)
-
 	if err != nil {
 		t.Fatal("Error fetching runtime info:", err)
 	}
@@ -107,5 +106,4 @@ func TestShouldRunAsUserContainerDefault(t *testing.T) {
 	if got, want := ri.Host.User.EUID, unprivilegedUserID; got != want {
 		t.Errorf("euid = %d, want: %d", got, want)
 	}
-
 }

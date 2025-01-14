@@ -86,9 +86,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 		// TODO(mattmoor): Check globalSLO if localSLO isn't 1.0
 	})
 
-	for i := 0; i < scale; i++ {
-		// https://golang.org/doc/faq#closures_and_goroutines
-		i := i
+	for i := range scale {
 		t.Run(fmt.Sprintf("%03d-of-%03d", i, scale), func(t *testing.T) {
 			t.Parallel()
 
@@ -176,7 +174,6 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 					url = s.Status.URL.URL()
 					return v1test.IsServiceReady(s)
 				}, "ServiceUpdatedWithURL")
-
 				if err != nil {
 					t.Error("WaitForServiceState(w/ Domain) =", err)
 					return fmt.Errorf("WaitForServiceState(w/ Domain) failed: %w", err)

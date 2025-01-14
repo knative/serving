@@ -139,7 +139,8 @@ func TestMakePA(t *testing.T) {
 				},
 				ProtocolType: networking.ProtocolH2C,
 				Reachability: autoscalingv1alpha1.ReachabilityUnreachable,
-			}},
+			},
+		},
 	}, {
 		name: "unknown routing state",
 		rev: &v1.Revision{
@@ -189,7 +190,8 @@ func TestMakePA(t *testing.T) {
 				ProtocolType: networking.ProtocolH2C,
 				// When the Revision has failed, we mark the PA as unreachable.
 				Reachability: autoscalingv1alpha1.ReachabilityUnknown,
-			}},
+			},
+		},
 	}, {
 		name: "pending routing state",
 		rev: &v1.Revision{
@@ -242,7 +244,8 @@ func TestMakePA(t *testing.T) {
 				ProtocolType: networking.ProtocolH2C,
 				// When the Revision has failed, we mark the PA as unreachable.
 				Reachability: autoscalingv1alpha1.ReachabilityUnknown,
-			}},
+			},
+		},
 	}, {
 		name: "failed deployment",
 		dep: &appsv1.Deployment{

@@ -1294,7 +1294,8 @@ func TestMakeIngressACMEChallenges(t *testing.T) {
 						"Knative-Serving-Namespace": "test-ns",
 					},
 				}},
-			}}},
+			}},
+		},
 	}, {
 		Hosts: []string{
 			"test-route.test-ns.example.com",
@@ -1324,7 +1325,8 @@ func TestMakeIngressACMEChallenges(t *testing.T) {
 						"Knative-Serving-Namespace": "test-ns",
 					},
 				}},
-			}}},
+			}},
+		},
 	}}
 
 	tc := &traffic.Config{
@@ -1340,7 +1342,6 @@ func TestMakeIngressACMEChallenges(t *testing.T) {
 	if !cmp.Equal(expected, ci.Rules) {
 		t.Error("Unexpected rules (-want, +got):", cmp.Diff(expected, ci.Rules))
 	}
-
 }
 
 func TestMakeIngressFailToGenerateDomain(t *testing.T) {

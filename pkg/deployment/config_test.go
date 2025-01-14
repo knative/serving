@@ -594,7 +594,6 @@ func TestPodRuntimeClassName(t *testing.T) {
 	}}
 
 	for _, tt := range ts {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.serviceLabels == nil {
 				tt.serviceLabels = map[string]string{}

@@ -18,8 +18,8 @@ package config
 
 import (
 	"context"
+	"sync/atomic"
 
-	"go.uber.org/atomic"
 	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/configmap"
 	tracingconfig "knative.dev/pkg/tracing/config"

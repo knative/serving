@@ -50,7 +50,6 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 		autoscaling.MetricAggregationAlgorithmLinear,
 		autoscaling.MetricAggregationAlgorithmWeightedExponential,
 	} {
-		algo := algo
 		t.Run("aggregation-"+algo, func(t *testing.T) {
 			t.Parallel()
 			ctx := SetupSvc(t,
@@ -122,7 +121,6 @@ func TestAutoscaleSustaining(t *testing.T) {
 		autoscaling.MetricAggregationAlgorithmLinear,
 		autoscaling.MetricAggregationAlgorithmWeightedExponential,
 	} {
-		algo := algo
 		t.Run("aggregation-"+algo, func(t *testing.T) {
 			// When traffic increases, a knative app should scale up and sustain the scale
 			// as long as the traffic sustains, despite whether it is switching modes between
@@ -300,7 +298,6 @@ func TestTargetBurstCapacityZero(t *testing.T) {
 		test.ServingFlags.TestNamespace,
 		time.Minute,
 	)
-
 	if err != nil {
 		t.Error(err)
 	}
@@ -361,7 +358,8 @@ func TestActivationScale(t *testing.T) {
 			Class:             autoscaling.KPA,
 			Metric:            autoscaling.Concurrency,
 			Target:            6,
-			TargetUtilization: 0.7},
+			TargetUtilization: 0.7,
+		},
 		test.Options{},
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.ActivationScaleKey: strconv.Itoa(activationScale),

@@ -43,7 +43,6 @@ import (
 )
 
 func TestReconcile(t *testing.T) {
-
 	tests := []struct {
 		name         string
 		secret       *corev1.Secret
@@ -54,30 +53,26 @@ func TestReconcile(t *testing.T) {
 		secret:       secret,
 		configMap:    nil,
 		expectedPool: getPoolWithCerts(secret.Data[certificates.CaCertName]),
-	},
-		{
-			name: "Valid CA only in configmap",
-			secret: func() *corev1.Secret {
-				s := secret.DeepCopy()
-				delete(s.Data, certificates.CaCertName)
-				return s
-			}(),
-			configMap:    validConfigmap,
-			expectedPool: getPoolWithCerts(configmapCA),
-		},
-		{
-			name:         "Valid CA in both configmap and secret",
-			secret:       secret,
-			configMap:    validConfigmap,
-			expectedPool: getPoolWithCerts(secretCA, configmapCA),
-		},
-		{
-			name:         "Invalid CA in configmap",
-			secret:       secret,
-			configMap:    invalidConfigmap,
-			expectedPool: getPoolWithCerts(secretCA),
-		},
-	}
+	}, {
+		name: "Valid CA only in configmap",
+		secret: func() *corev1.Secret {
+			s := secret.DeepCopy()
+			delete(s.Data, certificates.CaCertName)
+			return s
+		}(),
+		configMap:    validConfigmap,
+		expectedPool: getPoolWithCerts(configmapCA),
+	}, {
+		name:         "Valid CA in both configmap and secret",
+		secret:       secret,
+		configMap:    validConfigmap,
+		expectedPool: getPoolWithCerts(secretCA, configmapCA),
+	}, {
+		name:         "Invalid CA in configmap",
+		secret:       secret,
+		configMap:    invalidConfigmap,
+		expectedPool: getPoolWithCerts(secretCA),
+	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

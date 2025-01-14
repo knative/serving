@@ -96,8 +96,10 @@ type MetricCollector struct {
 	watcher      func(types.NamespacedName)
 }
 
-var _ Collector = (*MetricCollector)(nil)
-var _ MetricClient = (*MetricCollector)(nil)
+var (
+	_ Collector    = (*MetricCollector)(nil)
+	_ MetricClient = (*MetricCollector)(nil)
+)
 
 // NewMetricCollector creates a new metric collector.
 func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.SugaredLogger) *MetricCollector {
@@ -263,7 +265,8 @@ func (c *collection) getScraper() StatsScraper {
 // newCollection creates a new collection, which uses the given scraper to
 // collect stats every scrapeTickInterval.
 func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clock clock.WithTicker,
-	callback func(types.NamespacedName), logger *zap.SugaredLogger) *collection {
+	callback func(types.NamespacedName), logger *zap.SugaredLogger,
+) *collection {
 	// Pick the constructor to use to build the buckets.
 	// NB: this relies on the fact that aggregation algorithm is set on annotation of revision
 	// and as such is immutable.

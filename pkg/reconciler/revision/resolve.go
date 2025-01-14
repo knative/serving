@@ -65,6 +65,7 @@ func newResolverTransport(path string, maxIdleConns, maxIdleConnsPerHost int) (*
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.MaxIdleConns = maxIdleConns
 	transport.MaxIdleConnsPerHost = maxIdleConnsPerHost
+	//nolint:gosec // quay.io still required 1.2 - bump if they've moved up
 	transport.TLSClientConfig = &tls.Config{
 		MinVersion: tlsMinVersionFromEnv(tls.VersionTLS12),
 		RootCAs:    pool,
@@ -91,7 +92,8 @@ func (r *digestResolver) Resolve(
 	ctx context.Context,
 	image string,
 	opt k8schain.Options,
-	registriesToSkip sets.Set[string]) (string, error) {
+	registriesToSkip sets.Set[string],
+) (string, error) {
 	kc, err := k8schain.New(ctx, r.client, opt)
 	if err != nil {
 		return "", fmt.Errorf("failed to initialize authentication: %w", err)

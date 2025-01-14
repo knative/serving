@@ -120,7 +120,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	traffic, err := c.configureTraffic(ctx, r)
 	if traffic == nil || err != nil {
 		if err != nil {
-			if errors.Is(err, domains.ErrorDomainName) {
+			if errors.Is(err, domains.ErrDomainName) {
 				r.Status.MarkRevisionTargetTrafficError(errorConfigMsg, err.Error())
 			} else {
 				r.Status.MarkUnknownTrafficError(err.Error())
@@ -276,11 +276,11 @@ func (c *Reconciler) externalDomainTLS(ctx context.Context, host string, r *v1.R
 				if renewingCondition.Status == corev1.ConditionTrue {
 					logger.Infof("Renewing Condition detected on Cert (%s), will attempt creating new challenges.", cert.Name)
 					if len(cert.Status.HTTP01Challenges) == 0 {
-						//Not sure log level this should be at.
-						//It is possible for certs to be renewed without getting
-						//validated again, for example, LetsEncrypt will cache
-						//validation results. See
-						//[here](https://letsencrypt.org/docs/faq/#i-successfully-renewed-a-certificate-but-validation-didn-t-happen-this-time-how-is-that-possible)
+						// Not sure log level this should be at.
+						// It is possible for certs to be renewed without getting
+						// validated again, for example, LetsEncrypt will cache
+						// validation results. See
+						// [here](https://letsencrypt.org/docs/faq/#i-successfully-renewed-a-certificate-but-validation-didn-t-happen-this-time-how-is-that-possible)
 						logger.Infof("No HTTP01Challenges found on Cert (%s).", cert.Name)
 					}
 					acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)

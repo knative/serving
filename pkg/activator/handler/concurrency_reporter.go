@@ -21,9 +21,9 @@ import (
 	"math"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 	netstats "knative.dev/networking/pkg/http/stats"
@@ -94,7 +94,7 @@ func (cr *ConcurrencyReporter) handleRequestIn(event netstats.ReqEvent) *revisio
 // the handleRequestIn call.
 func (cr *ConcurrencyReporter) handleRequestOut(stat *revisionStats, event netstats.ReqEvent) {
 	stat.stats.HandleEvent(event)
-	stat.refs.Dec()
+	stat.refs.Add(-1)
 }
 
 // getOrCreateStat gets a stat from the state if present.
@@ -106,7 +106,7 @@ func (cr *ConcurrencyReporter) getOrCreateStat(event netstats.ReqEvent) (*revisi
 	if stat != nil {
 		// Since this is incremented under the lock, it's guaranteed to be observed by
 		// the deletion routine.
-		stat.refs.Inc()
+		stat.refs.Add(1)
 		cr.mux.RUnlock()
 		return stat, nil
 	}
@@ -120,7 +120,7 @@ func (cr *ConcurrencyReporter) getOrCreateStat(event netstats.ReqEvent) (*revisi
 	if stat != nil {
 		// Since this is incremented under the lock, it's guaranteed to be observed by
 		// the deletion routine.
-		stat.refs.Inc()
+		stat.refs.Add(1)
 		return stat, nil
 	}
 
@@ -128,7 +128,7 @@ func (cr *ConcurrencyReporter) getOrCreateStat(event netstats.ReqEvent) (*revisi
 		stats:        netstats.NewRequestStats(event.Time),
 		firstRequest: 1,
 	}
-	stat.refs.Inc()
+	stat.refs.Add(1)
 	cr.stats[event.Key] = stat
 
 	return stat, &asmetrics.StatMessage{

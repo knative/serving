@@ -19,8 +19,8 @@ package certificate
 import (
 	"context"
 	"errors"
-	"fmt"
 	"hash/adler32"
+	"strconv"
 	"testing"
 	"time"
 
@@ -265,7 +265,8 @@ func TestReconcile(t *testing.T) {
 			knCert("knCert", "foo"),
 			cmCertWithStatus("knCert", "foo", correctDNSNames, []cmv1.CertificateCondition{{
 				Type:   cmv1.CertificateConditionReady,
-				Status: cmmeta.ConditionTrue}}, nil),
+				Status: cmmeta.ConditionTrue,
+			}}, nil),
 			nonHTTP01Issuer,
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -289,7 +290,8 @@ func TestReconcile(t *testing.T) {
 			knCert("knCert", "foo"),
 			cmCertWithStatus("knCert", "foo", correctDNSNames, []cmv1.CertificateCondition{{
 				Type:   cmv1.CertificateConditionReady,
-				Status: cmmeta.ConditionUnknown}}, nil),
+				Status: cmmeta.ConditionUnknown,
+			}}, nil),
 			nonHTTP01Issuer,
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -313,7 +315,8 @@ func TestReconcile(t *testing.T) {
 			knCert("knCert", "foo"),
 			cmCertWithStatus("knCert", "foo", correctDNSNames, []cmv1.CertificateCondition{{
 				Type:   cmv1.CertificateConditionReady,
-				Status: cmmeta.ConditionFalse}}, nil),
+				Status: cmmeta.ConditionFalse,
+			}}, nil),
 			nonHTTP01Issuer,
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -666,7 +669,8 @@ func TestReconcile_HTTP01Challenges(t *testing.T) {
 			cmCertWithStatus("knCert", "foo", correctDNSNames, []cmv1.CertificateCondition{{
 				Type:   cmv1.CertificateConditionReady,
 				Status: cmmeta.ConditionFalse,
-				Reason: "InProgress"}}, nil),
+				Reason: "InProgress",
+			}}, nil),
 			knCert("knCert", "foo"),
 			http01Issuer,
 		},
@@ -703,7 +707,7 @@ func TestReconcile_HTTP01Challenges(t *testing.T) {
 				}),
 		}},
 	}, {
-		//It is possible for a challenge to not be created for a k.{{Domain}} dnsname, since it may have already been created in a previous Kservice
+		// It is possible for a challenge to not be created for a k.{{Domain}} dnsname, since it may have already been created in a previous Kservice
 		Name: "set Status.HTTP01Challenges on Knative certificate when shortened domain with prefix (k.) is reused",
 		Key:  "foo/knCert",
 		Objects: []runtime.Object{
@@ -898,7 +902,7 @@ func cmSolverService(hostname, namespace string) *corev1.Service {
 			Name:      "cm-solver-" + hostname,
 			Namespace: namespace,
 			Labels: map[string]string{
-				httpDomainLabel: fmt.Sprintf("%d", adler32.Checksum([]byte(hostname))),
+				httpDomainLabel: strconv.FormatUint(uint64(adler32.Checksum([]byte(hostname))), 10),
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -908,5 +912,4 @@ func cmSolverService(hostname, namespace string) *corev1.Service {
 			}},
 		},
 	}
-
 }

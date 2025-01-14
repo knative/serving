@@ -35,7 +35,6 @@ func (s *Service) SetDefaults(ctx context.Context) {
 
 	s.Spec.SetDefaults(apis.WithinSpec(ctx))
 	serving.SetUserInfo(ctx, prevSpec, &s.Spec, s)
-
 }
 
 // SetDefaults implements apis.Defaultable

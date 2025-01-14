@@ -99,7 +99,8 @@ func FetchRouteStatus(ctx context.Context, namespace, name string, duration time
 }
 
 func fetchStatusInternal(ctx context.Context, duration time.Duration,
-	f func() ([]*appsv1.Deployment, error)) <-chan DeploymentStatus {
+	f func() ([]*appsv1.Deployment, error),
+) <-chan DeploymentStatus {
 	ch := make(chan DeploymentStatus)
 	startTick(duration, ctx.Done(), func(t time.Time) error {
 		// Overlay the desired and ready pod counts.

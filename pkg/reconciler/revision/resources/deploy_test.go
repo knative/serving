@@ -314,9 +314,11 @@ func refInt64(num int64) *int64 {
 	return &num
 }
 
-type containerOption func(*corev1.Container)
-type podSpecOption func(*corev1.PodSpec)
-type deploymentOption func(*appsv1.Deployment)
+type (
+	containerOption  func(*corev1.Container)
+	podSpecOption    func(*corev1.PodSpec)
+	deploymentOption func(*appsv1.Deployment)
+)
 
 func container(container *corev1.Container, opts ...containerOption) corev1.Container {
 	for _, option := range opts {
@@ -365,7 +367,9 @@ func withTCPReadinessProbe(port int) *corev1.Probe {
 			TCPSocket: &corev1.TCPSocketAction{
 				Host: "127.0.0.1",
 				Port: intstr.FromInt(port),
-			}}}
+			},
+		},
+	}
 }
 
 func withHTTPReadinessProbe(port int) *corev1.Probe {
@@ -375,7 +379,8 @@ func withHTTPReadinessProbe(port int) *corev1.Probe {
 				Port: intstr.FromInt(port),
 				Path: "/",
 			},
-		}}
+		},
+	}
 }
 
 func withGRPCReadinessProbe(port int) *corev1.Probe {
@@ -384,7 +389,8 @@ func withGRPCReadinessProbe(port int) *corev1.Probe {
 			GRPC: &corev1.GRPCAction{
 				Port: int32(port),
 			},
-		}}
+		},
+	}
 }
 
 func withExecReadinessProbe(command []string) *corev1.Probe {
@@ -393,7 +399,8 @@ func withExecReadinessProbe(command []string) *corev1.Probe {
 			Exec: &corev1.ExecAction{
 				Command: command,
 			},
-		}}
+		},
+	}
 }
 
 func withLivenessProbe(handler corev1.ProbeHandler) containerOption {
@@ -490,6 +497,7 @@ func WithRevisionAnnotations(annotations map[string]string) RevisionOption {
 		revision.Annotations = kmeta.UnionMaps(revision.Annotations, annotations)
 	}
 }
+
 func withContainerConcurrency(cc int64) RevisionOption {
 	return func(revision *v1.Revision) {
 		revision.Spec.ContainerConcurrency = &cc
@@ -610,7 +618,8 @@ func TestMakePodSpec(t *testing.T) {
 				queueContainer(
 					withEnvVar("USER_PORT", "8888"),
 					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"}}`),
-				)}),
+				),
+			}),
 	}, {
 		name: "volumes passed through",
 		rev: revision("bar", "foo",
@@ -1067,7 +1076,9 @@ func TestMakePodSpec(t *testing.T) {
 				LivenessProbe: &corev1.Probe{
 					ProbeHandler: corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{},
-					}}}},
+					},
+				},
+			}},
 			),
 			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
@@ -1130,7 +1141,9 @@ func TestMakePodSpec(t *testing.T) {
 				StartupProbe: &corev1.Probe{
 					ProbeHandler: corev1.ProbeHandler{
 						TCPSocket: &corev1.TCPSocketAction{},
-					}}}},
+					},
+				},
+			}},
 			),
 			WithContainerStatuses([]v1.ContainerStatus{{
 				ImageDigest: "busybox@sha256:deadbeef",
@@ -1179,7 +1192,8 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("SERVING_SERVICE", "svc"),
-				)}),
+				),
+			}),
 	}, {
 		name: "complex pod spec for multiple containers with container data to all containers",
 		rev: revision("bar", "foo",

@@ -233,7 +233,8 @@ func makeIngressRule(domains sets.Set[string], ns string,
 	visibility netv1alpha1.IngressVisibility,
 	targets traffic.RevisionTargets,
 	roCfgs []*traffic.ConfigurationRollout,
-	encryption bool) netv1alpha1.IngressRule {
+	encryption bool,
+) netv1alpha1.IngressRule {
 	return netv1alpha1.IngressRule{
 		Hosts:      sets.List(domains),
 		Visibility: visibility,
@@ -270,7 +271,8 @@ func rolloutConfig(cfgName string, ros []*traffic.ConfigurationRollout) *traffic
 }
 
 func makeBaseIngressPath(ns string, targets traffic.RevisionTargets,
-	roCfgs []*traffic.ConfigurationRollout, encryption bool) *netv1alpha1.HTTPIngressPath {
+	roCfgs []*traffic.ConfigurationRollout, encryption bool,
+) *netv1alpha1.HTTPIngressPath {
 	// Optimistically allocate |targets| elements.
 	splits := make([]netv1alpha1.IngressBackendSplit, 0, len(targets))
 	for _, t := range targets {

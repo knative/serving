@@ -272,7 +272,8 @@ func getService() *v1.Service {
 }
 
 func handleEvent(influxReporter *performance.InfluxReporter, metricResults *vegeta.Metrics, svc kmeta.Accessor,
-	status duckv1.Status, seen sets.Set[string], metric string) {
+	status duckv1.Status, seen sets.Set[string], metric string,
+) {
 	if seen.Has(svc.GetName()) {
 		return
 	}

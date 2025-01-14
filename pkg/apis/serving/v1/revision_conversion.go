@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+//nolint:stylecheck // ignore complaints about receiver having different names
 package v1
 
 import (

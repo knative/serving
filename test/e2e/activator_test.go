@@ -95,7 +95,7 @@ func TestActivatorOverload(t *testing.T) {
 
 	eg, egCtx := errgroup.WithContext(context.Background())
 	// Send requests async and wait for the responses.
-	for i := 0; i < concurrency; i++ {
+	for range concurrency {
 		eg.Go(func() error {
 			// We need to create a new request per HTTP request because
 			// the spoofing client mutates them.

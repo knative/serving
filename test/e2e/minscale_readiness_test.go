@@ -217,7 +217,7 @@ func waitForDesiredScale(clients *test.Clients, serviceName string, cond func(in
 	return latestReady, wait.PollUntilContextTimeout(context.Background(), 250*time.Millisecond, 3*time.Minute, true, func(context.Context) (bool, error) {
 		endpoint, err := endpoints.Get(context.Background(), serviceName, metav1.GetOptions{})
 		if err != nil {
-			return false, nil
+			return false, nil //nolint:nilerr
 		}
 		latestReady = resources.ReadyAddressCount(endpoint)
 		return cond(latestReady), nil
@@ -230,7 +230,7 @@ func ensureDesiredScale(clients *test.Clients, t *testing.T, serviceName string,
 	err := wait.PollUntilContextTimeout(context.Background(), 250*time.Millisecond, 10*time.Second, true, func(context.Context) (bool, error) {
 		endpoint, err := endpoints.Get(context.Background(), serviceName, metav1.GetOptions{})
 		if err != nil {
-			return false, nil
+			return false, nil //nolint:nilerr
 		}
 
 		if latestReady = resources.ReadyAddressCount(endpoint); !cond(latestReady) {

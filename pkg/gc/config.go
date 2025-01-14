@@ -18,7 +18,9 @@ package gc
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -111,6 +113,9 @@ func parseDisabledOrInt64(val string, toSet *int64) error {
 		if err != nil {
 			return err
 		}
+		if parsed > math.MaxInt64 {
+			return fmt.Errorf("value should be lower than %v", math.MaxInt64)
+		}
 		*toSet = int64(parsed)
 	}
 	return nil
@@ -128,7 +133,7 @@ func parseDisabledOrDuration(val string, toSet *time.Duration) error {
 			return err
 		}
 		if parsed < 0 {
-			return fmt.Errorf("must be non-negative")
+			return errors.New("must be non-negative")
 		}
 		*toSet = parsed
 	}

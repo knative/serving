@@ -44,7 +44,6 @@ func main() {
 
 		processFile(file)
 	}
-
 }
 
 func processFile(file fs.DirEntry) {
@@ -81,7 +80,6 @@ func processFile(file fs.DirEntry) {
 	if err = os.WriteFile(filename, buf.Bytes(), file.Type().Perm()); err != nil {
 		log.Fatalln("failed to write CRD", err)
 	}
-
 }
 
 func applyOverrides(root *yaml.Node) {
@@ -149,7 +147,7 @@ func updateFeatureFlags(node *yaml.Node, features []flagField) {
 }
 
 func updateFeatureFlagProperty(root *yaml.Node, f flagField) {
-	desc := fmt.Sprintf("This is accessible behind a feature flag - %s", f.flag)
+	desc := "This is accessible behind a feature flag - " + f.flag
 
 	setString(root, "description", desc)
 
@@ -184,7 +182,6 @@ func updateFeatureFlagProperty(root *yaml.Node, f flagField) {
 			Value: "true",
 		},
 	)
-
 }
 
 func filterAllowedFields(node *yaml.Node, allowed sets.Set[string], features []flagField) {
@@ -216,8 +213,7 @@ func filterAllowedFields(node *yaml.Node, allowed sets.Set[string], features []f
 func dropRequiredFields(node *yaml.Node, fields sets.Set[string]) {
 	dataType := dataType(node)
 
-	switch dataType {
-	case "array":
+	if dataType == "array" {
 		node = items(node)
 	}
 

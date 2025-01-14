@@ -77,7 +77,8 @@ var (
 )
 
 func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
-	context.Context, context.CancelFunc, chan *netv1alpha1.Certificate, *configmap.ManualWatcher) {
+	context.Context, context.CancelFunc, chan *netv1alpha1.Certificate, *configmap.ManualWatcher,
+) {
 	t.Helper()
 
 	ctx, ccl, ifs := SetupFakeContextWithCancel(t)
@@ -148,14 +149,16 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 func TestNewController(t *testing.T) {
 	ctx, _ := SetupFakeContext(t)
 
-	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      netcfg.ConfigMapName,
-			Namespace: system.Namespace(),
+	configMapWatcher := configmap.NewStaticWatcher(
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      netcfg.ConfigMapName,
+				Namespace: system.Namespace(),
+			},
+			Data: map[string]string{
+				"DomainTemplate": defaultDomainTemplate,
+			},
 		},
-		Data: map[string]string{
-			"DomainTemplate": defaultDomainTemplate,
-		}},
 		&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      routecfg.DomainConfigName,
@@ -163,7 +166,8 @@ func TestNewController(t *testing.T) {
 			},
 			Data: map[string]string{
 				"svc.cluster.local": "",
-			}},
+			},
+		},
 	)
 
 	c := NewController(ctx, configMapWatcher)
@@ -232,7 +236,8 @@ func TestReconcile(t *testing.T) {
 					Key:      "excludeWildcard",
 					Operator: "NotIn",
 					Values:   []string{"yes", "true", "anything"},
-				}}}),
+				}},
+			}),
 	}, {
 		Name: "certificate not created for excluded namespace when both internal and external labels are present",
 		Key:  "foo",
@@ -247,7 +252,8 @@ func TestReconcile(t *testing.T) {
 					Key:      disableWildcardCertLabelKey,
 					Operator: "NotIn",
 					Values:   []string{"true"},
-				}}}),
+				}},
+			}),
 	}, {
 		Name:                    "certificate creation failed",
 		Key:                     "foo",
@@ -291,7 +297,8 @@ func TestReconcile(t *testing.T) {
 					Key:      disableWildcardCertLabelKey,
 					Operator: "NotIn",
 					Values:   []string{"true"},
-				}}}),
+				}},
+			}),
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {

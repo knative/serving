@@ -90,7 +90,6 @@ func TestBYOCertificate(t *testing.T) {
 			corev1.TLSPrivateKeyKey: key,
 		},
 	}, metav1.CreateOptions{})
-
 	if err != nil {
 		t.Fatalf("Secret creation could not be completed: %v", err)
 	}
@@ -117,7 +116,8 @@ func TestBYOCertificate(t *testing.T) {
 			},
 			TLS: &v1beta1.SecretTLS{
 				SecretName: secret.Name,
-			}},
+			},
+		},
 		Status: v1beta1.DomainMappingStatus{},
 	}
 

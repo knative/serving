@@ -104,8 +104,10 @@ func execProbeMain() {
 	if err != nil {
 		log.Fatal("Failed to probe: ", err)
 	}
+	resp.Body.Close()
 	if resp.StatusCode > 299 {
 		os.Exit(1)
+		return
 	}
 	os.Exit(0)
 }
@@ -119,10 +121,11 @@ func handleStartFailing(w http.ResponseWriter, _ *http.Request) {
 }
 
 func handleStartFailingSidecar(_ http.ResponseWriter, _ *http.Request) {
-	_, err := http.Get(os.ExpandEnv("http://localhost:$FORWARD_PORT/start-failing"))
+	resp, err := http.Get(os.ExpandEnv("http://localhost:$FORWARD_PORT/start-failing"))
 	if err != nil {
 		log.Fatalf("GET to /start-failing failed: %v", err)
 	}
+	defer resp.Body.Close()
 }
 
 func handleReadiness(w http.ResponseWriter, _ *http.Request) {

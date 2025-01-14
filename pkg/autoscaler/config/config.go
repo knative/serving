@@ -172,7 +172,6 @@ func validate(lc *autoscalerconfig.Config) (*autoscalerconfig.Config, error) {
 		lc.PanicWindowPercentage > autoscaling.PanicWindowPercentageMax {
 		return nil, fmt.Errorf("panic-window-percentage = %v, must be in [%v, %v] interval",
 			lc.PanicWindowPercentage, autoscaling.PanicWindowPercentageMin, autoscaling.PanicWindowPercentageMax)
-
 	}
 
 	if lc.InitialScale < 0 || (lc.InitialScale == 0 && !lc.AllowZeroInitialScale) {

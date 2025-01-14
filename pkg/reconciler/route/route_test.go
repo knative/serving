@@ -99,8 +99,8 @@ func newTestSetup(t *testing.T, opts ...reconcilerOption) (
 	informers []controller.Informer,
 	ctrl *controller.Impl,
 	configMapWatcher *configmap.ManualWatcher,
-	cf context.CancelFunc) {
-
+	cf context.CancelFunc,
+) {
 	ctx, cf, informers = SetupFakeContextWithCancel(t)
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 	ctrl = newController(ctx, configMapWatcher, &clock.RealClock{}, opts...)
@@ -1462,7 +1462,6 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 	}}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.expectedDomainSuffix, func(t *testing.T) {
 			ctx, informers, ctrl, watcher, cf := newTestSetup(t)
 
@@ -1710,8 +1709,7 @@ func TestCreateRouteWithClusterLocalDomainTLSEnabled(t *testing.T) {
 			Hosts:           hosts,
 			SecretName:      "route--local",
 			SecretNamespace: testNamespace,
-		},
-		},
+		}},
 		Rules: []v1alpha1.IngressRule{{
 			Hosts:      hosts,
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,

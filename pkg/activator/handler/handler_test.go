@@ -25,10 +25,10 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	netheader "knative.dev/networking/pkg/http/header"
@@ -103,7 +103,7 @@ func TestActivationHandler(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			probeResponses := make([]activatortest.FakeResponse, len(test.probeResp))
-			for i := 0; i < len(test.probeResp); i++ {
+			for i := range len(test.probeResp) {
 				probeResponses[i] = activatortest.FakeResponse{
 					Err:  test.probeErr,
 					Code: test.probeCode,
@@ -369,7 +369,7 @@ func BenchmarkHandler(b *testing.B) {
 
 		b.Run(fmt.Sprintf("%03dk-resp-len-sequential", bodyLength), func(b *testing.B) {
 			req := request()
-			for j := 0; j < b.N; j++ {
+			for range b.N {
 				test(req, b)
 			}
 		})

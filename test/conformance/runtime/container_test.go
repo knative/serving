@@ -59,7 +59,6 @@ func TestMustNotContainerConstraints(t *testing.T) {
 	}}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			names := test.ResourceNames{
@@ -177,7 +176,6 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 	}}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			names := test.ResourceNames{

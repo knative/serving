@@ -50,7 +50,7 @@ func webSocketResponseFreqs(t *testing.T, clients *test.Clients, url string, num
 	var g errgroup.Group
 	respCh := make(chan string, numReqs)
 	resps := map[string]int{}
-	for i := 0; i < numReqs; i++ {
+	for range numReqs {
 		g.Go(func() error {
 			// Establish the websocket connection. Since they are persistent
 			// we can't reuse.
@@ -324,10 +324,7 @@ func TestWebSocketWithTimeout(t *testing.T) {
 		expectError:        true,
 	}}
 	for _, tc := range testCases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
-
 			names := test.ResourceNames{
 				Service: test.ObjectNameForTest(t),
 				Image:   wsServerTestImageName,

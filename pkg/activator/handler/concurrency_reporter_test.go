@@ -638,7 +638,7 @@ func BenchmarkConcurrencyReporterHandler(b *testing.B) {
 
 	// Spread the load across 100 revisions.
 	reqs := make([]*http.Request, 0, 100)
-	for i := 0; i < cap(reqs); i++ {
+	for i := range cap(reqs) {
 		key := types.NamespacedName{
 			Namespace: testNamespace,
 			Name:      testRevName + strconv.Itoa(i),
@@ -654,7 +654,7 @@ func BenchmarkConcurrencyReporterHandler(b *testing.B) {
 	resp := httptest.NewRecorder()
 
 	b.Run("sequential", func(b *testing.B) {
-		for j := 0; j < b.N; j++ {
+		for j := range b.N {
 			req := reqs[j%len(reqs)]
 			handler.ServeHTTP(resp, req)
 		}
@@ -687,7 +687,7 @@ func BenchmarkConcurrencyReporterReport(b *testing.B) {
 
 			fake := fakeservingclient.Get(ctx)
 			revisions := fakerevisioninformer.Get(ctx)
-			for i := 0; i < revs; i++ {
+			for i := range revs {
 				key := types.NamespacedName{
 					Namespace: testNamespace,
 					Name:      testRevName + strconv.Itoa(i),
@@ -706,7 +706,7 @@ func BenchmarkConcurrencyReporterReport(b *testing.B) {
 				})
 			}
 
-			for j := 0; j < b.N; j++ {
+			for range b.N {
 				cr.report(time.Now())
 			}
 		})

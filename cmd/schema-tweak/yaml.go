@@ -150,5 +150,4 @@ func deleteKeysExcluding(node *yaml.Node, keys ...string) {
 			i -= 2 // reset index
 		}
 	}
-
 }

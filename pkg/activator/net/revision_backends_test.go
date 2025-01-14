@@ -566,7 +566,7 @@ func TestRevisionWatcher(t *testing.T) {
 			destsCh <- tc.dests
 
 			updates := []revisionDestsUpdate{}
-			for i := 0; i < len(tc.expectUpdates); i++ {
+			for range len(tc.expectUpdates) {
 				select {
 				case update := <-updateCh:
 					updates = append(updates, update)
@@ -933,7 +933,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 
 			revDests := make(map[types.NamespacedName]revisionDestsUpdate)
 			// Wait for updateCb to be called
-			for i := 0; i < tc.updateCnt; i++ {
+			for range tc.updateCnt {
 				select {
 				case update := <-rbm.updates():
 					revDests[update.Rev] = update

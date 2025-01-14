@@ -65,9 +65,7 @@ import (
 
 const testIngressClass = "ingress-class-foo"
 
-var (
-	fakeCurTime = time.Unix(1e9, 0)
-)
+var fakeCurTime = time.Unix(1e9, 0)
 
 type key int
 
@@ -633,7 +631,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "ingresses"),
 		},
 		WantCreates: []runtime.Object{
-			//This is the Create we see for the ingress, but we induce a failure.
+			// This is the Create we see for the ingress, but we induce a failure.
 			simpleIngress(
 				Route("default", "ingress-create-failure", WithConfigTarget("config"),
 					WithURL),
@@ -2049,7 +2047,7 @@ func TestReconcile(t *testing.T) {
 			Object: Route("default", "tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long",
 				WithConfigTarget("config"), WithRouteObservedGeneration,
 				WithRouteFinalizer, WithInitRouteConditions,
-				MarkRevisionTargetTrafficError(errorConfigMsg, domains.ErrorDomainName.Error()+`: invalid domain name "tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long.default.example.com": url: Invalid value: "tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long": must be no more than 63 characters`),
+				MarkRevisionTargetTrafficError(errorConfigMsg, domains.ErrDomainName.Error()+`: invalid domain name "tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long.default.example.com": url: Invalid value: "tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long": must be no more than 63 characters`),
 				WithHost("tooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo-long.default.svc.cluster.local"),
 			),
 		}},
@@ -2753,7 +2751,7 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 				},
 				Spec: netv1alpha1.CertificateSpec{
 					DNSNames:   []string{"becomes-ready.default.example.com"},
-					Domain:     "example.com", //Need this to pass, otherwise extra event updating the Cert with missing Domain will cause test to fail
+					Domain:     "example.com", // Need this to pass, otherwise extra event updating the Cert with missing Domain will cause test to fail
 					SecretName: "route-12-34",
 				},
 				Status: netv1alpha1.CertificateStatus{
@@ -2876,7 +2874,7 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 				},
 				Spec: netv1alpha1.CertificateSpec{
 					DNSNames:   []string{"becomes-ready.default.example.com"},
-					Domain:     "example.com", //Need this to pass, otherwise extra event updating the Cert with missing Domain will cause test to fail
+					Domain:     "example.com", // Need this to pass, otherwise extra event updating the Cert with missing Domain will cause test to fail
 					SecretName: "route-12-34",
 				},
 				Status: netv1alpha1.CertificateStatus{
@@ -3354,6 +3352,7 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 		if row.Ctx == nil {
 			row.Ctx = context.Background()
 		}
+		//nolint:fatcontext
 		table[i].Ctx = context.WithValue(row.Ctx, enableExternalDomainTLSKey, true)
 	}
 	table.Test(t, MakeFactory(NewTestReconciler))
@@ -3488,7 +3487,6 @@ func k8sEndpointsWithIngress(r *v1.Route, ing *netv1alpha1.Ingress) *corev1.Endp
 	pair, _ := resources.MakeK8sService(ctx, r, "" /*targetName*/, ing, false /* is private */)
 
 	return pair.Endpoints
-
 }
 
 func simpleIngress(r *v1.Route, tc *traffic.Config, io ...IngressOption) *netv1alpha1.Ingress {
@@ -3660,7 +3658,8 @@ func url(s string) *apis.URL {
 type rolloutOption func(*traffic.Rollout)
 
 func simpleRollout(cfg string, revs []traffic.RevisionRollout,
-	now time.Time, ros ...rolloutOption) IngressOption {
+	now time.Time, ros ...rolloutOption,
+) IngressOption {
 	return func(i *netv1alpha1.Ingress) {
 		r := &traffic.Rollout{
 			Configurations: []*traffic.ConfigurationRollout{{

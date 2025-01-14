@@ -197,7 +197,7 @@ func createServices(clients *test.Clients, count int) ([]*serviceConfig, func(),
 	testNames := make([]*test.ResourceNames, count)
 
 	// Initialize our service names.
-	for i := 0; i < count; i++ {
+	for i := range count {
 		testNames[i] = &test.ResourceNames{
 			Service: test.AppendRandomString(fmt.Sprintf("%s-%02d", serviceName, i)),
 			// The crd.go helpers will convert to the actual image path.
@@ -207,7 +207,7 @@ func createServices(clients *test.Clients, count int) ([]*serviceConfig, func(),
 
 	cleanupNames := func() {
 		log.Println("Cleaning up all created services")
-		for i := 0; i < count; i++ {
+		for i := range count {
 			test.TearDown(clients, testNames[i])
 		}
 	}
@@ -227,7 +227,7 @@ func createServices(clients *test.Clients, count int) ([]*serviceConfig, func(),
 	}
 
 	g := errgroup.Group{}
-	for i := 0; i < count; i++ {
+	for i := range count {
 		ndx := i
 		g.Go(func() error {
 			annotations := map[string]string{config.AllowHTTPFullDuplexFeatureKey: "Enabled"}

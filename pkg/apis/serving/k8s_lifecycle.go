@@ -83,7 +83,6 @@ func TransformDeploymentStatus(ds *appsv1.DeploymentStatus) *duckv1.Status {
 					depCondSet.Manage(s).MarkTrue(DeploymentConditionReplicaSetReady)
 				}
 			}
-
 		}
 	}
 

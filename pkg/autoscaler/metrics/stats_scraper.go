@@ -24,11 +24,11 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
@@ -160,7 +160,8 @@ type serviceScraper struct {
 // NewStatsScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
 func NewStatsScraper(metric *autoscalingv1alpha1.Metric, revisionName string, podAccessor resources.PodAccessor,
-	usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode, logger *zap.SugaredLogger) StatsScraper {
+	usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode, logger *zap.SugaredLogger,
+) StatsScraper {
 	directClient := newHTTPScrapeClient(client)
 	meshClient := newHTTPScrapeClient(noKeepaliveClient)
 	return newServiceScraperWithClient(metric, revisionName, podAccessor, usePassthroughLb, meshMode, directClient, meshClient, logger)
@@ -173,7 +174,8 @@ func newServiceScraperWithClient(
 	usePassthroughLb bool,
 	meshMode netcfg.MeshCompatibilityMode,
 	directClient, meshClient scrapeClient,
-	logger *zap.SugaredLogger) *serviceScraper {
+	logger *zap.SugaredLogger,
+) *serviceScraper {
 	svcName := metric.Labels[serving.ServiceLabelKey]
 	cfgName := metric.Labels[serving.ConfigurationLabelKey]
 
@@ -276,16 +278,17 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 	pods = append(pods, youngPods...)
 
 	grp, egCtx := errgroup.WithContext(context.Background())
-	idx := atomic.NewInt32(-1)
+	var idx atomic.Int32
+	idx.Store(-1)
 	var sawNonMeshError atomic.Bool
 	// Start |sampleSize| threads to scan in parallel.
-	for i := 0; i < sampleSize; i++ {
+	for range sampleSize {
 		grp.Go(func() error {
 			// If a given pod failed to scrape, we want to continue
 			// scanning pods down the line.
 			for {
 				// Acquire next pod.
-				myIdx := int(idx.Inc())
+				myIdx := int(idx.Add(1))
 				// All out?
 				if myIdx >= len(pods) {
 					return errPodsExhausted
@@ -378,7 +381,7 @@ func (s *serviceScraper) scrapeService(window time.Duration) (Stat, error) {
 
 	grp, egCtx := errgroup.WithContext(context.Background())
 	youngPodCutOffSecs := window.Seconds()
-	for i := 0; i < sampleSize; i++ {
+	for range sampleSize {
 		grp.Go(func() error {
 			for tries := 1; ; tries++ {
 				stat, err := s.tryScrape(egCtx, scrapedPods)

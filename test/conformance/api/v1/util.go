@@ -56,8 +56,8 @@ func checkForExpectedResponses(ctx context.Context, t testing.TB, clients *test.
 }
 
 func validateDomains(t testing.TB, clients *test.Clients, serviceName string,
-	baseExpected []string, tagExpectationPairs []tagExpectation) error {
-
+	baseExpected []string, tagExpectationPairs []tagExpectation,
+) error {
 	service, err := clients.ServingClient.Services.Get(context.Background(), serviceName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("could not query service traffic status: %w", err)
@@ -92,7 +92,6 @@ func validateDomains(t testing.TB, clients *test.Clients, serviceName string,
 		return checkForExpectedResponses(egCtx, t, clients, baseDomain, baseExpected...)
 	})
 	for i, s := range subdomains {
-		i, s := i, s
 		g.Go(func() error {
 			t.Log("Checking updated route tags", s)
 			return checkForExpectedResponses(egCtx, t, clients, s, tagExpectationPairs[i].expectedResponse)
@@ -112,7 +111,6 @@ func validateDomains(t testing.TB, clients *test.Clients, serviceName string,
 		return shared.CheckDistribution(egCtx, t, clients, baseDomain, test.ConcurrentRequests, min, baseExpected, test.ServingFlags.ResolvableDomain)
 	})
 	for i, subdomain := range subdomains {
-		i, subdomain := i, subdomain
 		g.Go(func() error {
 			min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
 			return shared.CheckDistribution(egCtx, t, clients, subdomain, test.ConcurrentRequests, min, []string{tagExpectationPairs[i].expectedResponse}, test.ServingFlags.ResolvableDomain)

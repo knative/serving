@@ -502,21 +502,19 @@ func WithFailedConfig(name, reason, message string) ServiceOption {
 	}
 }
 
-var (
-	// configSpec is the spec used for the different styles of Service rollout.
-	configSpec = v1.ConfigurationSpec{
-		Template: v1.RevisionTemplateSpec{
-			Spec: v1.RevisionSpec{
-				TimeoutSeconds: ptr.Int64(60),
-				PodSpec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Image: "busybox",
-					}},
-				},
+// configSpec is the spec used for the different styles of Service rollout.
+var configSpec = v1.ConfigurationSpec{
+	Template: v1.RevisionTemplateSpec{
+		Spec: v1.RevisionSpec{
+			TimeoutSeconds: ptr.Int64(60),
+			PodSpec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Image: "busybox",
+				}},
 			},
 		},
-	}
-)
+	},
+}
 
 // WithInitContainer adds init container to a service.
 func WithInitContainer(p corev1.Container) ServiceOption {

@@ -601,6 +601,7 @@ func TestBuildTrafficConfigThreeConfigs(t *testing.T) {
 		t.Errorf("Rollout mismatch, diff(-want,+got):\n%s", cmp.Diff(wantR, gotR))
 	}
 }
+
 func TestBuildTrafficConfigurationTwoEntriesSameConfigDifferentTags(t *testing.T) {
 	expected := &Config{
 		Targets: map[string]RevisionTargets{
@@ -1364,7 +1365,8 @@ func (l revFakeErrorLister) Revisions(namespace string) listers.RevisionNamespac
 func TestBuildTrafficConfigurationFailedGetRevision(t *testing.T) {
 	_, err := BuildTrafficConfiguration(configLister, revErrorLister, testRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{
 		RevisionName: goodNewRev.Name,
-		Percent:      ptr.Int64(50)})))
+		Percent:      ptr.Int64(50),
+	})))
 	if err != nil && err.Error() != errAPI.Error() {
 		t.Errorf("err: %v, want: %v", err.Error(), errAPI.Error())
 	} else if err == nil {

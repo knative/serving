@@ -708,7 +708,8 @@ func TestReconcile(t *testing.T) {
 			// The first reconciliation of a Revision creates the following resources.
 			pa("foo", "first-reconcile"),
 			deploy(t, "foo", "first-reconcile", WithRevisionInitContainers()),
-			image("foo", "first-reconcile")},
+			image("foo", "first-reconcile"),
+		},
 			imageInit("foo", "first-reconcile")...),
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Revision("foo", "first-reconcile", WithRevisionInitContainers(),
@@ -730,7 +731,8 @@ func TestReconcile(t *testing.T) {
 			// The first reconciliation of a Revision creates the following resources.
 			pa("foo", "first-reconcile"),
 			deploy(t, "foo", "first-reconcile", WithRevisionPVC()),
-			image("foo", "first-reconcile")},
+			image("foo", "first-reconcile"),
+		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Revision("foo", "first-reconcile",
 				// The first reconciliation Populates the following status properties.
@@ -806,11 +808,11 @@ func deployImagePullSecrets(deploy *appsv1.Deployment, secretName string) *appsv
 	return deploy
 }
 
-func imagePullSecrets(Revision *caching.Image, secretName string) *caching.Image {
-	Revision.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{
+func imagePullSecrets(img *caching.Image, secretName string) *caching.Image {
+	img.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{
 		Name: secretName,
 	}}
-	return Revision
+	return img
 }
 
 func changeContainers(deploy *appsv1.Deployment) *appsv1.Deployment {

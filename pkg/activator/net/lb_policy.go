@@ -33,10 +33,8 @@ type lbPolicy func(ctx context.Context, targets []*podTracker) (func(), *podTrac
 
 // randomLBPolicy is a load balancer policy that picks a random target.
 // This approximates the LB policy done by K8s Service (IPTables based).
-//
-// nolint // This is currently unused but kept here for posterity.
 func randomLBPolicy(_ context.Context, targets []*podTracker) (func(), *podTracker) {
-	return noop, targets[rand.Intn(len(targets))]
+	return noop, targets[rand.Intn(len(targets))] //nolint:gosec
 }
 
 // randomChoice2Policy implements the Power of 2 choices LB algorithm
@@ -104,7 +102,7 @@ func newRoundRobinPolicy() lbPolicy {
 
 		// Now for |targets| elements and check every next one in
 		// round robin fashion.
-		for i := 0; i < l; i++ {
+		for i := range l {
 			p := (idx + i) % l
 			if cb, ok := targets[p].Reserve(ctx); ok {
 				// We want to start with the next index.

@@ -196,8 +196,10 @@ func TestDomainMappingAnnotationUpdate(t *testing.T) {
 			},
 			Spec: spec("old"),
 		},
-		want: (&apis.FieldError{Message: "annotation value is immutable",
-			Paths: []string{serving.CreatorAnnotation}}).ViaField("metadata.annotations"),
+		want: (&apis.FieldError{
+			Message: "annotation value is immutable",
+			Paths:   []string{serving.CreatorAnnotation},
+		}).ViaField("metadata.annotations"),
 	}, {
 		name: "update creator annotation with spec changes",
 		this: &DomainMapping{
@@ -222,8 +224,10 @@ func TestDomainMappingAnnotationUpdate(t *testing.T) {
 			},
 			Spec: spec("old"),
 		},
-		want: (&apis.FieldError{Message: "annotation value is immutable",
-			Paths: []string{serving.CreatorAnnotation}}).ViaField("metadata.annotations"),
+		want: (&apis.FieldError{
+			Message: "annotation value is immutable",
+			Paths:   []string{serving.CreatorAnnotation},
+		}).ViaField("metadata.annotations"),
 	}, {
 		name: "update lastModifier annotation without spec changes",
 		this: &DomainMapping{

@@ -30,7 +30,7 @@ func TestRandomChoice_TwoTrackersDistribution(t *testing.T) {
 	counts := map[string]int{}
 
 	total := 100
-	for i := 0; i < total; i++ {
+	for range total {
 		cb, pt := randomChoice2Policy(context.Background(), podTrackers)
 		cb()
 		counts[pt.dest]++
@@ -280,7 +280,7 @@ func BenchmarkPolicy(b *testing.B) {
 		for _, n := range []int{1, 2, 3, 10, 100} {
 			b.Run(fmt.Sprintf("%s-%d-trackers-sequential", test.name, n), func(b *testing.B) {
 				targets := makeTrackers(n, 0)
-				for i := 0; i < b.N; i++ {
+				for range b.N {
 					cb, _ := test.policy(nil, targets)
 					cb()
 				}

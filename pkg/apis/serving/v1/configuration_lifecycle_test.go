@@ -200,7 +200,6 @@ func TestConfigurationIsFailed(t *testing.T) {
 		name: "Unknown condition status should not be failed",
 		status: ConfigurationStatus{
 			Status: duckv1.Status{
-
 				Conditions: duckv1.Conditions{{
 					Type:   ConfigurationConditionReady,
 					Status: corev1.ConditionUnknown,

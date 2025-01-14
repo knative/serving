@@ -39,9 +39,9 @@ type itemExponentialFailureRateLimiter struct {
 	maxDelay  time.Duration
 }
 
-var _ workqueue.RateLimiter = &itemExponentialFailureRateLimiter{}
+var _ workqueue.TypedRateLimiter[any] = &itemExponentialFailureRateLimiter{}
 
-func newItemExponentialFailureRateLimiter(baseDelay time.Duration, maxDelay time.Duration) workqueue.RateLimiter {
+func newItemExponentialFailureRateLimiter(baseDelay time.Duration, maxDelay time.Duration) workqueue.TypedRateLimiter[any] {
 	return &itemExponentialFailureRateLimiter{
 		failures:  map[interface{}]int{},
 		baseDelay: baseDelay,
