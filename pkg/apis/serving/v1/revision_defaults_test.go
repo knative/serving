@@ -18,10 +18,12 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"go.uber.org/zap"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -67,25 +69,19 @@ func TestRevisionDefaulting(t *testing.T) {
 	}, {
 		name: "with context",
 		in:   &Revision{Spec: RevisionSpec{PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}}}},
-		wc: func(ctx context.Context) context.Context {
-			s := config.NewStore(logger)
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
-			s.OnConfigChanged(&corev1.ConfigMap{
+		wc: defaultRevisionContextWithStore(logger, nil, corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}},
+			corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}},
+			corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
 				},
 				Data: map[string]string{
-					"revision-timeout-seconds": "423",
-				},
-			})
-
-			return s.ToContext(ctx)
-		},
+					"revision-timeout-seconds": fmt.Sprintf("%d", defaultTimeoutSeconds),
+				}}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
-				TimeoutSeconds:       ptr.Int64(423),
+				TimeoutSeconds:       ptr.Int64(defaultTimeoutSeconds),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:           config.DefaultUserContainerName,
@@ -98,26 +94,21 @@ func TestRevisionDefaulting(t *testing.T) {
 	}, {
 		name: "all revision timeouts set",
 		in:   &Revision{Spec: RevisionSpec{PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}}}},
-		wc: func(ctx context.Context) context.Context {
-			s := config.NewStore(logger)
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
-			s.OnConfigChanged(&corev1.ConfigMap{
+		wc: defaultRevisionContextWithStore(logger, nil, corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}},
+			corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}},
+			corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
 				},
 				Data: map[string]string{
-					"revision-timeout-seconds":                "423",
+					"revision-timeout-seconds":                fmt.Sprintf("%d", defaultTimeoutSeconds),
 					"revision-idle-timeout-seconds":           "100",
 					"revision-response-start-timeout-seconds": "50",
-				},
-			})
-			return s.ToContext(ctx)
-		},
+				}}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency:        ptr.Int64(0),
-				TimeoutSeconds:              ptr.Int64(423),
+				TimeoutSeconds:              ptr.Int64(defaultTimeoutSeconds),
 				ResponseStartTimeoutSeconds: ptr.Int64(50),
 				IdleTimeoutSeconds:          ptr.Int64(100),
 				PodSpec: corev1.PodSpec{
@@ -132,25 +123,18 @@ func TestRevisionDefaulting(t *testing.T) {
 	}, {
 		name: "Some revision timeouts set with identical values",
 		in:   &Revision{Spec: RevisionSpec{PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}}}},
-		wc: func(ctx context.Context) context.Context {
-			s := config.NewStore(logger)
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
-			s.OnConfigChanged(&corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: config.DefaultsConfigName,
-				},
-				Data: map[string]string{
-					"revision-timeout-seconds":                "423",
-					"revision-response-start-timeout-seconds": "423",
-				},
-			})
-			return s.ToContext(ctx)
-		},
+		wc: defaultRevisionContextWithStore(logger, nil, corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}}, corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: config.DefaultsConfigName,
+			},
+			Data: map[string]string{
+				"revision-timeout-seconds":                fmt.Sprintf("%d", defaultTimeoutSeconds),
+				"revision-response-start-timeout-seconds": fmt.Sprintf("%d", defaultTimeoutSeconds),
+			}}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
-				TimeoutSeconds:       ptr.Int64(423),
+				TimeoutSeconds:       ptr.Int64(defaultTimeoutSeconds),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:           config.DefaultUserContainerName,
@@ -163,21 +147,15 @@ func TestRevisionDefaulting(t *testing.T) {
 	}, {
 		name: "with context, in create, expect ESL set",
 		in:   &Revision{Spec: RevisionSpec{PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}}}},
-		wc: func(ctx context.Context) context.Context {
-			s := config.NewStore(logger)
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
-			s.OnConfigChanged(&corev1.ConfigMap{
+		wc: defaultRevisionContextWithStore(logger, apis.WithinCreate, corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}},
+			corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}},
+			corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
 				},
 				Data: map[string]string{
 					"revision-timeout-seconds": "323",
-				},
-			})
-
-			return apis.WithinCreate(s.ToContext(ctx))
-		},
+				}}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
@@ -200,20 +178,15 @@ func TestRevisionDefaulting(t *testing.T) {
 				Containers:         []corev1.Container{{}},
 			},
 		}},
-		wc: func(ctx context.Context) context.Context {
-			s := config.NewStore(logger)
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
-			s.OnConfigChanged(&corev1.ConfigMap{
+		wc: defaultRevisionContextWithStore(logger, nil, corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}},
+			corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}},
+			corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
 				},
 				Data: map[string]string{
 					"enable-service-links": "true",
-				},
-			})
-			return s.ToContext(ctx)
-		},
+				}}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
@@ -231,20 +204,15 @@ func TestRevisionDefaulting(t *testing.T) {
 	}, {
 		name: "with service links CM `true`",
 		in:   &Revision{Spec: RevisionSpec{PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}}}},
-		wc: func(ctx context.Context) context.Context {
-			s := config.NewStore(logger)
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
-			s.OnConfigChanged(&corev1.ConfigMap{
+		wc: defaultRevisionContextWithStore(logger, apis.WithinCreate, corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}},
+			corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}},
+			corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
 				},
 				Data: map[string]string{
 					"enable-service-links": "true",
-				},
-			})
-			return apis.WithinCreate(s.ToContext(ctx))
-		},
+				}}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
@@ -262,20 +230,15 @@ func TestRevisionDefaulting(t *testing.T) {
 	}, {
 		name: "with service links `false`",
 		in:   &Revision{Spec: RevisionSpec{PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}}}},
-		wc: func(ctx context.Context) context.Context {
-			s := config.NewStore(logger)
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
-			s.OnConfigChanged(&corev1.ConfigMap{
+		wc: defaultRevisionContextWithStore(logger, apis.WithinCreate, corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}},
+			corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}},
+			corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
 				},
 				Data: map[string]string{
 					"enable-service-links": "false",
-				},
-			})
-			return apis.WithinCreate(s.ToContext(ctx))
-		},
+				}}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
@@ -296,20 +259,15 @@ func TestRevisionDefaulting(t *testing.T) {
 			EnableServiceLinks: ptr.Bool(false),
 			Containers:         []corev1.Container{{}},
 		}}},
-		wc: func(ctx context.Context) context.Context {
-			s := config.NewStore(logger)
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
-			s.OnConfigChanged(&corev1.ConfigMap{
+		wc: defaultRevisionContextWithStore(logger, nil, corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}},
+			corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}},
+			corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
 				},
 				Data: map[string]string{
 					"enable-service-links": "true", // this should be ignored.
-				},
-			})
-			return s.ToContext(ctx)
-		},
+				}}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
@@ -363,21 +321,15 @@ func TestRevisionDefaulting(t *testing.T) {
 	}, {
 		name: "timeout sets to default when 0 is specified",
 		in:   &Revision{Spec: RevisionSpec{PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}}, TimeoutSeconds: ptr.Int64(0)}},
-		wc: func(ctx context.Context) context.Context {
-			s := config.NewStore(logger)
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
-			s.OnConfigChanged(&corev1.ConfigMap{
+		wc: defaultRevisionContextWithStore(logger, nil, corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}},
+			corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}},
+			corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
 				},
 				Data: map[string]string{
 					"revision-timeout-seconds": "456",
-				},
-			})
-
-			return s.ToContext(ctx)
-		},
+				}}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
@@ -528,11 +480,9 @@ func TestRevisionDefaulting(t *testing.T) {
 				PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}},
 			},
 		},
-		wc: func(ctx context.Context) context.Context {
-			s := config.NewStore(logger)
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}})
-			s.OnConfigChanged(&corev1.ConfigMap{
+		wc: defaultRevisionContextWithStore(logger, nil, corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}},
+			corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName}},
+			corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
 				},
@@ -543,11 +493,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					"revision-cpu-limit":                 "400M",
 					"revision-memory-limit":              "500m",
 					"revision-ephemeral-storage-limit":   "600M",
-				},
-			})
-
-			return s.ToContext(ctx)
-		},
+				}}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
@@ -902,19 +848,12 @@ func TestRevisionDefaulting(t *testing.T) {
 		},
 	}, {
 		name: "Default security context with feature enabled",
-		wc: func(ctx context.Context) context.Context {
-			s := config.NewStore(logger)
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.DefaultsConfigName}})
-			s.OnConfigChanged(
-				&corev1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName},
-					Data:       map[string]string{"secure-pod-defaults": "Enabled"},
-				},
-			)
-
-			return s.ToContext(ctx)
-		},
+		wc: defaultRevisionContextWithStore(logger, nil, corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}},
+			corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.DefaultsConfigName}},
+			corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName},
+				Data:       map[string]string{"secure-pod-defaults": "Enabled"},
+			}),
 		in: &Revision{
 			Spec: RevisionSpec{
 				PodSpec: corev1.PodSpec{
@@ -1022,19 +961,12 @@ func TestRevisionDefaulting(t *testing.T) {
 		},
 	}, {
 		name: "uses pod defaults in security context",
-		wc: func(ctx context.Context) context.Context {
-			s := config.NewStore(logger)
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
-			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.DefaultsConfigName}})
-			s.OnConfigChanged(
-				&corev1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName},
-					Data:       map[string]string{"secure-pod-defaults": "Enabled"},
-				},
-			)
-
-			return s.ToContext(ctx)
-		},
+		wc: defaultRevisionContextWithStore(logger, nil, corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}},
+			corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: config.DefaultsConfigName}},
+			corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName},
+				Data:       map[string]string{"secure-pod-defaults": "Enabled"},
+			}),
 		in: &Revision{
 			Spec: RevisionSpec{
 				PodSpec: corev1.PodSpec{
@@ -1372,5 +1304,18 @@ func TestRevisionDefaultingContainerName(t *testing.T) {
 	}
 	if got.Spec.InitContainers[0].Name == "" && got.Spec.InitContainers[1].Name == "" {
 		t.Errorf("Failed to set default values for init container name")
+	}
+}
+
+func defaultRevisionContextWithStore(logger *zap.SugaredLogger, ctxFunc func(ctx context.Context) context.Context, cms ...corev1.ConfigMap) func(ctx context.Context) context.Context {
+	return func(ctx context.Context) context.Context {
+		s := config.NewStore(logger)
+		for _, cm := range cms {
+			s.OnConfigChanged(&cm)
+		}
+		if ctxFunc != nil {
+			ctx = ctxFunc(ctx)
+		}
+		return s.ToContext(ctx)
 	}
 }
