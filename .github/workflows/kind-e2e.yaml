@@ -143,6 +143,10 @@ jobs:
         - test-suite: e2e
           test-path: ./test/e2e
 
+        exclude:
+        - k8s-version: v1.30.x
+          ingress: kourier-tls
+          test-suite: runtime
     env:
       KIND: 1
       INGRESS_CLASS: ${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
