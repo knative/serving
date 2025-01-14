@@ -146,7 +146,7 @@ func TestProbeRuntime(t *testing.T) {
 					spoof.WithHeader(test.ServingFlags.RequestHeader()),
 				); err != nil {
 					pods, err := clients.KubeClient.CoreV1().Pods(resources.Service.Namespace).List(context.Background(), metav1.ListOptions{})
-					if err != nil {
+					if err == nil {
 						for _, p := range pods.Items {
 							if strings.HasPrefix(p.Name, resources.Service.Name) {
 								t.Logf("Pod %s is %s", p.Name, p.Status.Phase)
