@@ -461,9 +461,13 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			Name:  "ROOT_CA",
 			Value: cfg.Deployment.QueueSidecarRootCA,
 		}, {
-			Name:  "ENABLE_MULTI_CONTAINER_PROBES",
-			Value: strconv.FormatBool(multiContainerProbingEnabled),
-		}},
+			Name:  "GODEBUG",
+			Value: "http1debug=2", // Enable HTTP/1.1 debugging
+		},
+			{
+				Name:  "ENABLE_MULTI_CONTAINER_PROBES",
+				Value: strconv.FormatBool(multiContainerProbingEnabled),
+			}},
 	}
 
 	return c, nil

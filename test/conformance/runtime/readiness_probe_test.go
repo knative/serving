@@ -126,8 +126,10 @@ func TestProbeRuntime(t *testing.T) {
 				// test.EnsureTearDown(t, clients, &names)
 
 				t.Log("Creating a new Service")
+				envs := tc.env
+				envs = append(tc.edv, corev1.EnvVar{Name: "GODEBUG", Value: "http1debug=2"})
 				resources, err := v1test.CreateServiceReady(t, clients, &names,
-					v1opts.WithEnv(tc.env...),
+					v1opts.WithEnv(envs...),
 					v1opts.WithReadinessProbe(
 						&corev1.Probe{
 							ProbeHandler:  tc.handler,
