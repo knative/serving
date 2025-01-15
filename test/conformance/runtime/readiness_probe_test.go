@@ -159,6 +159,12 @@ func TestProbeRuntime(t *testing.T) {
 							}
 						}
 					}
+					s, err := clients.KubeClient.CoreV1().Secrets(resources.Service.Namespace).Get(context.Background(), "serving-certs", metav1.GetOptions{})
+
+					if err == nil {
+						t.Logf("Secret serving-certs: %v", s.Data)
+					}
+
 					if _, err = pkgtest.CheckEndpointState(
 						context.Background(),
 						clients.KubeClient,

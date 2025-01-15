@@ -87,6 +87,7 @@ func (cw *CertWatcher) Stop() {
 func (cw *CertWatcher) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	cw.mux.RLock()
 	defer cw.mux.RUnlock()
+	cw.logger.Debugf("Presenting cert: %v", cw.certificate)
 	return cw.certificate, nil
 }
 
@@ -132,6 +133,7 @@ func (cw *CertWatcher) loadCert() error {
 		cw.certChecksum = certChecksum
 		cw.keyChecksum = keyChecksum
 
+		cw.logger.Debugf("Loading cert: %v", cw.certificate)
 		cw.logger.Info(CertReloadMessage)
 	}
 
