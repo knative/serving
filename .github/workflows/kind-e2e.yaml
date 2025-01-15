@@ -143,6 +143,14 @@ jobs:
         - test-suite: e2e
           test-path: ./test/e2e
 
+        exclude:
+        # Disabled due to flakiness: https://github.com/knative/serving/issues/15697
+        - k8s-version: v1.30.x
+          ingress: kourier-tls
+          test-suite: runtime
+        - k8s-version: v1.31.x
+          ingress: kourier-tls
+          test-suite: runtime
     env:
       KIND: 1
       INGRESS_CLASS: ${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
