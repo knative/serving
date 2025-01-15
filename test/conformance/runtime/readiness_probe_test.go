@@ -127,7 +127,7 @@ func TestProbeRuntime(t *testing.T) {
 
 				t.Log("Creating a new Service")
 				envs := tc.env
-				envs = append(tc.env, corev1.EnvVar{Name: "GODEBUG", Value: "http1debug=2"})
+				envs = append(tc.env, corev1.EnvVar{Name: "GODEBUG", Value: "http2debug=2"})
 				resources, err := v1test.CreateServiceReady(t, clients, &names,
 					v1opts.WithEnv(envs...),
 					v1opts.WithReadinessProbe(

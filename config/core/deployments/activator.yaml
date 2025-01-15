@@ -87,7 +87,7 @@ spec:
         - name: METRICS_DOMAIN
           value: knative.dev/internal/serving
         - name: GODEBUG
-          value: "http1debug=2"
+          value: "http2debug=2"
 
         securityContext:
           allowPrivilegeEscalation: false

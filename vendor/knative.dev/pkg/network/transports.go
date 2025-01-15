@@ -152,7 +152,8 @@ func NewProberTransport() http.RoundTripper {
 // NewProxyAutoTLSTransport is same with NewProxyAutoTransport but it has DialTLSContextFunc to create HTTPS request.
 func NewProxyAutoTLSTransport(maxIdle, maxIdlePerHost int, tlsContext DialTLSContextFunc) http.RoundTripper {
 	return newAutoTransport(
-		newHTTPSTransport(false /*disable keep-alives*/, true /*disable auto-compression*/, maxIdle, maxIdlePerHost, tlsContext),
+		//newHTTPSTransport(false /*disable keep-alives*/, true /*disable auto-compression*/, maxIdle, maxIdlePerHost, tlsContext),
+		newH2Transport(true /*disable auto-compression*/, tlsContext),
 		newH2Transport(true /*disable auto-compression*/, tlsContext))
 }
 
