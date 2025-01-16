@@ -111,6 +111,7 @@ func (cr *CertCache) updateCertificate(secret *corev1.Secret) {
 	defer cr.certificatesMux.Unlock()
 
 	cert, err := tls.X509KeyPair(secret.Data[certificates.CertName], secret.Data[certificates.PrivateKeyName])
+	cr.logger.Infof("cert is: %v\n", secret.Data[certificates.CertName])
 	if err != nil {
 		cr.logger.Warnf("failed to parse certificate in secret %s/%s: %v", secret.Namespace, secret.Name, zap.Error(err))
 		return
@@ -123,6 +124,7 @@ func (cr *CertCache) updateCertificate(secret *corev1.Secret) {
 func (cr *CertCache) updateTrustPool() {
 	pool := x509.NewCertPool()
 
+	cr.logger.Infof("Updating the pool")
 	cr.addSecretCAIfPresent(pool)
 	cr.addTrustBundles(pool)
 
@@ -137,6 +139,7 @@ func (cr *CertCache) updateTrustPool() {
 
 func (cr *CertCache) addSecretCAIfPresent(pool *x509.CertPool) {
 	secret, err := cr.secretInformer.Lister().Secrets(system.Namespace()).Get(netcfg.ServingRoutingCertName)
+	cr.logger.Infof("Getting the secret")
 	if err != nil {
 		cr.logger.Warnf("Failed to get secret %s/%s: %v", system.Namespace(), netcfg.ServingRoutingCertName, zap.Error(err))
 		return
