@@ -25,7 +25,6 @@ import (
 
 	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
 	"knative.dev/pkg/ptr"
-	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -193,8 +192,7 @@ func TestMakeImageCache(t *testing.T) {
 					AppLabelKey:              "bar",
 				},
 				Annotations: map[string]string{
-					"a":                            "b",
-					DefaultContainerAnnotationName: config.DefaultUserContainerName,
+					"a": "b",
 				},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1.SchemeGroupVersion.String(),
@@ -245,9 +243,7 @@ func TestMakeImageCache(t *testing.T) {
 					serving.RevisionUID:      "1234",
 					AppLabelKey:              "bar",
 				},
-				Annotations: map[string]string{
-					DefaultContainerAnnotationName: config.DefaultUserContainerName,
-				},
+				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1.SchemeGroupVersion.String(),
 					Kind:               "Revision",
@@ -269,8 +265,7 @@ func TestMakeImageCache(t *testing.T) {
 				Namespace: "foo",
 				Name:      "bar",
 				Annotations: map[string]string{
-					"a":                            "b",
-					DefaultContainerAnnotationName: config.DefaultUserContainerName,
+					"a": "b",
 				},
 				UID: "1234",
 			},
@@ -309,8 +304,7 @@ func TestMakeImageCache(t *testing.T) {
 					AppLabelKey:              "bar",
 				},
 				Annotations: map[string]string{
-					"a":                            "b",
-					DefaultContainerAnnotationName: config.DefaultUserContainerName,
+					"a": "b",
 				},
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1.SchemeGroupVersion.String(),

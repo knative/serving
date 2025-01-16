@@ -17,6 +17,8 @@ limitations under the License.
 package resources
 
 import (
+	"maps"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/kmeta"
@@ -60,14 +62,18 @@ func makeLabels(revision *v1.Revision) map[string]string {
 }
 
 func makeAnnotations(revision *v1.Revision) map[string]string {
-	annotations := kmeta.FilterMap(revision.GetAnnotations(), excludeAnnotations.Has)
+	return kmeta.FilterMap(revision.GetAnnotations(), excludeAnnotations.Has)
+}
 
-	// Add default container annotation to the pod spec.
+func makeAnnotationsForPod(revision *v1.Revision, baseAnnotations map[string]string) map[string]string {
+	podAnnotations := maps.Clone(baseAnnotations)
+
+	// Add default container annotation to the pod meta
 	if userContainer := revision.Spec.GetContainer(); userContainer.Name != "" {
-		annotations[DefaultContainerAnnotationName] = userContainer.Name
+		podAnnotations[DefaultContainerAnnotationName] = userContainer.Name
 	}
 
-	return annotations
+	return podAnnotations
 }
 
 // makeSelector constructs the Selector we will apply to K8s resources.

@@ -241,9 +241,7 @@ var (
 				serving.RevisionUID:      "1234",
 				AppLabelKey:              "bar",
 			},
-			Annotations: map[string]string{
-				DefaultContainerAnnotationName: servingContainerName,
-			},
+			Annotations: map[string]string{},
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion:         v1.SchemeGroupVersion.String(),
 				Kind:               "Revision",
@@ -1834,7 +1832,6 @@ func TestMakeDeployment(t *testing.T) {
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
 			deploy.Annotations = map[string]string{
-				DefaultContainerAnnotationName:        servingContainerName,
 				serving.ProgressDeadlineAnnotationKey: "42s",
 			}
 			deploy.Spec.Template.Annotations = map[string]string{
@@ -1860,7 +1857,6 @@ func TestMakeDeployment(t *testing.T) {
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
 			deploy.Annotations = map[string]string{
-				DefaultContainerAnnotationName:        servingContainerName,
 				serving.ProgressDeadlineAnnotationKey: "42s",
 			}
 			deploy.Spec.Template.Annotations = map[string]string{
@@ -1902,11 +1898,10 @@ func TestMakeDeployment(t *testing.T) {
 		),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.Replicas = ptr.Int32(int32(20))
-			deploy.Spec.Template.Annotations = map[string]string{
-				autoscaling.InitialScaleAnnotationKey: "20",
-				DefaultContainerAnnotationName:        servingContainerName,
-			}
 			deploy.Annotations = map[string]string{
+				autoscaling.InitialScaleAnnotationKey: "20",
+			}
+			deploy.Spec.Template.Annotations = map[string]string{
 				autoscaling.InitialScaleAnnotationKey: "20",
 				DefaultContainerAnnotationName:        servingContainerName,
 			}
