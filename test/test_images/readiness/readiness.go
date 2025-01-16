@@ -96,8 +96,10 @@ func main() {
 	}
 
 	mainServer.HandleFunc("/query", handleQuery)
-
-	http.ListenAndServe(":"+getServerPort(), mainServer)
+	log.Printf("Ready to serve\n")
+	if err := http.ListenAndServe(":"+getServerPort(), mainServer); err != nil {
+		log.Printf("ERRRR: %v", err)
+	}
 }
 
 func execProbeMain() {
@@ -171,6 +173,7 @@ func handleQuery(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleMain(w http.ResponseWriter, _ *http.Request) {
+	log.Printf("Main\n")
 	fmt.Fprint(w, test.HelloWorldText)
 }
 
