@@ -202,7 +202,7 @@ var (
 	}
 
 	defaultPodSpec = &corev1.PodSpec{
-		TerminationGracePeriodSeconds: refInt64(45),
+		TerminationGracePeriodSeconds: ptr.Int64(45),
 		EnableServiceLinks:            ptr.Bool(false),
 	}
 
@@ -259,6 +259,7 @@ var (
 				},
 			},
 			ProgressDeadlineSeconds: ptr.Int32(0),
+			RevisionHistoryLimit:    ptr.Int32(0),
 			Strategy: appsv1.DeploymentStrategy{
 				Type: appsv1.RollingUpdateDeploymentStrategyType,
 				RollingUpdate: &appsv1.RollingUpdateDeployment{
@@ -308,10 +309,6 @@ func defaultRevision() *v1.Revision {
 			TimeoutSeconds: ptr.Int64(45),
 		},
 	}
-}
-
-func refInt64(num int64) *int64 {
-	return &num
 }
 
 type (
