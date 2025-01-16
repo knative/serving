@@ -76,7 +76,10 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 
 	// If a container keeps crashing (no active pods in the deployment although we want some)
 	if *deployment.Spec.Replicas > 0 && deployment.Status.AvailableReplicas == 0 {
-		pods, err := c.kubeclient.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(deployment.Spec.Selector)})
+		pods, err := c.kubeclient.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{
+			LabelSelector: metav1.FormatLabelSelector(deployment.Spec.Selector),
+			Limit:         1,
+		})
 		if err != nil {
 			logger.Errorw("Error getting pods", zap.Error(err))
 			return nil
@@ -115,6 +118,10 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 				}
 			}
 		}
+	}
+
+	if deployment.Status.ReadyReplicas > 0 {
+		rev.Status.MarkContainerHealthyTrue()
 	}
 
 	return nil
