@@ -171,6 +171,20 @@ func TestProbeRuntime(t *testing.T) {
 						t.Logf("Secret serving-certs: %v", s.Data)
 					}
 
+					events, err := clients.KubeClient.CoreV1().Events(resources.Service.Namespace).List(context.Background(), metav1.ListOptions{})
+					if err == nil {
+						t.Logf("Events: %v", events.Items)
+					}
+
+					endpoints, err := clients.KubeClient.CoreV1().Endpoints(resources.Service.Namespace).List(context.Background(), metav1.ListOptions{})
+					if err == nil {
+						for _, e := range endpoints.Items {
+							if strings.HasPrefix(e.Name, resources.Service.Name) {
+								t.Logf("Endpoind %s is %v", e.Name, e)
+							}
+						}
+					}
+
 					if _, err = pkgtest.CheckEndpointState(
 						context.Background(),
 						clients.KubeClient,
