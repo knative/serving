@@ -23,9 +23,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -129,6 +132,7 @@ func TestProbeRuntime(t *testing.T) {
 				envs := tc.env
 				envs = append(tc.env, corev1.EnvVar{Name: "GODEBUG", Value: "http2debug=2"})
 				resources, err := v1test.CreateServiceReady(t, clients, &names,
+					withMinScale(1),
 					v1opts.WithEnv(envs...),
 					v1opts.WithReadinessProbe(
 						&corev1.Probe{
@@ -184,6 +188,15 @@ func TestProbeRuntime(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func withMinScale(minScale int) func(cfg *v1.Service) {
+	return func(cfg *v1.Service) {
+		if cfg.Spec.Template.Annotations == nil {
+			cfg.Spec.Template.Annotations = make(map[string]string, 1)
+		}
+		cfg.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(minScale)
 	}
 }
 

@@ -73,6 +73,7 @@ func main() {
 		time.Sleep(delay)
 	}
 
+	log.Printf("Slept enough\n")
 	mainServer := http.NewServeMux()
 	mainServer.HandleFunc("/", handleMain)
 	mainServer.HandleFunc("/start-failing", handleStartFailing)
@@ -132,7 +133,9 @@ func handleReadiness(w http.ResponseWriter, _ *http.Request) {
 	mu.Lock()
 	defer mu.Unlock()
 
+	log.Printf("Handling readiness1\n")
 	if !healthy {
+		log.Printf("Handling readiness2\n")
 		http.Error(w, "not healthy", http.StatusInternalServerError)
 		return
 	}
@@ -142,12 +145,12 @@ func handleReadiness(w http.ResponseWriter, _ *http.Request) {
 func handleLiveness(w http.ResponseWriter, _ *http.Request) {
 	mu.Lock()
 	defer mu.Unlock()
-
+	log.Printf("Handling liveness1\n")
 	if !healthy {
 		http.Error(w, "not healthy", http.StatusInternalServerError)
 		return
 	}
-
+	log.Printf("Handling liveness2\n")
 	livenessCounter++
 
 	fmt.Fprint(w, livenessCounter)
