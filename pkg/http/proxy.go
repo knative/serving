@@ -17,6 +17,7 @@ limitations under the License.
 package http
 
 import (
+	"golang.org/x/net/http2"
 	"net/http"
 	"net/http/httputil"
 
@@ -57,5 +58,34 @@ func NewHeaderPruningReverseProxy(target, hostOverride string, headersToRemove [
 				req.Header.Del(h)
 			}
 		},
+	}
+}
+
+func NewHeaderPruningReverseProxy2(target, hostOverride string, headersToRemove []string, useHTTPS bool) *httputil.ReverseProxy {
+	return &httputil.ReverseProxy{
+		Director: func(req *http.Request) {
+			if useHTTPS {
+				req.URL.Scheme = "https"
+			} else {
+				req.URL.Scheme = "http"
+			}
+			req.URL.Host = target
+
+			if hostOverride != NoHostOverride {
+				req.Host = hostOverride
+				req.Header.Add(netheader.PassthroughLoadbalancingKey, "true")
+			}
+
+			// Copied from httputil.NewSingleHostReverseProxy.
+			if _, ok := req.Header[netheader.UserAgentKey]; !ok {
+				// explicitly disable User-Agent so it's not set to default value
+				req.Header.Set(netheader.UserAgentKey, "")
+			}
+
+			for _, h := range headersToRemove {
+				req.Header.Del(h)
+			}
+		},
+		Transport: &http2.Transport{},
 	}
 }

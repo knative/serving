@@ -134,7 +134,7 @@ func newHTTPSTransport(disableKeepAlives, disableCompression bool, maxIdle, maxI
 	transport.DisableKeepAlives = disableKeepAlives
 	transport.MaxIdleConns = maxIdle
 	transport.MaxIdleConnsPerHost = maxIdlePerHost
-	transport.ForceAttemptHTTP2 = false
+	transport.ForceAttemptHTTP2 = true
 	transport.DisableCompression = disableCompression
 	transport.DialTLSContext = tlsContext
 

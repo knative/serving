@@ -19,6 +19,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"net/http/httputil"
 	"strconv"
@@ -127,8 +128,10 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 
 	var proxy *httputil.ReverseProxy
 	if a.tls {
-		proxy = pkghttp.NewHeaderPruningReverseProxy(useSecurePort(target), hostOverride, activator.RevisionHeaders, true /* uss HTTPS */)
+		log.Println("Proxy choose tls")
+		proxy = pkghttp.NewHeaderPruningReverseProxy2(useSecurePort(target), hostOverride, activator.RevisionHeaders, true /* uss HTTPS */)
 	} else {
+		log.Println("Proxy choose non tls")
 		proxy = pkghttp.NewHeaderPruningReverseProxy(target, hostOverride, activator.RevisionHeaders, false /* use HTTPS */)
 	}
 
