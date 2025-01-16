@@ -123,7 +123,7 @@ func TestProbeRuntime(t *testing.T) {
 					Image:   test.Readiness,
 				}
 
-				test.EnsureTearDown(t, clients, &names)
+				// test.EnsureTearDown(t, clients, &names)
 
 				t.Log("Creating a new Service")
 				envs := tc.env
