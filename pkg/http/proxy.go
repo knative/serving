@@ -17,9 +17,11 @@ limitations under the License.
 package http
 
 import (
+	"crypto/tls"
 	"golang.org/x/net/http2"
 	"net/http"
 	"net/http/httputil"
+	"time"
 
 	netheader "knative.dev/networking/pkg/http/header"
 )
@@ -86,6 +88,9 @@ func NewHeaderPruningReverseProxy2(target, hostOverride string, headersToRemove 
 				req.Header.Del(h)
 			}
 		},
-		Transport: &http2.Transport{},
+		Transport: &http2.Transport{
+			PingTimeout:     time.Second * 3,
+			ReadIdleTimeout: time.Second * 1,
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
 	}
 }
