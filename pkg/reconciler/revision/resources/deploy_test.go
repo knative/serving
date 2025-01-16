@@ -30,7 +30,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/kubectl/pkg/cmd/util/podcmd"
 
 	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/kmeta"
@@ -243,7 +242,7 @@ var (
 				AppLabelKey:              "bar",
 			},
 			Annotations: map[string]string{
-				podcmd.DefaultContainerAnnotationName: servingContainerName,
+				DefaultContainerAnnotationName: servingContainerName,
 			},
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion:         v1.SchemeGroupVersion.String(),
@@ -276,7 +275,7 @@ var (
 						AppLabelKey:              "bar",
 					},
 					Annotations: map[string]string{
-						podcmd.DefaultContainerAnnotationName: servingContainerName,
+						DefaultContainerAnnotationName: servingContainerName,
 					},
 				},
 				// Spec: filled in by makePodSpec
@@ -1835,11 +1834,11 @@ func TestMakeDeployment(t *testing.T) {
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
 			deploy.Annotations = map[string]string{
-				podcmd.DefaultContainerAnnotationName: servingContainerName,
+				DefaultContainerAnnotationName:        servingContainerName,
 				serving.ProgressDeadlineAnnotationKey: "42s",
 			}
 			deploy.Spec.Template.Annotations = map[string]string{
-				podcmd.DefaultContainerAnnotationName: servingContainerName,
+				DefaultContainerAnnotationName:        servingContainerName,
 				serving.ProgressDeadlineAnnotationKey: "42s",
 			}
 		}),
@@ -1861,11 +1860,11 @@ func TestMakeDeployment(t *testing.T) {
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
 			deploy.Annotations = map[string]string{
-				podcmd.DefaultContainerAnnotationName: servingContainerName,
+				DefaultContainerAnnotationName:        servingContainerName,
 				serving.ProgressDeadlineAnnotationKey: "42s",
 			}
 			deploy.Spec.Template.Annotations = map[string]string{
-				podcmd.DefaultContainerAnnotationName: servingContainerName,
+				DefaultContainerAnnotationName:        servingContainerName,
 				serving.ProgressDeadlineAnnotationKey: "42s",
 			}
 		}),
@@ -1905,11 +1904,11 @@ func TestMakeDeployment(t *testing.T) {
 			deploy.Spec.Replicas = ptr.Int32(int32(20))
 			deploy.Spec.Template.Annotations = map[string]string{
 				autoscaling.InitialScaleAnnotationKey: "20",
-				podcmd.DefaultContainerAnnotationName: servingContainerName,
+				DefaultContainerAnnotationName:        servingContainerName,
 			}
 			deploy.Annotations = map[string]string{
 				autoscaling.InitialScaleAnnotationKey: "20",
-				podcmd.DefaultContainerAnnotationName: servingContainerName,
+				DefaultContainerAnnotationName:        servingContainerName,
 			}
 		}),
 	}}

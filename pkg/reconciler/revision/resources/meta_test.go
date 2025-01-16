@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/serving/pkg/apis/serving"
@@ -138,66 +137,6 @@ func TestMakeAnnotations(t *testing.T) {
 			got := makeAnnotations(test.rev)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Error("makeLabels (-want, +got) =", diff)
-			}
-		})
-	}
-}
-
-func TestGetUserContainerName(t *testing.T) {
-	tests := []struct {
-		name string
-		rev  *v1.Revision
-		want string
-	}{{
-		name: "single container",
-		rev: &v1.Revision{
-			Spec: v1.RevisionSpec{
-				PodSpec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Name: "foo",
-					}},
-				},
-			},
-		},
-		want: "foo",
-	}, {
-		name: "multiple containers single port",
-		rev: &v1.Revision{
-			Spec: v1.RevisionSpec{
-				PodSpec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Name: "foo",
-					}, {
-						Name: "bar",
-						Ports: []corev1.ContainerPort{{
-							ContainerPort: 8080,
-						}},
-					}},
-				},
-			},
-		},
-		want: "bar",
-	}, {
-		name: "multiple containers no ports",
-		rev: &v1.Revision{
-			Spec: v1.RevisionSpec{
-				PodSpec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Name: "foo",
-					}, {
-						Name: "bar",
-					}},
-				},
-			},
-		},
-		want: "",
-	}}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got := getUserContainerName(test.rev)
-			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Error("getUserContainerName (-want, +got) =", diff)
 			}
 		})
 	}
