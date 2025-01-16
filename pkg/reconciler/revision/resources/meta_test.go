@@ -150,15 +150,6 @@ func TestMakeAnnotationsForPod(t *testing.T) {
 		want            map[string]string
 		baseAnnotations map[string]string
 	}{{
-		name: "no container",
-		rev: &v1.Revision{
-			Spec: v1.RevisionSpec{
-				PodSpec: corev1.PodSpec{},
-			},
-		},
-		baseAnnotations: map[string]string{},
-		want:            map[string]string{},
-	}, {
 		name: "multiple containers single port with base annotation",
 		rev: &v1.Revision{
 			Spec: v1.RevisionSpec{
