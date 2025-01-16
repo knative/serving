@@ -273,7 +273,9 @@ var (
 						serving.RevisionUID:      "1234",
 						AppLabelKey:              "bar",
 					},
-					Annotations: map[string]string{},
+					Annotations: map[string]string{
+						DefaultContainerAnnotationName: servingContainerName,
+					},
 				},
 				// Spec: filled in by makePodSpec
 			},
@@ -1840,8 +1842,13 @@ func TestMakeDeployment(t *testing.T) {
 			}}), withoutLabels),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
-			deploy.Annotations = map[string]string{serving.ProgressDeadlineAnnotationKey: "42s"}
-			deploy.Spec.Template.Annotations = map[string]string{serving.ProgressDeadlineAnnotationKey: "42s"}
+			deploy.Annotations = map[string]string{
+				serving.ProgressDeadlineAnnotationKey: "42s",
+			}
+			deploy.Spec.Template.Annotations = map[string]string{
+				DefaultContainerAnnotationName:        servingContainerName,
+				serving.ProgressDeadlineAnnotationKey: "42s",
+			}
 		}),
 	}, {
 		name: "with ProgressDeadline annotation and configmap override",
@@ -1860,8 +1867,13 @@ func TestMakeDeployment(t *testing.T) {
 			}}), withoutLabels),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.ProgressDeadlineSeconds = ptr.Int32(42)
-			deploy.Annotations = map[string]string{serving.ProgressDeadlineAnnotationKey: "42s"}
-			deploy.Spec.Template.Annotations = map[string]string{serving.ProgressDeadlineAnnotationKey: "42s"}
+			deploy.Annotations = map[string]string{
+				serving.ProgressDeadlineAnnotationKey: "42s",
+			}
+			deploy.Spec.Template.Annotations = map[string]string{
+				DefaultContainerAnnotationName:        servingContainerName,
+				serving.ProgressDeadlineAnnotationKey: "42s",
+			}
 		}),
 	}, {
 		name: "cluster initial scale",
@@ -1897,8 +1909,13 @@ func TestMakeDeployment(t *testing.T) {
 		),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.Replicas = ptr.Int32(int32(20))
-			deploy.Spec.Template.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
-			deploy.Annotations = map[string]string{autoscaling.InitialScaleAnnotationKey: "20"}
+			deploy.Annotations = map[string]string{
+				autoscaling.InitialScaleAnnotationKey: "20",
+			}
+			deploy.Spec.Template.Annotations = map[string]string{
+				autoscaling.InitialScaleAnnotationKey: "20",
+				DefaultContainerAnnotationName:        servingContainerName,
+			}
 		}),
 	}}
 
