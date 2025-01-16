@@ -19,6 +19,8 @@ package http
 import (
 	"crypto/tls"
 	"golang.org/x/net/http2"
+	"log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"time"
@@ -64,6 +66,27 @@ func NewHeaderPruningReverseProxy(target, hostOverride string, headersToRemove [
 }
 
 func NewHeaderPruningReverseProxy2(target, hostOverride string, headersToRemove []string, useHTTPS bool) *httputil.ReverseProxy {
+	defaultTransport := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		TLSClientConfig: &tls.Config{
+			MinVersion: tls.VersionTLS13,
+		},
+	}
+
+	http2Transport, err := http2.ConfigureTransports(defaultTransport)
+
+	if err != nil {
+		log.Println("Failed to set transport")
+	}
 	return &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
 			if useHTTPS {
@@ -88,9 +111,10 @@ func NewHeaderPruningReverseProxy2(target, hostOverride string, headersToRemove 
 				req.Header.Del(h)
 			}
 		},
-		Transport: &http2.Transport{
-			PingTimeout:     time.Second * 3,
-			ReadIdleTimeout: time.Second * 1,
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
+		Transport: http2Transport,
+		//Transport: &http2.Transport{
+		//	PingTimeout:     time.Second * 3,
+		//	ReadIdleTimeout: time.Second * 1,
+		//	TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
 	}
 }
