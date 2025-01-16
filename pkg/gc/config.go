@@ -114,7 +114,7 @@ func parseDisabledOrInt64(val string, toSet *int64) error {
 			return err
 		}
 		if parsed > math.MaxInt64 {
-			return fmt.Errorf("value should be lower than %v", math.MaxInt64)
+			return fmt.Errorf("value should be lower than %v", int64(math.MaxInt64))
 		}
 		*toSet = int64(parsed)
 	}
