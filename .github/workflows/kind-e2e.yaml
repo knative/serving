@@ -218,8 +218,12 @@ jobs:
 
     - name: Test ${{ matrix.test-suite }}
       run: |
+        TAGS=e2e
+        if [[ "${{ matrix.ingress}}" == "kourier-tls" && [[ "${{ matrix.test-suite }}" == "runtime" ]]; then
+          TAGS="$TAGS,skip_kourier_tls_runtime"
+        fi
         gotestsum --format testname -- \
-          -race -count=1 -parallel=1 -tags=e2e \
+          -race -count=1 -parallel=1 -tags=$TAGS \
           -timeout=30m \
           ${{ matrix.test-path }} \
           -skip-cleanup-on-fail \
