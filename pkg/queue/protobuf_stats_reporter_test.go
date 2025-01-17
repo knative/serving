@@ -139,6 +139,7 @@ func scrapeProtobufStat(t *testing.T, r *ProtobufStatsReporter) metrics.Stat {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, nil)
 	result := w.Result()
+	defer result.Body.Close()
 	if result.StatusCode != http.StatusOK {
 		t.Fatalf("Expected ServeHTTP status %d but was %d", http.StatusOK, result.StatusCode)
 	}

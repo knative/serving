@@ -369,7 +369,7 @@ func (c *Reconciler) clusterLocalDomainTLS(ctx context.Context, r *v1.Route, tc 
 
 	orphanCerts, err := c.getOrphanRouteCerts(r, usedDomains, netcfg.CertificateClusterLocalDomain)
 	if err != nil {
-		return nil, nil
+		return nil, nil //nolint:nilerr
 	}
 
 	c.deleteOrphanedCerts(ctx, orphanCerts)
