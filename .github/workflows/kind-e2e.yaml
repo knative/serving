@@ -210,17 +210,18 @@ jobs:
 
     - name: Test ${{ matrix.test-suite }}
       run: |
-        TAGS=e2e
+        FEATURE_FLAGS="-enable-alpha -enable-beta"
         if [[ "${{ matrix.ingress}}" == "kourier-tls" ]] && [[ "${{ matrix.test-suite }}" == "runtime" ]]; then
-          TAGS="$TAGS,skip_kourier_tls_runtime"
+          # Disabled due to flakiness: https://github.com/knative/serving/issues/15697
+          FEATURE_FLAGS="$FEATURE_FLAGS -disable-optional-api"
         fi
         gotestsum --format testname -- \
-          -race -count=1 -parallel=1 -tags=$TAGS \
+          -race -count=1 -parallel=1 -tags=e2e \
           -timeout=30m \
           ${{ matrix.test-path }} \
           -skip-cleanup-on-fail \
           -disable-logstream \
-          -enable-alpha -enable-beta \
+          $FEATURE_FLAGS \
           --ingress-class=${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev \
           ${{ matrix.test-flags }}
 

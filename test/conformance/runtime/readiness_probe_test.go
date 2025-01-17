@@ -1,5 +1,5 @@
-//go:build e2e && !skip_kourier_tls_runtime
-// +build e2e,!skip_kourier_tls_runtime
+//go:build e2e
+// +build e2e
 
 /*
 Copyright 2019 The Knative Authors
