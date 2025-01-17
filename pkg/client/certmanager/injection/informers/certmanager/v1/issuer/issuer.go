@@ -21,9 +21,9 @@ package issuer
 import (
 	context "context"
 
+	v1 "github.com/cert-manager/cert-manager/pkg/client/informers/externalversions/certmanager/v1"
 	controller "knative.dev/pkg/controller"
 	logging "knative.dev/pkg/logging"
-	v1 "github.com/cert-manager/cert-manager/pkg/client/informers/externalversions/certmanager/v1"
 	factory "knative.dev/serving/pkg/client/certmanager/injection/informers/factory"
 )
 

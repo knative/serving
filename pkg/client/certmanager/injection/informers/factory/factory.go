@@ -21,10 +21,10 @@ package factory
 import (
 	context "context"
 
+	externalversions "github.com/cert-manager/cert-manager/pkg/client/informers/externalversions"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"
-	externalversions "github.com/cert-manager/cert-manager/pkg/client/informers/externalversions"
 	client "knative.dev/serving/pkg/client/certmanager/injection/client"
 )
 

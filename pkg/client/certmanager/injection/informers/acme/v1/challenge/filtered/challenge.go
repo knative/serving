@@ -21,10 +21,10 @@ package filtered
 import (
 	context "context"
 
+	v1 "github.com/cert-manager/cert-manager/pkg/client/informers/externalversions/acme/v1"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"
-	v1 "github.com/cert-manager/cert-manager/pkg/client/informers/externalversions/acme/v1"
 	filtered "knative.dev/serving/pkg/client/certmanager/injection/informers/factory/filtered"
 )
 
@@ -59,7 +59,7 @@ func Get(ctx context.Context, selector string) v1.ChallengeInformer {
 	untyped := ctx.Value(Key{Selector: selector})
 	if untyped == nil {
 		logging.FromContext(ctx).Panicf(
-			"Unable to fetch github.com/cert-manager/cert-manager/pkg/client//informers/externalversions/acme/v1.ChallengeInformer with selector %s from context.", selector)
+			"Unable to fetch github.com/cert-manager/cert-manager/pkg/client/informers/externalversions/acme/v1.ChallengeInformer with selector %s from context.", selector)
 	}
 	return untyped.(v1.ChallengeInformer)
 }

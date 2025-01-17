@@ -78,16 +78,17 @@ ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
   --go-header-file "${boilerplate}"
 
 # Knative Injection (for cert-manager)
-OUTPUT_PKG="knative.dev/serving/pkg/client/certmanager" \
+OUTPUT_PKG="knative.dev/serving/pkg/client/certmanager/injection" \
 ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
-  github.com/cert-manager/cert-manager/pkg/apis "certmanager:v1 acme:v1" \
+  github.com/cert-manager/cert-manager/pkg/client github.com/cert-manager/cert-manager/pkg/apis "certmanager:v1 acme:v1" \
   --disable-informer-init \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
 group "Deepcopy Gen"
 
-kube::codegen::gen_helpers \
+go run k8s.io/code-generator/cmd/deepcopy-gen \
   --boilerplate "${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt" \
+  --output-file zz_generated.deepcopy.go \
   "${REPO_ROOT_DIR}/pkg"
 
 group "Generating API reference docs"
