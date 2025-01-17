@@ -69,13 +69,6 @@ kube::codegen::gen_client \
   --with-watch \
   "${REPO_ROOT_DIR}/pkg/apis"
 
-kube::codegen::gen_client \
-  --boilerplate "${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt" \
-  --output-dir "${REPO_ROOT_DIR}/pkg/client/certmanager" \
-  --output-pkg "knative.dev/serving/pkg/client/certmanager" \
-  --with-watch \
-  "${REPO_ROOT_DIR}/vendor/github.com/cert-manager/cert-manager/pkg/apis"
-
 group "Knative Codegen"
 
 # Knative Injection
@@ -85,9 +78,9 @@ ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
   --go-header-file "${boilerplate}"
 
 # Knative Injection (for cert-manager)
+OUTPUT_PKG="knative.dev/serving/pkg/client/certmanager" \
 ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
-  knative.dev/serving/pkg/client/certmanager github.com/cert-manager/cert-manager/pkg/apis \
-  "certmanager:v1 acme:v1" \
+  github.com/cert-manager/cert-manager/pkg/apis "certmanager:v1 acme:v1" \
   --disable-informer-init \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 

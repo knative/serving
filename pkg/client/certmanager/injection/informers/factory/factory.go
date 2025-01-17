@@ -24,7 +24,7 @@ import (
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"
-	externalversions "knative.dev/serving/pkg/client/certmanager/informers/externalversions"
+	externalversions "github.com/cert-manager/cert-manager/pkg/client/informers/externalversions"
 	client "knative.dev/serving/pkg/client/certmanager/injection/client"
 )
 
@@ -50,7 +50,7 @@ func Get(ctx context.Context) externalversions.SharedInformerFactory {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
 		logging.FromContext(ctx).Panic(
-			"Unable to fetch knative.dev/serving/pkg/client/certmanager/informers/externalversions.SharedInformerFactory from context.")
+			"Unable to fetch github.com/cert-manager/cert-manager/pkg/client/informers/externalversions.SharedInformerFactory from context.")
 	}
 	return untyped.(externalversions.SharedInformerFactory)
 }

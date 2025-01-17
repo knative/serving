@@ -45,7 +45,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/serverlessservice"
 	"knative.dev/serving/pkg/reconciler/service"
 
-	versioned "knative.dev/serving/pkg/client/certmanager/clientset/versioned"
+	versioned "github.com/cert-manager/cert-manager/pkg/client/clientset/versioned"
 	"knative.dev/serving/pkg/client/certmanager/injection/informers/acme/v1/challenge"
 	v1certificate "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1/certificate"
 	"knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1/certificaterequest"

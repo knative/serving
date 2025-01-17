@@ -3,7 +3,10 @@ package config
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"net"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -15,15 +18,38 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/sso"
+	"github.com/aws/aws-sdk-go-v2/service/ssooidc"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
 const (
 	// valid credential source values
-	credSourceEc2Metadata  = "Ec2InstanceMetadata"
-	credSourceEnvironment  = "Environment"
-	credSourceECSContainer = "EcsContainer"
+	credSourceEc2Metadata      = "Ec2InstanceMetadata"
+	credSourceEnvironment      = "Environment"
+	credSourceECSContainer     = "EcsContainer"
+	httpProviderAuthFileEnvVar = "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE"
 )
+
+// direct representation of the IPv4 address for the ECS container
+// "169.254.170.2"
+var ecsContainerIPv4 net.IP = []byte{
+	169, 254, 170, 2,
+}
+
+// direct representation of the IPv4 address for the EKS container
+// "169.254.170.23"
+var eksContainerIPv4 net.IP = []byte{
+	169, 254, 170, 23,
+}
+
+// direct representation of the IPv6 address for the EKS container
+// "fd00:ec2::23"
+var eksContainerIPv6 net.IP = []byte{
+	0xFD, 0, 0xE, 0xC2,
+	0, 0, 0, 0,
+	0, 0, 0, 0,
+	0, 0, 0, 0x23,
+}
 
 var (
 	ecsContainerEndpoint = "http://169.254.170.2" // not constant to allow for swapping during unit-testing
@@ -136,11 +162,11 @@ func resolveCredsFromProfile(ctx context.Context, cfg *aws.Config, envConfig *En
 		// Get credentials from CredentialProcess
 		err = processCredentials(ctx, cfg, sharedConfig, configs)
 
-	case len(envConfig.ContainerCredentialsEndpoint) != 0:
-		err = resolveLocalHTTPCredProvider(ctx, cfg, envConfig.ContainerCredentialsEndpoint, envConfig.ContainerAuthorizationToken, configs)
-
 	case len(envConfig.ContainerCredentialsRelativePath) != 0:
 		err = resolveHTTPCredProvider(ctx, cfg, ecsContainerURI(envConfig.ContainerCredentialsRelativePath), envConfig.ContainerAuthorizationToken, configs)
+
+	case len(envConfig.ContainerCredentialsEndpoint) != 0:
+		err = resolveLocalHTTPCredProvider(ctx, cfg, envConfig.ContainerCredentialsEndpoint, envConfig.ContainerAuthorizationToken, configs)
 
 	default:
 		err = resolveEC2RoleCredentials(ctx, cfg, configs)
@@ -171,7 +197,30 @@ func resolveSSOCredentials(ctx context.Context, cfg *aws.Config, sharedConfig *S
 	}
 
 	cfgCopy := cfg.Copy()
-	cfgCopy.Region = sharedConfig.SSORegion
+
+	if sharedConfig.SSOSession != nil {
+		ssoTokenProviderOptionsFn, found, err := getSSOTokenProviderOptions(ctx, configs)
+		if err != nil {
+			return fmt.Errorf("failed to get SSOTokenProviderOptions from config sources, %w", err)
+		}
+		var optFns []func(*ssocreds.SSOTokenProviderOptions)
+		if found {
+			optFns = append(optFns, ssoTokenProviderOptionsFn)
+		}
+		cfgCopy.Region = sharedConfig.SSOSession.SSORegion
+		cachedPath, err := ssocreds.StandardCachedTokenFilepath(sharedConfig.SSOSession.Name)
+		if err != nil {
+			return err
+		}
+		oidcClient := ssooidc.NewFromConfig(cfgCopy)
+		tokenProvider := ssocreds.NewSSOTokenProvider(oidcClient, cachedPath, optFns...)
+		options = append(options, func(o *ssocreds.Options) {
+			o.SSOTokenProvider = tokenProvider
+			o.CachedTokenFilepath = cachedPath
+		})
+	} else {
+		cfgCopy.Region = sharedConfig.SSORegion
+	}
 
 	cfg.Credentials = ssocreds.New(sso.NewFromConfig(cfgCopy), sharedConfig.SSOAccountID, sharedConfig.SSORoleName, sharedConfig.SSOStartURL, options...)
 
@@ -198,6 +247,36 @@ func processCredentials(ctx context.Context, cfg *aws.Config, sharedConfig *Shar
 	return nil
 }
 
+// isAllowedHost allows host to be loopback or known ECS/EKS container IPs
+//
+// host can either be an IP address OR an unresolved hostname - resolution will
+// be automatically performed in the latter case
+func isAllowedHost(host string) (bool, error) {
+	if ip := net.ParseIP(host); ip != nil {
+		return isIPAllowed(ip), nil
+	}
+
+	addrs, err := lookupHostFn(host)
+	if err != nil {
+		return false, err
+	}
+
+	for _, addr := range addrs {
+		if ip := net.ParseIP(addr); ip == nil || !isIPAllowed(ip) {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+func isIPAllowed(ip net.IP) bool {
+	return ip.IsLoopback() ||
+		ip.Equal(ecsContainerIPv4) ||
+		ip.Equal(eksContainerIPv4) ||
+		ip.Equal(eksContainerIPv6)
+}
+
 func resolveLocalHTTPCredProvider(ctx context.Context, cfg *aws.Config, endpointURL, authToken string, configs configs) error {
 	var resolveErr error
 
@@ -208,10 +287,12 @@ func resolveLocalHTTPCredProvider(ctx context.Context, cfg *aws.Config, endpoint
 		host := parsed.Hostname()
 		if len(host) == 0 {
 			resolveErr = fmt.Errorf("unable to parse host from local HTTP cred provider URL")
-		} else if isLoopback, loopbackErr := isLoopbackHost(host); loopbackErr != nil {
-			resolveErr = fmt.Errorf("failed to resolve host %q, %v", host, loopbackErr)
-		} else if !isLoopback {
-			resolveErr = fmt.Errorf("invalid endpoint host, %q, only loopback hosts are allowed", host)
+		} else if parsed.Scheme == "http" {
+			if isAllowedHost, allowHostErr := isAllowedHost(host); allowHostErr != nil {
+				resolveErr = fmt.Errorf("failed to resolve host %q, %v", host, allowHostErr)
+			} else if !isAllowedHost {
+				resolveErr = fmt.Errorf("invalid endpoint host, %q, only loopback/ecs/eks hosts are allowed", host)
+			}
 		}
 	}
 
@@ -227,6 +308,16 @@ func resolveHTTPCredProvider(ctx context.Context, cfg *aws.Config, url, authToke
 		func(options *endpointcreds.Options) {
 			if len(authToken) != 0 {
 				options.AuthorizationToken = authToken
+			}
+			if authFilePath := os.Getenv(httpProviderAuthFileEnvVar); authFilePath != "" {
+				options.AuthorizationTokenProvider = endpointcreds.TokenProviderFunc(func() (string, error) {
+					var contents []byte
+					var err error
+					if contents, err = ioutil.ReadFile(authFilePath); err != nil {
+						return "", fmt.Errorf("failed to read authorization token from %v: %v", authFilePath, err)
+					}
+					return string(contents), nil
+				})
 			}
 			options.APIOptions = cfg.APIOptions
 			if cfg.Retryer != nil {
@@ -264,10 +355,13 @@ func resolveCredsFromSource(ctx context.Context, cfg *aws.Config, envConfig *Env
 		cfg.Credentials = credentials.StaticCredentialsProvider{Value: envConfig.Credentials}
 
 	case credSourceECSContainer:
-		if len(envConfig.ContainerCredentialsRelativePath) == 0 {
-			return fmt.Errorf("EcsContainer was specified as the credential_source, but 'AWS_CONTAINER_CREDENTIALS_RELATIVE_URI' was not set")
+		if len(envConfig.ContainerCredentialsRelativePath) != 0 {
+			return resolveHTTPCredProvider(ctx, cfg, ecsContainerURI(envConfig.ContainerCredentialsRelativePath), envConfig.ContainerAuthorizationToken, configs)
 		}
-		return resolveHTTPCredProvider(ctx, cfg, ecsContainerURI(envConfig.ContainerCredentialsRelativePath), envConfig.ContainerAuthorizationToken, configs)
+		if len(envConfig.ContainerCredentialsEndpoint) != 0 {
+			return resolveLocalHTTPCredProvider(ctx, cfg, envConfig.ContainerCredentialsEndpoint, envConfig.ContainerAuthorizationToken, configs)
+		}
+		return fmt.Errorf("EcsContainer was specified as the credential_source, but neither 'AWS_CONTAINER_CREDENTIALS_RELATIVE_URI' or AWS_CONTAINER_CREDENTIALS_FULL_URI' was set")
 
 	default:
 		return fmt.Errorf("credential_source values must be EcsContainer, Ec2InstanceMetadata, or Environment")
@@ -360,10 +454,6 @@ func assumeWebIdentity(ctx context.Context, cfg *aws.Config, filepath string, ro
 		return fmt.Errorf("token file path is not set")
 	}
 
-	if len(roleARN) == 0 {
-		return fmt.Errorf("role ARN is not set")
-	}
-
 	optFns := []func(*stscreds.WebIdentityRoleOptions){
 		func(options *stscreds.WebIdentityRoleOptions) {
 			options.RoleSessionName = sessionName
@@ -374,11 +464,29 @@ func assumeWebIdentity(ctx context.Context, cfg *aws.Config, filepath string, ro
 	if err != nil {
 		return err
 	}
+
 	if found {
 		optFns = append(optFns, optFn)
 	}
 
-	provider := stscreds.NewWebIdentityRoleProvider(sts.NewFromConfig(*cfg), roleARN, stscreds.IdentityTokenFile(filepath), optFns...)
+	opts := stscreds.WebIdentityRoleOptions{
+		RoleARN: roleARN,
+	}
+
+	for _, fn := range optFns {
+		fn(&opts)
+	}
+
+	if len(opts.RoleARN) == 0 {
+		return fmt.Errorf("role ARN is not set")
+	}
+
+	client := opts.Client
+	if client == nil {
+		client = sts.NewFromConfig(*cfg)
+	}
+
+	provider := stscreds.NewWebIdentityRoleProvider(client, roleARN, stscreds.IdentityTokenFile(filepath), optFns...)
 
 	cfg.Credentials = provider
 

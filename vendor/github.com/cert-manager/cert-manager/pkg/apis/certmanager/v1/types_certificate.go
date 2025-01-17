@@ -22,7 +22,7 @@ import (
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 )
 
-// NOTE: Be mindful of adding OpenAPI validation- see https://github.com/cert-manager/cert-manager/issues/3644
+// NOTE: Be mindful of adding OpenAPI validation - see https://github.com/cert-manager/cert-manager/issues/3644
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -128,9 +128,6 @@ type CertificateSpec struct {
 	// More info: https://github.com/cert-manager/cert-manager/issues/4424
 	//
 	// Cannot be set if the `subject` or `commonName` field is set.
-	// This is an Alpha Feature and is only enabled with the
-	// `--feature-gates=LiteralCertificateSubject=true` option set on both
-	// the controller and webhook components.
 	// +optional
 	LiteralSubject string `json:"literalSubject,omitempty"`
 
@@ -167,8 +164,26 @@ type CertificateSpec struct {
 	// If unset, this defaults to 1/3 of the issued certificate's lifetime.
 	// Minimum accepted value is 5 minutes.
 	// Value must be in units accepted by Go time.ParseDuration https://golang.org/pkg/time/#ParseDuration.
+	// Cannot be set if the `renewBeforePercentage` field is set.
 	// +optional
 	RenewBefore *metav1.Duration `json:"renewBefore,omitempty"`
+
+	// `renewBeforePercentage` is like `renewBefore`, except it is a relative percentage
+	// rather than an absolute duration. For example, if a certificate is valid for 60
+	// minutes, and  `renewBeforePercentage=25`, cert-manager will begin to attempt to
+	// renew the certificate 45 minutes after it was issued (i.e. when there are 15
+	// minutes (25%) remaining until the certificate is no longer valid).
+	//
+	// NOTE: The actual lifetime of the issued certificate is used to determine the
+	// renewal time. If an issuer returns a certificate with a different lifetime than
+	// the one requested, cert-manager will use the lifetime of the issued certificate.
+	//
+	// Value must be an integer in the range (0,100). The minimum effective
+	// `renewBefore` derived from the `renewBeforePercentage` and `duration` fields is 5
+	// minutes.
+	// Cannot be set if the `renewBefore` field is set.
+	// +optional
+	RenewBeforePercentage *int32 `json:"renewBeforePercentage,omitempty"`
 
 	// Requested DNS subject alternative names.
 	// +optional
@@ -181,6 +196,13 @@ type CertificateSpec struct {
 	// Requested URI subject alternative names.
 	// +optional
 	URIs []string `json:"uris,omitempty"`
+
+	// `otherNames` is an escape hatch for SAN that allows any type. We currently restrict the support to string like otherNames, cf RFC 5280 p 37
+	// Any UTF8 String valued otherName can be passed with by setting the keys oid: x.x.x.x and UTF8Value: somevalue for `otherName`.
+	// Most commonly this would be UPN set with oid: 1.3.6.1.4.1.311.20.2.3
+	// You should ensure that any OID passed is valid for the UTF8String type as we do not explicitly validate this.
+	// +optional
+	OtherNames []OtherName `json:"otherNames,omitempty"`
 
 	// Requested email subject alternative names.
 	// +optional
@@ -258,11 +280,31 @@ type CertificateSpec struct {
 	// Defines extra output formats of the private key and signed certificate chain
 	// to be written to this Certificate's target Secret.
 	//
-	// This is an Alpha Feature and is only enabled with the
-	// `--feature-gates=AdditionalCertificateOutputFormats=true` option set on both
+	// This is a Beta Feature enabled by default. It can be disabled with the
+	// `--feature-gates=AdditionalCertificateOutputFormats=false` option set on both
 	// the controller and webhook components.
 	// +optional
 	AdditionalOutputFormats []CertificateAdditionalOutputFormat `json:"additionalOutputFormats,omitempty"`
+
+	// x.509 certificate NameConstraint extension which MUST NOT be used in a non-CA certificate.
+	// More Info: https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.10
+	//
+	// This is an Alpha Feature and is only enabled with the
+	// `--feature-gates=NameConstraints=true` option set on both
+	// the controller and webhook components.
+	// +optional
+	NameConstraints *NameConstraints `json:"nameConstraints,omitempty"`
+}
+
+type OtherName struct {
+	// OID is the object identifier for the otherName SAN.
+	// The object identifier must be expressed as a dotted string, for
+	// example, "1.2.840.113556.1.4.221".
+	OID string `json:"oid,omitempty"`
+
+	// utf8Value is the string value of the otherName SAN.
+	// The utf8Value accepts any valid UTF8 string to set as value for the otherName SAN.
+	UTF8Value string `json:"utf8Value,omitempty"`
 }
 
 // CertificatePrivateKey contains configuration options for private keys
@@ -274,7 +316,7 @@ type CertificatePrivateKey struct {
 	// re-issuance is being processed.
 	//
 	// If set to `Never`, a private key will only be generated if one does not
-	// already exist in the target `spec.secretName`. If one does exists but it
+	// already exist in the target `spec.secretName`. If one does exist but it
 	// does not have the correct algorithm or size, a warning will be raised
 	// to await user intervention.
 	// If set to `Always`, a private key matching the specified requirements
@@ -323,7 +365,7 @@ type PrivateKeyRotationPolicy string
 var (
 	// RotationPolicyNever means a private key will only be generated if one
 	// does not already exist in the target `spec.secretName`.
-	// If one does exists but it does not have the correct algorithm or size,
+	// If one does exist but it does not have the correct algorithm or size,
 	// a warning will be raised to await user intervention.
 	RotationPolicyNever PrivateKeyRotationPolicy = "Never"
 
@@ -433,6 +475,11 @@ type JKSKeystore struct {
 	// PasswordSecretRef is a reference to a key in a Secret resource
 	// containing the password used to encrypt the JKS keystore.
 	PasswordSecretRef cmmeta.SecretKeySelector `json:"passwordSecretRef"`
+
+	// Alias specifies the alias of the key in the keystore, required by the JKS format.
+	// If not provided, the default alias `certificate` will be used.
+	// +optional
+	Alias *string `json:"alias,omitempty"`
 }
 
 // PKCS12 configures options for storing a PKCS12 keystore in the
@@ -452,7 +499,33 @@ type PKCS12Keystore struct {
 	// PasswordSecretRef is a reference to a key in a Secret resource
 	// containing the password used to encrypt the PKCS12 keystore.
 	PasswordSecretRef cmmeta.SecretKeySelector `json:"passwordSecretRef"`
+
+	// Profile specifies the key and certificate encryption algorithms and the HMAC algorithm
+	// used to create the PKCS12 keystore. Default value is `LegacyRC2` for backward compatibility.
+	//
+	// If provided, allowed values are:
+	// `LegacyRC2`: Deprecated. Not supported by default in OpenSSL 3 or Java 20.
+	// `LegacyDES`: Less secure algorithm. Use this option for maximal compatibility.
+	// `Modern2023`: Secure algorithm. Use this option in case you have to always use secure algorithms
+	// (eg. because of company policy). Please note that the security of the algorithm is not that important
+	// in reality, because the unencrypted certificate and private key are also stored in the Secret.
+	// +optional
+	Profile PKCS12Profile `json:"profile,omitempty"`
 }
+
+// +kubebuilder:validation:Enum=LegacyRC2;LegacyDES;Modern2023
+type PKCS12Profile string
+
+const (
+	// see: https://pkg.go.dev/software.sslmate.com/src/go-pkcs12#LegacyRC2
+	LegacyRC2PKCS12Profile PKCS12Profile = "LegacyRC2"
+
+	// see: https://pkg.go.dev/software.sslmate.com/src/go-pkcs12#LegacyDES
+	LegacyDESPKCS12Profile PKCS12Profile = "LegacyDES"
+
+	// see: https://pkg.go.dev/software.sslmate.com/src/go-pkcs12#Modern2023
+	Modern2023PKCS12Profile PKCS12Profile = "Modern2023"
+)
 
 // CertificateStatus defines the observed state of Certificate
 type CertificateStatus struct {
@@ -463,7 +536,7 @@ type CertificateStatus struct {
 	// +optional
 	Conditions []CertificateCondition `json:"conditions,omitempty"`
 
-	// LastFailureTime is set only if the lastest issuance for this
+	// LastFailureTime is set only if the latest issuance for this
 	// Certificate failed and contains the time of the failure. If an
 	// issuance has failed, the delay till the next issuance will be
 	// calculated using formula time.Hour * 2 ^ (failedIssuanceAttempts -
@@ -522,7 +595,7 @@ type CertificateStatus struct {
 	FailedIssuanceAttempts *int `json:"failedIssuanceAttempts,omitempty"`
 }
 
-// CertificateCondition contains condition information for an Certificate.
+// CertificateCondition contains condition information for a Certificate.
 type CertificateCondition struct {
 	// Type of the condition, known values are (`Ready`, `Issuing`).
 	Type CertificateConditionType `json:"type"`
@@ -554,7 +627,7 @@ type CertificateCondition struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
-// CertificateConditionType represents an Certificate condition value.
+// CertificateConditionType represents a Certificate condition value.
 type CertificateConditionType string
 
 const (
@@ -595,4 +668,42 @@ type CertificateSecretTemplate struct {
 	// Labels is a key value map to be copied to the target Kubernetes Secret.
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
+}
+
+// NameConstraints is a type to represent x509 NameConstraints
+type NameConstraints struct {
+	// if true then the name constraints are marked critical.
+	//
+	// +optional
+	Critical bool `json:"critical,omitempty"`
+	// Permitted contains the constraints in which the names must be located.
+	//
+	// +optional
+	Permitted *NameConstraintItem `json:"permitted,omitempty"`
+	// Excluded contains the constraints which must be disallowed. Any name matching a
+	// restriction in the excluded field is invalid regardless
+	// of information appearing in the permitted
+	//
+	// +optional
+	Excluded *NameConstraintItem `json:"excluded,omitempty"`
+}
+
+type NameConstraintItem struct {
+	// DNSDomains is a list of DNS domains that are permitted or excluded.
+	//
+	// +optional
+	DNSDomains []string `json:"dnsDomains,omitempty"`
+	// IPRanges is a list of IP Ranges that are permitted or excluded.
+	// This should be a valid CIDR notation.
+	//
+	// +optional
+	IPRanges []string `json:"ipRanges,omitempty"`
+	// EmailAddresses is a list of Email Addresses that are permitted or excluded.
+	//
+	// +optional
+	EmailAddresses []string `json:"emailAddresses,omitempty"`
+	// URIDomains is a list of URI domains that are permitted or excluded.
+	//
+	// +optional
+	URIDomains []string `json:"uriDomains,omitempty"`
 }
