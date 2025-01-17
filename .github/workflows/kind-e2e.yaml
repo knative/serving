@@ -143,14 +143,6 @@ jobs:
         - test-suite: e2e
           test-path: ./test/e2e
 
-        exclude:
-        # Disabled due to flakiness: https://github.com/knative/serving/issues/15697
-        - k8s-version: v1.30.x
-          ingress: kourier-tls
-          test-suite: runtime
-        - k8s-version: v1.31.x
-          ingress: kourier-tls
-          test-suite: runtime
     env:
       KIND: 1
       INGRESS_CLASS: ${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
@@ -218,13 +210,18 @@ jobs:
 
     - name: Test ${{ matrix.test-suite }}
       run: |
+        FEATURE_FLAGS="-enable-alpha -enable-beta"
+        if [[ "${{ matrix.ingress}}" == "kourier-tls" ]] && [[ "${{ matrix.test-suite }}" == "runtime" ]]; then
+          # Disabled due to flakiness: https://github.com/knative/serving/issues/15697
+          FEATURE_FLAGS="$FEATURE_FLAGS -disable-optional-api"
+        fi
         gotestsum --format testname -- \
           -race -count=1 -parallel=1 -tags=e2e \
           -timeout=30m \
           ${{ matrix.test-path }} \
           -skip-cleanup-on-fail \
           -disable-logstream \
-          -enable-alpha -enable-beta \
+          $FEATURE_FLAGS \
           --ingress-class=${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev \
           ${{ matrix.test-flags }}
 
