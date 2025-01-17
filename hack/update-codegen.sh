@@ -86,9 +86,8 @@ ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
 
 group "Deepcopy Gen"
 
-go run k8s.io/code-generator/cmd/deepcopy-gen \
+kube::codegen::gen_helpers \
   --boilerplate "${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt" \
-  --output-file zz_generated.deepcopy.go \
   "${REPO_ROOT_DIR}/pkg"
 
 group "Generating API reference docs"

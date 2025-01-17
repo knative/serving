@@ -98,7 +98,6 @@ const (
 	DeclarationOf Kind = "DeclarationOf"
 	Unknown       Kind = ""
 	Unsupported   Kind = "Unsupported"
-	TypeParam     Kind = "TypeParam"
 
 	// Protobuf is protobuf type.
 	Protobuf Kind = "Protobuf"
@@ -325,9 +324,6 @@ type Type struct {
 	// If Kind == Struct
 	Members []Member
 
-	// If Kind == Struct
-	TypeParams map[string]*Type
-
 	// If Kind == Map, Slice, Pointer, or Chan
 	Elem *Type
 
@@ -427,20 +423,14 @@ func (m Member) String() string {
 	return m.Name + " " + m.Type.String()
 }
 
-// ParamResult represents a parameter or a result of a method's signature.
-type ParamResult struct {
-	// The name of the parameter or result.
-	Name string
-	// The type of this parameter or result.
-	Type *Type
-}
-
 // Signature is a function's signature.
 type Signature struct {
 	// If a method of some type, this is the type it's a member of.
-	Receiver   *Type
-	Parameters []*ParamResult
-	Results    []*ParamResult
+	Receiver       *Type
+	Parameters     []*Type
+	ParameterNames []string
+	Results        []*Type
+	ResultNames    []string
 
 	// True if the last in parameter is of the form ...T.
 	Variadic bool

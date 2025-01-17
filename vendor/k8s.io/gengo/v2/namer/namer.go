@@ -281,12 +281,12 @@ func (ns *NameStrategy) Name(t *types.Type) string {
 	case types.Func:
 		// TODO: add to name test
 		parts := []string{"Func"}
-		for _, param := range t.Signature.Parameters {
-			parts = append(parts, ns.removePrefixAndSuffix(ns.Name(param.Type)))
+		for _, pt := range t.Signature.Parameters {
+			parts = append(parts, ns.removePrefixAndSuffix(ns.Name(pt)))
 		}
 		parts = append(parts, "Returns")
-		for _, result := range t.Signature.Results {
-			parts = append(parts, ns.removePrefixAndSuffix(ns.Name(result.Type)))
+		for _, rt := range t.Signature.Results {
+			parts = append(parts, ns.removePrefixAndSuffix(ns.Name(rt)))
 		}
 		name = ns.Join(ns.Prefix, parts, ns.Suffix)
 	default:
@@ -374,12 +374,12 @@ func (r *rawNamer) Name(t *types.Type) string {
 	case types.Func:
 		// TODO: add to name test
 		params := []string{}
-		for _, param := range t.Signature.Parameters {
-			params = append(params, r.Name(param.Type))
+		for _, pt := range t.Signature.Parameters {
+			params = append(params, r.Name(pt))
 		}
 		results := []string{}
-		for _, result := range t.Signature.Results {
-			results = append(results, r.Name(result.Type))
+		for _, rt := range t.Signature.Results {
+			results = append(results, r.Name(rt))
 		}
 		name = "func(" + strings.Join(params, ",") + ")"
 		if len(results) == 1 {
