@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"knative.dev/pkg/apis"
-	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	cconfig "knative.dev/serving/pkg/reconciler/configuration/config"
 )
@@ -71,14 +70,6 @@ func (cs *ConfigurationSpec) SetDefaults(ctx context.Context) {
 	}
 
 	configurationConfig := cconfig.FromContext(ctx)
-	apisConfig := config.Config{}
-	if configurationConfig != nil && configurationConfig.Defaults != nil {
-		apisConfig.Defaults = configurationConfig.Defaults.DeepCopy()
-	}
-	if configurationConfig != nil && configurationConfig.Features != nil {
-		apisConfig.Features = configurationConfig.Features.DeepCopy()
-	}
-	ctx = config.ToContext(ctx, &apisConfig)
-
+	ctx = cconfig.ToContext(ctx, configurationConfig)
 	cs.Template.SetDefaults(ctx)
 }

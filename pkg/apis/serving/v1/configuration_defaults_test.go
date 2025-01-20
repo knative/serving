@@ -18,7 +18,7 @@ package v1
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -203,9 +203,9 @@ func TestConfigurationDefaulting(t *testing.T) {
 					Name: config.DefaultsConfigName,
 				},
 				Data: map[string]string{
-					"revision-timeout-seconds":                fmt.Sprintf("%d", defaultTimeoutSeconds),
-					"revision-response-start-timeout-seconds": fmt.Sprintf("%d", defaultTimeoutSeconds),
-					"revision-idle-timeout-seconds":           fmt.Sprintf("%d", defaultTimeoutSeconds),
+					"revision-timeout-seconds":                strconv.Itoa(defaultTimeoutSeconds),
+					"revision-response-start-timeout-seconds": strconv.Itoa(defaultTimeoutSeconds),
+					"revision-idle-timeout-seconds":           strconv.Itoa(defaultTimeoutSeconds),
 				}})(context.Background()),
 	}}
 
