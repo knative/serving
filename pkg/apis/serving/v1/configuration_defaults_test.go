@@ -206,7 +206,8 @@ func TestConfigurationDefaulting(t *testing.T) {
 					"revision-timeout-seconds":                strconv.Itoa(defaultTimeoutSeconds),
 					"revision-response-start-timeout-seconds": strconv.Itoa(defaultTimeoutSeconds),
 					"revision-idle-timeout-seconds":           strconv.Itoa(defaultTimeoutSeconds),
-				}})(context.Background()),
+				},
+			})(context.Background()),
 	}}
 
 	for _, test := range tests {
