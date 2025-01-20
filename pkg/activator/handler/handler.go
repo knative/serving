@@ -157,7 +157,6 @@ func WrapActivatorHandlerWithFullDuplex(h http.Handler, logger *zap.SugaredLogge
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		revEnableHTTP1FullDuplex := strings.EqualFold(RevAnnotation(r.Context(), apiconfig.AllowHTTPFullDuplexFeatureKey), "Enabled")
 		if revEnableHTTP1FullDuplex {
-			//nolint:bodyclose
 			rc := http.NewResponseController(w)
 			if err := rc.EnableFullDuplex(); err != nil {
 				logger.Errorw("Unable to enable full duplex", zap.Error(err))

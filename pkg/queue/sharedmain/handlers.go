@@ -132,7 +132,6 @@ func withFullDuplex(h http.Handler, enableFullDuplex bool, logger *zap.SugaredLo
 		return h
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		//nolint:bodyclose
 		rc := http.NewResponseController(w)
 		if err := rc.EnableFullDuplex(); err != nil {
 			logger.Errorw("Unable to enable full duplex", zap.Error(err))
