@@ -35,7 +35,7 @@ import (
 	cconfig "knative.dev/serving/pkg/reconciler/configuration/config"
 )
 
-const defaultTimeoutSeconds = 400
+const someTimeoutSeconds = 400
 
 func TestConfigurationDefaulting(t *testing.T) {
 	tests := []struct {
@@ -191,7 +191,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 								ReadinessProbe: defaultProbe,
 							}},
 						},
-						TimeoutSeconds:       ptr.Int64(defaultTimeoutSeconds),
+						TimeoutSeconds:       ptr.Int64(someTimeoutSeconds),
 						ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 					},
 				},
@@ -203,9 +203,9 @@ func TestConfigurationDefaulting(t *testing.T) {
 					Name: config.DefaultsConfigName,
 				},
 				Data: map[string]string{
-					"revision-timeout-seconds":                strconv.Itoa(defaultTimeoutSeconds),
-					"revision-response-start-timeout-seconds": strconv.Itoa(defaultTimeoutSeconds),
-					"revision-idle-timeout-seconds":           strconv.Itoa(defaultTimeoutSeconds),
+					"revision-timeout-seconds":                strconv.Itoa(someTimeoutSeconds),
+					"revision-response-start-timeout-seconds": strconv.Itoa(someTimeoutSeconds),
+					"revision-idle-timeout-seconds":           strconv.Itoa(someTimeoutSeconds),
 				},
 			})(context.Background()),
 	}}

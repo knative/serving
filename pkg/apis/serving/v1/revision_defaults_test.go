@@ -76,13 +76,13 @@ func TestRevisionDefaulting(t *testing.T) {
 					Name: config.DefaultsConfigName,
 				},
 				Data: map[string]string{
-					"revision-timeout-seconds": strconv.Itoa(defaultTimeoutSeconds),
+					"revision-timeout-seconds": strconv.Itoa(someTimeoutSeconds),
 				},
 			}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
-				TimeoutSeconds:       ptr.Int64(defaultTimeoutSeconds),
+				TimeoutSeconds:       ptr.Int64(someTimeoutSeconds),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:           config.DefaultUserContainerName,
@@ -102,7 +102,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					Name: config.DefaultsConfigName,
 				},
 				Data: map[string]string{
-					"revision-timeout-seconds":                strconv.Itoa(defaultTimeoutSeconds),
+					"revision-timeout-seconds":                strconv.Itoa(someTimeoutSeconds),
 					"revision-idle-timeout-seconds":           "100",
 					"revision-response-start-timeout-seconds": "50",
 				},
@@ -110,7 +110,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency:        ptr.Int64(0),
-				TimeoutSeconds:              ptr.Int64(defaultTimeoutSeconds),
+				TimeoutSeconds:              ptr.Int64(someTimeoutSeconds),
 				ResponseStartTimeoutSeconds: ptr.Int64(50),
 				IdleTimeoutSeconds:          ptr.Int64(100),
 				PodSpec: corev1.PodSpec{
@@ -130,14 +130,14 @@ func TestRevisionDefaulting(t *testing.T) {
 				Name: config.DefaultsConfigName,
 			},
 			Data: map[string]string{
-				"revision-timeout-seconds":                strconv.Itoa(defaultTimeoutSeconds),
-				"revision-response-start-timeout-seconds": strconv.Itoa(defaultTimeoutSeconds),
+				"revision-timeout-seconds":                strconv.Itoa(someTimeoutSeconds),
+				"revision-response-start-timeout-seconds": strconv.Itoa(someTimeoutSeconds),
 			},
 		}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
-				TimeoutSeconds:       ptr.Int64(defaultTimeoutSeconds),
+				TimeoutSeconds:       ptr.Int64(someTimeoutSeconds),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:           config.DefaultUserContainerName,
@@ -502,8 +502,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					"revision-cpu-limit":                 "400M",
 					"revision-memory-limit":              "500m",
 					"revision-ephemeral-storage-limit":   "600M",
-				},
-			}),
+				}}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
