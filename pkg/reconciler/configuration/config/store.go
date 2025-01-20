@@ -21,15 +21,14 @@ import (
 
 	"knative.dev/pkg/configmap"
 	apisconfig "knative.dev/serving/pkg/apis/config"
-	cfgmap "knative.dev/serving/pkg/apis/config"
 )
 
 type cfgKey struct{}
 
 // Config holds the collection of configurations that we attach to contexts.
 type Config struct {
-	Defaults *cfgmap.Defaults
-	Features *cfgmap.Features
+	Defaults *apisconfig.Defaults
+	Features *apisconfig.Features
 }
 
 // FromContext extracts a Config from the provided context.
@@ -51,11 +50,11 @@ func FromContextOrDefaults(ctx context.Context) *Config {
 	}
 
 	if cfg.Defaults == nil {
-		cfg.Defaults, _ = cfgmap.NewDefaultsConfigFromMap(nil)
+		cfg.Defaults, _ = apisconfig.NewDefaultsConfigFromMap(nil)
 	}
 
 	if cfg.Features == nil {
-		cfg.Features, _ = cfgmap.NewFeaturesConfigFromMap(nil)
+		cfg.Features, _ = apisconfig.NewFeaturesConfigFromMap(nil)
 	}
 
 	return cfg
@@ -86,8 +85,8 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 			"apis",
 			logger,
 			configmap.Constructors{
-				cfgmap.DefaultsConfigName: cfgmap.NewDefaultsConfigFromConfigMap,
-				cfgmap.FeaturesConfigName: cfgmap.NewFeaturesConfigFromConfigMap,
+				apisconfig.DefaultsConfigName: apisconfig.NewDefaultsConfigFromConfigMap,
+				apisconfig.FeaturesConfigName: apisconfig.NewFeaturesConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),
@@ -104,10 +103,10 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 // Load creates a Config from the current config state of the Store.
 func (s *Store) Load() *Config {
 	cfg := &Config{}
-	if def, ok := s.UntypedLoad(cfgmap.DefaultsConfigName).(*cfgmap.Defaults); ok {
+	if def, ok := s.UntypedLoad(apisconfig.DefaultsConfigName).(*apisconfig.Defaults); ok {
 		cfg.Defaults = def.DeepCopy()
 	}
-	if feat, ok := s.UntypedLoad(cfgmap.FeaturesConfigName).(*cfgmap.Features); ok {
+	if feat, ok := s.UntypedLoad(apisconfig.FeaturesConfigName).(*apisconfig.Features); ok {
 		cfg.Features = feat.DeepCopy()
 	}
 
