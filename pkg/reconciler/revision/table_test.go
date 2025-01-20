@@ -41,6 +41,7 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	defaultconfig "knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
@@ -258,7 +259,7 @@ func TestReconcile(t *testing.T) {
 			Revision("foo", "pa-ready",
 				WithLogURL, allUnknownConditions),
 			pa("foo", "pa-ready", WithPASKSReady, WithTraffic,
-				WithScaleTargetInitialized, WithPAStatusService("new-stuff"), WithReachabilityUnknown),
+				WithScaleTargetInitialized, WithScaleTargetNoScaleFailures, WithPAStatusService("new-stuff"), WithReachabilityUnknown),
 			deploy(t, "foo", "pa-ready"),
 			image("foo", "pa-ready"),
 		},
@@ -283,7 +284,7 @@ func TestReconcile(t *testing.T) {
 				MarkRevisionReady, WithRevisionObservedGeneration(1)),
 			pa("foo", "pa-not-ready",
 				WithPAStatusService("its-not-confidential"),
-				WithBufferedTraffic,
+				WithBufferedTraffic, WithScaleTargetNoScaleFailures,
 				WithReachabilityReachable),
 			readyDeploy(deploy(t, "foo", "pa-not-ready")),
 			image("foo", "pa-not-ready"),
@@ -407,7 +408,7 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, MarkRevisionReady,
 				WithRoutingState(v1.RoutingStateActive, fc)),
 			pa("foo", "fix-mutated-pa", WithProtocolType(networking.ProtocolH2C),
-				WithTraffic, WithPASKSReady, WithScaleTargetInitialized, WithReachabilityReachable,
+				WithTraffic, WithPASKSReady, WithScaleTargetNoScaleFailures, WithScaleTargetInitialized, WithReachabilityReachable,
 				WithPAStatusService("fix-mutated-pa")),
 			deploy(t, "foo", "fix-mutated-pa"),
 			image("foo", "fix-mutated-pa"),
@@ -423,7 +424,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: pa("foo", "fix-mutated-pa", WithPASKSReady,
-				WithTraffic, WithScaleTargetInitialized,
+				WithTraffic, WithScaleTargetInitialized, WithScaleTargetNoScaleFailures,
 				WithPAStatusService("fix-mutated-pa"), WithReachabilityReachable),
 		}},
 		Key: "foo/fix-mutated-pa",
@@ -624,7 +625,7 @@ func TestReconcile(t *testing.T) {
 		// This signal should make our Reconcile mark the Revision as Ready.
 		Objects: []runtime.Object{
 			Revision("foo", "steady-ready", WithLogURL),
-			pa("foo", "steady-ready", WithPASKSReady, WithTraffic,
+			pa("foo", "steady-ready", WithPASKSReady, WithTraffic, WithScaleTargetNoScaleFailures,
 				WithScaleTargetInitialized, WithPAStatusService("steadier-even")),
 			deploy(t, "foo", "steady-ready"),
 			image("foo", "steady-ready"),
@@ -744,6 +745,37 @@ func TestReconcile(t *testing.T) {
 			PodSpecPersistentVolumeClaim: defaultconfig.Enabled,
 			PodSpecPersistentVolumeWrite: defaultconfig.Enabled,
 		}}),
+	}, {
+		Name: "revision becomes not ready when PA reports a failed container",
+		Objects: []runtime.Object{
+			Revision("foo", "container-failed",
+				WithLogURL,
+				MarkRevisionReady,
+				withDefaultContainerStatuses(),
+				WithRevisionLabel(serving.RoutingStateLabelKey, "active"),
+			),
+			pa("foo", "container-failed",
+				WithPAStatusScaleTargetScaleFailures("ImagePullBackOff", "Back-off pulling image..."),
+				WithScaleTargetInitialized,
+				WithTraffic,
+				WithReachabilityReachable,
+				WithPAStatusService("something"),
+			),
+			readyDeploy(deploy(t, "foo", "container-failed")),
+			image("foo", "container-failed"),
+		},
+		Key: "foo/container-failed",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Revision("foo", "container-failed",
+				WithLogURL,
+				MarkInactive("ImagePullBackOff", "Back-off pulling image..."),
+				MarkResourcesUnavailable("ImagePullBackOff", "Back-off pulling image..."),
+				MarkContainerHealthy(),
+				withDefaultContainerStatuses(),
+				WithRevisionObservedGeneration(1),
+				WithRevisionLabel(serving.RoutingStateLabelKey, "active"),
+			),
+		}},
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, _ configmap.Watcher) controller.Reconciler {

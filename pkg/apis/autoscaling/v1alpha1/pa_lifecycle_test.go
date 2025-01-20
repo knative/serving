@@ -1056,6 +1056,7 @@ func TestTypicalFlow(t *testing.T) {
 	// When we see traffic, mark ourselves active.
 	r.MarkActive()
 	r.MarkScaleTargetInitialized()
+	r.MarkWithNoScaleFailures()
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionSKSReady, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
@@ -1064,6 +1065,7 @@ func TestTypicalFlow(t *testing.T) {
 	// Check idempotency.
 	r.MarkActive()
 	r.MarkScaleTargetInitialized()
+	r.MarkWithNoScaleFailures()
 	r.MarkSKSReady()
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionScaleTargetInitialized, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)

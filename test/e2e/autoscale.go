@@ -266,7 +266,7 @@ func SetupSvc(t *testing.T, aopts *AutoscalerOptions, topts test.Options, fopts 
 
 func assertScaleDown(ctx *TestContext) {
 	deploymentName := resourcenames.Deployment(ctx.resources.Revision)
-	if err := WaitForScaleToZero(ctx.t, deploymentName, ctx.clients); err != nil {
+	if err := WaitForScaleToZero(ctx.t, deploymentName, ctx.clients, ""); err != nil {
 		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", deploymentName, err)
 	}
 

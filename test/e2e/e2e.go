@@ -72,7 +72,7 @@ func autoscalerCM(clients *test.Clients) (*autoscalerconfig.Config, error) {
 
 // WaitForScaleToZero will wait for the specified deployment to scale to 0 replicas.
 // Will wait up to 6 times the configured ScaleToZeroGracePeriod before failing.
-func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clients) error {
+func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clients, overrideNamespace string) error {
 	t.Helper()
 	t.Logf("Waiting for %q to scale to zero", deploymentName)
 
@@ -81,6 +81,10 @@ func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clien
 		return fmt.Errorf("failed to get autoscaler configmap: %w", err)
 	}
 
+	namespace := test.ServingFlags.TestNamespace
+	if overrideNamespace != "" {
+		namespace = overrideNamespace
+	}
 	return pkgTest.WaitForDeploymentState(
 		context.Background(),
 		clients.KubeClient,
@@ -95,7 +99,7 @@ func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clien
 				nil
 		},
 		"DeploymentIsScaledDown",
-		test.ServingFlags.TestNamespace,
+		namespace,
 		cfg.ScaleToZeroGracePeriod*6,
 	)
 }

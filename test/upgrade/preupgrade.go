@@ -85,7 +85,7 @@ func servicePreUpgradeAndScaleToZero(t *testing.T) {
 	url := resources.Service.Status.URL.URL()
 	assertServiceResourcesUpdated(t, clients, scaleToZeroServiceNames, url, test.PizzaPlanetText1)
 
-	if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
+	if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients, ""); err != nil {
 		t.Fatal("Could not scale to zero:", err)
 	}
 }
@@ -124,7 +124,7 @@ func initialScalePreUpgrade(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to create Service:", err)
 	}
-	if err = e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
+	if err = e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients, ""); err != nil {
 		t.Fatal("Could not scale to zero:", err)
 	}
 }
