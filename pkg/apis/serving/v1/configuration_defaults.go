@@ -21,7 +21,6 @@ import (
 
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
-	cconfig "knative.dev/serving/pkg/reconciler/configuration/config"
 )
 
 type configSpecKey struct{}
@@ -68,8 +67,5 @@ func (cs *ConfigurationSpec) SetDefaults(ctx context.Context) {
 			return
 		}
 	}
-
-	configurationConfig := cconfig.FromContext(ctx)
-	ctx = cconfig.ToContext(ctx, configurationConfig)
 	cs.Template.SetDefaults(ctx)
 }
