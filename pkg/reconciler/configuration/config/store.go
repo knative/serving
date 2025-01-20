@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"knative.dev/pkg/configmap"
+	apisconfig "knative.dev/serving/pkg/apis/config"
 	cfgmap "knative.dev/serving/pkg/apis/config"
 )
 
@@ -63,7 +64,14 @@ func FromContextOrDefaults(ctx context.Context) *Config {
 // ToContext attaches the provided Config to the provided context, returning the
 // new context with the Config attached.
 func ToContext(ctx context.Context, c *Config) context.Context {
-	return context.WithValue(ctx, cfgKey{}, c)
+	ctx = context.WithValue(ctx, cfgKey{}, c)
+	if c != nil {
+		ctx = apisconfig.ToContext(ctx, &apisconfig.Config{
+			Defaults: c.Defaults,
+			Features: c.Features,
+		})
+	}
+	return ctx
 }
 
 // Store is a typed wrapper around configmap.Untyped store to handle our configmaps.
