@@ -162,6 +162,9 @@ func TestProbeRuntime(t *testing.T) {
 						for _, p := range pods.Items {
 							if strings.HasPrefix(p.Name, resources.Service.Name) {
 								t.Logf("Pod %s is %s", p.Name, p.Status.Phase)
+								if err := clients.KubeClient.CoreV1().Pods(resources.Service.Namespace).Delete(context.Background(), p.Name, metav1.DeleteOptions{}); err != nil {
+									t.Logf("failed to delete pod %s: %v", p.Name, err)
+								}
 							}
 						}
 					}
@@ -184,6 +187,8 @@ func TestProbeRuntime(t *testing.T) {
 							}
 						}
 					}
+
+					time.Sleep(45 * time.Second)
 
 					if _, err = pkgtest.CheckEndpointState(
 						context.Background(),
