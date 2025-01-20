@@ -18,7 +18,7 @@ package v1
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -76,8 +76,9 @@ func TestRevisionDefaulting(t *testing.T) {
 					Name: config.DefaultsConfigName,
 				},
 				Data: map[string]string{
-					"revision-timeout-seconds": fmt.Sprintf("%d", defaultTimeoutSeconds),
-				}}),
+					"revision-timeout-seconds": strconv.Itoa(defaultTimeoutSeconds),
+				},
+			}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
@@ -101,10 +102,11 @@ func TestRevisionDefaulting(t *testing.T) {
 					Name: config.DefaultsConfigName,
 				},
 				Data: map[string]string{
-					"revision-timeout-seconds":                fmt.Sprintf("%d", defaultTimeoutSeconds),
+					"revision-timeout-seconds":                strconv.Itoa(defaultTimeoutSeconds),
 					"revision-idle-timeout-seconds":           "100",
 					"revision-response-start-timeout-seconds": "50",
-				}}),
+				},
+			}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency:        ptr.Int64(0),
@@ -128,9 +130,10 @@ func TestRevisionDefaulting(t *testing.T) {
 				Name: config.DefaultsConfigName,
 			},
 			Data: map[string]string{
-				"revision-timeout-seconds":                fmt.Sprintf("%d", defaultTimeoutSeconds),
-				"revision-response-start-timeout-seconds": fmt.Sprintf("%d", defaultTimeoutSeconds),
-			}}),
+				"revision-timeout-seconds":                strconv.Itoa(defaultTimeoutSeconds),
+				"revision-response-start-timeout-seconds": strconv.Itoa(defaultTimeoutSeconds),
+			},
+		}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
@@ -155,7 +158,8 @@ func TestRevisionDefaulting(t *testing.T) {
 				},
 				Data: map[string]string{
 					"revision-timeout-seconds": "323",
-				}}),
+				},
+			}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
@@ -186,7 +190,8 @@ func TestRevisionDefaulting(t *testing.T) {
 				},
 				Data: map[string]string{
 					"enable-service-links": "true",
-				}}),
+				},
+			}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
@@ -212,7 +217,8 @@ func TestRevisionDefaulting(t *testing.T) {
 				},
 				Data: map[string]string{
 					"enable-service-links": "true",
-				}}),
+				},
+			}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
@@ -238,7 +244,8 @@ func TestRevisionDefaulting(t *testing.T) {
 				},
 				Data: map[string]string{
 					"enable-service-links": "false",
-				}}),
+				},
+			}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
@@ -267,7 +274,8 @@ func TestRevisionDefaulting(t *testing.T) {
 				},
 				Data: map[string]string{
 					"enable-service-links": "true", // this should be ignored.
-				}}),
+				},
+			}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
@@ -329,7 +337,8 @@ func TestRevisionDefaulting(t *testing.T) {
 				},
 				Data: map[string]string{
 					"revision-timeout-seconds": "456",
-				}}),
+				},
+			}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				ContainerConcurrency: ptr.Int64(0),
@@ -493,7 +502,8 @@ func TestRevisionDefaulting(t *testing.T) {
 					"revision-cpu-limit":                 "400M",
 					"revision-memory-limit":              "500m",
 					"revision-ephemeral-storage-limit":   "600M",
-				}}),
+				},
+			}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
