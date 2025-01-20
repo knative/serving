@@ -502,7 +502,8 @@ func TestRevisionDefaulting(t *testing.T) {
 					"revision-cpu-limit":                 "400M",
 					"revision-memory-limit":              "500m",
 					"revision-ephemeral-storage-limit":   "600M",
-				}}),
+				},
+			}),
 		want: &Revision{
 			Spec: RevisionSpec{
 				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
