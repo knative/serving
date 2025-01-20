@@ -156,7 +156,6 @@ func TestResourceQuotaError(t *testing.T) {
 		}
 		return false, nil
 	})
-
 	if err != nil {
 		t.Fatal("Failed to validate revision state:", err)
 	}
