@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 
 	"knative.dev/networking/pkg/certificates"
@@ -56,11 +57,14 @@ func dialTLSContext(ctx context.Context, network, addr string, cr *CertCache) (n
 
 func verifySAN(san string) func(tls.ConnectionState) error {
 	return func(cs tls.ConnectionState) error {
+		log.Println("In verifySAN1")
 		if len(cs.PeerCertificates) == 0 {
 			return errors.New("no PeerCertificates provided")
 		}
+		log.Println("In verifySAN2")
 		for _, name := range cs.PeerCertificates[0].DNSNames {
 			if name == san {
+				log.Println("In verifySAN3")
 				return nil
 			}
 		}
