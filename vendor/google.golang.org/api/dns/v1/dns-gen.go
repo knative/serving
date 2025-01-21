@@ -277,13 +277,13 @@ type ResponsePolicyRulesService struct {
 	s *Service
 }
 
-// Change: A Change represents a set of ResourceRecordSet additions and
+// Change: A Change represents a set of `ResourceRecordSet` additions and
 // deletions applied atomically to a ManagedZone. ResourceRecordSets within a
 // ManagedZone are modified by creating a new Change element in the Changes
 // collection. In turn the Changes collection also records the past
-// modifications to the ResourceRecordSets in a ManagedZone. The current state
-// of the ManagedZone is the sum effect of applying all Change elements in the
-// Changes collection in sequence.
+// modifications to the `ResourceRecordSets` in a `ManagedZone`. The current
+// state of the `ManagedZone` is the sum effect of applying all `Change`
+// elements in the `Changes` collection in sequence.
 type Change struct {
 	// Additions: Which ResourceRecordSets to add?
 	Additions []*ResourceRecordSet `json:"additions,omitempty"`
@@ -322,27 +322,26 @@ type Change struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *Change) MarshalJSON() ([]byte, error) {
+func (s Change) MarshalJSON() ([]byte, error) {
 	type NoMethod Change
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // ChangesListResponse: The response to a request to enumerate Changes to a
 // ResourceRecordSets collection.
 type ChangesListResponse struct {
 	// Changes: The requested changes.
-	Changes []*Change       `json:"changes,omitempty"`
-	Header  *ResponseHeader `json:"header,omitempty"`
+	Changes []*Change `json:"changes,omitempty"`
 	// Kind: Type of resource.
 	Kind string `json:"kind,omitempty"`
-	// NextPageToken: The presence of this field indicates that there exist more
-	// results following your last page of results in pagination order. To fetch
-	// them, make another list request using this value as your pagination token.
-	// This lets you retrieve the complete contents of even very large collections
-	// one page at a time. However, if the contents of the collection change
-	// between the first and last paginated list request, the set of all elements
-	// returned are an inconsistent view of the collection. You cannot retrieve a
-	// "snapshot" of collections larger than the maximum page size.
+	// NextPageToken: This field indicates that more results are available beyond
+	// the last page displayed. To fetch the results, make another list request and
+	// use this value as your page token. This lets you retrieve the complete
+	// contents of a very large collection one page at a time. However, if the
+	// contents of the collection change between the first and last paginated list
+	// request, the set of all elements returned are an inconsistent view of the
+	// collection. You can't retrieve a consistent snapshot of a collection larger
+	// than the maximum page size.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the server.
@@ -360,9 +359,9 @@ type ChangesListResponse struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *ChangesListResponse) MarshalJSON() ([]byte, error) {
+func (s ChangesListResponse) MarshalJSON() ([]byte, error) {
 	type NoMethod ChangesListResponse
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // DnsKey: A DNSSEC key pair.
@@ -433,9 +432,9 @@ type DnsKey struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *DnsKey) MarshalJSON() ([]byte, error) {
+func (s DnsKey) MarshalJSON() ([]byte, error) {
 	type NoMethod DnsKey
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type DnsKeyDigest struct {
@@ -462,9 +461,9 @@ type DnsKeyDigest struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *DnsKeyDigest) MarshalJSON() ([]byte, error) {
+func (s DnsKeyDigest) MarshalJSON() ([]byte, error) {
 	type NoMethod DnsKeyDigest
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // DnsKeySpec: Parameters for DnsKey key generation. Used for generating
@@ -505,28 +504,26 @@ type DnsKeySpec struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *DnsKeySpec) MarshalJSON() ([]byte, error) {
+func (s DnsKeySpec) MarshalJSON() ([]byte, error) {
 	type NoMethod DnsKeySpec
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // DnsKeysListResponse: The response to a request to enumerate DnsKeys in a
 // ManagedZone.
 type DnsKeysListResponse struct {
 	// DnsKeys: The requested resources.
-	DnsKeys []*DnsKey       `json:"dnsKeys,omitempty"`
-	Header  *ResponseHeader `json:"header,omitempty"`
+	DnsKeys []*DnsKey `json:"dnsKeys,omitempty"`
 	// Kind: Type of resource.
 	Kind string `json:"kind,omitempty"`
-	// NextPageToken: The presence of this field indicates that there exist more
-	// results following your last page of results in pagination order. To fetch
-	// them, make another list request using this value as your pagination token.
-	// In this way you can retrieve the complete contents of even very large
-	// collections one page at a time. However, if the contents of the collection
-	// change between the first and last paginated list request, the set of all
-	// elements returned are an inconsistent view of the collection. There is no
-	// way to retrieve a "snapshot" of collections larger than the maximum page
-	// size.
+	// NextPageToken: This field indicates that more results are available beyond
+	// the last page displayed. To fetch the results, make another list request and
+	// use this value as your page token. This lets you retrieve the complete
+	// contents of a very large collection one page at a time. However, if the
+	// contents of the collection change between the first and last paginated list
+	// request, the set of all elements returned are an inconsistent view of the
+	// collection. You can't retrieve a consistent snapshot of a collection larger
+	// than the maximum page size.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the server.
@@ -544,9 +541,9 @@ type DnsKeysListResponse struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *DnsKeysListResponse) MarshalJSON() ([]byte, error) {
+func (s DnsKeysListResponse) MarshalJSON() ([]byte, error) {
 	type NoMethod DnsKeysListResponse
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // Expr: Represents a textual expression in the Common Expression Language
@@ -592,9 +589,9 @@ type Expr struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *Expr) MarshalJSON() ([]byte, error) {
+func (s Expr) MarshalJSON() ([]byte, error) {
 	type NoMethod Expr
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // GoogleIamV1AuditConfig: Specifies the audit configuration for a service. The
@@ -633,9 +630,9 @@ type GoogleIamV1AuditConfig struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *GoogleIamV1AuditConfig) MarshalJSON() ([]byte, error) {
+func (s GoogleIamV1AuditConfig) MarshalJSON() ([]byte, error) {
 	type NoMethod GoogleIamV1AuditConfig
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // GoogleIamV1AuditLogConfig: Provides the configuration for logging a type of
@@ -668,9 +665,9 @@ type GoogleIamV1AuditLogConfig struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *GoogleIamV1AuditLogConfig) MarshalJSON() ([]byte, error) {
+func (s GoogleIamV1AuditLogConfig) MarshalJSON() ([]byte, error) {
 	type NoMethod GoogleIamV1AuditLogConfig
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // GoogleIamV1Binding: Associates `members`, or principals, with a `role`.
@@ -767,9 +764,9 @@ type GoogleIamV1Binding struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *GoogleIamV1Binding) MarshalJSON() ([]byte, error) {
+func (s GoogleIamV1Binding) MarshalJSON() ([]byte, error) {
 	type NoMethod GoogleIamV1Binding
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // GoogleIamV1GetIamPolicyRequest: Request message for `GetIamPolicy` method.
@@ -790,9 +787,9 @@ type GoogleIamV1GetIamPolicyRequest struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *GoogleIamV1GetIamPolicyRequest) MarshalJSON() ([]byte, error) {
+func (s GoogleIamV1GetIamPolicyRequest) MarshalJSON() ([]byte, error) {
 	type NoMethod GoogleIamV1GetIamPolicyRequest
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // GoogleIamV1GetPolicyOptions: Encapsulates settings provided to GetIamPolicy.
@@ -822,9 +819,9 @@ type GoogleIamV1GetPolicyOptions struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *GoogleIamV1GetPolicyOptions) MarshalJSON() ([]byte, error) {
+func (s GoogleIamV1GetPolicyOptions) MarshalJSON() ([]byte, error) {
 	type NoMethod GoogleIamV1GetPolicyOptions
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // GoogleIamV1Policy: An Identity and Access Management (IAM) policy, which
@@ -914,9 +911,9 @@ type GoogleIamV1Policy struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *GoogleIamV1Policy) MarshalJSON() ([]byte, error) {
+func (s GoogleIamV1Policy) MarshalJSON() ([]byte, error) {
 	type NoMethod GoogleIamV1Policy
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // GoogleIamV1SetIamPolicyRequest: Request message for `SetIamPolicy` method.
@@ -943,9 +940,9 @@ type GoogleIamV1SetIamPolicyRequest struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *GoogleIamV1SetIamPolicyRequest) MarshalJSON() ([]byte, error) {
+func (s GoogleIamV1SetIamPolicyRequest) MarshalJSON() ([]byte, error) {
 	type NoMethod GoogleIamV1SetIamPolicyRequest
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // GoogleIamV1TestIamPermissionsRequest: Request message for
@@ -969,9 +966,9 @@ type GoogleIamV1TestIamPermissionsRequest struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *GoogleIamV1TestIamPermissionsRequest) MarshalJSON() ([]byte, error) {
+func (s GoogleIamV1TestIamPermissionsRequest) MarshalJSON() ([]byte, error) {
 	type NoMethod GoogleIamV1TestIamPermissionsRequest
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // GoogleIamV1TestIamPermissionsResponse: Response message for
@@ -996,9 +993,9 @@ type GoogleIamV1TestIamPermissionsResponse struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *GoogleIamV1TestIamPermissionsResponse) MarshalJSON() ([]byte, error) {
+func (s GoogleIamV1TestIamPermissionsResponse) MarshalJSON() ([]byte, error) {
 	type NoMethod GoogleIamV1TestIamPermissionsResponse
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // ManagedZone: A zone is a subtree of the DNS namespace under one
@@ -1058,8 +1055,10 @@ type ManagedZone struct {
 	// while private zones are visible only to Virtual Private Cloud resources.
 	//
 	// Possible values:
-	//   "public"
-	//   "private"
+	//   "public" - Indicates that records in this zone can be queried from the
+	// public internet.
+	//   "private" - Indicates that records in this zone cannot be queried from the
+	// public internet. Access to private zones depends on the zone configuration.
 	Visibility string `json:"visibility,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the server.
@@ -1077,9 +1076,9 @@ type ManagedZone struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *ManagedZone) MarshalJSON() ([]byte, error) {
+func (s ManagedZone) MarshalJSON() ([]byte, error) {
 	type NoMethod ManagedZone
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // ManagedZoneCloudLoggingConfig: Cloud Logging configurations for publicly
@@ -1102,9 +1101,9 @@ type ManagedZoneCloudLoggingConfig struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *ManagedZoneCloudLoggingConfig) MarshalJSON() ([]byte, error) {
+func (s ManagedZoneCloudLoggingConfig) MarshalJSON() ([]byte, error) {
 	type NoMethod ManagedZoneCloudLoggingConfig
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type ManagedZoneDnsSecConfig struct {
@@ -1116,8 +1115,12 @@ type ManagedZoneDnsSecConfig struct {
 	// responses. Can only be changed while the state is OFF.
 	//
 	// Possible values:
-	//   "nsec"
-	//   "nsec3"
+	//   "nsec" - Indicates that Cloud DNS will sign records in the managed zone
+	// according to RFC 4034 and respond with NSEC records for names that do not
+	// exist.
+	//   "nsec3" - Indicates that Cloud DNS will sign records in the managed zone
+	// according to RFC 5155 and respond with NSEC3 records for names that do not
+	// exist.
 	NonExistence string `json:"nonExistence,omitempty"`
 	// State: Specifies whether DNSSEC is enabled, and what mode it is in.
 	//
@@ -1139,9 +1142,9 @@ type ManagedZoneDnsSecConfig struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *ManagedZoneDnsSecConfig) MarshalJSON() ([]byte, error) {
+func (s ManagedZoneDnsSecConfig) MarshalJSON() ([]byte, error) {
 	type NoMethod ManagedZoneDnsSecConfig
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type ManagedZoneForwardingConfig struct {
@@ -1162,9 +1165,9 @@ type ManagedZoneForwardingConfig struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *ManagedZoneForwardingConfig) MarshalJSON() ([]byte, error) {
+func (s ManagedZoneForwardingConfig) MarshalJSON() ([]byte, error) {
 	type NoMethod ManagedZoneForwardingConfig
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type ManagedZoneForwardingConfigNameServerTarget struct {
@@ -1199,45 +1202,44 @@ type ManagedZoneForwardingConfigNameServerTarget struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *ManagedZoneForwardingConfigNameServerTarget) MarshalJSON() ([]byte, error) {
+func (s ManagedZoneForwardingConfigNameServerTarget) MarshalJSON() ([]byte, error) {
 	type NoMethod ManagedZoneForwardingConfigNameServerTarget
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type ManagedZoneOperationsListResponse struct {
-	Header *ResponseHeader `json:"header,omitempty"`
 	// Kind: Type of resource.
 	Kind string `json:"kind,omitempty"`
-	// NextPageToken: The presence of this field indicates that there exist more
-	// results following your last page of results in pagination order. To fetch
-	// them, make another list request using this value as your page token. This
-	// lets you retrieve the complete contents of even very large collections one
-	// page at a time. However, if the contents of the collection change between
-	// the first and last paginated list request, the set of all elements returned
-	// are an inconsistent view of the collection. You cannot retrieve a consistent
-	// snapshot of a collection larger than the maximum page size.
+	// NextPageToken: This field indicates that more results are available beyond
+	// the last page displayed. To fetch the results, make another list request and
+	// use this value as your page token. This lets you retrieve the complete
+	// contents of a very large collection one page at a time. However, if the
+	// contents of the collection change between the first and last paginated list
+	// request, the set of all elements returned are an inconsistent view of the
+	// collection. You can't retrieve a consistent snapshot of a collection larger
+	// than the maximum page size.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 	// Operations: The operation resources.
 	Operations []*Operation `json:"operations,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the server.
 	googleapi.ServerResponse `json:"-"`
-	// ForceSendFields is a list of field names (e.g. "Header") to unconditionally
+	// ForceSendFields is a list of field names (e.g. "Kind") to unconditionally
 	// include in API requests. By default, fields with empty or default values are
 	// omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
 	// details.
 	ForceSendFields []string `json:"-"`
-	// NullFields is a list of field names (e.g. "Header") to include in API
-	// requests with the JSON null value. By default, fields with empty values are
-	// omitted from API requests. See
+	// NullFields is a list of field names (e.g. "Kind") to include in API requests
+	// with the JSON null value. By default, fields with empty values are omitted
+	// from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
 	NullFields []string `json:"-"`
 }
 
-func (s *ManagedZoneOperationsListResponse) MarshalJSON() ([]byte, error) {
+func (s ManagedZoneOperationsListResponse) MarshalJSON() ([]byte, error) {
 	type NoMethod ManagedZoneOperationsListResponse
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type ManagedZonePeeringConfig struct {
@@ -1257,9 +1259,9 @@ type ManagedZonePeeringConfig struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *ManagedZonePeeringConfig) MarshalJSON() ([]byte, error) {
+func (s ManagedZonePeeringConfig) MarshalJSON() ([]byte, error) {
 	type NoMethod ManagedZonePeeringConfig
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type ManagedZonePeeringConfigTargetNetwork struct {
@@ -1272,7 +1274,8 @@ type ManagedZonePeeringConfigTargetNetwork struct {
 	Kind           string `json:"kind,omitempty"`
 	// NetworkUrl: The fully qualified URL of the VPC network to forward queries
 	// to. This should be formatted like
-	// https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}
+	// `https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{ne
+	// twork}`
 	NetworkUrl string `json:"networkUrl,omitempty"`
 	// ForceSendFields is a list of field names (e.g. "DeactivateTime") to
 	// unconditionally include in API requests. By default, fields with empty or
@@ -1287,9 +1290,9 @@ type ManagedZonePeeringConfigTargetNetwork struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *ManagedZonePeeringConfigTargetNetwork) MarshalJSON() ([]byte, error) {
+func (s ManagedZonePeeringConfigTargetNetwork) MarshalJSON() ([]byte, error) {
 	type NoMethod ManagedZonePeeringConfigTargetNetwork
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type ManagedZonePrivateVisibilityConfig struct {
@@ -1312,9 +1315,9 @@ type ManagedZonePrivateVisibilityConfig struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *ManagedZonePrivateVisibilityConfig) MarshalJSON() ([]byte, error) {
+func (s ManagedZonePrivateVisibilityConfig) MarshalJSON() ([]byte, error) {
 	type NoMethod ManagedZonePrivateVisibilityConfig
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type ManagedZonePrivateVisibilityConfigGKECluster struct {
@@ -1338,16 +1341,17 @@ type ManagedZonePrivateVisibilityConfigGKECluster struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *ManagedZonePrivateVisibilityConfigGKECluster) MarshalJSON() ([]byte, error) {
+func (s ManagedZonePrivateVisibilityConfigGKECluster) MarshalJSON() ([]byte, error) {
 	type NoMethod ManagedZonePrivateVisibilityConfigGKECluster
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type ManagedZonePrivateVisibilityConfigNetwork struct {
 	Kind string `json:"kind,omitempty"`
 	// NetworkUrl: The fully qualified URL of the VPC network to bind to. Format
 	// this URL like
-	// https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}
+	// `https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{ne
+	// twork}`
 	NetworkUrl string `json:"networkUrl,omitempty"`
 	// ForceSendFields is a list of field names (e.g. "Kind") to unconditionally
 	// include in API requests. By default, fields with empty or default values are
@@ -1362,9 +1366,9 @@ type ManagedZonePrivateVisibilityConfigNetwork struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *ManagedZonePrivateVisibilityConfigNetwork) MarshalJSON() ([]byte, error) {
+func (s ManagedZonePrivateVisibilityConfigNetwork) MarshalJSON() ([]byte, error) {
 	type NoMethod ManagedZonePrivateVisibilityConfigNetwork
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type ManagedZoneReverseLookupConfig struct {
@@ -1382,9 +1386,9 @@ type ManagedZoneReverseLookupConfig struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *ManagedZoneReverseLookupConfig) MarshalJSON() ([]byte, error) {
+func (s ManagedZoneReverseLookupConfig) MarshalJSON() ([]byte, error) {
 	type NoMethod ManagedZoneReverseLookupConfig
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // ManagedZoneServiceDirectoryConfig: Contains information about Service
@@ -1407,9 +1411,9 @@ type ManagedZoneServiceDirectoryConfig struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *ManagedZoneServiceDirectoryConfig) MarshalJSON() ([]byte, error) {
+func (s ManagedZoneServiceDirectoryConfig) MarshalJSON() ([]byte, error) {
 	type NoMethod ManagedZoneServiceDirectoryConfig
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type ManagedZoneServiceDirectoryConfigNamespace struct {
@@ -1420,7 +1424,8 @@ type ManagedZoneServiceDirectoryConfigNamespace struct {
 	Kind         string `json:"kind,omitempty"`
 	// NamespaceUrl: The fully qualified URL of the namespace associated with the
 	// zone. Format must be
-	// https://servicedirectory.googleapis.com/v1/projects/{project}/locations/{location}/namespaces/{namespace}
+	// `https://servicedirectory.googleapis.com/v1/projects/{project}/locations/{loc
+	// ation}/namespaces/{namespace}`
 	NamespaceUrl string `json:"namespaceUrl,omitempty"`
 	// ForceSendFields is a list of field names (e.g. "DeletionTime") to
 	// unconditionally include in API requests. By default, fields with empty or
@@ -1435,45 +1440,44 @@ type ManagedZoneServiceDirectoryConfigNamespace struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *ManagedZoneServiceDirectoryConfigNamespace) MarshalJSON() ([]byte, error) {
+func (s ManagedZoneServiceDirectoryConfigNamespace) MarshalJSON() ([]byte, error) {
 	type NoMethod ManagedZoneServiceDirectoryConfigNamespace
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type ManagedZonesListResponse struct {
-	Header *ResponseHeader `json:"header,omitempty"`
 	// Kind: Type of resource.
 	Kind string `json:"kind,omitempty"`
 	// ManagedZones: The managed zone resources.
 	ManagedZones []*ManagedZone `json:"managedZones,omitempty"`
-	// NextPageToken: The presence of this field indicates that there exist more
-	// results following your last page of results in pagination order. To fetch
-	// them, make another list request using this value as your page token. This
-	// lets you the complete contents of even very large collections one page at a
-	// time. However, if the contents of the collection change between the first
-	// and last paginated list request, the set of all elements returned are an
-	// inconsistent view of the collection. You cannot retrieve a consistent
-	// snapshot of a collection larger than the maximum page size.
+	// NextPageToken: This field indicates that more results are available beyond
+	// the last page displayed. To fetch the results, make another list request and
+	// use this value as your page token. This lets you retrieve the complete
+	// contents of a very large collection one page at a time. However, if the
+	// contents of the collection change between the first and last paginated list
+	// request, the set of all elements returned are an inconsistent view of the
+	// collection. You can't retrieve a consistent snapshot of a collection larger
+	// than the maximum page size.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the server.
 	googleapi.ServerResponse `json:"-"`
-	// ForceSendFields is a list of field names (e.g. "Header") to unconditionally
+	// ForceSendFields is a list of field names (e.g. "Kind") to unconditionally
 	// include in API requests. By default, fields with empty or default values are
 	// omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
 	// details.
 	ForceSendFields []string `json:"-"`
-	// NullFields is a list of field names (e.g. "Header") to include in API
-	// requests with the JSON null value. By default, fields with empty values are
-	// omitted from API requests. See
+	// NullFields is a list of field names (e.g. "Kind") to include in API requests
+	// with the JSON null value. By default, fields with empty values are omitted
+	// from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
 	NullFields []string `json:"-"`
 }
 
-func (s *ManagedZonesListResponse) MarshalJSON() ([]byte, error) {
+func (s ManagedZonesListResponse) MarshalJSON() ([]byte, error) {
 	type NoMethod ManagedZonesListResponse
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // Operation: An operation represents a successful mutation performed on a
@@ -1529,9 +1533,9 @@ type Operation struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *Operation) MarshalJSON() ([]byte, error) {
+func (s Operation) MarshalJSON() ([]byte, error) {
 	type NoMethod Operation
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type OperationDnsKeyContext struct {
@@ -1552,9 +1556,9 @@ type OperationDnsKeyContext struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *OperationDnsKeyContext) MarshalJSON() ([]byte, error) {
+func (s OperationDnsKeyContext) MarshalJSON() ([]byte, error) {
 	type NoMethod OperationDnsKeyContext
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type OperationManagedZoneContext struct {
@@ -1575,93 +1579,90 @@ type OperationManagedZoneContext struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *OperationManagedZoneContext) MarshalJSON() ([]byte, error) {
+func (s OperationManagedZoneContext) MarshalJSON() ([]byte, error) {
 	type NoMethod OperationManagedZoneContext
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type PoliciesListResponse struct {
-	Header *ResponseHeader `json:"header,omitempty"`
 	// Kind: Type of resource.
 	Kind string `json:"kind,omitempty"`
-	// NextPageToken: The presence of this field indicates that there exist more
-	// results following your last page of results in pagination order. To fetch
-	// them, make another list request using this value as your page token. This
-	// lets you the complete contents of even very large collections one page at a
-	// time. However, if the contents of the collection change between the first
-	// and last paginated list request, the set of all elements returned are an
-	// inconsistent view of the collection. You cannot retrieve a consistent
-	// snapshot of a collection larger than the maximum page size.
+	// NextPageToken: This field indicates that more results are available beyond
+	// the last page displayed. To fetch the results, make another list request and
+	// use this value as your page token. This lets you retrieve the complete
+	// contents of a very large collection one page at a time. However, if the
+	// contents of the collection change between the first and last paginated list
+	// request, the set of all elements returned are an inconsistent view of the
+	// collection. You can't retrieve a consistent snapshot of a collection larger
+	// than the maximum page size.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 	// Policies: The policy resources.
 	Policies []*Policy `json:"policies,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the server.
 	googleapi.ServerResponse `json:"-"`
-	// ForceSendFields is a list of field names (e.g. "Header") to unconditionally
+	// ForceSendFields is a list of field names (e.g. "Kind") to unconditionally
 	// include in API requests. By default, fields with empty or default values are
 	// omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
 	// details.
 	ForceSendFields []string `json:"-"`
-	// NullFields is a list of field names (e.g. "Header") to include in API
-	// requests with the JSON null value. By default, fields with empty values are
-	// omitted from API requests. See
+	// NullFields is a list of field names (e.g. "Kind") to include in API requests
+	// with the JSON null value. By default, fields with empty values are omitted
+	// from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
 	NullFields []string `json:"-"`
 }
 
-func (s *PoliciesListResponse) MarshalJSON() ([]byte, error) {
+func (s PoliciesListResponse) MarshalJSON() ([]byte, error) {
 	type NoMethod PoliciesListResponse
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type PoliciesPatchResponse struct {
-	Header *ResponseHeader `json:"header,omitempty"`
-	Policy *Policy         `json:"policy,omitempty"`
+	Policy *Policy `json:"policy,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the server.
 	googleapi.ServerResponse `json:"-"`
-	// ForceSendFields is a list of field names (e.g. "Header") to unconditionally
+	// ForceSendFields is a list of field names (e.g. "Policy") to unconditionally
 	// include in API requests. By default, fields with empty or default values are
 	// omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
 	// details.
 	ForceSendFields []string `json:"-"`
-	// NullFields is a list of field names (e.g. "Header") to include in API
+	// NullFields is a list of field names (e.g. "Policy") to include in API
 	// requests with the JSON null value. By default, fields with empty values are
 	// omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
 	NullFields []string `json:"-"`
 }
 
-func (s *PoliciesPatchResponse) MarshalJSON() ([]byte, error) {
+func (s PoliciesPatchResponse) MarshalJSON() ([]byte, error) {
 	type NoMethod PoliciesPatchResponse
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type PoliciesUpdateResponse struct {
-	Header *ResponseHeader `json:"header,omitempty"`
-	Policy *Policy         `json:"policy,omitempty"`
+	Policy *Policy `json:"policy,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the server.
 	googleapi.ServerResponse `json:"-"`
-	// ForceSendFields is a list of field names (e.g. "Header") to unconditionally
+	// ForceSendFields is a list of field names (e.g. "Policy") to unconditionally
 	// include in API requests. By default, fields with empty or default values are
 	// omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
 	// details.
 	ForceSendFields []string `json:"-"`
-	// NullFields is a list of field names (e.g. "Header") to include in API
+	// NullFields is a list of field names (e.g. "Policy") to include in API
 	// requests with the JSON null value. By default, fields with empty values are
 	// omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
 	NullFields []string `json:"-"`
 }
 
-func (s *PoliciesUpdateResponse) MarshalJSON() ([]byte, error) {
+func (s PoliciesUpdateResponse) MarshalJSON() ([]byte, error) {
 	type NoMethod PoliciesUpdateResponse
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // Policy: A policy is a collection of DNS rules applied to one or more Virtual
@@ -1708,9 +1709,9 @@ type Policy struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *Policy) MarshalJSON() ([]byte, error) {
+func (s Policy) MarshalJSON() ([]byte, error) {
 	type NoMethod Policy
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type PolicyAlternativeNameServerConfig struct {
@@ -1733,9 +1734,9 @@ type PolicyAlternativeNameServerConfig struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *PolicyAlternativeNameServerConfig) MarshalJSON() ([]byte, error) {
+func (s PolicyAlternativeNameServerConfig) MarshalJSON() ([]byte, error) {
 	type NoMethod PolicyAlternativeNameServerConfig
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type PolicyAlternativeNameServerConfigTargetNameServer struct {
@@ -1770,9 +1771,9 @@ type PolicyAlternativeNameServerConfigTargetNameServer struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *PolicyAlternativeNameServerConfigTargetNameServer) MarshalJSON() ([]byte, error) {
+func (s PolicyAlternativeNameServerConfigTargetNameServer) MarshalJSON() ([]byte, error) {
 	type NoMethod PolicyAlternativeNameServerConfigTargetNameServer
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type PolicyNetwork struct {
@@ -1794,14 +1795,14 @@ type PolicyNetwork struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *PolicyNetwork) MarshalJSON() ([]byte, error) {
+func (s PolicyNetwork) MarshalJSON() ([]byte, error) {
 	type NoMethod PolicyNetwork
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // Project: A project resource. The project is a top level container for
 // resources including Cloud DNS ManagedZones. Projects can be created only in
-// the APIs console. Next tag: 7.
+// the APIs console.
 type Project struct {
 	// Id: User assigned unique identifier for the resource (output only).
 	Id   string `json:"id,omitempty"`
@@ -1827,9 +1828,9 @@ type Project struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *Project) MarshalJSON() ([]byte, error) {
+func (s Project) MarshalJSON() ([]byte, error) {
 	type NoMethod Project
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // Quota: Limits associated with a Project.
@@ -1843,7 +1844,8 @@ type Quota struct {
 	GkeClustersPerPolicy int64 `json:"gkeClustersPerPolicy,omitempty"`
 	// GkeClustersPerResponsePolicy: Maximum allowed number of GKE clusters per
 	// response policy.
-	GkeClustersPerResponsePolicy int64 `json:"gkeClustersPerResponsePolicy,omitempty"`
+	GkeClustersPerResponsePolicy       int64 `json:"gkeClustersPerResponsePolicy,omitempty"`
+	InternetHealthChecksPerManagedZone int64 `json:"internetHealthChecksPerManagedZone,omitempty"`
 	// ItemsPerRoutingPolicy: Maximum allowed number of items per routing policy.
 	ItemsPerRoutingPolicy int64  `json:"itemsPerRoutingPolicy,omitempty"`
 	Kind                  string `json:"kind,omitempty"`
@@ -1913,16 +1915,20 @@ type Quota struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *Quota) MarshalJSON() ([]byte, error) {
+func (s Quota) MarshalJSON() ([]byte, error) {
 	type NoMethod Quota
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // RRSetRoutingPolicy: A RRSetRoutingPolicy represents ResourceRecordSet data
 // that is returned dynamically with the response varying based on configured
 // properties such as geolocation or by weighted random selection.
 type RRSetRoutingPolicy struct {
-	Geo           *RRSetRoutingPolicyGeoPolicy           `json:"geo,omitempty"`
+	Geo *RRSetRoutingPolicyGeoPolicy `json:"geo,omitempty"`
+	// HealthCheck: The selfLink attribute of the HealthCheck resource to use for
+	// this RRSetRoutingPolicy.
+	// https://cloud.google.com/compute/docs/reference/rest/v1/healthChecks
+	HealthCheck   string                                 `json:"healthCheck,omitempty"`
 	Kind          string                                 `json:"kind,omitempty"`
 	PrimaryBackup *RRSetRoutingPolicyPrimaryBackupPolicy `json:"primaryBackup,omitempty"`
 	Wrr           *RRSetRoutingPolicyWrrPolicy           `json:"wrr,omitempty"`
@@ -1939,12 +1945,12 @@ type RRSetRoutingPolicy struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *RRSetRoutingPolicy) MarshalJSON() ([]byte, error) {
+func (s RRSetRoutingPolicy) MarshalJSON() ([]byte, error) {
 	type NoMethod RRSetRoutingPolicy
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
-// RRSetRoutingPolicyGeoPolicy: Configures a RRSetRoutingPolicy that routes
+// RRSetRoutingPolicyGeoPolicy: Configures a `RRSetRoutingPolicy` that routes
 // based on the geo location of the querying user.
 type RRSetRoutingPolicyGeoPolicy struct {
 	// EnableFencing: Without fencing, if health check fails for all configured
@@ -1972,9 +1978,9 @@ type RRSetRoutingPolicyGeoPolicy struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *RRSetRoutingPolicyGeoPolicy) MarshalJSON() ([]byte, error) {
+func (s RRSetRoutingPolicyGeoPolicy) MarshalJSON() ([]byte, error) {
 	type NoMethod RRSetRoutingPolicyGeoPolicy
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // RRSetRoutingPolicyGeoPolicyGeoPolicyItem: ResourceRecordSet data for one geo
@@ -1982,7 +1988,7 @@ func (s *RRSetRoutingPolicyGeoPolicy) MarshalJSON() ([]byte, error) {
 type RRSetRoutingPolicyGeoPolicyGeoPolicyItem struct {
 	// HealthCheckedTargets: For A and AAAA types only. Endpoints to return in the
 	// query result only if they are healthy. These can be specified along with
-	// rrdata within this item.
+	// `rrdata` within this item.
 	HealthCheckedTargets *RRSetRoutingPolicyHealthCheckTargets `json:"healthCheckedTargets,omitempty"`
 	Kind                 string                                `json:"kind,omitempty"`
 	// Location: The geo-location granularity is a GCP region. This location string
@@ -1990,8 +1996,8 @@ type RRSetRoutingPolicyGeoPolicyGeoPolicyItem struct {
 	// "asia-east1", etc.
 	Location string   `json:"location,omitempty"`
 	Rrdatas  []string `json:"rrdatas,omitempty"`
-	// SignatureRrdatas: DNSSEC generated signatures for all the rrdata within this
-	// item. If health checked targets are provided for DNSSEC enabled zones,
+	// SignatureRrdatas: DNSSEC generated signatures for all the `rrdata` within
+	// this item. If health checked targets are provided for DNSSEC enabled zones,
 	// there's a restriction of 1 IP address per item.
 	SignatureRrdatas []string `json:"signatureRrdatas,omitempty"`
 	// ForceSendFields is a list of field names (e.g. "HealthCheckedTargets") to
@@ -2007,35 +2013,38 @@ type RRSetRoutingPolicyGeoPolicyGeoPolicyItem struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *RRSetRoutingPolicyGeoPolicyGeoPolicyItem) MarshalJSON() ([]byte, error) {
+func (s RRSetRoutingPolicyGeoPolicyGeoPolicyItem) MarshalJSON() ([]byte, error) {
 	type NoMethod RRSetRoutingPolicyGeoPolicyGeoPolicyItem
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // RRSetRoutingPolicyHealthCheckTargets: HealthCheckTargets describes endpoints
 // to health-check when responding to Routing Policy queries. Only the healthy
-// endpoints will be included in the response. Only one of
-// internal_load_balancer and external_endpoints should be set.
+// endpoints will be included in the response.
 type RRSetRoutingPolicyHealthCheckTargets struct {
+	// ExternalEndpoints: The Internet IP addresses to be health checked. The
+	// format matches the format of ResourceRecordSet.rrdata as defined in RFC 1035
+	// (section 5) and RFC 1034 (section 3.6.1)
+	ExternalEndpoints []string `json:"externalEndpoints,omitempty"`
 	// InternalLoadBalancers: Configuration for internal load balancers to be
 	// health checked.
 	InternalLoadBalancers []*RRSetRoutingPolicyLoadBalancerTarget `json:"internalLoadBalancers,omitempty"`
-	// ForceSendFields is a list of field names (e.g. "InternalLoadBalancers") to
+	// ForceSendFields is a list of field names (e.g. "ExternalEndpoints") to
 	// unconditionally include in API requests. By default, fields with empty or
 	// default values are omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
 	// details.
 	ForceSendFields []string `json:"-"`
-	// NullFields is a list of field names (e.g. "InternalLoadBalancers") to
-	// include in API requests with the JSON null value. By default, fields with
-	// empty values are omitted from API requests. See
+	// NullFields is a list of field names (e.g. "ExternalEndpoints") to include in
+	// API requests with the JSON null value. By default, fields with empty values
+	// are omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
 	NullFields []string `json:"-"`
 }
 
-func (s *RRSetRoutingPolicyHealthCheckTargets) MarshalJSON() ([]byte, error) {
+func (s RRSetRoutingPolicyHealthCheckTargets) MarshalJSON() ([]byte, error) {
 	type NoMethod RRSetRoutingPolicyHealthCheckTargets
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // RRSetRoutingPolicyLoadBalancerTarget: The configuration for an individual
@@ -2047,8 +2056,8 @@ type RRSetRoutingPolicyLoadBalancerTarget struct {
 	//
 	// Possible values:
 	//   "undefined"
-	//   "tcp"
-	//   "udp"
+	//   "tcp" - Indicates the load balancer is accessible via TCP.
+	//   "udp" - Indicates the load balancer is accessible via UDP.
 	IpProtocol string `json:"ipProtocol,omitempty"`
 	Kind       string `json:"kind,omitempty"`
 	// LoadBalancerType: The type of load balancer specified by this target. This
@@ -2060,14 +2069,17 @@ type RRSetRoutingPolicyLoadBalancerTarget struct {
 	//
 	// Possible values:
 	//   "none"
-	//   "globalL7ilb"
-	//   "regionalL4ilb"
-	//   "regionalL7ilb"
+	//   "globalL7ilb" - Indicates the load balancer is a Cross-Region Application
+	// Load Balancer.
+	//   "regionalL4ilb" - Indicates the load balancer is a Regional Network
+	// Passthrough Load Balancer.
+	//   "regionalL7ilb" - Indicates the load balancer is a Regional Application
+	// Load Balancer.
 	LoadBalancerType string `json:"loadBalancerType,omitempty"`
 	// NetworkUrl: The fully qualified URL of the network that the load balancer is
 	// attached to. This should be formatted like
-	// https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}
-	// .
+	// `https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{ne
+	// twork}`.
 	NetworkUrl string `json:"networkUrl,omitempty"`
 	// Port: The configured port of the load balancer.
 	Port string `json:"port,omitempty"`
@@ -2088,9 +2100,9 @@ type RRSetRoutingPolicyLoadBalancerTarget struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *RRSetRoutingPolicyLoadBalancerTarget) MarshalJSON() ([]byte, error) {
+func (s RRSetRoutingPolicyLoadBalancerTarget) MarshalJSON() ([]byte, error) {
 	type NoMethod RRSetRoutingPolicyLoadBalancerTarget
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // RRSetRoutingPolicyPrimaryBackupPolicy: Configures a RRSetRoutingPolicy such
@@ -2099,15 +2111,15 @@ func (s *RRSetRoutingPolicyLoadBalancerTarget) MarshalJSON() ([]byte, error) {
 // policy.
 type RRSetRoutingPolicyPrimaryBackupPolicy struct {
 	// BackupGeoTargets: Backup targets provide a regional failover policy for the
-	// otherwise global primary targets. If serving state is set to BACKUP, this
+	// otherwise global primary targets. If serving state is set to `BACKUP`, this
 	// policy essentially becomes a geo routing policy.
 	BackupGeoTargets *RRSetRoutingPolicyGeoPolicy `json:"backupGeoTargets,omitempty"`
 	Kind             string                       `json:"kind,omitempty"`
 	// PrimaryTargets: Endpoints that are health checked before making the routing
 	// decision. Unhealthy endpoints are omitted from the results. If all endpoints
-	// are unhealthy, we serve a response based on the backup_geo_targets.
+	// are unhealthy, we serve a response based on the `backup_geo_targets`.
 	PrimaryTargets *RRSetRoutingPolicyHealthCheckTargets `json:"primaryTargets,omitempty"`
-	// TrickleTraffic: When serving state is PRIMARY, this field provides the
+	// TrickleTraffic: When serving state is `PRIMARY`, this field provides the
 	// option of sending a small percentage of the traffic to the backup targets.
 	TrickleTraffic float64 `json:"trickleTraffic,omitempty"`
 	// ForceSendFields is a list of field names (e.g. "BackupGeoTargets") to
@@ -2123,9 +2135,9 @@ type RRSetRoutingPolicyPrimaryBackupPolicy struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *RRSetRoutingPolicyPrimaryBackupPolicy) MarshalJSON() ([]byte, error) {
+func (s RRSetRoutingPolicyPrimaryBackupPolicy) MarshalJSON() ([]byte, error) {
 	type NoMethod RRSetRoutingPolicyPrimaryBackupPolicy
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 func (s *RRSetRoutingPolicyPrimaryBackupPolicy) UnmarshalJSON(data []byte) error {
@@ -2160,9 +2172,9 @@ type RRSetRoutingPolicyWrrPolicy struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *RRSetRoutingPolicyWrrPolicy) MarshalJSON() ([]byte, error) {
+func (s RRSetRoutingPolicyWrrPolicy) MarshalJSON() ([]byte, error) {
 	type NoMethod RRSetRoutingPolicyWrrPolicy
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // RRSetRoutingPolicyWrrPolicyWrrPolicyItem: A routing block which contains the
@@ -2172,18 +2184,19 @@ type RRSetRoutingPolicyWrrPolicyWrrPolicyItem struct {
 	// routing decision. The unhealthy endpoints are omitted from the result. If
 	// all endpoints within a bucket are unhealthy, we choose a different bucket
 	// (sampled with respect to its weight) for responding. If DNSSEC is enabled
-	// for this zone, only one of rrdata or health_checked_targets can be set.
+	// for this zone, only one of `rrdata` or `health_checked_targets` can be set.
 	HealthCheckedTargets *RRSetRoutingPolicyHealthCheckTargets `json:"healthCheckedTargets,omitempty"`
 	Kind                 string                                `json:"kind,omitempty"`
 	Rrdatas              []string                              `json:"rrdatas,omitempty"`
-	// SignatureRrdatas: DNSSEC generated signatures for all the rrdata within this
-	// item. Note that if health checked targets are provided for DNSSEC enabled
-	// zones, there's a restriction of 1 IP address per item.
+	// SignatureRrdatas: DNSSEC generated signatures for all the `rrdata` within
+	// this item. Note that if health checked targets are provided for DNSSEC
+	// enabled zones, there's a restriction of 1 IP address per item.
 	SignatureRrdatas []string `json:"signatureRrdatas,omitempty"`
-	// Weight: The weight corresponding to this WrrPolicyItem object. When multiple
-	// WrrPolicyItem objects are configured, the probability of returning an
-	// WrrPolicyItem object's data is proportional to its weight relative to the
-	// sum of weights configured for all items. This weight must be non-negative.
+	// Weight: The weight corresponding to this `WrrPolicyItem` object. When
+	// multiple `WrrPolicyItem` objects are configured, the probability of
+	// returning an `WrrPolicyItem` object's data is proportional to its weight
+	// relative to the sum of weights configured for all items. This weight must be
+	// non-negative.
 	Weight float64 `json:"weight,omitempty"`
 	// ForceSendFields is a list of field names (e.g. "HealthCheckedTargets") to
 	// unconditionally include in API requests. By default, fields with empty or
@@ -2198,9 +2211,9 @@ type RRSetRoutingPolicyWrrPolicyWrrPolicyItem struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *RRSetRoutingPolicyWrrPolicyWrrPolicyItem) MarshalJSON() ([]byte, error) {
+func (s RRSetRoutingPolicyWrrPolicyWrrPolicyItem) MarshalJSON() ([]byte, error) {
 	type NoMethod RRSetRoutingPolicyWrrPolicyWrrPolicyItem
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 func (s *RRSetRoutingPolicyWrrPolicyWrrPolicyItem) UnmarshalJSON(data []byte) error {
@@ -2224,15 +2237,15 @@ type ResourceRecordSet struct {
 	Name string `json:"name,omitempty"`
 	// RoutingPolicy: Configures dynamic query responses based on either the geo
 	// location of the querying user or a weighted round robin based routing
-	// policy. A valid ResourceRecordSet contains only rrdata (for static
-	// resolution) or a routing_policy (for dynamic resolution).
+	// policy. A valid `ResourceRecordSet` contains only `rrdata` (for static
+	// resolution) or a `routing_policy` (for dynamic resolution).
 	RoutingPolicy *RRSetRoutingPolicy `json:"routingPolicy,omitempty"`
 	// Rrdatas: As defined in RFC 1035 (section 5) and RFC 1034 (section 3.6.1) --
 	// see examples.
 	Rrdatas []string `json:"rrdatas,omitempty"`
 	// SignatureRrdatas: As defined in RFC 4034 (section 3.2).
 	SignatureRrdatas []string `json:"signatureRrdatas,omitempty"`
-	// Ttl: Number of seconds that this ResourceRecordSet can be cached by
+	// Ttl: Number of seconds that this `ResourceRecordSet` can be cached by
 	// resolvers.
 	Ttl int64 `json:"ttl,omitempty"`
 	// Type: The identifier of a supported record type. See the list of Supported
@@ -2254,9 +2267,9 @@ type ResourceRecordSet struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *ResourceRecordSet) MarshalJSON() ([]byte, error) {
+func (s ResourceRecordSet) MarshalJSON() ([]byte, error) {
 	type NoMethod ResourceRecordSet
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type ResourceRecordSetsDeleteResponse struct {
@@ -2265,16 +2278,15 @@ type ResourceRecordSetsDeleteResponse struct {
 }
 
 type ResourceRecordSetsListResponse struct {
-	Header *ResponseHeader `json:"header,omitempty"`
 	// Kind: Type of resource.
 	Kind string `json:"kind,omitempty"`
-	// NextPageToken: The presence of this field indicates that there exist more
-	// results following your last page of results in pagination order. To fetch
-	// them, make another list request using this value as your pagination token.
-	// This lets you retrieve the complete contents of even larger collections, one
-	// page at a time. However, if the collection changes between paginated list
-	// requests, the set of elements returned is an inconsistent view of the
-	// collection. You cannot retrieve a consistent snapshot of a collection larger
+	// NextPageToken: This field indicates that more results are available beyond
+	// the last page displayed. To fetch the results, make another list request and
+	// use this value as your page token. This lets you retrieve the complete
+	// contents of a very large collection one page at a time. However, if the
+	// contents of the collection change between the first and last paginated list
+	// request, the set of all elements returned are an inconsistent view of the
+	// collection. You can't retrieve a consistent snapshot of a collection larger
 	// than the maximum page size.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 	// Rrsets: The resource record set resources.
@@ -2282,128 +2294,101 @@ type ResourceRecordSetsListResponse struct {
 
 	// ServerResponse contains the HTTP response code and headers from the server.
 	googleapi.ServerResponse `json:"-"`
-	// ForceSendFields is a list of field names (e.g. "Header") to unconditionally
+	// ForceSendFields is a list of field names (e.g. "Kind") to unconditionally
 	// include in API requests. By default, fields with empty or default values are
 	// omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
 	// details.
 	ForceSendFields []string `json:"-"`
-	// NullFields is a list of field names (e.g. "Header") to include in API
-	// requests with the JSON null value. By default, fields with empty values are
-	// omitted from API requests. See
+	// NullFields is a list of field names (e.g. "Kind") to include in API requests
+	// with the JSON null value. By default, fields with empty values are omitted
+	// from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
 	NullFields []string `json:"-"`
 }
 
-func (s *ResourceRecordSetsListResponse) MarshalJSON() ([]byte, error) {
+func (s ResourceRecordSetsListResponse) MarshalJSON() ([]byte, error) {
 	type NoMethod ResourceRecordSetsListResponse
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
-}
-
-// ResponseHeader: Elements common to every response.
-type ResponseHeader struct {
-	// OperationId: For mutating operation requests that completed successfully.
-	// This is the client_operation_id if the client specified it, otherwise it is
-	// generated by the server (output only).
-	OperationId string `json:"operationId,omitempty"`
-	// ForceSendFields is a list of field names (e.g. "OperationId") to
-	// unconditionally include in API requests. By default, fields with empty or
-	// default values are omitted from API requests. See
-	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
-	// details.
-	ForceSendFields []string `json:"-"`
-	// NullFields is a list of field names (e.g. "OperationId") to include in API
-	// requests with the JSON null value. By default, fields with empty values are
-	// omitted from API requests. See
-	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
-	NullFields []string `json:"-"`
-}
-
-func (s *ResponseHeader) MarshalJSON() ([]byte, error) {
-	type NoMethod ResponseHeader
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type ResponsePoliciesListResponse struct {
-	Header *ResponseHeader `json:"header,omitempty"`
-	// NextPageToken: The presence of this field indicates that more results exist
-	// following your last page of results in pagination order. To fetch them, make
-	// another list request by using this value as your page token. This lets you
-	// view the complete contents of even very large collections one page at a
-	// time. However, if the contents of the collection change between the first
-	// and last paginated list request, the set of all elements returned are an
-	// inconsistent view of the collection. You cannot retrieve a consistent
-	// snapshot of a collection larger than the maximum page size.
+	// NextPageToken: This field indicates that more results are available beyond
+	// the last page displayed. To fetch the results, make another list request and
+	// use this value as your page token. This lets you retrieve the complete
+	// contents of a very large collection one page at a time. However, if the
+	// contents of the collection change between the first and last paginated list
+	// request, the set of all elements returned are an inconsistent view of the
+	// collection. You can't retrieve a consistent snapshot of a collection larger
+	// than the maximum page size.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 	// ResponsePolicies: The Response Policy resources.
 	ResponsePolicies []*ResponsePolicy `json:"responsePolicies,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the server.
 	googleapi.ServerResponse `json:"-"`
-	// ForceSendFields is a list of field names (e.g. "Header") to unconditionally
-	// include in API requests. By default, fields with empty or default values are
-	// omitted from API requests. See
+	// ForceSendFields is a list of field names (e.g. "NextPageToken") to
+	// unconditionally include in API requests. By default, fields with empty or
+	// default values are omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
 	// details.
 	ForceSendFields []string `json:"-"`
-	// NullFields is a list of field names (e.g. "Header") to include in API
+	// NullFields is a list of field names (e.g. "NextPageToken") to include in API
 	// requests with the JSON null value. By default, fields with empty values are
 	// omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
 	NullFields []string `json:"-"`
 }
 
-func (s *ResponsePoliciesListResponse) MarshalJSON() ([]byte, error) {
+func (s ResponsePoliciesListResponse) MarshalJSON() ([]byte, error) {
 	type NoMethod ResponsePoliciesListResponse
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type ResponsePoliciesPatchResponse struct {
-	Header         *ResponseHeader `json:"header,omitempty"`
 	ResponsePolicy *ResponsePolicy `json:"responsePolicy,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the server.
 	googleapi.ServerResponse `json:"-"`
-	// ForceSendFields is a list of field names (e.g. "Header") to unconditionally
-	// include in API requests. By default, fields with empty or default values are
-	// omitted from API requests. See
+	// ForceSendFields is a list of field names (e.g. "ResponsePolicy") to
+	// unconditionally include in API requests. By default, fields with empty or
+	// default values are omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
 	// details.
 	ForceSendFields []string `json:"-"`
-	// NullFields is a list of field names (e.g. "Header") to include in API
-	// requests with the JSON null value. By default, fields with empty values are
-	// omitted from API requests. See
+	// NullFields is a list of field names (e.g. "ResponsePolicy") to include in
+	// API requests with the JSON null value. By default, fields with empty values
+	// are omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
 	NullFields []string `json:"-"`
 }
 
-func (s *ResponsePoliciesPatchResponse) MarshalJSON() ([]byte, error) {
+func (s ResponsePoliciesPatchResponse) MarshalJSON() ([]byte, error) {
 	type NoMethod ResponsePoliciesPatchResponse
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type ResponsePoliciesUpdateResponse struct {
-	Header         *ResponseHeader `json:"header,omitempty"`
 	ResponsePolicy *ResponsePolicy `json:"responsePolicy,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the server.
 	googleapi.ServerResponse `json:"-"`
-	// ForceSendFields is a list of field names (e.g. "Header") to unconditionally
-	// include in API requests. By default, fields with empty or default values are
-	// omitted from API requests. See
+	// ForceSendFields is a list of field names (e.g. "ResponsePolicy") to
+	// unconditionally include in API requests. By default, fields with empty or
+	// default values are omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
 	// details.
 	ForceSendFields []string `json:"-"`
-	// NullFields is a list of field names (e.g. "Header") to include in API
-	// requests with the JSON null value. By default, fields with empty values are
-	// omitted from API requests. See
+	// NullFields is a list of field names (e.g. "ResponsePolicy") to include in
+	// API requests with the JSON null value. By default, fields with empty values
+	// are omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
 	NullFields []string `json:"-"`
 }
 
-func (s *ResponsePoliciesUpdateResponse) MarshalJSON() ([]byte, error) {
+func (s ResponsePoliciesUpdateResponse) MarshalJSON() ([]byte, error) {
 	type NoMethod ResponsePoliciesUpdateResponse
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // ResponsePolicy: A Response Policy is a collection of selectors that apply to
@@ -2440,9 +2425,9 @@ type ResponsePolicy struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *ResponsePolicy) MarshalJSON() ([]byte, error) {
+func (s ResponsePolicy) MarshalJSON() ([]byte, error) {
 	type NoMethod ResponsePolicy
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type ResponsePolicyGKECluster struct {
@@ -2466,16 +2451,17 @@ type ResponsePolicyGKECluster struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *ResponsePolicyGKECluster) MarshalJSON() ([]byte, error) {
+func (s ResponsePolicyGKECluster) MarshalJSON() ([]byte, error) {
 	type NoMethod ResponsePolicyGKECluster
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type ResponsePolicyNetwork struct {
 	Kind string `json:"kind,omitempty"`
 	// NetworkUrl: The fully qualified URL of the VPC network to bind to. This
 	// should be formatted like
-	// https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}
+	// `https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{ne
+	// twork}`
 	NetworkUrl string `json:"networkUrl,omitempty"`
 	// ForceSendFields is a list of field names (e.g. "Kind") to unconditionally
 	// include in API requests. By default, fields with empty or default values are
@@ -2490,9 +2476,9 @@ type ResponsePolicyNetwork struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *ResponsePolicyNetwork) MarshalJSON() ([]byte, error) {
+func (s ResponsePolicyNetwork) MarshalJSON() ([]byte, error) {
 	type NoMethod ResponsePolicyNetwork
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // ResponsePolicyRule: A Response Policy Rule is a selector that applies its
@@ -2505,18 +2491,19 @@ type ResponsePolicyRule struct {
 	//
 	// Possible values:
 	//   "behaviorUnspecified"
-	//   "bypassResponsePolicy" - Skip a less-specific ResponsePolicyRule and
-	// continue normal query logic. This can be used with a less-specific wildcard
-	// selector to exempt a subset of the wildcard ResponsePolicyRule from the
-	// ResponsePolicy behavior and query the public Internet instead. For instance,
-	// if these rules exist: *.example.com -> LocalData 1.2.3.4 foo.example.com ->
-	// Behavior 'bypassResponsePolicy' Then a query for 'foo.example.com' skips the
-	// wildcard. This additionally functions to facilitate the allowlist feature.
-	// RPZs can be applied to multiple levels in the (eventually org, folder,
-	// project, network) hierarchy. If a rule is applied at a higher level of the
-	// hierarchy, adding a passthru rule at a lower level will supersede that, and
-	// a query from an affected vm to that domain will be exempt from the RPZ and
-	// proceed to normal resolution behavior.
+	//   "bypassResponsePolicy" - Skip a less-specific Response Policy Rule and let
+	// the query logic continue. This mechanism, when used with wildcard selectors,
+	// lets you exempt specific subdomains from a broader Response Policy Rule and
+	// direct the queries to the public internet instead. For example, if the
+	// following rules exist: ``` *.example.com -> LocalData 1.2.3.4
+	// foo.example.com -> Behavior 'passthrough' ``` A query for foo.example.com
+	// skips the wildcard rule. This functionality also facilitates allowlisting.
+	// Response Policy Zones (RPZs) can be applied at multiple levels within the
+	// hierarchy: for example, an organization, a folder, a project, or a VPC
+	// network. If an RPZ rule is applied at a higher level, adding a `passthrough`
+	// rule at a lower level will override it. Queries from affected virtual
+	// machines (VMs) to that domain bypass the RPZ and proceed with normal
+	// resolution.
 	Behavior string `json:"behavior,omitempty"`
 	// DnsName: The DNS name (wildcard or exact) to apply this rule to. Must be
 	// unique within the Response Policy Rule.
@@ -2546,9 +2533,9 @@ type ResponsePolicyRule struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *ResponsePolicyRule) MarshalJSON() ([]byte, error) {
+func (s ResponsePolicyRule) MarshalJSON() ([]byte, error) {
 	type NoMethod ResponsePolicyRule
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type ResponsePolicyRuleLocalData struct {
@@ -2568,91 +2555,88 @@ type ResponsePolicyRuleLocalData struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *ResponsePolicyRuleLocalData) MarshalJSON() ([]byte, error) {
+func (s ResponsePolicyRuleLocalData) MarshalJSON() ([]byte, error) {
 	type NoMethod ResponsePolicyRuleLocalData
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type ResponsePolicyRulesListResponse struct {
-	Header *ResponseHeader `json:"header,omitempty"`
-	// NextPageToken: The presence of this field indicates that there exist more
-	// results following your last page of results in pagination order. To fetch
-	// them, make another list request using this value as your page token. This
-	// lets you the complete contents of even very large collections one page at a
-	// time. However, if the contents of the collection change between the first
-	// and last paginated list request, the set of all elements returned are an
-	// inconsistent view of the collection. You cannot retrieve a consistent
-	// snapshot of a collection larger than the maximum page size.
+	// NextPageToken: This field indicates that more results are available beyond
+	// the last page displayed. To fetch the results, make another list request and
+	// use this value as your page token. This lets you retrieve the complete
+	// contents of a very large collection one page at a time. However, if the
+	// contents of the collection change between the first and last paginated list
+	// request, the set of all elements returned are an inconsistent view of the
+	// collection. You can't retrieve a consistent snapshot of a collection larger
+	// than the maximum page size.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 	// ResponsePolicyRules: The Response Policy Rule resources.
 	ResponsePolicyRules []*ResponsePolicyRule `json:"responsePolicyRules,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the server.
 	googleapi.ServerResponse `json:"-"`
-	// ForceSendFields is a list of field names (e.g. "Header") to unconditionally
-	// include in API requests. By default, fields with empty or default values are
-	// omitted from API requests. See
+	// ForceSendFields is a list of field names (e.g. "NextPageToken") to
+	// unconditionally include in API requests. By default, fields with empty or
+	// default values are omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
 	// details.
 	ForceSendFields []string `json:"-"`
-	// NullFields is a list of field names (e.g. "Header") to include in API
+	// NullFields is a list of field names (e.g. "NextPageToken") to include in API
 	// requests with the JSON null value. By default, fields with empty values are
 	// omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
 	NullFields []string `json:"-"`
 }
 
-func (s *ResponsePolicyRulesListResponse) MarshalJSON() ([]byte, error) {
+func (s ResponsePolicyRulesListResponse) MarshalJSON() ([]byte, error) {
 	type NoMethod ResponsePolicyRulesListResponse
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type ResponsePolicyRulesPatchResponse struct {
-	Header             *ResponseHeader     `json:"header,omitempty"`
 	ResponsePolicyRule *ResponsePolicyRule `json:"responsePolicyRule,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the server.
 	googleapi.ServerResponse `json:"-"`
-	// ForceSendFields is a list of field names (e.g. "Header") to unconditionally
-	// include in API requests. By default, fields with empty or default values are
-	// omitted from API requests. See
+	// ForceSendFields is a list of field names (e.g. "ResponsePolicyRule") to
+	// unconditionally include in API requests. By default, fields with empty or
+	// default values are omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
 	// details.
 	ForceSendFields []string `json:"-"`
-	// NullFields is a list of field names (e.g. "Header") to include in API
-	// requests with the JSON null value. By default, fields with empty values are
-	// omitted from API requests. See
+	// NullFields is a list of field names (e.g. "ResponsePolicyRule") to include
+	// in API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
 	NullFields []string `json:"-"`
 }
 
-func (s *ResponsePolicyRulesPatchResponse) MarshalJSON() ([]byte, error) {
+func (s ResponsePolicyRulesPatchResponse) MarshalJSON() ([]byte, error) {
 	type NoMethod ResponsePolicyRulesPatchResponse
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type ResponsePolicyRulesUpdateResponse struct {
-	Header             *ResponseHeader     `json:"header,omitempty"`
 	ResponsePolicyRule *ResponsePolicyRule `json:"responsePolicyRule,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the server.
 	googleapi.ServerResponse `json:"-"`
-	// ForceSendFields is a list of field names (e.g. "Header") to unconditionally
-	// include in API requests. By default, fields with empty or default values are
-	// omitted from API requests. See
+	// ForceSendFields is a list of field names (e.g. "ResponsePolicyRule") to
+	// unconditionally include in API requests. By default, fields with empty or
+	// default values are omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
 	// details.
 	ForceSendFields []string `json:"-"`
-	// NullFields is a list of field names (e.g. "Header") to include in API
-	// requests with the JSON null value. By default, fields with empty values are
-	// omitted from API requests. See
+	// NullFields is a list of field names (e.g. "ResponsePolicyRule") to include
+	// in API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
 	NullFields []string `json:"-"`
 }
 
-func (s *ResponsePolicyRulesUpdateResponse) MarshalJSON() ([]byte, error) {
+func (s ResponsePolicyRulesUpdateResponse) MarshalJSON() ([]byte, error) {
 	type NoMethod ResponsePolicyRulesUpdateResponse
-	return gensupport.MarshalJSON(NoMethod(*s), s.ForceSendFields, s.NullFields)
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 type ChangesCreateCall struct {

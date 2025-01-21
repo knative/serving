@@ -36,6 +36,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	kubelisters "k8s.io/client-go/listers/core/v1"
 
+	certmanagerclientset "github.com/cert-manager/cert-manager/pkg/client/clientset/versioned"
+	acmelisters "github.com/cert-manager/cert-manager/pkg/client/listers/acme/v1"
+	certmanagerlisters "github.com/cert-manager/cert-manager/pkg/client/listers/certmanager/v1"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
 	certreconciler "knative.dev/networking/pkg/client/injection/reconciler/networking/v1alpha1/certificate"
 	"knative.dev/pkg/apis"
@@ -43,9 +46,6 @@ import (
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/tracker"
-	certmanagerclientset "knative.dev/serving/pkg/client/certmanager/clientset/versioned"
-	acmelisters "knative.dev/serving/pkg/client/certmanager/listers/acme/v1"
-	certmanagerlisters "knative.dev/serving/pkg/client/certmanager/listers/certmanager/v1"
 	"knative.dev/serving/pkg/reconciler/certificate/config"
 	"knative.dev/serving/pkg/reconciler/certificate/resources"
 )

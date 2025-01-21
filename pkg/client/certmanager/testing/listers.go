@@ -23,12 +23,12 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	acmelisters "github.com/cert-manager/cert-manager/pkg/client/listers/acme/v1"
+	certmanagerlisters "github.com/cert-manager/cert-manager/pkg/client/listers/certmanager/v1"
 	networking "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	fakenetworkingclientset "knative.dev/networking/pkg/client/clientset/versioned/fake"
 	networkinglisters "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
 	"knative.dev/pkg/reconciler/testing"
-	acmelisters "knative.dev/serving/pkg/client/certmanager/listers/acme/v1"
-	certmanagerlisters "knative.dev/serving/pkg/client/certmanager/listers/certmanager/v1"
 
 	acmev1 "github.com/cert-manager/cert-manager/pkg/apis/acme/v1"
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
