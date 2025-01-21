@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -111,7 +112,7 @@ var transport = func() *http.Transport {
 }()
 
 func getURL(config HTTPProbeConfigOptions) (*url.URL, error) {
-	return url.Parse(string(config.Scheme) + "://" + net.JoinHostPort(config.Host, config.Port.String()) + config.Path)
+	return url.Parse(string(config.Scheme) + "://" + net.JoinHostPort(config.Host, config.Port.String()) + "/" + strings.TrimPrefix(config.Path, "/"))
 }
 
 // http2UpgradeProbe checks that an HTTP with HTTP2 upgrade request
