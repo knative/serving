@@ -50,21 +50,21 @@ func dialTLSContext(ctx context.Context, network, addr string, cr *CertCache) (n
 	revID := handler.RevIDFrom(ctx)
 	san := certificates.DataPlaneUserSAN(revID.Namespace)
 
-	tlsConf.VerifyConnection = verifySAN(san)
+	tlsConf.VerifyConnection = verifySAN(san, revID.Name)
 	tlsConf.InsecureSkipVerify = true
 	return pkgnet.DialTLSWithBackOff(ctx, network, addr, tlsConf)
 }
 
-func verifySAN(san string) func(tls.ConnectionState) error {
+func verifySAN(san, rev string) func(tls.ConnectionState) error {
 	return func(cs tls.ConnectionState) error {
-		log.Printf("In verifySAN1: %s", san)
+		log.Printf("In verifySAN1: %s-%s", san, rev)
 		if len(cs.PeerCertificates) == 0 {
 			return errors.New("no PeerCertificates provided")
 		}
-		log.Printf("In verifySAN2: %s", san)
+		log.Printf("In verifySAN2: %s-%s", san, rev)
 		for _, name := range cs.PeerCertificates[0].DNSNames {
 			if name == san {
-				log.Printf("In verifySAN3 %s\n", name)
+				log.Printf("In verifySAN3 %s-%s\n", name, rev)
 				return nil
 			}
 		}

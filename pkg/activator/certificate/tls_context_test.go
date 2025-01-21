@@ -60,7 +60,7 @@ func TestVerifySAN(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			err := verifySAN(test.san)(tlsConnectionState)
+			err := verifySAN(test.san, "")(tlsConnectionState)
 			if test.expErr && err == nil {
 				t.Fatalf("failed to verify SAN")
 			}
