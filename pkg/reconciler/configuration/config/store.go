@@ -20,15 +20,15 @@ import (
 	"context"
 
 	"knative.dev/pkg/configmap"
-	cfgmap "knative.dev/serving/pkg/apis/config"
+	apisconfig "knative.dev/serving/pkg/apis/config"
 )
 
 type cfgKey struct{}
 
 // Config holds the collection of configurations that we attach to contexts.
 type Config struct {
-	Defaults *cfgmap.Defaults
-	Features *cfgmap.Features
+	Defaults *apisconfig.Defaults
+	Features *apisconfig.Features
 }
 
 // FromContext extracts a Config from the provided context.
@@ -50,11 +50,11 @@ func FromContextOrDefaults(ctx context.Context) *Config {
 	}
 
 	if cfg.Defaults == nil {
-		cfg.Defaults, _ = cfgmap.NewDefaultsConfigFromMap(nil)
+		cfg.Defaults, _ = apisconfig.NewDefaultsConfigFromMap(nil)
 	}
 
 	if cfg.Features == nil {
-		cfg.Features, _ = cfgmap.NewFeaturesConfigFromMap(nil)
+		cfg.Features, _ = apisconfig.NewFeaturesConfigFromMap(nil)
 	}
 
 	return cfg
@@ -63,7 +63,14 @@ func FromContextOrDefaults(ctx context.Context) *Config {
 // ToContext attaches the provided Config to the provided context, returning the
 // new context with the Config attached.
 func ToContext(ctx context.Context, c *Config) context.Context {
-	return context.WithValue(ctx, cfgKey{}, c)
+	ctx = context.WithValue(ctx, cfgKey{}, c)
+	if c != nil {
+		ctx = apisconfig.ToContext(ctx, &apisconfig.Config{
+			Defaults: c.Defaults,
+			Features: c.Features,
+		})
+	}
+	return ctx
 }
 
 // Store is a typed wrapper around configmap.Untyped store to handle our configmaps.
@@ -78,8 +85,8 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 			"apis",
 			logger,
 			configmap.Constructors{
-				cfgmap.DefaultsConfigName: cfgmap.NewDefaultsConfigFromConfigMap,
-				cfgmap.FeaturesConfigName: cfgmap.NewFeaturesConfigFromConfigMap,
+				apisconfig.DefaultsConfigName: apisconfig.NewDefaultsConfigFromConfigMap,
+				apisconfig.FeaturesConfigName: apisconfig.NewFeaturesConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),
@@ -96,10 +103,10 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 // Load creates a Config from the current config state of the Store.
 func (s *Store) Load() *Config {
 	cfg := &Config{}
-	if def, ok := s.UntypedLoad(cfgmap.DefaultsConfigName).(*cfgmap.Defaults); ok {
+	if def, ok := s.UntypedLoad(apisconfig.DefaultsConfigName).(*apisconfig.Defaults); ok {
 		cfg.Defaults = def.DeepCopy()
 	}
-	if feat, ok := s.UntypedLoad(cfgmap.FeaturesConfigName).(*cfgmap.Features); ok {
+	if feat, ok := s.UntypedLoad(apisconfig.FeaturesConfigName).(*apisconfig.Features); ok {
 		cfg.Features = feat.DeepCopy()
 	}
 
