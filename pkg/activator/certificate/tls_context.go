@@ -50,6 +50,7 @@ func dialTLSContext(ctx context.Context, network, addr string, cr *CertCache) (n
 	san := certificates.DataPlaneUserSAN(revID.Namespace)
 
 	tlsConf.VerifyConnection = verifySAN(san)
+	tlsConf.InsecureSkipVerify = true
 	return pkgnet.DialTLSWithBackOff(ctx, network, addr, tlsConf)
 }
 
