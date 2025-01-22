@@ -72,9 +72,11 @@ function initialize_environment() {
 # Parameters: $1 - test group name (e.g., build)
 #             $2 - result (0=passed, 1=failed)
 function results_banner() {
-  local result
-  [[ $2 -eq 0 ]] && result="PASSED" || result="FAILED"
-  header "$1 tests ${result}"
+  if [[ $2 -eq 0 ]]; then
+    header "$1 tests PASSED"
+  else
+    error "$1 tests FAILED"
+  fi
 }
 
 # Run build tests. If there's no `build_tests` function, run the default
