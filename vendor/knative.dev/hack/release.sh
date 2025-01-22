@@ -17,7 +17,7 @@
 # This is a helper script for Knative release scripts.
 # See README.md for instructions on how to use it.
 
-source $(dirname "${BASH_SOURCE[0]}")/library.sh
+source "$(dirname "${BASH_SOURCE[0]}")/library.sh"
 
 # Organization name in GitHub; defaults to Knative.
 readonly ORG_NAME="${ORG_NAME:-knative}"
@@ -33,34 +33,10 @@ readonly RELEASE_GCR="gcr.io/knative-releases/github.com/${ORG_NAME}/${REPO_NAME
 readonly NIGHTLY_SIGNING_IDENTITY="signer@knative-nightly.iam.gserviceaccount.com"
 readonly RELEASE_SIGNING_IDENTITY="signer@knative-releases.iam.gserviceaccount.com"
 
-# Georeplicate images to {us,eu,asia}.gcr.io
-readonly GEO_REPLICATION=(us eu asia)
-
 # Simple banner for logging purposes.
-# Parameters: $1 - message to display.
+# Parameters: $* - message to display.
 function banner() {
-    make_banner "@" "$1"
-}
-
-# Tag images in the yaml files if $TAG is not empty.
-# $KO_DOCKER_REPO is the registry containing the images to tag with $TAG.
-# Parameters: $1..$n - files to parse for images (non .yaml files are ignored).
-function tag_images_in_yamls() {
-  [[ -z ${TAG} ]] && return 0
-  local SRC_DIR="${GOPATH}/src/"
-  local DOCKER_BASE="${KO_DOCKER_REPO}/${REPO_ROOT_DIR/$SRC_DIR}"
-  local GEO_REGIONS="${GEO_REPLICATION[@]} "
-  echo "Tagging any images under '${DOCKER_BASE}' with ${TAG}"
-  # shellcheck disable=SC2068
-  for file in $@; do
-    [[ "${file##*.}" != "yaml" ]] && continue
-    echo "Inspecting ${file}"
-    for image in $(grep -o "${DOCKER_BASE}/[a-z\./-]\+@sha256:[0-9a-f]\+" "${file}"); do
-      for region in "" ${GEO_REGIONS// /. }; do
-        gcloud -q container images add-tag "${image}" "${region}${image%%@*}:${TAG}"
-      done
-    done
-  done
+  subheader "$*"
 }
 
 # Copy the given files to the $RELEASE_GCS_BUCKET bucket's "latest" directory.
@@ -99,7 +75,7 @@ RELEASE_NOTES=""
 RELEASE_BRANCH=""
 RELEASE_GCS_BUCKET="knative-nightly/${REPO_NAME}"
 RELEASE_DIR=""
-KO_FLAGS="-P --platform=all"
+export KO_FLAGS="-P --platform=all"
 VALIDATION_TESTS="./test/presubmit-tests.sh"
 ARTIFACTS_TO_PUBLISH=""
 FROM_NIGHTLY_RELEASE=""
@@ -114,11 +90,10 @@ export GOFLAGS="-ldflags=-s -ldflags=-w"
 export GITHUB_TOKEN=""
 readonly IMAGES_REFS_FILE="${IMAGES_REFS_FILE:-$(mktemp -d)/images_refs.txt}"
 
-# Convenience function to run the hub tool.
-# Parameters: $1..$n - arguments to hub.
-function hub_tool() {
-  # Pinned to SHA because of https://github.com/github/hub/issues/2517
-  go_run github.com/github/hub/v2@363513a "$@"
+# Convenience function to run the GitHub CLI tool `gh`.
+# Parameters: $1..$n - arguments to gh.
+function gh_tool() {
+  go_run github.com/cli/cli/v2/cmd/gh@v2.65.0 "$@"
 }
 
 # Shortcut to "git push" that handles authentication.
@@ -217,7 +192,7 @@ function prepare_dot_release() {
   # Support tags in two formats
   # - knative-v1.0.0
   # - v1.0.0
-  releases="$(hub_tool release | cut -d '-' -f2)"
+  releases="$(gh_tool release list --json tagName --jq '.[].tagName' | cut -d '-' -f2)"
   echo "Current releases are: ${releases}"
   [[ $? -eq 0 ]] || abort "cannot list releases"
   # If --release-branch passed, restrict to that release
@@ -242,7 +217,7 @@ function prepare_dot_release() {
   # Ensure there are new commits in the branch, otherwise we don't create a new release
   setup_branch
   # Use the original tag (ie. potentially with a knative- prefix) when determining the last version commit sha
-  local github_tag="$(hub_tool release | grep "${last_version}")"
+  local github_tag="$(gh_tool release list --json tagName --jq '.[].tagName' | grep "${last_version}")"
   local last_release_commit="$(git rev-list -n 1 "${github_tag}")"
   local last_release_commit_filtered="$(git rev-list --invert-grep --grep "\[skip-dot-release\]" -n 1 "${github_tag}")"
   local release_branch_commit="$(git rev-list -n 1 upstream/"${RELEASE_BRANCH}")"
@@ -263,7 +238,7 @@ function prepare_dot_release() {
   # If --release-notes not used, copy from the latest release
   if [[ -z "${RELEASE_NOTES}" ]]; then
     RELEASE_NOTES="$(mktemp)"
-    hub_tool release show -f "%b" "${github_tag}" > "${RELEASE_NOTES}"
+    gh_tool release view "${github_tag}" --json "body" --jq '.body' > "${RELEASE_NOTES}"
     echo "Release notes from ${last_version} copied to ${RELEASE_NOTES}"
   fi
 }
@@ -646,7 +621,6 @@ function run_validation_tests() {
 # Parameters: $1..$n - files to add to the release.
 function publish_artifacts() {
   (( ! PUBLISH_RELEASE )) && return
-  tag_images_in_yamls "${ARTIFACTS_TO_PUBLISH}"
   if [[ -n "${RELEASE_DIR}" ]]; then
     cp "${ARTIFACTS_TO_PUBLISH}" "${RELEASE_DIR}" || abort "cannot copy release to '${RELEASE_DIR}'"
   fi
@@ -665,18 +639,12 @@ function set_latest_to_highest_semver() {
   
   local last_version release_id  # don't combine with assignment else $? will be 0
 
-  last_version="$(hub_tool -p release | cut -d'-' -f2 | grep '^v[0-9]\+\.[0-9]\+\.[0-9]\+$'| sort -r -V | head -1)"
+  last_version="$(gh_tool release list --json tagName --jq '.[].tagName' | cut -d'-' -f2 | grep '^v[0-9]\+\.[0-9]\+\.[0-9]\+$'| sort -r -V | head -1)"
   if ! [[ $? -eq 0 ]]; then
     abort "cannot list releases"
   fi
-  
-  release_id="$(hub_tool api "/repos/${ORG_NAME}/${REPO_NAME}/releases/tags/knative-${last_version}" | jq .id)"
-  if [[ $? -ne 0 ]]; then
-    abort "cannot get relase id from github"
-  fi
-  
-  hub_tool api --method PATCH "/repos/${ORG_NAME}/${REPO_NAME}/releases/$release_id" \
-    -F make_latest=true > /dev/null || abort "error setting $last_version to 'latest'"
+
+  gh_tool release edit "knative-${last_version}" --latest > /dev/null || abort "error setting $last_version to 'latest'"
   echo "Github release ${last_version} set as 'latest'"
 }
 
@@ -719,6 +687,8 @@ function main() {
   (( SKIP_TESTS )) && echo "- Tests will NOT be run" || echo "- Tests will be run"
   if (( TAG_RELEASE )); then
     echo "- Artifacts will be tagged '${TAG}'"
+    # We want to add git tags to the container images built by ko
+    KO_FLAGS+=" --tags=latest,${TAG}"
   else
     echo "- Artifacts WILL NOT be tagged"
   fi
@@ -765,12 +735,14 @@ function publish_to_github() {
   local description="$(mktemp)"
   local attachments_dir="$(mktemp -d)"
   local commitish=""
+  local target_branch=""
   local github_tag="knative-${TAG}"
 
   # Copy files to a separate dir
+  # shellcheck disable=SC2068
   for artifact in $@; do
     cp ${artifact} "${attachments_dir}"/
-    attachments+=("--attach=${artifact}#$(basename ${artifact})")
+    attachments+=("${artifact}#$(basename ${artifact})")
   done
   echo -e "${title}\n" > "${description}"
   if [[ -n "${RELEASE_NOTES}" ]]; then
@@ -797,13 +769,16 @@ function publish_to_github() {
   git tag -a "${github_tag}" -m "${title}"
   git_push tag "${github_tag}"
 
-  [[ -n "${RELEASE_BRANCH}" ]] && commitish="--commitish=${RELEASE_BRANCH}"
+  [[ -n "${RELEASE_BRANCH}" ]] && target_branch="--target=${RELEASE_BRANCH}"
   for i in {2..0}; do
-    hub_tool release create \
-        ${attachments[@]} \
-        --file="${description}" \
-        "${commitish}" \
-        "${github_tag}" && return 0
+    # shellcheck disable=SC2068
+    gh_tool release create \
+      "${github_tag}" \
+      --title "${title}" \
+      --notes-file "${description}" \
+      "${target_branch}" \
+      ${attachments[@]} && return 0
+
     if [[ "${i}" -gt 0 ]]; then
       echo "Error publishing the release, retrying in 15s..."
       sleep 15
