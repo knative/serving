@@ -577,7 +577,7 @@ go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp/internal/request
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp/internal/semconv
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp/internal/semconvutil
-# go.opentelemetry.io/otel v1.31.0
+# go.opentelemetry.io/otel v1.32.0
 ## explicit; go 1.22
 go.opentelemetry.io/otel
 go.opentelemetry.io/otel/attribute
@@ -590,12 +590,12 @@ go.opentelemetry.io/otel/internal/global
 go.opentelemetry.io/otel/propagation
 go.opentelemetry.io/otel/semconv/v1.20.0
 go.opentelemetry.io/otel/semconv/v1.26.0
-# go.opentelemetry.io/otel/metric v1.31.0
+# go.opentelemetry.io/otel/metric v1.32.0
 ## explicit; go 1.22
 go.opentelemetry.io/otel/metric
 go.opentelemetry.io/otel/metric/embedded
 go.opentelemetry.io/otel/metric/noop
-# go.opentelemetry.io/otel/trace v1.31.0
+# go.opentelemetry.io/otel/trace v1.32.0
 ## explicit; go 1.22
 go.opentelemetry.io/otel/trace
 go.opentelemetry.io/otel/trace/embedded
@@ -646,7 +646,7 @@ golang.org/x/net/idna
 golang.org/x/net/internal/timeseries
 golang.org/x/net/publicsuffix
 golang.org/x/net/trace
-# golang.org/x/oauth2 v0.23.0
+# golang.org/x/oauth2 v0.24.0
 ## explicit; go 1.18
 golang.org/x/oauth2
 golang.org/x/oauth2/authhandler
@@ -731,15 +731,15 @@ google.golang.org/api/option/internaloption
 google.golang.org/api/support/bundler
 google.golang.org/api/transport/http
 google.golang.org/api/transport/http/internal/propagation
-# google.golang.org/genproto/googleapis/api v0.0.0-20241015192408-796eee8c2d53
+# google.golang.org/genproto/googleapis/api v0.0.0-20241202173237-19429a94021a
 ## explicit; go 1.21
 google.golang.org/genproto/googleapis/api/httpbody
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20241015192408-796eee8c2d53
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20241202173237-19429a94021a
 ## explicit; go 1.21
 google.golang.org/genproto/googleapis/rpc/code
 google.golang.org/genproto/googleapis/rpc/errdetails
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.69.2
+# google.golang.org/grpc v1.70.0
 ## explicit; go 1.22
 google.golang.org/grpc
 google.golang.org/grpc/attributes
@@ -800,7 +800,7 @@ google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
-# google.golang.org/protobuf v1.36.2
+# google.golang.org/protobuf v1.36.4
 ## explicit; go 1.21
 google.golang.org/protobuf/encoding/protodelim
 google.golang.org/protobuf/encoding/protojson
@@ -1401,7 +1401,7 @@ k8s.io/utils/pointer
 k8s.io/utils/ptr
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20250117155405-a76aa7cd2bb6
+# knative.dev/caching v0.0.0-20250128014344-a990a4fe843b
 ## explicit; go 1.22.7
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -1422,10 +1422,10 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/hack v0.0.0-20250116150306-c142b4835bc5
+# knative.dev/hack v0.0.0-20250128013659-5f7f0f50e9de
 ## explicit; go 1.21
 knative.dev/hack
-# knative.dev/networking v0.0.0-20250117155906-67d1c274ba6a
+# knative.dev/networking v0.0.0-20250128014447-43761241da75
 ## explicit; go 1.22.7
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1464,7 +1464,7 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20250117084104-c43477f0052b
+# knative.dev/pkg v0.0.0-20250128013458-efddeac3ec35
 ## explicit; go 1.22.7
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
