@@ -46,7 +46,7 @@ import (
 
 // Throttler is the interface that Handler calls to Try to proxy the user request.
 type Throttler interface {
-	Try(ctx context.Context, revID types.NamespacedName, fn func(string) error) error
+	Try(ctx context.Context, revID types.NamespacedName, fn func(string, bool) error) error
 }
 
 // activationHandler will wait for an active endpoint for a revision
@@ -87,14 +87,14 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	revID := RevIDFrom(r.Context())
-	if err := a.throttler.Try(tryContext, revID, func(dest string) error {
+	if err := a.throttler.Try(tryContext, revID, func(dest string, isClusterIP bool) error {
 		trySpan.End()
 
 		proxyCtx, proxySpan := r.Context(), (*trace.Span)(nil)
 		if tracingEnabled {
 			proxyCtx, proxySpan = trace.StartSpan(r.Context(), "activator_proxy")
 		}
-		a.proxyRequest(revID, w, r.WithContext(proxyCtx), dest, tracingEnabled, a.usePassthroughLb)
+		a.proxyRequest(revID, w, r.WithContext(proxyCtx), dest, tracingEnabled, a.usePassthroughLb, isClusterIP)
 		proxySpan.End()
 
 		return nil
@@ -114,7 +114,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.ResponseWriter,
-	r *http.Request, target string, tracingEnabled bool, usePassthroughLb bool,
+	r *http.Request, target string, tracingEnabled bool, usePassthroughLb bool, isClusterIP bool,
 ) {
 	netheader.RewriteHostIn(r)
 	r.Header.Set(netheader.ProxyKey, activator.Name)
@@ -127,7 +127,11 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 
 	var proxy *httputil.ReverseProxy
 	if a.tls {
-		proxy = pkghttp.NewHeaderPruningReverseProxy(useSecurePort(target), hostOverride, activator.RevisionHeaders, true /* uss HTTPS */)
+		tlsTargetPort := networking.BackendHTTPSPort
+		if isClusterIP {
+			tlsTargetPort = 443
+		}
+		proxy = pkghttp.NewHeaderPruningReverseProxy(useSecurePort(target, tlsTargetPort), hostOverride, activator.RevisionHeaders, true /* uss HTTPS */)
 	} else {
 		proxy = pkghttp.NewHeaderPruningReverseProxy(target, hostOverride, activator.RevisionHeaders, false /* use HTTPS */)
 	}
@@ -148,9 +152,9 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 // useSecurePort replaces the default port with HTTPS port (8112).
 // TODO: endpointsToDests() should support HTTPS instead of this overwrite but it needs metadata request to be encrypted.
 // This code should be removed when https://github.com/knative/serving/issues/12821 was solved.
-func useSecurePort(target string) string {
+func useSecurePort(target string, port int) string {
 	target = strings.Split(target, ":")[0]
-	return target + ":" + strconv.Itoa(networking.BackendHTTPSPort)
+	return target + ":" + strconv.Itoa(port)
 }
 
 func WrapActivatorHandlerWithFullDuplex(h http.Handler, logger *zap.SugaredLogger) http.HandlerFunc {

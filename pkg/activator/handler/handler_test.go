@@ -61,11 +61,11 @@ type fakeThrottler struct {
 	err error
 }
 
-func (ft fakeThrottler) Try(_ context.Context, _ types.NamespacedName, f func(string) error) error {
+func (ft fakeThrottler) Try(_ context.Context, _ types.NamespacedName, f func(string, bool) error) error {
 	if ft.err != nil {
 		return ft.err
 	}
-	return f("10.10.10.10:1234")
+	return f("10.10.10.10:1234", false)
 }
 
 func TestActivationHandler(t *testing.T) {

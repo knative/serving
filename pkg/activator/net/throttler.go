@@ -209,17 +209,18 @@ func noop() {}
 
 // Returns a dest that at the moment of choosing had an open slot
 // for request.
-func (rt *revisionThrottler) acquireDest(ctx context.Context) (func(), *podTracker) {
+func (rt *revisionThrottler) acquireDest(ctx context.Context) (func(), *podTracker, bool) {
 	rt.mux.RLock()
 	defer rt.mux.RUnlock()
 
 	if rt.clusterIPTracker != nil {
-		return noop, rt.clusterIPTracker
+		return noop, rt.clusterIPTracker, true
 	}
-	return rt.lbPolicy(ctx, rt.assignedTrackers)
+	f, lbTracker := rt.lbPolicy(ctx, rt.assignedTrackers)
+	return f, lbTracker, false
 }
 
-func (rt *revisionThrottler) try(ctx context.Context, function func(string) error) error {
+func (rt *revisionThrottler) try(ctx context.Context, function func(dest string, isClusterIP bool) error) error {
 	var ret error
 
 	// Retrying infinitely as long as we receive no dest. Outer semaphore and inner
@@ -229,7 +230,7 @@ func (rt *revisionThrottler) try(ctx context.Context, function func(string) erro
 	for reenqueue {
 		reenqueue = false
 		if err := rt.breaker.Maybe(ctx, func() {
-			cb, tracker := rt.acquireDest(ctx)
+			cb, tracker, isClusterIP := rt.acquireDest(ctx)
 			if tracker == nil {
 				// This can happen if individual requests raced each other or if pod
 				// capacity was decreased after passing the outer semaphore.
@@ -238,7 +239,7 @@ func (rt *revisionThrottler) try(ctx context.Context, function func(string) erro
 			}
 			defer cb()
 			// We already reserved a guaranteed spot. So just execute the passed functor.
-			ret = function(tracker.dest)
+			ret = function(tracker.dest, isClusterIP)
 		}); err != nil {
 			return err
 		}
@@ -518,7 +519,7 @@ func (t *Throttler) run(updateCh <-chan revisionDestsUpdate) {
 }
 
 // Try waits for capacity and then executes function, passing in a l4 dest to send a request
-func (t *Throttler) Try(ctx context.Context, revID types.NamespacedName, function func(string) error) error {
+func (t *Throttler) Try(ctx context.Context, revID types.NamespacedName, function func(dest string, isClusterIP bool) error) error {
 	rt, err := t.getOrCreateRevisionThrottler(revID)
 	if err != nil {
 		return err
