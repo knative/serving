@@ -15,6 +15,7 @@
 package google
 
 import (
+	"context"
 	"strings"
 	"sync"
 
@@ -52,30 +53,31 @@ type googleKeychain struct {
 // In general, we don't worry about that here because we expect to use the same
 // gcloud configuration in the scope of this one process.
 func (gk *googleKeychain) Resolve(target authn.Resource) (authn.Authenticator, error) {
+	return gk.ResolveContext(context.Background(), target)
+}
+
+// ResolveContext implements authn.ContextKeychain.
+func (gk *googleKeychain) ResolveContext(ctx context.Context, target authn.Resource) (authn.Authenticator, error) {
 	// Only authenticate GCR and AR so it works with authn.NewMultiKeychain to fallback.
-	host := target.RegistryStr()
-	if host != "gcr.io" &&
-		!strings.HasSuffix(host, ".gcr.io") &&
-		!strings.HasSuffix(host, ".pkg.dev") &&
-		!strings.HasSuffix(host, ".google.com") {
+	if !isGoogle(target.RegistryStr()) {
 		return authn.Anonymous, nil
 	}
 
 	gk.once.Do(func() {
-		gk.auth = resolve()
+		gk.auth = resolve(ctx)
 	})
 
 	return gk.auth, nil
 }
 
-func resolve() authn.Authenticator {
-	auth, envErr := NewEnvAuthenticator()
+func resolve(ctx context.Context) authn.Authenticator {
+	auth, envErr := NewEnvAuthenticator(ctx)
 	if envErr == nil && auth != authn.Anonymous {
 		logs.Debug.Println("google.Keychain: using Application Default Credentials")
 		return auth
 	}
 
-	auth, gErr := NewGcloudAuthenticator()
+	auth, gErr := NewGcloudAuthenticator(ctx)
 	if gErr == nil && auth != authn.Anonymous {
 		logs.Debug.Println("google.Keychain: using gcloud fallback")
 		return auth
@@ -89,4 +91,11 @@ func resolve() authn.Authenticator {
 		logs.Debug.Printf("gcloud error: %v", gErr)
 	}
 	return authn.Anonymous
+}
+
+func isGoogle(host string) bool {
+	return host == "gcr.io" ||
+		strings.HasSuffix(host, ".gcr.io") ||
+		strings.HasSuffix(host, ".pkg.dev") ||
+		strings.HasSuffix(host, ".google.com")
 }
