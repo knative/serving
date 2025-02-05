@@ -19,8 +19,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 	v1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 )
@@ -39,30 +39,10 @@ type ClusterDomainClaimLister interface {
 
 // clusterDomainClaimLister implements the ClusterDomainClaimLister interface.
 type clusterDomainClaimLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v1alpha1.ClusterDomainClaim]
 }
 
 // NewClusterDomainClaimLister returns a new ClusterDomainClaimLister.
 func NewClusterDomainClaimLister(indexer cache.Indexer) ClusterDomainClaimLister {
-	return &clusterDomainClaimLister{indexer: indexer}
-}
-
-// List lists all ClusterDomainClaims in the indexer.
-func (s *clusterDomainClaimLister) List(selector labels.Selector) (ret []*v1alpha1.ClusterDomainClaim, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.ClusterDomainClaim))
-	})
-	return ret, err
-}
-
-// Get retrieves the ClusterDomainClaim from the index for a given name.
-func (s *clusterDomainClaimLister) Get(name string) (*v1alpha1.ClusterDomainClaim, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha1.Resource("clusterdomainclaim"), name)
-	}
-	return obj.(*v1alpha1.ClusterDomainClaim), nil
+	return &clusterDomainClaimLister{listers.New[*v1alpha1.ClusterDomainClaim](indexer, v1alpha1.Resource("clusterdomainclaim"))}
 }

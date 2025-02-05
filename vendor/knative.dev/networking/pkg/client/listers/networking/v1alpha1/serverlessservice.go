@@ -19,8 +19,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 	v1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 )
@@ -38,25 +38,17 @@ type ServerlessServiceLister interface {
 
 // serverlessServiceLister implements the ServerlessServiceLister interface.
 type serverlessServiceLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v1alpha1.ServerlessService]
 }
 
 // NewServerlessServiceLister returns a new ServerlessServiceLister.
 func NewServerlessServiceLister(indexer cache.Indexer) ServerlessServiceLister {
-	return &serverlessServiceLister{indexer: indexer}
-}
-
-// List lists all ServerlessServices in the indexer.
-func (s *serverlessServiceLister) List(selector labels.Selector) (ret []*v1alpha1.ServerlessService, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.ServerlessService))
-	})
-	return ret, err
+	return &serverlessServiceLister{listers.New[*v1alpha1.ServerlessService](indexer, v1alpha1.Resource("serverlessservice"))}
 }
 
 // ServerlessServices returns an object that can list and get ServerlessServices.
 func (s *serverlessServiceLister) ServerlessServices(namespace string) ServerlessServiceNamespaceLister {
-	return serverlessServiceNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return serverlessServiceNamespaceLister{listers.NewNamespaced[*v1alpha1.ServerlessService](s.ResourceIndexer, namespace)}
 }
 
 // ServerlessServiceNamespaceLister helps list and get ServerlessServices.
@@ -74,26 +66,5 @@ type ServerlessServiceNamespaceLister interface {
 // serverlessServiceNamespaceLister implements the ServerlessServiceNamespaceLister
 // interface.
 type serverlessServiceNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all ServerlessServices in the indexer for a given namespace.
-func (s serverlessServiceNamespaceLister) List(selector labels.Selector) (ret []*v1alpha1.ServerlessService, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.ServerlessService))
-	})
-	return ret, err
-}
-
-// Get retrieves the ServerlessService from the indexer for a given namespace and name.
-func (s serverlessServiceNamespaceLister) Get(name string) (*v1alpha1.ServerlessService, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha1.Resource("serverlessservice"), name)
-	}
-	return obj.(*v1alpha1.ServerlessService), nil
+	listers.ResourceIndexer[*v1alpha1.ServerlessService]
 }

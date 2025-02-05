@@ -33,10 +33,10 @@ require (
 	k8s.io/code-generator v0.31.4
 	k8s.io/kube-openapi v0.0.0-20240903163716-9e1beecbcb38
 	k8s.io/utils v0.0.0-20240921022957-49e7df575cb6
-	knative.dev/caching v0.0.0-20250128014344-a990a4fe843b
+	knative.dev/caching v0.0.0-20250204145224-ed50a5c83f6b
 	knative.dev/hack v0.0.0-20250128013659-5f7f0f50e9de
-	knative.dev/networking v0.0.0-20250128014447-43761241da75
-	knative.dev/pkg v0.0.0-20250128013458-efddeac3ec35
+	knative.dev/networking v0.0.0-20250204225923-e6fc9bbf3fb0
+	knative.dev/pkg v0.0.0-20250203163623-f62a97fc6ad4
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -86,7 +86,7 @@ require (
 	github.com/docker/distribution v2.8.2+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
-	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
+	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
@@ -131,7 +131,7 @@ require (
 	github.com/rs/dnscache v0.0.0-20230804202142-fc85eb664529 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/tsenart/go-tsz v0.0.0-20180814235614-0bd30b3df1c3 // indirect
 	github.com/vbatts/tar-split v0.11.3 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
