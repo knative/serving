@@ -6,17 +6,18 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
-	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ecrpublic/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Returns metadata about the images in a repository in a public registry.
+// Returns metadata that's related to the images in a repository in a public
+// registry.
+//
 // Beginning with Docker version 1.9, the Docker client compresses image layers
 // before pushing them to a V2 Docker registry. The output of the docker images
-// command shows the uncompressed image size, so it may return a larger image size
-// than the image sizes returned by DescribeImages.
+// command shows the uncompressed image size. Therefore, it might return a larger
+// image size than the image sizes that are returned by DescribeImages.
 func (c *Client) DescribeImages(ctx context.Context, params *DescribeImagesInput, optFns ...func(*Options)) (*DescribeImagesOutput, error) {
 	if params == nil {
 		params = &DescribeImagesInput{}
@@ -42,26 +43,26 @@ type DescribeImagesInput struct {
 	// The list of image IDs for the requested repository.
 	ImageIds []types.ImageIdentifier
 
-	// The maximum number of repository results returned by DescribeImages in paginated
-	// output. When this parameter is used, DescribeImages only returns maxResults
-	// results in a single page along with a nextToken response element. The remaining
-	// results of the initial request can be seen by sending another DescribeImages
-	// request with the returned nextToken value. This value can be between 1 and 1000.
-	// If this parameter is not used, then DescribeImages returns up to 100 results and
-	// a nextToken value, if applicable. This option cannot be used when you specify
-	// images with imageIds.
+	// The maximum number of repository results that's returned by DescribeImages in
+	// paginated output. When this parameter is used, DescribeImages only returns
+	// maxResults results in a single page along with a nextToken response element.
+	// You can see the remaining results of the initial request by sending another
+	// DescribeImages request with the returned nextToken value. This value can be
+	// between 1 and 1000. If this parameter isn't used, then DescribeImages returns
+	// up to 100 results and a nextToken value, if applicable. If you specify images
+	// with imageIds , you can't use this option.
 	MaxResults *int32
 
-	// The nextToken value returned from a previous paginated DescribeImages request
-	// where maxResults was used and the results exceeded the value of that parameter.
-	// Pagination continues from the end of the previous results that returned the
-	// nextToken value. This value is null when there are no more results to return.
-	// This option cannot be used when you specify images with imageIds.
+	// The nextToken value that's returned from a previous paginated DescribeImages
+	// request where maxResults was used and the results exceeded the value of that
+	// parameter. Pagination continues from the end of the previous results that
+	// returned the nextToken value. If there are no more results to return, this
+	// value is null . If you specify images with imageIds , you can't use this option.
 	NextToken *string
 
-	// The AWS account ID associated with the public registry that contains the
-	// repository in which to describe images. If you do not specify a registry, the
-	// default public registry is assumed.
+	// The Amazon Web Services account ID that's associated with the public registry
+	// that contains the repository where images are described. If you do not specify a
+	// registry, the default public registry is assumed.
 	RegistryId *string
 
 	noSmithyDocumentSerde
@@ -73,9 +74,9 @@ type DescribeImagesOutput struct {
 	ImageDetails []types.ImageDetail
 
 	// The nextToken value to include in a future DescribeImages request. When the
-	// results of a DescribeImages request exceed maxResults, this value can be used to
-	// retrieve the next page of results. This value is null when there are no more
-	// results to return.
+	// results of a DescribeImages request exceed maxResults , you can use this value
+	// to retrieve the next page of results. If there are no more results to return,
+	// this value is null .
 	NextToken *string
 
 	// Metadata pertaining to the operation's result.
@@ -85,6 +86,9 @@ type DescribeImagesOutput struct {
 }
 
 func (c *Client) addOperationDescribeImagesMiddlewares(stack *middleware.Stack, options Options) (err error) {
+	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
+		return err
+	}
 	err = stack.Serialize.Add(&awsAwsjson11_serializeOpDescribeImages{}, middleware.After)
 	if err != nil {
 		return err
@@ -93,34 +97,41 @@ func (c *Client) addOperationDescribeImagesMiddlewares(stack *middleware.Stack, 
 	if err != nil {
 		return err
 	}
+	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeImages"); err != nil {
+		return fmt.Errorf("add protocol finalizers: %v", err)
+	}
+
+	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
+		return err
+	}
 	if err = addSetLoggerMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddClientRequestIDMiddleware(stack); err != nil {
+	if err = addClientRequestID(stack); err != nil {
 		return err
 	}
-	if err = smithyhttp.AddComputeContentLengthMiddleware(stack); err != nil {
+	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = v4.AddComputePayloadSHA256Middleware(stack); err != nil {
+	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetryMiddlewares(stack, options); err != nil {
+	if err = addRetry(stack, options); err != nil {
 		return err
 	}
-	if err = addHTTPSignerV4Middleware(stack, options); err != nil {
+	if err = addRawResponseToMetadata(stack); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRawResponseToMetadata(stack); err != nil {
+	if err = addRecordResponseTiming(stack); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
+	if err = addSpanRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addClientUserAgent(stack); err != nil {
+	if err = addClientUserAgent(stack, options); err != nil {
 		return err
 	}
 	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
@@ -129,10 +140,22 @@ func (c *Client) addOperationDescribeImagesMiddlewares(stack *middleware.Stack, 
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDescribeImagesValidationMiddleware(stack); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeImages(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -144,27 +167,34 @@ func (c *Client) addOperationDescribeImagesMiddlewares(stack *middleware.Stack, 
 	if err = addRequestResponseLogging(stack, options); err != nil {
 		return err
 	}
+	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
+		return err
+	}
 	return nil
 }
 
-// DescribeImagesAPIClient is a client that implements the DescribeImages
-// operation.
-type DescribeImagesAPIClient interface {
-	DescribeImages(context.Context, *DescribeImagesInput, ...func(*Options)) (*DescribeImagesOutput, error)
-}
-
-var _ DescribeImagesAPIClient = (*Client)(nil)
-
 // DescribeImagesPaginatorOptions is the paginator options for DescribeImages
 type DescribeImagesPaginatorOptions struct {
-	// The maximum number of repository results returned by DescribeImages in paginated
-	// output. When this parameter is used, DescribeImages only returns maxResults
-	// results in a single page along with a nextToken response element. The remaining
-	// results of the initial request can be seen by sending another DescribeImages
-	// request with the returned nextToken value. This value can be between 1 and 1000.
-	// If this parameter is not used, then DescribeImages returns up to 100 results and
-	// a nextToken value, if applicable. This option cannot be used when you specify
-	// images with imageIds.
+	// The maximum number of repository results that's returned by DescribeImages in
+	// paginated output. When this parameter is used, DescribeImages only returns
+	// maxResults results in a single page along with a nextToken response element.
+	// You can see the remaining results of the initial request by sending another
+	// DescribeImages request with the returned nextToken value. This value can be
+	// between 1 and 1000. If this parameter isn't used, then DescribeImages returns
+	// up to 100 results and a nextToken value, if applicable. If you specify images
+	// with imageIds , you can't use this option.
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token
@@ -225,6 +255,9 @@ func (p *DescribeImagesPaginator) NextPage(ctx context.Context, optFns ...func(*
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeImages(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -244,11 +277,18 @@ func (p *DescribeImagesPaginator) NextPage(ctx context.Context, optFns ...func(*
 	return result, nil
 }
 
+// DescribeImagesAPIClient is a client that implements the DescribeImages
+// operation.
+type DescribeImagesAPIClient interface {
+	DescribeImages(context.Context, *DescribeImagesInput, ...func(*Options)) (*DescribeImagesOutput, error)
+}
+
+var _ DescribeImagesAPIClient = (*Client)(nil)
+
 func newServiceMetadataMiddleware_opDescribeImages(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		SigningName:   "ecr-public",
 		OperationName: "DescribeImages",
 	}
 }

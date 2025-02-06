@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -250,6 +250,17 @@ func NewAuthorizerFromFile(resourceBaseURI string) (autorest.Authorizer, error) 
 	if err != nil {
 		return nil, err
 	}
+	return settings.GetAuthorizer(resourceBaseURI)
+}
+
+// GetAuthorizer create an Authorizer in the following order.
+// 1. Client credentials
+// 2. Client certificate
+// resourceBaseURI - used to determine the resource type
+func (settings FileSettings) GetAuthorizer(resourceBaseURI string) (autorest.Authorizer, error) {
+	if resourceBaseURI == "" {
+		resourceBaseURI = azure.PublicCloud.ServiceManagementEndpoint
+	}
 	if a, err := settings.ClientCredentialsAuthorizer(resourceBaseURI); err == nil {
 		return a, err
 	}
@@ -314,7 +325,7 @@ func GetSettingsFromFile() (FileSettings, error) {
 		return s, errors.New("environment variable AZURE_AUTH_LOCATION is not set")
 	}
 
-	contents, err := ioutil.ReadFile(fileLocation)
+	contents, err := os.ReadFile(fileLocation)
 	if err != nil {
 		return s, err
 	}
@@ -477,7 +488,7 @@ func decode(b []byte) ([]byte, error) {
 		}
 		return []byte(string(utf16.Decode(u16))), nil
 	}
-	return ioutil.ReadAll(reader)
+	return io.ReadAll(reader)
 }
 
 func (settings FileSettings) getResourceForToken(baseURI string) (string, error) {
@@ -559,7 +570,7 @@ func NewDeviceFlowConfig(clientID string, tenantID string) DeviceFlowConfig {
 	}
 }
 
-//AuthorizerConfig provides an authorizer from the configuration provided.
+// AuthorizerConfig provides an authorizer from the configuration provided.
 type AuthorizerConfig interface {
 	Authorizer() (autorest.Authorizer, error)
 }
@@ -625,7 +636,7 @@ func (ccc ClientCertificateConfig) ServicePrincipalToken() (*adal.ServicePrincip
 	if err != nil {
 		return nil, err
 	}
-	certData, err := ioutil.ReadFile(ccc.CertificatePath)
+	certData, err := os.ReadFile(ccc.CertificatePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the certificate file (%s): %v", ccc.CertificatePath, err)
 	}
@@ -642,7 +653,7 @@ func (ccc ClientCertificateConfig) MultiTenantServicePrincipalToken() (*adal.Mul
 	if err != nil {
 		return nil, err
 	}
-	certData, err := ioutil.ReadFile(ccc.CertificatePath)
+	certData, err := os.ReadFile(ccc.CertificatePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the certificate file (%s): %v", ccc.CertificatePath, err)
 	}
