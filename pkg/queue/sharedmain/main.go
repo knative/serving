@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
@@ -169,6 +170,8 @@ func Main(opts ...Option) error {
 	d := Defaults{
 		Ctx: signals.NewContext(),
 	}
+	pendingRequests := atomic.Int32{}
+	pendingRequests.Store(0)
 
 	// Parse the environment.
 	var env config
@@ -234,7 +237,7 @@ func Main(opts ...Option) error {
 	// Enable TLS when certificate is mounted.
 	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
-	mainHandler, drainer := mainHandler(d.Ctx, env, d.Transport, probe, stats, logger)
+	mainHandler, drainer := mainHandler(d.Ctx, env, d.Transport, probe, stats, logger, &pendingRequests)
 	adminHandler := adminHandler(d.Ctx, logger, drainer)
 
 	// Enable TLS server when activator server certs are mounted.
@@ -303,8 +306,22 @@ func Main(opts ...Option) error {
 		return err
 	case <-d.Ctx.Done():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
-		logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
 		drainer.Drain()
+
+		// Wait on active requests to complete. This is done explictly
+		// to avoid closing any connections which have been highjacked,
+		// as in net/http `.Shutdown` would do so ungracefully.
+		// See https://github.com/golang/go/issues/17721
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		logger.Infof("Drain: waiting for %d pending requests to complete", pendingRequests.Load())
+	WaitOnPendingRequests:
+		for range ticker.C {
+			if pendingRequests.Load() <= 0 {
+				logger.Infof("Drain: all pending requests completed")
+				break WaitOnPendingRequests
+			}
+		}
 
 		for name, srv := range httpServers {
 			logger.Info("Shutting down server: ", name)
