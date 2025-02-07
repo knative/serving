@@ -143,6 +143,13 @@ func withPodSpecPersistentVolumeWriteEnabled() configOption {
 	}
 }
 
+func withPodSpecMountPropagationEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecVolumeMountPropagation = config.Enabled
+		return cfg
+	}
+}
+
 func withPodSpecPriorityClassNameEnabled() configOption {
 	return func(cfg *config.Config) *config.Config {
 		cfg.Features.PodSpecPriorityClassName = config.Enabled

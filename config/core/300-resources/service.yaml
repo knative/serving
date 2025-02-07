@@ -944,6 +944,10 @@ spec:
                                         Path within the container at which the volume should be mounted.  Must
                                         not contain ':'.
                                       type: string
+                                    mountPropagation:
+                                      description: |-
+                                        This is accessible behind a feature flag - kubernetes.podspec-mount-propagation
+                                      type: string
                                     name:
                                       description: This must match the Name of a Volume.
                                       type: string
