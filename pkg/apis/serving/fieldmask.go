@@ -333,11 +333,12 @@ func ContainerMask(in *corev1.Container) *corev1.Container {
 // VolumeMountMask performs a _shallow_ copy of the Kubernetes VolumeMount object to a new
 // Kubernetes VolumeMount object bringing over only the fields allowed in the Knative API. This
 // does not validate the contents or the bounds of the provided fields.
-func VolumeMountMask(in *corev1.VolumeMount) *corev1.VolumeMount {
+func VolumeMountMask(ctx context.Context, in *corev1.VolumeMount) *corev1.VolumeMount {
 	if in == nil {
 		return nil
 	}
 
+	cfg := config.FromContextOrDefaults(ctx)
 	out := new(corev1.VolumeMount)
 
 	// Allowed fields
@@ -345,10 +346,13 @@ func VolumeMountMask(in *corev1.VolumeMount) *corev1.VolumeMount {
 	out.ReadOnly = in.ReadOnly
 	out.MountPath = in.MountPath
 	out.SubPath = in.SubPath
+	if cfg.Features.PodSpecVolumeMountPropagation != config.Disabled {
+		out.MountPropagation = in.MountPropagation
+	}
 
 	// Disallowed fields
 	// This list is unnecessary, but added here for clarity
-	out.MountPropagation = nil
+	out.RecursiveReadOnly = nil
 
 	return out
 }

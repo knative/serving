@@ -331,7 +331,7 @@ func TestVolumeMountMask(t *testing.T) {
 		MountPropagation: &mode,
 	}
 
-	got := VolumeMountMask(in)
+	got := VolumeMountMask(nil, in)
 
 	if &want == &got {
 		t.Error("Input and output share addresses. Want different addresses")
@@ -343,7 +343,7 @@ func TestVolumeMountMask(t *testing.T) {
 		t.Error("VolumeMountMask (-want, +got):", diff)
 	}
 
-	if got = VolumeMountMask(nil); got != nil {
+	if got = VolumeMountMask(nil, nil); got != nil {
 		t.Errorf("VolumeMountMask(nil) = %v, want: nil", got)
 	}
 }

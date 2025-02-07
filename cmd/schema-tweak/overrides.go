@@ -227,6 +227,10 @@ func revSpecOverrides(prefixPath string) []entry {
 			"mountPath",
 			"subPath",
 		),
+		featureFlagFields: []flagField{{
+			name: "mountPropagation",
+			flag: config.FeaturePodSpecMountPropagation,
+		}},
 	}, {
 		path: "volumes",
 		allowedFields: sets.New(
