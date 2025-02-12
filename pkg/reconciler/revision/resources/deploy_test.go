@@ -1522,6 +1522,45 @@ func TestMakePodSpec(t *testing.T) {
 				),
 			}),
 	}, {
+		name: "with multiple containers with exec probes",
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				Ports:          buildContainerPorts(v1.DefaultUserPort),
+				ReadinessProbe: withExecReadinessProbe([]string{"bin/sh", "serving.sh"}),
+			}, {
+				Name:           sidecarContainerName,
+				Image:          "Ubuntu",
+				ReadinessProbe: withExecReadinessProbe([]string{"bin/sh", "sidecar.sh"}),
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}, {
+				ImageDigest: "ubuntu@sha256:deadbffe",
+			}}),
+		),
+		fc: apicfg.Features{
+			MultiContainerProbing: apicfg.Enabled,
+		},
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(func(container *corev1.Container) {
+					container.Image = "busybox@sha256:deadbeef"
+					container.ReadinessProbe = withExecReadinessProbe([]string{"bin/sh", "serving.sh"})
+				}),
+				sidecarContainer(sidecarContainerName,
+					func(container *corev1.Container) {
+						container.Image = "ubuntu@sha256:deadbffe"
+						container.ReadinessProbe = withExecReadinessProbe([]string{"bin/sh", "sidecar.sh"})
+					},
+				),
+				queueContainer(
+					withEnvVar("ENABLE_MULTI_CONTAINER_PROBES", "true"),
+					withEnvVar("SERVING_READINESS_PROBE", `[{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}]`),
+				),
+			}),
+	}, {
 		name: "with default affinity type set",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{

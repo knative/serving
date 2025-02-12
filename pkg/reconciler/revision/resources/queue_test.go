@@ -441,7 +441,51 @@ func TestMakeQueueContainer(t *testing.T) {
 				"ENABLE_MULTI_CONTAINER_PROBES": "true",
 			})
 		}),
-	}}
+	}, {
+		name: "multi container probing enabled with exec probes on all containers",
+		rev: revision("bar", "foo", withContainers([]corev1.Container{
+			{
+				Name: servingContainerName,
+				ReadinessProbe: &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						Exec: &corev1.ExecAction{
+							Command: []string{"bin/sh", "serving.sh"},
+						},
+					},
+				},
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 1955,
+					Name:          string(netapi.ProtocolH2C),
+				}},
+			},
+			{
+				Name: sidecarContainerName,
+				ReadinessProbe: &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						Exec: &corev1.ExecAction{
+							Command: []string{"bin/sh", "sidecar.sh"},
+						},
+					},
+				},
+			},
+		})),
+		fc: apicfg.Features{
+			MultiContainerProbing: apicfg.Enabled,
+		},
+		dc: deployment.Config{
+			ProgressDeadline: 0 * time.Second,
+		},
+		want: queueContainer(func(c *corev1.Container) {
+			c.Ports = append(queueNonServingPorts, queueHTTP2Port, queueHTTPSPort)
+			c.ReadinessProbe.ProbeHandler.HTTPGet.Port.IntVal = queueHTTP2Port.ContainerPort
+			c.Env = env(map[string]string{
+				"ENABLE_MULTI_CONTAINER_PROBES": "true",
+				"USER_PORT":                     "1955",
+				"QUEUE_SERVING_PORT":            "8013",
+			})
+		}),
+	},
+	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
