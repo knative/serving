@@ -6,13 +6,11 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
-	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ecr/types"
 	"github.com/aws/smithy-go/middleware"
 	smithytime "github.com/aws/smithy-go/time"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	smithywaiter "github.com/aws/smithy-go/waiter"
-	"github.com/jmespath/go-jmespath"
 	"time"
 )
 
@@ -45,11 +43,11 @@ type DescribeImageScanFindingsInput struct {
 	RepositoryName *string
 
 	// The maximum number of image scan results returned by DescribeImageScanFindings
-	// in paginated output. When this parameter is used, DescribeImageScanFindings only
-	// returns maxResults results in a single page along with a nextToken response
-	// element. The remaining results of the initial request can be seen by sending
-	// another DescribeImageScanFindings request with the returned nextToken value.
-	// This value can be between 1 and 1000. If this parameter is not used, then
+	// in paginated output. When this parameter is used, DescribeImageScanFindings
+	// only returns maxResults results in a single page along with a nextToken
+	// response element. The remaining results of the initial request can be seen by
+	// sending another DescribeImageScanFindings request with the returned nextToken
+	// value. This value can be between 1 and 1000. If this parameter is not used, then
 	// DescribeImageScanFindings returns up to 100 results and a nextToken value, if
 	// applicable.
 	MaxResults *int32
@@ -81,7 +79,7 @@ type DescribeImageScanFindingsOutput struct {
 	ImageScanStatus *types.ImageScanStatus
 
 	// The nextToken value to include in a future DescribeImageScanFindings request.
-	// When the results of a DescribeImageScanFindings request exceed maxResults, this
+	// When the results of a DescribeImageScanFindings request exceed maxResults , this
 	// value can be used to retrieve the next page of results. This value is null when
 	// there are no more results to return.
 	NextToken *string
@@ -99,6 +97,9 @@ type DescribeImageScanFindingsOutput struct {
 }
 
 func (c *Client) addOperationDescribeImageScanFindingsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
+		return err
+	}
 	err = stack.Serialize.Add(&awsAwsjson11_serializeOpDescribeImageScanFindings{}, middleware.After)
 	if err != nil {
 		return err
@@ -107,34 +108,41 @@ func (c *Client) addOperationDescribeImageScanFindingsMiddlewares(stack *middlew
 	if err != nil {
 		return err
 	}
+	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeImageScanFindings"); err != nil {
+		return fmt.Errorf("add protocol finalizers: %v", err)
+	}
+
+	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
+		return err
+	}
 	if err = addSetLoggerMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddClientRequestIDMiddleware(stack); err != nil {
+	if err = addClientRequestID(stack); err != nil {
 		return err
 	}
-	if err = smithyhttp.AddComputeContentLengthMiddleware(stack); err != nil {
+	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = v4.AddComputePayloadSHA256Middleware(stack); err != nil {
+	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetryMiddlewares(stack, options); err != nil {
+	if err = addRetry(stack, options); err != nil {
 		return err
 	}
-	if err = addHTTPSignerV4Middleware(stack, options); err != nil {
+	if err = addRawResponseToMetadata(stack); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRawResponseToMetadata(stack); err != nil {
+	if err = addRecordResponseTiming(stack); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
+	if err = addSpanRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addClientUserAgent(stack); err != nil {
+	if err = addClientUserAgent(stack, options); err != nil {
 		return err
 	}
 	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
@@ -143,10 +151,22 @@ func (c *Client) addOperationDescribeImageScanFindingsMiddlewares(stack *middlew
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDescribeImageScanFindingsValidationMiddleware(stack); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeImageScanFindings(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -158,26 +178,228 @@ func (c *Client) addOperationDescribeImageScanFindingsMiddlewares(stack *middlew
 	if err = addRequestResponseLogging(stack, options); err != nil {
 		return err
 	}
+	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
+		return err
+	}
 	return nil
 }
 
-// DescribeImageScanFindingsAPIClient is a client that implements the
-// DescribeImageScanFindings operation.
-type DescribeImageScanFindingsAPIClient interface {
-	DescribeImageScanFindings(context.Context, *DescribeImageScanFindingsInput, ...func(*Options)) (*DescribeImageScanFindingsOutput, error)
+// ImageScanCompleteWaiterOptions are waiter options for ImageScanCompleteWaiter
+type ImageScanCompleteWaiterOptions struct {
+
+	// Set of options to modify how an operation is invoked. These apply to all
+	// operations invoked for this client. Use functional options on operation call to
+	// modify this list for per operation behavior.
+	//
+	// Passing options here is functionally equivalent to passing values to this
+	// config's ClientOptions field that extend the inner client's APIOptions directly.
+	APIOptions []func(*middleware.Stack) error
+
+	// Functional options to be passed to all operations invoked by this client.
+	//
+	// Function values that modify the inner APIOptions are applied after the waiter
+	// config's own APIOptions modifiers.
+	ClientOptions []func(*Options)
+
+	// MinDelay is the minimum amount of time to delay between retries. If unset,
+	// ImageScanCompleteWaiter will use default minimum delay of 5 seconds. Note that
+	// MinDelay must resolve to a value lesser than or equal to the MaxDelay.
+	MinDelay time.Duration
+
+	// MaxDelay is the maximum amount of time to delay between retries. If unset or
+	// set to zero, ImageScanCompleteWaiter will use default max delay of 120 seconds.
+	// Note that MaxDelay must resolve to value greater than or equal to the MinDelay.
+	MaxDelay time.Duration
+
+	// LogWaitAttempts is used to enable logging for waiter retry attempts
+	LogWaitAttempts bool
+
+	// Retryable is function that can be used to override the service defined
+	// waiter-behavior based on operation output, or returned error. This function is
+	// used by the waiter to decide if a state is retryable or a terminal state.
+	//
+	// By default service-modeled logic will populate this option. This option can
+	// thus be used to define a custom waiter state with fall-back to service-modeled
+	// waiter state mutators.The function returns an error in case of a failure state.
+	// In case of retry state, this function returns a bool value of true and nil
+	// error, while in case of success it returns a bool value of false and nil error.
+	Retryable func(context.Context, *DescribeImageScanFindingsInput, *DescribeImageScanFindingsOutput, error) (bool, error)
 }
 
-var _ DescribeImageScanFindingsAPIClient = (*Client)(nil)
+// ImageScanCompleteWaiter defines the waiters for ImageScanComplete
+type ImageScanCompleteWaiter struct {
+	client DescribeImageScanFindingsAPIClient
+
+	options ImageScanCompleteWaiterOptions
+}
+
+// NewImageScanCompleteWaiter constructs a ImageScanCompleteWaiter.
+func NewImageScanCompleteWaiter(client DescribeImageScanFindingsAPIClient, optFns ...func(*ImageScanCompleteWaiterOptions)) *ImageScanCompleteWaiter {
+	options := ImageScanCompleteWaiterOptions{}
+	options.MinDelay = 5 * time.Second
+	options.MaxDelay = 120 * time.Second
+	options.Retryable = imageScanCompleteStateRetryable
+
+	for _, fn := range optFns {
+		fn(&options)
+	}
+	return &ImageScanCompleteWaiter{
+		client:  client,
+		options: options,
+	}
+}
+
+// Wait calls the waiter function for ImageScanComplete waiter. The maxWaitDur is
+// the maximum wait duration the waiter will wait. The maxWaitDur is required and
+// must be greater than zero.
+func (w *ImageScanCompleteWaiter) Wait(ctx context.Context, params *DescribeImageScanFindingsInput, maxWaitDur time.Duration, optFns ...func(*ImageScanCompleteWaiterOptions)) error {
+	_, err := w.WaitForOutput(ctx, params, maxWaitDur, optFns...)
+	return err
+}
+
+// WaitForOutput calls the waiter function for ImageScanComplete waiter and
+// returns the output of the successful operation. The maxWaitDur is the maximum
+// wait duration the waiter will wait. The maxWaitDur is required and must be
+// greater than zero.
+func (w *ImageScanCompleteWaiter) WaitForOutput(ctx context.Context, params *DescribeImageScanFindingsInput, maxWaitDur time.Duration, optFns ...func(*ImageScanCompleteWaiterOptions)) (*DescribeImageScanFindingsOutput, error) {
+	if maxWaitDur <= 0 {
+		return nil, fmt.Errorf("maximum wait time for waiter must be greater than zero")
+	}
+
+	options := w.options
+	for _, fn := range optFns {
+		fn(&options)
+	}
+
+	if options.MaxDelay <= 0 {
+		options.MaxDelay = 120 * time.Second
+	}
+
+	if options.MinDelay > options.MaxDelay {
+		return nil, fmt.Errorf("minimum waiter delay %v must be lesser than or equal to maximum waiter delay of %v.", options.MinDelay, options.MaxDelay)
+	}
+
+	ctx, cancelFn := context.WithTimeout(ctx, maxWaitDur)
+	defer cancelFn()
+
+	logger := smithywaiter.Logger{}
+	remainingTime := maxWaitDur
+
+	var attempt int64
+	for {
+
+		attempt++
+		apiOptions := options.APIOptions
+		start := time.Now()
+
+		if options.LogWaitAttempts {
+			logger.Attempt = attempt
+			apiOptions = append([]func(*middleware.Stack) error{}, options.APIOptions...)
+			apiOptions = append(apiOptions, logger.AddLogger)
+		}
+
+		out, err := w.client.DescribeImageScanFindings(ctx, params, func(o *Options) {
+			baseOpts := []func(*Options){
+				addIsWaiterUserAgent,
+			}
+			o.APIOptions = append(o.APIOptions, apiOptions...)
+			for _, opt := range baseOpts {
+				opt(o)
+			}
+			for _, opt := range options.ClientOptions {
+				opt(o)
+			}
+		})
+
+		retryable, err := options.Retryable(ctx, params, out, err)
+		if err != nil {
+			return nil, err
+		}
+		if !retryable {
+			return out, nil
+		}
+
+		remainingTime -= time.Since(start)
+		if remainingTime < options.MinDelay || remainingTime <= 0 {
+			break
+		}
+
+		// compute exponential backoff between waiter retries
+		delay, err := smithywaiter.ComputeDelay(
+			attempt, options.MinDelay, options.MaxDelay, remainingTime,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error computing waiter delay, %w", err)
+		}
+
+		remainingTime -= delay
+		// sleep for the delay amount before invoking a request
+		if err := smithytime.SleepWithContext(ctx, delay); err != nil {
+			return nil, fmt.Errorf("request cancelled while waiting, %w", err)
+		}
+	}
+	return nil, fmt.Errorf("exceeded max wait time for ImageScanComplete waiter")
+}
+
+func imageScanCompleteStateRetryable(ctx context.Context, input *DescribeImageScanFindingsInput, output *DescribeImageScanFindingsOutput, err error) (bool, error) {
+
+	if err == nil {
+		v1 := output.ImageScanStatus
+		var v2 types.ScanStatus
+		if v1 != nil {
+			v3 := v1.Status
+			v2 = v3
+		}
+		expectedValue := "COMPLETE"
+		var pathValue string
+		pathValue = string(v2)
+		if pathValue == expectedValue {
+			return false, nil
+		}
+	}
+
+	if err == nil {
+		v1 := output.ImageScanStatus
+		var v2 types.ScanStatus
+		if v1 != nil {
+			v3 := v1.Status
+			v2 = v3
+		}
+		expectedValue := "FAILED"
+		var pathValue string
+		pathValue = string(v2)
+		if pathValue == expectedValue {
+			return false, fmt.Errorf("waiter state transitioned to Failure")
+		}
+	}
+
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
 
 // DescribeImageScanFindingsPaginatorOptions is the paginator options for
 // DescribeImageScanFindings
 type DescribeImageScanFindingsPaginatorOptions struct {
 	// The maximum number of image scan results returned by DescribeImageScanFindings
-	// in paginated output. When this parameter is used, DescribeImageScanFindings only
-	// returns maxResults results in a single page along with a nextToken response
-	// element. The remaining results of the initial request can be seen by sending
-	// another DescribeImageScanFindings request with the returned nextToken value.
-	// This value can be between 1 and 1000. If this parameter is not used, then
+	// in paginated output. When this parameter is used, DescribeImageScanFindings
+	// only returns maxResults results in a single page along with a nextToken
+	// response element. The remaining results of the initial request can be seen by
+	// sending another DescribeImageScanFindings request with the returned nextToken
+	// value. This value can be between 1 and 1000. If this parameter is not used, then
 	// DescribeImageScanFindings returns up to 100 results and a nextToken value, if
 	// applicable.
 	Limit int32
@@ -241,6 +463,9 @@ func (p *DescribeImageScanFindingsPaginator) NextPage(ctx context.Context, optFn
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeImageScanFindings(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -260,188 +485,18 @@ func (p *DescribeImageScanFindingsPaginator) NextPage(ctx context.Context, optFn
 	return result, nil
 }
 
-// ImageScanCompleteWaiterOptions are waiter options for ImageScanCompleteWaiter
-type ImageScanCompleteWaiterOptions struct {
-
-	// Set of options to modify how an operation is invoked. These apply to all
-	// operations invoked for this client. Use functional options on operation call to
-	// modify this list for per operation behavior.
-	APIOptions []func(*middleware.Stack) error
-
-	// MinDelay is the minimum amount of time to delay between retries. If unset,
-	// ImageScanCompleteWaiter will use default minimum delay of 5 seconds. Note that
-	// MinDelay must resolve to a value lesser than or equal to the MaxDelay.
-	MinDelay time.Duration
-
-	// MaxDelay is the maximum amount of time to delay between retries. If unset or set
-	// to zero, ImageScanCompleteWaiter will use default max delay of 120 seconds. Note
-	// that MaxDelay must resolve to value greater than or equal to the MinDelay.
-	MaxDelay time.Duration
-
-	// LogWaitAttempts is used to enable logging for waiter retry attempts
-	LogWaitAttempts bool
-
-	// Retryable is function that can be used to override the service defined
-	// waiter-behavior based on operation output, or returned error. This function is
-	// used by the waiter to decide if a state is retryable or a terminal state. By
-	// default service-modeled logic will populate this option. This option can thus be
-	// used to define a custom waiter state with fall-back to service-modeled waiter
-	// state mutators.The function returns an error in case of a failure state. In case
-	// of retry state, this function returns a bool value of true and nil error, while
-	// in case of success it returns a bool value of false and nil error.
-	Retryable func(context.Context, *DescribeImageScanFindingsInput, *DescribeImageScanFindingsOutput, error) (bool, error)
+// DescribeImageScanFindingsAPIClient is a client that implements the
+// DescribeImageScanFindings operation.
+type DescribeImageScanFindingsAPIClient interface {
+	DescribeImageScanFindings(context.Context, *DescribeImageScanFindingsInput, ...func(*Options)) (*DescribeImageScanFindingsOutput, error)
 }
 
-// ImageScanCompleteWaiter defines the waiters for ImageScanComplete
-type ImageScanCompleteWaiter struct {
-	client DescribeImageScanFindingsAPIClient
-
-	options ImageScanCompleteWaiterOptions
-}
-
-// NewImageScanCompleteWaiter constructs a ImageScanCompleteWaiter.
-func NewImageScanCompleteWaiter(client DescribeImageScanFindingsAPIClient, optFns ...func(*ImageScanCompleteWaiterOptions)) *ImageScanCompleteWaiter {
-	options := ImageScanCompleteWaiterOptions{}
-	options.MinDelay = 5 * time.Second
-	options.MaxDelay = 120 * time.Second
-	options.Retryable = imageScanCompleteStateRetryable
-
-	for _, fn := range optFns {
-		fn(&options)
-	}
-	return &ImageScanCompleteWaiter{
-		client:  client,
-		options: options,
-	}
-}
-
-// Wait calls the waiter function for ImageScanComplete waiter. The maxWaitDur is
-// the maximum wait duration the waiter will wait. The maxWaitDur is required and
-// must be greater than zero.
-func (w *ImageScanCompleteWaiter) Wait(ctx context.Context, params *DescribeImageScanFindingsInput, maxWaitDur time.Duration, optFns ...func(*ImageScanCompleteWaiterOptions)) error {
-	_, err := w.WaitForOutput(ctx, params, maxWaitDur, optFns...)
-	return err
-}
-
-// WaitForOutput calls the waiter function for ImageScanComplete waiter and returns
-// the output of the successful operation. The maxWaitDur is the maximum wait
-// duration the waiter will wait. The maxWaitDur is required and must be greater
-// than zero.
-func (w *ImageScanCompleteWaiter) WaitForOutput(ctx context.Context, params *DescribeImageScanFindingsInput, maxWaitDur time.Duration, optFns ...func(*ImageScanCompleteWaiterOptions)) (*DescribeImageScanFindingsOutput, error) {
-	if maxWaitDur <= 0 {
-		return nil, fmt.Errorf("maximum wait time for waiter must be greater than zero")
-	}
-
-	options := w.options
-	for _, fn := range optFns {
-		fn(&options)
-	}
-
-	if options.MaxDelay <= 0 {
-		options.MaxDelay = 120 * time.Second
-	}
-
-	if options.MinDelay > options.MaxDelay {
-		return nil, fmt.Errorf("minimum waiter delay %v must be lesser than or equal to maximum waiter delay of %v.", options.MinDelay, options.MaxDelay)
-	}
-
-	ctx, cancelFn := context.WithTimeout(ctx, maxWaitDur)
-	defer cancelFn()
-
-	logger := smithywaiter.Logger{}
-	remainingTime := maxWaitDur
-
-	var attempt int64
-	for {
-
-		attempt++
-		apiOptions := options.APIOptions
-		start := time.Now()
-
-		if options.LogWaitAttempts {
-			logger.Attempt = attempt
-			apiOptions = append([]func(*middleware.Stack) error{}, options.APIOptions...)
-			apiOptions = append(apiOptions, logger.AddLogger)
-		}
-
-		out, err := w.client.DescribeImageScanFindings(ctx, params, func(o *Options) {
-			o.APIOptions = append(o.APIOptions, apiOptions...)
-		})
-
-		retryable, err := options.Retryable(ctx, params, out, err)
-		if err != nil {
-			return nil, err
-		}
-		if !retryable {
-			return out, nil
-		}
-
-		remainingTime -= time.Since(start)
-		if remainingTime < options.MinDelay || remainingTime <= 0 {
-			break
-		}
-
-		// compute exponential backoff between waiter retries
-		delay, err := smithywaiter.ComputeDelay(
-			attempt, options.MinDelay, options.MaxDelay, remainingTime,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("error computing waiter delay, %w", err)
-		}
-
-		remainingTime -= delay
-		// sleep for the delay amount before invoking a request
-		if err := smithytime.SleepWithContext(ctx, delay); err != nil {
-			return nil, fmt.Errorf("request cancelled while waiting, %w", err)
-		}
-	}
-	return nil, fmt.Errorf("exceeded max wait time for ImageScanComplete waiter")
-}
-
-func imageScanCompleteStateRetryable(ctx context.Context, input *DescribeImageScanFindingsInput, output *DescribeImageScanFindingsOutput, err error) (bool, error) {
-
-	if err == nil {
-		pathValue, err := jmespath.Search("imageScanStatus.status", output)
-		if err != nil {
-			return false, fmt.Errorf("error evaluating waiter state: %w", err)
-		}
-
-		expectedValue := "COMPLETE"
-		value, ok := pathValue.(types.ScanStatus)
-		if !ok {
-			return false, fmt.Errorf("waiter comparator expected types.ScanStatus value, got %T", pathValue)
-		}
-
-		if string(value) == expectedValue {
-			return false, nil
-		}
-	}
-
-	if err == nil {
-		pathValue, err := jmespath.Search("imageScanStatus.status", output)
-		if err != nil {
-			return false, fmt.Errorf("error evaluating waiter state: %w", err)
-		}
-
-		expectedValue := "FAILED"
-		value, ok := pathValue.(types.ScanStatus)
-		if !ok {
-			return false, fmt.Errorf("waiter comparator expected types.ScanStatus value, got %T", pathValue)
-		}
-
-		if string(value) == expectedValue {
-			return false, fmt.Errorf("waiter state transitioned to Failure")
-		}
-	}
-
-	return true, nil
-}
+var _ DescribeImageScanFindingsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeImageScanFindings(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		SigningName:   "ecr",
 		OperationName: "DescribeImageScanFindings",
 	}
 }

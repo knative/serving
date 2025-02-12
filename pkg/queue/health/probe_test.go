@@ -58,61 +58,80 @@ func TestTCPProbe(t *testing.T) {
 }
 
 func TestHTTPProbeSuccess(t *testing.T) {
-	var (
-		gotHeader        corev1.HTTPHeader
-		gotKubeletHeader bool
-	)
 	expectedHeader := corev1.HTTPHeader{
 		Name:  "Testkey",
 		Value: "Testval",
 	}
-	var gotPath string
-	var gotQuery string
-	const expectedPath = "/health"
-	const expectedQuery = "foo=bar"
-	const configPath = expectedPath + "?" + expectedQuery
-	server := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		if v := r.Header.Get(expectedHeader.Name); v != "" {
-			gotHeader = corev1.HTTPHeader{Name: expectedHeader.Name, Value: v}
-		}
-		if v := r.Header.Get(netheader.UserAgentKey); strings.HasPrefix(v, netheader.KubeProbeUAPrefix) {
-			gotKubeletHeader = true
-		}
-		gotPath = r.URL.Path
-		gotQuery = r.URL.RawQuery
-		w.WriteHeader(http.StatusOK)
-	})
+	examples := []struct {
+		name           string
+		setPath        string
+		expectedHeader corev1.HTTPHeader
+		expectedPath   string
+		expectedQuery  string
+	}{{
+		name:           "Path with leading slash",
+		setPath:        "/health",
+		expectedHeader: expectedHeader,
+		expectedQuery:  "foo=bar",
+		expectedPath:   "/health",
+	}, {
+		name:           "Path with no leading slash",
+		setPath:        "health",
+		expectedHeader: expectedHeader,
+		expectedQuery:  "foo=bar",
+		expectedPath:   "/health",
+	}}
 
-	action := newHTTPGetAction(t, server.URL)
-	action.Path = configPath
-	action.HTTPHeaders = []corev1.HTTPHeader{expectedHeader}
+	for _, e := range examples {
+		var gotPath string
+		var gotQuery string
+		var gotHeader corev1.HTTPHeader
+		var gotKubeletHeader bool
+		t.Run(e.name, func(t *testing.T) {
+			configPath := e.setPath + "?" + e.expectedQuery
+			server := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+				if v := r.Header.Get(e.expectedHeader.Name); v != "" {
+					gotHeader = corev1.HTTPHeader{Name: e.expectedHeader.Name, Value: v}
+				}
+				if v := r.Header.Get(netheader.UserAgentKey); strings.HasPrefix(v, netheader.KubeProbeUAPrefix) {
+					gotKubeletHeader = true
+				}
+				gotPath = r.URL.Path
+				gotQuery = r.URL.RawQuery
+				w.WriteHeader(http.StatusOK)
+			})
 
-	config := HTTPProbeConfigOptions{
-		Timeout:       time.Second,
-		HTTPGetAction: action,
-		MaxProtoMajor: 1,
-	}
+			action := newHTTPGetAction(t, server.URL)
+			action.Path = configPath
+			action.HTTPHeaders = []corev1.HTTPHeader{e.expectedHeader}
+			config := HTTPProbeConfigOptions{
+				Timeout:       time.Second,
+				HTTPGetAction: action,
+				MaxProtoMajor: 1,
+			}
 
-	// Connecting to the server should work
-	if err := HTTPProbe(config); err != nil {
-		t.Error("Expected probe to succeed but it failed with", err)
-	}
-	if d := cmp.Diff(gotHeader, expectedHeader); d != "" {
-		t.Error("Expected probe headers to match; diff:\n", d)
-	}
-	if !gotKubeletHeader {
-		t.Error("Expected kubelet probe header to be added to request")
-	}
-	if !cmp.Equal(gotPath, expectedPath) {
-		t.Errorf("Path = %s, want: %s", gotPath, expectedPath)
-	}
-	if !cmp.Equal(gotQuery, expectedQuery) {
-		t.Errorf("Query = %s, want: %s", gotQuery, expectedQuery)
-	}
-	// Close the server so probing fails afterwards.
-	server.Close()
-	if err := HTTPProbe(config); err == nil {
-		t.Error("Expected probe to fail but it didn't")
+			// Connecting to the server should work
+			if err := HTTPProbe(config); err != nil {
+				t.Error("Expected probe to succeed but it failed with", err)
+			}
+			if d := cmp.Diff(gotHeader, e.expectedHeader); d != "" {
+				t.Error("Expected probe headers to match; diff:\n", d)
+			}
+			if !gotKubeletHeader {
+				t.Error("Expected kubelet probe header to be added to request")
+			}
+			if !cmp.Equal(gotPath, e.expectedPath) {
+				t.Errorf("Path = %s, want: %s", gotPath, e.expectedPath)
+			}
+			if !cmp.Equal(gotQuery, e.expectedQuery) {
+				t.Errorf("Query = %s, want: %s", gotQuery, e.expectedQuery)
+			}
+			// Close the server so probing fails afterwards.
+			server.Close()
+			if err := HTTPProbe(config); err == nil {
+				t.Error("Expected probe to fail but it didn't")
+			}
+		})
 	}
 }
 
