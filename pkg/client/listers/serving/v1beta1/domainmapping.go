@@ -19,10 +19,10 @@ limitations under the License.
 package v1beta1
 
 import (
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
-	v1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
+	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 // DomainMappingLister helps list DomainMappings.
@@ -30,7 +30,7 @@ import (
 type DomainMappingLister interface {
 	// List lists all DomainMappings in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.DomainMapping, err error)
+	List(selector labels.Selector) (ret []*servingv1beta1.DomainMapping, err error)
 	// DomainMappings returns an object that can list and get DomainMappings.
 	DomainMappings(namespace string) DomainMappingNamespaceLister
 	DomainMappingListerExpansion
@@ -38,17 +38,17 @@ type DomainMappingLister interface {
 
 // domainMappingLister implements the DomainMappingLister interface.
 type domainMappingLister struct {
-	listers.ResourceIndexer[*v1beta1.DomainMapping]
+	listers.ResourceIndexer[*servingv1beta1.DomainMapping]
 }
 
 // NewDomainMappingLister returns a new DomainMappingLister.
 func NewDomainMappingLister(indexer cache.Indexer) DomainMappingLister {
-	return &domainMappingLister{listers.New[*v1beta1.DomainMapping](indexer, v1beta1.Resource("domainmapping"))}
+	return &domainMappingLister{listers.New[*servingv1beta1.DomainMapping](indexer, servingv1beta1.Resource("domainmapping"))}
 }
 
 // DomainMappings returns an object that can list and get DomainMappings.
 func (s *domainMappingLister) DomainMappings(namespace string) DomainMappingNamespaceLister {
-	return domainMappingNamespaceLister{listers.NewNamespaced[*v1beta1.DomainMapping](s.ResourceIndexer, namespace)}
+	return domainMappingNamespaceLister{listers.NewNamespaced[*servingv1beta1.DomainMapping](s.ResourceIndexer, namespace)}
 }
 
 // DomainMappingNamespaceLister helps list and get DomainMappings.
@@ -56,15 +56,15 @@ func (s *domainMappingLister) DomainMappings(namespace string) DomainMappingName
 type DomainMappingNamespaceLister interface {
 	// List lists all DomainMappings in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.DomainMapping, err error)
+	List(selector labels.Selector) (ret []*servingv1beta1.DomainMapping, err error)
 	// Get retrieves the DomainMapping from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1beta1.DomainMapping, error)
+	Get(name string) (*servingv1beta1.DomainMapping, error)
 	DomainMappingNamespaceListerExpansion
 }
 
 // domainMappingNamespaceLister implements the DomainMappingNamespaceLister
 // interface.
 type domainMappingNamespaceLister struct {
-	listers.ResourceIndexer[*v1beta1.DomainMapping]
+	listers.ResourceIndexer[*servingv1beta1.DomainMapping]
 }

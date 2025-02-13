@@ -19,24 +19,24 @@ limitations under the License.
 package v1beta1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
-	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
+	apisservingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
 	versioned "knative.dev/serving/pkg/client/clientset/versioned"
 	internalinterfaces "knative.dev/serving/pkg/client/informers/externalversions/internalinterfaces"
-	v1beta1 "knative.dev/serving/pkg/client/listers/serving/v1beta1"
+	servingv1beta1 "knative.dev/serving/pkg/client/listers/serving/v1beta1"
 )
 
 // DomainMappingInformer provides access to a shared informer and lister for
 // DomainMappings.
 type DomainMappingInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1beta1.DomainMappingLister
+	Lister() servingv1beta1.DomainMappingLister
 }
 
 type domainMappingInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredDomainMappingInformer(client versioned.Interface, namespace stri
 				return client.ServingV1beta1().DomainMappings(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&servingv1beta1.DomainMapping{},
+		&apisservingv1beta1.DomainMapping{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *domainMappingInformer) defaultInformer(client versioned.Interface, resy
 }
 
 func (f *domainMappingInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&servingv1beta1.DomainMapping{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisservingv1beta1.DomainMapping{}, f.defaultInformer)
 }
 
-func (f *domainMappingInformer) Lister() v1beta1.DomainMappingLister {
-	return v1beta1.NewDomainMappingLister(f.Informer().GetIndexer())
+func (f *domainMappingInformer) Lister() servingv1beta1.DomainMappingLister {
+	return servingv1beta1.NewDomainMappingLister(f.Informer().GetIndexer())
 }

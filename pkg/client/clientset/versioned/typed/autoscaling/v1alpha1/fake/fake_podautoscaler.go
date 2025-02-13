@@ -19,129 +19,34 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 	v1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/autoscaling/v1alpha1"
 )
 
-// FakePodAutoscalers implements PodAutoscalerInterface
-type FakePodAutoscalers struct {
+// fakePodAutoscalers implements PodAutoscalerInterface
+type fakePodAutoscalers struct {
+	*gentype.FakeClientWithList[*v1alpha1.PodAutoscaler, *v1alpha1.PodAutoscalerList]
 	Fake *FakeAutoscalingV1alpha1
-	ns   string
 }
 
-var podautoscalersResource = v1alpha1.SchemeGroupVersion.WithResource("podautoscalers")
-
-var podautoscalersKind = v1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler")
-
-// Get takes name of the podAutoscaler, and returns the corresponding podAutoscaler object, and an error if there is any.
-func (c *FakePodAutoscalers) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.PodAutoscaler, err error) {
-	emptyResult := &v1alpha1.PodAutoscaler{}
-	obj, err := c.Fake.
-		Invokes(testing.NewGetActionWithOptions(podautoscalersResource, c.ns, name, options), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
+func newFakePodAutoscalers(fake *FakeAutoscalingV1alpha1, namespace string) autoscalingv1alpha1.PodAutoscalerInterface {
+	return &fakePodAutoscalers{
+		gentype.NewFakeClientWithList[*v1alpha1.PodAutoscaler, *v1alpha1.PodAutoscalerList](
+			fake.Fake,
+			namespace,
+			v1alpha1.SchemeGroupVersion.WithResource("podautoscalers"),
+			v1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler"),
+			func() *v1alpha1.PodAutoscaler { return &v1alpha1.PodAutoscaler{} },
+			func() *v1alpha1.PodAutoscalerList { return &v1alpha1.PodAutoscalerList{} },
+			func(dst, src *v1alpha1.PodAutoscalerList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.PodAutoscalerList) []*v1alpha1.PodAutoscaler {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.PodAutoscalerList, items []*v1alpha1.PodAutoscaler) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.PodAutoscaler), err
-}
-
-// List takes label and field selectors, and returns the list of PodAutoscalers that match those selectors.
-func (c *FakePodAutoscalers) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.PodAutoscalerList, err error) {
-	emptyResult := &v1alpha1.PodAutoscalerList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewListActionWithOptions(podautoscalersResource, podautoscalersKind, c.ns, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.PodAutoscalerList{ListMeta: obj.(*v1alpha1.PodAutoscalerList).ListMeta}
-	for _, item := range obj.(*v1alpha1.PodAutoscalerList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested podAutoscalers.
-func (c *FakePodAutoscalers) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchActionWithOptions(podautoscalersResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a podAutoscaler and creates it.  Returns the server's representation of the podAutoscaler, and an error, if there is any.
-func (c *FakePodAutoscalers) Create(ctx context.Context, podAutoscaler *v1alpha1.PodAutoscaler, opts v1.CreateOptions) (result *v1alpha1.PodAutoscaler, err error) {
-	emptyResult := &v1alpha1.PodAutoscaler{}
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateActionWithOptions(podautoscalersResource, c.ns, podAutoscaler, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.PodAutoscaler), err
-}
-
-// Update takes the representation of a podAutoscaler and updates it. Returns the server's representation of the podAutoscaler, and an error, if there is any.
-func (c *FakePodAutoscalers) Update(ctx context.Context, podAutoscaler *v1alpha1.PodAutoscaler, opts v1.UpdateOptions) (result *v1alpha1.PodAutoscaler, err error) {
-	emptyResult := &v1alpha1.PodAutoscaler{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateActionWithOptions(podautoscalersResource, c.ns, podAutoscaler, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.PodAutoscaler), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakePodAutoscalers) UpdateStatus(ctx context.Context, podAutoscaler *v1alpha1.PodAutoscaler, opts v1.UpdateOptions) (result *v1alpha1.PodAutoscaler, err error) {
-	emptyResult := &v1alpha1.PodAutoscaler{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceActionWithOptions(podautoscalersResource, "status", c.ns, podAutoscaler, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.PodAutoscaler), err
-}
-
-// Delete takes name of the podAutoscaler and deletes it. Returns an error if one occurs.
-func (c *FakePodAutoscalers) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(podautoscalersResource, c.ns, name, opts), &v1alpha1.PodAutoscaler{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakePodAutoscalers) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionActionWithOptions(podautoscalersResource, c.ns, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.PodAutoscalerList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched podAutoscaler.
-func (c *FakePodAutoscalers) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.PodAutoscaler, err error) {
-	emptyResult := &v1alpha1.PodAutoscaler{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(podautoscalersResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.PodAutoscaler), err
 }

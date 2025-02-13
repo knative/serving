@@ -19,13 +19,13 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	scheme "knative.dev/serving/pkg/client/clientset/versioned/scheme"
 )
 
@@ -37,33 +37,34 @@ type ServicesGetter interface {
 
 // ServiceInterface has methods to work with Service resources.
 type ServiceInterface interface {
-	Create(ctx context.Context, service *v1.Service, opts metav1.CreateOptions) (*v1.Service, error)
-	Update(ctx context.Context, service *v1.Service, opts metav1.UpdateOptions) (*v1.Service, error)
+	Create(ctx context.Context, service *servingv1.Service, opts metav1.CreateOptions) (*servingv1.Service, error)
+	Update(ctx context.Context, service *servingv1.Service, opts metav1.UpdateOptions) (*servingv1.Service, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, service *v1.Service, opts metav1.UpdateOptions) (*v1.Service, error)
+	UpdateStatus(ctx context.Context, service *servingv1.Service, opts metav1.UpdateOptions) (*servingv1.Service, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.Service, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.ServiceList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*servingv1.Service, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*servingv1.ServiceList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Service, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *servingv1.Service, err error)
 	ServiceExpansion
 }
 
 // services implements ServiceInterface
 type services struct {
-	*gentype.ClientWithList[*v1.Service, *v1.ServiceList]
+	*gentype.ClientWithList[*servingv1.Service, *servingv1.ServiceList]
 }
 
 // newServices returns a Services
 func newServices(c *ServingV1Client, namespace string) *services {
 	return &services{
-		gentype.NewClientWithList[*v1.Service, *v1.ServiceList](
+		gentype.NewClientWithList[*servingv1.Service, *servingv1.ServiceList](
 			"services",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.Service { return &v1.Service{} },
-			func() *v1.ServiceList { return &v1.ServiceList{} }),
+			func() *servingv1.Service { return &servingv1.Service{} },
+			func() *servingv1.ServiceList { return &servingv1.ServiceList{} },
+		),
 	}
 }
