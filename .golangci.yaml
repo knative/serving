@@ -1,8 +1,6 @@
 run:
   timeout: 10m
   allow-parallel-runners: true
-  exclude-dirs:
-  - pkg/client
   build-tags:
   - e2e
   - hpa
@@ -20,6 +18,8 @@ issues:
   uniq-by-line: true
   max-issues-per-linter: 0
   max-same-issues: 0
+  exclude-dirs:
+    - pkg/client # Excludes generated client
   exclude-rules:
   - path: test # Excludes /test, *_test.go etc.
     linters:
