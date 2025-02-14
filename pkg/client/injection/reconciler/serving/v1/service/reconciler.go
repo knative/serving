@@ -24,6 +24,7 @@ import (
 	fmt "fmt"
 
 	zap "go.uber.org/zap"
+	zapcore "go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	equality "k8s.io/apimachinery/pkg/api/equality"
 	errors "k8s.io/apimachinery/pkg/api/errors"

@@ -1459,8 +1459,8 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20250211185550-c8bea7c326ff
-## explicit; go 1.22.7
+# knative.dev/pkg v0.0.0-20250214140553-ae2c6bcc1f59
+## explicit; go 1.23.0
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
 knative.dev/pkg/apis
