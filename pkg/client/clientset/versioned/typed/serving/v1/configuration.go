@@ -19,13 +19,13 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	scheme "knative.dev/serving/pkg/client/clientset/versioned/scheme"
 )
 
@@ -37,33 +37,34 @@ type ConfigurationsGetter interface {
 
 // ConfigurationInterface has methods to work with Configuration resources.
 type ConfigurationInterface interface {
-	Create(ctx context.Context, configuration *v1.Configuration, opts metav1.CreateOptions) (*v1.Configuration, error)
-	Update(ctx context.Context, configuration *v1.Configuration, opts metav1.UpdateOptions) (*v1.Configuration, error)
+	Create(ctx context.Context, configuration *servingv1.Configuration, opts metav1.CreateOptions) (*servingv1.Configuration, error)
+	Update(ctx context.Context, configuration *servingv1.Configuration, opts metav1.UpdateOptions) (*servingv1.Configuration, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, configuration *v1.Configuration, opts metav1.UpdateOptions) (*v1.Configuration, error)
+	UpdateStatus(ctx context.Context, configuration *servingv1.Configuration, opts metav1.UpdateOptions) (*servingv1.Configuration, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.Configuration, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.ConfigurationList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*servingv1.Configuration, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*servingv1.ConfigurationList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Configuration, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *servingv1.Configuration, err error)
 	ConfigurationExpansion
 }
 
 // configurations implements ConfigurationInterface
 type configurations struct {
-	*gentype.ClientWithList[*v1.Configuration, *v1.ConfigurationList]
+	*gentype.ClientWithList[*servingv1.Configuration, *servingv1.ConfigurationList]
 }
 
 // newConfigurations returns a Configurations
 func newConfigurations(c *ServingV1Client, namespace string) *configurations {
 	return &configurations{
-		gentype.NewClientWithList[*v1.Configuration, *v1.ConfigurationList](
+		gentype.NewClientWithList[*servingv1.Configuration, *servingv1.ConfigurationList](
 			"configurations",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.Configuration { return &v1.Configuration{} },
-			func() *v1.ConfigurationList { return &v1.ConfigurationList{} }),
+			func() *servingv1.Configuration { return &servingv1.Configuration{} },
+			func() *servingv1.ConfigurationList { return &servingv1.ConfigurationList{} },
+		),
 	}
 }

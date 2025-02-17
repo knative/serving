@@ -19,24 +19,24 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
-	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	apisservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	versioned "knative.dev/serving/pkg/client/clientset/versioned"
 	internalinterfaces "knative.dev/serving/pkg/client/informers/externalversions/internalinterfaces"
-	v1 "knative.dev/serving/pkg/client/listers/serving/v1"
+	servingv1 "knative.dev/serving/pkg/client/listers/serving/v1"
 )
 
 // RevisionInformer provides access to a shared informer and lister for
 // Revisions.
 type RevisionInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.RevisionLister
+	Lister() servingv1.RevisionLister
 }
 
 type revisionInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredRevisionInformer(client versioned.Interface, namespace string, r
 				return client.ServingV1().Revisions(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&servingv1.Revision{},
+		&apisservingv1.Revision{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *revisionInformer) defaultInformer(client versioned.Interface, resyncPer
 }
 
 func (f *revisionInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&servingv1.Revision{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisservingv1.Revision{}, f.defaultInformer)
 }
 
-func (f *revisionInformer) Lister() v1.RevisionLister {
-	return v1.NewRevisionLister(f.Informer().GetIndexer())
+func (f *revisionInformer) Lister() servingv1.RevisionLister {
+	return servingv1.NewRevisionLister(f.Informer().GetIndexer())
 }

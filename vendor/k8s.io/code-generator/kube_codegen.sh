@@ -368,7 +368,10 @@ function kube::codegen::gen_openapi() {
             "${input_pkgs[@]}"
     fi
 
-    touch "${report}" # in case it doesn't exist yet
+    if [ ! -e "${report}" ]; then
+        touch "${report}" # in case it doesn't exist yet
+    fi
+
     if ! diff -u "${report}" "${new_report}"; then
         echo -e "ERROR:"
         echo -e "\tAPI rule check failed for ${report}: new reported violations"
@@ -433,6 +436,9 @@ function kube::codegen::gen_openapi() {
 #   --plural-exceptions <string = "">
 #     An optional list of comma separated plural exception definitions in Type:PluralizedType form.
 #
+#   --prefers-protobuf
+#     Enables generation of clientsets that use protobuf for API requests.
+#
 function kube::codegen::gen_client() {
     local in_dir=""
     local one_input_api=""
@@ -450,6 +456,7 @@ function kube::codegen::gen_client() {
     local boilerplate="${KUBE_CODEGEN_ROOT}/hack/boilerplate.go.txt"
     local plural_exceptions=""
     local v="${KUBE_VERBOSE:-0}"
+    local prefers_protobuf="false"
 
     while [ "$#" -gt 0 ]; do
         case "$1" in
@@ -508,6 +515,10 @@ function kube::codegen::gen_client() {
             "--plural-exceptions")
                 plural_exceptions="$2"
                 shift 2
+                ;;
+            "--prefers-protobuf")
+                prefers_protobuf="true"
+                shift
                 ;;
             *)
                 if [[ "$1" =~ ^-- ]]; then
@@ -625,6 +636,7 @@ function kube::codegen::gen_client() {
         --apply-configuration-package "${applyconfig_pkg}" \
         --input-base "$(cd "${in_dir}" && pwd -P)" `# must be absolute path or Go import path"` \
         --plural-exceptions "${plural_exceptions}" \
+        --prefers-protobuf="${prefers_protobuf}" \
         "${inputs[@]}"
 
     if [ "${watchable}" == "true" ]; then

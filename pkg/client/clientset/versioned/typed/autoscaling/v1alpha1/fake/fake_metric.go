@@ -19,129 +19,32 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 	v1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/autoscaling/v1alpha1"
 )
 
-// FakeMetrics implements MetricInterface
-type FakeMetrics struct {
+// fakeMetrics implements MetricInterface
+type fakeMetrics struct {
+	*gentype.FakeClientWithList[*v1alpha1.Metric, *v1alpha1.MetricList]
 	Fake *FakeAutoscalingV1alpha1
-	ns   string
 }
 
-var metricsResource = v1alpha1.SchemeGroupVersion.WithResource("metrics")
-
-var metricsKind = v1alpha1.SchemeGroupVersion.WithKind("Metric")
-
-// Get takes name of the metric, and returns the corresponding metric object, and an error if there is any.
-func (c *FakeMetrics) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Metric, err error) {
-	emptyResult := &v1alpha1.Metric{}
-	obj, err := c.Fake.
-		Invokes(testing.NewGetActionWithOptions(metricsResource, c.ns, name, options), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
+func newFakeMetrics(fake *FakeAutoscalingV1alpha1, namespace string) autoscalingv1alpha1.MetricInterface {
+	return &fakeMetrics{
+		gentype.NewFakeClientWithList[*v1alpha1.Metric, *v1alpha1.MetricList](
+			fake.Fake,
+			namespace,
+			v1alpha1.SchemeGroupVersion.WithResource("metrics"),
+			v1alpha1.SchemeGroupVersion.WithKind("Metric"),
+			func() *v1alpha1.Metric { return &v1alpha1.Metric{} },
+			func() *v1alpha1.MetricList { return &v1alpha1.MetricList{} },
+			func(dst, src *v1alpha1.MetricList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.MetricList) []*v1alpha1.Metric { return gentype.ToPointerSlice(list.Items) },
+			func(list *v1alpha1.MetricList, items []*v1alpha1.Metric) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.Metric), err
-}
-
-// List takes label and field selectors, and returns the list of Metrics that match those selectors.
-func (c *FakeMetrics) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.MetricList, err error) {
-	emptyResult := &v1alpha1.MetricList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewListActionWithOptions(metricsResource, metricsKind, c.ns, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.MetricList{ListMeta: obj.(*v1alpha1.MetricList).ListMeta}
-	for _, item := range obj.(*v1alpha1.MetricList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested metrics.
-func (c *FakeMetrics) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchActionWithOptions(metricsResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a metric and creates it.  Returns the server's representation of the metric, and an error, if there is any.
-func (c *FakeMetrics) Create(ctx context.Context, metric *v1alpha1.Metric, opts v1.CreateOptions) (result *v1alpha1.Metric, err error) {
-	emptyResult := &v1alpha1.Metric{}
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateActionWithOptions(metricsResource, c.ns, metric, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.Metric), err
-}
-
-// Update takes the representation of a metric and updates it. Returns the server's representation of the metric, and an error, if there is any.
-func (c *FakeMetrics) Update(ctx context.Context, metric *v1alpha1.Metric, opts v1.UpdateOptions) (result *v1alpha1.Metric, err error) {
-	emptyResult := &v1alpha1.Metric{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateActionWithOptions(metricsResource, c.ns, metric, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.Metric), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeMetrics) UpdateStatus(ctx context.Context, metric *v1alpha1.Metric, opts v1.UpdateOptions) (result *v1alpha1.Metric, err error) {
-	emptyResult := &v1alpha1.Metric{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceActionWithOptions(metricsResource, "status", c.ns, metric, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.Metric), err
-}
-
-// Delete takes name of the metric and deletes it. Returns an error if one occurs.
-func (c *FakeMetrics) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(metricsResource, c.ns, name, opts), &v1alpha1.Metric{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeMetrics) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionActionWithOptions(metricsResource, c.ns, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.MetricList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched metric.
-func (c *FakeMetrics) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Metric, err error) {
-	emptyResult := &v1alpha1.Metric{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(metricsResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.Metric), err
 }

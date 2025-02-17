@@ -19,129 +19,30 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
 )
 
-// FakeRevisions implements RevisionInterface
-type FakeRevisions struct {
+// fakeRevisions implements RevisionInterface
+type fakeRevisions struct {
+	*gentype.FakeClientWithList[*v1.Revision, *v1.RevisionList]
 	Fake *FakeServingV1
-	ns   string
 }
 
-var revisionsResource = v1.SchemeGroupVersion.WithResource("revisions")
-
-var revisionsKind = v1.SchemeGroupVersion.WithKind("Revision")
-
-// Get takes name of the revision, and returns the corresponding revision object, and an error if there is any.
-func (c *FakeRevisions) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.Revision, err error) {
-	emptyResult := &v1.Revision{}
-	obj, err := c.Fake.
-		Invokes(testing.NewGetActionWithOptions(revisionsResource, c.ns, name, options), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
+func newFakeRevisions(fake *FakeServingV1, namespace string) servingv1.RevisionInterface {
+	return &fakeRevisions{
+		gentype.NewFakeClientWithList[*v1.Revision, *v1.RevisionList](
+			fake.Fake,
+			namespace,
+			v1.SchemeGroupVersion.WithResource("revisions"),
+			v1.SchemeGroupVersion.WithKind("Revision"),
+			func() *v1.Revision { return &v1.Revision{} },
+			func() *v1.RevisionList { return &v1.RevisionList{} },
+			func(dst, src *v1.RevisionList) { dst.ListMeta = src.ListMeta },
+			func(list *v1.RevisionList) []*v1.Revision { return gentype.ToPointerSlice(list.Items) },
+			func(list *v1.RevisionList, items []*v1.Revision) { list.Items = gentype.FromPointerSlice(items) },
+		),
+		fake,
 	}
-	return obj.(*v1.Revision), err
-}
-
-// List takes label and field selectors, and returns the list of Revisions that match those selectors.
-func (c *FakeRevisions) List(ctx context.Context, opts metav1.ListOptions) (result *v1.RevisionList, err error) {
-	emptyResult := &v1.RevisionList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewListActionWithOptions(revisionsResource, revisionsKind, c.ns, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1.RevisionList{ListMeta: obj.(*v1.RevisionList).ListMeta}
-	for _, item := range obj.(*v1.RevisionList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested revisions.
-func (c *FakeRevisions) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchActionWithOptions(revisionsResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a revision and creates it.  Returns the server's representation of the revision, and an error, if there is any.
-func (c *FakeRevisions) Create(ctx context.Context, revision *v1.Revision, opts metav1.CreateOptions) (result *v1.Revision, err error) {
-	emptyResult := &v1.Revision{}
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateActionWithOptions(revisionsResource, c.ns, revision, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.Revision), err
-}
-
-// Update takes the representation of a revision and updates it. Returns the server's representation of the revision, and an error, if there is any.
-func (c *FakeRevisions) Update(ctx context.Context, revision *v1.Revision, opts metav1.UpdateOptions) (result *v1.Revision, err error) {
-	emptyResult := &v1.Revision{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateActionWithOptions(revisionsResource, c.ns, revision, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.Revision), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeRevisions) UpdateStatus(ctx context.Context, revision *v1.Revision, opts metav1.UpdateOptions) (result *v1.Revision, err error) {
-	emptyResult := &v1.Revision{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceActionWithOptions(revisionsResource, "status", c.ns, revision, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.Revision), err
-}
-
-// Delete takes name of the revision and deletes it. Returns an error if one occurs.
-func (c *FakeRevisions) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(revisionsResource, c.ns, name, opts), &v1.Revision{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeRevisions) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := testing.NewDeleteCollectionActionWithOptions(revisionsResource, c.ns, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1.RevisionList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched revision.
-func (c *FakeRevisions) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Revision, err error) {
-	emptyResult := &v1.Revision{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(revisionsResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.Revision), err
 }
