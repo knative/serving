@@ -19,13 +19,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	networkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	scheme "knative.dev/networking/pkg/client/clientset/versioned/scheme"
 )
 
@@ -37,33 +37,34 @@ type IngressesGetter interface {
 
 // IngressInterface has methods to work with Ingress resources.
 type IngressInterface interface {
-	Create(ctx context.Context, ingress *v1alpha1.Ingress, opts v1.CreateOptions) (*v1alpha1.Ingress, error)
-	Update(ctx context.Context, ingress *v1alpha1.Ingress, opts v1.UpdateOptions) (*v1alpha1.Ingress, error)
+	Create(ctx context.Context, ingress *networkingv1alpha1.Ingress, opts v1.CreateOptions) (*networkingv1alpha1.Ingress, error)
+	Update(ctx context.Context, ingress *networkingv1alpha1.Ingress, opts v1.UpdateOptions) (*networkingv1alpha1.Ingress, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, ingress *v1alpha1.Ingress, opts v1.UpdateOptions) (*v1alpha1.Ingress, error)
+	UpdateStatus(ctx context.Context, ingress *networkingv1alpha1.Ingress, opts v1.UpdateOptions) (*networkingv1alpha1.Ingress, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.Ingress, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.IngressList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*networkingv1alpha1.Ingress, error)
+	List(ctx context.Context, opts v1.ListOptions) (*networkingv1alpha1.IngressList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Ingress, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *networkingv1alpha1.Ingress, err error)
 	IngressExpansion
 }
 
 // ingresses implements IngressInterface
 type ingresses struct {
-	*gentype.ClientWithList[*v1alpha1.Ingress, *v1alpha1.IngressList]
+	*gentype.ClientWithList[*networkingv1alpha1.Ingress, *networkingv1alpha1.IngressList]
 }
 
 // newIngresses returns a Ingresses
 func newIngresses(c *NetworkingV1alpha1Client, namespace string) *ingresses {
 	return &ingresses{
-		gentype.NewClientWithList[*v1alpha1.Ingress, *v1alpha1.IngressList](
+		gentype.NewClientWithList[*networkingv1alpha1.Ingress, *networkingv1alpha1.IngressList](
 			"ingresses",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1alpha1.Ingress { return &v1alpha1.Ingress{} },
-			func() *v1alpha1.IngressList { return &v1alpha1.IngressList{} }),
+			func() *networkingv1alpha1.Ingress { return &networkingv1alpha1.Ingress{} },
+			func() *networkingv1alpha1.IngressList { return &networkingv1alpha1.IngressList{} },
+		),
 	}
 }

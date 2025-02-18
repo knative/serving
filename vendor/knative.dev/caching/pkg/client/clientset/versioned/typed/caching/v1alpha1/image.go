@@ -19,13 +19,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1alpha1 "knative.dev/caching/pkg/apis/caching/v1alpha1"
+	cachingv1alpha1 "knative.dev/caching/pkg/apis/caching/v1alpha1"
 	scheme "knative.dev/caching/pkg/client/clientset/versioned/scheme"
 )
 
@@ -37,33 +37,34 @@ type ImagesGetter interface {
 
 // ImageInterface has methods to work with Image resources.
 type ImageInterface interface {
-	Create(ctx context.Context, image *v1alpha1.Image, opts v1.CreateOptions) (*v1alpha1.Image, error)
-	Update(ctx context.Context, image *v1alpha1.Image, opts v1.UpdateOptions) (*v1alpha1.Image, error)
+	Create(ctx context.Context, image *cachingv1alpha1.Image, opts v1.CreateOptions) (*cachingv1alpha1.Image, error)
+	Update(ctx context.Context, image *cachingv1alpha1.Image, opts v1.UpdateOptions) (*cachingv1alpha1.Image, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, image *v1alpha1.Image, opts v1.UpdateOptions) (*v1alpha1.Image, error)
+	UpdateStatus(ctx context.Context, image *cachingv1alpha1.Image, opts v1.UpdateOptions) (*cachingv1alpha1.Image, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.Image, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.ImageList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*cachingv1alpha1.Image, error)
+	List(ctx context.Context, opts v1.ListOptions) (*cachingv1alpha1.ImageList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Image, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *cachingv1alpha1.Image, err error)
 	ImageExpansion
 }
 
 // images implements ImageInterface
 type images struct {
-	*gentype.ClientWithList[*v1alpha1.Image, *v1alpha1.ImageList]
+	*gentype.ClientWithList[*cachingv1alpha1.Image, *cachingv1alpha1.ImageList]
 }
 
 // newImages returns a Images
 func newImages(c *CachingV1alpha1Client, namespace string) *images {
 	return &images{
-		gentype.NewClientWithList[*v1alpha1.Image, *v1alpha1.ImageList](
+		gentype.NewClientWithList[*cachingv1alpha1.Image, *cachingv1alpha1.ImageList](
 			"images",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1alpha1.Image { return &v1alpha1.Image{} },
-			func() *v1alpha1.ImageList { return &v1alpha1.ImageList{} }),
+			func() *cachingv1alpha1.Image { return &cachingv1alpha1.Image{} },
+			func() *cachingv1alpha1.ImageList { return &cachingv1alpha1.ImageList{} },
+		),
 	}
 }

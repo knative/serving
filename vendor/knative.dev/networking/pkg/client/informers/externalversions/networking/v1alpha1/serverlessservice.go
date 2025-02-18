@@ -19,24 +19,24 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
-	networkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	apisnetworkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	versioned "knative.dev/networking/pkg/client/clientset/versioned"
 	internalinterfaces "knative.dev/networking/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
+	networkingv1alpha1 "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
 )
 
 // ServerlessServiceInformer provides access to a shared informer and lister for
 // ServerlessServices.
 type ServerlessServiceInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.ServerlessServiceLister
+	Lister() networkingv1alpha1.ServerlessServiceLister
 }
 
 type serverlessServiceInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredServerlessServiceInformer(client versioned.Interface, namespace 
 				return client.NetworkingV1alpha1().ServerlessServices(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&networkingv1alpha1.ServerlessService{},
+		&apisnetworkingv1alpha1.ServerlessService{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *serverlessServiceInformer) defaultInformer(client versioned.Interface, 
 }
 
 func (f *serverlessServiceInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&networkingv1alpha1.ServerlessService{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisnetworkingv1alpha1.ServerlessService{}, f.defaultInformer)
 }
 
-func (f *serverlessServiceInformer) Lister() v1alpha1.ServerlessServiceLister {
-	return v1alpha1.NewServerlessServiceLister(f.Informer().GetIndexer())
+func (f *serverlessServiceInformer) Lister() networkingv1alpha1.ServerlessServiceLister {
+	return networkingv1alpha1.NewServerlessServiceLister(f.Informer().GetIndexer())
 }
