@@ -29,19 +29,19 @@ type FakeNetworkingV1alpha1 struct {
 }
 
 func (c *FakeNetworkingV1alpha1) Certificates(namespace string) v1alpha1.CertificateInterface {
-	return &FakeCertificates{c, namespace}
+	return newFakeCertificates(c, namespace)
 }
 
 func (c *FakeNetworkingV1alpha1) ClusterDomainClaims() v1alpha1.ClusterDomainClaimInterface {
-	return &FakeClusterDomainClaims{c}
+	return newFakeClusterDomainClaims(c)
 }
 
 func (c *FakeNetworkingV1alpha1) Ingresses(namespace string) v1alpha1.IngressInterface {
-	return &FakeIngresses{c, namespace}
+	return newFakeIngresses(c, namespace)
 }
 
 func (c *FakeNetworkingV1alpha1) ServerlessServices(namespace string) v1alpha1.ServerlessServiceInterface {
-	return &FakeServerlessServices{c, namespace}
+	return newFakeServerlessServices(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

@@ -19,24 +19,24 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
-	networkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	apisnetworkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	versioned "knative.dev/networking/pkg/client/clientset/versioned"
 	internalinterfaces "knative.dev/networking/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
+	networkingv1alpha1 "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
 )
 
 // CertificateInformer provides access to a shared informer and lister for
 // Certificates.
 type CertificateInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.CertificateLister
+	Lister() networkingv1alpha1.CertificateLister
 }
 
 type certificateInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredCertificateInformer(client versioned.Interface, namespace string
 				return client.NetworkingV1alpha1().Certificates(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&networkingv1alpha1.Certificate{},
+		&apisnetworkingv1alpha1.Certificate{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *certificateInformer) defaultInformer(client versioned.Interface, resync
 }
 
 func (f *certificateInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&networkingv1alpha1.Certificate{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisnetworkingv1alpha1.Certificate{}, f.defaultInformer)
 }
 
-func (f *certificateInformer) Lister() v1alpha1.CertificateLister {
-	return v1alpha1.NewCertificateLister(f.Informer().GetIndexer())
+func (f *certificateInformer) Lister() networkingv1alpha1.CertificateLister {
+	return networkingv1alpha1.NewCertificateLister(f.Informer().GetIndexer())
 }

@@ -19,13 +19,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	networkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	scheme "knative.dev/networking/pkg/client/clientset/versioned/scheme"
 )
 
@@ -37,33 +37,34 @@ type ServerlessServicesGetter interface {
 
 // ServerlessServiceInterface has methods to work with ServerlessService resources.
 type ServerlessServiceInterface interface {
-	Create(ctx context.Context, serverlessService *v1alpha1.ServerlessService, opts v1.CreateOptions) (*v1alpha1.ServerlessService, error)
-	Update(ctx context.Context, serverlessService *v1alpha1.ServerlessService, opts v1.UpdateOptions) (*v1alpha1.ServerlessService, error)
+	Create(ctx context.Context, serverlessService *networkingv1alpha1.ServerlessService, opts v1.CreateOptions) (*networkingv1alpha1.ServerlessService, error)
+	Update(ctx context.Context, serverlessService *networkingv1alpha1.ServerlessService, opts v1.UpdateOptions) (*networkingv1alpha1.ServerlessService, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, serverlessService *v1alpha1.ServerlessService, opts v1.UpdateOptions) (*v1alpha1.ServerlessService, error)
+	UpdateStatus(ctx context.Context, serverlessService *networkingv1alpha1.ServerlessService, opts v1.UpdateOptions) (*networkingv1alpha1.ServerlessService, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.ServerlessService, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.ServerlessServiceList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*networkingv1alpha1.ServerlessService, error)
+	List(ctx context.Context, opts v1.ListOptions) (*networkingv1alpha1.ServerlessServiceList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ServerlessService, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *networkingv1alpha1.ServerlessService, err error)
 	ServerlessServiceExpansion
 }
 
 // serverlessServices implements ServerlessServiceInterface
 type serverlessServices struct {
-	*gentype.ClientWithList[*v1alpha1.ServerlessService, *v1alpha1.ServerlessServiceList]
+	*gentype.ClientWithList[*networkingv1alpha1.ServerlessService, *networkingv1alpha1.ServerlessServiceList]
 }
 
 // newServerlessServices returns a ServerlessServices
 func newServerlessServices(c *NetworkingV1alpha1Client, namespace string) *serverlessServices {
 	return &serverlessServices{
-		gentype.NewClientWithList[*v1alpha1.ServerlessService, *v1alpha1.ServerlessServiceList](
+		gentype.NewClientWithList[*networkingv1alpha1.ServerlessService, *networkingv1alpha1.ServerlessServiceList](
 			"serverlessservices",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1alpha1.ServerlessService { return &v1alpha1.ServerlessService{} },
-			func() *v1alpha1.ServerlessServiceList { return &v1alpha1.ServerlessServiceList{} }),
+			func() *networkingv1alpha1.ServerlessService { return &networkingv1alpha1.ServerlessService{} },
+			func() *networkingv1alpha1.ServerlessServiceList { return &networkingv1alpha1.ServerlessServiceList{} },
+		),
 	}
 }

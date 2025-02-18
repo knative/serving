@@ -29,7 +29,7 @@ type FakeCachingV1alpha1 struct {
 }
 
 func (c *FakeCachingV1alpha1) Images(namespace string) v1alpha1.ImageInterface {
-	return &FakeImages{c, namespace}
+	return newFakeImages(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

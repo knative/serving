@@ -19,24 +19,24 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
-	networkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	apisnetworkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	versioned "knative.dev/networking/pkg/client/clientset/versioned"
 	internalinterfaces "knative.dev/networking/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
+	networkingv1alpha1 "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
 )
 
 // ClusterDomainClaimInformer provides access to a shared informer and lister for
 // ClusterDomainClaims.
 type ClusterDomainClaimInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.ClusterDomainClaimLister
+	Lister() networkingv1alpha1.ClusterDomainClaimLister
 }
 
 type clusterDomainClaimInformer struct {
@@ -70,7 +70,7 @@ func NewFilteredClusterDomainClaimInformer(client versioned.Interface, resyncPer
 				return client.NetworkingV1alpha1().ClusterDomainClaims().Watch(context.TODO(), options)
 			},
 		},
-		&networkingv1alpha1.ClusterDomainClaim{},
+		&apisnetworkingv1alpha1.ClusterDomainClaim{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,9 +81,9 @@ func (f *clusterDomainClaimInformer) defaultInformer(client versioned.Interface,
 }
 
 func (f *clusterDomainClaimInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&networkingv1alpha1.ClusterDomainClaim{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisnetworkingv1alpha1.ClusterDomainClaim{}, f.defaultInformer)
 }
 
-func (f *clusterDomainClaimInformer) Lister() v1alpha1.ClusterDomainClaimLister {
-	return v1alpha1.NewClusterDomainClaimLister(f.Informer().GetIndexer())
+func (f *clusterDomainClaimInformer) Lister() networkingv1alpha1.ClusterDomainClaimLister {
+	return networkingv1alpha1.NewClusterDomainClaimLister(f.Informer().GetIndexer())
 }
