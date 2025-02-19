@@ -100,6 +100,7 @@ aliases:
   - davidhadas
   - evankanderson
   serving-approvers:
+  - dsimansk
   - skonto
   serving-reviewers:
   - skonto
@@ -109,6 +110,7 @@ aliases:
   - dprotaso
   serving-writers:
   - dprotaso
+  - dsimansk
   - skonto
   steering-committee:
   - aliok
