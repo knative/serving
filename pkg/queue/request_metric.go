@@ -110,8 +110,8 @@ func (h *requestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	startTime := time.Now()
 
 	defer func() {
-		// Filter probe requests for revision metrics.
-		if netheader.IsProbe(r) {
+		// Filter probe requests and requests marked by ignore metrics header for revision metrics.
+		if netheader.IsProbe(r) || netheader.IsMetricsIgnored(r) {
 			return
 		}
 
@@ -179,8 +179,8 @@ func (h *appRequestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		pkgmetrics.Record(h.statsCtx, queueDepthM.M(int64(h.breaker.InFlight())))
 	}
 	defer func() {
-		// Filter probe requests for revision metrics.
-		if netheader.IsProbe(r) {
+		// Filter probe requests and requests marked by ignore metrics header for revision metrics.
+		if netheader.IsProbe(r) || netheader.IsMetricsIgnored(r) {
 			return
 		}
 
