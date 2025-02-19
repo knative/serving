@@ -223,6 +223,11 @@ data:
     # 2. Disabled: disabling write access for persistent volumes
     kubernetes.podspec-persistent-volume-write: "disabled"
 
+    # Controls whether volume mount propagation support is enabled or not.
+    # 1. Enabled: enabling volume mount propagation support
+    # 2. Disabled: disabling volume mount propagation support
+    kubernetes.podspec-mount-propagation: "disabled"
+
     # Controls if the queue proxy podInfo feature is enabled, allowed or disabled
     #
     # This feature should be enabled/allowed when using queue proxy Options (Extensions)
