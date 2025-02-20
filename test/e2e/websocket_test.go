@@ -322,6 +322,11 @@ func TestWebSocketWithTimeout(t *testing.T) {
 		idleTimeoutSeconds: 10,
 		delay:              "20",
 		expectError:        true,
+	}, {
+		name:           "websocket does not drop after queue drain is called at 30s",
+		timeoutSeconds: 60,
+		delay:          "45",
+		expectError:    false,
 	}}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
