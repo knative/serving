@@ -7,7 +7,7 @@ require (
 	github.com/cert-manager/cert-manager v1.16.3
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/gogo/protobuf v1.3.2
-	github.com/google/go-cmp v0.6.0
+	github.com/google/go-cmp v0.7.0
 	github.com/google/go-containerregistry v0.20.3
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20250115185438-c4dd792fa06c
 	github.com/google/gofuzz v1.2.0
@@ -33,10 +33,10 @@ require (
 	k8s.io/code-generator v0.32.2
 	k8s.io/kube-openapi v0.0.0-20241212222426-2c72e554b1e7
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
-	knative.dev/caching v0.0.0-20250217154450-fae69d305618
-	knative.dev/hack v0.0.0-20250217122557-ce4c934f30e5
-	knative.dev/networking v0.0.0-20250217154350-2cde4327c6c8
-	knative.dev/pkg v0.0.0-20250218011850-c925de2a3f07
+	knative.dev/caching v0.0.0-20250226145629-ad23fbda1a2b
+	knative.dev/hack v0.0.0-20250219013704-306ce745e077
+	knative.dev/networking v0.0.0-20250226145929-863b7af736fb
+	knative.dev/pkg v0.0.0-20250226145529-0372c089c78f
 	sigs.k8s.io/yaml v1.4.0
 )
 
