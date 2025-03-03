@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "63a13754"
+    knative.dev/example-checksum: "0ac06704"
 data:
   _example: |-
     ################################
@@ -242,3 +242,12 @@ data:
 
     # Default queue proxy resource requests and limits to good values for most cases if set.
     queueproxy.resource-defaults: "disabled"
+
+    # treat-pod-as-always-schedulable can be used to define that Pods in the system will always be
+    # scheduled, and a Revision should not be marked unschedulable.
+    # Setting this to `enabled` makes sense if you have cluster-autoscaling set up for you cluster
+    # where unschedulable Pods trigger the addition of a new Node and are therefore a short and
+    # transient state.
+    #
+    # See https://github.com/knative/serving/issues/14862
+    treat-pod-as-always-schedulable: "disabled"
