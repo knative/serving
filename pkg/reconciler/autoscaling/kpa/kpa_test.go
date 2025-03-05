@@ -40,6 +40,7 @@ import (
 	fakemetricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/service/fake"
 	"knative.dev/serving/pkg/metrics"
 
 	networkingclient "knative.dev/networking/pkg/client/injection/client"
@@ -2106,7 +2107,7 @@ func TestComputeStatus(t *testing.T) {
 				want:  c.pcWant,
 			}
 
-			computeStatus(ctx, pa, pc, logging.FromContext(ctx))
+			computeStatus(ctx, pa, pc, logging.FromContext(ctx), false)
 
 			if c.wantActualScale == nil && pa.Status.ActualScale != nil || c.wantActualScale != nil && pa.Status.ActualScale == nil {
 				t.Errorf("Unexpected ActualScale. Want: %v, Got: %v", c.wantActualScale, pa.Status.ActualScale)

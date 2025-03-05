@@ -27,6 +27,7 @@ import (
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	listers "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
+	slisters "knative.dev/serving/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/resources"
 	anames "knative.dev/serving/pkg/reconciler/autoscaling/resources/names"
@@ -42,6 +43,7 @@ type Base struct {
 	NetworkingClient netclientset.Interface
 	SKSLister        nlisters.ServerlessServiceLister
 	MetricLister     listers.MetricLister
+	ServiceInformer  slisters.ServiceLister
 }
 
 // ReconcileSKS reconciles a ServerlessService based on the given PodAutoscaler.
