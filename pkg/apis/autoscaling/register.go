@@ -221,6 +221,13 @@ const (
 	// min-scale value while also preserving the ability to scale to zero.
 	// ActivationScale must be >= 2.
 	ActivationScaleKey = GroupName + "/activation-scale"
+
+	// ScaleBuffer is the number of replicas that should be added to the desired scale
+	// to provide a static buffer of replicas to handle sudden spikes in traffic.
+	// This is useful for services that have a high startup time or for services that
+	// have a high variance in traffic. For example, if ScaleBuffer = 2, the desired
+	// scale would be the desired scale + 2.
+	ScaleBufferAnnotationKey = GroupName + "/scale-buffer"
 )
 
 var (
@@ -279,5 +286,9 @@ var (
 	}
 	WindowAnnotation = kmap.KeyPriority{
 		WindowAnnotationKey,
+	}
+	ScaleBufferAnnotation = kmap.KeyPriority{
+		ScaleBufferAnnotationKey,
+		GroupName + "/scaleBuffer",
 	}
 )

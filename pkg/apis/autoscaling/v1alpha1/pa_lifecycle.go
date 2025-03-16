@@ -128,6 +128,11 @@ func (pa *PodAutoscaler) TargetBC() (float64, bool) {
 	return pa.annotationFloat64(autoscaling.TargetBurstCapacityAnnotation)
 }
 
+// ScaleBuffer returns the contents of the scale-buffer annotation or a default.
+func (pa *PodAutoscaler) ScaleBuffer() (int32, bool) {
+	return pa.annotationInt32(autoscaling.ScaleBufferAnnotation)
+}
+
 func (pa *PodAutoscaler) annotationDuration(k kmap.KeyPriority) (time.Duration, bool) {
 	if _, s, ok := k.Get(pa.Annotations); ok {
 		d, err := time.ParseDuration(s)
