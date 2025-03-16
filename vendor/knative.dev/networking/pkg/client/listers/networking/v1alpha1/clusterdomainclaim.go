@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
-	v1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
+	networkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 )
 
 // ClusterDomainClaimLister helps list ClusterDomainClaims.
@@ -30,39 +30,19 @@ import (
 type ClusterDomainClaimLister interface {
 	// List lists all ClusterDomainClaims in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.ClusterDomainClaim, err error)
+	List(selector labels.Selector) (ret []*networkingv1alpha1.ClusterDomainClaim, err error)
 	// Get retrieves the ClusterDomainClaim from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.ClusterDomainClaim, error)
+	Get(name string) (*networkingv1alpha1.ClusterDomainClaim, error)
 	ClusterDomainClaimListerExpansion
 }
 
 // clusterDomainClaimLister implements the ClusterDomainClaimLister interface.
 type clusterDomainClaimLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*networkingv1alpha1.ClusterDomainClaim]
 }
 
 // NewClusterDomainClaimLister returns a new ClusterDomainClaimLister.
 func NewClusterDomainClaimLister(indexer cache.Indexer) ClusterDomainClaimLister {
-	return &clusterDomainClaimLister{indexer: indexer}
-}
-
-// List lists all ClusterDomainClaims in the indexer.
-func (s *clusterDomainClaimLister) List(selector labels.Selector) (ret []*v1alpha1.ClusterDomainClaim, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.ClusterDomainClaim))
-	})
-	return ret, err
-}
-
-// Get retrieves the ClusterDomainClaim from the index for a given name.
-func (s *clusterDomainClaimLister) Get(name string) (*v1alpha1.ClusterDomainClaim, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha1.Resource("clusterdomainclaim"), name)
-	}
-	return obj.(*v1alpha1.ClusterDomainClaim), nil
+	return &clusterDomainClaimLister{listers.New[*networkingv1alpha1.ClusterDomainClaim](indexer, networkingv1alpha1.Resource("clusterdomainclaim"))}
 }

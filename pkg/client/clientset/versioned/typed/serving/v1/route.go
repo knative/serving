@@ -19,13 +19,13 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	scheme "knative.dev/serving/pkg/client/clientset/versioned/scheme"
 )
 
@@ -37,33 +37,34 @@ type RoutesGetter interface {
 
 // RouteInterface has methods to work with Route resources.
 type RouteInterface interface {
-	Create(ctx context.Context, route *v1.Route, opts metav1.CreateOptions) (*v1.Route, error)
-	Update(ctx context.Context, route *v1.Route, opts metav1.UpdateOptions) (*v1.Route, error)
+	Create(ctx context.Context, route *servingv1.Route, opts metav1.CreateOptions) (*servingv1.Route, error)
+	Update(ctx context.Context, route *servingv1.Route, opts metav1.UpdateOptions) (*servingv1.Route, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, route *v1.Route, opts metav1.UpdateOptions) (*v1.Route, error)
+	UpdateStatus(ctx context.Context, route *servingv1.Route, opts metav1.UpdateOptions) (*servingv1.Route, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.Route, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.RouteList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*servingv1.Route, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*servingv1.RouteList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Route, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *servingv1.Route, err error)
 	RouteExpansion
 }
 
 // routes implements RouteInterface
 type routes struct {
-	*gentype.ClientWithList[*v1.Route, *v1.RouteList]
+	*gentype.ClientWithList[*servingv1.Route, *servingv1.RouteList]
 }
 
 // newRoutes returns a Routes
 func newRoutes(c *ServingV1Client, namespace string) *routes {
 	return &routes{
-		gentype.NewClientWithList[*v1.Route, *v1.RouteList](
+		gentype.NewClientWithList[*servingv1.Route, *servingv1.RouteList](
 			"routes",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.Route { return &v1.Route{} },
-			func() *v1.RouteList { return &v1.RouteList{} }),
+			func() *servingv1.Route { return &servingv1.Route{} },
+			func() *servingv1.RouteList { return &servingv1.RouteList{} },
+		),
 	}
 }

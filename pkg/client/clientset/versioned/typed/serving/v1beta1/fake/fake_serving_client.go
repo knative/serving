@@ -29,7 +29,7 @@ type FakeServingV1beta1 struct {
 }
 
 func (c *FakeServingV1beta1) DomainMappings(namespace string) v1beta1.DomainMappingInterface {
-	return &FakeDomainMappings{c, namespace}
+	return newFakeDomainMappings(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

@@ -353,7 +353,7 @@ spec:
                                 type: object
                                 properties:
                                   exec:
-                                    description: Exec specifies the action to take.
+                                    description: Exec specifies a command to execute in the container.
                                     type: object
                                     properties:
                                       command:
@@ -374,7 +374,7 @@ spec:
                                     type: integer
                                     format: int32
                                   grpc:
-                                    description: GRPC specifies an action involving a GRPC port.
+                                    description: GRPC specifies a GRPC HealthCheckRequest.
                                     type: object
                                     properties:
                                       port:
@@ -390,7 +390,7 @@ spec:
                                         type: string
                                         default: ""
                                   httpGet:
-                                    description: HTTPGet specifies the http request to perform.
+                                    description: HTTPGet specifies an HTTP GET request to perform.
                                     type: object
                                     properties:
                                       host:
@@ -452,7 +452,7 @@ spec:
                                     type: integer
                                     format: int32
                                   tcpSocket:
-                                    description: TCPSocket specifies an action involving a TCP port.
+                                    description: TCPSocket specifies a connection to a TCP port.
                                     type: object
                                     properties:
                                       host:
@@ -521,7 +521,7 @@ spec:
                                 type: object
                                 properties:
                                   exec:
-                                    description: Exec specifies the action to take.
+                                    description: Exec specifies a command to execute in the container.
                                     type: object
                                     properties:
                                       command:
@@ -542,7 +542,7 @@ spec:
                                     type: integer
                                     format: int32
                                   grpc:
-                                    description: GRPC specifies an action involving a GRPC port.
+                                    description: GRPC specifies a GRPC HealthCheckRequest.
                                     type: object
                                     properties:
                                       port:
@@ -558,7 +558,7 @@ spec:
                                         type: string
                                         default: ""
                                   httpGet:
-                                    description: HTTPGet specifies the http request to perform.
+                                    description: HTTPGet specifies an HTTP GET request to perform.
                                     type: object
                                     properties:
                                       host:
@@ -620,7 +620,7 @@ spec:
                                     type: integer
                                     format: int32
                                   tcpSocket:
-                                    description: TCPSocket specifies an action involving a TCP port.
+                                    description: TCPSocket specifies a connection to a TCP port.
                                     type: object
                                     properties:
                                       host:
@@ -786,7 +786,7 @@ spec:
                                 type: object
                                 properties:
                                   exec:
-                                    description: Exec specifies the action to take.
+                                    description: Exec specifies a command to execute in the container.
                                     type: object
                                     properties:
                                       command:
@@ -807,7 +807,7 @@ spec:
                                     type: integer
                                     format: int32
                                   grpc:
-                                    description: GRPC specifies an action involving a GRPC port.
+                                    description: GRPC specifies a GRPC HealthCheckRequest.
                                     type: object
                                     properties:
                                       port:
@@ -823,7 +823,7 @@ spec:
                                         type: string
                                         default: ""
                                   httpGet:
-                                    description: HTTPGet specifies the http request to perform.
+                                    description: HTTPGet specifies an HTTP GET request to perform.
                                     type: object
                                     properties:
                                       host:
@@ -885,7 +885,7 @@ spec:
                                     type: integer
                                     format: int32
                                   tcpSocket:
-                                    description: TCPSocket specifies an action involving a TCP port.
+                                    description: TCPSocket specifies a connection to a TCP port.
                                     type: object
                                     properties:
                                       host:

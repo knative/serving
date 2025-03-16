@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "63a13754"
+    knative.dev/example-checksum: "f3931300"
 data:
   _example: |-
     ################################

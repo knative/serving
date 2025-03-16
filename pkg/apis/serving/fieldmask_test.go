@@ -315,7 +315,8 @@ func TestContainerMask(t *testing.T) {
 }
 
 func TestVolumeMountMask(t *testing.T) {
-	mode := corev1.MountPropagationBidirectional
+	mode := corev1.MountPropagationHostToContainer
+	ctx := context.Background()
 
 	want := &corev1.VolumeMount{
 		Name:      "foo",
@@ -331,7 +332,7 @@ func TestVolumeMountMask(t *testing.T) {
 		MountPropagation: &mode,
 	}
 
-	got := VolumeMountMask(nil, in)
+	got := VolumeMountMask(ctx, in)
 
 	if &want == &got {
 		t.Error("Input and output share addresses. Want different addresses")
@@ -343,7 +344,51 @@ func TestVolumeMountMask(t *testing.T) {
 		t.Error("VolumeMountMask (-want, +got):", diff)
 	}
 
-	if got = VolumeMountMask(nil, nil); got != nil {
+	if got = VolumeMountMask(ctx, nil); got != nil {
+		t.Errorf("VolumeMountMask(nil) = %v, want: nil", got)
+	}
+}
+
+func TestVolumeMountMask_FeatMountPropagation(t *testing.T) {
+	mode := corev1.MountPropagationHostToContainer
+	rrr := corev1.RecursiveReadOnlyEnabled
+	ctx := config.ToContext(context.Background(),
+		&config.Config{
+			Features: &config.Features{
+				PodSpecVolumeMountPropagation: config.Enabled,
+			},
+		},
+	)
+
+	want := &corev1.VolumeMount{
+		Name:             "foo",
+		ReadOnly:         true,
+		MountPath:        "/foo/bar",
+		SubPath:          "baz",
+		MountPropagation: &mode,
+	}
+	in := &corev1.VolumeMount{
+		Name:              "foo",
+		ReadOnly:          true,
+		MountPath:         "/foo/bar",
+		SubPath:           "baz",
+		MountPropagation:  &mode,
+		RecursiveReadOnly: &rrr,
+	}
+
+	got := VolumeMountMask(ctx, in)
+
+	if &want == &got {
+		t.Error("Input and output share addresses. Want different addresses")
+	}
+
+	if diff, err := kmp.SafeDiff(want, got); err != nil {
+		t.Error("Got error comparing output, err =", err)
+	} else if diff != "" {
+		t.Error("VolumeMountMask (-want, +got):", diff)
+	}
+
+	if got = VolumeMountMask(ctx, nil); got != nil {
 		t.Errorf("VolumeMountMask(nil) = %v, want: nil", got)
 	}
 }

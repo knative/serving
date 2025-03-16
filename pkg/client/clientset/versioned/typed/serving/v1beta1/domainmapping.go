@@ -19,13 +19,13 @@ limitations under the License.
 package v1beta1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
+	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
 	scheme "knative.dev/serving/pkg/client/clientset/versioned/scheme"
 )
 
@@ -37,33 +37,34 @@ type DomainMappingsGetter interface {
 
 // DomainMappingInterface has methods to work with DomainMapping resources.
 type DomainMappingInterface interface {
-	Create(ctx context.Context, domainMapping *v1beta1.DomainMapping, opts v1.CreateOptions) (*v1beta1.DomainMapping, error)
-	Update(ctx context.Context, domainMapping *v1beta1.DomainMapping, opts v1.UpdateOptions) (*v1beta1.DomainMapping, error)
+	Create(ctx context.Context, domainMapping *servingv1beta1.DomainMapping, opts v1.CreateOptions) (*servingv1beta1.DomainMapping, error)
+	Update(ctx context.Context, domainMapping *servingv1beta1.DomainMapping, opts v1.UpdateOptions) (*servingv1beta1.DomainMapping, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, domainMapping *v1beta1.DomainMapping, opts v1.UpdateOptions) (*v1beta1.DomainMapping, error)
+	UpdateStatus(ctx context.Context, domainMapping *servingv1beta1.DomainMapping, opts v1.UpdateOptions) (*servingv1beta1.DomainMapping, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1beta1.DomainMapping, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1beta1.DomainMappingList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*servingv1beta1.DomainMapping, error)
+	List(ctx context.Context, opts v1.ListOptions) (*servingv1beta1.DomainMappingList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.DomainMapping, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *servingv1beta1.DomainMapping, err error)
 	DomainMappingExpansion
 }
 
 // domainMappings implements DomainMappingInterface
 type domainMappings struct {
-	*gentype.ClientWithList[*v1beta1.DomainMapping, *v1beta1.DomainMappingList]
+	*gentype.ClientWithList[*servingv1beta1.DomainMapping, *servingv1beta1.DomainMappingList]
 }
 
 // newDomainMappings returns a DomainMappings
 func newDomainMappings(c *ServingV1beta1Client, namespace string) *domainMappings {
 	return &domainMappings{
-		gentype.NewClientWithList[*v1beta1.DomainMapping, *v1beta1.DomainMappingList](
+		gentype.NewClientWithList[*servingv1beta1.DomainMapping, *servingv1beta1.DomainMappingList](
 			"domainmappings",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1beta1.DomainMapping { return &v1beta1.DomainMapping{} },
-			func() *v1beta1.DomainMappingList { return &v1beta1.DomainMappingList{} }),
+			func() *servingv1beta1.DomainMapping { return &servingv1beta1.DomainMapping{} },
+			func() *servingv1beta1.DomainMappingList { return &servingv1beta1.DomainMappingList{} },
+		),
 	}
 }

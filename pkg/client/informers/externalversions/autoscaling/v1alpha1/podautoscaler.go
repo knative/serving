@@ -19,24 +19,24 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
-	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	apisautoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	versioned "knative.dev/serving/pkg/client/clientset/versioned"
 	internalinterfaces "knative.dev/serving/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
 )
 
 // PodAutoscalerInformer provides access to a shared informer and lister for
 // PodAutoscalers.
 type PodAutoscalerInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.PodAutoscalerLister
+	Lister() autoscalingv1alpha1.PodAutoscalerLister
 }
 
 type podAutoscalerInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredPodAutoscalerInformer(client versioned.Interface, namespace stri
 				return client.AutoscalingV1alpha1().PodAutoscalers(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&autoscalingv1alpha1.PodAutoscaler{},
+		&apisautoscalingv1alpha1.PodAutoscaler{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *podAutoscalerInformer) defaultInformer(client versioned.Interface, resy
 }
 
 func (f *podAutoscalerInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&autoscalingv1alpha1.PodAutoscaler{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisautoscalingv1alpha1.PodAutoscaler{}, f.defaultInformer)
 }
 
-func (f *podAutoscalerInformer) Lister() v1alpha1.PodAutoscalerLister {
-	return v1alpha1.NewPodAutoscalerLister(f.Informer().GetIndexer())
+func (f *podAutoscalerInformer) Lister() autoscalingv1alpha1.PodAutoscalerLister {
+	return autoscalingv1alpha1.NewPodAutoscalerLister(f.Informer().GetIndexer())
 }

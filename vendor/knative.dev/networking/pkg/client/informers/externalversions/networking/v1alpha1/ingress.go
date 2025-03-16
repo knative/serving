@@ -19,24 +19,24 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
-	networkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	apisnetworkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	versioned "knative.dev/networking/pkg/client/clientset/versioned"
 	internalinterfaces "knative.dev/networking/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
+	networkingv1alpha1 "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
 )
 
 // IngressInformer provides access to a shared informer and lister for
 // Ingresses.
 type IngressInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.IngressLister
+	Lister() networkingv1alpha1.IngressLister
 }
 
 type ingressInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredIngressInformer(client versioned.Interface, namespace string, re
 				return client.NetworkingV1alpha1().Ingresses(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&networkingv1alpha1.Ingress{},
+		&apisnetworkingv1alpha1.Ingress{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *ingressInformer) defaultInformer(client versioned.Interface, resyncPeri
 }
 
 func (f *ingressInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&networkingv1alpha1.Ingress{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisnetworkingv1alpha1.Ingress{}, f.defaultInformer)
 }
 
-func (f *ingressInformer) Lister() v1alpha1.IngressLister {
-	return v1alpha1.NewIngressLister(f.Informer().GetIndexer())
+func (f *ingressInformer) Lister() networkingv1alpha1.IngressLister {
+	return networkingv1alpha1.NewIngressLister(f.Informer().GetIndexer())
 }

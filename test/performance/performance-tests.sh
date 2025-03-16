@@ -38,7 +38,7 @@ declare ARTIFACTS
 
 ns="default"
 
-initialize --num-nodes=10 --cluster-version=1.30 "$@"
+initialize --num-nodes=10 --cluster-version=1.31 "$@"
 
 function run_job() {
   local name=$1

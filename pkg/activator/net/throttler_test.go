@@ -315,13 +315,13 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 	})
 
 	// Make sure it now works.
-	if err := throttler.Try(ctx, revID, func(string) error { return nil }); err != nil {
+	if err := throttler.Try(ctx, revID, func(string, bool) error { return nil }); err != nil {
 		t.Fatalf("Try() = %v, want no error", err)
 	}
 
 	// Make sure errors are propagated correctly.
 	innerError := errors.New("inner")
-	if err := throttler.Try(ctx, revID, func(string) error { return innerError }); !errors.Is(err, innerError) {
+	if err := throttler.Try(ctx, revID, func(string, bool) error { return innerError }); !errors.Is(err, innerError) {
 		t.Fatalf("Try() = %v, want %v", err, innerError)
 	}
 
@@ -331,7 +331,7 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 	// Eventually it should now fail.
 	var lastError error
 	wait.PollUntilContextCancel(ctx, 10*time.Millisecond, false, func(context.Context) (bool, error) {
-		lastError = throttler.Try(ctx, revID, func(string) error { return nil })
+		lastError = throttler.Try(ctx, revID, func(string, bool) error { return nil })
 		return lastError != nil, nil
 	})
 	if lastError == nil || lastError.Error() != `revision.serving.knative.dev "test-revision" not found` {
@@ -915,7 +915,7 @@ func (t *Throttler) try(ctx context.Context, requests int, try func(string) erro
 	for range requests {
 		go func() {
 			var result tryResult
-			if err := t.Try(ctx, revID, func(dest string) error {
+			if err := t.Try(ctx, revID, func(dest string, _ bool) error {
 				result = tryResult{dest: dest}
 				return try(dest)
 			}); err != nil {

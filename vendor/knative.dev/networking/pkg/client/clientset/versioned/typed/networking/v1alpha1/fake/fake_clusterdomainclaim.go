@@ -19,103 +19,34 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 	v1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	networkingv1alpha1 "knative.dev/networking/pkg/client/clientset/versioned/typed/networking/v1alpha1"
 )
 
-// FakeClusterDomainClaims implements ClusterDomainClaimInterface
-type FakeClusterDomainClaims struct {
+// fakeClusterDomainClaims implements ClusterDomainClaimInterface
+type fakeClusterDomainClaims struct {
+	*gentype.FakeClientWithList[*v1alpha1.ClusterDomainClaim, *v1alpha1.ClusterDomainClaimList]
 	Fake *FakeNetworkingV1alpha1
 }
 
-var clusterdomainclaimsResource = v1alpha1.SchemeGroupVersion.WithResource("clusterdomainclaims")
-
-var clusterdomainclaimsKind = v1alpha1.SchemeGroupVersion.WithKind("ClusterDomainClaim")
-
-// Get takes name of the clusterDomainClaim, and returns the corresponding clusterDomainClaim object, and an error if there is any.
-func (c *FakeClusterDomainClaims) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ClusterDomainClaim, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(clusterdomainclaimsResource, name), &v1alpha1.ClusterDomainClaim{})
-	if obj == nil {
-		return nil, err
+func newFakeClusterDomainClaims(fake *FakeNetworkingV1alpha1) networkingv1alpha1.ClusterDomainClaimInterface {
+	return &fakeClusterDomainClaims{
+		gentype.NewFakeClientWithList[*v1alpha1.ClusterDomainClaim, *v1alpha1.ClusterDomainClaimList](
+			fake.Fake,
+			"",
+			v1alpha1.SchemeGroupVersion.WithResource("clusterdomainclaims"),
+			v1alpha1.SchemeGroupVersion.WithKind("ClusterDomainClaim"),
+			func() *v1alpha1.ClusterDomainClaim { return &v1alpha1.ClusterDomainClaim{} },
+			func() *v1alpha1.ClusterDomainClaimList { return &v1alpha1.ClusterDomainClaimList{} },
+			func(dst, src *v1alpha1.ClusterDomainClaimList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.ClusterDomainClaimList) []*v1alpha1.ClusterDomainClaim {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.ClusterDomainClaimList, items []*v1alpha1.ClusterDomainClaim) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.ClusterDomainClaim), err
-}
-
-// List takes label and field selectors, and returns the list of ClusterDomainClaims that match those selectors.
-func (c *FakeClusterDomainClaims) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.ClusterDomainClaimList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(clusterdomainclaimsResource, clusterdomainclaimsKind, opts), &v1alpha1.ClusterDomainClaimList{})
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.ClusterDomainClaimList{ListMeta: obj.(*v1alpha1.ClusterDomainClaimList).ListMeta}
-	for _, item := range obj.(*v1alpha1.ClusterDomainClaimList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested clusterDomainClaims.
-func (c *FakeClusterDomainClaims) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(clusterdomainclaimsResource, opts))
-}
-
-// Create takes the representation of a clusterDomainClaim and creates it.  Returns the server's representation of the clusterDomainClaim, and an error, if there is any.
-func (c *FakeClusterDomainClaims) Create(ctx context.Context, clusterDomainClaim *v1alpha1.ClusterDomainClaim, opts v1.CreateOptions) (result *v1alpha1.ClusterDomainClaim, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(clusterdomainclaimsResource, clusterDomainClaim), &v1alpha1.ClusterDomainClaim{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.ClusterDomainClaim), err
-}
-
-// Update takes the representation of a clusterDomainClaim and updates it. Returns the server's representation of the clusterDomainClaim, and an error, if there is any.
-func (c *FakeClusterDomainClaims) Update(ctx context.Context, clusterDomainClaim *v1alpha1.ClusterDomainClaim, opts v1.UpdateOptions) (result *v1alpha1.ClusterDomainClaim, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(clusterdomainclaimsResource, clusterDomainClaim), &v1alpha1.ClusterDomainClaim{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.ClusterDomainClaim), err
-}
-
-// Delete takes name of the clusterDomainClaim and deletes it. Returns an error if one occurs.
-func (c *FakeClusterDomainClaims) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(clusterdomainclaimsResource, name, opts), &v1alpha1.ClusterDomainClaim{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeClusterDomainClaims) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(clusterdomainclaimsResource, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.ClusterDomainClaimList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched clusterDomainClaim.
-func (c *FakeClusterDomainClaims) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ClusterDomainClaim, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(clusterdomainclaimsResource, name, pt, data, subresources...), &v1alpha1.ClusterDomainClaim{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.ClusterDomainClaim), err
 }

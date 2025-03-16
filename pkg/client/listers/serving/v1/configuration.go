@@ -19,10 +19,10 @@ limitations under the License.
 package v1
 
 import (
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 // ConfigurationLister helps list Configurations.
@@ -30,7 +30,7 @@ import (
 type ConfigurationLister interface {
 	// List lists all Configurations in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.Configuration, err error)
+	List(selector labels.Selector) (ret []*servingv1.Configuration, err error)
 	// Configurations returns an object that can list and get Configurations.
 	Configurations(namespace string) ConfigurationNamespaceLister
 	ConfigurationListerExpansion
@@ -38,17 +38,17 @@ type ConfigurationLister interface {
 
 // configurationLister implements the ConfigurationLister interface.
 type configurationLister struct {
-	listers.ResourceIndexer[*v1.Configuration]
+	listers.ResourceIndexer[*servingv1.Configuration]
 }
 
 // NewConfigurationLister returns a new ConfigurationLister.
 func NewConfigurationLister(indexer cache.Indexer) ConfigurationLister {
-	return &configurationLister{listers.New[*v1.Configuration](indexer, v1.Resource("configuration"))}
+	return &configurationLister{listers.New[*servingv1.Configuration](indexer, servingv1.Resource("configuration"))}
 }
 
 // Configurations returns an object that can list and get Configurations.
 func (s *configurationLister) Configurations(namespace string) ConfigurationNamespaceLister {
-	return configurationNamespaceLister{listers.NewNamespaced[*v1.Configuration](s.ResourceIndexer, namespace)}
+	return configurationNamespaceLister{listers.NewNamespaced[*servingv1.Configuration](s.ResourceIndexer, namespace)}
 }
 
 // ConfigurationNamespaceLister helps list and get Configurations.
@@ -56,15 +56,15 @@ func (s *configurationLister) Configurations(namespace string) ConfigurationName
 type ConfigurationNamespaceLister interface {
 	// List lists all Configurations in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.Configuration, err error)
+	List(selector labels.Selector) (ret []*servingv1.Configuration, err error)
 	// Get retrieves the Configuration from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1.Configuration, error)
+	Get(name string) (*servingv1.Configuration, error)
 	ConfigurationNamespaceListerExpansion
 }
 
 // configurationNamespaceLister implements the ConfigurationNamespaceLister
 // interface.
 type configurationNamespaceLister struct {
-	listers.ResourceIndexer[*v1.Configuration]
+	listers.ResourceIndexer[*servingv1.Configuration]
 }

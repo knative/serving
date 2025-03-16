@@ -348,6 +348,8 @@ func VolumeMountMask(ctx context.Context, in *corev1.VolumeMount) *corev1.Volume
 	out.SubPath = in.SubPath
 	if cfg.Features.PodSpecVolumeMountPropagation != config.Disabled {
 		out.MountPropagation = in.MountPropagation
+	} else {
+		out.MountPropagation = nil
 	}
 
 	// Disallowed fields

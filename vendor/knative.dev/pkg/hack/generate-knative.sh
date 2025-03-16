@@ -18,7 +18,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-# generate-groups generates everything for a project with external types only, e.g. a project based
+# generate-knative generates everything for a project with external types only, e.g. a project based
 # on CustomResourceDefinitions.
 
 if [ "$#" -lt 4 ] || [ "${1}" == "--help" ]; then
@@ -82,11 +82,14 @@ if grep -qw "injection" <<<"${GENS}"; then
   # Clear old injection
   rm -rf ${OUTPUT_PKG}
 
+  MODULE_NAME=$(go list -m)
+
   go run knative.dev/pkg/codegen/cmd/injection-gen \
     --input-dirs $(codegen::join , "${FQ_APIS[@]}") \
     --versioned-clientset-package ${VERSIONED_CLIENTSET_PKG} \
     --external-versions-informers-package ${EXTERNAL_INFORMER_PKG} \
     --listers-package ${LISTERS_PKG} \
     --output-package ${OUTPUT_PKG} \
+    --output-dir ${OUTPUT_PKG//${MODULE_NAME}\//} \
     "$@"
 fi

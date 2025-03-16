@@ -19,129 +19,30 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
 )
 
-// FakeRoutes implements RouteInterface
-type FakeRoutes struct {
+// fakeRoutes implements RouteInterface
+type fakeRoutes struct {
+	*gentype.FakeClientWithList[*v1.Route, *v1.RouteList]
 	Fake *FakeServingV1
-	ns   string
 }
 
-var routesResource = v1.SchemeGroupVersion.WithResource("routes")
-
-var routesKind = v1.SchemeGroupVersion.WithKind("Route")
-
-// Get takes name of the route, and returns the corresponding route object, and an error if there is any.
-func (c *FakeRoutes) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.Route, err error) {
-	emptyResult := &v1.Route{}
-	obj, err := c.Fake.
-		Invokes(testing.NewGetActionWithOptions(routesResource, c.ns, name, options), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
+func newFakeRoutes(fake *FakeServingV1, namespace string) servingv1.RouteInterface {
+	return &fakeRoutes{
+		gentype.NewFakeClientWithList[*v1.Route, *v1.RouteList](
+			fake.Fake,
+			namespace,
+			v1.SchemeGroupVersion.WithResource("routes"),
+			v1.SchemeGroupVersion.WithKind("Route"),
+			func() *v1.Route { return &v1.Route{} },
+			func() *v1.RouteList { return &v1.RouteList{} },
+			func(dst, src *v1.RouteList) { dst.ListMeta = src.ListMeta },
+			func(list *v1.RouteList) []*v1.Route { return gentype.ToPointerSlice(list.Items) },
+			func(list *v1.RouteList, items []*v1.Route) { list.Items = gentype.FromPointerSlice(items) },
+		),
+		fake,
 	}
-	return obj.(*v1.Route), err
-}
-
-// List takes label and field selectors, and returns the list of Routes that match those selectors.
-func (c *FakeRoutes) List(ctx context.Context, opts metav1.ListOptions) (result *v1.RouteList, err error) {
-	emptyResult := &v1.RouteList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewListActionWithOptions(routesResource, routesKind, c.ns, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1.RouteList{ListMeta: obj.(*v1.RouteList).ListMeta}
-	for _, item := range obj.(*v1.RouteList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested routes.
-func (c *FakeRoutes) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchActionWithOptions(routesResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a route and creates it.  Returns the server's representation of the route, and an error, if there is any.
-func (c *FakeRoutes) Create(ctx context.Context, route *v1.Route, opts metav1.CreateOptions) (result *v1.Route, err error) {
-	emptyResult := &v1.Route{}
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateActionWithOptions(routesResource, c.ns, route, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.Route), err
-}
-
-// Update takes the representation of a route and updates it. Returns the server's representation of the route, and an error, if there is any.
-func (c *FakeRoutes) Update(ctx context.Context, route *v1.Route, opts metav1.UpdateOptions) (result *v1.Route, err error) {
-	emptyResult := &v1.Route{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateActionWithOptions(routesResource, c.ns, route, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.Route), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeRoutes) UpdateStatus(ctx context.Context, route *v1.Route, opts metav1.UpdateOptions) (result *v1.Route, err error) {
-	emptyResult := &v1.Route{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceActionWithOptions(routesResource, "status", c.ns, route, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.Route), err
-}
-
-// Delete takes name of the route and deletes it. Returns an error if one occurs.
-func (c *FakeRoutes) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(routesResource, c.ns, name, opts), &v1.Route{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeRoutes) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := testing.NewDeleteCollectionActionWithOptions(routesResource, c.ns, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1.RouteList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched route.
-func (c *FakeRoutes) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Route, err error) {
-	emptyResult := &v1.Route{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(routesResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.Route), err
 }

@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
-	v1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 )
 
 // MetricLister helps list Metrics.
@@ -30,7 +30,7 @@ import (
 type MetricLister interface {
 	// List lists all Metrics in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.Metric, err error)
+	List(selector labels.Selector) (ret []*autoscalingv1alpha1.Metric, err error)
 	// Metrics returns an object that can list and get Metrics.
 	Metrics(namespace string) MetricNamespaceLister
 	MetricListerExpansion
@@ -38,17 +38,17 @@ type MetricLister interface {
 
 // metricLister implements the MetricLister interface.
 type metricLister struct {
-	listers.ResourceIndexer[*v1alpha1.Metric]
+	listers.ResourceIndexer[*autoscalingv1alpha1.Metric]
 }
 
 // NewMetricLister returns a new MetricLister.
 func NewMetricLister(indexer cache.Indexer) MetricLister {
-	return &metricLister{listers.New[*v1alpha1.Metric](indexer, v1alpha1.Resource("metric"))}
+	return &metricLister{listers.New[*autoscalingv1alpha1.Metric](indexer, autoscalingv1alpha1.Resource("metric"))}
 }
 
 // Metrics returns an object that can list and get Metrics.
 func (s *metricLister) Metrics(namespace string) MetricNamespaceLister {
-	return metricNamespaceLister{listers.NewNamespaced[*v1alpha1.Metric](s.ResourceIndexer, namespace)}
+	return metricNamespaceLister{listers.NewNamespaced[*autoscalingv1alpha1.Metric](s.ResourceIndexer, namespace)}
 }
 
 // MetricNamespaceLister helps list and get Metrics.
@@ -56,15 +56,15 @@ func (s *metricLister) Metrics(namespace string) MetricNamespaceLister {
 type MetricNamespaceLister interface {
 	// List lists all Metrics in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.Metric, err error)
+	List(selector labels.Selector) (ret []*autoscalingv1alpha1.Metric, err error)
 	// Get retrieves the Metric from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.Metric, error)
+	Get(name string) (*autoscalingv1alpha1.Metric, error)
 	MetricNamespaceListerExpansion
 }
 
 // metricNamespaceLister implements the MetricNamespaceLister
 // interface.
 type metricNamespaceLister struct {
-	listers.ResourceIndexer[*v1alpha1.Metric]
+	listers.ResourceIndexer[*autoscalingv1alpha1.Metric]
 }

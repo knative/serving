@@ -19,123 +19,34 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 	v1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	networkingv1alpha1 "knative.dev/networking/pkg/client/clientset/versioned/typed/networking/v1alpha1"
 )
 
-// FakeServerlessServices implements ServerlessServiceInterface
-type FakeServerlessServices struct {
+// fakeServerlessServices implements ServerlessServiceInterface
+type fakeServerlessServices struct {
+	*gentype.FakeClientWithList[*v1alpha1.ServerlessService, *v1alpha1.ServerlessServiceList]
 	Fake *FakeNetworkingV1alpha1
-	ns   string
 }
 
-var serverlessservicesResource = v1alpha1.SchemeGroupVersion.WithResource("serverlessservices")
-
-var serverlessservicesKind = v1alpha1.SchemeGroupVersion.WithKind("ServerlessService")
-
-// Get takes name of the serverlessService, and returns the corresponding serverlessService object, and an error if there is any.
-func (c *FakeServerlessServices) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ServerlessService, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(serverlessservicesResource, c.ns, name), &v1alpha1.ServerlessService{})
-
-	if obj == nil {
-		return nil, err
+func newFakeServerlessServices(fake *FakeNetworkingV1alpha1, namespace string) networkingv1alpha1.ServerlessServiceInterface {
+	return &fakeServerlessServices{
+		gentype.NewFakeClientWithList[*v1alpha1.ServerlessService, *v1alpha1.ServerlessServiceList](
+			fake.Fake,
+			namespace,
+			v1alpha1.SchemeGroupVersion.WithResource("serverlessservices"),
+			v1alpha1.SchemeGroupVersion.WithKind("ServerlessService"),
+			func() *v1alpha1.ServerlessService { return &v1alpha1.ServerlessService{} },
+			func() *v1alpha1.ServerlessServiceList { return &v1alpha1.ServerlessServiceList{} },
+			func(dst, src *v1alpha1.ServerlessServiceList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.ServerlessServiceList) []*v1alpha1.ServerlessService {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.ServerlessServiceList, items []*v1alpha1.ServerlessService) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.ServerlessService), err
-}
-
-// List takes label and field selectors, and returns the list of ServerlessServices that match those selectors.
-func (c *FakeServerlessServices) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.ServerlessServiceList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewListAction(serverlessservicesResource, serverlessservicesKind, c.ns, opts), &v1alpha1.ServerlessServiceList{})
-
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.ServerlessServiceList{ListMeta: obj.(*v1alpha1.ServerlessServiceList).ListMeta}
-	for _, item := range obj.(*v1alpha1.ServerlessServiceList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested serverlessServices.
-func (c *FakeServerlessServices) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(serverlessservicesResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a serverlessService and creates it.  Returns the server's representation of the serverlessService, and an error, if there is any.
-func (c *FakeServerlessServices) Create(ctx context.Context, serverlessService *v1alpha1.ServerlessService, opts v1.CreateOptions) (result *v1alpha1.ServerlessService, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(serverlessservicesResource, c.ns, serverlessService), &v1alpha1.ServerlessService{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.ServerlessService), err
-}
-
-// Update takes the representation of a serverlessService and updates it. Returns the server's representation of the serverlessService, and an error, if there is any.
-func (c *FakeServerlessServices) Update(ctx context.Context, serverlessService *v1alpha1.ServerlessService, opts v1.UpdateOptions) (result *v1alpha1.ServerlessService, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(serverlessservicesResource, c.ns, serverlessService), &v1alpha1.ServerlessService{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.ServerlessService), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeServerlessServices) UpdateStatus(ctx context.Context, serverlessService *v1alpha1.ServerlessService, opts v1.UpdateOptions) (*v1alpha1.ServerlessService, error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(serverlessservicesResource, "status", c.ns, serverlessService), &v1alpha1.ServerlessService{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.ServerlessService), err
-}
-
-// Delete takes name of the serverlessService and deletes it. Returns an error if one occurs.
-func (c *FakeServerlessServices) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(serverlessservicesResource, c.ns, name, opts), &v1alpha1.ServerlessService{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeServerlessServices) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(serverlessservicesResource, c.ns, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.ServerlessServiceList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched serverlessService.
-func (c *FakeServerlessServices) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ServerlessService, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(serverlessservicesResource, c.ns, name, pt, data, subresources...), &v1alpha1.ServerlessService{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.ServerlessService), err
 }
