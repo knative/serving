@@ -46,7 +46,7 @@ import (
 
 // Throttler is the interface that Handler calls to Try to proxy the user request.
 type Throttler interface {
-	Try(ctx context.Context, revID types.NamespacedName, fn func(string, bool) error) error
+	Try(ctx context.Context, revID types.NamespacedName, xRequestId string, fn func(string, bool) error) error
 }
 
 // activationHandler will wait for an active endpoint for a revision
@@ -86,8 +86,10 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		tryContext, trySpan = trace.StartSpan(r.Context(), "throttler_try")
 	}
 
+	xRequestId := r.Header.Get("X-Request-Id")
+
 	revID := RevIDFrom(r.Context())
-	if err := a.throttler.Try(tryContext, revID, func(dest string, isClusterIP bool) error {
+	if err := a.throttler.Try(tryContext, revID, xRequestId, func(dest string, isClusterIP bool) error {
 		trySpan.End()
 
 		proxyCtx, proxySpan := r.Context(), (*trace.Span)(nil)

@@ -49,7 +49,7 @@ import (
 const (
 	noPrivateServiceName = "No Private Service Name"
 	noTrafficReason      = "NoTraffic"
-	minActivators        = 2
+	minActivators        = 1
 )
 
 // podCounts keeps record of various numbers of pods
