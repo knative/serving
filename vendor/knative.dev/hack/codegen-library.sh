@@ -138,8 +138,8 @@ function restore-changes-if-its-copyright-year-only() {
     git diff --name-only > "$difflist"  
     while read -r file; do
       # check if the file contains just the change in the boilerplate year
-      if [ "$(LANG=C git diff --exit-code --shortstat -- "$file")" = ' 1 file changed, 1 insertion(+), 1 deletion(-)' ] && \
-          [[ "$(git diff --exit-code -U1 -- "$file" | grep -Ec '^[+-]\s*[*#]?\s*Copyright 2[0-9]{3}')" -eq 2 ]]; then
+      if [ "$(LANG=C git diff --ignore-space-change --exit-code --shortstat -- "$file")" = ' 1 file changed, 1 insertion(+), 1 deletion(-)' ] && \
+          [[ "$(git diff --ignore-space-change --exit-code -U1 -- "$file" | grep -Ec '^[+-]\s*[*#]?\s*Copyright 2[0-9]{3}')" -eq 2 ]]; then
         # restore changes to that file
         git checkout -- "$file"
       fi
