@@ -322,6 +322,11 @@ func TestWebSocketWithTimeout(t *testing.T) {
 		idleTimeoutSeconds: 10,
 		delay:              "20",
 		expectError:        true,
+	}, {
+		name:           "websocket does not drop after queue drain is called at 30s",
+		timeoutSeconds: 60,
+		delay:          "45",
+		expectError:    false,
 	}}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -337,6 +342,44 @@ func TestWebSocketWithTimeout(t *testing.T) {
 				rtesting.WithRevisionTimeoutSeconds(tc.timeoutSeconds),
 				rtesting.WithRevisionResponseStartTimeoutSeconds(tc.responseStartTimeoutSeconds),
 				rtesting.WithRevisionIdleTimeoutSeconds(tc.idleTimeoutSeconds))
+			if err != nil {
+				t.Fatal("Failed to create WebSocket server:", err)
+			}
+			// Validate the websocket connection.
+			err = ValidateWebSocketConnection(t, clients, names, tc.delay)
+			if (err == nil && tc.expectError) || (err != nil && !tc.expectError) {
+				t.Error(err)
+			}
+		})
+	}
+}
+
+func TestWebSocketDrain(t *testing.T) {
+	clients := Setup(t)
+
+	testCases := []struct {
+		name           string
+		timeoutSeconds int64
+		delay          string
+		expectError    bool
+	}{{
+		name:           "websocket does not drop after queue drain is called",
+		timeoutSeconds: 60,
+		delay:          "45",
+		expectError:    false,
+	}}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			names := test.ResourceNames{
+				Service: test.ObjectNameForTest(t),
+				Image:   wsServerTestImageName,
+			}
+
+			// Clean up in both abnormal and normal exits.
+			test.EnsureTearDown(t, clients, &names)
+
+			_, err := v1test.CreateServiceReady(t, clients, &names,
+				rtesting.WithRevisionTimeoutSeconds(tc.timeoutSeconds),
 			if err != nil {
 				t.Fatal("Failed to create WebSocket server:", err)
 			}
