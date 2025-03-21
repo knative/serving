@@ -134,7 +134,6 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag(FeaturePodSpecFieldRef, &nc.PodSpecFieldRef),
 		asFlag(FeaturePodSpecHostAliases, &nc.PodSpecHostAliases),
 		asFlag(FeaturePodSpecHostIPC, &nc.PodSpecHostIPC),
-		asFlag(FeaturePodSpecHostIPC, &nc.PodSpecHostIPC),
 		asFlag(FeaturePodSpecHostNetwork, &nc.PodSpecHostNetwork),
 		asFlag(FeaturePodSpecHostPID, &nc.PodSpecHostPID),
 		asFlag(FeaturePodSpecHostPath, &nc.PodSpecVolumesHostPath),
