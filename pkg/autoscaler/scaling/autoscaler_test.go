@@ -76,6 +76,7 @@ func TestAutoscalerScaleDownDelay(t *testing.T) {
 		MaxScaleUpRate:   10,
 		PanicThreshold:   100,
 		ScaleDownDelay:   5 * time.Minute,
+		ScaleBuffer:      0,
 	}
 	as := New(context.Background(), testNamespace, testRevision, metrics, pc, spec)
 
@@ -137,6 +138,7 @@ func TestAutoscalerScaleDownDelayZero(t *testing.T) {
 		MaxScaleUpRate:   10,
 		PanicThreshold:   100,
 		ScaleDownDelay:   0,
+		ScaleBuffer:      0,
 	}
 	as := New(context.Background(), testNamespace, testRevision, metrics, pc, spec)
 
@@ -543,6 +545,26 @@ func TestAutoscalerUseOnePodAsMinimumIfEndpointsNotFound(t *testing.T) {
 	// 2*10 as the rate limited if we can get the actual pods number.
 	// 1*10 as the rate limited since no read pods are there from K8S API.
 	expectScale(t, a, time.Now(), ScaleResult{10, expectedEBC(10, 81, 888, 0), true})
+}
+
+func TestAutoscalerScaleWithBuffer(t *testing.T) {
+	metrics := &metricClient{StableConcurrency: 100, PanicConcurrency: 100}
+	a, pc := newTestAutoscaler(10, 77, metrics)
+	expectScale(t, a, time.Now(), ScaleResult{10, expectedEBC(10, 77, 100, 1), true})
+
+	pc.readyCount = 10
+	a.Update(&DeciderSpec{
+		TargetValue:         1,
+		TotalValue:          1 / targetUtilization,
+		ActivatorCapacity:   21,
+		TargetBurstCapacity: 71,
+		PanicThreshold:      2,
+		MaxScaleDownRate:    10,
+		MaxScaleUpRate:      10,
+		StableWindow:        stableWindow,
+		ScaleBuffer:         10,
+	})
+	expectScale(t, a, time.Now(), ScaleResult{100, expectedEBC(1, 71, 100, 10), true})
 }
 
 func TestAutoscalerUpdateTarget(t *testing.T) {
