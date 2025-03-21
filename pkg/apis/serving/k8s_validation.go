@@ -129,6 +129,10 @@ func validateVolume(ctx context.Context, volume corev1.Volume) *apis.FieldError 
 		errs = errs.Also(&apis.FieldError{Message: fmt.Sprintf("HostPath volume support is disabled, "+
 			"but found HostPath volume %s", volume.Name)})
 	}
+	if volume.CSI != nil && features.PodSpecVolumesCSI != config.Enabled {
+		errs = errs.Also(&apis.FieldError{Message: fmt.Sprintf("CSI volume support is disabled, "+
+			"but found CSI volume %s", volume.Name)})
+	}
 	errs = errs.Also(apis.CheckDisallowedFields(volume, *VolumeMask(ctx, &volume)))
 	if volume.Name == "" {
 		errs = apis.ErrMissingField("name")
@@ -169,6 +173,10 @@ func validateVolume(ctx context.Context, volume corev1.Volume) *apis.FieldError 
 		specified = append(specified, "hostPath")
 	}
 
+	if vs.CSI != nil {
+		specified = append(specified, "csi")
+	}
+
 	if len(specified) == 0 {
 		fieldPaths := []string{"secret", "configMap", "projected"}
 		cfg := config.FromContextOrDefaults(ctx)
@@ -180,6 +188,9 @@ func validateVolume(ctx context.Context, volume corev1.Volume) *apis.FieldError 
 		}
 		if cfg.Features.PodSpecVolumesHostPath == config.Enabled {
 			fieldPaths = append(fieldPaths, "hostPath")
+		}
+		if cfg.Features.PodSpecVolumesCSI == config.Enabled {
+			fieldPaths = append(fieldPaths, "csi")
 		}
 		errs = errs.Also(apis.ErrMissingOneOf(fieldPaths...))
 	} else if len(specified) > 1 {

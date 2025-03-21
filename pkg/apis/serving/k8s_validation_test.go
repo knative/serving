@@ -136,6 +136,13 @@ func withPodSpecVolumesHostPathEnabled() configOption {
 	}
 }
 
+func withPodSpecVolumesCSIEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecVolumesCSI = config.Enabled
+		return cfg
+	}
+}
+
 func withPodSpecPersistentVolumeWriteEnabled() configOption {
 	return func(cfg *config.Config) *config.Config {
 		cfg.Features.PodSpecPersistentVolumeWrite = config.Enabled
@@ -2921,6 +2928,39 @@ func TestVolumeValidation(t *testing.T) {
 		},
 		cfgOpts: []configOption{withPodSpecVolumesHostPathEnabled()},
 		want:    apis.ErrMissingOneOf("secret", "configMap", "projected", "emptyDir", "hostPath"),
+	}, {
+		name: "valid CSI volume with feature enabled",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				CSI: &corev1.CSIVolumeSource{
+					Driver: "foo",
+				},
+			},
+		},
+		cfgOpts: []configOption{withPodSpecVolumesCSIEnabled()},
+	}, {
+		name: "CSI volume with feature disabled",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				CSI: &corev1.CSIVolumeSource{
+					Driver: "foo",
+				},
+			},
+		},
+		want: (&apis.FieldError{
+			Message: `CSI volume support is disabled, but found CSI volume foo`,
+		}).Also(
+			&apis.FieldError{Message: "must not set the field(s)", Paths: []string{"csi"}
+		})
+	}, {
+		name: "missing CSI volume when required",
+		v: corev1.Volume{
+			Name: "foo",
+		},
+		cfgOpts: []configOption{withPodSpecVolumesCSIEnabled()},
+		want:    apis.ErrMissingOneOf("secret", "configMap", "projected", "emptyDir", "hostPath", "csi"),
 	}, {
 		name: "valid PVC with PVC feature enabled",
 		v: corev1.Volume{
