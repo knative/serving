@@ -1139,6 +1139,10 @@ spec:
                             description: optional specify whether the ConfigMap or its keys must be defined
                             type: boolean
                         x-kubernetes-map-type: atomic
+                      csi:
+                        description: This is accessible behind a feature flag - kubernetes.podspec-volumes-csi
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
                       emptyDir:
                         description: |-
                           This is accessible behind a feature flag - kubernetes.podspec-volumes-emptydir

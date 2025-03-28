@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "63a13754"
+    knative.dev/example-checksum: "634edbdf"
 data:
   _example: |-
     ################################
@@ -207,6 +207,11 @@ data:
     # 1. Enabled: enabling HostPath volume support
     # 2. Disabled: disabling HostPath volume support
     kubernetes.podspec-volumes-hostpath: "disabled"
+
+    # Controls whether volume support for CSI is enabled or not.
+    # 1. Enabled: enabling CSI volume support
+    # 2. Disabled: disabling CSI volume support
+    kubernetes.podspec-volumes-csi: "disabled"
 
     # Controls whether init containers support is enabled or not.
     # 1. Enabled: enabling init containers support

@@ -65,6 +65,7 @@ const (
 	FeaturePodSpecHostNetwork               = "kubernetes.podspec-hostnetwork"
 	FeaturePodSpecHostPID                   = "kubernetes.podspec-hostpid"
 	FeaturePodSpecHostPath                  = "kubernetes.podspec-volumes-hostpath"
+	FeaturePodSpecCSI                       = "kubernetes.podspec-volumes-csi"
 	FeaturePodSpecInitContainers            = "kubernetes.podspec-init-containers"
 	FeaturePodSpecNodeSelector              = "kubernetes.podspec-nodeselector"
 	FeaturePodSpecPVClaim                   = "kubernetes.podspec-persistent-volume-claim"
@@ -99,6 +100,7 @@ func defaultFeaturesConfig() *Features {
 		PodSpecTolerations:               Disabled,
 		PodSpecVolumesEmptyDir:           Enabled,
 		PodSpecVolumesHostPath:           Disabled,
+		PodSpecVolumesCSI:                Disabled,
 		PodSpecPersistentVolumeClaim:     Disabled,
 		PodSpecPersistentVolumeWrite:     Disabled,
 		QueueProxyMountPodInfo:           Disabled,
@@ -137,6 +139,7 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag(FeaturePodSpecHostNetwork, &nc.PodSpecHostNetwork),
 		asFlag(FeaturePodSpecHostPID, &nc.PodSpecHostPID),
 		asFlag(FeaturePodSpecHostPath, &nc.PodSpecVolumesHostPath),
+		asFlag(FeaturePodSpecCSI, &nc.PodSpecVolumesCSI),
 		asFlag(FeaturePodSpecInitContainers, &nc.PodSpecInitContainers),
 		asFlag(FeaturePodSpecNodeSelector, &nc.PodSpecNodeSelector),
 		asFlag(FeaturePodSpecPVClaim, &nc.PodSpecPersistentVolumeClaim),
@@ -180,6 +183,7 @@ type Features struct {
 	PodSpecTolerations               Flag
 	PodSpecVolumesEmptyDir           Flag
 	PodSpecVolumesHostPath           Flag
+	PodSpecVolumesCSI                Flag
 	PodSpecInitContainers            Flag
 	PodSpecPersistentVolumeClaim     Flag
 	PodSpecPersistentVolumeWrite     Flag

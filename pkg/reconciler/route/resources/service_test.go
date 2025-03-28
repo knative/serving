@@ -435,6 +435,7 @@ func testConfig() *config.Config {
 			PodSpecTolerations:           apiConfig.Disabled,
 			PodSpecVolumesEmptyDir:       apiConfig.Disabled,
 			PodSpecVolumesHostPath:       apiConfig.Disabled,
+			PodSpecVolumesCSI:            apiConfig.Disabled,
 			PodSpecPersistentVolumeClaim: apiConfig.Disabled,
 			PodSpecPersistentVolumeWrite: apiConfig.Disabled,
 			PodSpecInitContainers:        apiConfig.Disabled,
