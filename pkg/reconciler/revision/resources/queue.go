@@ -423,6 +423,9 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			Name:  "TRACING_CONFIG_SAMPLE_RATE",
 			Value: fmt.Sprint(cfg.Tracing.SampleRate),
 		}, {
+			Name:  "TRACING_CONFIG_USE_SERVING_SERVICE",
+			Value: fmt.Sprint(cfg.Tracing.UseServingService),
+		}, {
 			Name:  "USER_PORT",
 			Value: strconv.Itoa(int(userPort)),
 		}, {
