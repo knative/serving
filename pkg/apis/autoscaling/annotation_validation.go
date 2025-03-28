@@ -60,7 +60,8 @@ func ValidateAnnotations(ctx context.Context, config *autoscalerconfig.Config, a
 		Also(validateScaleDownDelay(anns)).
 		Also(validateMetric(config, anns)).
 		Also(validateAlgorithm(anns)).
-		Also(validateInitialScale(config, anns))
+		Also(validateInitialScale(config, anns)).
+		Also(validateScaleBuffer(anns))
 }
 
 func validateClass(m map[string]string) *apis.FieldError {
@@ -274,4 +275,24 @@ func validateInitialScale(config *autoscalerconfig.Config, m map[string]string) 
 		}
 	}
 	return nil
+}
+
+func validateScaleBuffer(m map[string]string) *apis.FieldError {
+	max, errs := getIntGE0(m, MaxScaleAnnotation)
+	scaleBuffer, err := getIntGE0(m, ScaleBufferAnnotation)
+	errs = errs.Also(err)
+
+	if scaleBuffer > max {
+		errs = errs.Also(&apis.FieldError{
+			Message: fmt.Sprintf("scale-buffer=%d is greater than max-scale=%d", scaleBuffer, max),
+			Paths:   []string{ScaleBufferAnnotationKey, MaxScaleAnnotationKey},
+		})
+	} else if scaleBuffer < 0 {
+		errs = errs.Also(&apis.FieldError{
+			Message: fmt.Sprintf("scale-buffer=%d is less than 0", scaleBuffer),
+			Paths:   []string{ScaleBufferAnnotationKey},
+		})
+	}
+
+	return errs
 }

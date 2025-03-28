@@ -82,6 +82,12 @@ type DeciderSpec struct {
 	// min-scale value while also preserving the ability to scale to zero.
 	// ActivationScale must be >= 2.
 	ActivationScale int32
+	// ScaleBuffer is the number of replicas that should be added to the desired scale
+	// to provide a static buffer of replicas to handle sudden spikes in traffic.
+	// This is useful for services that have a high startup time or for services that
+	// have a high variance in traffic. For example, if ScaleBuffer = 2, the desired
+	// scale would be the desired scale + 2.
+	ScaleBuffer int32
 }
 
 // DeciderStatus is the current scale recommendation.
