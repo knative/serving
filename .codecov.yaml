@@ -17,7 +17,7 @@ comment:
 ignore:
   - "**/zz_generated*.go" # Ignore generated files.
   - "**/*.pb.go" # Ignore proto-generated files.
-  - "cmd/schema-tweak"
+  - "cmd"
   - "hack"
   - "pkg/client"
   - "test"
