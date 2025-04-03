@@ -253,7 +253,7 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 	// not the same in the case where two Scale()s happen in the same time
 	// interval (because the largest will be picked rather than the most recent
 	// in that case).
-	if a.delayWindow != nil {
+	if a.deciderSpec.Reachable && a.delayWindow != nil {
 		a.delayWindow.Record(now, desiredPodCount)
 		delayedPodCount := a.delayWindow.Current()
 		if delayedPodCount != desiredPodCount {
