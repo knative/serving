@@ -19,7 +19,7 @@ package net
 import (
 	"context"
 	"errors"
-	"slices"
+	"maps"
 	"strconv"
 	"sync"
 	"testing"
@@ -74,7 +74,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		containerConcurrency int
 		isNewInfiniteBreaker bool
 		podTrackers          []*podTracker
-		want                 int
+		want                 uint64
 		checkAssignedPod     bool
 	}{{
 		name:                 "capacity: 1, cc: 10",
@@ -221,7 +221,11 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 			}
 			rt.numActivators.Store(tt.numActivators)
 			rt.activatorIndex.Store(tt.activatorIndex)
-			rt.podTrackers = tt.podTrackers
+			rtPodTrackers := make(map[string]*podTracker)
+			for _, pt := range tt.podTrackers {
+				rtPodTrackers[pt.dest] = pt
+			}
+			rt.podTrackers = rtPodTrackers
 			if tt.isNewInfiniteBreaker {
 				rt.breaker = newInfiniteBreaker(logger)
 			}
@@ -275,18 +279,19 @@ func TestThrottlerCalculateCapacity(t *testing.T) {
 }
 
 func makeTrackers(num, cc int) []*podTracker {
-	x := make([]*podTracker, num)
+	trackers := make([]*podTracker, num)
 	for i := range num {
-		x[i] = newPodTracker(strconv.Itoa(i), nil)
+		pt := newPodTracker(strconv.Itoa(i), nil)
 		if cc > 0 {
-			x[i].b = queue.NewBreaker(queue.BreakerParams{
+			pt.b = queue.NewBreaker(queue.BreakerParams{
 				QueueDepth:      1,
 				MaxConcurrency:  cc,
 				InitialCapacity: cc,
 			})
 		}
+		trackers[i] = pt
 	}
-	return x
+	return trackers
 }
 
 func TestThrottlerErrorNoRevision(t *testing.T) {
@@ -315,13 +320,13 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 	})
 
 	// Make sure it now works.
-	if err := throttler.Try(ctx, revID, func(string, bool) error { return nil }); err != nil {
+	if err := throttler.Try(ctx, revID, "test", func(string, bool) error { return nil }); err != nil {
 		t.Fatalf("Try() = %v, want no error", err)
 	}
 
 	// Make sure errors are propagated correctly.
 	innerError := errors.New("inner")
-	if err := throttler.Try(ctx, revID, func(string, bool) error { return innerError }); !errors.Is(err, innerError) {
+	if err := throttler.Try(ctx, revID, "test", func(string, bool) error { return innerError }); !errors.Is(err, innerError) {
 		t.Fatalf("Try() = %v, want %v", err, innerError)
 	}
 
@@ -331,7 +336,7 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 	// Eventually it should now fail.
 	var lastError error
 	wait.PollUntilContextCancel(ctx, 10*time.Millisecond, false, func(context.Context) (bool, error) {
-		lastError = throttler.Try(ctx, revID, func(string, bool) error { return nil })
+		lastError = throttler.Try(ctx, revID, "test", func(string, bool) error { return nil })
 		return lastError != nil, nil
 	})
 	if lastError == nil || lastError.Error() != `revision.serving.knative.dev "test-revision" not found` {
@@ -550,11 +555,12 @@ func TestThrottlerSuccesses(t *testing.T) {
 
 			// Make sure our informer event has fired.
 			// We send multiple updates in some tests, so make sure the capacity is exact.
-			wantCapacity := 1
+			var wantCapacity uint64
+			wantCapacity = 1
 			cc := tc.revision.Spec.ContainerConcurrency
 			dests := tc.initUpdates[len(tc.initUpdates)-1].Dests.Len()
 			if *cc != 0 {
-				wantCapacity = dests * int(*cc)
+				wantCapacity = uint64(dests) * uint64(*cc)
 			}
 			if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 3*time.Second, true, func(context.Context) (bool, error) {
 				rt.mux.RLock()
@@ -638,13 +644,13 @@ func TestPodAssignmentFinite(t *testing.T) {
 	if got, want := trackerDestSet(rt.assignedTrackers), sets.New("ip0", "ip4"); !got.Equal(want) {
 		t.Errorf("Assigned trackers = %v, want: %v, diff: %s", got, want, cmp.Diff(want, got))
 	}
-	if got, want := rt.breaker.Capacity(), 2*42; got != want {
+	if got, want := rt.breaker.Capacity(), uint64(2*42); got != want {
 		t.Errorf("TotalCapacity = %d, want: %d", got, want)
 	}
-	if got, want := rt.assignedTrackers[0].Capacity(), 42; got != want {
+	if got, want := rt.assignedTrackers[0].Capacity(), uint64(42); got != want {
 		t.Errorf("Exclusive tracker capacity: %d, want: %d", got, want)
 	}
-	if got, want := rt.assignedTrackers[1].Capacity(), 42; got != want {
+	if got, want := rt.assignedTrackers[1].Capacity(), uint64(42); got != want {
 		t.Errorf("Shared tracker capacity: %d, want: %d", got, want)
 	}
 
@@ -657,7 +663,7 @@ func TestPodAssignmentFinite(t *testing.T) {
 	if got, want := len(rt.assignedTrackers), 0; got != want {
 		t.Errorf("NumAssignedTrackers = %d, want: %d", got, want)
 	}
-	if got, want := rt.breaker.Capacity(), 0; got != want {
+	if got, want := rt.breaker.Capacity(), uint64(0); got != want {
 		t.Errorf("TotalCapacity = %d, want: %d", got, want)
 	}
 }
@@ -687,10 +693,10 @@ func TestPodAssignmentInfinite(t *testing.T) {
 	if got, want := len(rt.assignedTrackers), 3; got != want {
 		t.Errorf("NumAssigned trackers = %d, want: %d", got, want)
 	}
-	if got, want := rt.breaker.Capacity(), 1; got != want {
+	if got, want := rt.breaker.Capacity(), uint64(1); got != want {
 		t.Errorf("TotalCapacity = %d, want: %d", got, want)
 	}
-	if got, want := rt.assignedTrackers[0].Capacity(), 1; got != want {
+	if got, want := rt.assignedTrackers[0].Capacity(), uint64(1); got != want {
 		t.Errorf("Exclusive tracker capacity: %d, want: %d", got, want)
 	}
 
@@ -703,7 +709,7 @@ func TestPodAssignmentInfinite(t *testing.T) {
 	if got, want := len(rt.assignedTrackers), 0; got != want {
 		t.Errorf("NumAssignedTrackers = %d, want: %d", got, want)
 	}
-	if got, want := rt.breaker.Capacity(), 0; got != want {
+	if got, want := rt.breaker.Capacity(), uint64(0); got != want {
 		t.Errorf("TotalCapacity = %d, want: %d", got, want)
 	}
 }
@@ -915,7 +921,7 @@ func (t *Throttler) try(ctx context.Context, requests int, try func(string) erro
 	for range requests {
 		go func() {
 			var result tryResult
-			if err := t.Try(ctx, revID, func(dest string, _ bool) error {
+			if err := t.Try(ctx, revID, "test", func(dest string, isClusterIP bool) error {
 				result = tryResult{dest: dest}
 				return try(dest)
 			}); err != nil {
@@ -935,7 +941,7 @@ func TestInfiniteBreaker(t *testing.T) {
 	}
 
 	// Verify initial condition.
-	if got, want := b.Capacity(), 0; got != want {
+	if got, want := b.Capacity(), uint64(0); got != want {
 		t.Errorf("Cap=%d, want: %d", got, want)
 	}
 	if _, ok := b.Reserve(context.Background()); ok != true {
@@ -949,7 +955,7 @@ func TestInfiniteBreaker(t *testing.T) {
 	}
 
 	b.UpdateConcurrency(1)
-	if got, want := b.Capacity(), 1; got != want {
+	if got, want := b.Capacity(), uint64(1); got != want {
 		t.Errorf("Cap=%d, want: %d", got, want)
 	}
 
@@ -976,7 +982,7 @@ func TestInfiniteBreaker(t *testing.T) {
 	if err := b.Maybe(ctx, nil); err == nil {
 		t.Error("Should have failed, but didn't")
 	}
-	if got, want := b.Capacity(), 0; got != want {
+	if got, want := b.Capacity(), uint64(0); got != want {
 		t.Errorf("Cap=%d, want: %d", got, want)
 	}
 
@@ -1150,7 +1156,18 @@ func TestAssignSlice(t *testing.T) {
 		return a.dest == b.dest
 	})
 	// assignSlice receives the pod trackers sorted.
-	trackers := []*podTracker{{
+	trackers := map[string]*podTracker{
+		"dest1": {
+			dest: "1",
+		},
+		"dest2": {
+			dest: "2",
+		},
+		"dest3": {
+			dest: "3",
+		},
+	}
+	assignedTrackers := []*podTracker{{
 		dest: "1",
 	}, {
 		dest: "2",
@@ -1158,44 +1175,62 @@ func TestAssignSlice(t *testing.T) {
 		dest: "3",
 	}}
 	t.Run("notrackers", func(t *testing.T) {
-		got := assignSlice([]*podTracker{}, 0 /*selfIdx*/, 1 /*numAct*/)
+		got := assignSlice(map[string]*podTracker{}, 0 /*selfIdx*/, 1 /*numAct*/)
 		if !cmp.Equal(got, []*podTracker{}, opt) {
-			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
+			t.Errorf("Got=%v, want: %v, diff: %s", got, assignedTrackers,
 				cmp.Diff([]*podTracker{}, got, opt))
 		}
 	})
 	t.Run("idx=1, na=1", func(t *testing.T) {
 		got := assignSlice(trackers, 1, 1)
-		if !cmp.Equal(got, trackers, opt) {
-			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
-				cmp.Diff(trackers, got, opt))
+		if !cmp.Equal(got, assignedTrackers, opt) {
+			t.Errorf("Got=%v, want: %v, diff: %s", got, assignedTrackers,
+				cmp.Diff(assignedTrackers, got, opt))
 		}
 	})
 	t.Run("idx=-1", func(t *testing.T) {
 		got := assignSlice(trackers, -1, 1)
-		if !cmp.Equal(got, trackers, opt) {
-			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
-				cmp.Diff(trackers, got, opt))
+		if !cmp.Equal(got, assignedTrackers, opt) {
+			t.Errorf("Got=%v, want: %v, diff: %s", got, assignedTrackers,
+				cmp.Diff(assignedTrackers, got, opt))
 		}
 	})
 	t.Run("idx=1 na=3", func(t *testing.T) {
-		cp := slices.Clone(trackers)
+		cp := make(map[string]*podTracker)
+		maps.Copy(cp, trackers)
 		got := assignSlice(cp, 1, 3)
-		if !cmp.Equal(got, trackers[1:2], opt) {
-			t.Errorf("Got=%v, want: %v; diff: %s", got, trackers[0:1],
-				cmp.Diff(trackers[1:2], got, opt))
+		if !cmp.Equal(got, assignedTrackers[1:2], opt) {
+			t.Errorf("Got=%v, want: %v; diff: %s", got, assignedTrackers[0:1],
+				cmp.Diff(assignedTrackers[1:2], got, opt))
 		}
 	})
 	t.Run("len=1", func(t *testing.T) {
-		got := assignSlice(trackers[0:1], 1, 3)
-		if !cmp.Equal(got, trackers[0:1], opt) {
-			t.Errorf("Got=%v, want: %v; diff: %s", got, trackers[0:1],
-				cmp.Diff(trackers[0:1], got, opt))
+		cp := make(map[string]*podTracker)
+		delete(cp, "dest2")
+		delete(cp, "dest3")
+		got := assignSlice(cp, 1, 3)
+		if !cmp.Equal(got, assignedTrackers[0:1], opt) {
+			t.Errorf("Got=%v, want: %v; diff: %s", got, assignedTrackers[0:1],
+				cmp.Diff(assignedTrackers[0:1], got, opt))
 		}
 	})
 
 	t.Run("idx=1, breaker", func(t *testing.T) {
-		trackers := []*podTracker{{
+		trackers := map[string]*podTracker{
+			"dest1": {
+				dest: "1",
+				b:    queue.NewBreaker(testBreakerParams),
+			},
+			"dest2": {
+				dest: "2",
+				b:    queue.NewBreaker(testBreakerParams),
+			},
+			"dest3": {
+				dest: "3",
+				b:    queue.NewBreaker(testBreakerParams),
+			},
+		}
+		assignedTrackers := []podTracker{{
 			dest: "1",
 			b:    queue.NewBreaker(testBreakerParams),
 		}, {
@@ -1205,14 +1240,14 @@ func TestAssignSlice(t *testing.T) {
 			dest: "3",
 			b:    queue.NewBreaker(testBreakerParams),
 		}}
-		cp := slices.Clone(trackers)
+		cp := maps.Clone(trackers)
 		got := assignSlice(cp, 1, 2)
-		want := trackers[1:2]
+		want := assignedTrackers[1:2]
 		if !cmp.Equal(got, want, opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, want,
 				cmp.Diff(want, got, opt))
 		}
-		if got, want := got[0].b.Capacity(), 0; got != want {
+		if got, want := got[0].b.Capacity(), uint64(0); got != want {
 			t.Errorf("Capacity for the tail pod = %d, want: %d", got, want)
 		}
 	})
