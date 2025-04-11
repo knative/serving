@@ -456,6 +456,24 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"kubernetes.podspec-volumes-hostpath": "Enabled",
 		},
 	}, {
+		name:    "kubernetes.podspec-volumes-csi Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecVolumesCSI: Disabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-volumes-csi": "Disabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-volumes-csi Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecVolumesCSI: Enabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-volumes-csi": "Enabled",
+		},
+	}, {
 		name:    "kubernetes.podspec-persistent-volume-claim Disabled",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
