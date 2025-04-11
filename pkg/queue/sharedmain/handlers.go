@@ -71,7 +71,7 @@ func mainHandler(
 	if metricsSupported {
 		composedHandler = requestAppMetricsHandler(logger, composedHandler, breaker, env)
 	}
-	composedHandler = queue.ProxyHandler(breaker, stats, tracingEnabled, composedHandler)
+	composedHandler = queue.ProxyHandler(breaker, stats, tracingEnabled, composedHandler, logger)
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
 	composedHandler = handler.NewTimeoutHandler(composedHandler, "request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
 		return timeout, responseStartTimeout, idleTimeout

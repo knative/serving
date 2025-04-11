@@ -525,7 +525,7 @@ func TestReconcile(t *testing.T) {
 		Name: "kpa does not become ready without minScale endpoints when reachable",
 		Key:  key,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, withMinScale(2), withScales(1, defaultScale),
+			kpa(testNamespace, testRevision, withMinScale(1), withScales(1, defaultScale),
 				WithReachabilityReachable, WithPAMetricsService(privateSvc)),
 			defaultSKS,
 			metric(testNamespace, testRevision),
