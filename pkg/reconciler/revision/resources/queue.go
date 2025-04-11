@@ -312,6 +312,9 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 					probePort = sc.ReadinessProbe.TCPSocket.Port.IntVal
 				case sc.ReadinessProbe.GRPC != nil && sc.ReadinessProbe.GRPC.Port > 0:
 					probePort = sc.ReadinessProbe.GRPC.Port
+				case sc.ReadinessProbe.Exec != nil:
+					// Skip the queue-proxy optimization for readiness probing when exec probe is defined on a sidecar container
+					continue
 				default:
 					return nil, fmt.Errorf("sidecar readiness probe does not define probe port on container: %s", sc.Name)
 				}
