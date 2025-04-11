@@ -197,6 +197,8 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 	// We want to keep desired pod count in the  [maxScaleDown, maxScaleUp] range.
 	desiredStablePodCount := int32(math.Min(math.Max(dspc, maxScaleDown), maxScaleUp))
 	desiredPanicPodCount := int32(math.Min(math.Max(dppc, maxScaleDown), maxScaleUp))
+	desiredStablePodCount += spec.ScaleBuffer
+	desiredPanicPodCount += spec.ScaleBuffer
 
 	//	If ActivationScale > 1, then adjust the desired pod counts
 	if a.deciderSpec.ActivationScale > 1 {

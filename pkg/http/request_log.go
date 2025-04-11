@@ -146,6 +146,7 @@ func (h *RequestLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		err := recover()
 		latency := time.Since(startTime).Seconds()
 		if err != nil {
+			fmt.Printf("error: %e", err)
 			h.write(t, h.inputGetter(r, &RequestLogResponse{
 				Code:    http.StatusInternalServerError,
 				Latency: latency,
