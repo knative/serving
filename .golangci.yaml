@@ -1,73 +1,15 @@
+version: "2"
 run:
-  timeout: 10m
-  allow-parallel-runners: true
   build-tags:
-  - e2e
-  - hpa
-  - upgrade
-
+    - e2e
+    - hpa
+    - upgrade
+  allow-parallel-runners: true
 output:
-  sort-results: true
   sort-order:
-  - linter
-  - file
-  show-stats: true
-
-
-issues:
-  uniq-by-line: true
-  max-issues-per-linter: 0
-  max-same-issues: 0
-  exclude-dirs:
-    - pkg/client # Excludes generated client
-  exclude-rules:
-  - path: test # Excludes /test, *_test.go etc.
-    linters:
-    - gosec
-    - unparam
-    - noctx
-    - protogetter
-  - linters: ["gocritic"]
-    # Fixes are non-trivial do in a follow up
-    text: "ifElseChain"
-
-linters-settings:
-  gocritic:
-    disabled-checks:
-    # we typically have this pattern during setup
-    - exitAfterDefer
-    # a lot cases we have are legit
-    - appendAssign
-  gomodguard:
-    blocked:
-      modules:
-      - github.com/ghodss/yaml:
-          recommendations:
-            - sigs.k8s.io/yaml
-      - go.uber.org/atomic:
-          recommendations:
-          - sync/atomic
-      - io/ioutil:
-          recommendations:
-          - os
-          - io
-      - github.com/hashicorp/go-multierror:
-          reason: "use errors.Join"
-          recommendations:
-          - errors
-      - go.uber.org/multierr:
-          reason: "use errors.Join"
-          recommendations:
-          - errors
-  revive:
-    rules:
-    # use unparam linter instead - defaults are better
-    - name: unused-parameter
-      disabled: true
-
+    - linter
+    - file
 linters:
-  disable:
-    - errcheck
   enable:
     # Check for pass []any as any in variadic func(...any).
     - asasalint
@@ -88,7 +30,7 @@ linters:
     # # Containedctx is a linter that detects struct contained context.Context
     # # field.
     # - containedctx
-
+    #
     # TODO - do a follow up PR
     # # Check whether the function uses a non-inherited context.
     # - contextcheck
@@ -122,26 +64,11 @@ linters:
     # report message and optional suggestion.
     - gocritic
 
-    # Gofmt checks whether code was gofmt-ed. By default this tool runs
-    # with -s option to check for code simplification.
-    - gofmt
-
-    # Gofumpt checks whether code was gofumpt-ed.
-    - gofumpt
-
-     # Check import statements are formatted according to the 'goimport'
-     # command. Reformat imports in autofix mode.
-    - goimports
-
     # See config below
     - gomodguard
 
     # Inspects source code for security problems.
     - gosec
-
-      # Linter that specializes in simplifying code.
-    - gosimple
-    - govet
 
     # Intrange is a linter to find places where for loops could make use of
     # an integer range.
@@ -190,12 +117,7 @@ linters:
     # Checks for mistakes with OpenTelemetry/Census spans.
     - spancheck
 
-    # Stylecheck is a replacement for golint.
-    - stylecheck
-
-    # Tenv is analyzer that detects using os.Setenv instead of t.Setenv
-    # since Go1.17.
-    - tenv
+    - staticcheck
 
     # Linter checks if examples are testable (have an expected output).
     - testableexamples
@@ -216,4 +138,73 @@ linters:
     # Whitespace is a linter that checks for unnecessary newlines at the start
     # and end of functions, if, for, etc.
     - whitespace
-
+  disable:
+    - errcheck
+  settings:
+    gocritic:
+      disabled-checks:
+        - exitAfterDefer
+        - appendAssign
+    gomodguard:
+      blocked:
+        modules:
+          - github.com/ghodss/yaml:
+              recommendations:
+                - sigs.k8s.io/yaml
+          - go.uber.org/atomic:
+              recommendations:
+                - sync/atomic
+          - io/ioutil:
+              recommendations:
+                - os
+                - io
+          - github.com/hashicorp/go-multierror:
+              recommendations:
+                - errors
+              reason: use errors.Join
+          - go.uber.org/multierr:
+              recommendations:
+                - errors
+              reason: use errors.Join
+    revive:
+      rules:
+        - name: unused-parameter
+          disabled: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - gosec
+          - noctx
+          - protogetter
+          - unparam
+        path: test
+      - linters:
+          - gocritic
+        text: ifElseChain
+    paths:
+      - pkg/client
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  uniq-by-line: true
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - pkg/client
+      - third_party$
+      - builtin$
+      - examples$
