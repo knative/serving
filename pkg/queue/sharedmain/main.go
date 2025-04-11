@@ -104,10 +104,11 @@ type config struct {
 	MetricsCollectorAddress                     string `split_words:"true"` // optional
 
 	// Tracing configuration
-	TracingConfigDebug          bool                      `split_words:"true"` // optional
-	TracingConfigBackend        tracingconfig.BackendType `split_words:"true"` // optional
-	TracingConfigSampleRate     float64                   `split_words:"true"` // optional
-	TracingConfigZipkinEndpoint string                    `split_words:"true"` // optional
+	TracingConfigDebug             bool                      `split_words:"true"` // optional
+	TracingConfigBackend           tracingconfig.BackendType `split_words:"true"` // optional
+	TracingConfigSampleRate        float64                   `split_words:"true"` // optional
+	TracingConfigZipkinEndpoint    string                    `split_words:"true"` // optional
+	TracingConfigUseServingService bool                      `split_words:"true"` // optional
 
 	Env
 }
@@ -194,7 +195,12 @@ func Main(opts ...Option) error {
 	d.Transport = buildTransport(env)
 
 	if env.TracingConfigBackend != tracingconfig.None {
-		oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(env.ServingPod, env.ServingPodIP, logger))
+		tracingServiceName := env.ServingPod
+		if env.TracingConfigUseServingService {
+			tracingServiceName = env.ServingService
+		}
+
+		oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(tracingServiceName, env.ServingPodIP, logger))
 		oct.ApplyConfig(&tracingconfig.Config{
 			Backend:        env.TracingConfigBackend,
 			Debug:          env.TracingConfigDebug,
