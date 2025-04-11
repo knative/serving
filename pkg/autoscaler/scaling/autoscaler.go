@@ -247,13 +247,13 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 		logger.Debug("Operating in stable mode.")
 	}
 
-	// Delay scale down decisions, if a ScaleDownDelay was specified.
+	// Delay scale down decisions if reachable and if a ScaleDownDelay was specified.
 	// We only do this if there's a non-nil delayWindow because although a
 	// one-element delay window is _almost_ the same as no delay at all, it is
 	// not the same in the case where two Scale()s happen in the same time
 	// interval (because the largest will be picked rather than the most recent
 	// in that case).
-	if a.delayWindow != nil {
+	if a.deciderSpec.Reachable && a.delayWindow != nil {
 		a.delayWindow.Record(now, desiredPodCount)
 		delayedPodCount := a.delayWindow.Current()
 		if delayedPodCount != desiredPodCount {
