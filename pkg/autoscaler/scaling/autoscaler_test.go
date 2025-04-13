@@ -130,7 +130,6 @@ func TestAutoscalerScaleDownDelay(t *testing.T) {
 }
 
 func TestAutoscalerScaleDownDelayNotReachable(t *testing.T) {
-
 	pc := &fakePodCounter{}
 	metrics := &metricClient{}
 	spec := &DeciderSpec{
