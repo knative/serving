@@ -705,7 +705,7 @@ golang.org/x/tools/internal/stdlib
 golang.org/x/tools/internal/typeparams
 golang.org/x/tools/internal/typesinternal
 golang.org/x/tools/internal/versions
-# gomodules.xyz/jsonpatch/v2 v2.4.0
+# gomodules.xyz/jsonpatch/v2 v2.5.0
 ## explicit; go 1.20
 gomodules.xyz/jsonpatch/v2
 # google.golang.org/api v0.198.0
@@ -1423,7 +1423,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 # knative.dev/hack v0.0.0-20250331013814-c577ed9f7775
 ## explicit; go 1.21
 knative.dev/hack
-# knative.dev/networking v0.0.0-20250331014822-5ce28a23124f
+# knative.dev/networking v0.0.0-20250411212114-f1b08e6cfc7f
 ## explicit; go 1.23.0
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1462,7 +1462,7 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20250411024212-b9bfb4527367
+# knative.dev/pkg v0.0.0-20250411133814-a8e20d9db3aa
 ## explicit; go 1.23.0
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
