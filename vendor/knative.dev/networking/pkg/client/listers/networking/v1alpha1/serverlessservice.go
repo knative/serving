@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
-	v1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
+	networkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 )
 
 // ServerlessServiceLister helps list ServerlessServices.
@@ -30,7 +30,7 @@ import (
 type ServerlessServiceLister interface {
 	// List lists all ServerlessServices in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.ServerlessService, err error)
+	List(selector labels.Selector) (ret []*networkingv1alpha1.ServerlessService, err error)
 	// ServerlessServices returns an object that can list and get ServerlessServices.
 	ServerlessServices(namespace string) ServerlessServiceNamespaceLister
 	ServerlessServiceListerExpansion
@@ -38,17 +38,17 @@ type ServerlessServiceLister interface {
 
 // serverlessServiceLister implements the ServerlessServiceLister interface.
 type serverlessServiceLister struct {
-	listers.ResourceIndexer[*v1alpha1.ServerlessService]
+	listers.ResourceIndexer[*networkingv1alpha1.ServerlessService]
 }
 
 // NewServerlessServiceLister returns a new ServerlessServiceLister.
 func NewServerlessServiceLister(indexer cache.Indexer) ServerlessServiceLister {
-	return &serverlessServiceLister{listers.New[*v1alpha1.ServerlessService](indexer, v1alpha1.Resource("serverlessservice"))}
+	return &serverlessServiceLister{listers.New[*networkingv1alpha1.ServerlessService](indexer, networkingv1alpha1.Resource("serverlessservice"))}
 }
 
 // ServerlessServices returns an object that can list and get ServerlessServices.
 func (s *serverlessServiceLister) ServerlessServices(namespace string) ServerlessServiceNamespaceLister {
-	return serverlessServiceNamespaceLister{listers.NewNamespaced[*v1alpha1.ServerlessService](s.ResourceIndexer, namespace)}
+	return serverlessServiceNamespaceLister{listers.NewNamespaced[*networkingv1alpha1.ServerlessService](s.ResourceIndexer, namespace)}
 }
 
 // ServerlessServiceNamespaceLister helps list and get ServerlessServices.
@@ -56,15 +56,15 @@ func (s *serverlessServiceLister) ServerlessServices(namespace string) Serverles
 type ServerlessServiceNamespaceLister interface {
 	// List lists all ServerlessServices in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.ServerlessService, err error)
+	List(selector labels.Selector) (ret []*networkingv1alpha1.ServerlessService, err error)
 	// Get retrieves the ServerlessService from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.ServerlessService, error)
+	Get(name string) (*networkingv1alpha1.ServerlessService, error)
 	ServerlessServiceNamespaceListerExpansion
 }
 
 // serverlessServiceNamespaceLister implements the ServerlessServiceNamespaceLister
 // interface.
 type serverlessServiceNamespaceLister struct {
-	listers.ResourceIndexer[*v1alpha1.ServerlessService]
+	listers.ResourceIndexer[*networkingv1alpha1.ServerlessService]
 }

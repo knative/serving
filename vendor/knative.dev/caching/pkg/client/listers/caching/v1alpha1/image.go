@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
-	v1alpha1 "knative.dev/caching/pkg/apis/caching/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
+	cachingv1alpha1 "knative.dev/caching/pkg/apis/caching/v1alpha1"
 )
 
 // ImageLister helps list Images.
@@ -30,7 +30,7 @@ import (
 type ImageLister interface {
 	// List lists all Images in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.Image, err error)
+	List(selector labels.Selector) (ret []*cachingv1alpha1.Image, err error)
 	// Images returns an object that can list and get Images.
 	Images(namespace string) ImageNamespaceLister
 	ImageListerExpansion
@@ -38,17 +38,17 @@ type ImageLister interface {
 
 // imageLister implements the ImageLister interface.
 type imageLister struct {
-	listers.ResourceIndexer[*v1alpha1.Image]
+	listers.ResourceIndexer[*cachingv1alpha1.Image]
 }
 
 // NewImageLister returns a new ImageLister.
 func NewImageLister(indexer cache.Indexer) ImageLister {
-	return &imageLister{listers.New[*v1alpha1.Image](indexer, v1alpha1.Resource("image"))}
+	return &imageLister{listers.New[*cachingv1alpha1.Image](indexer, cachingv1alpha1.Resource("image"))}
 }
 
 // Images returns an object that can list and get Images.
 func (s *imageLister) Images(namespace string) ImageNamespaceLister {
-	return imageNamespaceLister{listers.NewNamespaced[*v1alpha1.Image](s.ResourceIndexer, namespace)}
+	return imageNamespaceLister{listers.NewNamespaced[*cachingv1alpha1.Image](s.ResourceIndexer, namespace)}
 }
 
 // ImageNamespaceLister helps list and get Images.
@@ -56,15 +56,15 @@ func (s *imageLister) Images(namespace string) ImageNamespaceLister {
 type ImageNamespaceLister interface {
 	// List lists all Images in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.Image, err error)
+	List(selector labels.Selector) (ret []*cachingv1alpha1.Image, err error)
 	// Get retrieves the Image from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.Image, error)
+	Get(name string) (*cachingv1alpha1.Image, error)
 	ImageNamespaceListerExpansion
 }
 
 // imageNamespaceLister implements the ImageNamespaceLister
 // interface.
 type imageNamespaceLister struct {
-	listers.ResourceIndexer[*v1alpha1.Image]
+	listers.ResourceIndexer[*cachingv1alpha1.Image]
 }

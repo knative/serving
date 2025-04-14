@@ -19,24 +19,24 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
-	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	apisservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	versioned "knative.dev/serving/pkg/client/clientset/versioned"
 	internalinterfaces "knative.dev/serving/pkg/client/informers/externalversions/internalinterfaces"
-	v1 "knative.dev/serving/pkg/client/listers/serving/v1"
+	servingv1 "knative.dev/serving/pkg/client/listers/serving/v1"
 )
 
 // ServiceInformer provides access to a shared informer and lister for
 // Services.
 type ServiceInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.ServiceLister
+	Lister() servingv1.ServiceLister
 }
 
 type serviceInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredServiceInformer(client versioned.Interface, namespace string, re
 				return client.ServingV1().Services(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&servingv1.Service{},
+		&apisservingv1.Service{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *serviceInformer) defaultInformer(client versioned.Interface, resyncPeri
 }
 
 func (f *serviceInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&servingv1.Service{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisservingv1.Service{}, f.defaultInformer)
 }
 
-func (f *serviceInformer) Lister() v1.ServiceLister {
-	return v1.NewServiceLister(f.Informer().GetIndexer())
+func (f *serviceInformer) Lister() servingv1.ServiceLister {
+	return servingv1.NewServiceLister(f.Informer().GetIndexer())
 }

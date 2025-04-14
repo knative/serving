@@ -19,24 +19,24 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
-	cachingv1alpha1 "knative.dev/caching/pkg/apis/caching/v1alpha1"
+	apiscachingv1alpha1 "knative.dev/caching/pkg/apis/caching/v1alpha1"
 	versioned "knative.dev/caching/pkg/client/clientset/versioned"
 	internalinterfaces "knative.dev/caching/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "knative.dev/caching/pkg/client/listers/caching/v1alpha1"
+	cachingv1alpha1 "knative.dev/caching/pkg/client/listers/caching/v1alpha1"
 )
 
 // ImageInformer provides access to a shared informer and lister for
 // Images.
 type ImageInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.ImageLister
+	Lister() cachingv1alpha1.ImageLister
 }
 
 type imageInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredImageInformer(client versioned.Interface, namespace string, resy
 				return client.CachingV1alpha1().Images(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&cachingv1alpha1.Image{},
+		&apiscachingv1alpha1.Image{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *imageInformer) defaultInformer(client versioned.Interface, resyncPeriod
 }
 
 func (f *imageInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&cachingv1alpha1.Image{}, f.defaultInformer)
+	return f.factory.InformerFor(&apiscachingv1alpha1.Image{}, f.defaultInformer)
 }
 
-func (f *imageInformer) Lister() v1alpha1.ImageLister {
-	return v1alpha1.NewImageLister(f.Informer().GetIndexer())
+func (f *imageInformer) Lister() cachingv1alpha1.ImageLister {
+	return cachingv1alpha1.NewImageLister(f.Informer().GetIndexer())
 }

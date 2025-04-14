@@ -23,6 +23,7 @@ aliases:
   - cali0707
   - creydr
   eventing-wg-leads:
+  - creydr
   - pierDipi
   eventing-writers:
   - Leo6Leo
@@ -100,6 +101,7 @@ aliases:
   - davidhadas
   - evankanderson
   serving-approvers:
+  - dsimansk
   - skonto
   serving-reviewers:
   - skonto
@@ -109,6 +111,7 @@ aliases:
   - dprotaso
   serving-writers:
   - dprotaso
+  - dsimansk
   - skonto
   steering-committee:
   - aliok

@@ -76,6 +76,7 @@ func TestAutoscalerScaleDownDelay(t *testing.T) {
 		MaxScaleUpRate:   10,
 		PanicThreshold:   100,
 		ScaleDownDelay:   5 * time.Minute,
+		Reachable:        true,
 	}
 	as := New(context.Background(), testNamespace, testRevision, metrics, pc, spec)
 
@@ -125,6 +126,50 @@ func TestAutoscalerScaleDownDelay(t *testing.T) {
 			ScaleValid:      true,
 			DesiredPodCount: 0, // everything scrolled out, drop to 0
 		})
+	})
+}
+
+func TestAutoscalerScaleDownDelayNotReachable(t *testing.T) {
+	pc := &fakePodCounter{}
+	metrics := &metricClient{}
+	spec := &DeciderSpec{
+		TargetValue:      10,
+		MaxScaleDownRate: 10,
+		MaxScaleUpRate:   10,
+		PanicThreshold:   100,
+		ScaleDownDelay:   5 * time.Minute,
+		Reachable:        true,
+	}
+	as := New(context.Background(), testNamespace, testRevision, metrics, pc, spec)
+
+	now := time.Time{}
+
+	// scale up.
+	metrics.SetStableAndPanicConcurrency(40, 40)
+	expectScale(t, as, now.Add(2*time.Second), ScaleResult{
+		ScaleValid:      true,
+		DesiredPodCount: 4,
+	})
+	// one minute passes at reduced concurrency - should not scale down (less than delay).
+	metrics.SetStableAndPanicConcurrency(0, 0)
+	expectScale(t, as, now.Add(1*time.Minute), ScaleResult{
+		ScaleValid:      true,
+		DesiredPodCount: 4,
+	})
+	// mark as unreachable to simulate another revision coming up
+	unreachableSpec := &DeciderSpec{
+		TargetValue:      10,
+		MaxScaleDownRate: 10,
+		MaxScaleUpRate:   10,
+		PanicThreshold:   100,
+		ScaleDownDelay:   5 * time.Minute,
+		Reachable:        false,
+	}
+	as.Update(unreachableSpec)
+	// 2 seconds pass at reduced concurrency - now we scale down.
+	expectScale(t, as, now.Add(2*time.Second), ScaleResult{
+		ScaleValid:      true,
+		DesiredPodCount: 0,
 	})
 }
 

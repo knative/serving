@@ -19,13 +19,13 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	scheme "knative.dev/serving/pkg/client/clientset/versioned/scheme"
 )
 
@@ -37,33 +37,34 @@ type RevisionsGetter interface {
 
 // RevisionInterface has methods to work with Revision resources.
 type RevisionInterface interface {
-	Create(ctx context.Context, revision *v1.Revision, opts metav1.CreateOptions) (*v1.Revision, error)
-	Update(ctx context.Context, revision *v1.Revision, opts metav1.UpdateOptions) (*v1.Revision, error)
+	Create(ctx context.Context, revision *servingv1.Revision, opts metav1.CreateOptions) (*servingv1.Revision, error)
+	Update(ctx context.Context, revision *servingv1.Revision, opts metav1.UpdateOptions) (*servingv1.Revision, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, revision *v1.Revision, opts metav1.UpdateOptions) (*v1.Revision, error)
+	UpdateStatus(ctx context.Context, revision *servingv1.Revision, opts metav1.UpdateOptions) (*servingv1.Revision, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.Revision, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.RevisionList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*servingv1.Revision, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*servingv1.RevisionList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Revision, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *servingv1.Revision, err error)
 	RevisionExpansion
 }
 
 // revisions implements RevisionInterface
 type revisions struct {
-	*gentype.ClientWithList[*v1.Revision, *v1.RevisionList]
+	*gentype.ClientWithList[*servingv1.Revision, *servingv1.RevisionList]
 }
 
 // newRevisions returns a Revisions
 func newRevisions(c *ServingV1Client, namespace string) *revisions {
 	return &revisions{
-		gentype.NewClientWithList[*v1.Revision, *v1.RevisionList](
+		gentype.NewClientWithList[*servingv1.Revision, *servingv1.RevisionList](
 			"revisions",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.Revision { return &v1.Revision{} },
-			func() *v1.RevisionList { return &v1.RevisionList{} }),
+			func() *servingv1.Revision { return &servingv1.Revision{} },
+			func() *servingv1.RevisionList { return &servingv1.RevisionList{} },
+		),
 	}
 }

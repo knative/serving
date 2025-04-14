@@ -151,7 +151,7 @@ func (g *reconcilerReconcilerGenerator) GenerateType(c *generator.Context, t *ty
 			Name:    "SugaredLogger",
 		}),
 		"zapDebugLevel": c.Universe.Type(types.Name{
-			Package: "go.uber.org/zapcore",
+			Package: "go.uber.org/zap/zapcore",
 			Name:    "DebugLevel",
 		}),
 		"setsNewString": c.Universe.Function(types.Name{
@@ -584,7 +584,7 @@ func (r *reconcilerImpl) updateStatus(ctx {{.contextContext|raw}}, logger *{{.za
 			return nil
 		}
 
-		if logger.Desugar().Core().Enabled(zapcore.DebugLevel) {
+		if logger.Desugar().Core().Enabled({{.zapDebugLevel|raw}}) {
 			if diff, err := {{.kmpSafeDiff|raw}}(existing.Status, desired.Status); err == nil && diff != "" {
 				logger.Debug("Updating status with: ", diff)
 			}

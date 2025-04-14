@@ -19,24 +19,24 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
-	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	apisautoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	versioned "knative.dev/serving/pkg/client/clientset/versioned"
 	internalinterfaces "knative.dev/serving/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
 )
 
 // MetricInformer provides access to a shared informer and lister for
 // Metrics.
 type MetricInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.MetricLister
+	Lister() autoscalingv1alpha1.MetricLister
 }
 
 type metricInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredMetricInformer(client versioned.Interface, namespace string, res
 				return client.AutoscalingV1alpha1().Metrics(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&autoscalingv1alpha1.Metric{},
+		&apisautoscalingv1alpha1.Metric{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *metricInformer) defaultInformer(client versioned.Interface, resyncPerio
 }
 
 func (f *metricInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&autoscalingv1alpha1.Metric{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisautoscalingv1alpha1.Metric{}, f.defaultInformer)
 }
 
-func (f *metricInformer) Lister() v1alpha1.MetricLister {
-	return v1alpha1.NewMetricLister(f.Informer().GetIndexer())
+func (f *metricInformer) Lister() autoscalingv1alpha1.MetricLister {
+	return autoscalingv1alpha1.NewMetricLister(f.Informer().GetIndexer())
 }

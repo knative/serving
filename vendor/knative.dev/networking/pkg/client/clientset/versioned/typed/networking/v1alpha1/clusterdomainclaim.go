@@ -19,13 +19,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	networkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	scheme "knative.dev/networking/pkg/client/clientset/versioned/scheme"
 )
 
@@ -37,31 +37,32 @@ type ClusterDomainClaimsGetter interface {
 
 // ClusterDomainClaimInterface has methods to work with ClusterDomainClaim resources.
 type ClusterDomainClaimInterface interface {
-	Create(ctx context.Context, clusterDomainClaim *v1alpha1.ClusterDomainClaim, opts v1.CreateOptions) (*v1alpha1.ClusterDomainClaim, error)
-	Update(ctx context.Context, clusterDomainClaim *v1alpha1.ClusterDomainClaim, opts v1.UpdateOptions) (*v1alpha1.ClusterDomainClaim, error)
+	Create(ctx context.Context, clusterDomainClaim *networkingv1alpha1.ClusterDomainClaim, opts v1.CreateOptions) (*networkingv1alpha1.ClusterDomainClaim, error)
+	Update(ctx context.Context, clusterDomainClaim *networkingv1alpha1.ClusterDomainClaim, opts v1.UpdateOptions) (*networkingv1alpha1.ClusterDomainClaim, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.ClusterDomainClaim, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.ClusterDomainClaimList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*networkingv1alpha1.ClusterDomainClaim, error)
+	List(ctx context.Context, opts v1.ListOptions) (*networkingv1alpha1.ClusterDomainClaimList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ClusterDomainClaim, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *networkingv1alpha1.ClusterDomainClaim, err error)
 	ClusterDomainClaimExpansion
 }
 
 // clusterDomainClaims implements ClusterDomainClaimInterface
 type clusterDomainClaims struct {
-	*gentype.ClientWithList[*v1alpha1.ClusterDomainClaim, *v1alpha1.ClusterDomainClaimList]
+	*gentype.ClientWithList[*networkingv1alpha1.ClusterDomainClaim, *networkingv1alpha1.ClusterDomainClaimList]
 }
 
 // newClusterDomainClaims returns a ClusterDomainClaims
 func newClusterDomainClaims(c *NetworkingV1alpha1Client) *clusterDomainClaims {
 	return &clusterDomainClaims{
-		gentype.NewClientWithList[*v1alpha1.ClusterDomainClaim, *v1alpha1.ClusterDomainClaimList](
+		gentype.NewClientWithList[*networkingv1alpha1.ClusterDomainClaim, *networkingv1alpha1.ClusterDomainClaimList](
 			"clusterdomainclaims",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha1.ClusterDomainClaim { return &v1alpha1.ClusterDomainClaim{} },
-			func() *v1alpha1.ClusterDomainClaimList { return &v1alpha1.ClusterDomainClaimList{} }),
+			func() *networkingv1alpha1.ClusterDomainClaim { return &networkingv1alpha1.ClusterDomainClaim{} },
+			func() *networkingv1alpha1.ClusterDomainClaimList { return &networkingv1alpha1.ClusterDomainClaimList{} },
+		),
 	}
 }

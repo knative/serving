@@ -19,13 +19,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	networkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	scheme "knative.dev/networking/pkg/client/clientset/versioned/scheme"
 )
 
@@ -37,33 +37,34 @@ type CertificatesGetter interface {
 
 // CertificateInterface has methods to work with Certificate resources.
 type CertificateInterface interface {
-	Create(ctx context.Context, certificate *v1alpha1.Certificate, opts v1.CreateOptions) (*v1alpha1.Certificate, error)
-	Update(ctx context.Context, certificate *v1alpha1.Certificate, opts v1.UpdateOptions) (*v1alpha1.Certificate, error)
+	Create(ctx context.Context, certificate *networkingv1alpha1.Certificate, opts v1.CreateOptions) (*networkingv1alpha1.Certificate, error)
+	Update(ctx context.Context, certificate *networkingv1alpha1.Certificate, opts v1.UpdateOptions) (*networkingv1alpha1.Certificate, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, certificate *v1alpha1.Certificate, opts v1.UpdateOptions) (*v1alpha1.Certificate, error)
+	UpdateStatus(ctx context.Context, certificate *networkingv1alpha1.Certificate, opts v1.UpdateOptions) (*networkingv1alpha1.Certificate, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.Certificate, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.CertificateList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*networkingv1alpha1.Certificate, error)
+	List(ctx context.Context, opts v1.ListOptions) (*networkingv1alpha1.CertificateList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.Certificate, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *networkingv1alpha1.Certificate, err error)
 	CertificateExpansion
 }
 
 // certificates implements CertificateInterface
 type certificates struct {
-	*gentype.ClientWithList[*v1alpha1.Certificate, *v1alpha1.CertificateList]
+	*gentype.ClientWithList[*networkingv1alpha1.Certificate, *networkingv1alpha1.CertificateList]
 }
 
 // newCertificates returns a Certificates
 func newCertificates(c *NetworkingV1alpha1Client, namespace string) *certificates {
 	return &certificates{
-		gentype.NewClientWithList[*v1alpha1.Certificate, *v1alpha1.CertificateList](
+		gentype.NewClientWithList[*networkingv1alpha1.Certificate, *networkingv1alpha1.CertificateList](
 			"certificates",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1alpha1.Certificate { return &v1alpha1.Certificate{} },
-			func() *v1alpha1.CertificateList { return &v1alpha1.CertificateList{} }),
+			func() *networkingv1alpha1.Certificate { return &networkingv1alpha1.Certificate{} },
+			func() *networkingv1alpha1.CertificateList { return &networkingv1alpha1.CertificateList{} },
+		),
 	}
 }

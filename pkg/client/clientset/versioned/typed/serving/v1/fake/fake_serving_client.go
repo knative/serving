@@ -29,19 +29,19 @@ type FakeServingV1 struct {
 }
 
 func (c *FakeServingV1) Configurations(namespace string) v1.ConfigurationInterface {
-	return &FakeConfigurations{c, namespace}
+	return newFakeConfigurations(c, namespace)
 }
 
 func (c *FakeServingV1) Revisions(namespace string) v1.RevisionInterface {
-	return &FakeRevisions{c, namespace}
+	return newFakeRevisions(c, namespace)
 }
 
 func (c *FakeServingV1) Routes(namespace string) v1.RouteInterface {
-	return &FakeRoutes{c, namespace}
+	return newFakeRoutes(c, namespace)
 }
 
 func (c *FakeServingV1) Services(namespace string) v1.ServiceInterface {
-	return &FakeServices{c, namespace}
+	return newFakeServices(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate
