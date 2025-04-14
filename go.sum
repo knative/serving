@@ -800,8 +800,8 @@ golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8T
 golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
-gomodules.xyz/jsonpatch/v2 v2.4.0 h1:Ci3iUJyx9UeRx7CeFN8ARgGbkESwJK+KB9lLcWxY/Zw=
-gomodules.xyz/jsonpatch/v2 v2.4.0/go.mod h1:AH3dM2RI6uoBZxn3LVrfvJ3E0/9dG4cSrbuBJT4moAY=
+gomodules.xyz/jsonpatch/v2 v2.5.0 h1:JELs8RLM12qJGXU4u/TO3V25KW8GreMKl9pdkk14RM0=
+gomodules.xyz/jsonpatch/v2 v2.5.0/go.mod h1:AH3dM2RI6uoBZxn3LVrfvJ3E0/9dG4cSrbuBJT4moAY=
 gonum.org/v1/gonum v0.0.0-20181121035319-3f7ecaa7e8ca h1:PupagGYwj8+I4ubCxcmcBRk3VlUWtTg5huQpZR9flmE=
 gonum.org/v1/gonum v0.0.0-20181121035319-3f7ecaa7e8ca/go.mod h1:Y+Yx5eoAFn32cQvJDxZx5Dpnq+c3wtXuadVZAcxbbBo=
 gonum.org/v1/netlib v0.0.0-20181029234149-ec6d1f5cefe6/go.mod h1:wa6Ws7BG/ESfp6dHfk7C6KdzKA7wR7u/rKwOGE66zvw=
@@ -960,10 +960,10 @@ knative.dev/caching v0.0.0-20250411014313-7889830edd1f h1:srWl6vy0o7pqiwhB2j68Jk
 knative.dev/caching v0.0.0-20250411014313-7889830edd1f/go.mod h1:QkaFb1+ywj3x9nPgwz7iqab3XiCLngfTg9kKUv118zA=
 knative.dev/hack v0.0.0-20250331013814-c577ed9f7775 h1:UstB8/aowofYFHjLyZdPh1K7qB9BCx+lP1WuiCspYRE=
 knative.dev/hack v0.0.0-20250331013814-c577ed9f7775/go.mod h1:R0ritgYtjLDO9527h5vb5X6gfvt5LCrJ55BNbVDsWiY=
-knative.dev/networking v0.0.0-20250331014822-5ce28a23124f h1:ZF5EnxQ143E3N4tWrEzB23Ri6F8MXFXEYTvwyOqeAow=
-knative.dev/networking v0.0.0-20250331014822-5ce28a23124f/go.mod h1:1+ZaT0rv4BHCqjz0Jdtc/wkj47soAkHH1cfbq3fpmIg=
-knative.dev/pkg v0.0.0-20250411024212-b9bfb4527367 h1:g9g6oBDmg952q66ozO05j7CDDykDsBbJbWqfDPZlxG8=
-knative.dev/pkg v0.0.0-20250411024212-b9bfb4527367/go.mod h1:mGbAft598EkpysGkFqP6p4GVu6pGVuAsxHjdJk5wY00=
+knative.dev/networking v0.0.0-20250411212114-f1b08e6cfc7f h1:x1kpIezFHPUqIOUVbT2foQFrLtdwK9krzs4OfLyY5R4=
+knative.dev/networking v0.0.0-20250411212114-f1b08e6cfc7f/go.mod h1:rjkDjuJfuA64ABptp9QZjWgOWkdRhuz2dP8KUIbE+PQ=
+knative.dev/pkg v0.0.0-20250411133814-a8e20d9db3aa h1:nQpAhhXxSFQ8ZK/D6cF3l354J2XPNMHmswwVZWMx+Ac=
+knative.dev/pkg v0.0.0-20250411133814-a8e20d9db3aa/go.mod h1:IRDz/ZbQXmPFg/CHZRTdZgsljmfP7PMv9yY0iEsp03Q=
 pgregory.net/rapid v1.1.0 h1:CMa0sjHSru3puNx+J0MIAuiiEV4N0qj8/cMWGBBCsjw=
 pgregory.net/rapid v1.1.0/go.mod h1:PY5XlDGj0+V1FCq0o192FdRhpKHGTRIWBgqjDBTrq04=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=

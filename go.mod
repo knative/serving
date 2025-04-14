@@ -35,8 +35,8 @@ require (
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
 	knative.dev/caching v0.0.0-20250411014313-7889830edd1f
 	knative.dev/hack v0.0.0-20250331013814-c577ed9f7775
-	knative.dev/networking v0.0.0-20250331014822-5ce28a23124f
-	knative.dev/pkg v0.0.0-20250411024212-b9bfb4527367
+	knative.dev/networking v0.0.0-20250411212114-f1b08e6cfc7f
+	knative.dev/pkg v0.0.0-20250411133814-a8e20d9db3aa
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -145,7 +145,7 @@ require (
 	golang.org/x/term v0.30.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
 	golang.org/x/tools v0.31.0 // indirect
-	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
+	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250207221924-e9438ea467c6 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250207221924-e9438ea467c6 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
