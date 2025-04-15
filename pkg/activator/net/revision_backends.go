@@ -542,6 +542,16 @@ func (rbm *revisionBackendsManager) getOrCreateRevisionWatcher(revID types.Names
 		if sp := rev.Spec.GetContainer().StartupProbe; sp != nil {
 			enableProbeOptimisation = false
 		}
+		// Startup probes for sidecars are executed by Kubelet, so we can only mark the container as ready
+		// once K8s sees it as ready.
+		if len(rev.Spec.GetSidecarContainers()) > 0 {
+			for _, sc := range rev.Spec.GetSidecarContainers() {
+				if sp := sc.StartupProbe; sp != nil {
+					enableProbeOptimisation = false
+					break
+				}
+			}
+		}
 
 		destsCh := make(chan dests)
 		rw := newRevisionWatcher(rbm.ctx, revID, rev.GetProtocol(), rbm.updateCh, destsCh, rbm.transport, rbm.serviceLister, rbm.usePassthroughLb, rbm.meshMode, enableProbeOptimisation, rbm.logger)
