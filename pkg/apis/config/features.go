@@ -65,8 +65,9 @@ const (
 	FeaturePodSpecHostNetwork               = "kubernetes.podspec-hostnetwork"
 	FeaturePodSpecHostPID                   = "kubernetes.podspec-hostpid"
 	FeaturePodSpecHostPath                  = "kubernetes.podspec-volumes-hostpath"
+	FeaturePodSpecVolumesCSI                = "kubernetes.podspec-volumes-csi"
 	FeaturePodSpecInitContainers            = "kubernetes.podspec-init-containers"
-	FeaturePodSpecMountPropagation          = "kubernetes.podspec-mount-propagation"
+	FeaturePodSpecVolumesMountPropagation   = "kubernetes.podspec-volumes-mount-propagation"
 	FeaturePodSpecNodeSelector              = "kubernetes.podspec-nodeselector"
 	FeaturePodSpecPVClaim                   = "kubernetes.podspec-persistent-volume-claim"
 	FeaturePodSpecPriorityClassName         = "kubernetes.podspec-priorityclassname"
@@ -100,7 +101,8 @@ func defaultFeaturesConfig() *Features {
 		PodSpecTolerations:               Disabled,
 		PodSpecVolumesEmptyDir:           Enabled,
 		PodSpecVolumesHostPath:           Disabled,
-		PodSpecVolumeMountPropagation:    Disabled,
+		PodSpecVolumesMountPropagation:   Disabled,
+		PodSpecVolumesCSI:                Disabled,
 		PodSpecPersistentVolumeClaim:     Disabled,
 		PodSpecPersistentVolumeWrite:     Disabled,
 		QueueProxyMountPodInfo:           Disabled,
@@ -136,12 +138,12 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag(FeaturePodSpecFieldRef, &nc.PodSpecFieldRef),
 		asFlag(FeaturePodSpecHostAliases, &nc.PodSpecHostAliases),
 		asFlag(FeaturePodSpecHostIPC, &nc.PodSpecHostIPC),
-		asFlag(FeaturePodSpecHostIPC, &nc.PodSpecHostIPC),
 		asFlag(FeaturePodSpecHostNetwork, &nc.PodSpecHostNetwork),
 		asFlag(FeaturePodSpecHostPID, &nc.PodSpecHostPID),
 		asFlag(FeaturePodSpecHostPath, &nc.PodSpecVolumesHostPath),
+		asFlag(FeaturePodSpecVolumesCSI, &nc.PodSpecVolumesCSI),
 		asFlag(FeaturePodSpecInitContainers, &nc.PodSpecInitContainers),
-		asFlag(FeaturePodSpecMountPropagation, &nc.PodSpecVolumeMountPropagation),
+		asFlag(FeaturePodSpecVolumesMountPropagation, &nc.PodSpecVolumesMountPropagation),
 		asFlag(FeaturePodSpecNodeSelector, &nc.PodSpecNodeSelector),
 		asFlag(FeaturePodSpecPVClaim, &nc.PodSpecPersistentVolumeClaim),
 		asFlag(FeaturePodSpecPriorityClassName, &nc.PodSpecPriorityClassName),
@@ -184,7 +186,8 @@ type Features struct {
 	PodSpecTolerations               Flag
 	PodSpecVolumesEmptyDir           Flag
 	PodSpecVolumesHostPath           Flag
-	PodSpecVolumeMountPropagation    Flag
+	PodSpecVolumesMountPropagation   Flag
+	PodSpecVolumesCSI                Flag
 	PodSpecInitContainers            Flag
 	PodSpecPersistentVolumeClaim     Flag
 	PodSpecPersistentVolumeWrite     Flag

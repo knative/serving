@@ -456,6 +456,24 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"kubernetes.podspec-volumes-hostpath": "Enabled",
 		},
 	}, {
+		name:    "kubernetes.podspec-volumes-csi Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecVolumesCSI: Disabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-volumes-csi": "Disabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-volumes-csi Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecVolumesCSI: Enabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-volumes-csi": "Enabled",
+		},
+	}, {
 		name:    "kubernetes.podspec-persistent-volume-claim Disabled",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
@@ -474,22 +492,22 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"kubernetes.podspec-persistent-volume-claim": "Enabled",
 		},
 	}, {
-		name:    "kubernetes.podspec-mount-propagation Disabled",
+		name:    "kubernetes.podspec-volumes-mount-propagation Disabled",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
-			PodSpecVolumeMountPropagation: Disabled,
+			PodSpecVolumesMountPropagation: Disabled,
 		}),
 		data: map[string]string{
-			"kubernetes.podspec-mount-propagation": "Disabled",
+			"kubernetes.podspec-volumes-mount-propagation": "Disabled",
 		},
 	}, {
-		name:    "kubernetes.podspec-mount-propagation Enabled",
+		name:    "kubernetes.podspec-volumes-mount-propagation Enabled",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{
-			PodSpecVolumeMountPropagation: Enabled,
+			PodSpecVolumesMountPropagation: Enabled,
 		}),
 		data: map[string]string{
-			"kubernetes.podspec-mount-propagation": "Enabled",
+			"kubernetes.podspec-volumes-mount-propagation": "Enabled",
 		},
 	}, {
 		name:    "kubernetes.podspec-persistent-volume-write Disabled",

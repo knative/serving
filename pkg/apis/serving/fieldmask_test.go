@@ -355,7 +355,7 @@ func TestVolumeMountMask_FeatMountPropagation(t *testing.T) {
 	ctx := config.ToContext(context.Background(),
 		&config.Config{
 			Features: &config.Features{
-				PodSpecVolumeMountPropagation: config.Enabled,
+				PodSpecVolumesMountPropagation: config.Enabled,
 			},
 		},
 	)

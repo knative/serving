@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "f3931300"
+    knative.dev/example-checksum: "82cbbba9"
 data:
   _example: |-
     ################################
@@ -208,6 +208,11 @@ data:
     # 2. Disabled: disabling HostPath volume support
     kubernetes.podspec-volumes-hostpath: "disabled"
 
+    # Controls whether volume support for CSI is enabled or not.
+    # 1. Enabled: enabling CSI volume support
+    # 2. Disabled: disabling CSI volume support
+    kubernetes.podspec-volumes-csi: "disabled"
+
     # Controls whether init containers support is enabled or not.
     # 1. Enabled: enabling init containers support
     # 2. Disabled: disabling init containers support
@@ -226,7 +231,7 @@ data:
     # Controls whether volume mount propagation support is enabled or not.
     # 1. Enabled: enabling volume mount propagation support
     # 2. Disabled: disabling volume mount propagation support
-    kubernetes.podspec-mount-propagation: "disabled"
+    kubernetes.podspec-volumes-mount-propagation: "disabled"
 
     # Controls if the queue proxy podInfo feature is enabled, allowed or disabled
     #
