@@ -4,17 +4,17 @@ package ecrpublic
 
 import (
 	"context"
+	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
-	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ecrpublic/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Creates a repository in a public registry. For more information, see Amazon ECR
-// repositories
-// (https://docs.aws.amazon.com/AmazonECR/latest/userguide/Repositories.html) in
-// the Amazon Elastic Container Registry User Guide.
+// Creates a repository in a public registry. For more information, see [Amazon ECR repositories] in the
+// Amazon Elastic Container Registry User Guide.
+//
+// [Amazon ECR repositories]: https://docs.aws.amazon.com/AmazonECR/latest/userguide/Repositories.html
 func (c *Client) CreateRepository(ctx context.Context, params *CreateRepositoryInput, optFns ...func(*Options)) (*CreateRepositoryOutput, error) {
 	if params == nil {
 		params = &CreateRepositoryInput{}
@@ -33,9 +33,9 @@ func (c *Client) CreateRepository(ctx context.Context, params *CreateRepositoryI
 type CreateRepositoryInput struct {
 
 	// The name to use for the repository. This appears publicly in the Amazon ECR
-	// Public Gallery. The repository name may be specified on its own (such as
-	// nginx-web-app) or it can be prepended with a namespace to group the repository
-	// into a category (such as project-a/nginx-web-app).
+	// Public Gallery. The repository name can be specified on its own (for example
+	// nginx-web-app ) or prepended with a namespace to group the repository into a
+	// category (for example project-a/nginx-web-app ).
 	//
 	// This member is required.
 	RepositoryName *string
@@ -44,10 +44,10 @@ type CreateRepositoryInput struct {
 	// Public Gallery.
 	CatalogData *types.RepositoryCatalogDataInput
 
-	// The metadata that you apply to the repository to help you categorize and
-	// organize them. Each tag consists of a key and an optional value, both of which
-	// you define. Tag keys can have a maximum character length of 128 characters, and
-	// tag values can have a maximum length of 256 characters.
+	// The metadata that you apply to each repository to help categorize and organize
+	// your repositories. Each tag consists of a key and an optional value. You define
+	// both of them. Tag keys can have a maximum character length of 128 characters,
+	// and tag values can have a maximum length of 256 characters.
 	Tags []types.Tag
 
 	noSmithyDocumentSerde
@@ -69,6 +69,9 @@ type CreateRepositoryOutput struct {
 }
 
 func (c *Client) addOperationCreateRepositoryMiddlewares(stack *middleware.Stack, options Options) (err error) {
+	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
+		return err
+	}
 	err = stack.Serialize.Add(&awsAwsjson11_serializeOpCreateRepository{}, middleware.After)
 	if err != nil {
 		return err
@@ -77,34 +80,41 @@ func (c *Client) addOperationCreateRepositoryMiddlewares(stack *middleware.Stack
 	if err != nil {
 		return err
 	}
+	if err := addProtocolFinalizerMiddlewares(stack, options, "CreateRepository"); err != nil {
+		return fmt.Errorf("add protocol finalizers: %v", err)
+	}
+
+	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
+		return err
+	}
 	if err = addSetLoggerMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddClientRequestIDMiddleware(stack); err != nil {
+	if err = addClientRequestID(stack); err != nil {
 		return err
 	}
-	if err = smithyhttp.AddComputeContentLengthMiddleware(stack); err != nil {
+	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = v4.AddComputePayloadSHA256Middleware(stack); err != nil {
+	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetryMiddlewares(stack, options); err != nil {
+	if err = addRetry(stack, options); err != nil {
 		return err
 	}
-	if err = addHTTPSignerV4Middleware(stack, options); err != nil {
+	if err = addRawResponseToMetadata(stack); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRawResponseToMetadata(stack); err != nil {
+	if err = addRecordResponseTiming(stack); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
+	if err = addSpanRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addClientUserAgent(stack); err != nil {
+	if err = addClientUserAgent(stack, options); err != nil {
 		return err
 	}
 	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
@@ -113,10 +123,22 @@ func (c *Client) addOperationCreateRepositoryMiddlewares(stack *middleware.Stack
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpCreateRepositoryValidationMiddleware(stack); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateRepository(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -128,6 +150,21 @@ func (c *Client) addOperationCreateRepositoryMiddlewares(stack *middleware.Stack
 	if err = addRequestResponseLogging(stack, options); err != nil {
 		return err
 	}
+	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -135,7 +172,6 @@ func newServiceMetadataMiddleware_opCreateRepository(region string) *awsmiddlewa
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		SigningName:   "ecr-public",
 		OperationName: "CreateRepository",
 	}
 }

@@ -4,8 +4,8 @@ package ecr
 
 import (
 	"context"
+	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
-	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ecr/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
@@ -29,19 +29,23 @@ func (c *Client) PutRegistryScanningConfiguration(ctx context.Context, params *P
 
 type PutRegistryScanningConfigurationInput struct {
 
-	// The scanning rules to use for the registry. A scanning rule is used to determine
-	// which repository filters are used and at what frequency scanning will occur.
+	// The scanning rules to use for the registry. A scanning rule is used to
+	// determine which repository filters are used and at what frequency scanning will
+	// occur.
 	Rules []types.RegistryScanningRule
 
-	// The scanning type to set for the registry. When a registry scanning
-	// configuration is not defined, by default the BASIC scan type is used. When basic
-	// scanning is used, you may specify filters to determine which individual
-	// repositories, or all repositories, are scanned when new images are pushed to
-	// those repositories. Alternatively, you can do manual scans of images with basic
-	// scanning. When the ENHANCED scan type is set, Amazon Inspector provides
-	// automated vulnerability scanning. You may choose between continuous scanning or
-	// scan on push and you may specify filters to determine which individual
-	// repositories, or all repositories, are scanned.
+	// The scanning type to set for the registry.
+	//
+	// When a registry scanning configuration is not defined, by default the BASIC
+	// scan type is used. When basic scanning is used, you may specify filters to
+	// determine which individual repositories, or all repositories, are scanned when
+	// new images are pushed to those repositories. Alternatively, you can do manual
+	// scans of images with basic scanning.
+	//
+	// When the ENHANCED scan type is set, Amazon Inspector provides automated
+	// vulnerability scanning. You may choose between continuous scanning or scan on
+	// push and you may specify filters to determine which individual repositories, or
+	// all repositories, are scanned.
 	ScanType types.ScanType
 
 	noSmithyDocumentSerde
@@ -59,6 +63,9 @@ type PutRegistryScanningConfigurationOutput struct {
 }
 
 func (c *Client) addOperationPutRegistryScanningConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
+		return err
+	}
 	err = stack.Serialize.Add(&awsAwsjson11_serializeOpPutRegistryScanningConfiguration{}, middleware.After)
 	if err != nil {
 		return err
@@ -67,34 +74,41 @@ func (c *Client) addOperationPutRegistryScanningConfigurationMiddlewares(stack *
 	if err != nil {
 		return err
 	}
+	if err := addProtocolFinalizerMiddlewares(stack, options, "PutRegistryScanningConfiguration"); err != nil {
+		return fmt.Errorf("add protocol finalizers: %v", err)
+	}
+
+	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
+		return err
+	}
 	if err = addSetLoggerMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddClientRequestIDMiddleware(stack); err != nil {
+	if err = addClientRequestID(stack); err != nil {
 		return err
 	}
-	if err = smithyhttp.AddComputeContentLengthMiddleware(stack); err != nil {
+	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = v4.AddComputePayloadSHA256Middleware(stack); err != nil {
+	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetryMiddlewares(stack, options); err != nil {
+	if err = addRetry(stack, options); err != nil {
 		return err
 	}
-	if err = addHTTPSignerV4Middleware(stack, options); err != nil {
+	if err = addRawResponseToMetadata(stack); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRawResponseToMetadata(stack); err != nil {
+	if err = addRecordResponseTiming(stack); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
+	if err = addSpanRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addClientUserAgent(stack); err != nil {
+	if err = addClientUserAgent(stack, options); err != nil {
 		return err
 	}
 	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
@@ -103,10 +117,22 @@ func (c *Client) addOperationPutRegistryScanningConfigurationMiddlewares(stack *
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpPutRegistryScanningConfigurationValidationMiddleware(stack); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opPutRegistryScanningConfiguration(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -118,6 +144,21 @@ func (c *Client) addOperationPutRegistryScanningConfigurationMiddlewares(stack *
 	if err = addRequestResponseLogging(stack, options); err != nil {
 		return err
 	}
+	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -125,7 +166,6 @@ func newServiceMetadataMiddleware_opPutRegistryScanningConfiguration(region stri
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		SigningName:   "ecr",
 		OperationName: "PutRegistryScanningConfiguration",
 	}
 }

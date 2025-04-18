@@ -6,7 +6,7 @@ clean:
 	rm -rf benchmark/*_easyjson.go
 
 build:
-	go build -i -o ./bin/easyjson ./easyjson
+	go build -o ./bin/easyjson ./easyjson
 
 generate: build
 	bin/easyjson -stubs \
