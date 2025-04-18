@@ -25,6 +25,7 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/types"
+
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
@@ -50,7 +51,7 @@ func RevisionFrom(ctx context.Context) *v1.Revision {
 	return ctx.Value(revCtxKey{}).(*revCtx).revision
 }
 
-// RevIDFrom retrieves the the revisionID from the context.
+// RevIDFrom retrieves the revisionID from the context.
 func RevIDFrom(ctx context.Context) types.NamespacedName {
 	return ctx.Value(revCtxKey{}).(*revCtx).revID
 }
