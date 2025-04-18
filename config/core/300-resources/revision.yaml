@@ -904,7 +904,7 @@ spec:
                               type: string
                             mountPropagation:
                               description: |-
-                                This is accessible behind a feature flag - kubernetes.podspec-mount-propagation
+                                This is accessible behind a feature flag - kubernetes.podspec-volumes-mount-propagation
                               type: string
                             name:
                               description: This must match the Name of a Volume.
