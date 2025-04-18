@@ -150,6 +150,13 @@ func withPodSpecPersistentVolumeWriteEnabled() configOption {
 	}
 }
 
+func WithPodSpecMountPropagationEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecVolumesMountPropagation = config.Enabled
+		return cfg
+	}
+}
+
 func withPodSpecPriorityClassNameEnabled() configOption {
 	return func(cfg *config.Config) *config.Config {
 		cfg.Features.PodSpecPriorityClassName = config.Enabled
@@ -200,6 +207,8 @@ func withPodSpecDNSConfigEnabled() configOption {
 }
 
 func TestPodSpecValidation(t *testing.T) {
+	bidir := corev1.MountPropagationBidirectional
+	hostToContainer := corev1.MountPropagationHostToContainer
 	tests := []struct {
 		name     string
 		ps       corev1.PodSpec
@@ -654,6 +663,78 @@ func TestPodSpecValidation(t *testing.T) {
 			}},
 		},
 		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled(), withPodSpecPersistentVolumeWriteEnabled()},
+	}, {
+		name: "mount uses mountPropagation, but the feature is not enabled",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:             "foo",
+					MountPath:        "/data",
+					MountPropagation: &hostToContainer,
+				}},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "foo",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "myclaim",
+					},
+				},
+			}},
+		},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled(), withPodSpecPersistentVolumeWriteEnabled()},
+		want: &apis.FieldError{
+			Message: "Volume Mount Propagation support is disabled, but found volume mount foo with mount propagation: \nmust not set the field(s)",
+			Paths:   []string{"containers[0].volumeMounts[0].mountPropagation"},
+		},
+	}, {
+		name: "mount uses mountPropagation",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:             "foo",
+					MountPath:        "/data",
+					MountPropagation: &hostToContainer,
+				}},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "foo",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "myclaim",
+					},
+				},
+			}},
+		},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled(), withPodSpecPersistentVolumeWriteEnabled(), WithPodSpecMountPropagationEnabled()},
+		want:    nil,
+	}, {
+		name: "mount uses mountPropagation Bidirectional, which is disallowed due to container privilege being disabled",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				VolumeMounts: []corev1.VolumeMount{{
+					Name:             "foo",
+					MountPath:        "/data",
+					MountPropagation: &bidir,
+				}},
+			}},
+			Volumes: []corev1.Volume{{
+				Name: "foo",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "myclaim",
+					},
+				},
+			}},
+		},
+		cfgOpts: []configOption{withPodSpecPersistentVolumeClaimEnabled(), withPodSpecPersistentVolumeWriteEnabled(), WithPodSpecMountPropagationEnabled()},
+		want: &apis.FieldError{
+			Message: "mount propagation should be set to None or HostToContainer",
+			Paths:   []string{"containers[0].volumeMounts[0].mountPropagation"},
+		},
 	}, {
 		name: "insecure security context default struct",
 		ps: corev1.PodSpec{
@@ -2416,7 +2497,6 @@ func TestInitContainerValidation(t *testing.T) {
 }
 
 func getCommonContainerValidationTestCases() []containerValidationTestCase {
-	bidir := corev1.MountPropagationBidirectional
 	return []containerValidationTestCase{{
 		name:    "empty container",
 		c:       corev1.Container{},
@@ -2542,9 +2622,8 @@ func getCommonContainerValidationTestCases() []containerValidationTestCase {
 		c: corev1.Container{
 			Image: "foo",
 			VolumeMounts: []corev1.VolumeMount{{
-				Name:             "the-name",
-				SubPath:          "oops",
-				MountPropagation: &bidir,
+				Name:    "the-name",
+				SubPath: "oops",
 			}},
 		},
 		want: (&apis.FieldError{
@@ -2555,8 +2634,7 @@ func getCommonContainerValidationTestCases() []containerValidationTestCase {
 				Message: "volume mount should be readOnly for this type of volume",
 				Paths:   []string{"readOnly"},
 			}).ViaFieldIndex("volumeMounts", 0)).Also(
-			apis.ErrMissingField("mountPath").ViaFieldIndex("volumeMounts", 0)).Also(
-			apis.ErrDisallowedFields("mountPropagation").ViaFieldIndex("volumeMounts", 0)),
+			apis.ErrMissingField("mountPath").ViaFieldIndex("volumeMounts", 0)),
 	}, {
 		name: "has known volumeMounts",
 		c: corev1.Container{

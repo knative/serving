@@ -492,6 +492,24 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"kubernetes.podspec-persistent-volume-claim": "Enabled",
 		},
 	}, {
+		name:    "kubernetes.podspec-volumes-mount-propagation Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecVolumesMountPropagation: Disabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-volumes-mount-propagation": "Disabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-volumes-mount-propagation Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecVolumesMountPropagation: Enabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-volumes-mount-propagation": "Enabled",
+		},
+	}, {
 		name:    "kubernetes.podspec-persistent-volume-write Disabled",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{

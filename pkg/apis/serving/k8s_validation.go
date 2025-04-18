@@ -627,7 +627,7 @@ func validate(ctx context.Context, container corev1.Container, volumes map[strin
 		errs = errs.Also(apis.ErrInvalidValue(container.TerminationMessagePolicy, "terminationMessagePolicy"))
 	}
 	// VolumeMounts
-	errs = errs.Also(validateVolumeMounts(container.VolumeMounts, volumes).ViaField("volumeMounts"))
+	errs = errs.Also(validateVolumeMounts(ctx, container.VolumeMounts, volumes).ViaField("volumeMounts"))
 
 	return errs
 }
@@ -670,15 +670,16 @@ func validateSecurityContext(ctx context.Context, sc *corev1.SecurityContext) *a
 	return errs
 }
 
-func validateVolumeMounts(mounts []corev1.VolumeMount, volumes map[string]corev1.Volume) *apis.FieldError {
+func validateVolumeMounts(ctx context.Context, mounts []corev1.VolumeMount, volumes map[string]corev1.Volume) *apis.FieldError {
 	var errs *apis.FieldError
 	// Check that volume mounts match names in "volumes", that "volumes" has 100%
 	// coverage, and the field restrictions.
+	features := config.FromContextOrDefaults(ctx).Features
 	seenName := make(sets.Set[string], len(mounts))
 	seenMountPath := make(sets.Set[string], len(mounts))
 	for i := range mounts {
 		vm := mounts[i]
-		errs = errs.Also(apis.CheckDisallowedFields(vm, *VolumeMountMask(&vm)).ViaIndex(i))
+		errs = errs.Also(apis.CheckDisallowedFields(vm, *VolumeMountMask(ctx, &vm)).ViaIndex(i))
 		// This effectively checks that Name is non-empty because Volume name must be non-empty.
 		if _, ok := volumes[vm.Name]; !ok {
 			errs = errs.Also((&apis.FieldError{
@@ -709,6 +710,19 @@ func validateVolumeMounts(mounts []corev1.VolumeMount, volumes map[string]corev1
 				Message: "volume mount should be readOnly for this type of volume",
 				Paths:   []string{"readOnly"},
 			}).ViaIndex(i))
+		}
+		if vm.MountPropagation != nil {
+			if features.PodSpecVolumesMountPropagation != config.Enabled {
+				errs = errs.Also((&apis.FieldError{
+					Message: fmt.Sprintf("Volume Mount Propagation support is disabled, but found volume mount %s with mount propagation", vm.Name),
+				}).ViaIndex(i))
+			}
+			if *vm.MountPropagation != corev1.MountPropagationNone && *vm.MountPropagation != corev1.MountPropagationHostToContainer {
+				errs = errs.Also((&apis.FieldError{
+					Message: "mount propagation should be set to None or HostToContainer",
+					Paths:   []string{"mountPropagation"},
+				}).ViaIndex(i))
+			}
 		}
 
 		if volumes[vm.Name].PersistentVolumeClaim != nil {
