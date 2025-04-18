@@ -70,6 +70,10 @@ func VolumeSourceMask(ctx context.Context, in *corev1.VolumeSource) *corev1.Volu
 		out.HostPath = in.HostPath
 	}
 
+	if cfg.Features.PodSpecVolumesCSI != config.Disabled {
+		out.CSI = in.CSI
+	}
+
 	// Too many disallowed fields to list
 
 	return out
