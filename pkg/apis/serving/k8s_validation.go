@@ -616,8 +616,7 @@ func validate(ctx context.Context, container corev1.Container, volumes map[strin
 		errs = errs.Also(apis.ErrInvalidValue(container.TerminationMessagePolicy, "terminationMessagePolicy"))
 	}
 	// VolumeMounts
-	isPrivilegedContainer := container.SecurityContext != nil && container.SecurityContext.Privileged != nil && *container.SecurityContext.Privileged
-	errs = errs.Also(validateVolumeMounts(ctx, container.VolumeMounts, volumes, isPrivilegedContainer).ViaField("volumeMounts"))
+	errs = errs.Also(validateVolumeMounts(ctx, container.VolumeMounts, volumes).ViaField("volumeMounts"))
 
 	return errs
 }
