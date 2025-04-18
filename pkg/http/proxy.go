@@ -47,12 +47,6 @@ func NewHeaderPruningReverseProxy(target, hostOverride string, headersToRemove [
 				req.Header.Add(netheader.PassthroughLoadbalancingKey, "true")
 			}
 
-			// Copied from httputil.NewSingleHostReverseProxy.
-			if _, ok := req.Header[netheader.UserAgentKey]; !ok {
-				// explicitly disable User-Agent so it's not set to default value
-				req.Header.Set(netheader.UserAgentKey, "")
-			}
-
 			for _, h := range headersToRemove {
 				req.Header.Del(h)
 			}
