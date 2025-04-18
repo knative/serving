@@ -2951,16 +2951,14 @@ func TestVolumeValidation(t *testing.T) {
 		},
 		want: (&apis.FieldError{
 			Message: `CSI volume support is disabled, but found CSI volume foo`,
-		}).Also(
-			&apis.FieldError{Message: "must not set the field(s)", Paths: []string{"csi"}
-		})
+		}).Also(&apis.FieldError{Message: "must not set the field(s)", Paths: []string{"csi"}}),
 	}, {
 		name: "missing CSI volume when required",
 		v: corev1.Volume{
 			Name: "foo",
 		},
 		cfgOpts: []configOption{withPodSpecVolumesCSIEnabled()},
-		want:    apis.ErrMissingOneOf("secret", "configMap", "projected", "emptyDir", "hostPath", "csi"),
+		want:    apis.ErrMissingOneOf("secret", "configMap", "projected", "emptyDir", "csi"),
 	}, {
 		name: "valid PVC with PVC feature enabled",
 		v: corev1.Volume{
