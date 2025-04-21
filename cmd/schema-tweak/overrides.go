@@ -227,6 +227,10 @@ func revSpecOverrides(prefixPath string) []entry {
 			"mountPath",
 			"subPath",
 		),
+		featureFlagFields: []flagField{{
+			name: "mountPropagation",
+			flag: config.FeaturePodSpecVolumesMountPropagation,
+		}},
 	}, {
 		path: "volumes",
 		allowedFields: sets.New(
@@ -246,7 +250,7 @@ func revSpecOverrides(prefixPath string) []entry {
 			flag: config.FeaturePodSpecHostPath,
 		}, {
 			name: "csi",
-			flag: config.FeaturePodSpecCSI,
+			flag: config.FeaturePodSpecVolumesCSI,
 		}},
 	}, {
 		path: "volumes.secret",
