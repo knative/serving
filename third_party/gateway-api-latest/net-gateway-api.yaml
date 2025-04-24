@@ -20,7 +20,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20250418-020dd0a7"
+    app.kubernetes.io/version: "20250424-47b7bbb5"
 aggregationRule:
   clusterRoleSelectors:
     - matchLabels:
@@ -36,7 +36,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20250418-020dd0a7"
+    app.kubernetes.io/version: "20250424-47b7bbb5"
 rules:
   - apiGroups: ["gateway.networking.k8s.io"]
     resources: ["httproutes", "referencegrants", "referencepolicies"]
@@ -68,7 +68,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
-    app.kubernetes.io/version: "20250418-020dd0a7"
+    app.kubernetes.io/version: "20250424-47b7bbb5"
     app.kubernetes.io/name: knative-serving
 spec:
   replicas: 1
@@ -95,7 +95,7 @@ spec:
         - name: controller
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/controller@sha256:e8aede7a9af7bd31a2c6d11216e3a81d09d83b7a5bccc6939a6ab29f80139ac1
+          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/controller@sha256:fd967b9bd3ab7ea4e4444fb8acf156c873cc5ea46a2489a8a7c601b4f7d6f8e6
           resources:
             requests:
               cpu: 100m
@@ -152,7 +152,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20250418-020dd0a7"
+    app.kubernetes.io/version: "20250424-47b7bbb5"
     networking.knative.dev/ingress-provider: gateway-api
 spec:
   selector:
@@ -166,14 +166,14 @@ spec:
         role: net-gateway-api-webhook
         app.kubernetes.io/component: net-gateway-api
         app.kubernetes.io/name: knative-serving
-        app.kubernetes.io/version: "20250418-020dd0a7"
+        app.kubernetes.io/version: "20250424-47b7bbb5"
     spec:
       serviceAccountName: controller
       containers:
         - name: webhook
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/webhook@sha256:5685197c06ce287e4fdb331733aa3fe686dd27b5e784677234b56c13ef6e0021
+          image: gcr.io/knative-nightly/knative.dev/net-gateway-api/cmd/webhook@sha256:8713253cba0d317c61872bc00f3610239478bbb0af8c7d3e62ea76192e29ccf1
           resources:
             requests:
               cpu: 20m
@@ -251,7 +251,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20250418-020dd0a7"
+    app.kubernetes.io/version: "20250424-47b7bbb5"
     networking.knative.dev/ingress-provider: gateway-api
 
 ---
@@ -278,7 +278,7 @@ metadata:
     role: net-gateway-api-webhook
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20250418-020dd0a7"
+    app.kubernetes.io/version: "20250424-47b7bbb5"
     networking.knative.dev/ingress-provider: gateway-api
 spec:
   ports:
@@ -317,7 +317,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20250418-020dd0a7"
+    app.kubernetes.io/version: "20250424-47b7bbb5"
     networking.knative.dev/ingress-provider: gateway-api
 webhooks:
   - admissionReviewVersions:
@@ -359,7 +359,7 @@ metadata:
     networking.knative.dev/ingress-provider: net-gateway-api
     app.kubernetes.io/component: net-gateway-api
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20250418-020dd0a7"
+    app.kubernetes.io/version: "20250424-47b7bbb5"
 data:
   _example: |
     ################################
