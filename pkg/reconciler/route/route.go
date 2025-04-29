@@ -236,12 +236,8 @@ func (c *Reconciler) externalDomainTLS(ctx context.Context, host string, r *v1.R
 		return nil, nil, desiredCerts, err
 	}
 
-	domainConfig := config.FromContext(ctx).Domain
-	rLabels := r.Labels
-	domain := domainConfig.LookupDomainForLabels(rLabels)
-
 	acmeChallenges := []netv1alpha1.HTTP01Challenge{}
-	desiredCerts = resources.MakeCertificates(r, domainToTagMap, certClass(ctx, r), domain)
+	desiredCerts = resources.MakeCertificates(r, domainToTagMap, certClass(ctx, r), routeDomain)
 	for _, desiredCert := range desiredCerts {
 		dnsNames := sets.New(desiredCert.Spec.DNSNames...)
 		// Look for a matching wildcard cert before provisioning a new one. This saves the
