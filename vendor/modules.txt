@@ -723,16 +723,16 @@ google.golang.org/api/option/internaloption
 google.golang.org/api/support/bundler
 google.golang.org/api/transport/http
 google.golang.org/api/transport/http/internal/propagation
-# google.golang.org/genproto/googleapis/api v0.0.0-20250207221924-e9438ea467c6
+# google.golang.org/genproto/googleapis/api v0.0.0-20250218202821-56aae31c358a
 ## explicit; go 1.22
 google.golang.org/genproto/googleapis/api/httpbody
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20250207221924-e9438ea467c6
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20250218202821-56aae31c358a
 ## explicit; go 1.22
 google.golang.org/genproto/googleapis/rpc/code
 google.golang.org/genproto/googleapis/rpc/errdetails
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.71.1
-## explicit; go 1.22.0
+# google.golang.org/grpc v1.72.0
+## explicit; go 1.23
 google.golang.org/grpc
 google.golang.org/grpc/attributes
 google.golang.org/grpc/backoff
@@ -1399,7 +1399,7 @@ k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/ptr
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20250415164313-8f20a1163dbf
+# knative.dev/caching v0.0.0-20250424013925-250c6a13b784
 ## explicit; go 1.23.0
 knative.dev/caching/config
 knative.dev/caching/pkg/apis/caching
@@ -1420,10 +1420,10 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/hack v0.0.0-20250331013814-c577ed9f7775
+# knative.dev/hack v0.0.0-20250424013725-c4037b0fe56b
 ## explicit; go 1.21
 knative.dev/hack
-# knative.dev/networking v0.0.0-20250415164913-6268d931d247
+# knative.dev/networking v0.0.0-20250424014624-16635c6d8dcc
 ## explicit; go 1.23.0
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1462,7 +1462,7 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20250415155312-ed3e2158b883
+# knative.dev/pkg v0.0.0-20250424013628-d5e74d29daa3
 ## explicit; go 1.23.0
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
