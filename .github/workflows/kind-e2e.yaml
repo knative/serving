@@ -46,7 +46,7 @@ jobs:
 
     # Install the latest release of ko
     - name: Install ko
-      uses: ko-build/setup-ko@d982fec422852203cfb2053a8ec6ad302280d04d # v0.8
+      uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d # v0.9
 
     - name: Setup Registry
       run: |
@@ -164,13 +164,13 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
 
-    - uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
       with:
         name: artifacts
         path: ~/artifacts
 
     - name: setup kind
-      uses: chainguard-dev/actions/setup-kind@141bf225e9c19c34304ee9d06e9be9c44a6d8765 # main
+      uses: chainguard-dev/actions/setup-kind@dd4524afd480a43ead9543a08be1c5004ee8b0a7 # main
       with:
         k8s-version: ${{ matrix.k8s-version }}
         kind-worker-count: 4
@@ -220,7 +220,7 @@ jobs:
           --ingress-class=${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev \
           ${{ matrix.test-flags }}
 
-    - uses: chainguard-dev/actions/kind-diag@141bf225e9c19c34304ee9d06e9be9c44a6d8765 # main
+    - uses: chainguard-dev/actions/kind-diag@dd4524afd480a43ead9543a08be1c5004ee8b0a7 # main
       # Only upload logs on failure.
       if: ${{ failure() }}
       with:
