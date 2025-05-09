@@ -74,6 +74,10 @@ func VolumeSourceMask(ctx context.Context, in *corev1.VolumeSource) *corev1.Volu
 		out.CSI = in.CSI
 	}
 
+	if cfg.Features.PodSpecVolumesImage != config.Disabled {
+		out.Image = in.Image
+	}
+
 	// Too many disallowed fields to list
 
 	return out
@@ -777,6 +781,22 @@ func NamespacedObjectReferenceMask(in *corev1.ObjectReference) *corev1.ObjectRef
 	out.FieldPath = ""
 	out.ResourceVersion = ""
 	out.UID = ""
+
+	return out
+}
+
+// ImageVolumeSourceMask performs a _shallow_ copy of Kubernetes ImageVolumeSource
+// bringing over only the fields allowed in the Knative API.
+func ImageVolumeSourceMask(in *corev1.ImageVolumeSource) *corev1.ImageVolumeSource {
+	if in == nil {
+		return nil
+	}
+
+	out := new(corev1.ImageVolumeSource)
+
+	// Allowed fields
+	out.Reference = in.Reference
+	out.PullPolicy = in.PullPolicy
 
 	return out
 }
