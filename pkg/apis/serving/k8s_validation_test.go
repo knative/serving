@@ -143,6 +143,13 @@ func withPodSpecVolumesCSIEnabled() configOption {
 	}
 }
 
+func withPodSpecVolumesImageEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecVolumesImage = config.Enabled
+		return cfg
+	}
+}
+
 func withPodSpecPersistentVolumeWriteEnabled() configOption {
 	return func(cfg *config.Config) *config.Config {
 		cfg.Features.PodSpecPersistentVolumeWrite = config.Enabled
@@ -3324,6 +3331,44 @@ func TestVolumeValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrGeneric("Within a single item, cannot set both", "projected[0].downwardAPI.items[0].fieldRef", "projected[0].downwardAPI.items[0].resourceFieldRef"),
+	}, {
+		name: "missing CSI volume when required",
+		v: corev1.Volume{
+			Name: "foo",
+		},
+		cfgOpts: []configOption{withPodSpecVolumesCSIEnabled()},
+		want:    apis.ErrMissingOneOf("secret", "configMap", "projected", "emptyDir", "csi"),
+	}, {
+		name: "valid image volume with feature enabled",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				Image: &corev1.ImageVolumeSource{
+					Reference: "gcr.io/example/image:latest",
+				},
+			},
+		},
+		cfgOpts: []configOption{withPodSpecVolumesImageEnabled()},
+	}, {
+		name: "image volume with feature disabled",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				Image: &corev1.ImageVolumeSource{
+					Reference: "gcr.io/example/image:latest",
+				},
+			},
+		},
+		want: (&apis.FieldError{
+			Message: `Image volume support is disabled, but found Image volume foo`,
+		}).Also(&apis.FieldError{Message: "must not set the field(s)", Paths: []string{"image"}}),
+	}, {
+		name: "missing image volume when required",
+		v: corev1.Volume{
+			Name: "foo",
+		},
+		cfgOpts: []configOption{withPodSpecVolumesImageEnabled()},
+		want:    apis.ErrMissingOneOf("secret", "configMap", "projected", "emptyDir", "image"),
 	}}
 
 	for _, test := range tests {
