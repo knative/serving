@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "82cbbba9"
+    knative.dev/example-checksum: "0f9b4ade"
 data:
   _example: |-
     ################################
@@ -199,6 +199,11 @@ data:
     # 1. Enabled: enabling EmptyDir volume support
     # 2. Disabled: disabling EmptyDir volume support
     kubernetes.podspec-volumes-emptydir: "enabled"
+
+    # Controls whether volume support for image is enabled or not.
+    # 1. Enabled: enabling image volume support
+    # 2. Disabled: disabling image volume support
+    kubernetes.podspec-volumes-image: "disabled"
 
     # Controls whether volume support for HostPath is enabled or not.
     # WARNING: Cannot safely be disabled once enabled.
