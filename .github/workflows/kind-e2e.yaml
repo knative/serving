@@ -82,8 +82,8 @@ jobs:
       fail-fast: false # Keep running if one leg fails.
       matrix:
         k8s-version:
-        - v1.31.x
         - v1.32.x
+        - v1.33.x
 
         ingress:
         - kourier
