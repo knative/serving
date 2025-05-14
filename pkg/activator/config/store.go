@@ -22,7 +22,7 @@ import (
 
 	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/configmap"
-	tracingconfig "knative.dev/pkg/tracing/config"
+	tracingconfig "knative.dev/serving/pkg/tracingotel/config"
 )
 
 type cfgKey struct{}

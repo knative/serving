@@ -27,7 +27,9 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
-	"go.opencensus.io/plugin/ochttp"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/contrib/propagators/b3"
+	"go.opentelemetry.io/otel"
 	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap"
 	"knative.dev/serving/pkg/queue/certificate"
@@ -42,14 +44,13 @@ import (
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/signals"
-	"knative.dev/pkg/tracing"
-	tracingconfig "knative.dev/pkg/tracing/config"
-	"knative.dev/pkg/tracing/propagation/tracecontextb3"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/logging"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/readiness"
+	"knative.dev/serving/pkg/tracingotel"
+	otelconfig "knative.dev/serving/pkg/tracingotel/config"
 )
 
 const (
@@ -104,10 +105,10 @@ type config struct {
 	MetricsCollectorAddress                     string `split_words:"true"` // optional
 
 	// Tracing configuration
-	TracingConfigDebug          bool                      `split_words:"true"` // optional
-	TracingConfigBackend        tracingconfig.BackendType `split_words:"true"` // optional
-	TracingConfigSampleRate     float64                   `split_words:"true"` // optional
-	TracingConfigZipkinEndpoint string                    `split_words:"true"` // optional
+	TracingConfigDebug          bool                   `split_words:"true"` // optional
+	TracingConfigBackend        otelconfig.BackendType `split_words:"true"` // optional
+	TracingConfigSampleRate     float64                `split_words:"true"` // optional
+	TracingConfigZipkinEndpoint string                 `split_words:"true"` // optional
 
 	Env
 }
@@ -193,15 +194,30 @@ func Main(opts ...Option) error {
 	d.Logger = logger
 	d.Transport = buildTransport(env)
 
-	if env.TracingConfigBackend != tracingconfig.None {
-		oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(env.ServingPod, env.ServingPodIP, logger))
-		oct.ApplyConfig(&tracingconfig.Config{
+	if env.TracingConfigBackend != otelconfig.None {
+		otelCfg := &otelconfig.Config{
 			Backend:        env.TracingConfigBackend,
 			Debug:          env.TracingConfigDebug,
 			ZipkinEndpoint: env.TracingConfigZipkinEndpoint,
 			SampleRate:     env.TracingConfigSampleRate,
-		})
-		defer oct.Shutdown(context.Background())
+		}
+		// serviceName can be revision name, or a common name like "queue-proxy"
+		// Using ServingRevision as it's specific and was part of old exporter name.
+		serviceName := env.ServingRevision
+		if serviceName == "" {
+			serviceName = "queue-proxy" // Fallback service name
+		}
+
+		// Set B3 propagator
+		otel.SetTextMapPropagator(b3.New(b3.WithInjectEncoding(b3.B3MultipleHeader | b3.B3SingleHeader)))
+
+		handle, err := tracingotel.SetupPublishingWithStaticConfig(logger, serviceName, otelCfg)
+		if err != nil {
+			// Log error but continue, tracing will be a no-op.
+			logger.Errorw("Failed to setup OpenTelemetry tracing", zap.Error(err))
+		} else {
+			defer handle.Shutdown(context.Background()) // Ensure shutdown is called.
+		}
 	}
 
 	// allow extensions to read d and return modified context and transport
@@ -351,14 +367,13 @@ func buildTransport(env config) http.RoundTripper {
 	// set max-idle and max-idle-per-host to same value since we're always proxying to the same host.
 	transport := pkgnet.NewProxyAutoTransport(maxIdleConns /* max-idle */, maxIdleConns /* max-idle-per-host */)
 
-	if env.TracingConfigBackend == tracingconfig.None {
+	if env.TracingConfigBackend == otelconfig.None {
 		return transport
 	}
 
-	return &ochttp.Transport{
-		Base:        transport,
-		Propagation: tracecontextb3.TraceContextB3Egress,
-	}
+	// otelhttp.NewTransport will use the global TracerProvider & Propagator
+	// Ensure otel.SetTextMapPropagator(b3.New(...)) is called before this if B3 is desired.
+	return otelhttp.NewTransport(transport)
 }
 
 func buildBreaker(logger *zap.SugaredLogger, env config) *queue.Breaker {

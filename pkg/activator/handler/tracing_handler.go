@@ -19,15 +19,15 @@ package handler
 import (
 	"net/http"
 
-	"knative.dev/pkg/tracing"
-	tracingconfig "knative.dev/pkg/tracing/config"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
+	"knative.dev/serving/pkg/tracingotel"
+	tracingconfig "knative.dev/serving/pkg/tracingotel/config"
 )
 
 // NewTracingHandler creates a wrapper around tracing.HTTPSpanMiddleware that completely
 // bypasses said handler when tracing is disabled via the Activator's configuration.
 func NewTracingHandler(next http.Handler) http.HandlerFunc {
-	tracingHandler := tracing.HTTPSpanMiddleware(next)
+	tracingHandler := tracingotel.HTTPSpanMiddleware(next)
 	return func(w http.ResponseWriter, r *http.Request) {
 		tracingEnabled := activatorconfig.FromContext(r.Context()).Tracing.Backend != tracingconfig.None
 		if !tracingEnabled {

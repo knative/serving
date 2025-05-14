@@ -30,10 +30,10 @@ import (
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics"
-	pkgtracing "knative.dev/pkg/tracing/config"
 	apiconfig "knative.dev/serving/pkg/apis/config"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
+	pkgtracing "knative.dev/serving/pkg/tracingotel/config"
 
 	. "knative.dev/pkg/configmap/testing"
 )

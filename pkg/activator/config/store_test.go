@@ -24,7 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	netcfg "knative.dev/networking/pkg/config"
 	ltesting "knative.dev/pkg/logging/testing"
-	tracingconfig "knative.dev/pkg/tracing/config"
+	tracingconfig "knative.dev/serving/pkg/tracingotel/config"
 )
 
 var tracingConfig = &corev1.ConfigMap{
@@ -54,7 +54,7 @@ func TestStore(t *testing.T) {
 	ctx := store.ToContext(context.Background())
 	cfg := FromContext(ctx)
 
-	if got, want := cfg.Tracing.Backend, tracingconfig.None; got != want {
+	if got, want := string(cfg.Tracing.Backend), "none"; got != want {
 		t.Fatalf("Tracing.Backend = %v, want %v", got, want)
 	}
 	if got, want := cfg.Network.DefaultIngressClass, "random.ingress.networking.knative.dev"; got != want {
@@ -75,7 +75,7 @@ func TestStore(t *testing.T) {
 	ctx = store.ToContext(context.Background())
 	cfg = FromContext(ctx)
 
-	if got, want := cfg.Tracing.Backend, tracingconfig.Zipkin; got != want {
+	if got, want := string(cfg.Tracing.Backend), "zipkin"; got != want {
 		t.Fatalf("Tracing.Backend = %v, want %v", got, want)
 	}
 }
