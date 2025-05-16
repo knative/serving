@@ -121,6 +121,10 @@ func validatePersistentVolumeClaims(volume corev1.VolumeSource, features *config
 func validateVolume(ctx context.Context, volume corev1.Volume) *apis.FieldError {
 	features := config.FromContextOrDefaults(ctx).Features
 	errs := validatePersistentVolumeClaims(volume.VolumeSource, features)
+	if volume.Image != nil && features.PodSpecVolumesImage != config.Enabled {
+		errs = errs.Also(&apis.FieldError{Message: fmt.Sprintf("Image volume support is disabled, "+
+			"but found Image volume %s", volume.Name)})
+	}
 	if volume.EmptyDir != nil && features.PodSpecVolumesEmptyDir != config.Enabled {
 		errs = errs.Also(&apis.FieldError{Message: fmt.Sprintf("EmptyDir volume support is disabled, "+
 			"but found EmptyDir volume %s", volume.Name)})
@@ -177,6 +181,11 @@ func validateVolume(ctx context.Context, volume corev1.Volume) *apis.FieldError 
 		specified = append(specified, "csi")
 	}
 
+	if vs.Image != nil {
+		specified = append(specified, "image")
+		errs = errs.Also(validateImageVolumeSource(vs.Image).ViaField("image"))
+	}
+
 	if len(specified) == 0 {
 		fieldPaths := []string{"secret", "configMap", "projected"}
 		cfg := config.FromContextOrDefaults(ctx)
@@ -191,6 +200,9 @@ func validateVolume(ctx context.Context, volume corev1.Volume) *apis.FieldError 
 		}
 		if cfg.Features.PodSpecVolumesCSI == config.Enabled {
 			fieldPaths = append(fieldPaths, "csi")
+		}
+		if cfg.Features.PodSpecVolumesImage == config.Enabled {
+			fieldPaths = append(fieldPaths, "image")
 		}
 		errs = errs.Also(apis.ErrMissingOneOf(fieldPaths...))
 	} else if len(specified) > 1 {
@@ -1055,4 +1067,21 @@ func WithinInitContainer(ctx context.Context) context.Context {
 // IsInitContainer checks if we are in the context of an init container in the revision.
 func IsInitContainer(ctx context.Context) bool {
 	return ctx.Value(initContainer{}) != nil
+}
+
+func validateImageVolumeSource(iv *corev1.ImageVolumeSource) *apis.FieldError {
+	errs := apis.CheckDisallowedFields(*iv, *ImageVolumeSourceMask(iv))
+
+	if iv.Reference == "" {
+		errs = errs.Also(apis.ErrMissingField("reference"))
+	}
+
+	switch iv.PullPolicy {
+	case corev1.PullIfNotPresent, corev1.PullAlways, corev1.PullNever, "":
+		// ok
+	default:
+		errs = errs.Also(apis.ErrInvalidValue(iv.PullPolicy, "pullPolicy"))
+	}
+
+	return errs
 }

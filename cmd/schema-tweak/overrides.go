@@ -251,6 +251,9 @@ func revSpecOverrides(prefixPath string) []entry {
 		}, {
 			name: "csi",
 			flag: config.FeaturePodSpecVolumesCSI,
+		}, {
+			name: "image",
+			flag: config.FeaturePodSpecVolumesImage,
 		}},
 	}, {
 		path: "volumes.secret",
