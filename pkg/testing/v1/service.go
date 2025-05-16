@@ -145,10 +145,19 @@ func WithServiceAnnotation(k, v string) ServiceOption {
 	}
 }
 
-// WithServiceAnnotationRemoved adds the given annotation to the service.
+// WithServiceAnnotationRemoved removes the given annotation from the service.
 func WithServiceAnnotationRemoved(k string) ServiceOption {
 	return func(svc *v1.Service) {
 		svc.Annotations = kmeta.FilterMap(svc.Annotations, func(s string) bool {
+			return k == s
+		})
+	}
+}
+
+// WithServiceLabelRemoved removes the given label from the service.
+func WithServiceLabelRemoved(k string) ServiceOption {
+	return func(svc *v1.Service) {
+		svc.Labels = kmeta.FilterMap(svc.Labels, func(s string) bool {
 			return k == s
 		})
 	}
