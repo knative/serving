@@ -24,8 +24,10 @@ import (
 	"strconv"
 	"strings"
 
-	"go.opencensus.io/plugin/ochttp"
-	"go.opencensus.io/trace"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	otel "go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -33,8 +35,6 @@ import (
 	netproxy "knative.dev/networking/pkg/http/proxy"
 	"knative.dev/pkg/logging/logkey"
 	pkghandler "knative.dev/pkg/network/handlers"
-	tracingconfig "knative.dev/pkg/tracing/config"
-	"knative.dev/pkg/tracing/propagation/tracecontextb3"
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	apiconfig "knative.dev/serving/pkg/apis/config"
@@ -42,6 +42,7 @@ import (
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
+	tracingconfig "knative.dev/serving/pkg/tracingotel/config"
 )
 
 // Throttler is the interface that Handler calls to Try to proxy the user request.
@@ -65,10 +66,10 @@ type activationHandler struct {
 func New(_ context.Context, t Throttler, transport http.RoundTripper, usePassthroughLb bool, logger *zap.SugaredLogger, tlsEnabled bool) http.Handler {
 	return &activationHandler{
 		transport: transport,
-		tracingTransport: &ochttp.Transport{
-			Base:        transport,
-			Propagation: tracecontextb3.TraceContextB3Egress,
-		},
+		tracingTransport: otelhttp.NewTransport(transport,
+			otelhttp.WithPropagators(otel.GetTextMapPropagator()),
+			otelhttp.WithTracerProvider(otel.GetTracerProvider()),
+		),
 		usePassthroughLb: usePassthroughLb,
 		throttler:        t,
 		bufferPool:       netproxy.NewBufferPool(),
@@ -81,27 +82,35 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	config := activatorconfig.FromContext(r.Context())
 	tracingEnabled := config.Tracing.Backend != tracingconfig.None
 
-	tryContext, trySpan := r.Context(), (*trace.Span)(nil)
+	var trySpan trace.Span
+	tryContext := r.Context()
 	if tracingEnabled {
-		tryContext, trySpan = trace.StartSpan(r.Context(), "throttler_try")
+		tryContext, trySpan = otel.Tracer("knative.dev/serving/pkg/activator").Start(r.Context(), "throttler_try")
 	}
 
 	revID := RevIDFrom(r.Context())
 	if err := a.throttler.Try(tryContext, revID, func(dest string, isClusterIP bool) error {
-		trySpan.End()
+		if trySpan != nil {
+			trySpan.End()
+		}
 
-		proxyCtx, proxySpan := r.Context(), (*trace.Span)(nil)
+		var proxySpan trace.Span
+		proxyCtx := r.Context()
 		if tracingEnabled {
-			proxyCtx, proxySpan = trace.StartSpan(r.Context(), "activator_proxy")
+			proxyCtx, proxySpan = otel.Tracer("knative.dev/serving/pkg/activator").Start(r.Context(), "activator_proxy")
 		}
 		a.proxyRequest(revID, w, r.WithContext(proxyCtx), dest, tracingEnabled, a.usePassthroughLb, isClusterIP)
-		proxySpan.End()
+		if proxySpan != nil {
+			proxySpan.End()
+		}
 
 		return nil
 	}); err != nil {
 		// Set error on our capacity waiting span and end it.
-		trySpan.Annotate([]trace.Attribute{trace.StringAttribute("activator.throttler.error", err.Error())}, "ThrottlerTry")
-		trySpan.End()
+		if trySpan != nil {
+			trySpan.SetAttributes(attribute.String("activator.throttler.error", err.Error()))
+			trySpan.End()
+		}
 
 		a.logger.Errorw("Throttler try error", zap.String(logkey.Key, revID.String()), zap.Error(err))
 
