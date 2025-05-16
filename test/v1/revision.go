@@ -81,7 +81,10 @@ func IsRevisionReady(r *v1.Revision) (bool, error) {
 
 // IsRevisionContainerHealthy will indicate whether the revision has marked the container healthy.
 func IsRevisionContainerHealthy(r *v1.Revision) (bool, error) {
-	return r.Status.GetCondition(v1.RevisionConditionContainerHealthy).IsTrue(), nil
+	if r.Status.GetCondition(v1.RevisionConditionContainerHealthy).IsTrue() {
+		return true, nil
+	}
+	return false, nil
 }
 
 // IsRevisionFailed will check the status condition sof the revision and return true if the revision is

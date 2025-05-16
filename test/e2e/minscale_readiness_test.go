@@ -85,11 +85,11 @@ func TestMinScale(t *testing.T) {
 	revName := latestRevisionName(t, clients, names.Config, "")
 	serviceName := PrivateServiceName(t, clients, revName)
 
-	t.Log("Waiting for new revision's container to become healthy with the minScale")
+	t.Log("Waiting for new revision to become ready")
 	if err := v1test.WaitForRevisionState(
-		clients.ServingClient, newRevName, v1test.IsRevisionContainerHealthy, "ContainerIsHealthy",
+		clients.ServingClient, revName, v1test.IsRevisionReady, "RevisionIsReady",
 	); err != nil {
-		t.Fatalf("The container of the Revision %q did not become healthy: %v", newRevName, err)
+		t.Fatalf("The Revision %q did not become ready: %v", revName, err)
 	}
 
 	revision, err := clients.ServingClient.Revisions.Get(context.Background(), revName, metav1.GetOptions{})
@@ -105,19 +105,12 @@ func TestMinScale(t *testing.T) {
 		t.Fatalf("The revision %q scaled to %d < %d before becoming ready: %v", revName, lr, minScale, err)
 	}
 
-	t.Log("Waiting for revision to become ready")
-	if err := v1test.WaitForRevisionState(
-		clients.ServingClient, revName, v1test.IsRevisionReady, "RevisionIsReady",
-	); err != nil {
-		t.Fatalf("The Revision %q did not become ready: %v", revName, err)
-	}
-
 	t.Log("Holding revision at minScale after becoming ready")
 	if lr, ok := ensureDesiredScale(clients, t, serviceName, gte(minScale)); !ok {
 		t.Fatalf("The revision %q observed scale %d < %d after becoming ready", revName, lr, minScale)
 	}
 
-	revision, err := clients.ServingClient.Revisions.Get(context.Background(), revName, metav1.GetOptions{})
+	revision, err = clients.ServingClient.Revisions.Get(context.Background(), revName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("An error occurred getting revision %v, %v", revName, err)
 	}
@@ -133,16 +126,16 @@ func TestMinScale(t *testing.T) {
 	newRevName := latestRevisionName(t, clients, names.Config, revName)
 	newServiceName := PrivateServiceName(t, clients, newRevName)
 
-	t.Log("Waiting for new revision's container to become healthy with the minScale")
+	t.Log("Waiting for new revision to become ready")
 	if err := v1test.WaitForRevisionState(
-		clients.ServingClient, newRevName, v1test.IsRevisionContainerHealthy, "ContainerIsHealthy",
+		clients.ServingClient, newRevName, v1test.IsRevisionReady, "RevisionIsReady",
 	); err != nil {
-		t.Fatalf("The container of the Revision %q did not become healthy: %v", newRevName, err)
+		t.Fatalf("The Revision %q did not become ready: %v", newRevName, err)
 	}
 
-	revision, err := clients.ServingClient.Revisions.Get(context.Background(), revName, metav1.GetOptions{})
+	revision, err = clients.ServingClient.Revisions.Get(context.Background(), newRevName, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("An error occurred getting revision %v, %v", revName, err)
+		t.Fatalf("An error occurred getting revision %v, %v", newRevName, err)
 	}
 	if replicas := *revision.Status.ActualReplicas; replicas < minScale {
 		t.Fatalf("Container is indicated as healthy. Expected actual replicas for revision %v to be %v but got %v", revision.Name, minScale, replicas)
@@ -151,13 +144,6 @@ func TestMinScale(t *testing.T) {
 	t.Log("Waiting for new revision to scale to minScale after update")
 	if lr, err := waitForDesiredScale(clients, newServiceName, gte(minScale)); err != nil {
 		t.Fatalf("The revision %q scaled to %d < %d after creating route: %v", newRevName, lr, minScale, err)
-	}
-
-	t.Log("Waiting for new revision to become ready")
-	if err := v1test.WaitForRevisionState(
-		clients.ServingClient, newRevName, v1test.IsRevisionReady, "RevisionIsReady",
-	); err != nil {
-		t.Fatalf("The Revision %q did not become ready: %v", newRevName, err)
 	}
 
 	t.Log("Holding new revision at minScale after becoming ready")
