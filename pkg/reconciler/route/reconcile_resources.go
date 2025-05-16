@@ -256,10 +256,14 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 
 			if canUpdate {
 				// Make sure that the service has the proper specification.
-				if !equality.Semantic.DeepEqual(from.Service.Spec, to.Service.Spec) {
+				if !equality.Semantic.DeepEqual(from.Service.Spec, to.Service.Spec) ||
+					!equality.Semantic.DeepEqual(from.Service.Annotations, to.Service.Annotations) ||
+					!equality.Semantic.DeepEqual(from.Service.Labels, to.Service.Labels) {
 					// Don't modify the informers copy.
 					existing := from.Service.DeepCopy()
 					existing.Spec = to.Service.Spec
+					existing.Annotations = to.Service.Annotations
+					existing.Labels = to.Service.Labels
 					if _, err := c.kubeclient.CoreV1().Services(ns).Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
 						return err
 					}
