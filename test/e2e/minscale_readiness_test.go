@@ -85,6 +85,21 @@ func TestMinScale(t *testing.T) {
 	revName := latestRevisionName(t, clients, names.Config, "")
 	serviceName := PrivateServiceName(t, clients, revName)
 
+	t.Log("Waiting for new revision's container to become healthy with the minScale")
+	if err := v1test.WaitForRevisionState(
+		clients.ServingClient, newRevName, v1test.IsRevisionContainerHealthy, "ContainerIsHealthy",
+	); err != nil {
+		t.Fatalf("The container of the Revision %q did not become healthy: %v", newRevName, err)
+	}
+
+	revision, err := clients.ServingClient.Revisions.Get(context.Background(), revName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("An error occurred getting revision %v, %v", revName, err)
+	}
+	if replicas := *revision.Status.ActualReplicas; replicas < minScale {
+		t.Fatalf("Container is indicated as healthy. Expected actual replicas for revision %v to be %v but got %v", revision.Name, minScale, replicas)
+	}
+
 	t.Log("Waiting for revision to scale to minScale before becoming ready")
 	if lr, err := waitForDesiredScale(clients, serviceName, gte(minScale)); err != nil {
 		t.Fatalf("The revision %q scaled to %d < %d before becoming ready: %v", revName, lr, minScale, err)
@@ -117,6 +132,21 @@ func TestMinScale(t *testing.T) {
 
 	newRevName := latestRevisionName(t, clients, names.Config, revName)
 	newServiceName := PrivateServiceName(t, clients, newRevName)
+
+	t.Log("Waiting for new revision's container to become healthy with the minScale")
+	if err := v1test.WaitForRevisionState(
+		clients.ServingClient, newRevName, v1test.IsRevisionContainerHealthy, "ContainerIsHealthy",
+	); err != nil {
+		t.Fatalf("The container of the Revision %q did not become healthy: %v", newRevName, err)
+	}
+
+	revision, err := clients.ServingClient.Revisions.Get(context.Background(), revName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("An error occurred getting revision %v, %v", revName, err)
+	}
+	if replicas := *revision.Status.ActualReplicas; replicas < minScale {
+		t.Fatalf("Container is indicated as healthy. Expected actual replicas for revision %v to be %v but got %v", revision.Name, minScale, replicas)
+	}
 
 	t.Log("Waiting for new revision to scale to minScale after update")
 	if lr, err := waitForDesiredScale(clients, newServiceName, gte(minScale)); err != nil {
