@@ -19,9 +19,9 @@ require (
 	go.opencensus.io v0.24.0
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/net v0.39.0
-	golang.org/x/sync v0.13.0
-	golang.org/x/sys v0.32.0
+	golang.org/x/net v0.40.0
+	golang.org/x/sync v0.14.0
+	golang.org/x/sys v0.33.0
 	golang.org/x/time v0.10.0
 	google.golang.org/api v0.198.0
 	google.golang.org/grpc v1.72.0
@@ -33,10 +33,10 @@ require (
 	k8s.io/code-generator v0.32.2
 	k8s.io/kube-openapi v0.0.0-20241212222426-2c72e554b1e7
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
-	knative.dev/caching v0.0.0-20250424013925-250c6a13b784
-	knative.dev/hack v0.0.0-20250424013725-c4037b0fe56b
-	knative.dev/networking v0.0.0-20250424014624-16635c6d8dcc
-	knative.dev/pkg v0.0.0-20250424013628-d5e74d29daa3
+	knative.dev/caching v0.0.0-20250515023348-e27e90746aeb
+	knative.dev/hack v0.0.0-20250514121446-f525e187efdc
+	knative.dev/networking v0.0.0-20250515023348-eea9fd8d72f2
+	knative.dev/pkg v0.0.0-20250515022847-873230f3a48e
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -139,12 +139,12 @@ require (
 	go.opentelemetry.io/otel/metric v1.34.0 // indirect
 	go.opentelemetry.io/otel/trace v1.34.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/crypto v0.37.0 // indirect
+	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/mod v0.24.0 // indirect
 	golang.org/x/oauth2 v0.26.0 // indirect
-	golang.org/x/term v0.31.0 // indirect
-	golang.org/x/text v0.24.0 // indirect
-	golang.org/x/tools v0.32.0 // indirect
+	golang.org/x/term v0.32.0 // indirect
+	golang.org/x/text v0.25.0 // indirect
+	golang.org/x/tools v0.33.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250218202821-56aae31c358a // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250218202821-56aae31c358a // indirect
