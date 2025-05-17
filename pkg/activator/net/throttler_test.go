@@ -19,6 +19,7 @@ package net
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strconv"
 	"sync"
@@ -46,6 +47,7 @@ import (
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
 )
 
 var testBreakerParams = queue.BreakerParams{
@@ -360,9 +362,9 @@ func TestThrottlerErrorOneTimesOut(t *testing.T) {
 
 	throttler := newTestThrottler(ctx)
 	throttler.handleUpdate(revisionDestsUpdate{
-		Rev:           revID,
-		ClusterIPDest: "129.0.0.1:1234",
-		Dests:         sets.New("128.0.0.1:1234"),
+		Rev:            revID,
+		PrivateService: fmt.Sprintf("%s.%s:1234", names.PrivateService(testRevision), testNamespace),
+		Dests:          sets.New("128.0.0.1:1234"),
 	})
 
 	// Send 2 requests, one should time out.
@@ -430,18 +432,18 @@ func TestThrottlerSuccesses(t *testing.T) {
 		requests:  1,
 		wantDests: sets.New("128.0.0.1:1234"),
 	}, {
-		name:     "single healthy clusterIP",
+		name:     "single healthy private service",
 		revision: revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1),
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 			Dests: sets.New("128.0.0.1:1234", "128.0.0.2:1234"),
 		}, {
-			Rev:           types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-			ClusterIPDest: "129.0.0.1:1234",
-			Dests:         sets.New("128.0.0.1:1234"),
+			Rev:            types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+			PrivateService: "test-revision-private.test-namespace.svc.cluster.local:1234",
+			Dests:          sets.New("128.0.0.1:1234"),
 		}},
 		requests:  1,
-		wantDests: sets.New("129.0.0.1:1234"),
+		wantDests: sets.New("test-revision-private.test-namespace.svc.cluster.local:1234"),
 	}, {
 		name:     "spread podIP load",
 		revision: revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1),
@@ -476,15 +478,15 @@ func TestThrottlerSuccesses(t *testing.T) {
 		// All three IP addresses should be used if cc>3.
 		wantDests: sets.New("128.0.0.1:1234", "128.0.0.2:1234", "211.212.213.214"),
 	}, {
-		name:     "multiple ClusterIP requests",
+		name:     "multiple private service requests",
 		revision: revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1),
 		initUpdates: []revisionDestsUpdate{{
-			Rev:           types.NamespacedName{Namespace: testNamespace, Name: testRevision},
-			ClusterIPDest: "129.0.0.1:1234",
-			Dests:         sets.New("128.0.0.1:1234", "128.0.0.2:1234"),
+			Rev:            types.NamespacedName{Namespace: testNamespace, Name: testRevision},
+			PrivateService: "test-revision-private.test-namespace.svc.cluster.local:1234",
+			Dests:          sets.New("128.0.0.1:1234", "128.0.0.2:1234"),
 		}},
 		requests:  2,
-		wantDests: sets.New("129.0.0.1:1234"),
+		wantDests: sets.New("test-revision-private.test-namespace.svc.cluster.local:1234"),
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
@@ -624,9 +626,9 @@ func TestPodAssignmentFinite(t *testing.T) {
 	throttler.revisionThrottlers[revName] = rt
 
 	update := revisionDestsUpdate{
-		Rev:           revName,
-		ClusterIPDest: "",
-		Dests:         sets.New("ip4", "ip3", "ip5", "ip2", "ip1", "ip0"),
+		Rev:            revName,
+		PrivateService: "",
+		Dests:          sets.New("ip4", "ip3", "ip5", "ip2", "ip1", "ip0"),
 	}
 	// This should synchronously update throughout the system.
 	// And now we can inspect `rt`.
@@ -674,9 +676,9 @@ func TestPodAssignmentInfinite(t *testing.T) {
 	throttler.revisionThrottlers[revName] = rt
 
 	update := revisionDestsUpdate{
-		Rev:           revName,
-		ClusterIPDest: "",
-		Dests:         sets.New("ip3", "ip2", "ip1"),
+		Rev:            revName,
+		PrivateService: "",
+		Dests:          sets.New("ip3", "ip2", "ip1"),
 	}
 	// This should synchronously update throughout the system.
 	// And now we can inspect `rt`.

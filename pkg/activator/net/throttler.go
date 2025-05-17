@@ -412,12 +412,12 @@ func assignSlice(trackers []*podTracker, selfIndex, numActivators int) []*podTra
 // to lock on updating concurrency / trackers
 func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 	rt.logger.Debugw("Handling update",
-		zap.String("ClusterIP", update.ClusterIPDest), zap.Object("dests", logging.StringSet(update.Dests)))
+		zap.String("private service", update.PrivateService), zap.Object("dests", logging.StringSet(update.Dests)))
 
-	// ClusterIP is not yet ready, so we want to send requests directly to the pods.
+	// PrivateService is not yet ready, so we want to send requests directly to the pods.
 	// NB: this will not be called in parallel, thus we can build a new podTrackers
 	// array before taking out a lock.
-	if update.ClusterIPDest == "" {
+	if update.PrivateService == "" {
 		// Create a map for fast lookup of existing trackers.
 		trackersMap := make(map[string]*podTracker, len(rt.podTrackers))
 		for _, tracker := range rt.podTrackers {
@@ -448,7 +448,7 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 		return
 	}
 
-	rt.updateThrottlerState(len(update.Dests), nil /*trackers*/, newPodTracker(update.ClusterIPDest, nil))
+	rt.updateThrottlerState(len(update.Dests), nil /*trackers*/, newPodTracker(update.PrivateService, nil))
 }
 
 // Throttler load balances requests to revisions based on capacity. When `Run` is called it listens for
