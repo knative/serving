@@ -24,6 +24,7 @@ import (
 	"slices"
 
 	corev1 "k8s.io/api/core/v1"
+
 	"knative.dev/serving/pkg/apis/config"
 )
 
@@ -384,6 +385,7 @@ func ProbeMask(in *corev1.Probe) *corev1.Probe {
 	out.PeriodSeconds = in.PeriodSeconds
 	out.SuccessThreshold = in.SuccessThreshold
 	out.FailureThreshold = in.FailureThreshold
+	out.TerminationGracePeriodSeconds = in.TerminationGracePeriodSeconds
 
 	return out
 }

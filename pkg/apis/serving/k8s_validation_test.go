@@ -1803,7 +1803,7 @@ func TestUserContainerValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		name: "valid with exec probes ",
+		name: "valid with exec probes",
 		c: corev1.Container{
 			Image: "foo",
 			ReadinessProbe: &corev1.Probe{
@@ -1822,6 +1822,7 @@ func TestUserContainerValidation(t *testing.T) {
 				ProbeHandler: corev1.ProbeHandler{
 					Exec: &corev1.ExecAction{},
 				},
+				TerminationGracePeriodSeconds: ptr.Int64(10),
 			},
 		},
 		want: nil,
@@ -1859,6 +1860,7 @@ func TestUserContainerValidation(t *testing.T) {
 						Path: "/",
 					},
 				},
+				TerminationGracePeriodSeconds: ptr.Int64(10),
 			},
 		},
 		want: nil,
@@ -1896,6 +1898,7 @@ func TestUserContainerValidation(t *testing.T) {
 						Port: intstr.FromInt(5000),
 					},
 				},
+				TerminationGracePeriodSeconds: ptr.Int64(10),
 			},
 		},
 		want: nil,
@@ -1913,6 +1916,7 @@ func TestUserContainerValidation(t *testing.T) {
 						Port: intstr.FromInt(5000),
 					},
 				},
+				TerminationGracePeriodSeconds: ptr.Int64(10),
 			},
 		},
 		want: nil,
@@ -2067,6 +2071,7 @@ func TestUserContainerValidation(t *testing.T) {
 						Port: intstr.FromInt(8888),
 					},
 				},
+				TerminationGracePeriodSeconds: ptr.Int64(10),
 			},
 		},
 	}, {
@@ -2153,313 +2158,383 @@ func TestUserContainerValidation(t *testing.T) {
 }
 
 func TestSidecarContainerValidation(t *testing.T) {
-	tests := []containerValidationTestCase{{
-		name: "probes not allowed",
-		c: corev1.Container{
-			Image: "foo",
-			ReadinessProbe: &corev1.Probe{
-				PeriodSeconds:    1,
-				TimeoutSeconds:   1,
-				SuccessThreshold: 1,
-				FailureThreshold: 3,
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
+	tests := []containerValidationTestCase{
+		{
+			name: "probes not allowed",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+						},
+					},
+				},
+				LivenessProbe: &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						TCPSocket: &corev1.TCPSocketAction{},
+					},
+				},
+				StartupProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+						},
+					},
+					TerminationGracePeriodSeconds: ptr.Int64(10),
+				},
+			},
+			want: apis.ErrDisallowedFields("livenessProbe", "readinessProbe", "readinessProbe.failureThreshold", "readinessProbe.periodSeconds", "readinessProbe.successThreshold", "readinessProbe.timeoutSeconds"),
+		},
+		{
+			name: "invalid probes (no port defined)",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+						},
+					},
+				},
+				LivenessProbe: &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						TCPSocket: &corev1.TCPSocketAction{},
 					},
 				},
 			},
-			LivenessProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					TCPSocket: &corev1.TCPSocketAction{},
+			cfgOpts: []configOption{withMultiContainerProbesEnabled()},
+			want:    apis.ErrInvalidValue(0, "livenessProbe.tcpSocket.port, readinessProbe.httpGet.port", "Probe port must be specified"),
+		},
+		{
+			name: "valid with exec probes",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					InitialDelaySeconds: 0,
+					PeriodSeconds:       1,
+					TimeoutSeconds:      1,
+					SuccessThreshold:    1,
+					FailureThreshold:    3,
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+							Port: intstr.FromInt32(5000),
+						},
+					},
+				},
+				LivenessProbe: &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						Exec: &corev1.ExecAction{},
+					},
+					TerminationGracePeriodSeconds: ptr.Int64(10),
 				},
 			},
+			cfgOpts: []configOption{withMultiContainerProbesEnabled()},
+			want:    nil,
 		},
-		want: apis.ErrDisallowedFields("livenessProbe", "readinessProbe", "readinessProbe.failureThreshold", "readinessProbe.periodSeconds", "readinessProbe.successThreshold", "readinessProbe.timeoutSeconds"),
-	}, {
-		name: "invalid probes (no port defined)",
-		c: corev1.Container{
-			Image: "foo",
-			ReadinessProbe: &corev1.Probe{
-				PeriodSeconds:    1,
-				TimeoutSeconds:   1,
-				SuccessThreshold: 1,
-				FailureThreshold: 3,
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
+		{
+			name: "invalid with startup probe",
+			c: corev1.Container{
+				Image: "foo",
+				StartupProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+						},
+					},
+					TerminationGracePeriodSeconds: ptr.Int64(10),
+				},
+			},
+			want: nil,
+		},
+		{
+			name: "valid with startup probe and multi container probing",
+			c: corev1.Container{
+				Image: "foo",
+				StartupProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+						},
+					},
+					TerminationGracePeriodSeconds: ptr.Int64(10),
+				},
+			},
+			cfgOpts: []configOption{withMultiContainerProbesEnabled()},
+			want:    nil,
+		},
+		{
+			name: "invalid with no handler",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+							Port: intstr.FromInt32(5000),
+						},
+					},
+				},
+				LivenessProbe: &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{},
+				},
+			},
+			cfgOpts: []configOption{withMultiContainerProbesEnabled()},
+			want:    apis.ErrMissingOneOf("livenessProbe.httpGet", "livenessProbe.tcpSocket", "livenessProbe.exec", "livenessProbe.grpc"),
+		},
+		{
+			name: "invalid with multiple handlers",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+							Port: intstr.FromInt32(5000),
+						},
+						Exec: &corev1.ExecAction{},
+						TCPSocket: &corev1.TCPSocketAction{
+							Port: intstr.FromInt32(5000),
+						},
 					},
 				},
 			},
-			LivenessProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					TCPSocket: &corev1.TCPSocketAction{},
+			cfgOpts: []configOption{withMultiContainerProbesEnabled()},
+			want:    apis.ErrMultipleOneOf("readinessProbe.exec", "readinessProbe.tcpSocket", "readinessProbe.httpGet"),
+		},
+		{
+			name: "valid liveness http probe",
+			c: corev1.Container{
+				Image: "foo",
+				LivenessProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+							Port: intstr.FromInt(5000),
+						},
+					},
+					TerminationGracePeriodSeconds: ptr.Int64(10),
 				},
 			},
+			cfgOpts: []configOption{withMultiContainerProbesEnabled()},
+			want:    nil,
 		},
-		cfgOpts: []configOption{withMultiContainerProbesEnabled()},
-		want:    apis.ErrInvalidValue(0, "livenessProbe.tcpSocket.port, readinessProbe.httpGet.port", "Probe port must be specified"),
-	}, {
-		name: "valid with exec probes",
-		c: corev1.Container{
-			Image: "foo",
-			ReadinessProbe: &corev1.Probe{
-				InitialDelaySeconds: 0,
-				PeriodSeconds:       1,
-				TimeoutSeconds:      1,
-				SuccessThreshold:    1,
-				FailureThreshold:    3,
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
-						Port: intstr.FromInt32(5000),
+		{
+			name: "valid liveness tcp probe",
+			c: corev1.Container{
+				Image: "foo",
+				LivenessProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					ProbeHandler: corev1.ProbeHandler{
+						TCPSocket: &corev1.TCPSocketAction{
+							Port: intstr.FromInt(5000),
+						},
+					},
+					TerminationGracePeriodSeconds: ptr.Int64(10),
+				},
+			},
+			cfgOpts: []configOption{withMultiContainerProbesEnabled()},
+			want:    nil,
+		},
+		{
+			name: "valid readiness http probe",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+							Port: intstr.FromInt(5000),
+						},
 					},
 				},
 			},
-			LivenessProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					Exec: &corev1.ExecAction{},
-				},
-			},
+			cfgOpts: []configOption{withMultiContainerProbesEnabled()},
+			want:    nil,
 		},
-		cfgOpts: []configOption{withMultiContainerProbesEnabled()},
-		want:    nil,
-	}, {
-		name: "invalid with no handler",
-		c: corev1.Container{
-			Image: "foo",
-			ReadinessProbe: &corev1.Probe{
-				PeriodSeconds:    1,
-				TimeoutSeconds:   1,
-				SuccessThreshold: 1,
-				FailureThreshold: 3,
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
-						Port: intstr.FromInt32(5000),
+		{
+			name: "valid readiness tcp probe",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					ProbeHandler: corev1.ProbeHandler{
+						TCPSocket: &corev1.TCPSocketAction{
+							Port: intstr.FromInt(5000),
+						},
 					},
 				},
 			},
-			LivenessProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{},
-			},
+			cfgOpts: []configOption{withMultiContainerProbesEnabled()},
+			want:    nil,
 		},
-		cfgOpts: []configOption{withMultiContainerProbesEnabled()},
-		want:    apis.ErrMissingOneOf("livenessProbe.httpGet", "livenessProbe.tcpSocket", "livenessProbe.exec", "livenessProbe.grpc"),
-	}, {
-		name: "invalid with multiple handlers",
-		c: corev1.Container{
-			Image: "foo",
-			ReadinessProbe: &corev1.Probe{
-				PeriodSeconds:    1,
-				TimeoutSeconds:   1,
-				SuccessThreshold: 1,
-				FailureThreshold: 3,
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
-						Port: intstr.FromInt32(5000),
-					},
-					Exec: &corev1.ExecAction{},
-					TCPSocket: &corev1.TCPSocketAction{
-						Port: intstr.FromInt32(5000),
+		{
+			name: "valid readiness http probe with named port",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					SuccessThreshold: 1,
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Port: intstr.FromString("http"), // http is the default
+						},
 					},
 				},
 			},
+			cfgOpts: []configOption{withMultiContainerProbesEnabled()},
+			want:    nil,
 		},
-		cfgOpts: []configOption{withMultiContainerProbesEnabled()},
-		want:    apis.ErrMultipleOneOf("readinessProbe.exec", "readinessProbe.tcpSocket", "readinessProbe.httpGet"),
-	}, {
-		name: "valid liveness http probe",
-		c: corev1.Container{
-			Image: "foo",
-			LivenessProbe: &corev1.Probe{
-				PeriodSeconds:    1,
-				TimeoutSeconds:   1,
-				SuccessThreshold: 1,
-				FailureThreshold: 3,
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
-						Port: intstr.FromInt(5000),
+		{
+			name: "invalid readiness probe (has failureThreshold while using special probe)",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					PeriodSeconds:    0,
+					FailureThreshold: 2,
+					SuccessThreshold: 1,
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+							Port: intstr.FromInt(5000),
+						},
 					},
 				},
 			},
+			cfgOpts: []configOption{withMultiContainerProbesEnabled()},
+			want: &apis.FieldError{
+				Message: "failureThreshold is disallowed when periodSeconds is zero",
+				Paths:   []string{"readinessProbe.failureThreshold"},
+			},
 		},
-		cfgOpts: []configOption{withMultiContainerProbesEnabled()},
-		want:    nil,
-	}, {
-		name: "valid liveness tcp probe",
-		c: corev1.Container{
-			Image: "foo",
-			LivenessProbe: &corev1.Probe{
-				PeriodSeconds:    1,
-				TimeoutSeconds:   1,
-				SuccessThreshold: 1,
-				FailureThreshold: 3,
-				ProbeHandler: corev1.ProbeHandler{
-					TCPSocket: &corev1.TCPSocketAction{
-						Port: intstr.FromInt(5000),
+		{
+			name: "invalid readiness probe (has timeoutSeconds while using special probe)",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					PeriodSeconds:    0,
+					TimeoutSeconds:   2,
+					SuccessThreshold: 1,
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+							Port: intstr.FromInt(5000),
+						},
 					},
 				},
 			},
+			cfgOpts: []configOption{withMultiContainerProbesEnabled()},
+			want: &apis.FieldError{
+				Message: "timeoutSeconds is disallowed when periodSeconds is zero",
+				Paths:   []string{"readinessProbe.timeoutSeconds"},
+			},
 		},
-		cfgOpts: []configOption{withMultiContainerProbesEnabled()},
-		want:    nil,
-	}, {
-		name: "valid readiness http probe",
-		c: corev1.Container{
-			Image: "foo",
-			ReadinessProbe: &corev1.Probe{
-				PeriodSeconds:    1,
-				TimeoutSeconds:   1,
-				SuccessThreshold: 1,
-				FailureThreshold: 3,
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
-						Port: intstr.FromInt(5000),
+		{
+			name: "out of bounds probe values",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					PeriodSeconds:       -1,
+					TimeoutSeconds:      0,
+					SuccessThreshold:    0,
+					FailureThreshold:    0,
+					InitialDelaySeconds: -1,
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Port: intstr.FromInt(5000),
+						},
 					},
 				},
 			},
+			cfgOpts: []configOption{withMultiContainerProbesEnabled()},
+			want: apis.ErrOutOfBoundsValue(-1, 0, math.MaxInt32, "readinessProbe.periodSeconds").Also(
+				apis.ErrOutOfBoundsValue(0, 1, math.MaxInt32, "readinessProbe.timeoutSeconds")).Also(
+				apis.ErrOutOfBoundsValue(0, 1, math.MaxInt32, "readinessProbe.successThreshold")).Also(
+				apis.ErrOutOfBoundsValue(0, 1, math.MaxInt32, "readinessProbe.failureThreshold")).Also(
+				apis.ErrOutOfBoundsValue(-1, 0, math.MaxInt32, "readinessProbe.initialDelaySeconds")),
 		},
-		cfgOpts: []configOption{withMultiContainerProbesEnabled()},
-		want:    nil,
-	}, {
-		name: "valid readiness tcp probe",
-		c: corev1.Container{
-			Image: "foo",
-			ReadinessProbe: &corev1.Probe{
-				PeriodSeconds:    1,
-				TimeoutSeconds:   1,
-				SuccessThreshold: 1,
-				FailureThreshold: 3,
-				ProbeHandler: corev1.ProbeHandler{
-					TCPSocket: &corev1.TCPSocketAction{
-						Port: intstr.FromInt(5000),
+		{
+			name: "valid grpc probe",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					ProbeHandler: corev1.ProbeHandler{
+						GRPC: &corev1.GRPCAction{
+							Port: 46,
+						},
 					},
 				},
 			},
+			cfgOpts: []configOption{withMultiContainerProbesEnabled()},
+			want:    nil,
 		},
-		cfgOpts: []configOption{withMultiContainerProbesEnabled()},
-		want:    nil,
-	}, {
-		name: "valid readiness http probe with named port",
-		c: corev1.Container{
-			Image: "foo",
-			ReadinessProbe: &corev1.Probe{
-				SuccessThreshold: 1,
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Port: intstr.FromString("http"), // http is the default
+		{
+			name: "valid grpc probe with service",
+			c: corev1.Container{
+				Image: "foo",
+				ReadinessProbe: &corev1.Probe{
+					PeriodSeconds:    1,
+					TimeoutSeconds:   1,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
+					ProbeHandler: corev1.ProbeHandler{
+						GRPC: &corev1.GRPCAction{
+							Port:    46,
+							Service: ptr.String("foo"),
+						},
 					},
 				},
 			},
+			cfgOpts: []configOption{withMultiContainerProbesEnabled()},
+			want:    nil,
 		},
-		cfgOpts: []configOption{withMultiContainerProbesEnabled()},
-		want:    nil,
-	}, {
-		name: "invalid readiness probe (has failureThreshold while using special probe)",
-		c: corev1.Container{
-			Image: "foo",
-			ReadinessProbe: &corev1.Probe{
-				PeriodSeconds:    0,
-				FailureThreshold: 2,
-				SuccessThreshold: 1,
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
-						Port: intstr.FromInt(5000),
-					},
-				},
-			},
-		},
-		cfgOpts: []configOption{withMultiContainerProbesEnabled()},
-		want: &apis.FieldError{
-			Message: "failureThreshold is disallowed when periodSeconds is zero",
-			Paths:   []string{"readinessProbe.failureThreshold"},
-		},
-	}, {
-		name: "invalid readiness probe (has timeoutSeconds while using special probe)",
-		c: corev1.Container{
-			Image: "foo",
-			ReadinessProbe: &corev1.Probe{
-				PeriodSeconds:    0,
-				TimeoutSeconds:   2,
-				SuccessThreshold: 1,
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/",
-						Port: intstr.FromInt(5000),
-					},
-				},
-			},
-		},
-		cfgOpts: []configOption{withMultiContainerProbesEnabled()},
-		want: &apis.FieldError{
-			Message: "timeoutSeconds is disallowed when periodSeconds is zero",
-			Paths:   []string{"readinessProbe.timeoutSeconds"},
-		},
-	}, {
-		name: "out of bounds probe values",
-		c: corev1.Container{
-			Image: "foo",
-			ReadinessProbe: &corev1.Probe{
-				PeriodSeconds:       -1,
-				TimeoutSeconds:      0,
-				SuccessThreshold:    0,
-				FailureThreshold:    0,
-				InitialDelaySeconds: -1,
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Port: intstr.FromInt(5000),
-					},
-				},
-			},
-		},
-		cfgOpts: []configOption{withMultiContainerProbesEnabled()},
-		want: apis.ErrOutOfBoundsValue(-1, 0, math.MaxInt32, "readinessProbe.periodSeconds").Also(
-			apis.ErrOutOfBoundsValue(0, 1, math.MaxInt32, "readinessProbe.timeoutSeconds")).Also(
-			apis.ErrOutOfBoundsValue(0, 1, math.MaxInt32, "readinessProbe.successThreshold")).Also(
-			apis.ErrOutOfBoundsValue(0, 1, math.MaxInt32, "readinessProbe.failureThreshold")).Also(
-			apis.ErrOutOfBoundsValue(-1, 0, math.MaxInt32, "readinessProbe.initialDelaySeconds")),
-	}, {
-		name: "valid grpc probe",
-		c: corev1.Container{
-			Image: "foo",
-			ReadinessProbe: &corev1.Probe{
-				PeriodSeconds:    1,
-				TimeoutSeconds:   1,
-				SuccessThreshold: 1,
-				FailureThreshold: 3,
-				ProbeHandler: corev1.ProbeHandler{
-					GRPC: &corev1.GRPCAction{
-						Port: 46,
-					},
-				},
-			},
-		},
-		cfgOpts: []configOption{withMultiContainerProbesEnabled()},
-		want:    nil,
-	}, {
-		name: "valid grpc probe with service",
-		c: corev1.Container{
-			Image: "foo",
-			ReadinessProbe: &corev1.Probe{
-				PeriodSeconds:    1,
-				TimeoutSeconds:   1,
-				SuccessThreshold: 1,
-				FailureThreshold: 3,
-				ProbeHandler: corev1.ProbeHandler{
-					GRPC: &corev1.GRPCAction{
-						Port:    46,
-						Service: ptr.String("foo"),
-					},
-				},
-			},
-		},
-		cfgOpts: []configOption{withMultiContainerProbesEnabled()},
-		want:    nil,
-	}}
+	}
 	tests = append(tests, getCommonContainerValidationTestCases()...)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
