@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/ptr"
+
 	"knative.dev/serving/pkg/apis/config"
 )
 
@@ -395,12 +396,13 @@ func TestVolumeMountMask_FeatMountPropagation(t *testing.T) {
 
 func TestProbeMask(t *testing.T) {
 	want := &corev1.Probe{
-		ProbeHandler:        corev1.ProbeHandler{},
-		InitialDelaySeconds: 42,
-		TimeoutSeconds:      42,
-		PeriodSeconds:       42,
-		SuccessThreshold:    42,
-		FailureThreshold:    42,
+		ProbeHandler:                  corev1.ProbeHandler{},
+		InitialDelaySeconds:           42,
+		TimeoutSeconds:                42,
+		PeriodSeconds:                 42,
+		SuccessThreshold:              42,
+		FailureThreshold:              42,
+		TerminationGracePeriodSeconds: ptr.Int64(30),
 	}
 	in := want
 
