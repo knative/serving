@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"knative.dev/pkg/kmap"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -256,14 +257,25 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 
 			if canUpdate {
 				// Make sure that the service has the proper specification.
-				if !equality.Semantic.DeepEqual(from.Service.Spec, to.Service.Spec) ||
-					!equality.Semantic.DeepEqual(from.Service.Annotations, to.Service.Annotations) ||
-					!equality.Semantic.DeepEqual(from.Service.Labels, to.Service.Labels) {
+				var existing *corev1.Service
+				if !equality.Semantic.DeepEqual(from.Service.Spec, to.Service.Spec) {
 					// Don't modify the informers copy.
-					existing := from.Service.DeepCopy()
+					existing = from.Service.DeepCopy()
 					existing.Spec = to.Service.Spec
-					existing.Annotations = to.Service.Annotations
-					existing.Labels = to.Service.Labels
+				}
+				if !equality.Semantic.DeepEqual(from.Service.Annotations, kmap.Union(from.Service.Annotations, to.Service.Annotations)) {
+					if existing == nil {
+						existing = to.Service.DeepCopy()
+					}
+					existing.Annotations = kmap.Union(from.Service.Annotations, to.Service.Annotations)
+				}
+				if !equality.Semantic.DeepEqual(from.Service.Labels, kmap.Union(from.Service.Labels, to.Service.Labels)) {
+					if existing == nil {
+						existing = to.Service.DeepCopy()
+					}
+					existing.Labels = kmap.Union(from.Service.Labels, to.Service.Labels)
+				}
+				if existing != nil {
 					if _, err := c.kubeclient.CoreV1().Services(ns).Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
 						return err
 					}
