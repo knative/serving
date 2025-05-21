@@ -66,7 +66,11 @@ func TestSystemInternalTLS(t *testing.T) {
 	test.EnsureTearDown(t, clients, &names)
 
 	t.Log("Creating a new Service")
-	resources, err := v1test.CreateServiceReady(t, clients, &names)
+	resources, err := v1test.CreateServiceReady(t, clients, &names,
+		rtesting.WithConfigAnnotations(map[string]string{
+			// Make sure we don't scale to zero during the test as we're waiting for logs.
+			autoscaling.MinScaleAnnotationKey: "1",
+		}))
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
