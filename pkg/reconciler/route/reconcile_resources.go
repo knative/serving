@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"knative.dev/pkg/kmap"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -38,6 +37,7 @@ import (
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/kmap"
 	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
