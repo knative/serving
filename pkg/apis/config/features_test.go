@@ -438,6 +438,24 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"kubernetes.podspec-volumes-emptydir": "Enabled",
 		},
 	}, {
+		name:    "kubernetes.podspec-volumes-image Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecVolumesImage: Disabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-volumes-image": "Disabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-volumes-image Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecVolumesImage: Enabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-volumes-image": "Enabled",
+		},
+	}, {
 		name:    "kubernetes.podspec-volumes-hostpath Disabled",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{

@@ -77,6 +77,7 @@ const (
 	FeaturePodSpecShareProcessNamespace     = "kubernetes.podspec-shareprocessnamespace"
 	FeaturePodSpecTolerations               = "kubernetes.podspec-tolerations"
 	FeaturePodSpecTopologySpreadConstraints = "kubernetes.podspec-topologyspreadconstraints"
+	FeaturePodSpecVolumesImage              = "kubernetes.podspec-volumes-image"
 )
 
 func defaultFeaturesConfig() *Features {
@@ -103,6 +104,7 @@ func defaultFeaturesConfig() *Features {
 		PodSpecVolumesHostPath:           Disabled,
 		PodSpecVolumesMountPropagation:   Disabled,
 		PodSpecVolumesCSI:                Disabled,
+		PodSpecVolumesImage:              Disabled,
 		PodSpecPersistentVolumeClaim:     Disabled,
 		PodSpecPersistentVolumeWrite:     Disabled,
 		QueueProxyMountPodInfo:           Disabled,
@@ -142,6 +144,7 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag(FeaturePodSpecHostPID, &nc.PodSpecHostPID),
 		asFlag(FeaturePodSpecHostPath, &nc.PodSpecVolumesHostPath),
 		asFlag(FeaturePodSpecVolumesCSI, &nc.PodSpecVolumesCSI),
+		asFlag(FeaturePodSpecVolumesImage, &nc.PodSpecVolumesImage),
 		asFlag(FeaturePodSpecInitContainers, &nc.PodSpecInitContainers),
 		asFlag(FeaturePodSpecVolumesMountPropagation, &nc.PodSpecVolumesMountPropagation),
 		asFlag(FeaturePodSpecNodeSelector, &nc.PodSpecNodeSelector),
@@ -188,6 +191,7 @@ type Features struct {
 	PodSpecVolumesHostPath           Flag
 	PodSpecVolumesMountPropagation   Flag
 	PodSpecVolumesCSI                Flag
+	PodSpecVolumesImage              Flag
 	PodSpecInitContainers            Flag
 	PodSpecPersistentVolumeClaim     Flag
 	PodSpecPersistentVolumeWrite     Flag
