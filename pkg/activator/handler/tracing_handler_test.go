@@ -22,14 +22,18 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"go.opentelemetry.io/contrib/propagators/b3"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/logging"
 	rtesting "knative.dev/pkg/reconciler/testing"
-	"knative.dev/pkg/tracing"
-	"knative.dev/pkg/tracing/config"
-	tracetesting "knative.dev/pkg/tracing/testing"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
+	"knative.dev/serving/pkg/tracingotel"
+	"knative.dev/serving/pkg/tracingotel/config"
 )
 
 func TestTracingHandler(t *testing.T) {
@@ -47,15 +51,23 @@ func TestTracingHandler(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer cancel()
+			logger := logging.FromContext(ctx)
 
-			baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+			// Create a simple handler that doesn't do any internal tracing
+			baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			})
 			handler := NewTracingHandler(baseHandler)
 
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 			const traceID = "821e0d50d931235a5ba3fa42eddddd8f"
-			req.Header["X-B3-Traceid"] = []string{traceID}
-			req.Header["X-B3-Spanid"] = []string{"b3bd5e1c4318c78a"}
+			const spanID = "b3bd5e1c4318c78a"
+
+			// Set B3 headers properly - these are case-sensitive and should use standard names
+			req.Header.Set("X-B3-Traceid", traceID)
+			req.Header.Set("X-B3-Spanid", spanID)
+			req.Header.Set("X-B3-Sampled", "1") // Ensure sampling is enabled
 
 			cm := tracingConfig(test.tracingEnabled)
 			cfg, err := config.NewTracingConfigFromConfigMap(cm)
@@ -63,31 +75,64 @@ func TestTracingHandler(t *testing.T) {
 				t.Fatal("Failed to parse tracing config", err)
 			}
 
-			configStore := activatorconfig.NewStore(logging.FromContext(ctx))
+			configStore := activatorconfig.NewStore(logger)
 			configStore.OnConfigChanged(cm)
 			ctx = configStore.ToContext(ctx)
 
-			reporter, co := tracetesting.FakeZipkinExporter()
-			oct := tracing.NewOpenCensusTracer(co)
+			exporter := tracetest.NewInMemoryExporter()
+			processor := sdktrace.NewSimpleSpanProcessor(exporter)
+
+			// Initialize OpenTelemetry with the exporter and processor
+			if err := tracingotel.Init("tracing-handler-test", cfg, logger, processor); err != nil {
+				t.Fatal("Failed to initialize tracingotel:", err)
+			}
+
+			// Configure B3 propagation to properly extract trace context from headers
+			prop := propagation.NewCompositeTextMapPropagator(
+				b3.New(b3.WithInjectEncoding(b3.B3MultipleHeader)),
+			)
+			otel.SetTextMapPropagator(prop)
+
 			t.Cleanup(func() {
-				reporter.Close()
-				oct.Shutdown(context.Background())
+				if err := tracingotel.Shutdown(context.Background()); err != nil {
+					t.Error("Error shutting down tracingotel:", err)
+				}
+				exporter.Shutdown(context.Background())
 			})
 
-			if err := oct.ApplyConfig(cfg); err != nil {
-				t.Error("Failed to apply tracer config:", err)
-			}
+			// Log the tracing configuration for debugging
+			t.Logf("Tracing configuration: Backend=%s, Debug=%v, Endpoint=%s",
+				cfg.Backend, cfg.Debug, cfg.ZipkinEndpoint)
 
 			handler.ServeHTTP(resp, req.WithContext(ctx))
 
-			spans := reporter.Flush()
+			spans := exporter.GetSpans()
+			t.Logf("Got %d spans after request", len(spans))
+
+			// Log detailed span information for debugging
+			for i, span := range spans {
+				t.Logf("Span %d: Name=%q, TraceID=%s, ParentSpanID=%s",
+					i, span.Name, span.SpanContext.TraceID().String(),
+					span.Parent.SpanID().String())
+			}
 
 			if test.tracingEnabled {
 				if len(spans) != 1 {
 					t.Errorf("Got %d spans, expected 1: spans = %v", len(spans), spans)
-				}
-				if got := spans[0].TraceID.String(); got != traceID {
-					t.Errorf("spans[0].TraceID = %s, want %s", got, traceID)
+				} else {
+					// Verify the span has the correct name and trace ID
+					span := spans[0]
+					if span.Name != "server" {
+						t.Errorf("Got span name %q, expected %q", span.Name, "server")
+					}
+					if got := span.SpanContext.TraceID().String(); got != traceID {
+						t.Errorf("span.SpanContext.TraceID() = %s, want %s", got, traceID)
+					}
+
+					// Check parent span ID
+					if got := span.Parent.SpanID().String(); got != spanID {
+						t.Errorf("span.Parent.SpanID() = %s, want %s", got, spanID)
+					}
 				}
 			} else if len(spans) != 0 {
 				t.Errorf("Got %d spans, expected 0: spans = %v", len(spans), spans)
@@ -103,12 +148,16 @@ func tracingConfig(enabled bool) *corev1.ConfigMap {
 		},
 		Data: map[string]string{
 			"backend": "none",
+			// Always set sample rate to 1.0 for tests to ensure consistent sampling
+			"sample-rate": "1.0",
 		},
 	}
 	if enabled {
 		cm.Data["backend"] = "zipkin"
-		cm.Data["zipkin-endpoint"] = "foo.bar"
+		cm.Data["zipkin-endpoint"] = "http://foo.bar"
 		cm.Data["debug"] = "true"
+		// Keep sample rate at 1.0 even when enabled
+		cm.Data["sample-rate"] = "1.0"
 	}
 	return cm
 }

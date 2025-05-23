@@ -24,9 +24,9 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
-	pkgtracing "knative.dev/pkg/tracing/config"
 	apiconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/deployment"
+	pkgtracing "knative.dev/serving/pkg/tracingotel/config"
 )
 
 type cfgKey struct{}
