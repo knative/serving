@@ -786,7 +786,7 @@ func TestReconcile(t *testing.T) {
 				},
 				withReadyIngress,
 			),
-			simpleK8sService(Route("default", "different-domain", WithConfigTarget("config"))),
+			simpleK8sService(Route("default", "different-domain", WithConfigTarget("config"), WithRouteLabel(map[string]string{"app": "prod"}))),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleIngress(
