@@ -33,17 +33,34 @@ func TestTimeoutWriterAllowsForAdditionalWritesBeforeTimeout(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	clock := clock.RealClock{}
 	handler := &timeoutWriter{w: recorder, clock: clock}
+
+	// Write header and some data before any timeout
 	handler.WriteHeader(http.StatusOK)
-	handler.tryTimeoutAndWriteError("error")
-	handler.tryResponseStartTimeoutAndWriteError("error")
-	handler.tryIdleTimeoutAndWriteError(clock.Now(), 10*time.Second, "error")
 	if _, err := io.WriteString(handler, "test"); err != nil {
 		t.Fatalf("handler.Write() = %v, want no error", err)
 	}
 
+	// Verify writes succeeded
 	if got, want := recorder.Code, http.StatusOK; got != want {
 		t.Errorf("recorder.Status = %d, want %d", got, want)
 	}
+	if got, want := recorder.Body.String(), "test"; got != want {
+		t.Errorf("recorder.Body = %s, want %s", got, want)
+	}
+
+	// Now verify the try methods don't write errors when response has already started
+	// tryResponseStartTimeoutAndWriteError should not write error since response already started
+	if handler.tryResponseStartTimeoutAndWriteError("error") {
+		t.Error("tryResponseStartTimeoutAndWriteError should return false when response already started")
+	}
+
+	// tryIdleTimeoutAndWriteError should not timeout immediately after a write
+	timedOut, _ := handler.tryIdleTimeoutAndWriteError(clock.Now(), 10*time.Second, "error")
+	if timedOut {
+		t.Error("tryIdleTimeoutAndWriteError should not timeout immediately after a write")
+	}
+
+	// Verify body hasn't changed
 	if got, want := recorder.Body.String(), "test"; got != want {
 		t.Errorf("recorder.Body = %s, want %s", got, want)
 	}
@@ -76,6 +93,88 @@ func TestTimeoutWriterErrorsWriteAfterTimeout(t *testing.T) {
 	handler.timeoutAndWriteError("error")
 	if _, err := handler.Write([]byte("hello")); !errors.Is(err, http.ErrHandlerTimeout) {
 		t.Errorf("ErrHandlerTimeout got %v, want: %s", err, http.ErrHandlerTimeout)
+	}
+}
+
+func TestTryTimeoutAndWriteErrorBehavior(t *testing.T) {
+	tests := []struct {
+		name           string
+		setup          func(*timeoutWriter)
+		wantWritten    bool
+		wantStatusCode int
+		wantBody       string
+	}{
+		{
+			name: "writes error when nothing written before and not timed out",
+			setup: func(tw *timeoutWriter) {
+				// No setup needed - fresh state
+			},
+			wantWritten:    true,
+			wantStatusCode: http.StatusGatewayTimeout,
+			wantBody:       "timeout error",
+		},
+		{
+			name: "writes error when response already started but not timed out",
+			setup: func(tw *timeoutWriter) {
+				// Write something first
+				tw.WriteHeader(http.StatusOK)
+				tw.Write([]byte("partial response"))
+			},
+			wantWritten:    true,
+			wantStatusCode: http.StatusOK, // Already set
+			wantBody:       "partial responsetimeout error",
+		},
+		{
+			name: "does not write error when already timed out",
+			setup: func(tw *timeoutWriter) {
+				// Simulate a previous timeout
+				tw.timedOut = true
+			},
+			wantWritten:    false,
+			wantStatusCode: http.StatusOK, // Default
+			wantBody:       "",
+		},
+		{
+			name: "does not write error when already timed out even with prior writes",
+			setup: func(tw *timeoutWriter) {
+				// Write something first
+				tw.WriteHeader(http.StatusAccepted)
+				tw.Write([]byte("some data"))
+				// Then mark as timed out
+				tw.timedOut = true
+			},
+			wantWritten:    false,
+			wantStatusCode: http.StatusAccepted,
+			wantBody:       "some data",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			tw := &timeoutWriter{w: recorder, clock: clock.RealClock{}}
+
+			tt.setup(tw)
+
+			written := tw.tryTimeoutAndWriteError("timeout error")
+
+			if written != tt.wantWritten {
+				t.Errorf("tryTimeoutAndWriteError() returned %v, want %v", written, tt.wantWritten)
+			}
+
+			if recorder.Code != tt.wantStatusCode {
+				t.Errorf("Status code = %d, want %d", recorder.Code, tt.wantStatusCode)
+			}
+
+			if recorder.Body.String() != tt.wantBody {
+				t.Errorf("Body = %q, want %q", recorder.Body.String(), tt.wantBody)
+			}
+
+			// Verify timedOut flag is set correctly
+			if tt.wantWritten && !tw.timedOut {
+				t.Error("timedOut flag should be true after writing timeout error")
+			}
+		})
 	}
 }
 
