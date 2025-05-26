@@ -138,9 +138,11 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			idleTimeout.Reset(timeToNextTimeout)
 		case <-responseStartTimeoutCh:
+			// If the response has already started, we need to continue
+			// processing other timeouts and wait for the handler to complete.
+			responseStartTimeoutDrained = true
 			timedOut := tw.tryResponseStartTimeoutAndWriteError(h.body)
 			if timedOut {
-				responseStartTimeoutDrained = true
 				return
 			}
 		}

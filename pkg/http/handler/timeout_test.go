@@ -207,6 +207,80 @@ func TestTimeToResponseStartTimeoutHandler(t *testing.T) {
 	testTimeoutScenario(t, scenarios)
 }
 
+func TestResponseStartTimeoutAfterResponseStarted(t *testing.T) {
+	// This test verifies that when a response starts before the responseStartTimeout
+	// but the timeout still fires, the request completes successfully without hanging.
+	// This reproduces the scenario from:
+	// https://github.com/knative/serving/issues/15352#issuecomment-2846004329
+	//
+	// The specific race condition is:
+	// 1. Handler writes first byte (response starts)
+	// 2. responseStartTimeout timer fires
+	// 3. tryResponseStartTimeoutAndWriteError returns false (no error written)
+	// 4. Without setting responseStartTimeoutDrained=true, putTimer() hangs trying
+	//    to drain the already-drained timer channel
+
+	// Use a channel to control timing precisely
+	startWriting := make(chan struct{})
+	finishWriting := make(chan struct{})
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Wait for signal to start writing
+		<-startWriting
+		w.Write([]byte("response started"))
+
+		// Wait for signal to finish
+		<-finishWriting
+		w.Write([]byte(" and finished"))
+	})
+
+	// Create timeout handler with a responseStartTimeout
+	timeoutHandler := NewTimeoutHandler(handler, "timeout",
+		StaticTimeoutFunc(30*time.Second, 50*time.Millisecond, 0))
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rr := httptest.NewRecorder()
+
+	// Track when ServeHTTP completes
+	serveHTTPComplete := make(chan struct{})
+	go func() {
+		defer close(serveHTTPComplete)
+		timeoutHandler.ServeHTTP(rr, req)
+	}()
+
+	// Let handler start writing immediately
+	close(startWriting)
+
+	// Wait a bit to ensure the response has started and the timer is running
+	time.Sleep(10 * time.Millisecond)
+
+	// Now wait for the responseStartTimeout to fire (50ms total)
+	time.Sleep(50 * time.Millisecond)
+
+	// Let the handler finish
+	close(finishWriting)
+
+	// Wait for ServeHTTP to complete
+	// Without the fix (responseStartTimeoutDrained = true), this would hang
+	// because putTimer would try to drain an already-drained timer channel
+	select {
+	case <-serveHTTPComplete:
+		// Success - ServeHTTP completed without hanging
+	case <-time.After(2 * time.Second):
+		t.Fatal("ServeHTTP did not complete within 2 seconds - likely hanging in putTimer")
+	}
+
+	// Verify the response was successful
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	expectedBody := "response started and finished"
+	if body := rr.Body.String(); body != expectedBody {
+		t.Errorf("Handler returned unexpected body: got %q want %q", body, expectedBody)
+	}
+}
+
 func TestIdleTimeoutHandler(t *testing.T) {
 	const (
 		noIdleTimeout            = 0 * time.Millisecond
