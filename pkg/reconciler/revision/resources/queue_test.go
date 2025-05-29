@@ -40,7 +40,7 @@ import (
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
-	tracingconfig "knative.dev/pkg/tracing/config"
+	tracingconfig "knative.dev/serving/pkg/tracingotel/config"
 
 	apicfg "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"

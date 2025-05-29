@@ -45,12 +45,12 @@ import (
 	// config validation constructors
 	network "knative.dev/networking/pkg"
 	netcfg "knative.dev/networking/pkg/config"
-	tracingconfig "knative.dev/pkg/tracing/config"
 	apisconfig "knative.dev/serving/pkg/apis/config"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/gc"
 	domainconfig "knative.dev/serving/pkg/reconciler/route/config"
+	tracingconfig "knative.dev/serving/pkg/tracingotel/config"
 )
 
 var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{

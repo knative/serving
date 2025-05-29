@@ -27,13 +27,13 @@ import (
 	netproxy "knative.dev/networking/pkg/http/proxy"
 	netstats "knative.dev/networking/pkg/http/stats"
 	pkghandler "knative.dev/pkg/network/handlers"
-	"knative.dev/pkg/tracing"
-	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/activator"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/http/handler"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
+	otel "knative.dev/serving/pkg/tracingotel"
+	otelconfig "knative.dev/serving/pkg/tracingotel/config"
 )
 
 func mainHandler(
@@ -53,7 +53,7 @@ func mainHandler(
 	httpProxy.FlushInterval = netproxy.FlushInterval
 
 	breaker := buildBreaker(logger, env)
-	tracingEnabled := env.TracingConfigBackend != tracingconfig.None
+	tracingEnabled := env.TracingConfigBackend != otelconfig.None
 	timeout := time.Duration(env.RevisionTimeoutSeconds) * time.Second
 	responseStartTimeout := 0 * time.Second
 	if env.RevisionResponseStartTimeoutSeconds != 0 {
@@ -81,7 +81,7 @@ func mainHandler(
 		composedHandler = requestMetricsHandler(logger, composedHandler, env)
 	}
 	if tracingEnabled {
-		composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
+		composedHandler = otel.HTTPSpanMiddleware(composedHandler)
 	}
 
 	composedHandler = withFullDuplex(composedHandler, env.EnableHTTPFullDuplex, logger)

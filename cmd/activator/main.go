@@ -43,7 +43,6 @@ import (
 	network "knative.dev/networking/pkg"
 	netcfg "knative.dev/networking/pkg/config"
 	netprobe "knative.dev/networking/pkg/http/probe"
-	"knative.dev/pkg/configmap"
 	configmapinformer "knative.dev/pkg/configmap/informer"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection/sharedmain"
@@ -54,8 +53,6 @@ import (
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
-	"knative.dev/pkg/tracing"
-	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/pkg/version"
 	"knative.dev/pkg/websocket"
 	"knative.dev/serving/pkg/activator/certificate"
@@ -67,6 +64,8 @@ import (
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/logging"
 	"knative.dev/serving/pkg/networking"
+	tracingotel "knative.dev/serving/pkg/tracingotel"
+	tracingotelconfig "knative.dev/serving/pkg/tracingotel/config"
 )
 
 const (
@@ -179,21 +178,19 @@ func main() {
 	throttler := activatornet.NewThrottler(ctx, env.PodIP)
 	go throttler.Run(ctx, transport, networkConfig.EnableMeshPodAddressability, networkConfig.MeshCompatibilityMode)
 
-	oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(networking.ActivatorServiceName, env.PodIP, logger))
-	defer oct.Shutdown(context.Background())
-
-	tracerUpdater := configmap.TypeFilter(&tracingconfig.Config{})(func(name string, value interface{}) {
-		cfg := value.(*tracingconfig.Config)
-		if err := oct.ApplyConfig(cfg); err != nil {
-			logger.Errorw("Unable to apply open census tracer config", zap.Error(err))
-			return
-		}
-	})
-
 	// Set up our config store
 	configMapWatcher := configmapinformer.NewInformedWatcher(kubeClient, system.Namespace())
-	configStore := activatorconfig.NewStore(logger, tracerUpdater)
+	configStore := activatorconfig.NewStore(logger)
 	configStore.WatchConfigs(configMapWatcher)
+
+	// Setup OpenTelemetry Tracing
+	// This needs to be after configMapWatcher is initialized but before it's started,
+	// as SetupPublishingWithDynamicConfig will use it to watch the tracing configmap.
+	otelTracingHandle, err := tracingotel.SetupPublishingWithDynamicConfig(logger, configMapWatcher, networking.ActivatorServiceName, tracingotelconfig.ConfigName)
+	if err != nil {
+		logger.Fatalw("Error setting up OpenTelemetry tracing", zap.Error(err))
+	}
+	defer otelTracingHandle.Shutdown(context.Background())
 
 	statCh := make(chan []asmetrics.StatMessage)
 	defer close(statCh)
