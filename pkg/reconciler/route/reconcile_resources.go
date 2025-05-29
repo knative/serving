@@ -37,6 +37,7 @@ import (
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/kmap"
 	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -256,10 +257,14 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 
 			if canUpdate {
 				// Make sure that the service has the proper specification.
-				if !equality.Semantic.DeepEqual(from.Service.Spec, to.Service.Spec) {
+				if !equality.Semantic.DeepEqual(from.Spec, to.Spec) ||
+					!equality.Semantic.DeepEqual(from.Service.Annotations, kmap.Union(from.Service.Annotations, to.Service.Annotations)) ||
+					!equality.Semantic.DeepEqual(from.Service.Labels, kmap.Union(from.Service.Labels, to.Service.Labels)) {
 					// Don't modify the informers copy.
 					existing := from.Service.DeepCopy()
 					existing.Spec = to.Service.Spec
+					existing.Annotations = kmap.Union(from.Service.Annotations, to.Service.Annotations)
+					existing.Labels = kmap.Union(from.Service.Labels, to.Service.Labels)
 					if _, err := c.kubeclient.CoreV1().Services(ns).Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
 						return err
 					}
