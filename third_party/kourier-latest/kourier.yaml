@@ -20,7 +20,7 @@ metadata:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20250522-71023b74"
+    app.kubernetes.io/version: "20250602-cf879dd3"
 
 ---
 # Copyright 2020 The Knative Authors
@@ -45,7 +45,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20250522-71023b74"
+    app.kubernetes.io/version: "20250602-cf879dd3"
     app.kubernetes.io/name: knative-serving
 data:
   envoy-bootstrap.yaml: |
@@ -174,7 +174,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20250522-71023b74"
+    app.kubernetes.io/version: "20250602-cf879dd3"
     app.kubernetes.io/name: knative-serving
 data:
   _example: |
@@ -238,6 +238,32 @@ data:
     # Disable the Envoy server header injection in the response when response has no such header.
     disable-envoy-server-header: "false"
 
+    # The external authorization service and port, my-auth:2222.
+    extauthz-host: ""
+
+    # The protocol used to query the ext auth service. Can be one of : grpc, http, https. Defaults to grpc
+    extauthz-protocol: "grpc"
+
+    # Allow traffic to go through if the ext auth service is down. Accepts true/false.
+    extauthz-failure-mode-allow: ""
+
+    # Max request bytes, if not set, defaults to 8192 Bytes. More info Envoy Docs
+    # see: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/http/ext_authz/v3/ext_authz.proto.html#extensions-filters-http-ext-authz-v3-buffersettings
+    extauthz-max-request-body-bytes: 8192
+
+    # Max time in ms to wait for the ext authz service. Defaults to 2000 ms
+    extauthz-timeout: 2000
+
+    # If extauthz-protocol is equal to http or https, path to query the ext auth service.
+    # Example : if set to /verify, it will query /verify/ (notice the trailing /). If not set, it will query /
+    extauthz-path-prefix: ""
+
+    # If extauthz-protocol is equal to grpc, sends the body as raw bytes instead of a UTF-8 string.
+    # Accepts only true/false, t/f or 1/0. Attempting to set another value will throw an error.
+    # Defaults to false. More info Envoy Docs.
+    # see: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/http/ext_authz/v3/ext_authz.proto.html#extensions-filters-http-ext-authz-v3-buffersettings
+    extauthz-pack-as-byte: "false"
+
 ---
 # Copyright 2020 The Knative Authors
 #
@@ -261,7 +287,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20250522-71023b74"
+    app.kubernetes.io/version: "20250602-cf879dd3"
     app.kubernetes.io/name: knative-serving
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -271,7 +297,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20250522-71023b74"
+    app.kubernetes.io/version: "20250602-cf879dd3"
     app.kubernetes.io/name: knative-serving
 rules:
   - apiGroups: [""]
@@ -300,7 +326,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20250522-71023b74"
+    app.kubernetes.io/version: "20250602-cf879dd3"
     app.kubernetes.io/name: knative-serving
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -334,7 +360,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20250522-71023b74"
+    app.kubernetes.io/version: "20250602-cf879dd3"
     app.kubernetes.io/name: knative-serving
 spec:
   strategy:
@@ -356,7 +382,7 @@ spec:
         app: net-kourier-controller
     spec:
       containers:
-        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:4d39797e3b17c3085125bba05661d61bb523ccdf1609c232a4440ec87917e0c7
+        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:dfb169d6987265a0584c48ae39e9beba05fcbc9e35e8e68a14eeb661a855e88f
           name: controller
           env:
             - name: CERTS_SECRET_NAMESPACE
@@ -424,7 +450,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20250522-71023b74"
+    app.kubernetes.io/version: "20250602-cf879dd3"
     app.kubernetes.io/name: knative-serving
 spec:
   ports:
@@ -463,7 +489,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20250522-71023b74"
+    app.kubernetes.io/version: "20250602-cf879dd3"
     app.kubernetes.io/name: knative-serving
 spec:
   strategy:
@@ -582,7 +608,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20250522-71023b74"
+    app.kubernetes.io/version: "20250602-cf879dd3"
     app.kubernetes.io/name: knative-serving
 spec:
   ports:
@@ -606,7 +632,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20250522-71023b74"
+    app.kubernetes.io/version: "20250602-cf879dd3"
     app.kubernetes.io/name: knative-serving
 spec:
   ports:
@@ -630,7 +656,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20250522-71023b74"
+    app.kubernetes.io/version: "20250602-cf879dd3"
     app.kubernetes.io/name: knative-serving
 spec:
   minReplicas: 1
@@ -656,7 +682,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20250522-71023b74"
+    app.kubernetes.io/version: "20250602-cf879dd3"
     app.kubernetes.io/name: knative-serving
 spec:
   minAvailable: 80%
