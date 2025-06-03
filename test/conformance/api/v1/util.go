@@ -218,6 +218,27 @@ func validateLabelsPropagation(t testing.TB, objects v1test.ResourceObjects, nam
 	return nil
 }
 
+func validateK8sServiceLabels(t *testing.T, clients *test.Clients, names test.ResourceNames, extraKeys ...string) error {
+	t.Log("Validate Labels on Kubernetes Service Object")
+	k8sService, err := clients.KubeClient.CoreV1().Services(test.ServingFlags.TestNamespace).Get(context.Background(), names.Service, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get k8s service %v: %w", names.Service, err)
+	}
+	labels := k8sService.GetLabels()
+	if labels["serving.knative.dev/service"] != names.Service {
+		return fmt.Errorf("expected Service name in K8s Service label %q but got %q ", names.Service, labels["serving.knative.dev/service"])
+	}
+	if labels["serving.knative.dev/route"] != names.Service {
+		return fmt.Errorf("expected Route name in K8s Service label %q but got %q ", names.Service, labels["serving.knative.dev/route"])
+	}
+	for _, extraKey := range extraKeys {
+		if got := labels[extraKey]; got == "" {
+			return fmt.Errorf("expected %s label to be set, but was empty", extraKey)
+		}
+	}
+	return nil
+}
+
 func validateAnnotations(objs *v1test.ResourceObjects, extraKeys ...string) error {
 	// This checks whether the annotations are set on the resources that
 	// expect them to have.
@@ -239,6 +260,21 @@ func validateAnnotations(objs *v1test.ResourceObjects, extraKeys ...string) erro
 	for _, a := range append([]string{serving.CreatorAnnotation, serving.UpdaterAnnotation}, extraKeys...) {
 		if got := anns[a]; got == "" {
 			return fmt.Errorf("config expected %s annotation to be set, but was empty", a)
+		}
+	}
+	return nil
+}
+
+func validateK8sServiceAnnotations(t *testing.T, clients *test.Clients, names test.ResourceNames, extraKeys ...string) error {
+	t.Log("Validate Annotations on Kubernetes Service Object")
+	k8sService, err := clients.KubeClient.CoreV1().Services(test.ServingFlags.TestNamespace).Get(context.Background(), names.Service, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get k8s service %v: %w", names.Service, err)
+	}
+	annotations := k8sService.GetAnnotations()
+	for _, extraKey := range append([]string{serving.CreatorAnnotation, serving.UpdaterAnnotation}, extraKeys...) {
+		if got := annotations[extraKey]; got == "" {
+			return fmt.Errorf("expected %s annotation to be set, but was empty", extraKey)
 		}
 	}
 	return nil
