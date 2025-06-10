@@ -179,6 +179,9 @@ linters:
       - std-error-handling
     rules:
       - linters:
+          - staticcheck
+        text: corev1.Endpoint.* is deprecated
+      - linters:
           - gosec
           - noctx
           - protogetter
