@@ -194,10 +194,25 @@ type timeoutHandlerTestScenario struct {
 // This has to be global as the timer cache would otherwise return timers from another clock.
 var fakeClock = clocktest.NewFakeClock(time.Time{})
 
+// clearTimerPool drains the global timer pool to ensure tests start with a clean state.
+// This is necessary because the timer pool caches timers, and when using a fake clock,
+// timers from previous tests can be in unexpected states.
+func clearTimerPool() {
+	// Drain all timers from the pool
+	for {
+		if v := timerPool.Get(); v == nil {
+			break
+		}
+	}
+}
+
 func testTimeoutScenario(t *testing.T, scenarios []timeoutHandlerTestScenario) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
+
+			// Clear the timer pool to ensure we start with a clean state
+			clearTimerPool()
 
 			var reqMux sync.Mutex
 			writeErrors := make(chan error, 1)
@@ -387,10 +402,12 @@ func TestIdleTimeoutHandler(t *testing.T) {
 		shortIdleTimeout         = 100 * time.Millisecond
 		longIdleTimeout          = 1 * time.Minute // Super long, not supposed to hit this.
 		longResponseStartTimeout = 1 * time.Minute // Super long, not supposed to hit this.
+		longTimeout              = 1 * time.Minute // Super long, not supposed to hit this.
 	)
 
 	scenarios := []timeoutHandlerTestScenario{{
 		name:                 "all good",
+		timeout:              longTimeout,
 		responseStartTimeout: longResponseStartTimeout,
 		idleTimeout:          longIdleTimeout,
 		handler: func(*clocktest.FakeClock, *sync.Mutex, chan error) http.Handler {
@@ -402,6 +419,7 @@ func TestIdleTimeoutHandler(t *testing.T) {
 		wantBody:   "hi",
 	}, {
 		name:                 "custom timeout message",
+		timeout:              longTimeout,
 		idleTimeout:          immediateIdleTimeout,
 		responseStartTimeout: longResponseStartTimeout,
 		handler: func(c *clocktest.FakeClock, mux *sync.Mutex, writeErrors chan error) http.Handler {
@@ -419,6 +437,7 @@ func TestIdleTimeoutHandler(t *testing.T) {
 		wantWriteError: true,
 	}, {
 		name:                 "propagate panic",
+		timeout:              longTimeout,
 		idleTimeout:          longIdleTimeout,
 		responseStartTimeout: longResponseStartTimeout,
 		handler: func(*clocktest.FakeClock, *sync.Mutex, chan error) http.Handler {
@@ -431,6 +450,7 @@ func TestIdleTimeoutHandler(t *testing.T) {
 		wantPanic:  true,
 	}, {
 		name:                 "timeout before panic",
+		timeout:              longTimeout,
 		idleTimeout:          immediateIdleTimeout,
 		responseStartTimeout: longResponseStartTimeout,
 		handler: func(c *clocktest.FakeClock, mux *sync.Mutex, _ chan error) http.Handler {
@@ -447,6 +467,7 @@ func TestIdleTimeoutHandler(t *testing.T) {
 		wantPanic:      false,
 	}, {
 		name:                 "successful writes prevent timeout",
+		timeout:              longTimeout,
 		idleTimeout:          shortIdleTimeout,
 		responseStartTimeout: longResponseStartTimeout,
 		handler: func(c *clocktest.FakeClock, _ *sync.Mutex, _ chan error) http.Handler {
@@ -466,6 +487,7 @@ func TestIdleTimeoutHandler(t *testing.T) {
 		wantPanic:  false,
 	}, {
 		name:                 "can still timeout after a successful write",
+		timeout:              longTimeout,
 		idleTimeout:          shortIdleTimeout,
 		responseStartTimeout: longResponseStartTimeout,
 		handler: func(c *clocktest.FakeClock, mux *sync.Mutex, _ chan error) http.Handler {
@@ -483,6 +505,7 @@ func TestIdleTimeoutHandler(t *testing.T) {
 		wantPanic:      false,
 	}, {
 		name:                 "no idle timeout",
+		timeout:              longTimeout,
 		idleTimeout:          noIdleTimeout,
 		responseStartTimeout: longResponseStartTimeout,
 		handler: func(*clocktest.FakeClock, *sync.Mutex, chan error) http.Handler {
