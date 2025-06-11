@@ -1,8 +1,9 @@
 module knative.dev/serving
 
-go 1.24.0
+go 1.24.3
 
 require (
+	github.com/Fedosin/libkpa v0.0.0-20250622152915-bb1b1a36b3fe
 	github.com/ahmetb/gen-crd-api-reference-docs v0.3.1-0.20210609063737-0067dc6dcea2
 	github.com/cert-manager/cert-manager v1.16.3
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc

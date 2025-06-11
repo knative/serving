@@ -57,6 +57,12 @@ github.com/Azure/go-autorest/logger
 # github.com/Azure/go-autorest/tracing v0.6.1
 ## explicit; go 1.15
 github.com/Azure/go-autorest/tracing
+# github.com/Fedosin/libkpa v0.0.0-20250622152915-bb1b1a36b3fe
+## explicit; go 1.24.3
+github.com/Fedosin/libkpa/algorithm
+github.com/Fedosin/libkpa/api
+github.com/Fedosin/libkpa/maxtimewindow
+github.com/Fedosin/libkpa/metrics
 # github.com/ahmetb/gen-crd-api-reference-docs v0.3.1-0.20210609063737-0067dc6dcea2
 ## explicit; go 1.15
 github.com/ahmetb/gen-crd-api-reference-docs

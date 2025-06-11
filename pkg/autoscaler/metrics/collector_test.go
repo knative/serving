@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Fedosin/libkpa/metrics"
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
 
@@ -35,7 +36,6 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/autoscaler/aggregation"
 	"knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/fake"
 )
@@ -113,7 +113,7 @@ func TestMetricCollectorCRUD(t *testing.T) {
 			t.Errorf("Updated scraper URL = %s, want: %s, diff: %s", got, want, cmp.Diff(got, want))
 		}
 
-		if want, ok := coll.collections[key].concurrencyBuckets.(*aggregation.TimedFloat64Buckets); !ok {
+		if want, ok := coll.collections[key].concurrencyBuckets.(*metrics.TimeWindow); !ok {
 			t.Errorf("Buckets Type = %T, want: %T", coll.collections[key].concurrencyBuckets, want)
 		}
 
@@ -131,7 +131,7 @@ func TestMetricCollectorCRUD(t *testing.T) {
 			t.Errorf("CreateOrUpdate() = %v, want no error", err)
 		}
 
-		if want, ok := coll.collections[key].concurrencyBuckets.(*aggregation.WeightedFloat64Buckets); !ok {
+		if want, ok := coll.collections[key].concurrencyBuckets.(*metrics.WeightedTimeWindow); !ok {
 			t.Errorf("Buckets Type = %T, want: %T", coll.collections[key].concurrencyBuckets, want)
 		}
 
@@ -516,6 +516,8 @@ func TestMetricCollectorError(t *testing.T) {
 			},
 		},
 		Spec: autoscalingv1alpha1.MetricSpec{
+			StableWindow: 60 * time.Second,
+			PanicWindow:  6 * time.Second,
 			ScrapeTarget: testRevision + "-zhudex",
 		},
 	}
@@ -614,10 +616,10 @@ func TestMetricCollectorAggregate(t *testing.T) {
 	m.Spec.PanicWindow = 2 * time.Second
 	c := &collection{
 		metric:                  &m,
-		concurrencyBuckets:      aggregation.NewTimedFloat64Buckets(m.Spec.StableWindow, config.BucketSize),
-		concurrencyPanicBuckets: aggregation.NewTimedFloat64Buckets(m.Spec.PanicWindow, config.BucketSize),
-		rpsBuckets:              aggregation.NewTimedFloat64Buckets(m.Spec.StableWindow, config.BucketSize),
-		rpsPanicBuckets:         aggregation.NewTimedFloat64Buckets(m.Spec.PanicWindow, config.BucketSize),
+		concurrencyBuckets:      metrics.NewTimeWindow(m.Spec.StableWindow, config.BucketSize),
+		concurrencyPanicBuckets: metrics.NewTimeWindow(m.Spec.PanicWindow, config.BucketSize),
+		rpsBuckets:              metrics.NewTimeWindow(m.Spec.StableWindow, config.BucketSize),
+		rpsPanicBuckets:         metrics.NewTimeWindow(m.Spec.PanicWindow, config.BucketSize),
 	}
 	now := time.Now()
 	for i := range 10 {

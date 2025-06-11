@@ -21,13 +21,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Fedosin/libkpa/metrics"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/clock"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	"knative.dev/serving/pkg/autoscaler/aggregation"
 	"knative.dev/serving/pkg/autoscaler/config"
 )
 
@@ -271,11 +271,11 @@ func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clo
 	// NB: this relies on the fact that aggregation algorithm is set on annotation of revision
 	// and as such is immutable.
 	bucketCtor := func(w time.Duration, g time.Duration) windowAverager {
-		return aggregation.NewTimedFloat64Buckets(w, g)
+		return metrics.NewTimeWindow(w, g)
 	}
 	if metric.AggregationAlgorithm() == autoscaling.MetricAggregationAlgorithmWeightedExponential {
 		bucketCtor = func(w time.Duration, g time.Duration) windowAverager {
-			return aggregation.NewWeightedFloat64Buckets(w, g)
+			return metrics.NewWeightedTimeWindow(w, g)
 		}
 	}
 
