@@ -365,6 +365,7 @@ func (c *Reconciler) clusterLocalDomainTLS(ctx context.Context, r *v1.Route, tc 
 
 	orphanCerts, err := c.getOrphanRouteCerts(r, usedDomains, netcfg.CertificateClusterLocalDomain)
 	if err != nil {
+		//nolint:nilerr // https://github.com/knative/serving/issues/15755
 		return nil, nil
 	}
 
