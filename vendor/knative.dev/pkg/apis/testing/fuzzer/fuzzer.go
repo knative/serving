@@ -20,11 +20,11 @@ import (
 	"math/rand"
 	"net/url"
 
-	fuzz "github.com/google/gofuzz"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"knative.dev/pkg/apis"
+	"sigs.k8s.io/randfill"
 )
 
 // Funcs includes fuzzing funcs for knative.dev/serving types
@@ -32,17 +32,17 @@ import (
 // For other examples see
 // https://github.com/kubernetes/apimachinery/blob/master/pkg/apis/meta/fuzzer/fuzzer.go
 var Funcs = fuzzer.MergeFuzzerFuncs(
-	func(codecs serializer.CodecFactory) []interface{} {
-		return []interface{}{
-			func(u *apis.URL, c fuzz.Continue) {
+	func(codecs serializer.CodecFactory) []any {
+		return []any{
+			func(u *apis.URL, c randfill.Continue) {
 				u.Scheme = randStringAtoZ(c.Rand)
 				u.Host = randStringAtoZ(c.Rand)
 				u.User = url.UserPassword(
 					randStringAtoZ(c.Rand), // username
 					randStringAtoZ(c.Rand), // password
 				)
-				u.RawPath = url.PathEscape(c.RandString())
-				u.RawQuery = url.QueryEscape(c.RandString())
+				u.RawPath = url.PathEscape(c.String(0))
+				u.RawQuery = url.QueryEscape(c.String(0))
 			},
 		}
 	},
@@ -64,15 +64,15 @@ var Funcs = fuzzer.MergeFuzzerFuncs(
 //	  s.InitializeConditions()
 //	  fuzz.Conditions(&s.Status, c)
 //	}
-func FuzzConditions(accessor apis.ConditionsAccessor, c fuzz.Continue) {
+func FuzzConditions(accessor apis.ConditionsAccessor, c randfill.Continue) {
 	conds := accessor.GetConditions()
 	for i, cond := range conds {
 		// Leave condition.Type untouched
-		cond.Status = corev1.ConditionStatus(c.RandString())
-		cond.Severity = apis.ConditionSeverity(c.RandString())
-		cond.Message = c.RandString()
-		cond.Reason = c.RandString()
-		c.FuzzNoCustom(&cond.LastTransitionTime)
+		cond.Status = corev1.ConditionStatus(c.String(0))
+		cond.Severity = apis.ConditionSeverity(c.String(0))
+		cond.Message = c.String(0)
+		cond.Reason = c.String(0)
+		c.FillNoCustom(&cond.LastTransitionTime)
 		conds[i] = cond
 	}
 	accessor.SetConditions(conds)

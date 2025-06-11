@@ -26,7 +26,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	fuzz "github.com/google/gofuzz"
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
 	"k8s.io/apimachinery/pkg/api/apitesting/roundtrip"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -37,6 +36,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/randfill"
+
 	"knative.dev/pkg/apis"
 )
 
@@ -155,7 +156,7 @@ func ExternalTypesViaHub(t *testing.T, scheme, hubs *runtime.Scheme, fuzzerFuncs
 	}
 }
 
-func roundTripViaHub(t *testing.T, gvk schema.GroupVersionKind, scheme, hubs *runtime.Scheme, f *fuzz.Fuzzer) {
+func roundTripViaHub(t *testing.T, gvk schema.GroupVersionKind, scheme, hubs *runtime.Scheme, f *randfill.Filler) {
 	ctx := context.Background()
 
 	hub, hubGVK := hubInstanceForGK(t, hubs, gvk.GroupKind())
@@ -219,8 +220,8 @@ func objForGVK(t *testing.T,
 	return obj.(convertibleObject)
 }
 
-func fuzzObject(t *testing.T, fuzzer *fuzz.Fuzzer, gvk schema.GroupVersionKind, obj interface{}) {
-	fuzzer.Fuzz(obj)
+func fuzzObject(t *testing.T, fuzzer *randfill.Filler, gvk schema.GroupVersionKind, obj interface{}) {
+	fuzzer.Fill(obj)
 
 	objType, err := apimeta.TypeAccessor(obj)
 	if err != nil {
