@@ -160,7 +160,7 @@ func (*checkForwardedHeader) MatchString(s string) bool {
 			return false
 		}
 
-		if value != "" && !(tokenMatcher.MatchString(value) || quotedStringMatcher.MatchString(value)) {
+		if value != "" && (!tokenMatcher.MatchString(value) && !quotedStringMatcher.MatchString(value)) {
 			return false
 		}
 	}

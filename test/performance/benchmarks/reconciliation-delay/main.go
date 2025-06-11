@@ -288,7 +288,8 @@ func handleEvent(influxReporter *performance.InfluxReporter, metricResults *vege
 	ready := cc.LastTransitionTime.Inner.Time
 	elapsed := ready.Sub(created)
 
-	if cc.Status == corev1.ConditionTrue {
+	switch cc.Status {
+	case corev1.ConditionTrue:
 		influxReporter.AddDataPoint(benchmarkName, map[string]interface{}{metric: elapsed.Seconds()})
 		result := vegeta.Result{
 			Latency: elapsed,
@@ -299,7 +300,7 @@ func handleEvent(influxReporter *performance.InfluxReporter, metricResults *vege
 			log.Printf("Service %s ready in %vs", svc.GetName(), elapsed.Seconds())
 		}
 		metricResults.Add(&result)
-	} else if cc.Status == corev1.ConditionFalse {
+	case corev1.ConditionFalse:
 		log.Printf("Not Ready: %s; %s: %s", svc.GetName(), cc.Reason, cc.Message)
 	}
 }

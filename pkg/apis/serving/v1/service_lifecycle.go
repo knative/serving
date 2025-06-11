@@ -96,12 +96,12 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs *ConfigurationStatus) {
 	if cc == nil {
 		return
 	}
-	switch {
-	case cc.Status == corev1.ConditionUnknown:
+	switch cc.Status {
+	case corev1.ConditionUnknown:
 		serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
-	case cc.Status == corev1.ConditionTrue:
+	case corev1.ConditionTrue:
 		serviceCondSet.Manage(ss).MarkTrue(ServiceConditionConfigurationsReady)
-	case cc.Status == corev1.ConditionFalse:
+	case corev1.ConditionFalse:
 		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
 	}
 }

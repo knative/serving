@@ -185,21 +185,22 @@ func TestHTTPProbeAutoHTTP2(t *testing.T) {
 
 	server := newH2cTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		count := callCount.Add(1)
-		if count == 1 {
+		switch count {
+		case 1:
 			// This is the h2c handshake, we won't do anything.
 			for key, value := range h2cHeaders {
 				if r.Header.Get(key) != value {
 					t.Errorf("Key %v = %v was supposed to be present in the request", key, value)
 				}
 			}
-		} else if count == 2 {
+		case 2:
 			// This is the expected call. It should not have any of the h2c upgrade stuff, since the h2c test server will handle that for us.
 			for key, value := range h2cHeaders {
 				if r.Header.Get(key) == value {
 					t.Errorf("Key %v = %v was NOT supposed to be present in the request", key, value)
 				}
 			}
-		} else {
+		default:
 			t.Errorf("Handler should only have two calls, this is call %d", count)
 		}
 	})
