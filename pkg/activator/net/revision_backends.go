@@ -48,6 +48,7 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
+	"knative.dev/pkg/network"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/serving"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
@@ -62,9 +63,9 @@ import (
 // ClusterIPDest will be set to non empty string and Dests will be nil. Otherwise Dests will be set
 // to a slice of healthy l4 dests for reaching the revision.
 type revisionDestsUpdate struct {
-	Rev           types.NamespacedName
-	ClusterIPDest string
-	Dests         sets.Set[string]
+	Rev            types.NamespacedName
+	PrivateService string
+	Dests          sets.Set[string]
 }
 
 type dests struct {
@@ -91,7 +92,7 @@ const (
 	defaultProbeFrequency time.Duration = 200 * time.Millisecond
 )
 
-// revisionWatcher watches the podIPs and ClusterIP of the service for a revision. It implements the logic
+// revisionWatcher watches the podIPs/service of a revision. It implements the logic
 // to supply revisionDestsUpdate events on updateCh
 type revisionWatcher struct {
 	stopCh   <-chan struct{}
@@ -103,8 +104,9 @@ type revisionWatcher struct {
 
 	// Stores the list of pods that have been successfully probed.
 	healthyPods sets.Set[string]
-	// Stores whether the service ClusterIP has been seen as healthy.
-	clusterIPHealthy bool
+
+	// Stores whether the private k8s service has been seen as healthy.
+	privateServiceHealthy bool
 
 	transport     http.RoundTripper
 	destsCh       chan dests
@@ -201,23 +203,22 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (pass bool, n
 	return match, notMesh, err
 }
 
-func (rw *revisionWatcher) getDest() (string, error) {
-	svc, err := rw.serviceLister.Services(rw.rev.Namespace).Get(names.PrivateService(rw.rev.Name))
+func (rw *revisionWatcher) getPrivateServiceDest() (string, error) {
+	svcName := names.PrivateService(rw.rev.Name)
+	svc, err := rw.serviceLister.Services(rw.rev.Namespace).Get(svcName)
 	if err != nil {
 		return "", err
 	}
-	if svc.Spec.ClusterIP == "" {
-		return "", fmt.Errorf("private service %s/%s clusterIP is nil, this should never happen", svc.ObjectMeta.Namespace, svc.ObjectMeta.Name)
-	}
 
-	svcPort, ok := getServicePort(rw.protocol, svc)
+	svcHostname := network.GetServiceHostname(svcName, rw.rev.Namespace)
+	svcPort, ok := getTargetPort(rw.protocol, svc)
 	if !ok {
 		return "", fmt.Errorf("unable to find port in service %s/%s", svc.Namespace, svc.Name)
 	}
-	return net.JoinHostPort(svc.Spec.ClusterIP, strconv.Itoa(svcPort)), nil
+	return net.JoinHostPort(svcHostname, strconv.Itoa(svcPort)), nil
 }
 
-func (rw *revisionWatcher) probeClusterIP(dest string) (bool, error) {
+func (rw *revisionWatcher) probePrivateService(dest string) (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
 	defer cancel()
 	match, _, err := rw.probe(ctx, dest)
@@ -296,12 +297,12 @@ func (rw *revisionWatcher) probePodIPs(ready, notReady sets.Set[string]) (succee
 	return healthy, unchanged, sawNotMesh.Load(), err
 }
 
-func (rw *revisionWatcher) sendUpdate(clusterIP string, dests sets.Set[string]) {
+func (rw *revisionWatcher) sendUpdate(privateService string, dests sets.Set[string]) {
 	select {
 	case <-rw.stopCh:
 		return
 	default:
-		rw.updateCh <- revisionDestsUpdate{Rev: rw.rev, ClusterIPDest: clusterIP, Dests: dests}
+		rw.updateCh <- revisionDestsUpdate{Rev: rw.rev, PrivateService: privateService, Dests: dests}
 	}
 }
 
@@ -310,9 +311,9 @@ func (rw *revisionWatcher) sendUpdate(clusterIP string, dests sets.Set[string]) 
 func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 	if len(curDests.ready) == 0 && len(curDests.notReady) == 0 {
 		// We must have scaled down.
-		rw.clusterIPHealthy = false
+		rw.privateServiceHealthy = false
 		rw.healthyPods = nil
-		rw.logger.Debug("ClusterIP is no longer healthy.")
+		rw.logger.Debug("Private service is no longer healthy.")
 		// Send update that we are now inactive (both params invalid).
 		rw.sendUpdate("", nil)
 		return
@@ -351,7 +352,7 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 			// Note: it's important that this copies (via hs.Union) the healthy pods
 			// set before sending the update to avoid concurrent modifications
 			// affecting the throttler, which iterates over the set.
-			rw.sendUpdate("" /*clusterIP*/, hs.Union(nil))
+			rw.sendUpdate("", hs.Union(nil))
 			return
 		}
 		// no-op, and we have successfully probed at least one pod.
@@ -380,28 +381,28 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 	// If we failed to probe even a single pod, check the clusterIP.
 	// NB: We can't cache the IP address, since user might go rogue
 	// and delete the K8s service. We'll fix it, but the cluster IP will be different.
-	dest, err := rw.getDest()
+	dest, err := rw.getPrivateServiceDest()
 	if err != nil {
 		rw.logger.Errorw("Failed to determine service destination", zap.Error(err))
 		return
 	}
 
-	// If cluster IP is healthy and we haven't scaled down, short circuit.
-	if rw.clusterIPHealthy {
-		rw.logger.Debugf("ClusterIP %s already probed (ready backends: %d)", dest, len(curDests.ready))
+	// If service hostname is healthy and we haven't scaled down, short circuit.
+	if rw.privateServiceHealthy {
+		rw.logger.Debugf("service hostname %s already probed (ready backends: %d)", dest, len(curDests.ready))
 		rw.sendUpdate(dest, curDests.ready)
 		return
 	}
 
-	// If clusterIP is healthy send this update and we are done.
-	if ok, err := rw.probeClusterIP(dest); err != nil {
-		rw.logger.Errorw("Failed to probe clusterIP "+dest, zap.Error(err))
+	// If service via hostname is healthy send this update and we are done.
+	if ok, err := rw.probePrivateService(dest); err != nil {
+		rw.logger.Errorw("Failed to probe private service: "+dest, zap.Error(err))
 	} else if ok {
 		// We can reach here only iff pods are not successfully individually probed
-		// but ClusterIP conversely has been successfully probed.
+		// but PrivateService conversely has been successfully probed.
 		rw.podsAddressable = false
-		rw.logger.Debugf("ClusterIP is successfully probed: %s (ready backends: %d)", dest, len(curDests.ready))
-		rw.clusterIPHealthy = true
+		rw.logger.Debugf("Private service is successfully probed: %s (ready backends: %d)", dest, len(curDests.ready))
+		rw.privateServiceHealthy = true
 		rw.healthyPods = nil
 		rw.sendUpdate(dest, curDests.ready)
 	}
@@ -421,8 +422,8 @@ func (rw *revisionWatcher) run(probeFrequency time.Duration) {
 		// then we want to probe on timer.
 		rw.logger.Debugw("Revision state", zap.Object("dests", curDests),
 			zap.Object("healthy", logging.StringSet(rw.healthyPods)),
-			zap.Bool("clusterIPHealthy", rw.clusterIPHealthy))
-		if len(curDests.ready)+len(curDests.notReady) > 0 && !(rw.clusterIPHealthy ||
+			zap.Bool("clusterHealthy", rw.privateServiceHealthy))
+		if len(curDests.ready)+len(curDests.notReady) > 0 && !(rw.privateServiceHealthy ||
 			curDests.ready.Union(curDests.notReady).Equal(rw.healthyPods)) {
 			rw.logger.Debug("Probing on timer")
 			tickCh = timer.C

@@ -22,6 +22,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/networking/pkg/apis/networking"
 )
@@ -153,7 +154,7 @@ func TestEndpointsToDests(t *testing.T) {
 	}
 }
 
-func TestGetServicePort(t *testing.T) {
+func TestGetTargetPort(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		protocol networking.ProtocolType
@@ -164,8 +165,8 @@ func TestGetServicePort(t *testing.T) {
 		name:     "Single port",
 		protocol: networking.ProtocolHTTP1,
 		ports: []corev1.ServicePort{{
-			Name: "http",
-			Port: 100,
+			Name:       "http",
+			TargetPort: intstr.FromInt(100),
 		}},
 		expect:   100,
 		expectOK: true,
@@ -173,8 +174,8 @@ func TestGetServicePort(t *testing.T) {
 		name:     "Missing port",
 		protocol: networking.ProtocolHTTP1,
 		ports: []corev1.ServicePort{{
-			Name: "invalid",
-			Port: 100,
+			Name:       "invalid",
+			TargetPort: intstr.FromInt(100),
 		}},
 		expect:   0,
 		expectOK: false,
@@ -186,7 +187,7 @@ func TestGetServicePort(t *testing.T) {
 				},
 			}
 
-			port, ok := getServicePort(tc.protocol, &svc)
+			port, ok := getTargetPort(tc.protocol, &svc)
 			if ok != tc.expectOK {
 				t.Errorf("Wanted ok %v, got %v", tc.expectOK, ok)
 			}
