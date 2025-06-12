@@ -25,6 +25,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubelabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -365,10 +366,12 @@ func (c *Reconciler) clusterLocalDomainTLS(ctx context.Context, r *v1.Route, tc 
 
 	orphanCerts, err := c.getOrphanRouteCerts(r, usedDomains, netcfg.CertificateClusterLocalDomain)
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 
-	c.deleteOrphanedCerts(ctx, orphanCerts)
+	if len(orphanCerts) > 0 {
+		c.deleteOrphanedCerts(ctx, orphanCerts)
+	}
 
 	return tls, nil
 }
@@ -381,6 +384,11 @@ func (c *Reconciler) getOrphanRouteCerts(r *v1.Route, domainToTagMap map[string]
 
 	certs, err := c.certificateLister.Certificates(r.Namespace).List(labelSelector)
 	if err != nil {
+		// In case of NotFound, return empty list
+		if kerrors.IsNotFound(err) {
+			return certs, nil
+		}
+
 		return nil, err
 	}
 
