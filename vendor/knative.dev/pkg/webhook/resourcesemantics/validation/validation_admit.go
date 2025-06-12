@@ -160,7 +160,7 @@ func (ac *reconciler) decodeRequestAndPrepareContext(
 	return ctx, newObj, nil
 }
 
-//nolint:stylecheck
+//nolint:staticcheck
 func validate(ctx context.Context, resource resourcesemantics.GenericCRD, req *admissionv1.AdmissionRequest) (err error, warn []error) {
 	logger := logging.FromContext(ctx)
 

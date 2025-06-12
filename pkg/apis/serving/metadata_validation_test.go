@@ -307,7 +307,7 @@ func TestValidateContainerConcurrency(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.ctx == nil {
-				tc.ctx = context.Background() //nolint:fatcontext
+				tc.ctx = context.Background()
 			}
 			err := ValidateContainerConcurrency(tc.ctx, tc.containerConcurrency)
 			if got, want := err.Error(), tc.expectErr.Error(); got != want {

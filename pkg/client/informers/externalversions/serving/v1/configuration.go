@@ -62,13 +62,25 @@ func NewFilteredConfigurationInformer(client versioned.Interface, namespace stri
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ServingV1().Configurations(namespace).List(context.TODO(), options)
+				return client.ServingV1().Configurations(namespace).List(context.Background(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ServingV1().Configurations(namespace).Watch(context.TODO(), options)
+				return client.ServingV1().Configurations(namespace).Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.ServingV1().Configurations(namespace).List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.ServingV1().Configurations(namespace).Watch(ctx, options)
 			},
 		},
 		&apisservingv1.Configuration{},

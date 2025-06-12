@@ -485,8 +485,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				"QUEUE_SERVING_PORT":            "8013",
 			})
 		}),
-	},
-	}
+	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

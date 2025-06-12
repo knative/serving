@@ -39,6 +39,7 @@ import (
 	_ "k8s.io/code-generator/cmd/defaulter-gen"
 	_ "k8s.io/code-generator/cmd/informer-gen"
 	_ "k8s.io/code-generator/cmd/lister-gen"
+	_ "k8s.io/code-generator/cmd/validation-gen"
 	_ "k8s.io/kube-openapi/cmd/openapi-gen"
 	_ "knative.dev/pkg/codegen/cmd/injection-gen"
 

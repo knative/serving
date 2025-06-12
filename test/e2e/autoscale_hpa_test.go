@@ -201,7 +201,7 @@ func assertScaleDownToOne(ctx *TestContext) {
 		context.Background(),
 		ctx.clients.KubeClient,
 		func(p *corev1.PodList) (bool, error) {
-			if !(len(getDepPods(p.Items, deploymentName)) == 1) {
+			if len(getDepPods(p.Items, deploymentName)) != 1 {
 				return false, nil
 			}
 			return true, nil

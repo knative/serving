@@ -75,7 +75,7 @@ func NewURIResolverFromTracker(ctx context.Context, t tracker.Interface, resolve
 // URIFromDestination resolves a v1beta1.Destination into a URI string.
 func (r *URIResolver) URIFromDestination(ctx context.Context, dest duckv1beta1.Destination, parent interface{}) (string, error) {
 	var deprecatedObjectReference *duckv1.KReference
-	if !(dest.DeprecatedAPIVersion == "" && dest.DeprecatedKind == "" && dest.DeprecatedName == "" && dest.DeprecatedNamespace == "") {
+	if dest.DeprecatedAPIVersion != "" || dest.DeprecatedKind != "" || dest.DeprecatedName != "" || dest.DeprecatedNamespace != "" {
 		deprecatedObjectReference = &duckv1.KReference{
 			Kind:       dest.DeprecatedKind,
 			APIVersion: dest.DeprecatedAPIVersion,

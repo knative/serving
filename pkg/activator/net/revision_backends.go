@@ -422,8 +422,7 @@ func (rw *revisionWatcher) run(probeFrequency time.Duration) {
 		rw.logger.Debugw("Revision state", zap.Object("dests", curDests),
 			zap.Object("healthy", logging.StringSet(rw.healthyPods)),
 			zap.Bool("clusterIPHealthy", rw.clusterIPHealthy))
-		if len(curDests.ready)+len(curDests.notReady) > 0 && !(rw.clusterIPHealthy ||
-			curDests.ready.Union(curDests.notReady).Equal(rw.healthyPods)) {
+		if len(curDests.ready)+len(curDests.notReady) > 0 && (!rw.clusterIPHealthy && !curDests.ready.Union(curDests.notReady).Equal(rw.healthyPods)) {
 			rw.logger.Debug("Probing on timer")
 			tickCh = timer.C
 		} else {
