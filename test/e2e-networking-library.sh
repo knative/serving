@@ -25,7 +25,7 @@ function stage_contour_gateway_api_resources() {
   local gateway_dir="${E2E_YAML_DIR}/gateway-api/install-contour"
   mkdir -p "${gateway_dir}"
 
-  local CONTOUR_VERSION=v1.30.3
+  local CONTOUR_VERSION=v1.32.0
   echo "Downloading Contour Gateway Provisioner ${CONTOUR_VERSION}..."
   local CONTOUR_FILES=(
     "examples/contour/01-crds.yaml"
@@ -48,7 +48,7 @@ function stage_istio_gateway_api_resources() {
   mkdir -p "${gateway_dir}"
 
   # TODO: if we switch to istio 1.12 we can reuse stage_istio_head
-  curl -sL https://istio.io/downloadIstioctl | ISTIO_VERSION=1.25.2 sh -
+  curl -sL https://istio.io/downloadIstioctl | ISTIO_VERSION=1.26.1 sh -
 
   local params="--set values.global.proxy.clusterDomain=${CLUSTER_DOMAIN}"
 
