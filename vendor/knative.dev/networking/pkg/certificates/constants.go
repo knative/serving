@@ -21,10 +21,10 @@ import "strings"
 const (
 	Organization = "knative.dev"
 
-	//nolint:all
+	//nolint:staticcheck
 	LegacyFakeDnsName = "data-plane." + Organization
 
-	//nolint:all
+	//nolint:staticcheck
 	// Deprecated: FakeDnsName is deprecated.
 	// Please use the DataPlaneRoutingSAN for calls to the Activator
 	// and the DataPlaneUserSAN function for calls to a Knative-Service via Queue-Proxy.

@@ -62,13 +62,25 @@ func NewFilteredIngressInformer(client versioned.Interface, namespace string, re
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.NetworkingV1alpha1().Ingresses(namespace).List(context.TODO(), options)
+				return client.NetworkingV1alpha1().Ingresses(namespace).List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.NetworkingV1alpha1().Ingresses(namespace).Watch(context.TODO(), options)
+				return client.NetworkingV1alpha1().Ingresses(namespace).Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.NetworkingV1alpha1().Ingresses(namespace).List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.NetworkingV1alpha1().Ingresses(namespace).Watch(ctx, options)
 			},
 		},
 		&apisnetworkingv1alpha1.Ingress{},
