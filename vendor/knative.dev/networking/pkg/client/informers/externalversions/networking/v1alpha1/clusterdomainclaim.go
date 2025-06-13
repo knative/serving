@@ -61,13 +61,25 @@ func NewFilteredClusterDomainClaimInformer(client versioned.Interface, resyncPer
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.NetworkingV1alpha1().ClusterDomainClaims().List(context.TODO(), options)
+				return client.NetworkingV1alpha1().ClusterDomainClaims().List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.NetworkingV1alpha1().ClusterDomainClaims().Watch(context.TODO(), options)
+				return client.NetworkingV1alpha1().ClusterDomainClaims().Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.NetworkingV1alpha1().ClusterDomainClaims().List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.NetworkingV1alpha1().ClusterDomainClaims().Watch(ctx, options)
 			},
 		},
 		&apisnetworkingv1alpha1.ClusterDomainClaim{},

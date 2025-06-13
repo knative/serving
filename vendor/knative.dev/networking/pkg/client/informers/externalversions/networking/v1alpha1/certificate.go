@@ -62,13 +62,25 @@ func NewFilteredCertificateInformer(client versioned.Interface, namespace string
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.NetworkingV1alpha1().Certificates(namespace).List(context.TODO(), options)
+				return client.NetworkingV1alpha1().Certificates(namespace).List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.NetworkingV1alpha1().Certificates(namespace).Watch(context.TODO(), options)
+				return client.NetworkingV1alpha1().Certificates(namespace).Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.NetworkingV1alpha1().Certificates(namespace).List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.NetworkingV1alpha1().Certificates(namespace).Watch(ctx, options)
 			},
 		},
 		&apisnetworkingv1alpha1.Certificate{},
