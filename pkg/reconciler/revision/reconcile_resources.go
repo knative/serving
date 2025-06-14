@@ -120,7 +120,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 		}
 	}
 
-	if deployment.Status.ReadyReplicas > 0 {
+	if deployment.Spec.Replicas != nil && deployment.Status.ReadyReplicas >= *deployment.Spec.Replicas {
 		rev.Status.MarkContainerHealthyTrue()
 	}
 
