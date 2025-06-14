@@ -248,8 +248,9 @@ func uniScalerFactoryFunc(podLister corev1listers.PodLister,
 		ctx := smetrics.RevisionContext(decider.Namespace, serviceName, configName, revisionName)
 
 		podAccessor := resources.NewPodAccessor(podLister, decider.Namespace, revisionName)
-		return scaling.New(ctx, decider.Namespace, decider.Name, metricClient,
-			podAccessor, &decider.Spec), nil
+		// Use libkpa-based autoscaler instead of the built-in implementation
+		return scaling.NewLibKPAAutoscaler(ctx, decider.Namespace, decider.Name, metricClient,
+			podAccessor, &decider.Spec)
 	}
 }
 
