@@ -28,6 +28,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/reconciler"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/revision/config"
@@ -54,43 +55,60 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 		return nil, fmt.Errorf("failed to update deployment: %w", err)
 	}
 
-	// Preserve the current scale of the Deployment.
-	deployment.Spec.Replicas = have.Spec.Replicas
+	// We'll update this variable with the result of the update
+	var updated *appsv1.Deployment
 
-	// Preserve the label selector since it's immutable.
-	// TODO(dprotaso): determine other immutable properties.
-	deployment.Spec.Selector = have.Spec.Selector
+	err = reconciler.RetryUpdateConflicts(func(attempts int) error {
+		// On subsequent attempts, fetch the latest version
+		current := have
+		if attempts > 0 {
+			current, err = c.kubeclient.AppsV1().Deployments(deployment.Namespace).Get(ctx, deployment.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+		}
 
-	// If the spec we want is the spec we have, then we're good.
-	if equality.Semantic.DeepEqual(have.Spec, deployment.Spec) {
-		return have, nil
-	}
+		// Preserve the current scale of the Deployment.
+		deployment.Spec.Replicas = current.Spec.Replicas
 
-	// Otherwise attempt an update (with ONLY the spec changes).
-	desiredDeployment := have.DeepCopy()
-	desiredDeployment.Spec = deployment.Spec
+		// Preserve the label selector since it's immutable.
+		// TODO(dprotaso): determine other immutable properties.
+		deployment.Spec.Selector = current.Spec.Selector
 
-	// Carry over new labels.
-	desiredDeployment.Labels = kmeta.UnionMaps(deployment.Labels, desiredDeployment.Labels)
+		// If the spec we want is the spec we have, then we're good.
+		if equality.Semantic.DeepEqual(current.Spec, deployment.Spec) {
+			updated = current
+			return nil
+		}
 
-	d, err := c.kubeclient.AppsV1().Deployments(deployment.Namespace).Update(ctx, desiredDeployment, metav1.UpdateOptions{})
+		// Otherwise attempt an update (with ONLY the spec changes).
+		desiredDeployment := current.DeepCopy()
+		desiredDeployment.Spec = deployment.Spec
+
+		// Carry over new labels.
+		desiredDeployment.Labels = kmeta.UnionMaps(deployment.Labels, desiredDeployment.Labels)
+
+		updated, err = c.kubeclient.AppsV1().Deployments(deployment.Namespace).Update(ctx, desiredDeployment, metav1.UpdateOptions{})
+		return err
+	})
+
 	if err != nil {
 		return nil, err
 	}
 
 	// If what comes back from the update (with defaults applied by the API server) is the same
 	// as what we have then nothing changed.
-	if equality.Semantic.DeepEqual(have.Spec, d.Spec) {
-		return d, nil
+	if equality.Semantic.DeepEqual(have.Spec, updated.Spec) {
+		return updated, nil
 	}
-	diff, err := kmp.SafeDiff(have.Spec, d.Spec)
+	diff, err := kmp.SafeDiff(have.Spec, updated.Spec)
 	if err != nil {
 		return nil, err
 	}
 
 	// If what comes back has a different spec, then signal the change.
 	logger.Info("Reconciled deployment diff (-desired, +observed): ", diff)
-	return d, nil
+	return updated, nil
 }
 
 func (c *Reconciler) createImageCache(ctx context.Context, rev *v1.Revision, containerName, imageDigest string) (*caching.Image, error) {
