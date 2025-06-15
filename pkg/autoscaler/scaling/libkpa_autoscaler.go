@@ -138,6 +138,18 @@ func (la *libkpaAutoscaler) Scale(logger *zap.SugaredLogger, now time.Time) Scal
 		stableValue, panicValue, err = la.metricClient.StableAndPanicConcurrency(metricKey, now)
 	}
 
+	// Technically, stableValue and panicValue are averages over non-negative values.
+	// So, we might assume that stableValue >= 0 and panicValue >= 0.
+	// However, due to a bug in WindowAverage function it migth return negative values 
+	// (https://github.com/knative/serving/blob/main/pkg/autoscaler/aggregation/bucketing.go#L201)
+	// So, we need to check if stableValue < 0 or panicValue < 0 and set them to 0 if so.
+	if stableValue < 0 {
+		stableValue = 0
+	}
+	if panicValue < 0 {
+		panicValue = 0
+	}
+
 	if err != nil {
 		if errors.Is(err, kmetrics.ErrNoData) {
 			logger.Debug("No data to scale on yet")
