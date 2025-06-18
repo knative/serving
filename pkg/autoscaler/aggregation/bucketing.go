@@ -234,10 +234,10 @@ func (t *TimedFloat64Buckets) WindowAverage(now time.Time) float64 {
 // operations to find the index in the bucket list.
 // bucketMutex needs to be held.
 func (t *TimedFloat64Buckets) timeToIndex(tm time.Time) int {
-	// I don't think this run in 2038 :-)
+	// Use int64 to avoid Y2038 problem, then safely convertAdd commentMore actions
 	// NB: we need to divide by granularity, since it's a compressing mapping
 	// to buckets.
-	return int(tm.Unix()) / int(t.granularity.Seconds())
+	return int(tm.Unix() / int64(t.granularity.Seconds()))
 }
 
 // Record adds a value with an associated time to the correct bucket.
