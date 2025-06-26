@@ -129,7 +129,7 @@ func (t *TimedFloat64Buckets) isEmptyLocked(now time.Time) bool {
 
 func roundToNDigits(n int, f float64) float64 {
 	p := math.Pow10(n)
-	return math.Floor(f*p) / p
+	return math.Round(f*p) / p
 }
 
 const (
