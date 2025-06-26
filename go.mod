@@ -32,12 +32,12 @@ require (
 	k8s.io/code-generator v0.33.1
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
-	knative.dev/caching v0.0.0-20250612032246-0d0995889725
+	knative.dev/caching v0.0.0-20250613155248-911ea8102c83
 	knative.dev/hack v0.0.0-20250514121446-f525e187efdc
-	knative.dev/networking v0.0.0-20250612103147-c3d6b4f16d05
-	knative.dev/pkg v0.0.0-20250612083447-05e18ffb29c7
+	knative.dev/networking v0.0.0-20250616174156-f950c0c1a0a8
+	knative.dev/pkg v0.0.0-20250625154605-4ec554b5af30
 	sigs.k8s.io/randfill v1.0.0
-	sigs.k8s.io/yaml v1.4.0
+	sigs.k8s.io/yaml v1.5.0
 )
 
 require (
@@ -139,6 +139,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.35.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
+	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/crypto v0.39.0 // indirect
 	golang.org/x/mod v0.25.0 // indirect
 	golang.org/x/oauth2 v0.28.0 // indirect
