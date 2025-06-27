@@ -90,8 +90,7 @@ jobs:
         - kourier-tls
         - istio
         - istio-tls
-        # Disabled due to flakiness: https://github.com/knative/serving/issues/14637
-        # - istio-ambient
+        - istio-ambient
         - contour
         - gateway_istio
         - gateway_contour
@@ -124,11 +123,11 @@ jobs:
           namespace-resources: virtualservices
           enable-tls: 1
 
-        # Disabled due to flakiness: https://github.com/knative/serving/issues/14637
-        # - ingress: istio-ambient
-        #   namespace-resources: virtualservices
-        #   ingress-class: istio
-        #   ambient: 1
+        # TODO investigate flakiness: https://github.com/knative/serving/issues/14637
+        - ingress: istio-ambient
+          namespace-resources: virtualservices
+          ingress-class: istio
+          ambient: 1
 
         - ingress: kourier-tls
           ingress-class: kourier
@@ -148,8 +147,8 @@ jobs:
       INGRESS_CLASS: ${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
       GATEWAY_API_IMPLEMENTATION: ${{ matrix.gateway-api-implementation }}
       ENABLE_TLS: ${{ matrix.enable-tls || 0 }}
-      # Disabled due to flakiness: https://github.com/knative/serving/issues/14637
-      # AMBIENT: ${{ matrix.ambient || 0 }}
+      # TODO investigate flakiness: https://github.com/knative/serving/issues/14637
+      AMBIENT: ${{ matrix.ambient || 0 }}
 
     steps:
     - name: setup-go
