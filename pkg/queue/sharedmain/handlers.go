@@ -20,6 +20,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"go.uber.org/zap"
@@ -43,6 +44,7 @@ func mainHandler(
 	prober func() bool,
 	stats *netstats.RequestStats,
 	logger *zap.SugaredLogger,
+	pendingRequests *atomic.Int32,
 ) (http.Handler, *pkghandler.Drainer) {
 	target := net.JoinHostPort("127.0.0.1", env.UserPort)
 
@@ -86,6 +88,8 @@ func mainHandler(
 
 	composedHandler = withFullDuplex(composedHandler, env.EnableHTTPFullDuplex, logger)
 
+	composedHandler = withRequestCounter(composedHandler, pendingRequests)
+
 	drainer := &pkghandler.Drainer{
 		QuietPeriod: drainSleepDuration,
 		// Add Activator probe header to the drainer so it can handle probes directly from activator
@@ -100,6 +104,7 @@ func mainHandler(
 		// Hence we need to have RequestLogHandler be the first one.
 		composedHandler = requestLogHandler(logger, composedHandler, env)
 	}
+
 	return composedHandler, drainer
 }
 
@@ -136,6 +141,14 @@ func withFullDuplex(h http.Handler, enableFullDuplex bool, logger *zap.SugaredLo
 		if err := rc.EnableFullDuplex(); err != nil {
 			logger.Errorw("Unable to enable full duplex", zap.Error(err))
 		}
+		h.ServeHTTP(w, r)
+	})
+}
+
+func withRequestCounter(h http.Handler, pendingRequests *atomic.Int32) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		pendingRequests.Add(1)
+		defer pendingRequests.Add(-1)
 		h.ServeHTTP(w, r)
 	})
 }
