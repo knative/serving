@@ -73,6 +73,8 @@ github.com/Azure/go-autorest/tracing v0.6.1 h1:YUMSrC/CeD1ZnnXcNYU4a/fzsO35u2Fsf
 github.com/Azure/go-autorest/tracing v0.6.1/go.mod h1:/3EgjbsjraOqiicERAeu3m7/z0x1TzjQGAwDrJrXGkc=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
+github.com/Fedosin/libkpa v0.0.0-20250622152915-bb1b1a36b3fe h1:HJNzqbJobQq8HA6Td4oCi7uIC/yFBJ5Lt+jKkZ3pIEs=
+github.com/Fedosin/libkpa v0.0.0-20250622152915-bb1b1a36b3fe/go.mod h1:LmQi7L8zIa6jzqdB1oUE3GO7UHd7UFuNrZBQ1N5HO88=
 github.com/Shopify/sarama v1.19.0/go.mod h1:FVkBWblsNy7DGZRfXLU0O9RCGt5g3g3yEuWXgklEdEo=
 github.com/Shopify/toxiproxy v2.1.4+incompatible/go.mod h1:OXgGpZ6Cli1/URJOF1DMxUHB2q5Ap20/P/eIdh4G0pI=
 github.com/ahmetb/gen-crd-api-reference-docs v0.3.1-0.20210609063737-0067dc6dcea2 h1:t/ces1/q8tuApSb+T5ajsu3wqkofUT43U1gpDYTPYME=
