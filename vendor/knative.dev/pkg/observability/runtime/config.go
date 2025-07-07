@@ -29,8 +29,8 @@ const (
 )
 
 type Config struct {
-	Profiling      string
-	ExportInterval time.Duration
+	Profiling      string        `json:"profiling,omitempty"`
+	ExportInterval time.Duration `json:"exportInterval,omitempty"`
 }
 
 func (c *Config) Validate() error {

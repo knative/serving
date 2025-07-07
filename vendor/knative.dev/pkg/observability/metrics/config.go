@@ -35,10 +35,9 @@ const (
 // Kubernetes ConfigMap during application startup, and accessed via the
 // GetConfig() method.
 type Config struct {
-	Protocol string
-	Endpoint string
-
-	ExportInterval time.Duration
+	Protocol       string        `json:"protocol,omitempty"`
+	Endpoint       string        `json:"endpoint,omitempty"`
+	ExportInterval time.Duration `json:"exportInterval,omitempty"`
 }
 
 func (c *Config) Validate() error {
