@@ -31,9 +31,9 @@ const (
 )
 
 type Config struct {
-	Protocol     string
-	Endpoint     string
-	SamplingRate float64
+	Protocol     string  `json:"protocol,omitempty"`
+	Endpoint     string  `json:"endpoint,omitempty"`
+	SamplingRate float64 `json:"samplingRate,omitempty"`
 }
 
 func (c *Config) Validate() error {

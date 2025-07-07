@@ -31,9 +31,9 @@ type (
 )
 
 type Config struct {
-	Tracing TracingConfig
-	Metrics MetricsConfig
-	Runtime RuntimeConfig
+	Tracing TracingConfig `json:"tracing"`
+	Metrics MetricsConfig `json:"metrics"`
+	Runtime RuntimeConfig `json:"runtime"`
 }
 
 func DefaultConfig() *Config {
