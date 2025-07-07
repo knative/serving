@@ -281,9 +281,13 @@ github.com/go-logfmt/logfmt
 ## explicit; go 1.18
 github.com/go-logr/logr
 github.com/go-logr/logr/funcr
+github.com/go-logr/logr/slogr
 # github.com/go-logr/stdr v1.2.2
 ## explicit; go 1.16
 github.com/go-logr/stdr
+# github.com/go-logr/zapr v1.3.0
+## explicit; go 1.18
+github.com/go-logr/zapr
 # github.com/go-openapi/jsonpointer v0.21.0
 ## explicit; go 1.20
 github.com/go-openapi/jsonpointer
@@ -562,8 +566,8 @@ go.opencensus.io/trace/tracestate
 ## explicit; go 1.22.0
 go.opentelemetry.io/auto/sdk
 go.opentelemetry.io/auto/sdk/internal/telemetry
-# go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.58.0
-## explicit; go 1.22.0
+# go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.62.0
+## explicit; go 1.23.0
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp/internal/request
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp/internal/semconv
@@ -587,6 +591,7 @@ go.opentelemetry.io/otel/semconv/v1.20.0
 go.opentelemetry.io/otel/semconv/v1.26.0
 go.opentelemetry.io/otel/semconv/v1.34.0
 go.opentelemetry.io/otel/semconv/v1.34.0/goconv
+go.opentelemetry.io/otel/semconv/v1.34.0/httpconv
 # go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.37.0
 ## explicit; go 1.23.0
 go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc
@@ -624,6 +629,9 @@ go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp/internal/retry
 # go.opentelemetry.io/otel/exporters/prometheus v0.59.0
 ## explicit; go 1.23.0
 go.opentelemetry.io/otel/exporters/prometheus
+# go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.37.0
+## explicit; go 1.23.0
+go.opentelemetry.io/otel/exporters/stdout/stdouttrace
 # go.opentelemetry.io/otel/metric v1.37.0
 ## explicit; go 1.23.0
 go.opentelemetry.io/otel/metric
@@ -637,6 +645,7 @@ go.opentelemetry.io/otel/sdk/internal/env
 go.opentelemetry.io/otel/sdk/internal/x
 go.opentelemetry.io/otel/sdk/resource
 go.opentelemetry.io/otel/sdk/trace
+go.opentelemetry.io/otel/sdk/trace/tracetest
 # go.opentelemetry.io/otel/sdk/metric v1.37.0
 ## explicit; go 1.23.0
 go.opentelemetry.io/otel/sdk/metric
@@ -1543,7 +1552,7 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20250627014006-8481e7eef7f6
+# knative.dev/pkg v0.0.0-20250707154506-3eb1089fec09
 ## explicit; go 1.24.0
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1630,11 +1639,14 @@ knative.dev/pkg/metrics/testing
 knative.dev/pkg/network
 knative.dev/pkg/network/handlers
 knative.dev/pkg/observability
+knative.dev/pkg/observability/attributekey
 knative.dev/pkg/observability/configmap
 knative.dev/pkg/observability/metrics
+knative.dev/pkg/observability/metrics/k8s
 knative.dev/pkg/observability/metrics/prometheus
 knative.dev/pkg/observability/resource
 knative.dev/pkg/observability/runtime
+knative.dev/pkg/observability/runtime/k8s
 knative.dev/pkg/observability/tracing
 knative.dev/pkg/profiling
 knative.dev/pkg/ptr
@@ -1653,12 +1665,10 @@ knative.dev/pkg/test/logging
 knative.dev/pkg/test/logstream
 knative.dev/pkg/test/logstream/v2
 knative.dev/pkg/test/migrate
-knative.dev/pkg/test/monitoring
 knative.dev/pkg/test/spoof
 knative.dev/pkg/test/upgrade
 knative.dev/pkg/test/upgrade/shell
 knative.dev/pkg/test/vegeta/pacers
-knative.dev/pkg/test/zipkin
 knative.dev/pkg/tracing
 knative.dev/pkg/tracing/config
 knative.dev/pkg/tracing/propagation

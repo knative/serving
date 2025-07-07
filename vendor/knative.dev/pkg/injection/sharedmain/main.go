@@ -33,6 +33,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/trace"
 
+	"github.com/go-logr/zapr"
 	"go.uber.org/automaxprocs/maxprocs" // automatically set GOMAXPROCS based on cgroups
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -44,6 +45,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
+	k8stoolmetrics "k8s.io/client-go/tools/metrics"
+	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog/v2"
 
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
@@ -56,7 +60,9 @@ import (
 	"knative.dev/pkg/observability"
 	o11yconfigmap "knative.dev/pkg/observability/configmap"
 	"knative.dev/pkg/observability/metrics"
+	k8smetrics "knative.dev/pkg/observability/metrics/k8s"
 	"knative.dev/pkg/observability/resource"
+	k8sruntime "knative.dev/pkg/observability/runtime/k8s"
 	"knative.dev/pkg/observability/tracing"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/signals"
@@ -255,11 +261,12 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 	defer logger.Sync()
 	ctx = logging.WithLogger(ctx, logger)
 
+	klog.SetLogger(zapr.NewLogger(logger.Desugar()))
+
 	// Override client-go's warning handler to give us nicely printed warnings.
 	rest.SetDefaultWarningHandler(&logging.WarningHandler{Logger: logger})
 
-	pprof := newProfilingServer(logger.Named("pprof"))
-	defer pprof.Shutdown(context.Background())
+	pprof := k8sruntime.NewProfilingServer(logger.Named("pprof"))
 
 	CheckK8sClientMinimumVersionOrDie(ctx, logger)
 	cmw := SetupConfigMapWatchOrDie(ctx, logger)
@@ -278,12 +285,13 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 
 	mp, tp := SetupObservabilityOrDie(ctx, component, logger, pprof)
 	defer func() {
-		if err := mp.Shutdown(context.Background()); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		if err := mp.Shutdown(ctx); err != nil {
 			logger.Errorw("Error flushing metrics", zap.Error(err))
 		}
-	}()
-	defer func() {
-		if err := tp.Shutdown(context.Background()); err != nil {
+		if err := tp.Shutdown(ctx); err != nil {
 			logger.Errorw("Error flushing traces", zap.Error(err))
 		}
 	}()
@@ -339,6 +347,8 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 	// returns an error.
 	<-egCtx.Done()
 
+	pprof.Shutdown(context.Background())
+
 	// Don't forward ErrServerClosed as that indicates we're already shutting down.
 	if err := eg.Wait(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		logger.Errorw("Error while running server", zap.Error(err))
@@ -378,7 +388,7 @@ func SetupObservabilityOrDie(
 	ctx context.Context,
 	component string,
 	logger *zap.SugaredLogger,
-	pprof *pprofServer,
+	pprof *k8sruntime.ProfilingServer,
 ) (*metrics.MeterProvider, *tracing.TracerProvider) {
 	cfg, err := GetObservabilityConfig(ctx)
 	if err != nil {
@@ -400,6 +410,28 @@ func SetupObservabilityOrDie(
 	}
 
 	otel.SetMeterProvider(meterProvider)
+
+	workQueueMetrics, err := k8smetrics.NewWorkqueueMetricsProvider(
+		k8smetrics.WithMeterProvider(meterProvider),
+	)
+	if err != nil {
+		logger.Fatalw("Failed to setup k8s workqueue metrics", zap.Error(err))
+	}
+
+	workqueue.SetProvider(workQueueMetrics)
+	controller.SetMetricsProvider(workQueueMetrics)
+
+	clientMetrics, err := k8smetrics.NewClientMetricProvider(
+		k8smetrics.WithMeterProvider(meterProvider),
+	)
+	if err != nil {
+		logger.Fatalw("Failed to setup k8s client go metrics", zap.Error(err))
+	}
+
+	k8stoolmetrics.Register(k8stoolmetrics.RegisterOpts{
+		RequestLatency: clientMetrics.RequestLatencyMetric(),
+		RequestResult:  clientMetrics.RequestResultMetric(),
+	})
 
 	err = runtime.Start(
 		runtime.WithMinimumReadMemStatsInterval(cfg.Runtime.ExportInterval),
@@ -468,7 +500,7 @@ func WatchLoggingConfigOrDie(ctx context.Context, cmw *cminformer.InformedWatche
 func WatchObservabilityConfigOrDie(
 	ctx context.Context,
 	cmw *cminformer.InformedWatcher,
-	pprof *pprofServer,
+	pprof *k8sruntime.ProfilingServer,
 	logger *zap.SugaredLogger,
 	component string,
 ) {

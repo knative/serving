@@ -27,6 +27,7 @@ const (
 	ProtocolGRPC         = "grpc"
 	ProtocolHTTPProtobuf = "http/protobuf"
 	ProtocolNone         = "none"
+	ProtocolStdout       = "stdout"
 )
 
 type Config struct {
@@ -41,7 +42,7 @@ func (c *Config) Validate() error {
 		if c.Endpoint == "" {
 			return fmt.Errorf("endpoint should be set for protocol %q", c.Protocol)
 		}
-	case ProtocolNone:
+	case ProtocolNone, ProtocolStdout:
 		if c.Endpoint != "" {
 			return errors.New("endpoint should not be set when protocol is 'none'")
 		}
