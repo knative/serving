@@ -22,21 +22,21 @@ import (
 	"knative.dev/pkg/observability/runtime"
 )
 
-type pprofServer struct {
+type ProfilingServer struct {
 	*runtime.ProfilingServer
 	log *zap.SugaredLogger
 }
 
-func newProfilingServer(logger *zap.SugaredLogger) *pprofServer {
+func NewProfilingServer(logger *zap.SugaredLogger) *ProfilingServer {
 	s := runtime.NewProfilingServer()
 
-	return &pprofServer{
+	return &ProfilingServer{
 		ProfilingServer: s,
 		log:             logger,
 	}
 }
 
-func (s *pprofServer) UpdateFromConfigMap(cm *corev1.ConfigMap) {
+func (s *ProfilingServer) UpdateFromConfigMap(cm *corev1.ConfigMap) {
 	cfg, err := runtime.NewFromMap(cm.Data)
 	if err != nil {
 		s.log.Errorw("Failed to update the profiling flag", zap.Error(err))
@@ -45,7 +45,7 @@ func (s *pprofServer) UpdateFromConfigMap(cm *corev1.ConfigMap) {
 	s.UpdateFromConfig(cfg)
 }
 
-func (s *pprofServer) UpdateFromConfig(cfg runtime.Config) {
+func (s *ProfilingServer) UpdateFromConfig(cfg runtime.Config) {
 	enabled := cfg.ProfilingEnabled()
 	if s.ProfilingServer.SetEnabled(enabled) != enabled {
 		s.log.Info("Profiling enabled: ", enabled)

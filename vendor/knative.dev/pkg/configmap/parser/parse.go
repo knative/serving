@@ -19,6 +19,7 @@ package parser
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -71,7 +72,7 @@ func parse[T parseable](s string) (T, error) {
 
 	switch any(zero).(type) {
 	case string:
-		val = s
+		val = strings.TrimSpace(s)
 	case int16:
 		val, err = strconv.ParseInt(s, 10, 16)
 		val = int16(val.(int64))

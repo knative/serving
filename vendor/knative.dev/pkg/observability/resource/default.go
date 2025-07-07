@@ -17,6 +17,8 @@ limitations under the License.
 package resource
 
 import (
+	"os"
+
 	"knative.dev/pkg/changeset"
 	"knative.dev/pkg/system"
 
@@ -24,6 +26,8 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.34.0"
 )
+
+const otelServiceNameKey = "OTEL_SERVICE_NAME"
 
 // Default returns a default OpenTelemetry Resource enriched
 // with common Knative/Kubernetes attributes.
@@ -33,10 +37,16 @@ import (
 // - PodName using system.PodName
 // - ServiceVersion with changeset.Get
 func Default(serviceName string) *resource.Resource {
+	// If the OTEL_SERVICE_NAME is set then let this override
+	// our own serviceName
+	if name := os.Getenv(otelServiceNameKey); name != "" {
+		serviceName = name
+	}
+
 	attrs := []attribute.KeyValue{
 		semconv.K8SNamespaceName(system.Namespace()),
-		semconv.ServiceName(serviceName),
 		semconv.ServiceVersion(changeset.Get()),
+		semconv.ServiceName(serviceName),
 	}
 
 	if pn := system.PodName(); pn != "" {
@@ -46,13 +56,11 @@ func Default(serviceName string) *resource.Resource {
 	// Ignore the error because it complains about semconv
 	// schema version differences
 	resource, err := resource.Merge(
+		resource.Default(),
 		resource.NewWithAttributes(
 			semconv.SchemaURL,
 			attrs...,
 		),
-		// We merge 'Default' last since this allows overriding
-		// the service name etc. using env variables
-		resource.Default(),
 	)
 	if err != nil {
 		panic(err)

@@ -17,13 +17,16 @@ limitations under the License.
 package tracing
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
@@ -70,10 +73,11 @@ func NewTracerProvider(
 		return nil, fmt.Errorf("error creating tracer sampler: %w", err)
 	}
 
-	provider := sdktrace.NewTracerProvider(
+	opts = append(opts,
 		sdktrace.WithBatcher(exp),
 		sdktrace.WithSampler(sampler),
 	)
+	provider := sdktrace.NewTracerProvider(opts...)
 	return &TracerProvider{
 		TracerProvider: provider,
 		shutdown:       provider.Shutdown,
@@ -86,15 +90,24 @@ func exporterFor(ctx context.Context, cfg Config) (sdktrace.SpanExporter, error)
 		return buildGRPC(ctx, cfg)
 	case ProtocolHTTPProtobuf:
 		return buildHTTP(ctx, cfg)
+	case ProtocolStdout:
+		return buildStdout()
 	default:
 		return nil, fmt.Errorf("unsupported metric exporter: %q", cfg.Protocol)
 	}
 }
 
+func buildStdout() (sdktrace.SpanExporter, error) {
+	return stdouttrace.New()
+}
+
 func buildGRPC(ctx context.Context, cfg Config) (sdktrace.SpanExporter, error) {
 	var grpcOpts []otlptracegrpc.Option
 
-	if opt := endpointFor(cfg, otlptracegrpc.WithEndpointURL); opt != nil {
+	opt, err := endpointFor(cfg, otlptracegrpc.WithEndpointURL)
+	if err != nil {
+		return nil, fmt.Errorf("unable to process traces endpoint: %w", err)
+	} else if opt != nil {
 		grpcOpts = append(grpcOpts, opt)
 	}
 
@@ -108,7 +121,10 @@ func buildGRPC(ctx context.Context, cfg Config) (sdktrace.SpanExporter, error) {
 func buildHTTP(ctx context.Context, cfg Config) (sdktrace.SpanExporter, error) {
 	var httpOpts []otlptracehttp.Option
 
-	if opt := endpointFor(cfg, otlptracehttp.WithEndpointURL); opt != nil {
+	opt, err := endpointFor(cfg, otlptracehttp.WithEndpointURL)
+	if err != nil {
+		return nil, fmt.Errorf("unable to process traces endpoint: %w", err)
+	} else if opt != nil {
 		httpOpts = append(httpOpts, opt)
 	}
 
@@ -122,20 +138,40 @@ func buildHTTP(ctx context.Context, cfg Config) (sdktrace.SpanExporter, error) {
 
 // If the OTEL_EXPORTER_OTLP_ENDPOINT or OTEL_EXPORTER_OTLP_TRACES_ENDPOINT is
 // set then we will prefer that over what's in the Config
-func endpointFor[T any](cfg Config, opt func(string) T) T {
+func endpointFor[T any](cfg Config, opt func(string) T) (T, error) {
 	var epOption T
 
-	if (os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") == "" &&
-		os.Getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") == "") && cfg.Endpoint != "" {
-		epOption = opt(cfg.Endpoint)
+	override := cmp.Or(
+		os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		os.Getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"),
+	)
+
+	if override != "" {
+		return epOption, nil
 	}
-	return epOption
+
+	ep := cfg.Endpoint
+
+	u, err := url.Parse(cfg.Endpoint)
+	if err != nil {
+		return epOption, err
+	}
+	if u.Opaque != "" {
+		ep = "https://" + ep
+	}
+
+	epOption = opt(ep)
+	return epOption, nil
 }
 
 func sampleFor(cfg Config) (sdktrace.Sampler, error) {
 	// Don't override env arg
 	if os.Getenv("OTEL_TRACES_SAMPLER") != "" {
 		return nil, nil
+	}
+
+	if cfg.Protocol == ProtocolStdout {
+		return sdktrace.AlwaysSample(), nil
 	}
 
 	rate := cfg.SamplingRate

@@ -70,6 +70,7 @@ func TestMustHaveHeadersSet(t *testing.T) {
 // TestShouldHaveHeadersSet verified that all headers declared as "SHOULD" in the runtime
 // contract are present from the point of view of the user container.
 func TestShouldHaveHeadersSet(t *testing.T) {
+	t.Skip("Skipping due to https://github.com/knative/serving/issues/15949")
 	t.Parallel()
 	clients := test.Setup(t)
 

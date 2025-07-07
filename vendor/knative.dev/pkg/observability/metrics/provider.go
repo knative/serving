@@ -17,9 +17,11 @@ limitations under the License.
 package metrics
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
@@ -87,7 +89,10 @@ func readerFor(ctx context.Context, cfg Config) (sdkmetric.Reader, shutdownFunc,
 func buildGRPC(ctx context.Context, cfg Config) (sdkmetric.Reader, shutdownFunc, error) {
 	var grpcOpts []otlpmetricgrpc.Option
 
-	if opt := endpointFor(cfg, otlpmetricgrpc.WithEndpointURL); opt != nil {
+	opt, err := endpointFor(cfg, otlpmetricgrpc.WithEndpointURL)
+	if err != nil {
+		return nil, noopFunc, fmt.Errorf("unable to process metrics endpoint: %w", err)
+	} else if opt != nil {
 		grpcOpts = append(grpcOpts, opt)
 	}
 
@@ -108,7 +113,10 @@ func buildGRPC(ctx context.Context, cfg Config) (sdkmetric.Reader, shutdownFunc,
 func buildHTTP(ctx context.Context, cfg Config) (sdkmetric.Reader, shutdownFunc, error) {
 	var httpOpts []otlpmetrichttp.Option
 
-	if opt := endpointFor(cfg, otlpmetrichttp.WithEndpointURL); opt != nil {
+	opt, err := endpointFor(cfg, otlpmetrichttp.WithEndpointURL)
+	if err != nil {
+		return nil, noopFunc, fmt.Errorf("unable to process metrics endpoint: %w", err)
+	} else if opt != nil {
 		httpOpts = append(httpOpts, opt)
 	}
 
@@ -138,12 +146,27 @@ func intervalFor(cfg Config) sdkmetric.PeriodicReaderOption {
 }
 
 // If the OTEL_EXPORTER_OTLP_ENDPOINT or OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
-func endpointFor[T any](cfg Config, opt func(string) T) T {
+func endpointFor[T any](cfg Config, opt func(string) T) (T, error) {
 	var epOption T
 
-	if (os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") == "" &&
-		os.Getenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") == "") && cfg.Endpoint != "" {
-		epOption = opt(cfg.Endpoint)
+	override := cmp.Or(
+		os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		os.Getenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"),
+	)
+	if override != "" {
+		return epOption, nil
 	}
-	return epOption
+
+	ep := cfg.Endpoint
+
+	u, err := url.Parse(cfg.Endpoint)
+	if err != nil {
+		return epOption, err
+	}
+	if u.Opaque != "" {
+		ep = "https://" + ep
+	}
+
+	epOption = opt(ep)
+	return epOption, nil
 }
