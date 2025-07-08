@@ -28,6 +28,9 @@ import (
 	"testing"
 	"time"
 
+	"go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+
 	netheader "knative.dev/networking/pkg/http/header"
 	netstats "knative.dev/networking/pkg/http/stats"
 	"knative.dev/serving/pkg/activator"
@@ -38,6 +41,10 @@ const (
 )
 
 func TestHandlerBreakerQueueFull(t *testing.T) {
+	exporter := tracetest.NewInMemoryExporter()
+	tp := trace.NewTracerProvider(trace.WithSyncer(exporter))
+	tracer := tp.Tracer("test")
+
 	// This test sends three requests of which one should fail immediately as the queue
 	// saturates.
 	resp := make(chan struct{})
@@ -48,7 +55,7 @@ func TestHandlerBreakerQueueFull(t *testing.T) {
 		QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1,
 	})
 	stats := netstats.NewRequestStats(time.Now())
-	h := ProxyHandler(breaker, stats, false /*tracingEnabled*/, blockHandler)
+	h := ProxyHandler(tracer, breaker, stats, blockHandler)
 
 	req := httptest.NewRequest(http.MethodGet, "http://localhost:8081/time", nil)
 	resps := make(chan *httptest.ResponseRecorder)
@@ -82,6 +89,10 @@ func TestHandlerBreakerQueueFull(t *testing.T) {
 }
 
 func TestHandlerBreakerTimeout(t *testing.T) {
+	exporter := tracetest.NewInMemoryExporter()
+	tp := trace.NewTracerProvider(trace.WithSyncer(exporter))
+	tracer := tp.Tracer("test")
+
 	// This test sends a request which will take a long time to complete.
 	// Then another one with a very short context timeout.
 	// Verifies that the second one fails with timeout.
@@ -96,7 +107,7 @@ func TestHandlerBreakerTimeout(t *testing.T) {
 		QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1,
 	})
 	stats := netstats.NewRequestStats(time.Now())
-	h := ProxyHandler(breaker, stats, false /*tracingEnabled*/, blockHandler)
+	h := ProxyHandler(tracer, breaker, stats, blockHandler)
 
 	go func() {
 		h(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "http://localhost:8081/time", nil))
@@ -125,6 +136,10 @@ func TestHandlerReqEvent(t *testing.T) {
 	breaker := NewBreaker(params)
 	for _, br := range []*Breaker{breaker, nil} {
 		t.Run(fmt.Sprint("Breaker?=", br == nil), func(t *testing.T) {
+			exporter := tracetest.NewInMemoryExporter()
+			tp := trace.NewTracerProvider(trace.WithSyncer(exporter))
+			tracer := tp.Tracer("test")
+
 			// This has to be here to capture subtest.
 			var httpHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
 				if r.Header.Get(activator.RevisionHeaderName) != "" {
@@ -154,7 +169,7 @@ func TestHandlerReqEvent(t *testing.T) {
 			proxy := httputil.NewSingleHostReverseProxy(serverURL)
 
 			stats := netstats.NewRequestStats(time.Now())
-			h := ProxyHandler(br, stats, true /*tracingEnabled*/, proxy)
+			h := ProxyHandler(tracer, br, stats, proxy)
 
 			writer := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -173,6 +188,10 @@ func TestHandlerReqEvent(t *testing.T) {
 }
 
 func TestIgnoreProbe(t *testing.T) {
+	exporter := tracetest.NewInMemoryExporter()
+	tp := trace.NewTracerProvider(trace.WithSyncer(exporter))
+	tracer := tp.Tracer("test")
+
 	// Verifies that probes don't queue.
 	resp := make(chan struct{})
 	var c atomic.Int32
@@ -214,7 +233,7 @@ func TestIgnoreProbe(t *testing.T) {
 	// Ensure no more than 1 request can be queued. So we'll send 3.
 	breaker := NewBreaker(BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1})
 	stats := netstats.NewRequestStats(time.Now())
-	h := ProxyHandler(breaker, stats, false /*tracingEnabled*/, proxy)
+	h := ProxyHandler(tracer, breaker, stats, proxy)
 
 	req := httptest.NewRequest(http.MethodPost, "http://prob.in", nil)
 	req.Header.Set("User-Agent", netheader.KubeProbeUAPrefix+"1.29") // Mark it a probe.
@@ -260,9 +279,12 @@ func BenchmarkProxyHandler(b *testing.B) {
 	}}
 
 	for _, tc := range tests {
+		exporter := tracetest.NewInMemoryExporter()
+		tp := trace.NewTracerProvider(trace.WithSyncer(exporter))
+		tracer := tp.Tracer("test")
 		reportTicker := time.NewTicker(tc.reportPeriod)
 
-		h := ProxyHandler(tc.breaker, stats, true /*tracingEnabled*/, baseHandler)
+		h := ProxyHandler(tracer, tc.breaker, stats, baseHandler)
 		b.Run("sequential-"+tc.label, func(b *testing.B) {
 			resp := httptest.NewRecorder()
 			for range b.N {
