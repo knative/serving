@@ -89,7 +89,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 			t.Fatal("Error parsing example observability config:", err)
 		}
 
-		// Compare with the example and allow the log url template to differ
+		// Compare with the example and allow the log url template, base config, and request metrics to differ
 		co := cmpopts.IgnoreFields(observability.Config{},
 			"BaseConfig",
 			"RequestMetrics",
