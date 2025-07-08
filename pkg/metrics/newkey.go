@@ -16,8 +16,6 @@ limitations under the License.
 
 package metrics
 
-// "go.opencensus.io/tag"
-
 import (
 	"knative.dev/pkg/observability/attributekey"
 )
