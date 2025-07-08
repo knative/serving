@@ -98,7 +98,7 @@ func DefaultConfig() *Config {
 }
 
 func NewFromMap(m map[string]string) (*Config, error) {
-	var c = DefaultConfig()
+	c := DefaultConfig()
 
 	if cfg, err := pkgo11y.NewFromMap(m); err != nil {
 		return nil, err
