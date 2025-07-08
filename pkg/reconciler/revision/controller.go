@@ -36,6 +36,7 @@ import (
 	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
+	"knative.dev/serving/pkg/observability"
 
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -43,7 +44,6 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/metrics"
 	apisconfig "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/deployment"
@@ -93,7 +93,7 @@ func newControllerWithOptions(
 	impl := revisionreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
 		configsToResync := []interface{}{
 			&netcfg.Config{},
-			&metrics.ObservabilityConfig{},
+			&observability.Config{},
 			&deployment.Config{},
 			&apisconfig.Defaults{},
 		}

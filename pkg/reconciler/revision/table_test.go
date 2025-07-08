@@ -36,9 +36,7 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/metrics"
 	pkgreconciler "knative.dev/pkg/reconciler"
-	tracingconfig "knative.dev/pkg/tracing/config"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	defaultconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
@@ -46,6 +44,7 @@ import (
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
+	"knative.dev/serving/pkg/observability"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 
@@ -1026,11 +1025,10 @@ func reconcilerTestConfig() *config.Config {
 			Features: &defaultconfig.Features{},
 		},
 		Deployment: testDeploymentConfig(),
-		Observability: &metrics.ObservabilityConfig{
+		Observability: &observability.Config{
 			LoggingURLTemplate: "http://logger.io/${REVISION_UID}",
 		},
 		Logging: &logging.Config{},
-		Tracing: &tracingconfig.Config{},
 		Network: &netcfg.Config{},
 	}
 }
