@@ -17,98 +17,65 @@ limitations under the License.
 package handler
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/logging"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	rtesting "knative.dev/pkg/reconciler/testing"
-	"knative.dev/pkg/tracing"
-	"knative.dev/pkg/tracing/config"
-	tracetesting "knative.dev/pkg/tracing/testing"
-	activatorconfig "knative.dev/serving/pkg/activator/config"
 )
 
 func TestTracingHandler(t *testing.T) {
-	tests := []struct {
-		name           string
-		tracingEnabled bool
-	}{{
-		name:           "enabled",
-		tracingEnabled: true,
-	}, {
-		name:           "disabled",
-		tracingEnabled: false,
-	}}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-			defer cancel()
+	exporter := tracetest.NewInMemoryExporter()
+	tp := trace.NewTracerProvider(
+		trace.WithSyncer(exporter),
+	)
 
-			baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-			handler := NewTracingHandler(baseHandler)
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	defer cancel()
 
-			resp := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
-			const traceID = "821e0d50d931235a5ba3fa42eddddd8f"
-			req.Header["X-B3-Traceid"] = []string{traceID}
-			req.Header["X-B3-Spanid"] = []string{"b3bd5e1c4318c78a"}
+	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		labeler, _ := otelhttp.LabelerFromContext(r.Context())
+		labeler.Add(attribute.Bool("x", true))
 
-			cm := tracingConfig(test.tracingEnabled)
-			cfg, err := config.NewTracingConfigFromConfigMap(cm)
-			if err != nil {
-				t.Fatal("Failed to parse tracing config", err)
+	})
+	handler := NewTracingHandler(tp, baseHandler)
+
+	resp := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+
+	handler.ServeHTTP(resp, req.WithContext(ctx))
+
+	spans := exporter.GetSpans()
+	if len(spans) != 1 {
+		t.Fatalf("Got %d spans, expected 1: spans = %v", len(spans), spans)
+	}
+
+	want := attribute.Bool("x", true)
+	found := false
+
+	for _, attr := range spans[0].Attributes {
+		if attr.Key == "x" {
+			found = true
+			if diff := cmp.Diff(want, attr, cmpOpts...); diff != "" {
+				t.Error("unexpected diff (-want +got):", diff)
 			}
+		}
+	}
 
-			configStore := activatorconfig.NewStore(logging.FromContext(ctx))
-			configStore.OnConfigChanged(cm)
-			ctx = configStore.ToContext(ctx)
-
-			reporter, co := tracetesting.FakeZipkinExporter()
-			oct := tracing.NewOpenCensusTracer(co)
-			t.Cleanup(func() {
-				reporter.Close()
-				oct.Shutdown(context.Background())
-			})
-
-			if err := oct.ApplyConfig(cfg); err != nil {
-				t.Error("Failed to apply tracer config:", err)
-			}
-
-			handler.ServeHTTP(resp, req.WithContext(ctx))
-
-			spans := reporter.Flush()
-
-			if test.tracingEnabled {
-				if len(spans) != 1 {
-					t.Errorf("Got %d spans, expected 1: spans = %v", len(spans), spans)
-				}
-				if got := spans[0].TraceID.String(); got != traceID {
-					t.Errorf("spans[0].TraceID = %s, want %s", got, traceID)
-				}
-			} else if len(spans) != 0 {
-				t.Errorf("Got %d spans, expected 0: spans = %v", len(spans), spans)
-			}
-		})
+	if !found {
+		t.Error("custom attribute 'x' is missing")
 	}
 }
 
-func tracingConfig(enabled bool) *corev1.ConfigMap {
-	cm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: config.ConfigName,
-		},
-		Data: map[string]string{
-			"backend": "none",
-		},
-	}
-	if enabled {
-		cm.Data["backend"] = "zipkin"
-		cm.Data["zipkin-endpoint"] = "foo.bar"
-		cm.Data["debug"] = "true"
-	}
-	return cm
+var cmpOpts = []cmp.Option{
+	cmpopts.EquateComparable(
+		attribute.KeyValue{},
+		attribute.Value{},
+	),
 }

@@ -27,12 +27,13 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"go.opencensus.io/resource"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	netstats "knative.dev/networking/pkg/http/stats"
-	"knative.dev/pkg/metrics/metricstest"
-	_ "knative.dev/pkg/metrics/testing"
+	"knative.dev/pkg/observability/metrics/metricstest"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
@@ -318,7 +319,7 @@ func TestStats(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			cr, _, cancel := newTestReporter(t)
+			cr, _, cancel, _ := newTestReporter(t)
 			defer cancel()
 
 			// statCache simulates the stat being kept for the entire request and reused
@@ -380,7 +381,7 @@ func TestStats(t *testing.T) {
 }
 
 func TestConcurrencyReporterRun(t *testing.T) {
-	cr, ctx, cancel := newTestReporter(t)
+	cr, ctx, cancel, _ := newTestReporter(t)
 	defer cancel()
 
 	reportCh := make(chan time.Time)
@@ -423,7 +424,7 @@ func TestConcurrencyReporterRun(t *testing.T) {
 }
 
 func TestConcurrencyReporterHandler(t *testing.T) {
-	cr, ctx, cancel := newTestReporter(t)
+	cr, ctx, cancel, _ := newTestReporter(t)
 	defer cancel()
 
 	reportCh := make(chan time.Time)
@@ -471,7 +472,7 @@ func TestConcurrencyReporterHandler(t *testing.T) {
 }
 
 func TestConcurrencyReporterRace(t *testing.T) {
-	cr, _, cancel := newTestReporter(t)
+	cr, _, cancel, _ := newTestReporter(t)
 	defer cancel()
 
 	base := time.Now()
@@ -538,8 +539,7 @@ func TestConcurrencyReporterRace(t *testing.T) {
 }
 
 func TestMetricsReported(t *testing.T) {
-	reset()
-	cr, ctx, cancel := newTestReporter(t)
+	cr, ctx, cancel, metricReader := newTestReporter(t)
 	defer cancel()
 
 	reportCh := make(chan time.Time)
@@ -559,34 +559,60 @@ func TestMetricsReported(t *testing.T) {
 	<-cr.statCh // scale-from-0 event
 	<-cr.statCh // "proper" event
 
-	wantResource := &resource.Resource{
-		Type: "knative_revision",
-		Labels: map[string]string{
-			metrics.LabelRevisionName:      rev1.Name,
-			metrics.LabelNamespaceName:     rev1.Namespace,
-			metrics.LabelServiceName:       "service-" + rev1.Name,
-			metrics.LabelConfigurationName: "config-" + rev1.Name,
-		},
-	}
-	wantTags := map[string]string{
-		metrics.LabelPodName:       "the-best-activator",
-		metrics.LabelContainerName: "activator",
-	}
-
 	// Should report a concurrency of 3 because the first event was a scale-from-0 (gets discounted)
-	wantMetric := metricstest.FloatMetric("request_concurrency", 3, wantTags).WithResource(wantResource)
-	metricstest.AssertMetric(t, wantMetric)
+	expectedAttrs := attribute.NewSet(
+		metrics.ServiceNameKey.With("service-"+rev1.Name),
+		metrics.ConfigurationNameKey.With("config-"+rev1.Name),
+		metrics.RevisionNameKey.With(rev1.Name),
+		metrics.K8sNamespaceKey.With(rev1.Namespace),
+		metrics.ActivatorKeyValue,
+	)
+
+	metricstest.AssertMetrics(
+		t, metricReader,
+		metricstest.MetricsEqual(
+			scopeName,
+			metricdata.Metrics{
+				Name:        "kn.revision.request.concurrency",
+				Description: "Concurrent requests that are routed to Activator",
+				Unit:        "{request}",
+				Data: metricdata.Gauge[float64]{
+					DataPoints: []metricdata.DataPoint[float64]{{
+						Value:      3,
+						Attributes: expectedAttrs,
+					}},
+				},
+			},
+		),
+	)
 
 	// Report again
 	reportCh <- now.Add(2)
 	<-cr.statCh
 
-	// The next time round we should report the "real" concurrency
-	wantMetric = metricstest.FloatMetric("request_concurrency", 4, wantTags).WithResource(wantResource)
-	metricstest.AssertMetric(t, wantMetric)
+	metricstest.AssertMetrics(
+		t, metricReader,
+		metricstest.MetricsEqual(
+			scopeName,
+			metricdata.Metrics{
+				Name:        "kn.revision.request.concurrency",
+				Description: "Concurrent requests that are routed to Activator",
+				Unit:        "{request}",
+				Data: metricdata.Gauge[float64]{
+					DataPoints: []metricdata.DataPoint[float64]{{
+						Value:      4,
+						Attributes: expectedAttrs,
+					}},
+				},
+			},
+		),
+	)
 }
 
-func newTestReporter(t *testing.T) (*ConcurrencyReporter, context.Context, context.CancelFunc) {
+func newTestReporter(t *testing.T) (*ConcurrencyReporter, context.Context, context.CancelFunc, *metric.ManualReader) {
+	reader := metric.NewManualReader()
+	provider := metric.NewMeterProvider(metric.WithReader(reader))
+
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	revisionInformer(ctx, revision(rev1.Namespace, rev1.Name),
 		revision(rev2.Namespace, rev2.Name), revision(rev3.Namespace, rev3.Name))
@@ -594,7 +620,7 @@ func newTestReporter(t *testing.T) (*ConcurrencyReporter, context.Context, conte
 	// Buffered channel permits avoiding sending the test commands on the separate go routine
 	// simplifying main test process.
 	statCh := make(chan []asmetrics.StatMessage, 10)
-	return NewConcurrencyReporter(ctx, activatorPodName, statCh), ctx, cancel
+	return NewConcurrencyReporter(ctx, activatorPodName, statCh, provider), ctx, cancel, reader
 }
 
 func revisionInformer(ctx context.Context, revs ...*v1.Revision) {
@@ -613,7 +639,7 @@ func BenchmarkConcurrencyReporterHandler(b *testing.B) {
 
 	// Buffer equal to the activator.
 	statCh := make(chan []asmetrics.StatMessage)
-	cr := NewConcurrencyReporter(ctx, activatorPodName, statCh)
+	cr := NewConcurrencyReporter(ctx, activatorPodName, statCh, nil)
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)
@@ -683,7 +709,7 @@ func BenchmarkConcurrencyReporterReport(b *testing.B) {
 
 			// Different to the activator but doesn't matter as it isn't used in the test.
 			statCh := make(chan []asmetrics.StatMessage, revs)
-			cr := NewConcurrencyReporter(ctx, activatorPodName, statCh)
+			cr := NewConcurrencyReporter(ctx, activatorPodName, statCh, nil)
 
 			fake := fakeservingclient.Get(ctx)
 			revisions := fakerevisioninformer.Get(ctx)

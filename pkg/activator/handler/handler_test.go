@@ -29,15 +29,13 @@ import (
 	"testing"
 	"time"
 
+	"go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
 	netheader "knative.dev/networking/pkg/http/header"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	rtesting "knative.dev/pkg/reconciler/testing"
-	"knative.dev/pkg/tracing"
-	tracingconfig "knative.dev/pkg/tracing/config"
-	tracetesting "knative.dev/pkg/tracing/testing"
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	activatortest "knative.dev/serving/pkg/activator/testing"
@@ -123,7 +121,8 @@ func TestActivationHandler(t *testing.T) {
 
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer cancel()
-			handler := New(ctx, test.throttler, rt, false /*usePassthroughLb*/, logging.FromContext(ctx), false /* TLS */)
+			handler := New(ctx, test.throttler, rt, false, /*usePassthroughLb*/
+				logging.FromContext(ctx), false /* TLS */, nil /* trace provider */)
 
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -162,7 +161,8 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 
-	handler := New(ctx, fakeThrottler{}, rt, false /*usePassthroughLb*/, logging.FromContext(ctx), false /* TLS */)
+	handler := New(ctx, fakeThrottler{}, rt, false, /*usePassthroughLb*/
+		logging.FromContext(ctx), false /* TLS */, nil /* trace provider */)
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -195,14 +195,14 @@ func TestActivationHandlerPassthroughLb(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 
-	handler := New(ctx, fakeThrottler{}, rt, true /*usePassthroughLb*/, logging.FromContext(ctx), false /* TLS */)
+	handler := New(ctx, fakeThrottler{}, rt, true, /*usePassthroughLb*/
+		logging.FromContext(ctx), false /* TLS */, nil /* trace provider */)
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 
 	// Set up config store to populate context.
 	configStore := activatorconfig.NewStore(logging.FromContext(ctx))
-	configStore.OnConfigChanged(tracingConfig(false))
 	ctx = configStore.ToContext(req.Context())
 	ctx = WithRevisionAndID(ctx, nil, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
 
@@ -222,79 +222,41 @@ func TestActivationHandlerPassthroughLb(t *testing.T) {
 }
 
 func TestActivationHandlerTraceSpans(t *testing.T) {
-	testcases := []struct {
-		name         string
-		wantSpans    int
-		traceBackend tracingconfig.BackendType
-	}{{
-		name:         "zipkin trace enabled",
-		wantSpans:    3,
-		traceBackend: tracingconfig.Zipkin,
-	}, {
-		name:         "trace disabled",
-		traceBackend: tracingconfig.None,
-	}}
+	exporter := tracetest.NewInMemoryExporter()
+	tp := trace.NewTracerProvider(
+		trace.WithSyncer(exporter),
+	)
 
-	spanNames := []string{"throttler_try", "/", "activator_proxy"}
-	for _, tc := range testcases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Setup transport
-			fakeRT := activatortest.FakeRoundTripper{
-				RequestResponse: &activatortest.FakeResponse{
-					Code: http.StatusOK,
-					Body: wantBody,
-				},
-			}
-			rt := pkgnet.RoundTripperFunc(fakeRT.RT)
+	spanNames := []string{"throttler_try", "POST /", "activator_proxy"}
+	// Setup transport
+	fakeRT := activatortest.FakeRoundTripper{
+		RequestResponse: &activatortest.FakeResponse{
+			Code: http.StatusOK,
+			Body: wantBody,
+		},
+	}
+	rt := pkgnet.RoundTripperFunc(fakeRT.RT)
 
-			// Create tracer with reporter recorder
-			reporter, co := tracetesting.FakeZipkinExporter()
-			oct := tracing.NewOpenCensusTracer(co)
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	defer func() {
+		cancel()
+	}()
 
-			cm := &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: tracingconfig.ConfigName,
-				},
-				Data: map[string]string{
-					"zipkin-endpoint": "localhost:1234",
-					"backend":         string(tc.traceBackend),
-					"debug":           "true",
-				},
-			}
-			cfg, err := tracingconfig.NewTracingConfigFromConfigMap(cm)
-			if err != nil {
-				t.Fatal("Failed to generate config:", err)
-			}
-			if err := oct.ApplyConfig(cfg); err != nil {
-				t.Error("Failed to apply tracer config:", err)
-			}
+	handler := New(ctx, fakeThrottler{}, rt, false /*usePassthroughLb*/, logging.FromContext(ctx), false /* TLS */, tp)
 
-			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-			defer func() {
-				cancel()
-				reporter.Close()
-				oct.Shutdown(context.Background())
-			}()
+	// Set up config store to populate context.
+	configStore := setupConfigStore(t, logging.FromContext(ctx))
+	sendRequest(testNamespace, testRevName, handler, configStore)
 
-			handler := New(ctx, fakeThrottler{}, rt, false /*usePassthroughLb*/, logging.FromContext(ctx), false /* TLS */)
+	gotSpans := exporter.GetSpans()
+	if len(gotSpans) != 3 {
+		t.Errorf("NumSpans = %d, want: %d", len(gotSpans), 3)
+	}
 
-			// Set up config store to populate context.
-			configStore := setupConfigStore(t, logging.FromContext(ctx))
-			// Update the store with our "new" config explicitly.
-			configStore.OnConfigChanged(cm)
-			sendRequest(testNamespace, testRevName, handler, configStore)
-
-			gotSpans := reporter.Flush()
-			if len(gotSpans) != tc.wantSpans {
-				t.Errorf("NumSpans = %d, want: %d", len(gotSpans), tc.wantSpans)
-			}
-
-			for i, spanName := range spanNames[0:tc.wantSpans] {
-				if gotSpans[i].Name != spanName {
-					t.Errorf("Span[%d] = %q, expected %q", i, gotSpans[i].Name, spanName)
-				}
-			}
-		})
+	for i, spanName := range spanNames[0:3] {
+		if gotSpans[i].Name != spanName {
+			t.Errorf("Span[%d] = %q, expected %q", i, gotSpans[i].Name, spanName)
+		}
 	}
 }
 
@@ -325,7 +287,6 @@ func revision(namespace, name string) *v1.Revision {
 
 func setupConfigStore(t testing.TB, logger *zap.SugaredLogger) *activatorconfig.Store {
 	configStore := activatorconfig.NewStore(logger)
-	configStore.OnConfigChanged(tracingConfig(false))
 	return configStore
 }
 
@@ -345,7 +306,7 @@ func BenchmarkHandler(b *testing.B) {
 			}, nil
 		})
 
-		handler := New(ctx, fakeThrottler{}, rt, false /*usePassthroughLb*/, logging.FromContext(ctx), false /* TLS */)
+		handler := New(ctx, fakeThrottler{}, rt, false /*usePassthroughLb*/, logging.FromContext(ctx), false /* TLS */, nil)
 
 		request := func() *http.Request {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)

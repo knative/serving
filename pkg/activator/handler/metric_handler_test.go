@@ -22,14 +22,12 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"testing"
 
-	"go.opencensus.io/resource"
+	"github.com/google/go-cmp/cmp"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/attribute"
 	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/pkg/metrics/metricstest"
-	_ "knative.dev/pkg/metrics/testing"
-	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/metrics"
 )
@@ -68,8 +66,11 @@ func TestRequestMetricHandler(t *testing.T) {
 		t.Run(test.label, func(t *testing.T) {
 			handler := NewMetricHandler(testPod, test.baseHandler)
 
+			labeler := &otelhttp.Labeler{}
+
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", bytes.NewBufferString(""))
+
 			if len(test.newHeader) != 0 {
 				for k, v := range test.newHeader {
 					req.Header.Add(k, v)
@@ -78,7 +79,6 @@ func TestRequestMetricHandler(t *testing.T) {
 
 			rev := revision(testNamespace, testRevName)
 
-			defer reset()
 			defer func() {
 				err := recover()
 				if test.wantPanic && err == nil {
@@ -89,52 +89,45 @@ func TestRequestMetricHandler(t *testing.T) {
 					t.Errorf("Response Status = %d,  want: %d", resp.Code, test.wantCode)
 				}
 
-				labelCode := test.wantCode
-				if test.wantPanic {
-					labelCode = http.StatusInternalServerError
+				got := labeler.Get()
+
+				want := []attribute.KeyValue{
+					metrics.ServiceNameKey.With(rev.Labels[serving.ServiceLabelKey]),
+					metrics.ConfigurationNameKey.With(rev.Labels[serving.ConfigurationLabelKey]),
+					metrics.RevisionNameKey.With(rev.Name),
+					metrics.K8sNamespaceKey.With(rev.Namespace),
+					metrics.ActivatorKeyValue,
 				}
 
-				wantResource := &resource.Resource{
-					Type: "knative_revision",
-					Labels: map[string]string{
-						metrics.LabelNamespaceName:     rev.Namespace,
-						metrics.LabelServiceName:       rev.Labels[serving.ServiceLabelKey],
-						metrics.LabelConfigurationName: rev.Labels[serving.ConfigurationLabelKey],
-						metrics.LabelRevisionName:      rev.Name,
-					},
-				}
-				wantTags := map[string]string{
-					metrics.LabelPodName:           testPod,
-					metrics.LabelContainerName:     activator.Name,
-					metrics.LabelResponseCode:      strconv.Itoa(labelCode),
-					metrics.LabelResponseCodeClass: strconv.Itoa(labelCode/100) + "xx",
+				if diff := cmp.Diff(want, got, cmpOpts...); diff != "" {
+					t.Error("unexpected attribute diff (-want +got): ", diff)
 				}
 
-				metricstest.AssertMetric(t, metricstest.IntMetric(requestCountM.Name(), 1, wantTags).WithResource(wantResource))
-				metricstest.AssertMetricExists(t, responseTimeInMsecM.Name())
 			}()
 
-			reqCtx := WithRevisionAndID(context.Background(), rev, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
-			handler.ServeHTTP(resp, req.WithContext(reqCtx))
+			ctx := otelhttp.ContextWithLabeler(context.Background(), labeler)
+			ctx = WithRevisionAndID(ctx, rev, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
+			handler.ServeHTTP(resp, req.WithContext(ctx))
 		})
 	}
 }
 
-func reset() {
-	metricstest.Unregister(requestConcurrencyM.Name(), requestCountM.Name(), responseTimeInMsecM.Name())
-	register()
-}
-
 func BenchmarkMetricHandler(b *testing.B) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	reqCtx := WithRevisionAndID(context.Background(), revision(testNamespace, testRevName), types.NamespacedName{Namespace: testNamespace, Name: testRevName})
+	reqCtx := WithRevisionAndID(
+		context.Background(),
+		revision(testNamespace, testRevName),
+		types.NamespacedName{Namespace: testNamespace, Name: testRevName},
+	)
+
+	reqCtx = otelhttp.ContextWithLabeler(reqCtx, &otelhttp.Labeler{})
 
 	handler := NewMetricHandler("benchPod", baseHandler)
 
 	resp := httptest.NewRecorder()
 	b.Run("sequential", func(b *testing.B) {
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil).WithContext(reqCtx)
-		for range b.N {
+		for b.Loop() {
 			handler.ServeHTTP(resp, req)
 		}
 	})

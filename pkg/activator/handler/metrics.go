@@ -17,61 +17,37 @@ limitations under the License.
 package handler
 
 import (
-	pkgmetrics "knative.dev/pkg/metrics"
-	"knative.dev/serving/pkg/metrics"
-
-	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
 )
 
-var (
-	requestConcurrencyM = stats.Float64(
-		"request_concurrency",
-		"Concurrent requests that are routed to Activator",
-		stats.UnitDimensionless)
-	requestCountM = stats.Int64(
-		"request_count",
-		"The number of requests that are routed to Activator",
-		stats.UnitDimensionless)
-	responseTimeInMsecM = stats.Float64(
-		"request_latencies",
-		"The response time in millisecond",
-		stats.UnitMilliseconds)
+var scopeName = "knative.dev/serving/pkg/activator"
 
-	// NOTE: 0 should not be used as boundary. See
-	// https://github.com/census-ecosystem/opencensus-go-exporter-stackdriver/issues/98
-	defaultLatencyDistribution = view.Distribution(5, 10, 20, 40, 60, 80, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000, 2000, 5000, 10000, 20000, 50000, 100000)
-)
-
-func init() {
-	register()
+type ccMetrics struct {
+	requestCC metric.Float64Gauge
 }
 
-func register() {
-	// Create views to see our measurements. This can return an error if
-	// a previously-registered view has the same name with a different value.
-	// View name defaults to the measure name if unspecified.
-	if err := pkgmetrics.RegisterResourceView(
-		&view.View{
-			Description: "Concurrent requests that are routed to Activator",
-			Measure:     requestConcurrencyM,
-			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey},
-		},
-		&view.View{
-			Description: "The number of requests that are routed to Activator",
-			Measure:     requestCountM,
-			Aggregation: view.Count(),
-			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey},
-		},
-		&view.View{
-			Description: "The response time in millisecond",
-			Measure:     responseTimeInMsecM,
-			Aggregation: defaultLatencyDistribution,
-			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey},
-		},
-	); err != nil {
+func newMetrics(mp metric.MeterProvider) *ccMetrics {
+	var (
+		m        ccMetrics
+		err      error
+		provider = mp
+	)
+
+	if provider == nil {
+		provider = otel.GetMeterProvider()
+	}
+
+	meter := provider.Meter(scopeName)
+
+	m.requestCC, err = meter.Float64Gauge(
+		"kn.revision.request.concurrency",
+		metric.WithDescription("Concurrent requests that are routed to Activator"),
+		metric.WithUnit("{request}"),
+	)
+	if err != nil {
 		panic(err)
 	}
+
+	return &m
 }

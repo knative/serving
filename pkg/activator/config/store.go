@@ -22,14 +22,12 @@ import (
 
 	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/configmap"
-	tracingconfig "knative.dev/pkg/tracing/config"
 )
 
 type cfgKey struct{}
 
 // Config is the configuration for the activator.
 type Config struct {
-	Tracing *tracingconfig.Config
 	Network *netcfg.Config
 }
 
@@ -54,10 +52,6 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 	// current state of the Config.
 	onAfterStore = append(onAfterStore, func(_ string, _ interface{}) {
 		c := &Config{}
-		tracing := s.UntypedLoad(tracingconfig.ConfigName)
-		if tracing != nil {
-			c.Tracing = tracing.(*tracingconfig.Config).DeepCopy()
-		}
 		// this allows dynamic updating of the config-network
 		// this is necessary for not requiring activator restart for system-internal-tls in the future
 		// however, current implementation is not there yet.
@@ -72,8 +66,7 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 		"activator",
 		logger,
 		configmap.Constructors{
-			tracingconfig.ConfigName: tracingconfig.NewTracingConfigFromConfigMap,
-			netcfg.ConfigMapName:     netcfg.NewConfigFromConfigMap,
+			netcfg.ConfigMapName: netcfg.NewConfigFromConfigMap,
 		},
 		onAfterStore...,
 	)

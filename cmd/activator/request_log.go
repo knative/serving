@@ -21,15 +21,15 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	"knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/activator/handler"
 	"knative.dev/serving/pkg/apis/serving"
 	pkghttp "knative.dev/serving/pkg/http"
+	o11yconfigmap "knative.dev/serving/pkg/observability/configmap"
 )
 
 func updateRequestLogFromConfigMap(logger *zap.SugaredLogger, h *pkghttp.RequestLogHandler) func(configMap *corev1.ConfigMap) {
 	return func(configMap *corev1.ConfigMap) {
-		obsconfig, err := metrics.NewObservabilityConfigFromConfigMap(configMap)
+		obsconfig, err := o11yconfigmap.Parse(configMap)
 		if err != nil {
 			logger.Errorw("Failed to get observability configmap.", zap.Error(err), "configmap", configMap)
 			return
