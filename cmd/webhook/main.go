@@ -25,7 +25,6 @@ import (
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/leaderelection"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/webhook"
 	"knative.dev/pkg/webhook/certificates"
@@ -34,6 +33,7 @@ import (
 	"knative.dev/pkg/webhook/resourcesemantics/defaulting"
 	"knative.dev/pkg/webhook/resourcesemantics/validation"
 	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
+	o11yconfigmap "knative.dev/serving/pkg/observability/configmap"
 	certconfig "knative.dev/serving/pkg/reconciler/certificate/config"
 
 	// resource validation types
@@ -150,7 +150,7 @@ func newConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 			netcfg.ConfigMapName:             network.NewConfigFromConfigMap,
 			deployment.ConfigName:            deployment.NewConfigFromConfigMap,
 			apisconfig.FeaturesConfigName:    apisconfig.NewFeaturesConfigFromConfigMap,
-			metrics.ConfigMapName():          metrics.NewObservabilityConfigFromConfigMap,
+			o11yconfigmap.Name():             o11yconfigmap.Parse,
 			logging.ConfigMapName():          logging.NewConfigFromConfigMap,
 			leaderelection.ConfigMapName():   leaderelection.NewConfigFromConfigMap,
 			domainconfig.DomainConfigName:    domainconfig.NewDomainFromConfigMap,
