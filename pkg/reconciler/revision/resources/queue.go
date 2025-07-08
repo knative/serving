@@ -18,6 +18,7 @@ package resources
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -327,7 +328,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 
 	o11yConfig, err := json.Marshal(cfg.Observability)
 	if err != nil {
-		return nil, fmt.Errorf("failed to serialize observability config")
+		return nil, errors.New("failed to serialize observability config")
 	}
 
 	// encode the readiness probe(s)
