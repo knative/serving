@@ -37,20 +37,18 @@ import (
 	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
-	tracingconfig "knative.dev/pkg/tracing/config"
 
 	apicfg "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/observability"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 
-	_ "knative.dev/pkg/metrics/testing"
 	_ "knative.dev/pkg/system/testing"
 )
 
@@ -76,8 +74,7 @@ var (
 	}
 	deploymentConfig deployment.Config
 	logConfig        logging.Config
-	obsConfig        metrics.ObservabilityConfig
-	traceConfig      tracingconfig.Config
+	obsConfig        observability.Config
 	defaults, _      = apicfg.NewDefaultsConfigFromMap(nil)
 )
 
@@ -89,7 +86,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		rev  *v1.Revision
 		lc   logging.Config
 		nc   netcfg.Config
-		oc   metrics.ObservabilityConfig
+		oc   observability.Config
 		dc   deployment.Config
 		fc   apicfg.Features
 		want corev1.Container
@@ -224,52 +221,57 @@ func TestMakeQueueContainer(t *testing.T) {
 		name: "request log configuration as env var",
 		rev: revision("bar", "foo",
 			withContainers(containers)),
-		oc: metrics.ObservabilityConfig{
+		oc: observability.Config{
 			RequestLogTemplate:    "test template",
 			EnableProbeRequestLog: true,
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
-				"SERVING_REQUEST_LOG_TEMPLATE":     "test template",
-				"SERVING_ENABLE_PROBE_REQUEST_LOG": "true",
+				"OBSERVABILITY_CONFIG": `{"tracing":{},"metrics":{},"runtime":{},"requestMetrics":{},"requestLogTemplate":"test template","enableProbeRequestLog":true}`,
 			})
 		}),
 	}, {
 		name: "disabled request log configuration as env var",
 		rev: revision("bar", "foo",
 			withContainers(containers)),
-		oc: metrics.ObservabilityConfig{
+		oc: observability.Config{
 			RequestLogTemplate:    "test template",
 			EnableProbeRequestLog: false,
 			EnableRequestLog:      false,
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
-				"SERVING_REQUEST_LOG_TEMPLATE":     "test template",
-				"SERVING_ENABLE_REQUEST_LOG":       "false",
-				"SERVING_ENABLE_PROBE_REQUEST_LOG": "false",
+				"OBSERVABILITY_CONFIG": `{"tracing":{},"metrics":{},"runtime":{},"requestMetrics":{},"requestLogTemplate":"test template"}`,
 			})
 		}),
 	}, {
 		name: "request metrics backend as env var",
 		rev: revision("bar", "foo",
 			withContainers(containers)),
-		oc: metrics.ObservabilityConfig{
-			RequestMetricsBackend: "prometheus",
+		oc: observability.Config{
+			RequestMetrics: observability.MetricsConfig{
+				Protocol: "prometheus",
+			},
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
-				"SERVING_REQUEST_METRICS_BACKEND": "prometheus",
+				"OBSERVABILITY_CONFIG": `{"tracing":{},"metrics":{},"runtime":{},"requestMetrics":{"protocol":"prometheus"}}`,
 			})
 		}),
 	}, {
 		name: "enable profiling",
 		rev: revision("bar", "foo",
 			withContainers(containers)),
-		oc: metrics.ObservabilityConfig{EnableProfiling: true},
+		oc: observability.Config{
+			BaseConfig: observability.BaseConfig{
+				Runtime: observability.RuntimeConfig{
+					Profiling: "enabled",
+				},
+			},
+		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
-				"ENABLE_PROFILING": "true",
+				"OBSERVABILITY_CONFIG": `{"tracing":{},"metrics":{},"runtime":{"profiling":"enabled"},"requestMetrics":{}}`,
 			})
 			c.Ports = append(queueNonServingPorts, profilingPort, queueHTTPPort, queueHTTPSPort)
 		}),
@@ -369,14 +371,15 @@ func TestMakeQueueContainer(t *testing.T) {
 		name: "collector address as env var",
 		rev: revision("bar", "foo",
 			withContainers(containers)),
-		oc: metrics.ObservabilityConfig{
-			RequestMetricsBackend:   "opencensus",
-			MetricsCollectorAddress: "otel:55678",
+		oc: observability.Config{
+			RequestMetrics: observability.MetricsConfig{
+				Protocol: "http/protobuf",
+				Endpoint: "otel:55678",
+			},
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.Env = env(map[string]string{
-				"SERVING_REQUEST_METRICS_BACKEND": "opencensus",
-				"METRICS_COLLECTOR_ADDRESS":       "otel:55678",
+				"OBSERVABILITY_CONFIG": `{"tracing":{},"metrics":{},"runtime":{},"requestMetrics":{"protocol":"http/protobuf","endpoint":"otel:55678"}}`,
 			})
 		}),
 	}, {
@@ -498,7 +501,6 @@ func TestMakeQueueContainer(t *testing.T) {
 				}
 			}
 			cfg := &config.Config{
-				Tracing:       &traceConfig,
 				Logging:       &test.lc,
 				Observability: &test.oc,
 				Deployment:    &test.dc,
@@ -1103,36 +1105,25 @@ func TestTCPProbeGeneration(t *testing.T) {
 }
 
 var defaultEnv = map[string]string{
-	"CONTAINER_CONCURRENCY":                            "0",
-	"ENABLE_HTTP2_AUTO_DETECTION":                      "false",
-	"ENABLE_HTTP_FULL_DUPLEX":                          "false",
-	"ENABLE_PROFILING":                                 "false",
-	"METRICS_DOMAIN":                                   metrics.Domain(),
-	"METRICS_COLLECTOR_ADDRESS":                        "",
-	"QUEUE_SERVING_PORT":                               "8012",
-	"QUEUE_SERVING_TLS_PORT":                           "8112",
-	"REVISION_TIMEOUT_SECONDS":                         "45",
-	"REVISION_RESPONSE_START_TIMEOUT_SECONDS":          "0",
-	"REVISION_IDLE_TIMEOUT_SECONDS":                    "0",
-	"SERVING_CONFIGURATION":                            "",
-	"SERVING_ENABLE_PROBE_REQUEST_LOG":                 "false",
-	"SERVING_ENABLE_REQUEST_LOG":                       "false",
-	"SERVING_LOGGING_CONFIG":                           "",
-	"SERVING_LOGGING_LEVEL":                            "",
-	"SERVING_NAMESPACE":                                "foo",
-	"SERVING_REQUEST_LOG_TEMPLATE":                     "",
-	"SERVING_REQUEST_METRICS_BACKEND":                  "",
-	"SERVING_REQUEST_METRICS_REPORTING_PERIOD_SECONDS": "0",
-	"SERVING_REVISION":                                 "bar",
-	"SERVING_SERVICE":                                  "",
-	"SYSTEM_NAMESPACE":                                 system.Namespace(),
-	"TRACING_CONFIG_BACKEND":                           "",
-	"TRACING_CONFIG_DEBUG":                             "false",
-	"TRACING_CONFIG_SAMPLE_RATE":                       "0",
-	"TRACING_CONFIG_ZIPKIN_ENDPOINT":                   "",
-	"USER_PORT":                                        strconv.Itoa(v1.DefaultUserPort),
-	"ROOT_CA":                                          "",
-	"ENABLE_MULTI_CONTAINER_PROBES":                    "false",
+	"CONTAINER_CONCURRENCY":                   "0",
+	"ENABLE_HTTP2_AUTO_DETECTION":             "false",
+	"ENABLE_HTTP_FULL_DUPLEX":                 "false",
+	"QUEUE_SERVING_PORT":                      "8012",
+	"QUEUE_SERVING_TLS_PORT":                  "8112",
+	"REVISION_TIMEOUT_SECONDS":                "45",
+	"REVISION_RESPONSE_START_TIMEOUT_SECONDS": "0",
+	"REVISION_IDLE_TIMEOUT_SECONDS":           "0",
+	"SERVING_CONFIGURATION":                   "",
+	"SERVING_LOGGING_CONFIG":                  "",
+	"SERVING_LOGGING_LEVEL":                   "",
+	"SERVING_NAMESPACE":                       "foo",
+	"SERVING_REVISION":                        "bar",
+	"SERVING_SERVICE":                         "",
+	"SYSTEM_NAMESPACE":                        system.Namespace(),
+	"USER_PORT":                               strconv.Itoa(v1.DefaultUserPort),
+	"ROOT_CA":                                 "",
+	"ENABLE_MULTI_CONTAINER_PROBES":           "false",
+	"OBSERVABILITY_CONFIG":                    `{"tracing":{},"metrics":{},"runtime":{},"requestMetrics":{}}`,
 }
 
 func probeJSON(container *corev1.Container) string {
@@ -1204,6 +1195,5 @@ func revConfig() *config.Config {
 		Logging:       &logConfig,
 		Network:       &netcfg.Config{},
 		Observability: &obsConfig,
-		Tracing:       &traceConfig,
 	}
 }

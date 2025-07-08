@@ -24,22 +24,9 @@ import (
 	"testing"
 	"time"
 
-	// Inject the fakes for informers this controller relies on.
-	"go.uber.org/zap"
-	fakecachingclient "knative.dev/caching/pkg/client/injection/client/fake"
-	fakeimageinformer "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake"
-	_ "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
-	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
-	fakedeploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment/fake"
-	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap/fake"
-	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
-	"knative.dev/pkg/ptr"
-	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
-	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -49,27 +36,38 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	fakecachingclient "knative.dev/caching/pkg/client/injection/client/fake"
+	fakeimageinformer "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake"
 	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/apis"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
+	fakedeploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment/fake"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/metrics"
+	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
-	tracingconfig "knative.dev/pkg/tracing/config"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
+	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	"knative.dev/serving/pkg/deployment"
+	o11yconfigmap "knative.dev/serving/pkg/observability/configmap"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
 
-	_ "knative.dev/pkg/metrics/testing"
 	. "knative.dev/pkg/reconciler/testing"
+
+	// Inject the fakes for informers this controller relies on.
+	_ "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 )
 
 const (
@@ -118,20 +116,10 @@ func newTestController(t *testing.T, configs []*corev1.ConfigMap, opts ...reconc
 	}, {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      metrics.ConfigMapName(),
+			Name:      o11yconfigmap.Name(),
 		},
 		Data: map[string]string{
 			"logging.enable-var-log-collection": "true",
-		},
-	}, {
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace(),
-			Name:      tracingconfig.ConfigName,
-		},
-		Data: map[string]string{
-			"enable":          "true",
-			"debug":           "true",
-			"zipkin-endpoint": "http://zipkin.istio-system.svc:9411/api/v2/spans",
 		},
 	}, {
 		ObjectMeta: metav1.ObjectMeta{
@@ -405,7 +393,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      metrics.ConfigMapName(),
+				Name:      o11yconfigmap.Name(),
 			},
 			Data: map[string]string{
 				"logging.enable-var-log-collection": "true",
@@ -422,7 +410,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      metrics.ConfigMapName(),
+			Name:      o11yconfigmap.Name(),
 		},
 		Data: map[string]string{
 			"logging.enable-var-log-collection": "true",
@@ -602,7 +590,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      metrics.ConfigMapName(),
+			Name:      o11yconfigmap.Name(),
 		},
 		Data: map[string]string{
 			"logging.enable-var-log-collection": "true",

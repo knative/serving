@@ -29,11 +29,11 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/metrics"
-	pkgtracing "knative.dev/pkg/tracing/config"
 	apiconfig "knative.dev/serving/pkg/apis/config"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/observability"
+	o11yconfigmap "knative.dev/serving/pkg/observability/configmap"
 
 	. "knative.dev/pkg/configmap/testing"
 )
@@ -43,9 +43,8 @@ func TestStoreLoadWithContext(t *testing.T) {
 
 	deploymentConfig := ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey)
 	networkConfig := ConfigMapFromTestFile(t, netcfg.ConfigMapName)
-	observabilityConfig, observabilityConfigExample := ConfigMapsFromTestFile(t, metrics.ConfigMapName())
+	observabilityConfig, observabilityConfigExample := ConfigMapsFromTestFile(t, o11yconfigmap.Name())
 	loggingConfig, loggingConfigExample := ConfigMapsFromTestFile(t, logging.ConfigMapName())
-	tracingConfig, tracingConfigExample := ConfigMapsFromTestFile(t, pkgtracing.ConfigName)
 	defaultConfig := ConfigMapFromTestFile(t, apiconfig.DefaultsConfigName)
 	autoscalerConfig := ConfigMapFromTestFile(t, autoscalerconfig.ConfigName)
 	featuresConfig := ConfigMapFromTestFile(t, apiconfig.FeaturesConfigName)
@@ -56,7 +55,6 @@ func TestStoreLoadWithContext(t *testing.T) {
 		networkConfig,
 		observabilityConfig,
 		loggingConfig,
-		tracingConfig,
 		defaultConfig,
 		autoscalerConfig)
 
@@ -79,20 +77,23 @@ func TestStoreLoadWithContext(t *testing.T) {
 	})
 
 	t.Run("observability", func(t *testing.T) {
-		expected, _ := metrics.NewObservabilityConfigFromConfigMap(observabilityConfig)
+		expected, _ := o11yconfigmap.Parse(observabilityConfig)
 		if diff := cmp.Diff(expected, config.Observability); diff != "" {
 			t.Error("Unexpected observability config (-want, +got):", diff)
 		}
 
 		// Default config.
-		want, _ := metrics.NewObservabilityConfigFromConfigMap(&corev1.ConfigMap{Data: map[string]string{}})
-		got, err := metrics.NewObservabilityConfigFromConfigMap(observabilityConfigExample)
+		want, _ := o11yconfigmap.Parse(&corev1.ConfigMap{Data: map[string]string{}})
+		got, err := o11yconfigmap.Parse(observabilityConfigExample)
 		if err != nil {
 			t.Fatal("Error parsing example observability config:", err)
 		}
 
 		// Compare with the example and allow the log url template to differ
-		co := cmpopts.IgnoreFields(metrics.ObservabilityConfig{}, "LoggingURLTemplate")
+		co := cmpopts.IgnoreFields(observability.Config{},
+			"BaseConfig",
+			"RequestMetrics",
+			"LoggingURLTemplate")
 		if !cmp.Equal(got, want, co) {
 			t.Error("Example Observability Config does not match the default, diff(-want,+got):\n", cmp.Diff(want, got))
 		}
@@ -112,23 +113,6 @@ func TestStoreLoadWithContext(t *testing.T) {
 		}
 		if cmp.Equal(got, want) {
 			t.Error("Example Logging Config does not match the default, diff(-want,+got):\n", cmp.Diff(want, got))
-		}
-	})
-
-	t.Run("tracing", func(t *testing.T) {
-		expected, _ := pkgtracing.NewTracingConfigFromConfigMap(tracingConfig)
-		if diff := cmp.Diff(expected, config.Tracing); diff != "" {
-			t.Error("Unexpected tracing config (-want, +got):", diff)
-		}
-
-		// Default config.
-		want, _ := pkgtracing.NewTracingConfigFromConfigMap(&corev1.ConfigMap{Data: map[string]string{}})
-		got, err := pkgtracing.NewTracingConfigFromConfigMap(tracingConfigExample)
-		if err != nil {
-			t.Fatal("Error parsing example tracing config:", err)
-		}
-		if cmp.Equal(got, want) {
-			t.Error("Example Tracing Config does not match the default, diff(-want,+got):\n", cmp.Diff(want, got))
 		}
 	})
 
@@ -159,9 +143,8 @@ func TestStoreImmutableConfig(t *testing.T) {
 	watcher := configmap.NewStaticWatcher(
 		ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey),
 		ConfigMapFromTestFile(t, netcfg.ConfigMapName),
-		ConfigMapFromTestFile(t, metrics.ConfigMapName()),
+		ConfigMapFromTestFile(t, o11yconfigmap.Name()),
 		ConfigMapFromTestFile(t, logging.ConfigMapName()),
-		ConfigMapFromTestFile(t, pkgtracing.ConfigName),
 		ConfigMapFromTestFile(t, apiconfig.DefaultsConfigName),
 		ConfigMapFromTestFile(t, autoscalerconfig.ConfigName),
 		ConfigMapFromTestFile(t, apiconfig.FeaturesConfigName),

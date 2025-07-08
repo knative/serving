@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"strconv"
@@ -29,7 +30,6 @@ import (
 	pkgnet "knative.dev/networking/pkg/apis/networking"
 	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/kmap"
-	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
@@ -250,7 +250,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		idleTimeout = *rev.Spec.IdleTimeoutSeconds
 	}
 	ports := queueNonServingPorts
-	if cfg.Observability.EnableProfiling {
+	if cfg.Observability.Runtime.ProfilingEnabled() {
 		ports = append(ports, profilingPort)
 	}
 	// TODO(knative/serving/#4283): Eventually only one port should be needed.
@@ -325,9 +325,13 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		}
 	}
 
+	o11yConfig, err := json.Marshal(cfg.Observability)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize observability config")
+	}
+
 	// encode the readiness probe(s)
 	var readinessProbeJSON string
-	var err error
 	if multiContainerProbingEnabled && readinessProbes != nil && len(readinessProbes) > 0 {
 		readinessProbeJSON, err = readiness.EncodeMultipleProbes(readinessProbes)
 		if err != nil {
@@ -402,50 +406,14 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			Name:  "SERVING_LOGGING_LEVEL",
 			Value: loggingLevel,
 		}, {
-			Name:  "SERVING_REQUEST_LOG_TEMPLATE",
-			Value: cfg.Observability.RequestLogTemplate,
-		}, {
-			Name:  "SERVING_ENABLE_REQUEST_LOG",
-			Value: strconv.FormatBool(cfg.Observability.EnableRequestLog),
-		}, {
-			Name:  "SERVING_REQUEST_METRICS_BACKEND",
-			Value: cfg.Observability.RequestMetricsBackend,
-		}, {
-			Name:  "SERVING_REQUEST_METRICS_REPORTING_PERIOD_SECONDS",
-			Value: strconv.Itoa(cfg.Observability.RequestMetricsReportingPeriodSeconds),
-		}, {
-			Name:  "TRACING_CONFIG_BACKEND",
-			Value: string(cfg.Tracing.Backend),
-		}, {
-			Name:  "TRACING_CONFIG_ZIPKIN_ENDPOINT",
-			Value: cfg.Tracing.ZipkinEndpoint,
-		}, {
-			Name:  "TRACING_CONFIG_DEBUG",
-			Value: strconv.FormatBool(cfg.Tracing.Debug),
-		}, {
-			Name:  "TRACING_CONFIG_SAMPLE_RATE",
-			Value: fmt.Sprint(cfg.Tracing.SampleRate),
-		}, {
 			Name:  "USER_PORT",
 			Value: strconv.Itoa(int(userPort)),
 		}, {
 			Name:  system.NamespaceEnvKey,
 			Value: system.Namespace(),
 		}, {
-			Name:  metrics.DomainEnv,
-			Value: metrics.Domain(),
-		}, {
 			Name:  "SERVING_READINESS_PROBE",
 			Value: readinessProbeJSON,
-		}, {
-			Name:  "ENABLE_PROFILING",
-			Value: strconv.FormatBool(cfg.Observability.EnableProfiling),
-		}, {
-			Name:  "SERVING_ENABLE_PROBE_REQUEST_LOG",
-			Value: strconv.FormatBool(cfg.Observability.EnableProbeRequestLog),
-		}, {
-			Name:  "METRICS_COLLECTOR_ADDRESS",
-			Value: cfg.Observability.MetricsCollectorAddress,
 		}, {
 			Name: "HOST_IP",
 			ValueFrom: &corev1.EnvVarSource{
@@ -466,6 +434,9 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		}, {
 			Name:  "ENABLE_MULTI_CONTAINER_PROBES",
 			Value: strconv.FormatBool(multiContainerProbingEnabled),
+		}, {
+			Name:  "OBSERVABILITY_CONFIG",
+			Value: string(o11yConfig),
 		}},
 	}
 

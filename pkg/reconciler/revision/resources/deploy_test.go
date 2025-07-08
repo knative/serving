@@ -33,7 +33,6 @@ import (
 
 	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -42,9 +41,9 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/observability"
 	"knative.dev/serving/pkg/queue"
 
-	_ "knative.dev/pkg/metrics/testing"
 	. "knative.dev/serving/pkg/testing/v1"
 )
 
@@ -137,50 +136,14 @@ var (
 			Name: "SERVING_LOGGING_LEVEL",
 			// No logging level
 		}, {
-			Name:  "SERVING_REQUEST_LOG_TEMPLATE",
-			Value: "",
-		}, {
-			Name:  "SERVING_ENABLE_REQUEST_LOG",
-			Value: "false",
-		}, {
-			Name:  "SERVING_REQUEST_METRICS_BACKEND",
-			Value: "",
-		}, {
-			Name:  "SERVING_REQUEST_METRICS_REPORTING_PERIOD_SECONDS",
-			Value: "0",
-		}, {
-			Name:  "TRACING_CONFIG_BACKEND",
-			Value: "",
-		}, {
-			Name:  "TRACING_CONFIG_ZIPKIN_ENDPOINT",
-			Value: "",
-		}, {
-			Name:  "TRACING_CONFIG_DEBUG",
-			Value: "false",
-		}, {
-			Name:  "TRACING_CONFIG_SAMPLE_RATE",
-			Value: "0",
-		}, {
 			Name:  "USER_PORT",
 			Value: "8080",
 		}, {
 			Name:  "SYSTEM_NAMESPACE",
 			Value: system.Namespace(),
 		}, {
-			Name:  "METRICS_DOMAIN",
-			Value: metrics.Domain(),
-		}, {
 			Name:  "SERVING_READINESS_PROBE",
 			Value: fmt.Sprintf(`{"tcpSocket":{"port":%d,"host":"127.0.0.1"}}`, v1.DefaultUserPort),
-		}, {
-			Name:  "ENABLE_PROFILING",
-			Value: "false",
-		}, {
-			Name:  "SERVING_ENABLE_PROBE_REQUEST_LOG",
-			Value: "false",
-		}, {
-			Name:  "METRICS_COLLECTOR_ADDRESS",
-			Value: "",
 		}, {
 			Name: "HOST_IP",
 			ValueFrom: &corev1.EnvVarSource{
@@ -198,6 +161,9 @@ var (
 		}, {
 			Name:  "ENABLE_MULTI_CONTAINER_PROBES",
 			Value: "false",
+		}, {
+			Name:  "OBSERVABILITY_CONFIG",
+			Value: `{"tracing":{},"metrics":{},"runtime":{},"requestMetrics":{}}`,
 		}},
 	}
 
@@ -585,7 +551,7 @@ func TestMakePodSpec(t *testing.T) {
 	tests := []struct {
 		name     string
 		rev      *v1.Revision
-		oc       metrics.ObservabilityConfig
+		oc       observability.Config
 		defaults *apicfg.Defaults
 		dc       deployment.Config
 		fc       apicfg.Features
@@ -761,9 +727,11 @@ func TestMakePodSpec(t *testing.T) {
 				ImageDigest: "busybox@sha256:deadbeef",
 			}}),
 		),
-		oc: metrics.ObservabilityConfig{
-			RequestMetricsBackend:   "opencensus",
-			MetricsCollectorAddress: "otel:55678",
+		oc: observability.Config{
+			RequestMetrics: observability.MetricsConfig{
+				Endpoint: "otel:55678",
+				Protocol: "http/protobuf",
+			},
 		},
 		want: podSpec(
 			[]corev1.Container{
@@ -771,8 +739,7 @@ func TestMakePodSpec(t *testing.T) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
 				queueContainer(
-					withEnvVar("METRICS_COLLECTOR_ADDRESS", "otel:55678"),
-					withEnvVar("SERVING_REQUEST_METRICS_BACKEND", "opencensus"),
+					withEnvVar("OBSERVABILITY_CONFIG", `{"tracing":{},"metrics":{},"runtime":{},"requestMetrics":{"protocol":"http/protobuf","endpoint":"otel:55678"}}`),
 				),
 			}),
 	}, {
@@ -1344,7 +1311,7 @@ func TestMakePodSpec(t *testing.T) {
 		),
 	}, {
 		name: "var-log collection enabled",
-		oc: metrics.ObservabilityConfig{
+		oc: observability.Config{
 			EnableVarLogCollection: true,
 		},
 		rev: revision("bar", "foo",
@@ -1401,6 +1368,7 @@ func TestMakePodSpec(t *testing.T) {
 				}),
 				queueContainer(
 					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}`),
+					withEnvVar("OBSERVABILITY_CONFIG", `{"tracing":{},"metrics":{},"runtime":{},"requestMetrics":{},"EnableVarLogCollection":true}`),
 				),
 			},
 			withAppendedVolumes(varLogVolume),
