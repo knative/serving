@@ -35,9 +35,6 @@ import (
 	"knative.dev/serving/pkg/client/clientset/versioned"
 	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
 	servingv1beta1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1beta1"
-
-	// Every E2E test requires this, so add it here.
-	_ "knative.dev/pkg/metrics/testing"
 )
 
 // Clients holds instances of interfaces for making requests to Knative Serving.

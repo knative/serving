@@ -54,7 +54,6 @@ import (
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakensinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/namespace/fake"
 
-	_ "knative.dev/pkg/metrics/testing"
 	_ "knative.dev/pkg/system/testing"
 
 	. "knative.dev/serving/pkg/reconciler/testing/v1"

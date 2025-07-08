@@ -41,7 +41,6 @@ import (
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	metricreconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/metric"
 
-	_ "knative.dev/pkg/metrics/testing"
 	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
 
 	. "knative.dev/pkg/reconciler/testing"
