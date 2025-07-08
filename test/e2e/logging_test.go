@@ -35,11 +35,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	netheader "knative.dev/networking/pkg/http/header"
-	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/system"
 	pkgtest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/observability"
+	o11yconfigmap "knative.dev/serving/pkg/observability/configmap"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
@@ -54,19 +55,19 @@ func TestRequestLogs(t *testing.T) {
 	clients := Setup(t)
 
 	cm, err := clients.KubeClient.CoreV1().ConfigMaps(system.Namespace()).
-		Get(context.Background(), metrics.ConfigMapName(), metav1.GetOptions{})
+		Get(context.Background(), o11yconfigmap.Name(), metav1.GetOptions{})
 	if err != nil {
 		t.Fatal("Fail to get ConfigMap config-observability:", err)
 	}
 
-	requestLogEnabled := strings.EqualFold(cm.Data[metrics.EnableReqLogKey], "true")
-	probeLogEnabled := strings.EqualFold(cm.Data[metrics.EnableProbeReqLogKey], "true")
+	requestLogEnabled := strings.EqualFold(cm.Data[observability.EnableRequestLogKey], "true")
+	probeLogEnabled := strings.EqualFold(cm.Data[observability.EnableProbeRequestLogKey], "true")
 
 	if !requestLogEnabled && !probeLogEnabled {
 		t.Skip("Skipping verifying request logs because both request and probe logging is disabled")
 	}
 
-	if got, want := cm.Data[metrics.ReqLogTemplateKey], template; got != want {
+	if got, want := cm.Data[observability.RequestLogTemplateKey], template; got != want {
 		t.Skipf("Skipping verifying request logs because the template doesn't match:\n%s", cmp.Diff(want, got))
 	}
 
