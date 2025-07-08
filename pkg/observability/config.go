@@ -58,10 +58,16 @@ type Config struct {
 
 	// EnableVarLogCollection specifies whether the logs under /var/log/ should be available
 	// for collection on the host node by the fluentd daemon set.
+	//
+	// We elide this value from JSON serialization because it's not relevant for
+	// the queue proxy
 	EnableVarLogCollection bool `json:",omitempty"`
 
 	// LoggingURLTemplate is a string containing the logging url template where
 	// the variable REVISION_UID will be replaced with the created revision's UID.
+	//
+	// We elide this value from JSON serialization because it's not relevant for
+	// the queue proxy
 	LoggingURLTemplate string `json:",omitempty"`
 
 	// EnableRequestLog enables activator/queue-proxy to write request logs.
