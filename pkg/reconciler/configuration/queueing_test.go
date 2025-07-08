@@ -33,7 +33,6 @@ import (
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakeconfigurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration/fake"
 
-	_ "knative.dev/pkg/metrics/testing"
 	. "knative.dev/pkg/reconciler/testing"
 )
 

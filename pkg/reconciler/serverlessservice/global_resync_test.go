@@ -37,7 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	_ "knative.dev/pkg/metrics/testing"
 	. "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
