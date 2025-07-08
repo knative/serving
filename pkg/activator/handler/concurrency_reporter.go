@@ -76,7 +76,6 @@ func NewConcurrencyReporter(
 	statCh chan []asmetrics.StatMessage,
 	mp metric.MeterProvider,
 ) *ConcurrencyReporter {
-
 	return &ConcurrencyReporter{
 		logger:  logging.FromContext(ctx),
 		podName: podName,

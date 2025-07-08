@@ -42,7 +42,6 @@ func TestTracingHandler(t *testing.T) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		labeler, _ := otelhttp.LabelerFromContext(r.Context())
 		labeler.Add(attribute.Bool("x", true))
-
 	})
 	handler := NewTracingHandler(tp, baseHandler)
 

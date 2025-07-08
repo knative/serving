@@ -72,7 +72,6 @@ func New(_ context.Context,
 	tlsEnabled bool,
 	tp trace.TracerProvider,
 ) http.Handler {
-
 	if tp == nil {
 		tp = otel.GetTracerProvider()
 	}

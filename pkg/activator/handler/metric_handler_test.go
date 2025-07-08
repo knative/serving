@@ -102,7 +102,6 @@ func TestRequestMetricHandler(t *testing.T) {
 				if diff := cmp.Diff(want, got, cmpOpts...); diff != "" {
 					t.Error("unexpected attribute diff (-want +got): ", diff)
 				}
-
 			}()
 
 			ctx := otelhttp.ContextWithLabeler(context.Background(), labeler)
