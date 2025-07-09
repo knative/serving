@@ -25,6 +25,8 @@ import (
 	"net/http"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
@@ -43,8 +45,7 @@ import (
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/leaderelection"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/metrics"
-	"knative.dev/pkg/profiling"
+	k8sruntime "knative.dev/pkg/observability/runtime/k8s"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/version"
@@ -55,9 +56,11 @@ import (
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	"knative.dev/serving/pkg/autoscaler/statforwarder"
 	"knative.dev/serving/pkg/autoscaler/statserver"
-	smetrics "knative.dev/serving/pkg/metrics"
+	"knative.dev/serving/pkg/metrics"
+	o11yconfigmap "knative.dev/serving/pkg/observability/configmap"
+	"knative.dev/serving/pkg/observability/otel"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa"
-	"knative.dev/serving/pkg/reconciler/metric"
+	servingmetric "knative.dev/serving/pkg/reconciler/metric"
 	"knative.dev/serving/pkg/resources"
 )
 
@@ -71,10 +74,6 @@ const (
 func main() {
 	// Set up signals so we handle the first shutdown signal gracefully.
 	ctx := signals.NewContext()
-
-	// Report stats on Go memory usage every 30 seconds.
-	metrics.MemStatsOrDie(ctx)
-
 	cfg := injection.ParseAndGetRESTConfigOrDie()
 
 	log.Printf("Registering %d clients", len(injection.Default.GetClients()))
@@ -108,22 +107,32 @@ func main() {
 		log.Fatal("Error loading/parsing logging configuration: ", err)
 	}
 	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
-	defer flush(logger)
+	defer logger.Sync()
 	ctx = logging.WithLogger(ctx, logger)
+
+	pprof := k8sruntime.NewProfilingServer(logger.Named("pprof"))
+	mp, tp := otel.SetupObservabilityOrDie(ctx, "autoscaler", logger, pprof)
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		if err := mp.Shutdown(ctx); err != nil {
+			logger.Errorw("Error flushing metrics", zap.Error(err))
+		}
+		if err := tp.Shutdown(ctx); err != nil {
+			logger.Errorw("Error flushing traces", zap.Error(err))
+		}
+	}()
 
 	// statsCh is the main communication channel between the stats server and multiscaler.
 	statsCh := make(chan asmetrics.StatMessage, statsBufferLen)
 	defer close(statsCh)
 
-	profilingHandler := profiling.NewHandler(logger, false)
-
 	cmw := configmap.NewInformedWatcher(kubeclient.Get(ctx), system.Namespace())
 	// Watch the logging config map and dynamically update logging levels.
 	cmw.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map
-	cmw.Watch(metrics.ConfigMapName(),
-		metrics.ConfigMapWatcher(ctx, component, nil /* SecretFetcher */, logger),
-		profilingHandler.UpdateFromConfigMap)
+	cmw.Watch(o11yconfigmap.Name(), pprof.UpdateFromConfigMap)
 
 	podLister := filteredpodinformer.Get(ctx, serving.RevisionUID).Lister()
 	networkCM, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(ctx, netcfg.ConfigMapName, metav1.GetOptions{})
@@ -136,15 +145,15 @@ func main() {
 	}
 
 	collector := asmetrics.NewMetricCollector(
-		statsScraperFactoryFunc(podLister, networkConfig.EnableMeshPodAddressability, networkConfig.MeshCompatibilityMode), logger)
+		statsScraperFactoryFunc(podLister, networkConfig.EnableMeshPodAddressability, networkConfig.MeshCompatibilityMode, mp), logger)
 
 	// Set up scalers.
 	multiScaler := scaling.NewMultiScaler(ctx.Done(),
-		uniScalerFactoryFunc(podLister, collector), logger)
+		uniScalerFactoryFunc(mp, podLister, collector), logger)
 
 	controllers := []*controller.Impl{
 		kpa.NewController(ctx, cmw, multiScaler),
-		metric.NewController(ctx, cmw, collector),
+		servingmetric.NewController(ctx, cmw, collector),
 	}
 
 	// Start watching the configs.
@@ -205,15 +214,13 @@ func main() {
 		}
 	}()
 
-	profilingServer := profiling.NewServer(profilingHandler)
-
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		elector.Run(egCtx)
 		return nil
 	})
 	eg.Go(statsServer.ListenAndServe)
-	eg.Go(profilingServer.ListenAndServe)
+	eg.Go(pprof.ListenAndServe)
 	eg.Go(func() error {
 		return controller.StartAll(egCtx, controllers...)
 	})
@@ -223,14 +230,16 @@ func main() {
 	<-egCtx.Done()
 
 	statsServer.Shutdown(5 * time.Second)
-	profilingServer.Shutdown(context.Background())
+	pprof.Shutdown(context.Background())
 	// Don't forward ErrServerClosed as that indicates we're already shutting down.
 	if err := eg.Wait(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		logger.Errorw("Error while running server", zap.Error(err))
 	}
 }
 
-func uniScalerFactoryFunc(podLister corev1listers.PodLister,
+func uniScalerFactoryFunc(
+	mp metric.MeterProvider,
+	podLister corev1listers.PodLister,
 	metricClient asmetrics.MetricClient,
 ) scaling.UniScalerFactory {
 	return func(decider *scaling.Decider) (scaling.UniScaler, error) {
@@ -245,15 +254,27 @@ func uniScalerFactoryFunc(podLister corev1listers.PodLister,
 		serviceName := decider.Labels[serving.ServiceLabelKey] // This can be empty.
 
 		// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
-		ctx := smetrics.RevisionContext(decider.Namespace, serviceName, configName, revisionName)
+		attrs := attribute.NewSet(
+			metrics.ConfigurationNameKey.With(configName),
+			metrics.RevisionNameKey.With(revisionName),
+			metrics.ServiceNameKey.With(serviceName),
+			metrics.K8sNamespaceKey.With(decider.Namespace),
+		)
 
 		podAccessor := resources.NewPodAccessor(podLister, decider.Namespace, revisionName)
-		return scaling.New(ctx, decider.Namespace, decider.Name, metricClient,
-			podAccessor, &decider.Spec), nil
+
+		return scaling.New(
+			attrs,
+			mp,
+			decider.Namespace,
+			decider.Name,
+			metricClient,
+			podAccessor,
+			&decider.Spec), nil
 	}
 }
 
-func statsScraperFactoryFunc(podLister corev1listers.PodLister, usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode) asmetrics.StatsScraperFactory {
+func statsScraperFactoryFunc(podLister corev1listers.PodLister, usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode, mp metric.MeterProvider) asmetrics.StatsScraperFactory {
 	return func(metric *autoscalingv1alpha1.Metric, logger *zap.SugaredLogger) (asmetrics.StatsScraper, error) {
 		if metric.Spec.ScrapeTarget == "" {
 			return nil, nil
@@ -265,13 +286,8 @@ func statsScraperFactoryFunc(podLister corev1listers.PodLister, usePassthroughLb
 		}
 
 		podAccessor := resources.NewPodAccessor(podLister, metric.Namespace, revisionName)
-		return asmetrics.NewStatsScraper(metric, revisionName, podAccessor, usePassthroughLb, meshMode, logger), nil
+		return asmetrics.NewStatsScraper(metric, revisionName, podAccessor, usePassthroughLb, meshMode, logger, mp), nil
 	}
-}
-
-func flush(logger *zap.SugaredLogger) {
-	logger.Sync()
-	metrics.FlushExporter()
 }
 
 func componentConfigAndIP(ctx context.Context) leaderelection.ComponentConfig {

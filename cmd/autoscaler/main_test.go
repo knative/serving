@@ -21,6 +21,7 @@ import (
 	"strings"
 	"testing"
 
+	"go.opentelemetry.io/otel/sdk/metric"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	fakek8s "k8s.io/client-go/kubernetes/fake"
@@ -109,5 +110,7 @@ func TestUniScalerFactoryFunc(t *testing.T) {
 }
 
 func testUniScalerFactory() func(decider *scaling.Decider) (scaling.UniScaler, error) {
-	return uniScalerFactoryFunc(kubeInformer.Core().V1().Pods().Lister(), nil)
+	reader := metric.NewManualReader()
+	mp := metric.NewMeterProvider(metric.WithReader(reader))
+	return uniScalerFactoryFunc(mp, kubeInformer.Core().V1().Pods().Lister(), nil)
 }

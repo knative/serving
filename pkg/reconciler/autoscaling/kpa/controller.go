@@ -19,6 +19,7 @@ package kpa
 import (
 	"context"
 
+	"go.opentelemetry.io/otel"
 	"k8s.io/client-go/tools/cache"
 
 	networkingclient "knative.dev/networking/pkg/client/injection/client"
@@ -51,6 +52,7 @@ func NewController(
 	cmw configmap.Watcher,
 	deciders resources.Deciders,
 ) *controller.Impl {
+
 	logger := logging.FromContext(ctx)
 	paInformer := painformer.Get(ctx)
 	sksInformer := sksinformer.Get(ctx)
@@ -70,6 +72,7 @@ func NewController(
 		},
 		podsLister: podsInformer.Lister(),
 		deciders:   deciders,
+		metrics:    newMetrics(otel.GetMeterProvider()),
 	}
 	impl := pareconciler.NewImpl(ctx, c, autoscaling.KPA, func(impl *controller.Impl) controller.Options {
 		logger.Info("Setting up ConfigMap receivers")

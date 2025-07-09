@@ -32,15 +32,11 @@ import (
 	fakesksinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakefilteredpodsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered/fake"
-	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
-	_ "knative.dev/pkg/client/injection/kube/informers/factory/filtered/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
 	fakemetricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
-	"knative.dev/serving/pkg/metrics"
 
 	networkingclient "knative.dev/networking/pkg/client/injection/client"
 	filteredinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
@@ -58,7 +54,9 @@ import (
 	clientgotesting "k8s.io/client-go/testing"
 
 	"github.com/google/go-cmp/cmp"
-	"go.opencensus.io/resource"
+	"go.opentelemetry.io/otel/attribute"
+	otelmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"golang.org/x/sync/errgroup"
 
 	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -68,12 +66,10 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/metrics/metricstest"
-	_ "knative.dev/pkg/metrics/testing"
+	"knative.dev/pkg/observability/metrics/metricstest"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
-	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -82,12 +78,18 @@ import (
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/metrics"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
 	revisionresources "knative.dev/serving/pkg/reconciler/revision/resources"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
+
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/factory/filtered/fake"
+	_ "knative.dev/pkg/system/testing"
+	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
 
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
@@ -1867,16 +1869,19 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 var _ reconciler.ConfigStore = (*testConfigStore)(nil)
 
 func TestMetricsReporter(t *testing.T) {
+	reader := otelmetric.NewManualReader()
+	mp := otelmetric.NewMeterProvider(otelmetric.WithReader(reader))
+	m := newMetrics(mp)
+
 	pa := kpa(testNamespace, testRevision)
-	wantResource := &resource.Resource{
-		Type: "knative_revision",
-		Labels: map[string]string{
-			metrics.LabelRevisionName:      testRevision,
-			metrics.LabelNamespaceName:     testNamespace,
-			metrics.LabelServiceName:       pa.Labels[serving.ServiceLabelKey],
-			metrics.LabelConfigurationName: pa.Labels[serving.ConfigurationLabelKey],
-		},
-	}
+
+	expectedAttr := attribute.NewSet(
+		metrics.ConfigurationNameKey.With(pa.Labels[serving.ConfigurationLabelKey]),
+		metrics.K8sNamespaceKey.With(testNamespace),
+		metrics.RevisionNameKey.With(testRevision),
+		metrics.ServiceNameKey.With(pa.Labels[serving.ServiceLabelKey]),
+	)
+
 	pc := podCounts{
 		want:        1982,
 		ready:       1984,
@@ -1884,50 +1889,154 @@ func TestMetricsReporter(t *testing.T) {
 		pending:     1996,
 		terminating: 1983,
 	}
-	reportMetrics(pa, pc)
-	wantMetrics := []metricstest.Metric{
-		metricstest.IntMetric("requested_pods", 1982, nil).WithResource(wantResource),
-		metricstest.IntMetric("actual_pods", 1984, nil).WithResource(wantResource),
-		metricstest.IntMetric("not_ready_pods", 1988, nil).WithResource(wantResource),
-		metricstest.IntMetric("pending_pods", 1996, nil).WithResource(wantResource),
-		metricstest.IntMetric("terminating_pods", 1983, nil).WithResource(wantResource),
-	}
-	assertMetric(t, wantMetrics)
+	reportMetrics(m, pa, pc)
+
+	metricstest.AssertMetrics(t, reader,
+		metricstest.MetricsEqual(
+			scopeName,
+			metricdata.Metrics{
+				Name:        "kn.revision.pods.requested",
+				Description: "Number of pods autoscaler requested from Kubernetes",
+				Unit:        "{pod}",
+				Data: metricdata.Gauge[int64]{
+					DataPoints: []metricdata.DataPoint[int64]{{
+						Value:      1982,
+						Attributes: expectedAttr,
+					}},
+				},
+			},
+			metricdata.Metrics{
+				Name:        "kn.revision.pods.count",
+				Description: "Number of pods that are allocated currently",
+				Unit:        "{pod}",
+				Data: metricdata.Gauge[int64]{
+					DataPoints: []metricdata.DataPoint[int64]{{
+						Value:      1984,
+						Attributes: expectedAttr,
+					}},
+				},
+			},
+			metricdata.Metrics{
+				Name:        "kn.revision.pods.not_ready.count",
+				Description: "Number of pods that are not ready currently",
+				Unit:        "{pod}",
+				Data: metricdata.Gauge[int64]{
+					DataPoints: []metricdata.DataPoint[int64]{{
+						Value:      1988,
+						Attributes: expectedAttr,
+					}},
+				},
+			},
+			metricdata.Metrics{
+				Name:        "kn.revision.pods.pending.count",
+				Description: "Number of pods that are pending currently",
+				Unit:        "{pod}",
+				Data: metricdata.Gauge[int64]{
+					DataPoints: []metricdata.DataPoint[int64]{{
+						Value:      1996,
+						Attributes: expectedAttr,
+					}},
+				},
+			},
+			metricdata.Metrics{
+				Name:        "kn.revision.pods.terminating.count",
+				Description: "Number of pods that are terminating currently",
+				Unit:        "{pod}",
+				Data: metricdata.Gauge[int64]{
+					DataPoints: []metricdata.DataPoint[int64]{{
+						Value:      1983,
+						Attributes: expectedAttr,
+					}},
+				},
+			},
+		),
+	)
 
 	// Verify `want` is ignored, when it is equal to -1.
 	pc.want = -1
 	pc.terminating = 1955
-	reportMetrics(pa, pc)
+	reportMetrics(m, pa, pc)
 
-	// Basically same values and change to `terminating` to verify reporting has occurred.
-	wantMetrics = []metricstest.Metric{
-		metricstest.IntMetric("requested_pods", 1982, nil).WithResource(wantResource),
-		metricstest.IntMetric("actual_pods", 1984, nil).WithResource(wantResource),
-		metricstest.IntMetric("not_ready_pods", 1988, nil).WithResource(wantResource),
-		metricstest.IntMetric("pending_pods", 1996, nil).WithResource(wantResource),
-		metricstest.IntMetric("terminating_pods", 1955, nil).WithResource(wantResource),
-	}
-	assertMetric(t, wantMetrics)
+	metricstest.AssertMetrics(t, reader,
+		metricstest.MetricsEqual(
+			scopeName,
+			metricdata.Metrics{
+				Name:        "kn.revision.pods.requested",
+				Description: "Number of pods autoscaler requested from Kubernetes",
+				Unit:        "{pod}",
+				Data: metricdata.Gauge[int64]{
+					DataPoints: []metricdata.DataPoint[int64]{{
+						Value:      1982,
+						Attributes: expectedAttr,
+					}},
+				},
+			},
+			metricdata.Metrics{
+				Name:        "kn.revision.pods.count",
+				Description: "Number of pods that are allocated currently",
+				Unit:        "{pod}",
+				Data: metricdata.Gauge[int64]{
+					DataPoints: []metricdata.DataPoint[int64]{{
+						Value:      1984,
+						Attributes: expectedAttr,
+					}},
+				},
+			},
+			metricdata.Metrics{
+				Name:        "kn.revision.pods.not_ready.count",
+				Description: "Number of pods that are not ready currently",
+				Unit:        "{pod}",
+				Data: metricdata.Gauge[int64]{
+					DataPoints: []metricdata.DataPoint[int64]{{
+						Value:      1988,
+						Attributes: expectedAttr,
+					}},
+				},
+			},
+			metricdata.Metrics{
+				Name:        "kn.revision.pods.pending.count",
+				Description: "Number of pods that are pending currently",
+				Unit:        "{pod}",
+				Data: metricdata.Gauge[int64]{
+					DataPoints: []metricdata.DataPoint[int64]{{
+						Value:      1996,
+						Attributes: expectedAttr,
+					}},
+				},
+			},
+			metricdata.Metrics{
+				Name:        "kn.revision.pods.terminating.count",
+				Description: "Number of pods that are terminating currently",
+				Unit:        "{pod}",
+				Data: metricdata.Gauge[int64]{
+					DataPoints: []metricdata.DataPoint[int64]{{
+						Value:      1955,
+						Attributes: expectedAttr,
+					}},
+				},
+			},
+		),
+	)
 }
 
-// We don't use metricstest.AssertMetrics because it doesn't filter resources properly
-func assertMetric(t *testing.T, values []metricstest.Metric) {
-	t.Helper()
-	metricstest.EnsureRecorded()
-outer:
-	for _, v := range values {
-		metrics := metricstest.GetMetric(v.Name)
-		for _, m := range metrics {
-			if cmp.Equal(m.Resource, v.Resource) {
-				if diff := cmp.Diff(v, m); diff != "" {
-					t.Error("Wrong metric (-want +got):", diff)
-				}
-				continue outer
-			}
-		}
-		t.Fatal("unable to find metrics with name and resource", v.Name, v.Resource)
-	}
-}
+// // We don't use metricstest.AssertMetrics because it doesn't filter resources properly
+// func assertMetric(t *testing.T, values []metricstest.Metric) {
+// 	t.Helper()
+// 	metricstest.EnsureRecorded()
+// outer:
+// 	for _, v := range values {
+// 		metrics := metricstest.GetMetric(v.Name)
+// 		for _, m := range metrics {
+// 			if cmp.Equal(m.Resource, v.Resource) {
+// 				if diff := cmp.Diff(v, m); diff != "" {
+// 					t.Error("Wrong metric (-want +got):", diff)
+// 				}
+// 				continue outer
+// 			}
+// 		}
+// 		t.Fatal("unable to find metrics with name and resource", v.Name, v.Resource)
+// 	}
+// }
 
 func TestResolveScrapeTarget(t *testing.T) {
 	pa := kpa(testNamespace, testRevision, WithPAMetricsService("echo"))
@@ -2106,7 +2215,7 @@ func TestComputeStatus(t *testing.T) {
 				want:  c.pcWant,
 			}
 
-			computeStatus(ctx, pa, pc, logging.FromContext(ctx))
+			computeStatus(ctx, pa, pc, logging.FromContext(ctx), nil)
 
 			if c.wantActualScale == nil && pa.Status.ActualScale != nil || c.wantActualScale != nil && pa.Status.ActualScale == nil {
 				t.Errorf("Unexpected ActualScale. Want: %v, Got: %v", c.wantActualScale, pa.Status.ActualScale)
