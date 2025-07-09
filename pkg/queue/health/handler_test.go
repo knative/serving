@@ -23,6 +23,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
 	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/serving/pkg/queue"
@@ -67,6 +69,10 @@ func TestProbeHandler(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
+			exporter := tracetest.NewInMemoryExporter()
+			tp := trace.NewTracerProvider(trace.WithSyncer(exporter))
+			tracer := tp.Tracer("test")
+
 			writer := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 
@@ -74,7 +80,7 @@ func TestProbeHandler(t *testing.T) {
 				req.Header.Set(netheader.ProbeKey, tc.requestHeader)
 			}
 
-			h := ProbeHandler(tc.prober, true /*tracingEnabled*/)
+			h := ProbeHandler(tracer, tc.prober)
 			h(writer, req)
 
 			if got, want := writer.Code, tc.wantCode; got != want {
