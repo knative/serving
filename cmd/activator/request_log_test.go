@@ -27,13 +27,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
+
 	ltesting "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/metrics"
+
 	"knative.dev/serving/pkg/activator"
 	activatorhandler "knative.dev/serving/pkg/activator/handler"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	pkghttp "knative.dev/serving/pkg/http"
+	"knative.dev/serving/pkg/observability"
 )
 
 const (
@@ -63,58 +65,58 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 		name: "empty template",
 		url:  "http://example.com/testpage",
 		data: map[string]string{
-			metrics.ReqLogTemplateKey: "",
+			observability.RequestLogTemplateKey: "",
 		},
 	}, {
 		name: "template with new line",
 		url:  "http://example.com/testpage",
 		data: map[string]string{
-			metrics.ReqLogTemplateKey: "{{.Request.URL}}\n",
-			metrics.EnableReqLogKey:   "true",
+			observability.RequestLogTemplateKey: "{{.Request.URL}}\n",
+			observability.EnableRequestLogKey:   "true",
 		},
 		want: "http://example.com/testpage\n",
 	}, {
 		name: "invalid template",
 		url:  "http://example.com",
 		data: map[string]string{
-			metrics.ReqLogTemplateKey: "{{}}",
+			observability.RequestLogTemplateKey: "{{}}",
 		},
 		want: "http://example.com\n",
 	}, {
 		name: "revision info",
 		url:  "http://example.com",
 		data: map[string]string{
-			metrics.ReqLogTemplateKey: "{{.Revision.Name}}, {{.Revision.Namespace}}, {{.Revision.Service}}, {{.Revision.Configuration}}, {{.Revision.PodName}}, {{.Revision.PodIP}}",
-			metrics.EnableReqLogKey:   "true",
+			observability.RequestLogTemplateKey: "{{.Revision.Name}}, {{.Revision.Namespace}}, {{.Revision.Service}}, {{.Revision.Configuration}}, {{.Revision.PodName}}, {{.Revision.PodIP}}",
+			observability.EnableRequestLogKey:   "true",
 		},
 		want: "testRevision, testNs, testSvc, testConfig, , \n",
 	}, {
 		name: "empty template 2",
 		url:  "http://example.com/testpage",
 		data: map[string]string{
-			metrics.ReqLogTemplateKey: "",
+			observability.RequestLogTemplateKey: "",
 		},
 	}, {
 		name: "explicitly enable request logging",
 		url:  "http://example.com/testpage",
 		data: map[string]string{
-			metrics.ReqLogTemplateKey: "{{.Request.URL}}\n",
-			metrics.EnableReqLogKey:   "true",
+			observability.RequestLogTemplateKey: "{{.Request.URL}}\n",
+			observability.EnableRequestLogKey:   "true",
 		},
 		want: "http://example.com/testpage\n",
 	}, {
 		name: "explicitly disable request logging",
 		url:  "http://example.com/testpage",
 		data: map[string]string{
-			metrics.ReqLogTemplateKey: "{{.Request.URL}}\n",
-			metrics.EnableReqLogKey:   "false",
+			observability.RequestLogTemplateKey: "{{.Request.URL}}\n",
+			observability.EnableRequestLogKey:   "false",
 		},
 	}, {
 		name: "explicitly enable request logging with empty template",
 		url:  "http://example.com/testpage",
 		data: map[string]string{
-			metrics.ReqLogTemplateKey: "",
-			metrics.EnableReqLogKey:   "true",
+			observability.RequestLogTemplateKey: "",
+			observability.EnableRequestLogKey:   "true",
 		},
 	}}
 

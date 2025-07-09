@@ -28,6 +28,9 @@ import (
 	"sync"
 	"testing"
 
+	"go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	netprobe "knative.dev/networking/pkg/http/probe"
 	"knative.dev/pkg/logging"
 	pkgnet "knative.dev/pkg/network"
@@ -42,6 +45,14 @@ import (
 // activator to enable us to see improvements that span handlers and to judge some of
 // the handlers that are not developed here.
 func BenchmarkHandlerChain(b *testing.B) {
+	exporter := tracetest.NewInMemoryExporter()
+	tp := trace.NewTracerProvider(
+		trace.WithSyncer(exporter),
+	)
+
+	reader := metric.NewManualReader()
+	mp := metric.NewMeterProvider(metric.WithReader(reader))
+
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(b)
 	b.Cleanup(cancel)
 
@@ -52,7 +63,7 @@ func BenchmarkHandlerChain(b *testing.B) {
 
 	// Buffer equal to the activator.
 	statCh := make(chan []asmetrics.StatMessage)
-	concurrencyReporter := NewConcurrencyReporter(ctx, activatorPodName, statCh)
+	concurrencyReporter := NewConcurrencyReporter(ctx, activatorPodName, statCh, mp)
 	go concurrencyReporter.Run(ctx.Done())
 
 	// Just read and ignore all stat messages.
@@ -75,9 +86,9 @@ func BenchmarkHandlerChain(b *testing.B) {
 	})
 
 	// Make sure to update this if the activator's main file changes.
-	ah := New(ctx, fakeThrottler{}, rt, false, logger, false /* TLS */)
+	ah := New(ctx, fakeThrottler{}, rt, false, logger, false /* TLS */, tp)
 	ah = concurrencyReporter.Handler(ah)
-	ah = NewTracingHandler(ah)
+	ah = NewTracingHandler(tp, ah)
 	ah, _ = pkghttp.NewRequestLogHandler(ah, io.Discard, "", nil, false)
 	ah = NewMetricHandler(activatorPodName, ah)
 	ah = NewContextHandler(ctx, ah, configStore)
@@ -126,13 +137,20 @@ func BenchmarkHandlerChain(b *testing.B) {
 // The test uses the reproducer in https://github.com/golang/go/issues/40747#issuecomment-733552061.
 // We enable full duplex by setting the annotation `features.knative.dev/http-full-duplex` at the revision level.
 func TestActivatorChainHandlerWithFullDuplex(t *testing.T) {
+	exporter := tracetest.NewInMemoryExporter()
+	tp := trace.NewTracerProvider(
+		trace.WithSyncer(exporter),
+	)
+
+	reader := metric.NewManualReader()
+	mp := metric.NewMeterProvider(metric.WithReader(reader))
+
 	if runtime.GOOS == "darwin" {
 		t.Skip("Testing this on Mac requires to loosen some restrictions, see https://github.com/knative/serving/pull/14568#issuecomment-1893151202 for more")
 	}
 
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	rev := revision(testNamespace, testRevName)
-	defer reset()
 	rev.Annotations = map[string]string{apiconfig.AllowHTTPFullDuplexFeatureKey: "Enabled"}
 	t.Cleanup(cancel)
 
@@ -142,7 +160,7 @@ func TestActivatorChainHandlerWithFullDuplex(t *testing.T) {
 
 	// Buffer equal to the activator.
 	statCh := make(chan []asmetrics.StatMessage)
-	concurrencyReporter := NewConcurrencyReporter(ctx, activatorPodName, statCh)
+	concurrencyReporter := NewConcurrencyReporter(ctx, activatorPodName, statCh, mp)
 	go concurrencyReporter.Run(ctx.Done())
 
 	// Just read and ignore all stat messages.
@@ -186,7 +204,7 @@ func TestActivatorChainHandlerWithFullDuplex(t *testing.T) {
 	})
 	var ah http.Handler
 	ah = concurrencyReporter.Handler(proxyWithMiddleware)
-	ah = NewTracingHandler(ah)
+	ah = NewTracingHandler(tp, ah)
 	ah, _ = pkghttp.NewRequestLogHandler(ah, io.Discard, "", nil, false)
 	ah = NewMetricHandler(activatorPodName, ah)
 	ah = WrapActivatorHandlerWithFullDuplex(ah, logger)

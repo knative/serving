@@ -19,24 +19,26 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"strconv"
 	"strings"
 
-	"go.opencensus.io/plugin/ochttp"
-	"go.opencensus.io/trace"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
+
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 
 	netheader "knative.dev/networking/pkg/http/header"
 	netproxy "knative.dev/networking/pkg/http/proxy"
 	"knative.dev/pkg/logging/logkey"
+	"knative.dev/pkg/network"
 	pkghandler "knative.dev/pkg/network/handlers"
-	tracingconfig "knative.dev/pkg/tracing/config"
-	"knative.dev/pkg/tracing/propagation/tracecontextb3"
 	"knative.dev/serving/pkg/activator"
-	activatorconfig "knative.dev/serving/pkg/activator/config"
 	apiconfig "knative.dev/serving/pkg/apis/config"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/networking"
@@ -53,22 +55,47 @@ type Throttler interface {
 // to be available before proxying the request
 type activationHandler struct {
 	transport        http.RoundTripper
-	tracingTransport http.RoundTripper
 	usePassthroughLb bool
 	throttler        Throttler
 	bufferPool       httputil.BufferPool
 	logger           *zap.SugaredLogger
 	tls              bool
+	tracer           trace.Tracer
 }
 
 // New constructs a new http.Handler that deals with revision activation.
-func New(_ context.Context, t Throttler, transport http.RoundTripper, usePassthroughLb bool, logger *zap.SugaredLogger, tlsEnabled bool) http.Handler {
+func New(_ context.Context,
+	t Throttler,
+	transport http.RoundTripper,
+	usePassthroughLb bool,
+	logger *zap.SugaredLogger,
+	tlsEnabled bool,
+	tp trace.TracerProvider,
+) http.Handler {
+	if tp == nil {
+		tp = otel.GetTracerProvider()
+	}
+
+	transport = otelhttp.NewTransport(
+		transport,
+		otelhttp.WithTracerProvider(tp),
+		otelhttp.WithFilter(func(r *http.Request) bool {
+			// Don't trace kubelet probes
+			return !network.IsKubeletProbe(r)
+		}),
+		otelhttp.WithSpanNameFormatter(func(operation string, r *http.Request) string {
+			if r.URL.Path == "" {
+				return r.Method + " /"
+			}
+			return fmt.Sprintf("%s %s", r.Method, r.URL.Path)
+		}),
+	)
+
+	tracer := tp.Tracer("knative.dev/serving/pkg/activator")
+
 	return &activationHandler{
-		transport: transport,
-		tracingTransport: &ochttp.Transport{
-			Base:        transport,
-			Propagation: tracecontextb3.TraceContextB3Egress,
-		},
+		tracer:           tracer,
+		transport:        transport,
 		usePassthroughLb: usePassthroughLb,
 		throttler:        t,
 		bufferPool:       netproxy.NewBufferPool(),
@@ -78,29 +105,20 @@ func New(_ context.Context, t Throttler, transport http.RoundTripper, usePassthr
 }
 
 func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	config := activatorconfig.FromContext(r.Context())
-	tracingEnabled := config.Tracing.Backend != tracingconfig.None
-
-	tryContext, trySpan := r.Context(), (*trace.Span)(nil)
-	if tracingEnabled {
-		tryContext, trySpan = trace.StartSpan(r.Context(), "throttler_try")
-	}
+	tryContext, trySpan := a.tracer.Start(r.Context(), "throttler_try")
 
 	revID := RevIDFrom(r.Context())
 	if err := a.throttler.Try(tryContext, revID, func(dest string, isClusterIP bool) error {
 		trySpan.End()
 
-		proxyCtx, proxySpan := r.Context(), (*trace.Span)(nil)
-		if tracingEnabled {
-			proxyCtx, proxySpan = trace.StartSpan(r.Context(), "activator_proxy")
-		}
-		a.proxyRequest(revID, w, r.WithContext(proxyCtx), dest, tracingEnabled, a.usePassthroughLb, isClusterIP)
+		proxyCtx, proxySpan := a.tracer.Start(r.Context(), "activator_proxy")
+		a.proxyRequest(revID, w, r.WithContext(proxyCtx), dest, a.usePassthroughLb, isClusterIP)
 		proxySpan.End()
 
 		return nil
 	}); err != nil {
 		// Set error on our capacity waiting span and end it.
-		trySpan.Annotate([]trace.Attribute{trace.StringAttribute("activator.throttler.error", err.Error())}, "ThrottlerTry")
+		trySpan.SetStatus(codes.Error, err.Error())
 		trySpan.End()
 
 		a.logger.Errorw("Throttler try error", zap.String(logkey.Key, revID.String()), zap.Error(err))
@@ -114,7 +132,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.ResponseWriter,
-	r *http.Request, target string, tracingEnabled bool, usePassthroughLb bool, isClusterIP bool,
+	r *http.Request, target string, usePassthroughLb bool, isClusterIP bool,
 ) {
 	netheader.RewriteHostIn(r)
 	r.Header.Set(netheader.ProxyKey, activator.Name)
@@ -138,9 +156,6 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 
 	proxy.BufferPool = a.bufferPool
 	proxy.Transport = a.transport
-	if tracingEnabled {
-		proxy.Transport = a.tracingTransport
-	}
 	proxy.FlushInterval = netproxy.FlushInterval
 	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
 		pkghandler.Error(a.logger.With(zap.String(logkey.Key, revID.String())))(w, req, err)
