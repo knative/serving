@@ -172,7 +172,6 @@ func newServiceScraperWithClient(
 	logger *zap.SugaredLogger,
 	mp metric.MeterProvider,
 ) *serviceScraper {
-
 	svcName := m.Labels[serving.ServiceLabelKey]
 	cfgName := m.Labels[serving.ConfigurationLabelKey]
 

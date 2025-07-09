@@ -91,7 +91,6 @@ func newAutoscaler(
 	deciderSpec *DeciderSpec,
 	delayWindow *max.TimeWindow,
 ) *autoscaler {
-
 	metrics := newMetrics(mp, attrs)
 	// We always start in the panic mode, if the deployment is scaled up over 1 pod.
 	// If the scale is 0 or 1, normal Autoscaler behavior is fine.

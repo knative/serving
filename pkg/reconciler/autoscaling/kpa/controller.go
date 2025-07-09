@@ -52,7 +52,6 @@ func NewController(
 	cmw configmap.Watcher,
 	deciders resources.Deciders,
 ) *controller.Impl {
-
 	logger := logging.FromContext(ctx)
 	paInformer := painformer.Get(ctx)
 	sksInformer := sksinformer.Get(ctx)
