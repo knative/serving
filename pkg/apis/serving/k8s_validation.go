@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
-	"knative.dev/pkg/profiling"
+	"knative.dev/pkg/observability/runtime"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/networking"
 )
@@ -63,7 +63,7 @@ var (
 		networking.QueueAdminPort,
 		networking.AutoscalingQueueMetricsPort,
 		networking.UserQueueMetricsPort,
-		profiling.ProfilingPort)
+		runtime.ProfilingDefaultPort)
 
 	reservedSidecarEnvVars = reservedEnvVars.Difference(sets.New("PORT"))
 

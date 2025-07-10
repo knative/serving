@@ -31,7 +31,7 @@ import (
 	pkgnet "knative.dev/networking/pkg/apis/networking"
 	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/kmap"
-	"knative.dev/pkg/profiling"
+	"knative.dev/pkg/observability/runtime"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	apicfg "knative.dev/serving/pkg/apis/config"
@@ -78,7 +78,7 @@ var (
 
 	profilingPort = corev1.ContainerPort{
 		Name:          profilingPortName,
-		ContainerPort: profiling.ProfilingPort,
+		ContainerPort: runtime.ProfilingDefaultPort,
 	}
 
 	queueSecurityContext = &corev1.SecurityContext{
