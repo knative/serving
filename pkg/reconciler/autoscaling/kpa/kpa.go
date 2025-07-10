@@ -241,7 +241,6 @@ func reportMetrics(m *kpaMetrics, pa *autoscalingv1alpha1.PodAutoscaler, pc podC
 	serviceLabel := pa.Labels[serving.ServiceLabelKey] // This might be empty.
 	configLabel := pa.Labels[serving.ConfigurationLabelKey]
 
-	// ctx := metrics.RevisionContext(pa.Namespace, serviceLabel, configLabel, pa.Name)
 
 	attrs := attribute.NewSet(
 		metrics.K8sNamespaceKey.With(pa.Namespace),
