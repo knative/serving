@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"go.opentelemetry.io/otel/sdk/metric"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -89,13 +90,16 @@ func testStatsWithTime(n int, youngestSecs float64) []Stat {
 }
 
 func TestNewServiceScraperWithClientHappyCase(t *testing.T) {
+	reader := metric.NewManualReader()
+	mp := metric.NewMeterProvider(metric.WithReader(reader))
+
 	metric := testMetric()
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 	t.Cleanup(cancel)
 	accessor := resources.NewPodAccessor(
 		fakepodsinformer.Get(ctx).Lister(),
 		testNamespace, testRevision)
-	sc := NewStatsScraper(metric, testRevision, accessor, false, netcfg.MeshCompatibilityModeAuto, logtesting.TestLogger(t))
+	sc := NewStatsScraper(metric, testRevision, accessor, false, netcfg.MeshCompatibilityModeAuto, logtesting.TestLogger(t), mp)
 	if svcS, want := sc.(*serviceScraper), urlFromTarget(testRevision+"-zhudex", testNamespace); svcS.url != want {
 		t.Errorf("scraper.url = %s, want: %s", svcS.url, want)
 	}
@@ -791,12 +795,14 @@ func TestPodDirectPassthroughScrapeNoneSucceed(t *testing.T) {
 func serviceScraperForTest(ctx context.Context, t *testing.T, meshMode netcfg.MeshCompatibilityMode, directClient, meshClient scrapeClient,
 	podsAddressable bool, usePassthroughLb bool,
 ) *serviceScraper {
+	reader := metric.NewManualReader()
+	mp := metric.NewMeterProvider(metric.WithReader(reader))
 	metric := testMetric()
 	accessor := resources.NewPodAccessor(
 		fakepodsinformer.Get(ctx).Lister(),
 		testNamespace, testRevision)
 	logger := logtesting.TestLogger(t)
-	ss := newServiceScraperWithClient(metric, testRevision, accessor, usePassthroughLb, meshMode, directClient, meshClient, logger)
+	ss := newServiceScraperWithClient(metric, testRevision, accessor, usePassthroughLb, meshMode, directClient, meshClient, logger, mp)
 	ss.podsAddressable = podsAddressable
 	return ss
 }

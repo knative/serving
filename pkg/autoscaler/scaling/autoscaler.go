@@ -17,20 +17,20 @@ limitations under the License.
 package scaling
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math"
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/autoscaler/aggregation/max"
-	"knative.dev/serving/pkg/autoscaler/metrics"
+	am "knative.dev/serving/pkg/autoscaler/metrics"
 	"knative.dev/serving/pkg/resources"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -45,9 +45,8 @@ type podCounter interface {
 type autoscaler struct {
 	namespace    string
 	revision     string
-	metricClient metrics.MetricClient
+	metricClient am.MetricClient
 	podCounter   podCounter
-	reporterCtx  context.Context
 
 	// State in panic mode.
 	panicTime    time.Time
@@ -60,13 +59,16 @@ type autoscaler struct {
 	// specMux guards the current DeciderSpec.
 	specMux     sync.RWMutex
 	deciderSpec *DeciderSpec
+
+	metrics *scalingMetrics
 }
 
 // New creates a new instance of default autoscaler implementation.
 func New(
-	reporterCtx context.Context,
+	attrs attribute.Set,
+	mp metric.MeterProvider,
 	namespace, revision string,
-	metricClient metrics.MetricClient,
+	metricClient am.MetricClient,
 	podCounter resources.EndpointsCounter,
 	deciderSpec *DeciderSpec,
 ) UniScaler {
@@ -75,18 +77,21 @@ func New(
 		delayer = max.NewTimeWindow(deciderSpec.ScaleDownDelay, tickInterval)
 	}
 
-	return newAutoscaler(reporterCtx, namespace, revision, metricClient,
+	return newAutoscaler(
+		attrs, mp, namespace, revision, metricClient,
 		podCounter, deciderSpec, delayer)
 }
 
 func newAutoscaler(
-	reporterCtx context.Context,
+	attrs attribute.Set,
+	mp metric.MeterProvider,
 	namespace, revision string,
-	metricClient metrics.MetricClient,
+	metricClient am.MetricClient,
 	podCounter podCounter,
 	deciderSpec *DeciderSpec,
 	delayWindow *max.TimeWindow,
 ) *autoscaler {
+	metrics := newMetrics(mp, attrs)
 	// We always start in the panic mode, if the deployment is scaled up over 1 pod.
 	// If the scale is 0 or 1, normal Autoscaler behavior is fine.
 	// When Autoscaler restarts we lose metric history, which causes us to
@@ -103,16 +108,15 @@ func newAutoscaler(
 	if curC > 1 {
 		pt = time.Now()
 		// A new instance of autoscaler is created in panic mode.
-		pkgmetrics.Record(reporterCtx, panicM.M(1))
+		metrics.SetPanic(true)
 	} else {
-		pkgmetrics.Record(reporterCtx, panicM.M(0))
+		metrics.SetPanic(false)
 	}
 
 	return &autoscaler{
 		namespace:    namespace,
 		revision:     revision,
 		metricClient: metricClient,
-		reporterCtx:  reporterCtx,
 
 		deciderSpec: deciderSpec,
 		podCounter:  podCounter,
@@ -121,6 +125,7 @@ func newAutoscaler(
 
 		panicTime:    pt,
 		maxPanicPods: int32(curC), //nolint:gosec // k8s replica count is bounded by int32
+		metrics:      metrics,
 	}
 }
 
@@ -164,7 +169,7 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 	}
 
 	if err != nil {
-		if errors.Is(err, metrics.ErrNoData) {
+		if errors.Is(err, am.ErrNoData) {
 			logger.Debug("No data to scale on yet")
 		} else {
 			logger.Errorw("Failed to obtain metrics", zap.Error(err))
@@ -214,7 +219,7 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 		// Begin panicking when we cross the threshold in the panic window.
 		logger.Info("PANICKING.")
 		a.panicTime = now
-		pkgmetrics.Record(a.reporterCtx, panicM.M(1))
+		a.metrics.SetPanic(true)
 	} else if isOverPanicThreshold {
 		// If we're still over panic threshold right now — extend the panic window.
 		a.panicTime = now
@@ -223,7 +228,7 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 		logger.Info("Un-panicking.")
 		a.panicTime = time.Time{}
 		a.maxPanicPods = 0
-		pkgmetrics.Record(a.reporterCtx, panicM.M(0))
+		a.metrics.SetPanic(false)
 	}
 
 	desiredPodCount := desiredStablePodCount
@@ -290,20 +295,20 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 
 	switch spec.ScalingMetric {
 	case autoscaling.RPS:
-		pkgmetrics.RecordBatch(a.reporterCtx,
-			excessBurstCapacityM.M(excessBCF),
-			desiredPodCountM.M(int64(desiredPodCount)),
-			stableRPSM.M(observedStableValue),
-			panicRPSM.M(observedPanicValue),
-			targetRPSM.M(spec.TargetValue),
+		a.metrics.RecordRPS(
+			excessBCF,
+			int64(desiredPodCount),
+			observedStableValue,
+			observedPanicValue,
+			spec.TargetValue,
 		)
 	default:
-		pkgmetrics.RecordBatch(a.reporterCtx,
-			excessBurstCapacityM.M(excessBCF),
-			desiredPodCountM.M(int64(desiredPodCount)),
-			stableRequestConcurrencyM.M(observedStableValue),
-			panicRequestConcurrencyM.M(observedPanicValue),
-			targetRequestConcurrencyM.M(spec.TargetValue),
+		a.metrics.RecordConcurrency(
+			excessBCF,
+			int64(desiredPodCount),
+			observedStableValue,
+			observedPanicValue,
+			spec.TargetValue,
 		)
 	}
 

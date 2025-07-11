@@ -19,12 +19,6 @@ cloud.google.com/go/auth/oauth2adapt
 # cloud.google.com/go/compute/metadata v0.6.0
 ## explicit; go 1.21
 cloud.google.com/go/compute/metadata
-# contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20200907061046-05415f1de66d
-## explicit; go 1.13
-contrib.go.opencensus.io/exporter/ocagent
-# contrib.go.opencensus.io/exporter/prometheus v0.4.2
-## explicit; go 1.13
-contrib.go.opencensus.io/exporter/prometheus
 # github.com/Azure/azure-sdk-for-go v68.0.0+incompatible
 ## explicit
 github.com/Azure/azure-sdk-for-go/services/preview/containerregistry/runtime/2019-08-15-preview/containerregistry
@@ -187,14 +181,6 @@ github.com/c2h5oh/datasize
 # github.com/cenkalti/backoff/v5 v5.0.2
 ## explicit; go 1.23
 github.com/cenkalti/backoff/v5
-# github.com/census-instrumentation/opencensus-proto v0.4.1
-## explicit; go 1.18
-github.com/census-instrumentation/opencensus-proto/gen-go/agent/common/v1
-github.com/census-instrumentation/opencensus-proto/gen-go/agent/metrics/v1
-github.com/census-instrumentation/opencensus-proto/gen-go/agent/trace/v1
-github.com/census-instrumentation/opencensus-proto/gen-go/metrics/v1
-github.com/census-instrumentation/opencensus-proto/gen-go/resource/v1
-github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1
 # github.com/cert-manager/cert-manager v1.16.3
 ## explicit; go 1.22.0
 github.com/cert-manager/cert-manager/pkg/apis/acme
@@ -267,13 +253,6 @@ github.com/felixge/httpsnoop
 # github.com/fxamacker/cbor/v2 v2.7.0
 ## explicit; go 1.17
 github.com/fxamacker/cbor/v2
-# github.com/go-kit/log v0.2.1
-## explicit; go 1.17
-github.com/go-kit/log
-github.com/go-kit/log/level
-# github.com/go-logfmt/logfmt v0.5.1
-## explicit; go 1.17
-github.com/go-logfmt/logfmt
 # github.com/go-logr/logr v1.4.3
 ## explicit; go 1.18
 github.com/go-logr/logr
@@ -308,9 +287,6 @@ github.com/golang-jwt/jwt/v4
 # github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 ## explicit
 github.com/golang/groupcache/lru
-# github.com/golang/protobuf v1.5.4
-## explicit; go 1.17
-github.com/golang/protobuf/ptypes/timestamp
 # github.com/google/gnostic-models v0.6.9
 ## explicit; go 1.21
 github.com/google/gnostic-models/compiler
@@ -494,11 +470,6 @@ github.com/prometheus/common/model
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
-# github.com/prometheus/statsd_exporter v0.22.7
-## explicit; go 1.17
-github.com/prometheus/statsd_exporter/pkg/level
-github.com/prometheus/statsd_exporter/pkg/mapper
-github.com/prometheus/statsd_exporter/pkg/mapper/fsm
 # github.com/rs/dnscache v0.0.0-20230804202142-fc85eb664529
 ## explicit; go 1.12
 github.com/rs/dnscache
@@ -535,9 +506,7 @@ go.opencensus.io
 go.opencensus.io/internal
 go.opencensus.io/internal/tagencoding
 go.opencensus.io/metric/metricdata
-go.opencensus.io/metric/metricexport
 go.opencensus.io/metric/metricproducer
-go.opencensus.io/plugin/ocgrpc
 go.opencensus.io/plugin/ochttp
 go.opencensus.io/plugin/ochttp/propagation/b3
 go.opencensus.io/resource
@@ -724,7 +693,6 @@ golang.org/x/oauth2/jwt
 # golang.org/x/sync v0.15.0
 ## explicit; go 1.23.0
 golang.org/x/sync/errgroup
-golang.org/x/sync/semaphore
 golang.org/x/sync/singleflight
 # golang.org/x/sys v0.33.0
 ## explicit; go 1.23.0
@@ -790,7 +758,6 @@ google.golang.org/api/internal/impersonate
 google.golang.org/api/internal/third_party/uritemplates
 google.golang.org/api/option
 google.golang.org/api/option/internaloption
-google.golang.org/api/support/bundler
 google.golang.org/api/transport/http
 google.golang.org/api/transport/http/internal/propagation
 # google.golang.org/genproto/googleapis/api v0.0.0-20250603155806-513f23925822
@@ -1620,10 +1587,6 @@ knative.dev/pkg/leaderelection/chaosduck
 knative.dev/pkg/logging
 knative.dev/pkg/logging/logkey
 knative.dev/pkg/logging/testing
-knative.dev/pkg/metrics
-knative.dev/pkg/metrics/metricskey
-knative.dev/pkg/metrics/metricstest
-knative.dev/pkg/metrics/testing
 knative.dev/pkg/network
 knative.dev/pkg/network/handlers
 knative.dev/pkg/observability
@@ -1637,7 +1600,6 @@ knative.dev/pkg/observability/resource
 knative.dev/pkg/observability/runtime
 knative.dev/pkg/observability/runtime/k8s
 knative.dev/pkg/observability/tracing
-knative.dev/pkg/profiling
 knative.dev/pkg/ptr
 knative.dev/pkg/reconciler
 knative.dev/pkg/reconciler/testing

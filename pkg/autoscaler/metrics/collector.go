@@ -35,6 +35,8 @@ const (
 	// scrapeTickInterval is the interval of time between triggering StatsScraper.Scrape()
 	// to get metrics across all pods of a revision.
 	scrapeTickInterval = time.Second
+
+	scopeName = "knative.dev/serving/pkg/autoscaler"
 )
 
 var (
@@ -102,7 +104,10 @@ var (
 )
 
 // NewMetricCollector creates a new metric collector.
-func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.SugaredLogger) *MetricCollector {
+func NewMetricCollector(
+	statsScraperFactory StatsScraperFactory,
+	logger *zap.SugaredLogger,
+) *MetricCollector {
 	return &MetricCollector{
 		logger:              logger,
 		collections:         make(map[types.NamespacedName]*collection),

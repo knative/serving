@@ -21,15 +21,16 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"knative.dev/pkg/metrics"
 
 	. "knative.dev/pkg/configmap/testing"
+	"knative.dev/serving/pkg/observability"
+	"knative.dev/serving/pkg/observability/configmap"
 )
 
 func TestOurObservability(t *testing.T) {
-	cm, example := ConfigMapsFromTestFile(t, metrics.ConfigMapName())
+	cm, example := ConfigMapsFromTestFile(t, configmap.Name())
 
-	realCfg, err := metrics.NewObservabilityConfigFromConfigMap(cm)
+	realCfg, err := configmap.Parse(cm)
 	if err != nil {
 		t.Fatal("NewObservabilityConfigFromConfigMap(actual) =", err)
 	}
@@ -37,7 +38,7 @@ func TestOurObservability(t *testing.T) {
 		t.Fatal("NewObservabilityConfigFromConfigMap(actual) = nil")
 	}
 
-	exCfg, err := metrics.NewObservabilityConfigFromConfigMap(example)
+	exCfg, err := configmap.Parse(example)
 	if err != nil {
 		t.Fatal("NewObservabilityConfigFromConfigMap(example) =", err)
 	}
@@ -45,8 +46,8 @@ func TestOurObservability(t *testing.T) {
 		t.Fatal("NewObservabilityConfigFromConfigMap(example) = nil")
 	}
 
-	// Compare with the example and allow the log url template to differ
-	co := cmpopts.IgnoreFields(metrics.ObservabilityConfig{}, "LoggingURLTemplate")
+	// Compare with the example and allow the log url template, base config, and request metrics to differ
+	co := cmpopts.IgnoreFields(observability.Config{}, "BaseConfig", "RequestMetrics", "LoggingURLTemplate")
 	if !cmp.Equal(realCfg, exCfg, co) {
 		t.Errorf("actual != example: diff(-actual,+exCfg):\n%s", cmp.Diff(realCfg, exCfg))
 	}

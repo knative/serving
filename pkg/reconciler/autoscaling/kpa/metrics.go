@@ -17,70 +17,89 @@ limitations under the License.
 package kpa
 
 import (
-	pkgmetrics "knative.dev/pkg/metrics"
+	"context"
 
-	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	otelmetric "go.opentelemetry.io/otel/metric"
 )
 
-var (
-	requestedPodCountM = stats.Int64(
-		"requested_pods",
-		"Number of pods autoscaler requested from Kubernetes",
-		stats.UnitDimensionless)
-	actualPodCountM = stats.Int64(
-		"actual_pods",
-		"Number of pods that are allocated currently",
-		stats.UnitDimensionless)
-	notReadyPodCountM = stats.Int64(
-		"not_ready_pods",
-		"Number of pods that are not ready currently",
-		stats.UnitDimensionless)
-	pendingPodCountM = stats.Int64(
-		"pending_pods",
-		"Number of pods that are pending currently",
-		stats.UnitDimensionless)
-	terminatingPodCountM = stats.Int64(
-		"terminating_pods",
-		"Number of pods that are terminating currently",
-		stats.UnitDimensionless)
-)
+const scopeName = "knative.dev/serving/pkg/autoscaler"
 
-func init() {
-	register()
+type kpaMetrics struct {
+	requestedPods   otelmetric.Int64Gauge
+	actualPods      otelmetric.Int64Gauge
+	notReadyPods    otelmetric.Int64Gauge
+	pendingPods     otelmetric.Int64Gauge
+	terminatingPods otelmetric.Int64Gauge
 }
 
-func register() {
-	// Create views to see our measurements. This can return an error if
-	// a previously-registered view has the same name with a different value.
-	// View name defaults to the measure name if unspecified.
-	if err := pkgmetrics.RegisterResourceView(
-		&view.View{
-			Description: "Number of pods autoscaler requested from Kubernetes",
-			Measure:     requestedPodCountM,
-			Aggregation: view.LastValue(),
-		},
-		&view.View{
-			Description: "Number of pods that are allocated currently",
-			Measure:     actualPodCountM,
-			Aggregation: view.LastValue(),
-		},
-		&view.View{
-			Description: "Number of pods that are not ready currently",
-			Measure:     notReadyPodCountM,
-			Aggregation: view.LastValue(),
-		},
-		&view.View{
-			Description: "Number of pods that are pending currently",
-			Measure:     pendingPodCountM,
-			Aggregation: view.LastValue(),
-		},
-		&view.View{
-			Description: "Number of pods that are terminating currently",
-			Measure:     terminatingPodCountM,
-			Aggregation: view.LastValue(),
-		},
-	); err != nil {
+func newMetrics(mp otelmetric.MeterProvider) *kpaMetrics {
+	var (
+		m = kpaMetrics{}
+		p = mp
+	)
+
+	if p == nil {
+		p = otel.GetMeterProvider()
+	}
+
+	meter := p.Meter(scopeName)
+
+	m.requestedPods = must(meter.Int64Gauge(
+		"kn.revision.pods.requested",
+		otelmetric.WithDescription("Number of pods autoscaler requested from Kubernetes"),
+		otelmetric.WithUnit("{pod}"),
+	))
+
+	m.actualPods = must(meter.Int64Gauge(
+		"kn.revision.pods.count",
+		otelmetric.WithDescription("Number of pods that are allocated currently"),
+		otelmetric.WithUnit("{pod}"),
+	))
+
+	m.notReadyPods = must(meter.Int64Gauge(
+		"kn.revision.pods.not_ready.count",
+		otelmetric.WithDescription("Number of pods that are not ready currently"),
+		otelmetric.WithUnit("{pod}"),
+	))
+
+	m.pendingPods = must(meter.Int64Gauge(
+		"kn.revision.pods.pending.count",
+		otelmetric.WithDescription("Number of pods that are pending currently"),
+		otelmetric.WithUnit("{pod}"),
+	))
+
+	m.terminatingPods = must(meter.Int64Gauge(
+		"kn.revision.pods.terminating.count",
+		otelmetric.WithDescription("Number of pods that are terminating currently"),
+		otelmetric.WithUnit("{pod}"),
+	))
+
+	return &m
+}
+
+func (m *kpaMetrics) Record(attrs attribute.Set, pc podCounts) {
+	if m == nil {
+		return
+	}
+
+	ctx := context.Background()
+	opt := otelmetric.WithAttributeSet(attrs)
+
+	if pc.want >= 0 {
+		m.requestedPods.Record(ctx, int64(pc.want), opt)
+	}
+
+	m.actualPods.Record(ctx, int64(pc.ready), opt)
+	m.notReadyPods.Record(ctx, int64(pc.notReady), opt)
+	m.pendingPods.Record(ctx, int64(pc.pending), opt)
+	m.terminatingPods.Record(ctx, int64(pc.terminating), opt)
+}
+
+func must[T any](t T, err error) T {
+	if err != nil {
 		panic(err)
 	}
+	return t
 }
