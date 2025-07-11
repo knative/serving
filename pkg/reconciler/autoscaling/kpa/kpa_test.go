@@ -2019,25 +2019,6 @@ func TestMetricsReporter(t *testing.T) {
 	)
 }
 
-// // We don't use metricstest.AssertMetrics because it doesn't filter resources properly
-// func assertMetric(t *testing.T, values []metricstest.Metric) {
-// 	t.Helper()
-// 	metricstest.EnsureRecorded()
-// outer:
-// 	for _, v := range values {
-// 		metrics := metricstest.GetMetric(v.Name)
-// 		for _, m := range metrics {
-// 			if cmp.Equal(m.Resource, v.Resource) {
-// 				if diff := cmp.Diff(v, m); diff != "" {
-// 					t.Error("Wrong metric (-want +got):", diff)
-// 				}
-// 				continue outer
-// 			}
-// 		}
-// 		t.Fatal("unable to find metrics with name and resource", v.Name, v.Resource)
-// 	}
-// }
-
 func TestResolveScrapeTarget(t *testing.T) {
 	pa := kpa(testNamespace, testRevision, WithPAMetricsService("echo"))
 	tc := &testConfigStore{config: defaultConfig()}
