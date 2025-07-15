@@ -106,6 +106,17 @@ func ValidateContainerConcurrency(ctx context.Context, containerConcurrency *int
 	return nil
 }
 
+func ValidateLoadBalancingPolicy(ctx context.Context, loadBalancingPolicy *string) *apis.FieldError {
+	if loadBalancingPolicy != nil {
+		lbp := *loadBalancingPolicy
+		if lbp != "round-robin" && lbp != "random-choice-2" && lbp != "least-connections" && lbp != "first-available" {
+			return apis.ErrInvalidValue(
+				lbp, "loadBalancingPolicy", "load balancing policy should be one of `random-choice-2`, `round-robin`, `least-connections` or `first-available`")
+		}
+	}
+	return nil
+}
+
 // SetUserInfo sets creator and updater annotations
 func SetUserInfo(ctx context.Context, oldSpec, newSpec, resource interface{}) {
 	if ui := apis.GetUserInfo(ctx); ui != nil {
