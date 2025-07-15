@@ -203,8 +203,9 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 	dspc := int32(math.Min(math.Max(desiredStablePodCount, maxScaleDown), maxScaleUp))
 	dppc := int32(math.Min(math.Max(desiredPanicPodCount, maxScaleDown), maxScaleUp))
 
-	//	If ActivationScale > 1, then adjust the desired pod counts
-	if a.deciderSpec.ActivationScale > 1 {
+	// ActivationScale enforces minimum replicas when scaling from zero.
+	// Only applies when pods are at 0 and traffic arrives (dspc/dppc > 0).
+	if a.deciderSpec.ActivationScale > 1 && originalReadyPodsCount == 0 {
 		if dspc > 0 && a.deciderSpec.ActivationScale > dspc {
 			dspc = a.deciderSpec.ActivationScale
 		}
