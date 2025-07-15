@@ -32,6 +32,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	netheader "knative.dev/networking/pkg/http/header"
 	netstats "knative.dev/networking/pkg/http/stats"
+	logtesting "knative.dev/pkg/logging/testing"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/tracing"
 	tracingconfig "knative.dev/pkg/tracing/config"
@@ -42,6 +43,7 @@ import (
 )
 
 func TestQueueTraceSpans(t *testing.T) {
+	logger := logtesting.TestLogger(t)
 	testcases := []struct {
 		name          string
 		prober        func() bool
@@ -150,7 +152,7 @@ func TestQueueTraceSpans(t *testing.T) {
 					Propagation: tracecontextb3.TraceContextB3Egress,
 				}
 
-				h := queue.ProxyHandler(breaker, netstats.NewRequestStats(time.Now()), true /*tracingEnabled*/, proxy)
+				h := queue.ProxyHandler(breaker, netstats.NewRequestStats(time.Now()), true /*tracingEnabled*/, proxy, logger)
 				h(writer, req)
 			} else {
 				h := health.ProbeHandler(tc.prober, true /*tracingEnabled*/)
