@@ -1,0 +1,85 @@
+name: Knative Release
+on:
+  push:
+    branches:
+      - master
+      - release-*
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.semrel.outputs.version }}
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v4
+
+      - uses: go-semantic-release/action@v1
+        id: semrel
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          changelog-generator-opt: "emojis=true"
+          changelog-file: "CHANGELOG.md"
+          force-bump-patch-version: "true"
+
+  build:
+    needs: release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - registry: registry.aws.us-east-1.cerebrium.ai
+            context: aws-virginia
+            password_secret: REGISTRY_PASSWORD_US_EAST_1
+          - registry: registry.aws.eu-west-2.cerebrium.ai
+            context: aws-london
+            password_secret: REGISTRY_PASSWORD_EU_WEST_2
+        component:
+          - name: activator
+            path: ./cmd/activator
+          - name: autoscaler
+            path: ./cmd/autoscaler
+          - name: queue
+            path: ./cmd/queue
+          - name: webhook
+            path: ./cmd/webhook
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Install ko
+        uses: ko-build/setup-ko@v0.6
+
+      - name: Login to remote EKS Repo
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ matrix.registry }}
+          username: cerebrium
+          password: ${{ secrets[matrix.password_secret] }}
+
+      - uses: depot/setup-action@v1
+
+      - name: Build and Push ${{ matrix.component.name }}
+        env:
+          KO_DOCKER_REPO: ${{ matrix.registry }}
+          DEPOT_TOKEN: ${{ secrets.DEPOT_TOKEN }}
+        run: |
+          ko build \
+            --tags=${{ needs.release.outputs.version }},latest \
+            ${{ matrix.component.path }}
+
+  notify:
+    needs: [release, build]
+    runs-on: ubuntu-latest
+    if: always() && needs.build.result == 'success'
+    steps:
+      - name: Notify Slack!
+        uses: someimportantcompany/github-actions-slack-message@v1
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          text: ":knative: Knative ${{ needs.release.outputs.version }} images built and pushed to all registries! :knative:"
