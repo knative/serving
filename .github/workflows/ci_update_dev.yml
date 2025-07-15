@@ -1,0 +1,61 @@
+name: Knative Dev CI/CD
+on:
+  pull_request:
+    branches:
+      - release-*
+  push:
+    branches:
+      - development
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component:
+          - name: activator
+            path: ./cmd/activator
+          - name: autoscaler
+            path: ./cmd/autoscaler
+          - name: queue
+            path: ./cmd/queue
+          - name: webhook
+            path: ./cmd/webhook
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Install ko
+        uses: ko-build/setup-ko@v0.6
+
+      - name: Login to remote EKS Repo Dev
+        uses: docker/login-action@v3
+        with:
+          registry: registry.dev-aws.us-east-1.cerebrium.ai
+          username: cerebrium
+          password: ${{ secrets.EKS_CR_PASSWORD_DEV }}
+
+      - uses: depot/setup-action@v1
+
+      - name: Build and Push ${{ matrix.component.name }}
+        env:
+          KO_DOCKER_REPO: registry.dev-aws.us-east-1.cerebrium.ai
+          DEPOT_TOKEN: ${{ secrets.DEPOT_TOKEN }}
+        run: |
+          ko build --tags=dev ${{ matrix.component.path }}
+
+  notify:
+    needs: build
+    runs-on: ubuntu-latest
+    if: always() && needs.build.result == 'success'
+    steps:
+      - name: Notify Slack!
+        uses: someimportantcompany/github-actions-slack-message@v1
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          text: ":rocket: Knative components built and pushed to dev registry! :rocket:"
