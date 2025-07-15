@@ -61,7 +61,7 @@ type fakeThrottler struct {
 	err error
 }
 
-func (ft fakeThrottler) Try(_ context.Context, _ types.NamespacedName, f func(string, bool) error) error {
+func (ft fakeThrottler) Try(_ context.Context, _ types.NamespacedName, _ string, f func(string, bool) error) error {
 	if ft.err != nil {
 		return ft.err
 	}
@@ -323,7 +323,7 @@ func revision(namespace, name string) *v1.Revision {
 	}
 }
 
-func setupConfigStore(t testing.TB, logger *zap.SugaredLogger) *activatorconfig.Store {
+func setupConfigStore(_ testing.TB, logger *zap.SugaredLogger) *activatorconfig.Store {
 	configStore := activatorconfig.NewStore(logger)
 	configStore.OnConfigChanged(tracingConfig(false))
 	return configStore
