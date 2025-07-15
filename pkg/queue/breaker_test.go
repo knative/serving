@@ -212,12 +212,12 @@ func TestBreakerUpdateConcurrency(t *testing.T) {
 	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 0}
 	b := NewBreaker(params)
 	b.UpdateConcurrency(1)
-	if got, want := b.Capacity(), 1; got != want {
+	if got, want := b.Capacity(), uint64(1); got != want {
 		t.Errorf("Capacity() = %d, want: %d", got, want)
 	}
 
 	b.UpdateConcurrency(0)
-	if got, want := b.Capacity(), 0; got != want {
+	if got, want := b.Capacity(), uint64(0); got != want {
 		t.Errorf("Capacity() = %d, want: %d", got, want)
 	}
 }
@@ -294,12 +294,12 @@ func TestSemaphoreRelease(t *testing.T) {
 func TestSemaphoreUpdateCapacity(t *testing.T) {
 	const initialCapacity = 1
 	sem := newSemaphore(3, initialCapacity)
-	if got, want := sem.Capacity(), 1; got != want {
+	if got, want := sem.Capacity(), uint64(1); got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 	sem.acquire(context.Background())
 	sem.updateCapacity(initialCapacity + 2)
-	if got, want := sem.Capacity(), 3; got != want {
+	if got, want := sem.Capacity(), uint64(3); got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 }

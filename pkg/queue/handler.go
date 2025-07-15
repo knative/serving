@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"go.opencensus.io/trace"
+	"go.uber.org/zap"
 	netheader "knative.dev/networking/pkg/http/header"
 	netstats "knative.dev/networking/pkg/http/stats"
 	"knative.dev/serving/pkg/activator"
@@ -30,12 +31,16 @@ import (
 
 // ProxyHandler sends requests to the `next` handler at a rate controlled by
 // the passed `breaker`, while recording stats to `stats`.
-func ProxyHandler(breaker *Breaker, stats *netstats.RequestStats, tracingEnabled bool, next http.Handler) http.HandlerFunc {
+func ProxyHandler(breaker *Breaker, stats *netstats.RequestStats, tracingEnabled bool, next http.Handler, logger *zap.SugaredLogger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if netheader.IsKubeletProbe(r) {
 			next.ServeHTTP(w, r)
 			return
 		}
+		startTime := time.Now()
+		requestID := r.Header.Get("x-request-id")
+
+		logger.Debugw("requestReceived", "x-request-id", requestID, "host", r.Host, "path", r.URL.Path, "requestReceivedTimestamp", time.Now().Format(time.RFC3339Nano), "containerStartTimestamp", startTime.Format(time.RFC3339Nano))
 
 		if tracingEnabled {
 			proxyCtx, proxySpan := trace.StartSpan(r.Context(), "queue_proxy")
@@ -57,13 +62,16 @@ func ProxyHandler(breaker *Breaker, stats *netstats.RequestStats, tracingEnabled
 		// Enforce queuing and concurrency limits.
 		if breaker != nil {
 			var waitSpan *trace.Span
+			logger.Infow("waitStarted", "x-request-id", requestID, "source", "cerebrium", "waitStartTimestamp", time.Now().Format(time.RFC3339Nano))
 			if tracingEnabled {
 				_, waitSpan = trace.StartSpan(r.Context(), "queue_wait")
 			}
 			if err := breaker.Maybe(r.Context(), func() {
+				logger.Infow("waitEnded", "x-request-id", requestID, "source", "cerebrium", "waitEndTimestamp", time.Now().Format(time.RFC3339Nano))
 				waitSpan.End()
 				next.ServeHTTP(w, r)
 			}); err != nil {
+				logger.Infow("waitEnded", "x-request-id", requestID, "source", "cerebrium", "waitEndTimestamp", time.Now().Format(time.RFC3339Nano))
 				waitSpan.End()
 				if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, ErrRequestQueueFull) {
 					http.Error(w, err.Error(), http.StatusServiceUnavailable)

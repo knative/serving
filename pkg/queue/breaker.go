@@ -43,7 +43,7 @@ type BreakerParams struct {
 // executions in excess of the concurrency limit. Function call attempts
 // beyond the limit of the queue are failed immediately.
 type Breaker struct {
-	inFlight   atomic.Int64
+	pending    atomic.Int64
 	totalSlots int64
 	sem        *semaphore
 
@@ -83,10 +83,10 @@ func NewBreaker(params BreakerParams) *Breaker {
 func (b *Breaker) tryAcquirePending() bool {
 	// This is an atomic version of:
 	//
-	// if inFlight == totalSlots {
+	// if pending == totalSlots {
 	//   return false
 	// } else {
-	//   inFlight++
+	//   pending++
 	//   return true
 	// }
 	//
@@ -96,11 +96,12 @@ func (b *Breaker) tryAcquirePending() bool {
 	// (it fails if we're raced to it) or if we don't fulfill the condition
 	// anymore.
 	for {
-		cur := b.inFlight.Load()
+		cur := b.pending.Load()
+		// 10000 + containerConcurrency = totalSlots
 		if cur == b.totalSlots {
 			return false
 		}
-		if b.inFlight.CompareAndSwap(cur, cur+1) {
+		if b.pending.CompareAndSwap(cur, cur+1) {
 			return true
 		}
 	}
@@ -108,7 +109,7 @@ func (b *Breaker) tryAcquirePending() bool {
 
 // releasePending releases a slot on the pending "queue".
 func (b *Breaker) releasePending() {
-	b.inFlight.Add(-1)
+	b.pending.Add(-1)
 }
 
 // Reserve reserves an execution slot in the breaker, to permit
@@ -154,9 +155,9 @@ func (b *Breaker) Maybe(ctx context.Context, thunk func()) error {
 	return nil
 }
 
-// InFlight returns the number of requests currently in flight in this breaker.
-func (b *Breaker) InFlight() int {
-	return int(b.inFlight.Load())
+// Pending returns the number of requests currently in flight in this breaker.
+func (b *Breaker) Pending() int {
+	return int(b.pending.Load())
 }
 
 // UpdateConcurrency updates the maximum number of in-flight requests.
@@ -165,8 +166,12 @@ func (b *Breaker) UpdateConcurrency(size int) {
 }
 
 // Capacity returns the number of allowed in-flight requests on this breaker.
-func (b *Breaker) Capacity() int {
+func (b *Breaker) Capacity() uint64 {
 	return b.sem.Capacity()
+}
+
+func (b *Breaker) InFlight() uint64 {
+	return b.sem.InFlight()
 }
 
 // newSemaphore creates a semaphore with the desired initial capacity.
@@ -288,9 +293,15 @@ func (s *semaphore) updateCapacity(size int) {
 }
 
 // Capacity is the capacity of the semaphore.
-func (s *semaphore) Capacity() int {
+func (s *semaphore) Capacity() uint64 {
 	capacity, _ := unpack(s.state.Load())
-	return int(capacity) //nolint:gosec // TODO(dprotaso) - capacity should be uint64
+	return capacity
+}
+
+// Pending is the number of the inflight requests of the semaphore.
+func (s *semaphore) InFlight() uint64 {
+	_, inFlight := unpack(s.state.Load())
+	return inFlight
 }
 
 // unpack takes an uint64 and returns two uint32 (as uint64) comprised of the leftmost
