@@ -1106,7 +1106,7 @@ func TestLoadBalancingAlgorithms(t *testing.T) {
 	// Helper to create pod trackers with specific capacities
 	createTrackers := func(count int, capacity int) []*podTracker {
 		trackers := make([]*podTracker, count)
-		for i := 0; i < count; i++ {
+		for i := range count {
 			dest := fmt.Sprintf("10.0.0.%d:8080", i+1)
 			breaker := queue.NewBreaker(queue.BreakerParams{
 				QueueDepth:      10,
@@ -1148,7 +1148,7 @@ func TestLoadBalancingAlgorithms(t *testing.T) {
 
 		// Track which pods get selected
 		selections := make(map[string]int)
-		for i := 0; i < 30; i++ {
+		for range 30 {
 			_, tracker := rt.lbPolicy(ctx, rt.assignedTrackers)
 			if tracker != nil {
 				selections[tracker.dest]++
@@ -1274,7 +1274,7 @@ func TestLoadBalancingAlgorithms(t *testing.T) {
 
 		// Run multiple selections to verify it tends to pick lower weight
 		selections := make(map[string]int)
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			_, tracker := rt.lbPolicy(ctx, rt.assignedTrackers)
 			if tracker != nil {
 				selections[tracker.dest]++
@@ -1377,7 +1377,7 @@ func TestThrottlerWithLoadBalancingPolicy(t *testing.T) {
 	selections := make(map[string]int)
 
 	// Make requests and track which pods are selected
-	for i := 0; i < 30; i++ {
+	for i := range 30 {
 		err := throttler.Try(ctx, revID, fmt.Sprintf("req-%d", i), func(dest string, isClusterIP bool) error {
 			selections[dest]++
 			return nil

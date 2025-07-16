@@ -487,11 +487,12 @@ func TestCertificateProvision(t *testing.T) {
 			r := &RouteStatus{}
 			r.InitializeConditions()
 
-			if tc.status == corev1.ConditionTrue {
+			switch tc.status {
+			case corev1.ConditionTrue:
 				r.MarkCertificateReady(tc.cert.Name)
-			} else if tc.status == corev1.ConditionFalse {
+			case corev1.ConditionFalse:
 				r.MarkCertificateProvisionFailed(tc.cert)
-			} else {
+			default:
 				r.MarkCertificateNotReady(tc.cert)
 			}
 
