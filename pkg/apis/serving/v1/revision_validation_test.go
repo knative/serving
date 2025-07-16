@@ -155,7 +155,7 @@ func TestRevisionValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrInvalidValue(
-			"random", "spec.loadBalancingPolicy", 
+			"random", "spec.loadBalancingPolicy",
 			"load balancing policy should be one of `random-choice-2`, `round-robin`, `least-connections` or `first-available`"),
 	}, {
 		name: "nil load balancing policy is valid",

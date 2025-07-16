@@ -1008,9 +1008,9 @@ func TestThrottlerUsesRevisionLoadBalancingPolicy(t *testing.T) {
 
 	// Create test revisions with different load balancing policies
 	tests := []struct {
-		name                string
-		revision            *v1.Revision
-		wantPolicyBehavior  string // We'll verify behavior rather than type
+		name               string
+		revision           *v1.Revision
+		wantPolicyBehavior string // We'll verify behavior rather than type
 	}{{
 		name: "revision with random-choice-2 policy",
 		revision: &v1.Revision{
@@ -1098,7 +1098,7 @@ func TestThrottlerUsesRevisionLoadBalancingPolicy(t *testing.T) {
 func TestLoadBalancingAlgorithms(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
-	
+
 	logger := TestLogger(t)
 	servingClient := fakeservingclient.Get(ctx)
 	revisions := fakerevisioninformer.Get(ctx)
@@ -1284,7 +1284,7 @@ func TestLoadBalancingAlgorithms(t *testing.T) {
 		// With random-choice-2, the lower weight tracker should be selected more often
 		// This is probabilistic, so we check for a reasonable distribution
 		if selections[trackers[1].dest] < selections[trackers[0].dest] {
-			t.Errorf("Random-choice-2 not favoring lower weight: tracker0=%d, tracker1=%d", 
+			t.Errorf("Random-choice-2 not favoring lower weight: tracker0=%d, tracker1=%d",
 				selections[trackers[0].dest], selections[trackers[1].dest])
 		}
 	})
@@ -1364,7 +1364,7 @@ func TestThrottlerWithLoadBalancingPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal("RevisionThrottler can't be found:", err)
 	}
-	
+
 	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 3*time.Second, true, func(context.Context) (bool, error) {
 		rt.mux.RLock()
 		defer rt.mux.RUnlock()
@@ -1375,7 +1375,7 @@ func TestThrottlerWithLoadBalancingPolicy(t *testing.T) {
 
 	// Track selections over multiple requests
 	selections := make(map[string]int)
-	
+
 	// Make requests and track which pods are selected
 	for i := 0; i < 30; i++ {
 		err := throttler.Try(ctx, revID, fmt.Sprintf("req-%d", i), func(dest string, isClusterIP bool) error {
@@ -1391,7 +1391,7 @@ func TestThrottlerWithLoadBalancingPolicy(t *testing.T) {
 	expectedPerPod := 10
 	for dest, count := range selections {
 		if count < expectedPerPod-2 || count > expectedPerPod+2 {
-			t.Errorf("Round-robin distribution not working: %s got %d requests (expected ~%d)", 
+			t.Errorf("Round-robin distribution not working: %s got %d requests (expected ~%d)",
 				dest, count, expectedPerPod)
 		}
 	}
