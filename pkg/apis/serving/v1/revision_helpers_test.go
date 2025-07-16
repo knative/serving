@@ -298,7 +298,7 @@ func TestSetRoutingState(t *testing.T) {
 	}
 
 	modified := rev.GetRoutingStateModified()
-	if time.Time.Equal(modified, now) {
+	if modified.IsZero() {
 		t.Error("Expected a non-zero timestamp")
 	}
 
