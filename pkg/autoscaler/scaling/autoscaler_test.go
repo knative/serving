@@ -796,6 +796,66 @@ func (mc *metricClient) StableAndPanicRPS(key types.NamespacedName, now time.Tim
 	return mc.StableRPS, mc.PanicRPS, err
 }
 
+func TestAutoscalerScaleBufferWithReachability(t *testing.T) {
+	pc := &fakePodCounter{}
+	metrics := &metricClient{}
+	spec := &DeciderSpec{
+		TargetValue:      10,
+		MaxScaleDownRate: 10,
+		MaxScaleUpRate:   10,
+		PanicThreshold:   100,
+		ScaleBuffer:      5,
+		Reachable:        true,
+		StableWindow:     stableWindow,
+	}
+	as := New(context.Background(), testNamespace, testRevision, metrics, pc, spec)
+
+	now := time.Now()
+
+	t.Run("reachable revision with ScaleBuffer", func(t *testing.T) {
+		// With 10 requests and target of 10, we'd need 1 pod
+		// But with ScaleBuffer of 5, we should get 6 pods
+		metrics.SetStableAndPanicConcurrency(10, 10)
+		expectScale(t, as, now, ScaleResult{
+			ScaleValid:      true,
+			DesiredPodCount: 6, // 1 + 5 (ScaleBuffer)
+		})
+	})
+
+	t.Run("unreachable revision ignores ScaleBuffer", func(t *testing.T) {
+		// Mark as unreachable (no traffic)
+		unreachableSpec := &DeciderSpec{
+			TargetValue:      10,
+			MaxScaleDownRate: 10,
+			MaxScaleUpRate:   10,
+			PanicThreshold:   100,
+			ScaleBuffer:      5,
+			Reachable:        false,
+			StableWindow:     stableWindow,
+		}
+		as.Update(unreachableSpec)
+
+		// With 0 requests and unreachable, should scale to 0 (ignoring ScaleBuffer)
+		metrics.SetStableAndPanicConcurrency(0, 0)
+		expectScale(t, as, now.Add(time.Second), ScaleResult{
+			ScaleValid:      true,
+			DesiredPodCount: 0, // Should be 0, not 5
+		})
+	})
+
+	t.Run("reachable revision with zero traffic still applies ScaleBuffer", func(t *testing.T) {
+		// Mark as reachable again
+		as.Update(spec)
+
+		// Even with 0 requests, if reachable, ScaleBuffer should still apply
+		metrics.SetStableAndPanicConcurrency(0, 0)
+		expectScale(t, as, now.Add(2*time.Second), ScaleResult{
+			ScaleValid:      true,
+			DesiredPodCount: 5, // 0 + 5 (ScaleBuffer)
+		})
+	})
+}
+
 func BenchmarkAutoscaler(b *testing.B) {
 	metrics := &metricClient{StableConcurrency: 50.0, PanicConcurrency: 10}
 	a := newTestAutoscalerNoPC(10, 101, metrics)

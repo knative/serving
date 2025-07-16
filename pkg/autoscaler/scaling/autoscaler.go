@@ -188,8 +188,11 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 	desiredPanicPodCount := math.Ceil(observedPanicValue / spec.TargetValue)
 
 	// Apply ScaleBuffer before clamping to max scale limits
-	desiredStablePodCount += float64(spec.ScaleBuffer)
-	desiredPanicPodCount += float64(spec.ScaleBuffer)
+	// Only apply ScaleBuffer when the revision is reachable (has active traffic)
+	if spec.Reachable {
+		desiredStablePodCount += float64(spec.ScaleBuffer)
+		desiredPanicPodCount += float64(spec.ScaleBuffer)
+	}
 
 	if debugEnabled {
 		desugared.Debug(
