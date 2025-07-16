@@ -64,22 +64,28 @@ const (
 	// requires an explicit buffer size (it's backed by a chan struct{}), but
 	// queue.MaxBreakerCapacity is math.MaxInt32.
 	revisionMaxConcurrency = queue.MaxBreakerCapacity
+
+	// Maximum time a pod can stay in draining state before being forcefully removed
+	// This allows long-running requests to complete gracefully
+	maxDrainingDuration = 1 * time.Hour
 )
 
 func newPodTracker(dest string, b breaker) *podTracker {
-	tracker := podTracker{
+	tracker := &podTracker{
 		id:        string(uuid.NewUUID()),
 		createdAt: time.Now().UnixMicro(),
 		dest:      dest,
 		b:         b,
 	}
-	tracker.state.Store(uint32(podHealthy)) // Initialize as healthy
+	tracker.state.Store(uint32(podHealthy))
+	tracker.refCount.Store(0)
+	tracker.drainingStartTime.Store(0)
+	tracker.weight.Store(0)
 	tracker.decreaseWeight = func() { tracker.weight.Add(-1) }
 
-	return &tracker
+	return tracker
 }
 
-// podState represents the health state of a pod
 type podState uint32
 
 const (
@@ -98,6 +104,8 @@ type podTracker struct {
 	state atomic.Uint32 // Uses podState constants
 	// Reference count for in-flight requests to support graceful draining
 	refCount atomic.Uint64
+	// Unix timestamp when the pod entered draining state
+	drainingStartTime atomic.Int64
 
 	// TODO: Should we clarify what makes a pod unhealthy (failed health checks, etc.)?
 
@@ -105,6 +113,35 @@ type podTracker struct {
 	weight atomic.Int32
 	// decreaseWeight is an allocation optimization for the randomChoice2 policy.
 	decreaseWeight func()
+}
+
+// Reference counting helper methods
+func (p *podTracker) addRef() {
+	p.refCount.Add(1)
+}
+
+func (p *podTracker) releaseRef() uint64 {
+	current := p.refCount.Load()
+	if current == 0 {
+		// This should never happen in correct code
+		if logger := logging.FromContext(context.Background()); logger != nil {
+			logger.Errorf("BUG: Attempted to release ref on pod %s with zero refcount", p.dest)
+		}
+		return 0
+	}
+	return p.refCount.Add(^uint64(0))
+}
+
+func (p *podTracker) getRefCount() uint64 {
+	return p.refCount.Load()
+}
+
+func (p *podTracker) tryDrain() bool {
+	if p.state.CompareAndSwap(uint32(podHealthy), uint32(podDraining)) {
+		p.drainingStartTime.Store(time.Now().Unix())
+		return true
+	}
+	return false
 }
 
 func (p *podTracker) increaseWeight() {
@@ -152,45 +189,42 @@ func (p *podTracker) UpdateConcurrency(c int) {
 
 // Reserve attempts to reserve capacity on this pod.
 // Returns false if the pod is unhealthy, preventing new requests from being routed to it.
-// Uses reference counting to support graceful draining of unhealthy pods.
-// TODO: Should we document why RandomChoice policies need to include unhealthy trackers?
 func (p *podTracker) Reserve(ctx context.Context) (func(), bool) {
-	// Check state before incrementing reference count
-	if p.state.Load() != uint32(podHealthy) {
-		return nil, false
-	}
+	defer func() {
+		if r := recover(); r != nil {
+			if logger := logging.FromContext(ctx); logger != nil {
+				logger.Errorf("Panic in podTracker.Reserve for pod %s: %v", p.dest, r)
+			}
+			p.releaseRef()
+			panic(r)
+		}
+	}()
 
-	// Increment reference count before reservation
-	p.refCount.Add(1)
+	// Increment ref count before checking state to prevent race with pod removal
+	p.addRef()
 
-	// Double-check state after increment to handle race conditions
 	if p.state.Load() != uint32(podHealthy) {
-		p.refCount.Add(^uint64(0)) // Decrement by adding max uint64 (wraps to -1)
+		p.releaseRef()
 		return nil, false
 	}
 
 	if p.b == nil {
 		return func() {
-			p.refCount.Add(^uint64(0)) // Decrement
+			p.releaseRef()
 		}, true
 	}
 
 	release, ok := p.b.Reserve(ctx)
 	if !ok {
-		p.refCount.Add(^uint64(0)) // Decrement if reservation failed
+		p.releaseRef()
 		return nil, false
 	}
 
-	// Wrap the original release function with reference count decrement
-	wrappedRelease := func() {
+	// Return wrapped release function
+	return func() {
 		release()
-		// Decrement reference count when request completes
-		// If this was the last request on a draining pod (refCount becomes 0),
-		// the cleanup will be handled by updateThrottlerState
-		p.refCount.Add(^uint64(0))
-	}
-
-	return wrappedRelease, true
+		p.releaseRef()
+	}, true
 }
 
 type breaker interface {
@@ -202,13 +236,6 @@ type breaker interface {
 	InFlight() uint64
 }
 
-// revisionThrottler is used to throttle requests across the entire revision.
-// We use a breaker across the entire revision as well as individual
-// podTrackers because we need to queue requests in case no individual
-// podTracker has available slots (when CC!=0).
-// revisionThrottler maintains pod trackers for load balancing.
-// Unhealthy pods with active requests remain tracked to prevent request drops.
-// TODO: Should we add a more detailed explanation of the overall strategy at the package level?
 type revisionThrottler struct {
 	revID                types.NamespacedName
 	containerConcurrency int
@@ -249,6 +276,17 @@ type revisionThrottler struct {
 	logger *zap.SugaredLogger
 }
 
+// validateLoadBalancingPolicy checks if the given policy is valid
+func validateLoadBalancingPolicy(policy string) bool {
+	validPolicies := map[string]bool{
+		"random-choice-2":   true,
+		"round-robin":       true,
+		"least-connections": true,
+		"first-available":   true,
+	}
+	return validPolicies[policy]
+}
+
 func newRevisionThrottler(revID types.NamespacedName,
 	loadBalancerPolicy *string,
 	containerConcurrency int, proto string,
@@ -263,8 +301,15 @@ func newRevisionThrottler(revID types.NamespacedName,
 	)
 
 	// Determine load balancing policy
+	if loadBalancerPolicy != nil && *loadBalancerPolicy != "" {
+		// Validate the policy first
+		if !validateLoadBalancingPolicy(*loadBalancerPolicy) {
+			logger.Errorf("Invalid load balancing policy %q, using defaults", *loadBalancerPolicy)
+			loadBalancerPolicy = nil // Fall back to default selection
+		}
+	}
+
 	if loadBalancerPolicy != nil {
-		// Use explicitly configured policy
 		switch *loadBalancerPolicy {
 		case "random-choice-2":
 			lbp = randomChoice2Policy
@@ -291,20 +336,16 @@ func newRevisionThrottler(revID types.NamespacedName,
 			lbp = randomChoice2Policy
 			lbpName = "random-choice-2 (default for CC=0)"
 		case containerConcurrency <= 3:
-			// For very low CC values use first available pod.
 			lbp = firstAvailableLBPolicy
 			lbpName = "first-available (default for CC<=3)"
 		default:
-			// Otherwise Round Robin
 			lbp = newRoundRobinPolicy()
 			lbpName = "round-robin (default for CC>3)"
 		}
 	}
 
-	// Log the load balancing policy being used
 	logger.Infof("Creating revision throttler with load balancing policy: %s, container concurrency: %d", lbpName, containerConcurrency)
 
-	// Determine breaker type based on container concurrency
 	if containerConcurrency == 0 {
 		revBreaker = newInfiniteBreaker(logger)
 	} else {
@@ -327,8 +368,6 @@ func newRevisionThrottler(revID types.NamespacedName,
 
 func noop() {}
 
-// Returns a dest that at the moment of choosing had an open slot
-// for request.
 func (rt *revisionThrottler) acquireDest(ctx context.Context) (func(), *podTracker, bool) {
 	rt.mux.RLock()
 	defer rt.mux.RUnlock()
@@ -341,6 +380,13 @@ func (rt *revisionThrottler) acquireDest(ctx context.Context) (func(), *podTrack
 }
 
 func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, function func(dest string, isClusterIP bool) error) error {
+	defer func() {
+		if r := recover(); r != nil {
+			rt.logger.Errorf("Panic in revisionThrottler.try for request %s: %v", xRequestId, r)
+			panic(r)
+		}
+	}()
+
 	var ret error
 
 	// Retrying infinitely as long as we receive no dest. Outer semaphore and inner
@@ -468,9 +514,16 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 	rt.breaker.UpdateConcurrency(capacity)
 }
 
-func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers []*podTracker, healthyDests []string, unhealthyDests []string, clusterIPDest *podTracker) {
-	rt.logger.Infof("Updating Revision Throttler with: clusterIP = %v, trackers = %d, backends = %d, healthyDests = %s, unhealthyDests = %s",
-		clusterIPDest, len(newTrackers), backendCount, healthyDests, unhealthyDests)
+func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers []*podTracker, healthyDests []string, drainingDests []string, clusterIPDest *podTracker) {
+	defer func() {
+		if r := recover(); r != nil {
+			rt.logger.Errorf("Panic in revisionThrottler.updateThrottlerState: %v", r)
+			panic(r)
+		}
+	}()
+
+	rt.logger.Infof("Updating Revision Throttler with: clusterIP = %v, trackers = %d, backends = %d, healthyDests = %s, drainingDests = %s",
+		clusterIPDest, len(newTrackers), backendCount, healthyDests, drainingDests)
 
 	// Update trackers / clusterIP before capacity. Otherwise we can race updating our breaker when
 	// we increase capacity, causing a request to fall through before a tracker is added, causing an
@@ -486,34 +539,46 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 		for _, d := range healthyDests {
 			tracker := rt.podTrackers[d]
 			if tracker != nil && tracker.state.Load() != uint32(podHealthy) {
-				// Transition back to healthy if it was draining
 				tracker.state.Store(uint32(podHealthy))
+				tracker.drainingStartTime.Store(0)
 			}
 		}
-		// Handle unhealthy destinations:
-		// - Transition healthy pods to draining state
-		// - Keep draining pods with active requests to allow graceful completion
-		// - Remove draining pods with no active requests immediately
-		// TODO: Should we document the specific scenario this prevents (e.g., dropped requests during pod restarts)?
-		for _, d := range unhealthyDests {
+		// Handle pod draining to prevent dropped requests during pod removal
+		now := time.Now().Unix()
+		for _, d := range drainingDests {
 			tracker := rt.podTrackers[d]
 			if tracker == nil {
 				continue
 			}
 
-			// Try to transition from healthy to draining
-			if tracker.state.CompareAndSwap(uint32(podHealthy), uint32(podDraining)) {
-				// Successfully transitioned to draining
-				// Check if we can remove immediately (no active requests)
-				if tracker.refCount.Load() == 0 {
+			currentState := tracker.state.Load()
+			switch currentState {
+			case uint32(podHealthy):
+				if tracker.tryDrain() {
+					rt.logger.Infof("Pod %s transitioning to draining state, refCount=%d", d, tracker.getRefCount())
+					if tracker.getRefCount() == 0 {
+						tracker.state.Store(uint32(podRemoved))
+						delete(rt.podTrackers, d)
+						rt.logger.Infof("Pod %s removed immediately (no active requests)", d)
+					}
+				}
+			case uint32(podDraining):
+				refCount := tracker.getRefCount()
+				if refCount == 0 {
 					tracker.state.Store(uint32(podRemoved))
 					delete(rt.podTrackers, d)
+					rt.logger.Infof("Pod %s removed after draining (no active requests)", d)
+				} else {
+					drainingStart := tracker.drainingStartTime.Load()
+					if drainingStart > 0 && now-drainingStart > int64(maxDrainingDuration.Seconds()) {
+						rt.logger.Warnf("Force removing pod %s stuck in draining state for %d seconds, refCount=%d",
+							d, now-drainingStart, refCount)
+						tracker.state.Store(uint32(podRemoved))
+						delete(rt.podTrackers, d)
+					}
 				}
-				// Otherwise, pod stays in draining state until refCount reaches 0
-			} else if tracker.state.Load() == uint32(podDraining) && tracker.refCount.Load() == 0 {
-				// Pod was already draining and now has no active requests
-				tracker.state.Store(uint32(podRemoved))
-				delete(rt.podTrackers, d)
+			default:
+				rt.logger.Errorf("Pod %s in unexpected state %d while processing draining destinations", d, currentState)
 			}
 		}
 		rt.clusterIPTracker = clusterIPDest
@@ -632,24 +697,23 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 				}
 				newTrackers = append(newTrackers, tracker)
 			} else if tracker.state.Load() != uint32(podHealthy) {
-				// Existing tracker - ensure it's marked as healthy
 				tracker.state.Store(uint32(podHealthy))
+				tracker.drainingStartTime.Store(0)
 			}
 		}
 		healthyDests := make([]string, 0, len(currentDests))
-		unhealthyDests := make([]string, 0, len(currentDests))
+		drainingDests := make([]string, 0, len(currentDests))
 		for _, d := range currentDests {
 			_, ok := newDestsSet[d]
-			// If stale, check if the tracker still has outbound requests
-			// Remove if no outbound requests and mark unhealthy otherwise
+			// If dest is no longer in the active set, it needs draining
 			if !ok {
-				unhealthyDests = append(unhealthyDests, d)
+				drainingDests = append(drainingDests, d)
 			} else {
 				healthyDests = append(healthyDests, d)
 			}
 		}
 
-		rt.updateThrottlerState(len(update.Dests), newTrackers, healthyDests, unhealthyDests, nil /*clusterIP*/)
+		rt.updateThrottlerState(len(update.Dests), newTrackers, healthyDests, drainingDests, nil /*clusterIP*/)
 		return
 	}
 	clusterIPPodTracker := newPodTracker(update.ClusterIPDest, nil)
