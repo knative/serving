@@ -111,7 +111,7 @@ func ValidateLoadBalancingPolicy(ctx context.Context, loadBalancingPolicy *strin
 		lbp := *loadBalancingPolicy
 		if lbp != "round-robin" && lbp != "random-choice-2" && lbp != "least-connections" && lbp != "first-available" {
 			return apis.ErrInvalidValue(
-				lbp, "loadBalancingPolicy", "load balancing policy should be one of `random-choice-2`, `round-robin`, `least-connections` or `first-available`")
+				lbp, apis.CurrentField, "load balancing policy should be one of `random-choice-2`, `round-robin`, `least-connections` or `first-available`")
 		}
 	}
 	return nil
