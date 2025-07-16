@@ -146,7 +146,7 @@ jobs:
     env:
       KIND: 1
       INGRESS_CLASS: ${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
-      GATEWAY_API_IMPLEMENTATION: ${{ matrix.gateway-api-implementation }}
+      GATEWAY_API_IMPLEMENTATION: ${{ matrix.gateway-api-implementation || '' }}
       ENABLE_TLS: ${{ matrix.enable-tls || 0 }}
       # Disabled due to flakiness: https://github.com/knative/serving/issues/14637
       # AMBIENT: ${{ matrix.ambient || 0 }}
@@ -218,12 +218,12 @@ jobs:
           -disable-logstream \
           -enable-alpha -enable-beta \
           --ingress-class=${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev \
-          ${{ matrix.test-flags }}
+          ${{ matrix.test-flags || '' }}
 
     - uses: chainguard-dev/actions/kind-diag@141bf225e9c19c34304ee9d06e9be9c44a6d8765 # main
       # Only upload logs on failure.
       if: ${{ failure() }}
       with:
         cluster-resources: nodes,namespaces,crds
-        namespace-resources: configmaps,pods,svc,ksvc,route,configuration,revision,king,${{ matrix.namespace-resources || '' }}
+        namespace-resources: configmaps,pods,svc,ksvc,route,configuration,revision,king${{ matrix.namespace-resources && format(',{0}', matrix.namespace-resources) || '' }}
         artifact-name: logs-${{ matrix.k8s-version}}-${{ matrix.ingress }}-${{ matrix.test-suite }}
