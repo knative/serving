@@ -370,12 +370,13 @@ func TestAutoscalerStableModeNoTrafficScaleToZero(t *testing.T) {
 
 func TestAutoscalerActivationScale(t *testing.T) {
 	metrics := &metricClient{StableConcurrency: 0, PanicConcurrency: 0}
-	a := newTestAutoscalerNoPC(10, 75, metrics)
+	a, pc := newTestAutoscaler(10, 75, metrics)
+	pc.readyCount = 0 // Simulate scale-to-zero
 	a.deciderSpec.ActivationScale = int32(2)
-	expectScale(t, a, time.Now(), ScaleResult{0, expectedEBC(10, 75, 0, 1), true})
+	expectScale(t, a, time.Now(), ScaleResult{0, expectedEBC(10, 75, 0, 0), true})
 
 	metrics.StableConcurrency = 1.0
-	expectScale(t, a, time.Now(), ScaleResult{2, expectedEBC(10, 75, 0, 1), true})
+	expectScale(t, a, time.Now(), ScaleResult{2, expectedEBC(10, 75, 0, 0), true})
 }
 
 // QPS is increasing exponentially. Each scaling event bring concurrency
