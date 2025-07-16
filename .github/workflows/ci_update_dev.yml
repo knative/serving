@@ -33,21 +33,25 @@ jobs:
       - name: Install ko
         uses: ko-build/setup-ko@v0.6
 
-      - name: Login to remote EKS Repo Dev
-        uses: docker/login-action@v3
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          registry: registry.dev-aws.us-east-1.cerebrium.ai
-          username: cerebrium
-          password: ${{ secrets.EKS_CR_PASSWORD_DEV }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
       - uses: depot/setup-action@v1
 
       - name: Build and Push ${{ matrix.component.name }}
         env:
-          KO_DOCKER_REPO: registry.dev-aws.us-east-1.cerebrium.ai
+          KO_DOCKER_REPO: ${{ steps.login-ecr.outputs.registry }}/knative-${{ matrix.component.name }}-dev-virginia
           DEPOT_TOKEN: ${{ secrets.DEPOT_TOKEN }}
         run: |
-          ko build --tags=dev ${{ matrix.component.path }}
+          ko build --bare --platform=linux/amd64,linux/arm64 --tags=dev ${{ matrix.component.path }}
 
   notify:
     needs: build

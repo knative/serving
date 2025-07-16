@@ -9,18 +9,39 @@ jobs:
   release:
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.semrel.outputs.version }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: "Checkout Code"
         uses: actions/checkout@v4
-
-      - uses: go-semantic-release/action@v1
-        id: semrel
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          changelog-generator-opt: "emojis=true"
-          changelog-file: "CHANGELOG.md"
-          force-bump-patch-version: "true"
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        run: |
+          # Base version for Knative 1.18.0
+          BASE_VERSION="1.18.0c"
+          
+          # Get all tags that match our pattern and find the highest number
+          LAST_VERSION=$(git tag -l "${BASE_VERSION}*" | grep -E "^${BASE_VERSION}[0-9]+$" | sed "s/^${BASE_VERSION}//" | sort -n | tail -1)
+          
+          # If no previous version found, start at 1
+          if [ -z "$LAST_VERSION" ]; then
+            NEXT_VERSION="${BASE_VERSION}1"
+          else
+            NEXT_NUMBER=$((LAST_VERSION + 1))
+            NEXT_VERSION="${BASE_VERSION}${NEXT_NUMBER}"
+          fi
+          
+          echo "version=${NEXT_VERSION}" >> $GITHUB_OUTPUT
+          echo "Next version: ${NEXT_VERSION}"
+          
+      - name: Create tag
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git tag -a ${{ steps.version.outputs.version }} -m "Release ${{ steps.version.outputs.version }}"
+          git push origin ${{ steps.version.outputs.version }}
 
   build:
     needs: release
@@ -28,12 +49,12 @@ jobs:
     strategy:
       matrix:
         include:
-          - registry: registry.aws.us-east-1.cerebrium.ai
+          - region: us-east-1
+            region_identifier: virginia
             context: aws-virginia
-            password_secret: REGISTRY_PASSWORD_US_EAST_1
-          - registry: registry.aws.eu-west-2.cerebrium.ai
+          - region: eu-west-2
+            region_identifier: london
             context: aws-london
-            password_secret: REGISTRY_PASSWORD_EU_WEST_2
         component:
           - name: activator
             path: ./cmd/activator
@@ -55,21 +76,27 @@ jobs:
       - name: Install ko
         uses: ko-build/setup-ko@v0.6
 
-      - name: Login to remote EKS Repo
-        uses: docker/login-action@v3
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          registry: ${{ matrix.registry }}
-          username: cerebrium
-          password: ${{ secrets[matrix.password_secret] }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ matrix.region }}
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
       - uses: depot/setup-action@v1
 
       - name: Build and Push ${{ matrix.component.name }}
         env:
-          KO_DOCKER_REPO: ${{ matrix.registry }}
+          KO_DOCKER_REPO: ${{ steps.login-ecr.outputs.registry }}/knative-${{ matrix.component.name }}-${{ matrix.region_identifier }}
           DEPOT_TOKEN: ${{ secrets.DEPOT_TOKEN }}
         run: |
           ko build \
+            --bare \
+            --platform=linux/amd64,linux/arm64 \
             --tags=${{ needs.release.outputs.version }},latest \
             ${{ matrix.component.path }}
 
