@@ -19,6 +19,7 @@ package net
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"strconv"
 	"sync"
@@ -1091,6 +1092,308 @@ func TestThrottlerUsesRevisionLoadBalancingPolicy(t *testing.T) {
 			// but we've verified that the policy is being read from the revision spec
 			// and passed to newRevisionThrottler in the implementation.
 		})
+	}
+}
+
+func TestLoadBalancingAlgorithms(t *testing.T) {
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	defer cancel()
+	
+	logger := TestLogger(t)
+	servingClient := fakeservingclient.Get(ctx)
+	revisions := fakerevisioninformer.Get(ctx)
+
+	// Helper to create pod trackers with specific capacities
+	createTrackers := func(count int, capacity int) []*podTracker {
+		trackers := make([]*podTracker, count)
+		for i := 0; i < count; i++ {
+			dest := fmt.Sprintf("10.0.0.%d:8080", i+1)
+			breaker := queue.NewBreaker(queue.BreakerParams{
+				QueueDepth:      10,
+				MaxConcurrency:  capacity,
+				InitialCapacity: capacity,
+			})
+			trackers[i] = newPodTracker(dest, breaker)
+		}
+		return trackers
+	}
+
+	t.Run("round-robin distributes evenly", func(t *testing.T) {
+		// Create revision with round-robin policy
+		rev := &v1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-rr",
+				Namespace: "test-namespace",
+			},
+			Spec: v1.RevisionSpec{
+				LoadBalancingPolicy:  stringPtr("round-robin"),
+				ContainerConcurrency: ptr.Int64(10),
+			},
+		}
+		servingClient.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
+		revisions.Informer().GetIndexer().Add(rev)
+
+		rt := newRevisionThrottler(
+			types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name},
+			rev.Spec.LoadBalancingPolicy,
+			10, // containerConcurrency
+			pkgnet.ServicePortNameHTTP1,
+			testBreakerParams,
+			logger,
+		)
+
+		// Set up 3 trackers
+		trackers := createTrackers(3, 10)
+		rt.assignedTrackers = trackers
+
+		// Track which pods get selected
+		selections := make(map[string]int)
+		for i := 0; i < 30; i++ {
+			_, tracker := rt.lbPolicy(ctx, rt.assignedTrackers)
+			if tracker != nil {
+				selections[tracker.dest]++
+			}
+		}
+
+		// Verify even distribution (each should get ~10 requests)
+		for dest, count := range selections {
+			if count < 8 || count > 12 {
+				t.Errorf("Round-robin not distributing evenly: %s got %d requests (expected ~10)", dest, count)
+			}
+		}
+	})
+
+	t.Run("first-available selects first with capacity", func(t *testing.T) {
+		// Create revision with first-available policy
+		rev := &v1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-fa",
+				Namespace: "test-namespace",
+			},
+			Spec: v1.RevisionSpec{
+				LoadBalancingPolicy:  stringPtr("first-available"),
+				ContainerConcurrency: ptr.Int64(1),
+			},
+		}
+		servingClient.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
+		revisions.Informer().GetIndexer().Add(rev)
+
+		rt := newRevisionThrottler(
+			types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name},
+			rev.Spec.LoadBalancingPolicy,
+			1, // containerConcurrency
+			pkgnet.ServicePortNameHTTP1,
+			testBreakerParams,
+			logger,
+		)
+
+		// Set up 3 trackers with different capacities
+		trackers := createTrackers(3, 1)
+		// Exhaust first tracker's capacity
+		trackers[0].Reserve(ctx)
+		rt.assignedTrackers = trackers
+
+		// Should select second tracker since first is full
+		_, tracker := rt.lbPolicy(ctx, rt.assignedTrackers)
+		if tracker == nil || tracker.dest != trackers[1].dest {
+			t.Errorf("Expected to select second tracker, got %v", tracker)
+		}
+	})
+
+	t.Run("least-connections selects least loaded", func(t *testing.T) {
+		// Create revision with least-connections policy
+		rev := &v1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-lc",
+				Namespace: "test-namespace",
+			},
+			Spec: v1.RevisionSpec{
+				LoadBalancingPolicy:  stringPtr("least-connections"),
+				ContainerConcurrency: ptr.Int64(10),
+			},
+		}
+		servingClient.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
+		revisions.Informer().GetIndexer().Add(rev)
+
+		rt := newRevisionThrottler(
+			types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name},
+			rev.Spec.LoadBalancingPolicy,
+			10, // containerConcurrency
+			pkgnet.ServicePortNameHTTP1,
+			testBreakerParams,
+			logger,
+		)
+
+		// Set up 3 trackers
+		trackers := createTrackers(3, 10)
+		// Add different loads to each tracker
+		trackers[0].Reserve(ctx) // 1 connection
+		trackers[0].Reserve(ctx) // 2 connections
+		trackers[1].Reserve(ctx) // 1 connection
+		// trackers[2] has 0 connections
+		rt.assignedTrackers = trackers
+
+		// Should select tracker with least connections (trackers[2])
+		_, tracker := rt.lbPolicy(ctx, rt.assignedTrackers)
+		if tracker == nil || tracker.dest != trackers[2].dest {
+			t.Errorf("Expected to select tracker with 0 connections, got %v", tracker)
+		}
+	})
+
+	t.Run("random-choice-2 selects lower weight", func(t *testing.T) {
+		// Create revision with random-choice-2 policy
+		rev := &v1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-rc2",
+				Namespace: "test-namespace",
+			},
+			Spec: v1.RevisionSpec{
+				LoadBalancingPolicy:  stringPtr("random-choice-2"),
+				ContainerConcurrency: ptr.Int64(0),
+			},
+		}
+		servingClient.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
+		revisions.Informer().GetIndexer().Add(rev)
+
+		rt := newRevisionThrottler(
+			types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name},
+			rev.Spec.LoadBalancingPolicy,
+			0, // containerConcurrency (infinite)
+			pkgnet.ServicePortNameHTTP1,
+			testBreakerParams,
+			logger,
+		)
+
+		// Set up 2 trackers
+		trackers := createTrackers(2, 100)
+		// Give first tracker higher weight
+		trackers[0].increaseWeight()
+		trackers[0].increaseWeight()
+		trackers[0].increaseWeight()
+		rt.assignedTrackers = trackers
+
+		// Run multiple selections to verify it tends to pick lower weight
+		selections := make(map[string]int)
+		for i := 0; i < 100; i++ {
+			_, tracker := rt.lbPolicy(ctx, rt.assignedTrackers)
+			if tracker != nil {
+				selections[tracker.dest]++
+			}
+		}
+
+		// With random-choice-2, the lower weight tracker should be selected more often
+		// This is probabilistic, so we check for a reasonable distribution
+		if selections[trackers[1].dest] < selections[trackers[0].dest] {
+			t.Errorf("Random-choice-2 not favoring lower weight: tracker0=%d, tracker1=%d", 
+				selections[trackers[0].dest], selections[trackers[1].dest])
+		}
+	})
+}
+
+func TestThrottlerWithLoadBalancingPolicy(t *testing.T) {
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	servingClient := fakeservingclient.Get(ctx)
+	revisions := fakerevisioninformer.Get(ctx)
+	fake := fakekubeclient.Get(ctx)
+	endpoints := fakeendpointsinformer.Get(ctx)
+
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, endpoints.Informer(), revisions.Informer())
+	if err != nil {
+		t.Fatal("Failed to start informers:", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
+
+	// Create a revision with round-robin policy
+	rev := &v1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-revision-lb",
+			Namespace: testNamespace,
+		},
+		Spec: v1.RevisionSpec{
+			LoadBalancingPolicy:  stringPtr("round-robin"),
+			ContainerConcurrency: ptr.Int64(10),
+			PodSpec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Image: "busybox",
+				}},
+			},
+		},
+	}
+	servingClient.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
+	revisions.Informer().GetIndexer().Add(rev)
+
+	updateCh := make(chan revisionDestsUpdate)
+	throttler := NewThrottler(ctx, "10.10.10.10")
+
+	var grp errgroup.Group
+	grp.Go(func() error { throttler.run(updateCh); return nil })
+	defer func() {
+		close(updateCh)
+		grp.Wait()
+	}()
+
+	// Create public endpoints
+	publicEp := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-revision-lb",
+			Namespace: testNamespace,
+			Labels: map[string]string{
+				networking.ServiceTypeKey: string(networking.ServiceTypePublic),
+				serving.RevisionLabelKey:  "test-revision-lb",
+			},
+		},
+		Subsets: []corev1.EndpointSubset{
+			*epSubset(8012, "http", []string{"10.10.10.10"}, nil),
+		},
+	}
+	fake.CoreV1().Endpoints(testNamespace).Create(ctx, publicEp, metav1.CreateOptions{})
+	endpoints.Informer().GetIndexer().Add(publicEp)
+
+	// Send update to throttler
+	revID := types.NamespacedName{Namespace: testNamespace, Name: "test-revision-lb"}
+	updateCh <- revisionDestsUpdate{
+		Rev:   revID,
+		Dests: sets.New("10.0.0.1:8080", "10.0.0.2:8080", "10.0.0.3:8080"),
+	}
+
+	// Wait for throttler to process the update
+	rt, err := throttler.getOrCreateRevisionThrottler(revID)
+	if err != nil {
+		t.Fatal("RevisionThrottler can't be found:", err)
+	}
+	
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 3*time.Second, true, func(context.Context) (bool, error) {
+		rt.mux.RLock()
+		defer rt.mux.RUnlock()
+		return len(rt.assignedTrackers) == 3, nil
+	}); err != nil {
+		t.Fatal("Timed out waiting for trackers:", err)
+	}
+
+	// Track selections over multiple requests
+	selections := make(map[string]int)
+	
+	// Make requests and track which pods are selected
+	for i := 0; i < 30; i++ {
+		err := throttler.Try(ctx, revID, fmt.Sprintf("req-%d", i), func(dest string, isClusterIP bool) error {
+			selections[dest]++
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("Request %d failed: %v", i, err)
+		}
+	}
+
+	// Verify we got even distribution (characteristic of round-robin)
+	expectedPerPod := 10
+	for dest, count := range selections {
+		if count < expectedPerPod-2 || count > expectedPerPod+2 {
+			t.Errorf("Round-robin distribution not working: %s got %d requests (expected ~%d)", 
+				dest, count, expectedPerPod)
+		}
 	}
 }
 
