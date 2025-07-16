@@ -259,6 +259,7 @@ func newRevisionThrottler(revID types.NamespacedName,
 	var (
 		revBreaker breaker
 		lbp        lbPolicy
+		lbpName    string
 	)
 
 	// Determine load balancing policy
@@ -267,30 +268,41 @@ func newRevisionThrottler(revID types.NamespacedName,
 		switch *loadBalancerPolicy {
 		case "random-choice-2":
 			lbp = randomChoice2Policy
+			lbpName = "random-choice-2"
 		case "round-robin":
 			lbp = newRoundRobinPolicy()
+			lbpName = "round-robin"
 		case "least-connections":
 			lbp = leastConnectionsPolicy
+			lbpName = "least-connections"
 		case "first-available":
 			lbp = firstAvailableLBPolicy
+			lbpName = "first-available"
 		default:
 			// This shouldn't happen due to validation, but fall back to random-choice-2
 			logger.Warnf("Unknown load balancing policy %q, falling back to random-choice-2", *loadBalancerPolicy)
 			lbp = randomChoice2Policy
+			lbpName = "random-choice-2"
 		}
 	} else {
 		// Fall back to containerConcurrency-based defaults
 		switch {
 		case containerConcurrency == 0:
 			lbp = randomChoice2Policy
+			lbpName = "random-choice-2 (default for CC=0)"
 		case containerConcurrency <= 3:
 			// For very low CC values use first available pod.
 			lbp = firstAvailableLBPolicy
+			lbpName = "first-available (default for CC<=3)"
 		default:
 			// Otherwise Round Robin
 			lbp = newRoundRobinPolicy()
+			lbpName = "round-robin (default for CC>3)"
 		}
 	}
+
+	// Log the load balancing policy being used
+	logger.Infof("Creating revision throttler with load balancing policy: %s, container concurrency: %d", lbpName, containerConcurrency)
 
 	// Determine breaker type based on container concurrency
 	if containerConcurrency == 0 {
