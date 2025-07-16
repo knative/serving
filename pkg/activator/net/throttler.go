@@ -120,16 +120,16 @@ func (p *podTracker) addRef() {
 	p.refCount.Add(1)
 }
 
-func (p *podTracker) releaseRef() uint64 {
+func (p *podTracker) releaseRef() {
 	current := p.refCount.Load()
 	if current == 0 {
 		// This should never happen in correct code
 		if logger := logging.FromContext(context.Background()); logger != nil {
 			logger.Errorf("BUG: Attempted to release ref on pod %s with zero refcount", p.dest)
 		}
-		return 0
+		return
 	}
-	return p.refCount.Add(^uint64(0))
+	p.refCount.Add(^uint64(0))
 }
 
 func (p *podTracker) getRefCount() uint64 {
@@ -396,7 +396,9 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 	for reenqueue {
 		reenqueue = false
 
+		rt.mux.RLock()
 		assignedTrackers := rt.assignedTrackers
+		rt.mux.RUnlock()
 		if len(assignedTrackers) == 0 {
 			rt.logger.Debugf("%s -> No Assigned trackers\n", xRequestId)
 		}
