@@ -48,12 +48,12 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        include:
-          - region: us-east-1
-            region_identifier: virginia
+        region:
+          - name: us-east-1
+            identifier: virginia
             context: aws-virginia
-          - region: eu-west-2
-            region_identifier: london
+          - name: eu-west-2
+            identifier: london
             context: aws-london
         component:
           - name: activator
@@ -81,7 +81,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ matrix.region }}
+          aws-region: ${{ matrix.region.name }}
 
       - name: Login to ECR
         id: login-ecr
@@ -91,7 +91,7 @@ jobs:
 
       - name: Build and Push ${{ matrix.component.name }}
         env:
-          KO_DOCKER_REPO: ${{ steps.login-ecr.outputs.registry }}/knative-${{ matrix.component.name }}-${{ matrix.region_identifier }}
+          KO_DOCKER_REPO: ${{ steps.login-ecr.outputs.registry }}/knative-${{ matrix.component.name }}-${{ matrix.region.identifier }}
           DEPOT_TOKEN: ${{ secrets.DEPOT_TOKEN }}
         run: |
           ko build \
