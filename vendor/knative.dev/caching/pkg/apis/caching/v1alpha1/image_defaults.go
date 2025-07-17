@@ -18,6 +18,6 @@ package v1alpha1
 
 import "context"
 
-func (r *Image) SetDefaults(ctx context.Context) {
+func (i *Image) SetDefaults(ctx context.Context) {
 	// TODO(mattmoor): This
 }

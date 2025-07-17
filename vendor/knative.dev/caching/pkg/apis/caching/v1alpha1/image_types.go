@@ -46,14 +46,15 @@ type Image struct {
 }
 
 // Check that Image can be validated and defaulted.
-var _ apis.Validatable = (*Image)(nil)
-var _ apis.Defaultable = (*Image)(nil)
-var _ kmeta.OwnerRefable = (*Image)(nil)
-var _ duckv1.KRShaped = (*Image)(nil)
+var (
+	_ apis.Validatable   = (*Image)(nil)
+	_ apis.Defaultable   = (*Image)(nil)
+	_ kmeta.OwnerRefable = (*Image)(nil)
+	_ duckv1.KRShaped    = (*Image)(nil)
+)
 
 // ImageSpec holds the desired state of the Image (from the client).
 type ImageSpec struct {
-
 	// Image is the name of the container image url to cache across the cluster.
 	Image string `json:"image"`
 
