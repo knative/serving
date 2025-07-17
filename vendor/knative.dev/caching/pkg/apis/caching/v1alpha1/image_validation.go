@@ -26,8 +26,8 @@ import (
 	"knative.dev/pkg/apis"
 )
 
-func (rt *Image) Validate(ctx context.Context) *apis.FieldError {
-	return rt.Spec.Validate(ctx).ViaField("spec")
+func (i *Image) Validate(ctx context.Context) *apis.FieldError {
+	return i.Spec.Validate(ctx).ViaField("spec")
 }
 
 func (rs *ImageSpec) Validate(ctx context.Context) (errs *apis.FieldError) {
