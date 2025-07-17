@@ -85,7 +85,10 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if tracingEnabled {
 		tryContext, trySpan = trace.StartSpan(r.Context(), "throttler_try")
 	}
-
+	if r.Header.Get("X-Run-Id") != "" {
+		r.Header.Set("X-Request-Id", r.Header.Get("X-Run-Id"))
+		r.Header.Del("X-Run-Id")
+	}
 	xRequestId := r.Header.Get("X-Request-Id")
 
 	revID := RevIDFrom(r.Context())
