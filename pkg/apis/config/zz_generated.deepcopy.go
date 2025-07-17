@@ -69,6 +69,11 @@ func (in *Defaults) DeepCopyInto(out *Defaults) {
 		x := (*in).DeepCopy()
 		*out = &x
 	}
+	if in.LoadBalancingPolicy != nil {
+		in, out := &in.LoadBalancingPolicy, &out.LoadBalancingPolicy
+		*out = new(string)
+		**out = **in
+	}
 	if in.EnableServiceLinks != nil {
 		in, out := &in.EnableServiceLinks, &out.EnableServiceLinks
 		*out = new(bool)

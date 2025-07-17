@@ -362,7 +362,8 @@ func TestActivationScale(t *testing.T) {
 		},
 		test.Options{},
 		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.ActivationScaleKey: strconv.Itoa(activationScale),
+			autoscaling.ActivationScaleKey:       strconv.Itoa(activationScale),
+			autoscaling.ScaleBufferAnnotationKey: "0",
 		}))
 	test.EnsureTearDown(t, ctx.Clients(), ctx.Names())
 

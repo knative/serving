@@ -176,7 +176,7 @@ func (h *appRequestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 	startTime := time.Now()
 
 	if h.breaker != nil {
-		pkgmetrics.Record(h.statsCtx, queueDepthM.M(int64(h.breaker.InFlight())))
+		pkgmetrics.Record(h.statsCtx, queueDepthM.M(int64(h.breaker.Pending())))
 	}
 	defer func() {
 		// Filter probe requests for revision metrics.

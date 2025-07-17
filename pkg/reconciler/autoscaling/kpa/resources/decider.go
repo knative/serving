@@ -71,6 +71,11 @@ func MakeDecider(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig
 		activationScale = mnzr
 	}
 
+	var scaleBuffer int32
+	if sb, ok := pa.ScaleBuffer(); ok {
+		scaleBuffer = sb
+	}
+
 	return &scaling.Decider{
 		ObjectMeta: *pa.ObjectMeta.DeepCopy(),
 		Spec: scaling.DeciderSpec{
@@ -87,6 +92,7 @@ func MakeDecider(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig
 			InitialScale:        GetInitialScale(config, pa),
 			Reachable:           pa.Spec.Reachability != autoscalingv1alpha1.ReachabilityUnreachable,
 			ActivationScale:     activationScale,
+			ScaleBuffer:         scaleBuffer,
 		},
 	}
 }

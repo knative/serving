@@ -19,9 +19,13 @@ package net
 import (
 	"context"
 	"net/http"
+	"slices"
 	"sort"
 	"sync"
 	"sync/atomic"
+	"time"
+
+	"golang.org/x/exp/maps"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -29,6 +33,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/tools/cache"
 
 	pkgnet "knative.dev/networking/pkg/apis/networking"
@@ -59,26 +64,84 @@ const (
 	// requires an explicit buffer size (it's backed by a chan struct{}), but
 	// queue.MaxBreakerCapacity is math.MaxInt32.
 	revisionMaxConcurrency = queue.MaxBreakerCapacity
+
+	// Maximum time a pod can stay in draining state before being forcefully removed
+	// This allows long-running requests to complete gracefully
+	maxDrainingDuration = 1 * time.Hour
 )
 
 func newPodTracker(dest string, b breaker) *podTracker {
 	tracker := &podTracker{
-		dest: dest,
-		b:    b,
+		id:        string(uuid.NewUUID()),
+		createdAt: time.Now().UnixMicro(),
+		dest:      dest,
+		b:         b,
 	}
+	tracker.state.Store(uint32(podHealthy))
+	tracker.refCount.Store(0)
+	tracker.drainingStartTime.Store(0)
+	tracker.weight.Store(0)
 	tracker.decreaseWeight = func() { tracker.weight.Add(-1) }
 
 	return tracker
 }
 
+type podState uint32
+
+const (
+	podHealthy podState = iota
+	podDraining
+	podRemoved
+)
+
 type podTracker struct {
-	dest string
-	b    breaker
+	id        string
+	createdAt int64
+	dest      string
+	b         breaker
+
+	// State machine for pod health transitions
+	state atomic.Uint32 // Uses podState constants
+	// Reference count for in-flight requests to support graceful draining
+	refCount atomic.Uint64
+	// Unix timestamp when the pod entered draining state
+	drainingStartTime atomic.Int64
+
+	// TODO: Should we clarify what makes a pod unhealthy (failed health checks, etc.)?
 
 	// weight is used for LB policy implementations.
 	weight atomic.Int32
 	// decreaseWeight is an allocation optimization for the randomChoice2 policy.
 	decreaseWeight func()
+}
+
+// Reference counting helper methods
+func (p *podTracker) addRef() {
+	p.refCount.Add(1)
+}
+
+func (p *podTracker) releaseRef() {
+	current := p.refCount.Load()
+	if current == 0 {
+		// This should never happen in correct code
+		if logger := logging.FromContext(context.Background()); logger != nil {
+			logger.Errorf("BUG: Attempted to release ref on pod %s with zero refcount", p.dest)
+		}
+		return
+	}
+	p.refCount.Add(^uint64(0))
+}
+
+func (p *podTracker) getRefCount() uint64 {
+	return p.refCount.Load()
+}
+
+func (p *podTracker) tryDrain() bool {
+	if p.state.CompareAndSwap(uint32(podHealthy), uint32(podDraining)) {
+		p.drainingStartTime.Store(time.Now().Unix())
+		return true
+	}
+	return false
 }
 
 func (p *podTracker) increaseWeight() {
@@ -96,11 +159,25 @@ func (p *podTracker) String() string {
 	return p.dest
 }
 
-func (p *podTracker) Capacity() int {
+func (p *podTracker) Capacity() uint64 {
 	if p.b == nil {
 		return 1
 	}
 	return p.b.Capacity()
+}
+
+func (p *podTracker) Pending() int {
+	if p.b == nil {
+		return 0
+	}
+	return p.b.Pending()
+}
+
+func (p *podTracker) InFlight() uint64 {
+	if p.b == nil {
+		return 0
+	}
+	return p.b.InFlight()
 }
 
 func (p *podTracker) UpdateConcurrency(c int) {
@@ -110,24 +187,55 @@ func (p *podTracker) UpdateConcurrency(c int) {
 	p.b.UpdateConcurrency(c)
 }
 
+// Reserve attempts to reserve capacity on this pod.
+// Returns false if the pod is unhealthy, preventing new requests from being routed to it.
 func (p *podTracker) Reserve(ctx context.Context) (func(), bool) {
-	if p.b == nil {
-		return noop, true
+	defer func() {
+		if r := recover(); r != nil {
+			if logger := logging.FromContext(ctx); logger != nil {
+				logger.Errorf("Panic in podTracker.Reserve for pod %s: %v", p.dest, r)
+			}
+			p.releaseRef()
+			panic(r)
+		}
+	}()
+
+	// Increment ref count before checking state to prevent race with pod removal
+	p.addRef()
+
+	if p.state.Load() != uint32(podHealthy) {
+		p.releaseRef()
+		return nil, false
 	}
-	return p.b.Reserve(ctx)
+
+	if p.b == nil {
+		return func() {
+			p.releaseRef()
+		}, true
+	}
+
+	release, ok := p.b.Reserve(ctx)
+	if !ok {
+		p.releaseRef()
+		return nil, false
+	}
+
+	// Return wrapped release function
+	return func() {
+		release()
+		p.releaseRef()
+	}, true
 }
 
 type breaker interface {
-	Capacity() int
+	Capacity() uint64
 	Maybe(ctx context.Context, thunk func()) error
 	UpdateConcurrency(int)
 	Reserve(ctx context.Context) (func(), bool)
+	Pending() int
+	InFlight() uint64
 }
 
-// revisionThrottler is used to throttle requests across the entire revision.
-// We use a breaker across the entire revision as well as individual
-// podTrackers because we need to queue requests in case no individual
-// podTracker has available slots (when CC!=0).
 type revisionThrottler struct {
 	revID                types.NamespacedName
 	containerConcurrency int
@@ -151,7 +259,7 @@ type revisionThrottler struct {
 	breaker breaker
 
 	// This will be non-empty when we're able to use pod addressing.
-	podTrackers []*podTracker
+	podTrackers map[string]*podTracker
 
 	// Effective trackers that are assigned to this Activator.
 	// This is a subset of podTrackers.
@@ -168,7 +276,19 @@ type revisionThrottler struct {
 	logger *zap.SugaredLogger
 }
 
+// validateLoadBalancingPolicy checks if the given policy is valid
+func validateLoadBalancingPolicy(policy string) bool {
+	validPolicies := map[string]bool{
+		"random-choice-2":   true,
+		"round-robin":       true,
+		"least-connections": true,
+		"first-available":   true,
+	}
+	return validPolicies[policy]
+}
+
 func newRevisionThrottler(revID types.NamespacedName,
+	loadBalancerPolicy *string,
 	containerConcurrency int, proto string,
 	breakerParams queue.BreakerParams,
 	logger *zap.SugaredLogger,
@@ -177,19 +297,59 @@ func newRevisionThrottler(revID types.NamespacedName,
 	var (
 		revBreaker breaker
 		lbp        lbPolicy
+		lbpName    string
 	)
-	switch {
-	case containerConcurrency == 0:
+
+	// Determine load balancing policy
+	if loadBalancerPolicy != nil && *loadBalancerPolicy != "" {
+		// Validate the policy first
+		if !validateLoadBalancingPolicy(*loadBalancerPolicy) {
+			logger.Errorf("Invalid load balancing policy %q, using defaults", *loadBalancerPolicy)
+			loadBalancerPolicy = nil // Fall back to default selection
+		}
+	}
+
+	if loadBalancerPolicy != nil {
+		switch *loadBalancerPolicy {
+		case "random-choice-2":
+			lbp = randomChoice2Policy
+			lbpName = "random-choice-2"
+		case "round-robin":
+			lbp = newRoundRobinPolicy()
+			lbpName = "round-robin"
+		case "least-connections":
+			lbp = leastConnectionsPolicy
+			lbpName = "least-connections"
+		case "first-available":
+			lbp = firstAvailableLBPolicy
+			lbpName = "first-available"
+		default:
+			// This shouldn't happen due to validation, but fall back to random-choice-2
+			logger.Warnf("Unknown load balancing policy %q, falling back to random-choice-2", *loadBalancerPolicy)
+			lbp = randomChoice2Policy
+			lbpName = "random-choice-2"
+		}
+	} else {
+		// Fall back to containerConcurrency-based defaults
+		switch {
+		case containerConcurrency == 0:
+			lbp = randomChoice2Policy
+			lbpName = "random-choice-2 (default for CC=0)"
+		case containerConcurrency <= 3:
+			lbp = firstAvailableLBPolicy
+			lbpName = "first-available (default for CC<=3)"
+		default:
+			lbp = newRoundRobinPolicy()
+			lbpName = "round-robin (default for CC>3)"
+		}
+	}
+
+	logger.Infof("Creating revision throttler with load balancing policy: %s, container concurrency: %d", lbpName, containerConcurrency)
+
+	if containerConcurrency == 0 {
 		revBreaker = newInfiniteBreaker(logger)
-		lbp = randomChoice2Policy
-	case containerConcurrency <= 3:
-		// For very low CC values use first available pod.
+	} else {
 		revBreaker = queue.NewBreaker(breakerParams)
-		lbp = firstAvailableLBPolicy
-	default:
-		// Otherwise RR.
-		revBreaker = queue.NewBreaker(breakerParams)
-		lbp = newRoundRobinPolicy()
 	}
 	t := &revisionThrottler{
 		revID:                revID,
@@ -198,6 +358,7 @@ func newRevisionThrottler(revID types.NamespacedName,
 		logger:               logger,
 		protocol:             proto,
 		lbPolicy:             lbp,
+		podTrackers:          make(map[string]*podTracker),
 	}
 
 	// Start with unknown
@@ -207,8 +368,6 @@ func newRevisionThrottler(revID types.NamespacedName,
 
 func noop() {}
 
-// Returns a dest that at the moment of choosing had an open slot
-// for request.
 func (rt *revisionThrottler) acquireDest(ctx context.Context) (func(), *podTracker, bool) {
 	rt.mux.RLock()
 	defer rt.mux.RUnlock()
@@ -216,11 +375,18 @@ func (rt *revisionThrottler) acquireDest(ctx context.Context) (func(), *podTrack
 	if rt.clusterIPTracker != nil {
 		return noop, rt.clusterIPTracker, true
 	}
-	f, lbTracker := rt.lbPolicy(ctx, rt.assignedTrackers)
-	return f, lbTracker, false
+	callback, pt := rt.lbPolicy(ctx, rt.assignedTrackers)
+	return callback, pt, false
 }
 
-func (rt *revisionThrottler) try(ctx context.Context, function func(dest string, isClusterIP bool) error) error {
+func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, function func(dest string, isClusterIP bool) error) error {
+	defer func() {
+		if r := recover(); r != nil {
+			rt.logger.Errorf("Panic in revisionThrottler.try for request %s: %v", xRequestId, r)
+			panic(r)
+		}
+	}()
+
 	var ret error
 
 	// Retrying infinitely as long as we receive no dest. Outer semaphore and inner
@@ -229,20 +395,34 @@ func (rt *revisionThrottler) try(ctx context.Context, function func(dest string,
 	reenqueue := true
 	for reenqueue {
 		reenqueue = false
+
+		rt.mux.RLock()
+		assignedTrackers := rt.assignedTrackers
+		rt.mux.RUnlock()
+		if len(assignedTrackers) == 0 {
+			rt.logger.Debugf("%s -> No Assigned trackers\n", xRequestId)
+		}
 		if err := rt.breaker.Maybe(ctx, func() {
-			cb, tracker, isClusterIP := rt.acquireDest(ctx)
+			callback, tracker, isClusterIP := rt.acquireDest(ctx)
 			if tracker == nil {
 				// This can happen if individual requests raced each other or if pod
 				// capacity was decreased after passing the outer semaphore.
 				reenqueue = true
+				rt.logger.Debugf("%s -> Failed to acquire tracker\n", xRequestId)
 				return
 			}
-			defer cb()
+			trackerId := tracker.id
+			rt.logger.Infof("%s -> Acquired Pod Tracker %s - %s (createdAt %d) Breaker State: capacity: %d, inflight: %d, pending: %d\n", xRequestId, trackerId, tracker.dest, tracker.createdAt, tracker.Capacity(), tracker.InFlight(), tracker.Pending())
+			defer func() {
+				callback()
+				rt.logger.Debugf("%s -> %s breaker release semaphore\n", xRequestId, trackerId)
+			}()
 			// We already reserved a guaranteed spot. So just execute the passed functor.
 			ret = function(tracker.dest, isClusterIP)
 		}); err != nil {
 			return err
 		}
+		rt.logger.Debugf("%s -> Reenqueue request\n", xRequestId)
 	}
 	return ret
 }
@@ -307,20 +487,24 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 			return 0
 		}
 
-		// Sort, so we get more or less stable results.
-		sort.Slice(rt.podTrackers, func(i, j int) bool {
-			return rt.podTrackers[i].dest < rt.podTrackers[j].dest
-		})
-		assigned := rt.podTrackers
+		var assigned []*podTracker
 		if rt.containerConcurrency > 0 {
 			rt.resetTrackers()
 			assigned = assignSlice(rt.podTrackers, ai, ac)
+		} else {
+			assigned = maps.Values(rt.podTrackers)
 		}
 		rt.logger.Debugf("Trackers %d/%d: assignment: %v", ai, ac, assigned)
+
+		// Sort, so we get more or less stable results.
+		sort.Slice(assigned, func(i, j int) bool {
+			return assigned[i].dest < assigned[j].dest
+		})
+
 		// The actual write out of the assigned trackers has to be under lock.
 		rt.mux.Lock()
-		defer rt.mux.Unlock()
 		rt.assignedTrackers = assigned
+		defer rt.mux.Unlock()
 		return len(assigned)
 	}()
 
@@ -332,9 +516,16 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 	rt.breaker.UpdateConcurrency(capacity)
 }
 
-func (rt *revisionThrottler) updateThrottlerState(backendCount int, trackers []*podTracker, clusterIPDest *podTracker) {
-	rt.logger.Infof("Updating Revision Throttler with: clusterIP = %v, trackers = %d, backends = %d",
-		clusterIPDest, len(trackers), backendCount)
+func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers []*podTracker, healthyDests []string, drainingDests []string, clusterIPDest *podTracker) {
+	defer func() {
+		if r := recover(); r != nil {
+			rt.logger.Errorf("Panic in revisionThrottler.updateThrottlerState: %v", r)
+			panic(r)
+		}
+	}()
+
+	rt.logger.Infof("Updating Revision Throttler with: clusterIP = %v, trackers = %d, backends = %d, healthyDests = %s, drainingDests = %s",
+		clusterIPDest, len(newTrackers), backendCount, healthyDests, drainingDests)
 
 	// Update trackers / clusterIP before capacity. Otherwise we can race updating our breaker when
 	// we increase capacity, causing a request to fall through before a tracker is added, causing an
@@ -342,9 +533,58 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, trackers []*
 	if func() bool {
 		rt.mux.Lock()
 		defer rt.mux.Unlock()
-		rt.podTrackers = trackers
+		for _, t := range newTrackers {
+			if t != nil {
+				rt.podTrackers[t.dest] = t
+			}
+		}
+		for _, d := range healthyDests {
+			tracker := rt.podTrackers[d]
+			if tracker != nil && tracker.state.Load() != uint32(podHealthy) {
+				tracker.state.Store(uint32(podHealthy))
+				tracker.drainingStartTime.Store(0)
+			}
+		}
+		// Handle pod draining to prevent dropped requests during pod removal
+		now := time.Now().Unix()
+		for _, d := range drainingDests {
+			tracker := rt.podTrackers[d]
+			if tracker == nil {
+				continue
+			}
+
+			currentState := tracker.state.Load()
+			switch currentState {
+			case uint32(podHealthy):
+				if tracker.tryDrain() {
+					rt.logger.Infof("Pod %s transitioning to draining state, refCount=%d", d, tracker.getRefCount())
+					if tracker.getRefCount() == 0 {
+						tracker.state.Store(uint32(podRemoved))
+						delete(rt.podTrackers, d)
+						rt.logger.Infof("Pod %s removed immediately (no active requests)", d)
+					}
+				}
+			case uint32(podDraining):
+				refCount := tracker.getRefCount()
+				if refCount == 0 {
+					tracker.state.Store(uint32(podRemoved))
+					delete(rt.podTrackers, d)
+					rt.logger.Infof("Pod %s removed after draining (no active requests)", d)
+				} else {
+					drainingStart := tracker.drainingStartTime.Load()
+					if drainingStart > 0 && now-drainingStart > int64(maxDrainingDuration.Seconds()) {
+						rt.logger.Warnf("Force removing pod %s stuck in draining state for %d seconds, refCount=%d",
+							d, now-drainingStart, refCount)
+						tracker.state.Store(uint32(podRemoved))
+						delete(rt.podTrackers, d)
+					}
+				}
+			default:
+				rt.logger.Errorf("Pod %s in unexpected state %d while processing draining destinations", d, currentState)
+			}
+		}
 		rt.clusterIPTracker = clusterIPDest
-		return clusterIPDest != nil || len(trackers) > 0
+		return clusterIPDest != nil || len(rt.podTrackers) > 0
 	}() {
 		// If we have an address to target, then pass through an accurate
 		// accounting of the number of backends.
@@ -380,32 +620,53 @@ func pickIndices(numTrackers, selfIndex, numActivators int) (beginIndex, endInde
 // for this Activator instance. This only matters in case of direct
 // to pod IP routing, and is irrelevant, when ClusterIP is used.
 // assignSlice should receive podTrackers sorted by address.
-func assignSlice(trackers []*podTracker, selfIndex, numActivators int) []*podTracker {
+func assignSlice(trackers map[string]*podTracker, selfIndex, numActivators int) []*podTracker {
 	// When we're unassigned, doesn't matter what we return.
 	lt := len(trackers)
 	if selfIndex == -1 || lt <= 1 {
-		return trackers
+		// Sort for consistent ordering
+		dests := maps.Keys(trackers)
+		sort.Strings(dests)
+		result := make([]*podTracker, 0, len(dests))
+		for _, d := range dests {
+			result = append(result, trackers[d])
+		}
+		return result
 	}
 
 	// If there's just a single activator. Take all the trackers.
 	if numActivators == 1 {
-		return trackers
+		// Sort for consistent ordering
+		dests := maps.Keys(trackers)
+		sort.Strings(dests)
+		result := make([]*podTracker, 0, len(dests))
+		for _, d := range dests {
+			result = append(result, trackers[d])
+		}
+		return result
 	}
 
 	// If the number of pods is not divisible by the number of activators, we allocate one pod to each activator exclusively.
 	// examples
 	// 1. we have 20 pods and 3 activators -> we'd get 2 remnants so activator with index 0,1 would each pick up a unique tracker
 	// 2. we have 24 pods and 5 activators -> we'd get 4 remnants so the activator 0,1,2,3 would each pick up a unique tracker
+	dests := maps.Keys(trackers)
+	sort.Strings(dests)
 	bi, ei, remnants := pickIndices(lt, selfIndex, numActivators)
-	x := append(trackers[:0:0], trackers[bi:ei]...)
+	pickedDests := slices.Clone(dests[bi:ei])
 	if remnants > 0 {
-		tail := trackers[len(trackers)-remnants:]
+		tail := dests[len(trackers)-remnants:]
 		if len(tail) > selfIndex {
 			t := tail[selfIndex]
-			x = append(x, t)
+			pickedDests = append(pickedDests, t)
 		}
 	}
-	return x
+	trackerSlice := make([]*podTracker, len(pickedDests))
+
+	for i, d := range pickedDests {
+		trackerSlice[i] = trackers[d]
+	}
+	return trackerSlice
 }
 
 // This function will never be called in parallel but `try` can be called in parallel to this so we need
@@ -416,20 +677,16 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 
 	// ClusterIP is not yet ready, so we want to send requests directly to the pods.
 	// NB: this will not be called in parallel, thus we can build a new podTrackers
-	// array before taking out a lock.
+	// map before taking out a lock.
 	if update.ClusterIPDest == "" {
-		// Create a map for fast lookup of existing trackers.
-		trackersMap := make(map[string]*podTracker, len(rt.podTrackers))
-		for _, tracker := range rt.podTrackers {
-			trackersMap[tracker.dest] = tracker
-		}
-
-		trackers := make([]*podTracker, 0, len(update.Dests))
-
 		// Loop over dests, reuse existing tracker if we have one, otherwise create
 		// a new one.
+		newTrackers := make([]*podTracker, 0, len(update.Dests))
+		currentDests := maps.Keys(rt.podTrackers)
+		newDestsSet := make(map[string]struct{}, len(update.Dests))
 		for newDest := range update.Dests {
-			tracker, ok := trackersMap[newDest]
+			newDestsSet[newDest] = struct{}{}
+			tracker, ok := rt.podTrackers[newDest]
 			if !ok {
 				if rt.containerConcurrency == 0 {
 					tracker = newPodTracker(newDest, nil)
@@ -440,15 +697,29 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 						InitialCapacity: rt.containerConcurrency, // Presume full unused capacity.
 					}))
 				}
+				newTrackers = append(newTrackers, tracker)
+			} else if tracker.state.Load() != uint32(podHealthy) {
+				tracker.state.Store(uint32(podHealthy))
+				tracker.drainingStartTime.Store(0)
 			}
-			trackers = append(trackers, tracker)
+		}
+		healthyDests := make([]string, 0, len(currentDests))
+		drainingDests := make([]string, 0, len(currentDests))
+		for _, d := range currentDests {
+			_, ok := newDestsSet[d]
+			// If dest is no longer in the active set, it needs draining
+			if !ok {
+				drainingDests = append(drainingDests, d)
+			} else {
+				healthyDests = append(healthyDests, d)
+			}
 		}
 
-		rt.updateThrottlerState(len(update.Dests), trackers, nil /*clusterIP*/)
+		rt.updateThrottlerState(len(update.Dests), newTrackers, healthyDests, drainingDests, nil /*clusterIP*/)
 		return
 	}
-
-	rt.updateThrottlerState(len(update.Dests), nil /*trackers*/, newPodTracker(update.ClusterIPDest, nil))
+	clusterIPPodTracker := newPodTracker(update.ClusterIPDest, nil)
+	rt.updateThrottlerState(len(update.Dests), nil /*trackers*/, nil, nil, clusterIPPodTracker)
 }
 
 // Throttler load balances requests to revisions based on capacity. When `Run` is called it listens for
@@ -519,12 +790,12 @@ func (t *Throttler) run(updateCh <-chan revisionDestsUpdate) {
 }
 
 // Try waits for capacity and then executes function, passing in a l4 dest to send a request
-func (t *Throttler) Try(ctx context.Context, revID types.NamespacedName, function func(dest string, isClusterIP bool) error) error {
+func (t *Throttler) Try(ctx context.Context, revID types.NamespacedName, xRequestId string, function func(string, bool) error) error {
 	rt, err := t.getOrCreateRevisionThrottler(revID)
 	if err != nil {
 		return err
 	}
-	return rt.try(ctx, function)
+	return rt.try(ctx, xRequestId, function)
 }
 
 func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*revisionThrottler, error) {
@@ -548,6 +819,7 @@ func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*r
 		}
 		revThrottler = newRevisionThrottler(
 			revID,
+			rev.Spec.LoadBalancingPolicy,
 			int(rev.Spec.GetContainerConcurrency()),
 			pkgnet.ServicePortName(rev.GetProtocol()),
 			queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: revisionMaxConcurrency},
@@ -560,7 +832,7 @@ func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*r
 
 // revisionUpdated is used to ensure we have a backlog set up for a revision as soon as it is created
 // rather than erroring with revision not found until a networking probe succeeds
-func (t *Throttler) revisionUpdated(obj interface{}) {
+func (t *Throttler) revisionUpdated(obj any) {
 	rev := obj.(*v1.Revision)
 	revID := types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name}
 
@@ -574,7 +846,7 @@ func (t *Throttler) revisionUpdated(obj interface{}) {
 
 // revisionDeleted is to clean up revision throttlers after a revision is deleted to prevent unbounded
 // memory growth
-func (t *Throttler) revisionDeleted(obj interface{}) {
+func (t *Throttler) revisionDeleted(obj any) {
 	acc, err := kmeta.DeletionHandlingAccessor(obj)
 	if err != nil {
 		t.logger.Warnw("Revision delete failure to process", zap.Error(err))
@@ -670,7 +942,7 @@ func inferIndex(eps []string, ipAddress string) int {
 	return idx
 }
 
-func (t *Throttler) publicEndpointsUpdated(newObj interface{}) {
+func (t *Throttler) publicEndpointsUpdated(newObj any) {
 	endpoints := newObj.(*corev1.Endpoints)
 	t.logger.Info("Updated public Endpoints: ", endpoints.Name)
 	t.epsUpdateCh <- endpoints
@@ -721,8 +993,18 @@ func newInfiniteBreaker(logger *zap.SugaredLogger) *infiniteBreaker {
 }
 
 // Capacity returns the current capacity of the breaker
-func (ib *infiniteBreaker) Capacity() int {
+func (ib *infiniteBreaker) Capacity() uint64 {
+	return uint64(ib.concurrency.Load()) //nolint:gosec // concurrency is always 0 or 1
+}
+
+// Pending returns the current pending requests the breaker
+func (ib *infiniteBreaker) Pending() int {
 	return int(ib.concurrency.Load())
+}
+
+// Pending returns the current inflight requests the breaker
+func (ib *infiniteBreaker) InFlight() uint64 {
+	return uint64(ib.concurrency.Load()) //nolint:gosec // concurrency is always 0 or 1
 }
 
 func zeroOrOne(x int) int32 {

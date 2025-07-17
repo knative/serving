@@ -171,6 +171,16 @@ func TestMakeDecider(t *testing.T) {
 				d.Spec.ActivationScale = 3
 				d.Annotations[autoscaling.ActivationScaleKey] = "3"
 			}),
+	}, {
+		name: "with scale-buffer annotation",
+		pa: pa(func(pa *autoscalingv1alpha1.PodAutoscaler) {
+			pa.Annotations[autoscaling.ScaleBufferAnnotationKey] = "3"
+		}),
+		want: decider(withTarget(100.0), withPanicThreshold(2.0), withTotal(100), withScaleBufferAnnotation("3"),
+			func(d *scaling.Decider) {
+				d.Spec.ScaleBuffer = 3
+				d.Annotations[autoscaling.ScaleBufferAnnotationKey] = "3"
+			}),
 	}}
 
 	for _, tc := range cases {
@@ -307,6 +317,7 @@ func decider(options ...deciderOption) *scaling.Decider {
 			StableWindow:        config.StableWindow,
 			InitialScale:        1,
 			Reachable:           true,
+			ScaleBuffer:         0,
 		},
 	}
 	for _, fn := range options {
@@ -379,6 +390,12 @@ func withMetricAnnotation(metric string) deciderOption {
 func withPanicThresholdPercentageAnnotation(percentage string) deciderOption {
 	return func(decider *scaling.Decider) {
 		decider.Annotations[autoscaling.PanicThresholdPercentageAnnotationKey] = percentage
+	}
+}
+
+func withScaleBufferAnnotation(scaleBuffer string) deciderOption {
+	return func(decider *scaling.Decider) {
+		decider.Annotations[autoscaling.ScaleBufferAnnotationKey] = scaleBuffer
 	}
 }
 

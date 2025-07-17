@@ -20,7 +20,7 @@ metadata:
   name: services.serving.knative.dev
   labels:
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: devel
+    app.kubernetes.io/version: 1.18.0
     knative.dev/crd-install: "true"
     duck.knative.dev/addressable: "true"
     duck.knative.dev/podspecable: "true"
@@ -1045,6 +1045,12 @@ spec:
                             description: This is accessible behind a feature flag - kubernetes.podspec-init-containers
                             type: object
                             x-kubernetes-preserve-unknown-fields: true
+                        loadBalancingPolicy:
+                          description: |-
+                            LoadBalancingPolicy is the load balancing algorithm used by the
+                            activator to route requests to application pods. If unspecified,
+                            a suggested default is applied depending on ContainerConcurrency
+                          type: string
                         nodeSelector:
                           description: |-
                             This is accessible behind a feature flag - kubernetes.podspec-nodeselector
