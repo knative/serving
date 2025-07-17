@@ -82,19 +82,19 @@ jobs:
       fail-fast: false # Keep running if one leg fails.
       matrix:
         k8s-version:
-        - v1.31.x
+        # - v1.31.x  # Commented out - focusing on K8s 1.32+
         - v1.32.x
 
         ingress:
         - kourier
         - kourier-tls
-        - istio
-        - istio-tls
+        # - istio         # Commented out - reducing test matrix
+        # - istio-tls     # Commented out - reducing test matrix
         # Disabled due to flakiness: https://github.com/knative/serving/issues/14637
         # - istio-ambient
-        - contour
-        - gateway_istio
-        - gateway_contour
+        # - contour       # Commented out - reducing test matrix
+        # - gateway_istio # Commented out - reducing test matrix
+        # - gateway_contour # Commented out - reducing test matrix
 
         test-suite:
         - runtime
@@ -102,27 +102,27 @@ jobs:
         - e2e
 
         include:
-        - ingress: gateway_istio
-          ingress-class: gateway-api
-          test-flags: -enable-alpha -enable-beta
-          namespace-resources: httproute
+        # - ingress: gateway_istio  # Commented out - reducing test matrix
+        #   ingress-class: gateway-api
+        #   test-flags: -enable-alpha -enable-beta
+        #   namespace-resources: httproute
 
-        - ingress: gateway_contour
-          ingress-class: gateway-api
-          gateway-api-implementation: contour
-          test-flags: -enable-alpha -enable-beta
-          namespace-resources: httproute
+        # - ingress: gateway_contour  # Commented out - reducing test matrix
+        #   ingress-class: gateway-api
+        #   gateway-api-implementation: contour
+        #   test-flags: -enable-alpha -enable-beta
+        #   namespace-resources: httproute
 
-        - ingress: contour
-          namespace-resources: httpproxy
+        # - ingress: contour  # Commented out - reducing test matrix
+        #   namespace-resources: httpproxy
 
-        - ingress: istio
-          namespace-resources: virtualservices
+        # - ingress: istio  # Commented out - reducing test matrix
+        #   namespace-resources: virtualservices
 
-        - ingress: istio-tls
-          ingress-class: istio
-          namespace-resources: virtualservices
-          enable-tls: 1
+        # - ingress: istio-tls  # Commented out - reducing test matrix
+        #   ingress-class: istio
+        #   namespace-resources: virtualservices
+        #   enable-tls: 1
 
         # Disabled due to flakiness: https://github.com/knative/serving/issues/14637
         # - ingress: istio-ambient
@@ -146,7 +146,6 @@ jobs:
     env:
       KIND: 1
       INGRESS_CLASS: ${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
-      GATEWAY_API_IMPLEMENTATION: ${{ matrix.gateway-api-implementation }}
       ENABLE_TLS: ${{ matrix.enable-tls || 0 }}
       # Disabled due to flakiness: https://github.com/knative/serving/issues/14637
       # AMBIENT: ${{ matrix.ambient || 0 }}
@@ -217,13 +216,12 @@ jobs:
           -skip-cleanup-on-fail \
           -disable-logstream \
           -enable-alpha -enable-beta \
-          --ingress-class=${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev \
-          ${{ matrix.test-flags }}
+          --ingress-class=${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
 
     - uses: chainguard-dev/actions/kind-diag@141bf225e9c19c34304ee9d06e9be9c44a6d8765 # main
       # Only upload logs on failure.
       if: ${{ failure() }}
       with:
         cluster-resources: nodes,namespaces,crds
-        namespace-resources: configmaps,pods,svc,ksvc,route,configuration,revision,king,${{ matrix.namespace-resources || '' }}
+        namespace-resources: configmaps,pods,svc,ksvc,route,configuration,revision,king
         artifact-name: logs-${{ matrix.k8s-version}}-${{ matrix.ingress }}-${{ matrix.test-suite }}

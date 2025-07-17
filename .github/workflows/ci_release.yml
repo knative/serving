@@ -1,0 +1,112 @@
+name: Knative Release
+on:
+  push:
+    branches:
+      - master
+      - release-*
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        run: |
+          # Base version for Knative 1.18.0
+          BASE_VERSION="1.18.0c"
+          
+          # Get all tags that match our pattern and find the highest number
+          LAST_VERSION=$(git tag -l "${BASE_VERSION}*" | grep -E "^${BASE_VERSION}[0-9]+$" | sed "s/^${BASE_VERSION}//" | sort -n | tail -1)
+          
+          # If no previous version found, start at 1
+          if [ -z "$LAST_VERSION" ]; then
+            NEXT_VERSION="${BASE_VERSION}1"
+          else
+            NEXT_NUMBER=$((LAST_VERSION + 1))
+            NEXT_VERSION="${BASE_VERSION}${NEXT_NUMBER}"
+          fi
+          
+          echo "version=${NEXT_VERSION}" >> $GITHUB_OUTPUT
+          echo "Next version: ${NEXT_VERSION}"
+          
+      - name: Create tag
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git tag -a ${{ steps.version.outputs.version }} -m "Release ${{ steps.version.outputs.version }}"
+          git push origin ${{ steps.version.outputs.version }}
+
+  build:
+    needs: release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - region: us-east-1
+            region_identifier: virginia
+            context: aws-virginia
+          - region: eu-west-2
+            region_identifier: london
+            context: aws-london
+        component:
+          - name: activator
+            path: ./cmd/activator
+          - name: autoscaler
+            path: ./cmd/autoscaler
+          - name: queue
+            path: ./cmd/queue
+          - name: webhook
+            path: ./cmd/webhook
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Install ko
+        uses: ko-build/setup-ko@v0.6
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ matrix.region }}
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: depot/setup-action@v1
+
+      - name: Build and Push ${{ matrix.component.name }}
+        env:
+          KO_DOCKER_REPO: ${{ steps.login-ecr.outputs.registry }}/knative-${{ matrix.component.name }}-${{ matrix.region_identifier }}
+          DEPOT_TOKEN: ${{ secrets.DEPOT_TOKEN }}
+        run: |
+          ko build \
+            --bare \
+            --platform=linux/amd64,linux/arm64 \
+            --tags=${{ needs.release.outputs.version }},latest \
+            ${{ matrix.component.path }}
+
+  notify:
+    needs: [release, build]
+    runs-on: ubuntu-latest
+    if: always() && needs.build.result == 'success'
+    steps:
+      - name: Notify Slack!
+        uses: someimportantcompany/github-actions-slack-message@v1
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          text: ":knative: Knative ${{ needs.release.outputs.version }} images built and pushed to all registries! :knative:"

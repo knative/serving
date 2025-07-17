@@ -76,6 +76,7 @@ func TestAutoscalerScaleDownDelay(t *testing.T) {
 		MaxScaleUpRate:   10,
 		PanicThreshold:   100,
 		ScaleDownDelay:   5 * time.Minute,
+		ScaleBuffer:      0,
 		Reachable:        true,
 	}
 	as := New(context.Background(), testNamespace, testRevision, metrics, pc, spec)
@@ -182,6 +183,7 @@ func TestAutoscalerScaleDownDelayZero(t *testing.T) {
 		MaxScaleUpRate:   10,
 		PanicThreshold:   100,
 		ScaleDownDelay:   0,
+		ScaleBuffer:      0,
 	}
 	as := New(context.Background(), testNamespace, testRevision, metrics, pc, spec)
 
@@ -368,12 +370,13 @@ func TestAutoscalerStableModeNoTrafficScaleToZero(t *testing.T) {
 
 func TestAutoscalerActivationScale(t *testing.T) {
 	metrics := &metricClient{StableConcurrency: 0, PanicConcurrency: 0}
-	a := newTestAutoscalerNoPC(10, 75, metrics)
+	a, pc := newTestAutoscaler(10, 75, metrics)
+	pc.readyCount = 0 // Simulate scale-to-zero
 	a.deciderSpec.ActivationScale = int32(2)
-	expectScale(t, a, time.Now(), ScaleResult{0, expectedEBC(10, 75, 0, 1), true})
+	expectScale(t, a, time.Now(), ScaleResult{0, expectedEBC(10, 75, 0, 0), true})
 
 	metrics.StableConcurrency = 1.0
-	expectScale(t, a, time.Now(), ScaleResult{2, expectedEBC(10, 75, 0, 1), true})
+	expectScale(t, a, time.Now(), ScaleResult{2, expectedEBC(10, 75, 0, 0), true})
 }
 
 // QPS is increasing exponentially. Each scaling event bring concurrency
@@ -590,6 +593,26 @@ func TestAutoscalerUseOnePodAsMinimumIfEndpointsNotFound(t *testing.T) {
 	expectScale(t, a, time.Now(), ScaleResult{10, expectedEBC(10, 81, 888, 0), true})
 }
 
+func TestAutoscalerScaleWithBuffer(t *testing.T) {
+	metrics := &metricClient{StableConcurrency: 100, PanicConcurrency: 100}
+	a, pc := newTestAutoscaler(10, 77, metrics)
+	expectScale(t, a, time.Now(), ScaleResult{10, expectedEBC(10, 77, 100, 1), true})
+
+	pc.readyCount = 10
+	a.Update(&DeciderSpec{
+		TargetValue:         1,
+		TotalValue:          1 / targetUtilization,
+		ActivatorCapacity:   21,
+		TargetBurstCapacity: 71,
+		PanicThreshold:      2,
+		MaxScaleDownRate:    10,
+		MaxScaleUpRate:      10,
+		StableWindow:        stableWindow,
+		ScaleBuffer:         10,
+	})
+	expectScale(t, a, time.Now(), ScaleResult{100, expectedEBC(1, 71, 100, 10), true})
+}
+
 func TestAutoscalerUpdateTarget(t *testing.T) {
 	metrics := &metricClient{StableConcurrency: 100, PanicConcurrency: 101}
 	a, pc := newTestAutoscaler(10, 77, metrics)
@@ -771,6 +794,66 @@ func (mc *metricClient) StableAndPanicRPS(key types.NamespacedName, now time.Tim
 		err = mc.ErrF(key, now)
 	}
 	return mc.StableRPS, mc.PanicRPS, err
+}
+
+func TestAutoscalerScaleBufferWithReachability(t *testing.T) {
+	pc := &fakePodCounter{}
+	metrics := &metricClient{}
+	spec := &DeciderSpec{
+		TargetValue:      10,
+		MaxScaleDownRate: 10,
+		MaxScaleUpRate:   10,
+		PanicThreshold:   100,
+		ScaleBuffer:      5,
+		Reachable:        true,
+		StableWindow:     stableWindow,
+	}
+	as := New(context.Background(), testNamespace, testRevision, metrics, pc, spec)
+
+	now := time.Now()
+
+	t.Run("reachable revision with ScaleBuffer", func(t *testing.T) {
+		// With 10 requests and target of 10, we'd need 1 pod
+		// But with ScaleBuffer of 5, we should get 6 pods
+		metrics.SetStableAndPanicConcurrency(10, 10)
+		expectScale(t, as, now, ScaleResult{
+			ScaleValid:      true,
+			DesiredPodCount: 6, // 1 + 5 (ScaleBuffer)
+		})
+	})
+
+	t.Run("unreachable revision ignores ScaleBuffer", func(t *testing.T) {
+		// Mark as unreachable (no traffic)
+		unreachableSpec := &DeciderSpec{
+			TargetValue:      10,
+			MaxScaleDownRate: 10,
+			MaxScaleUpRate:   10,
+			PanicThreshold:   100,
+			ScaleBuffer:      5,
+			Reachable:        false,
+			StableWindow:     stableWindow,
+		}
+		as.Update(unreachableSpec)
+
+		// With 0 requests and unreachable, should scale to 0 (ignoring ScaleBuffer)
+		metrics.SetStableAndPanicConcurrency(0, 0)
+		expectScale(t, as, now.Add(time.Second), ScaleResult{
+			ScaleValid:      true,
+			DesiredPodCount: 0, // Should be 0, not 5
+		})
+	})
+
+	t.Run("reachable revision with zero traffic still applies ScaleBuffer", func(t *testing.T) {
+		// Mark as reachable again
+		as.Update(spec)
+
+		// Even with 0 requests, if reachable, ScaleBuffer should still apply
+		metrics.SetStableAndPanicConcurrency(0, 0)
+		expectScale(t, as, now.Add(2*time.Second), ScaleResult{
+			ScaleValid:      true,
+			DesiredPodCount: 5, // 0 + 5 (ScaleBuffer)
+		})
+	})
 }
 
 func BenchmarkAutoscaler(b *testing.B) {

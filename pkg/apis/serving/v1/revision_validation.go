@@ -117,6 +117,10 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 		errs = errs.Also(serving.ValidateContainerConcurrency(ctx, rs.ContainerConcurrency).ViaField("containerConcurrency"))
 	}
 
+	if rs.LoadBalancingPolicy != nil {
+		errs = errs.Also(serving.ValidateLoadBalancingPolicy(ctx, rs.LoadBalancingPolicy).ViaField("loadBalancingPolicy"))
+	}
+
 	return errs
 }
 

@@ -240,6 +240,11 @@ func (in *RevisionSpec) DeepCopyInto(out *RevisionSpec) {
 		*out = new(int64)
 		**out = **in
 	}
+	if in.LoadBalancingPolicy != nil {
+		in, out := &in.LoadBalancingPolicy, &out.LoadBalancingPolicy
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 

@@ -184,31 +184,40 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 		maxScaleDown = math.Floor(readyPodsCount / spec.MaxScaleDownRate)
 	}
 
-	dspc := math.Ceil(observedStableValue / spec.TargetValue)
-	dppc := math.Ceil(observedPanicValue / spec.TargetValue)
+	desiredStablePodCount := math.Ceil(observedStableValue / spec.TargetValue)
+	desiredPanicPodCount := math.Ceil(observedPanicValue / spec.TargetValue)
+
+	// Apply ScaleBuffer before clamping to max scale limits
+	// Only apply ScaleBuffer when the revision is reachable (has active traffic)
+	if spec.Reachable {
+		desiredStablePodCount += float64(spec.ScaleBuffer)
+		desiredPanicPodCount += float64(spec.ScaleBuffer)
+	}
+
 	if debugEnabled {
 		desugared.Debug(
 			fmt.Sprintf("For metric %s observed values: stable = %0.3f; panic = %0.3f; target = %0.3f "+
 				"Desired StablePodCount = %0.0f, PanicPodCount = %0.0f, ReadyEndpointCount = %d, MaxScaleUp = %0.0f, MaxScaleDown = %0.0f",
 				metricName, observedStableValue, observedPanicValue, spec.TargetValue,
-				dspc, dppc, originalReadyPodsCount, maxScaleUp, maxScaleDown))
+				desiredStablePodCount, desiredPanicPodCount, originalReadyPodsCount, maxScaleUp, maxScaleDown))
 	}
 
 	// We want to keep desired pod count in the  [maxScaleDown, maxScaleUp] range.
-	desiredStablePodCount := int32(math.Min(math.Max(dspc, maxScaleDown), maxScaleUp))
-	desiredPanicPodCount := int32(math.Min(math.Max(dppc, maxScaleDown), maxScaleUp))
+	dspc := int32(math.Min(math.Max(desiredStablePodCount, maxScaleDown), maxScaleUp))
+	dppc := int32(math.Min(math.Max(desiredPanicPodCount, maxScaleDown), maxScaleUp))
 
-	//	If ActivationScale > 1, then adjust the desired pod counts
-	if a.deciderSpec.ActivationScale > 1 {
-		if dspc > 0 && a.deciderSpec.ActivationScale > desiredStablePodCount {
-			desiredStablePodCount = a.deciderSpec.ActivationScale
+	// ActivationScale enforces minimum replicas when scaling from zero.
+	// Only applies when pods are at 0 and traffic arrives (dspc/dppc > 0).
+	if a.deciderSpec.ActivationScale > 1 && originalReadyPodsCount == 0 {
+		if dspc > 0 && a.deciderSpec.ActivationScale > dspc {
+			dspc = a.deciderSpec.ActivationScale
 		}
-		if dppc > 0 && a.deciderSpec.ActivationScale > desiredPanicPodCount {
-			desiredPanicPodCount = a.deciderSpec.ActivationScale
+		if dppc > 0 && a.deciderSpec.ActivationScale > dppc {
+			dppc = a.deciderSpec.ActivationScale
 		}
 	}
 
-	isOverPanicThreshold := dppc/readyPodsCount >= spec.PanicThreshold
+	isOverPanicThreshold := desiredPanicPodCount/readyPodsCount >= spec.PanicThreshold
 
 	if a.panicTime.IsZero() && isOverPanicThreshold {
 		// Begin panicking when we cross the threshold in the panic window.
@@ -226,13 +235,13 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 		pkgmetrics.Record(a.reporterCtx, panicM.M(0))
 	}
 
-	desiredPodCount := desiredStablePodCount
+	desiredPodCount := dspc
 	if !a.panicTime.IsZero() {
 		// In some edgecases stable window metric might be larger
 		// than panic one. And we should provision for stable as for panic,
 		// so pick the larger of the two.
-		if desiredPodCount < desiredPanicPodCount {
-			desiredPodCount = desiredPanicPodCount
+		if desiredPodCount < dppc {
+			desiredPodCount = dppc
 		}
 		logger.Debug("Operating in panic mode.")
 		// We do not scale down while in panic mode. Only increases will be applied.
