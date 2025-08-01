@@ -170,7 +170,7 @@ jobs:
         path: ~/artifacts
 
     - name: setup kind
-      uses: chainguard-dev/actions/setup-kind@16e2fd6603a1c6a1fbc880fdbb922b2e8e2be3e7 # main
+      uses: chainguard-dev/actions/setup-kind@708219d4822f33611ac1a2653815cc10e1ab54a6 # main
       with:
         k8s-version: ${{ matrix.k8s-version }}
         kind-worker-count: 4
@@ -220,7 +220,7 @@ jobs:
           --ingress-class=${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev \
           ${{ matrix.test-flags }}
 
-    - uses: chainguard-dev/actions/kind-diag@16e2fd6603a1c6a1fbc880fdbb922b2e8e2be3e7 # main
+    - uses: chainguard-dev/actions/kind-diag@708219d4822f33611ac1a2653815cc10e1ab54a6 # main
       # Only upload logs on failure.
       if: ${{ failure() }}
       with:
