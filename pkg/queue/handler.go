@@ -40,7 +40,7 @@ func ProxyHandler(breaker *Breaker, stats *netstats.RequestStats, tracingEnabled
 		startTime := time.Now()
 		requestID := r.Header.Get("x-request-id")
 
-		logger.Debugw("requestReceived", "x-request-id", requestID, "host", r.Host, "path", r.URL.Path, "requestReceivedTimestamp", time.Now().Format(time.RFC3339Nano), "containerStartTimestamp", startTime.Format(time.RFC3339Nano))
+		logger.Infow("requestReceived", "x-request-id", requestID, "host", r.Host, "path", r.URL.Path, "requestReceivedTimestamp", time.Now().Format(time.RFC3339Nano), "containerStartTimestamp", startTime.Format(time.RFC3339Nano))
 
 		if tracingEnabled {
 			proxyCtx, proxySpan := trace.StartSpan(r.Context(), "queue_proxy")
