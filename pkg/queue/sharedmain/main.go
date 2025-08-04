@@ -167,6 +167,7 @@ func init() {
 }
 
 func Main(opts ...Option) error {
+	startTime := time.Now()
 	d := Defaults{
 		Ctx: signals.NewContext(),
 	}
@@ -237,7 +238,7 @@ func Main(opts ...Option) error {
 	// Enable TLS when certificate is mounted.
 	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
-	mainHandler, drainer := mainHandler(d.Ctx, env, d.Transport, probe, stats, logger, &pendingRequests)
+	mainHandler, drainer := mainHandler(d.Ctx, env, d.Transport, probe, stats, logger, &pendingRequests, startTime)
 	adminHandler := adminHandler(d.Ctx, logger, drainer)
 
 	// Enable TLS server when activator server certs are mounted.
