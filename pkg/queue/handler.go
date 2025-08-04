@@ -31,13 +31,12 @@ import (
 
 // ProxyHandler sends requests to the `next` handler at a rate controlled by
 // the passed `breaker`, while recording stats to `stats`.
-func ProxyHandler(breaker *Breaker, stats *netstats.RequestStats, tracingEnabled bool, next http.Handler, logger *zap.SugaredLogger) http.HandlerFunc {
+func ProxyHandler(breaker *Breaker, stats *netstats.RequestStats, tracingEnabled bool, next http.Handler, logger *zap.SugaredLogger, startTime time.Time) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if netheader.IsKubeletProbe(r) {
 			next.ServeHTTP(w, r)
 			return
 		}
-		startTime := time.Now()
 		requestID := r.Header.Get("x-request-id")
 
 		logger.Infow("requestReceived", "x-request-id", requestID, "source", "cerebrium", "host", r.Host, "path", r.URL.Path, "requestReceivedTimestamp", time.Now().Format(time.RFC3339Nano), "containerStartTimestamp", startTime.Format(time.RFC3339Nano))

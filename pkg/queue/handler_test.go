@@ -52,7 +52,7 @@ func TestHandlerBreakerQueueFull(t *testing.T) {
 		QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1,
 	})
 	stats := netstats.NewRequestStats(time.Now())
-	h := ProxyHandler(breaker, stats, false /*tracingEnabled*/, blockHandler, logger)
+	h := ProxyHandler(breaker, stats, false /*tracingEnabled*/, blockHandler, logger, time.Now())
 
 	req := httptest.NewRequest(http.MethodGet, "http://localhost:8081/time", nil)
 	resps := make(chan *httptest.ResponseRecorder)
@@ -102,7 +102,7 @@ func TestHandlerBreakerTimeout(t *testing.T) {
 		QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1,
 	})
 	stats := netstats.NewRequestStats(time.Now())
-	h := ProxyHandler(breaker, stats, false /*tracingEnabled*/, blockHandler, logger)
+	h := ProxyHandler(breaker, stats, false /*tracingEnabled*/, blockHandler, logger, time.Now())
 
 	go func() {
 		h(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "http://localhost:8081/time", nil))
@@ -162,7 +162,7 @@ func TestHandlerReqEvent(t *testing.T) {
 			proxy := httputil.NewSingleHostReverseProxy(serverURL)
 
 			stats := netstats.NewRequestStats(time.Now())
-			h := ProxyHandler(br, stats, true /*tracingEnabled*/, proxy, logger)
+			h := ProxyHandler(br, stats, true /*tracingEnabled*/, proxy, logger, time.Now())
 
 			writer := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -224,7 +224,7 @@ func TestIgnoreProbe(t *testing.T) {
 	// Ensure no more than 1 request can be queued. So we'll send 3.
 	breaker := NewBreaker(BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1})
 	stats := netstats.NewRequestStats(time.Now())
-	h := ProxyHandler(breaker, stats, false /*tracingEnabled*/, proxy, logger)
+	h := ProxyHandler(breaker, stats, false /*tracingEnabled*/, proxy, logger, time.Now())
 
 	req := httptest.NewRequest(http.MethodPost, "http://prob.in", nil)
 	req.Header.Set("User-Agent", netheader.KubeProbeUAPrefix+"1.29") // Mark it a probe.
@@ -274,7 +274,7 @@ func BenchmarkProxyHandler(b *testing.B) {
 	for _, tc := range tests {
 		reportTicker := time.NewTicker(tc.reportPeriod)
 
-		h := ProxyHandler(tc.breaker, stats, true /*tracingEnabled*/, baseHandler, logger)
+		h := ProxyHandler(tc.breaker, stats, true /*tracingEnabled*/, baseHandler, logger, time.Now())
 		b.Run("sequential-"+tc.label, func(b *testing.B) {
 			resp := httptest.NewRecorder()
 			for range b.N {

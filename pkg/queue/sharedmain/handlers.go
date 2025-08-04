@@ -47,6 +47,7 @@ func mainHandler(
 	stats *netstats.RequestStats,
 	logger *zap.SugaredLogger,
 	pendingRequests *atomic.Int32,
+	startTime time.Time,
 ) (http.Handler, *pkghandler.Drainer) {
 	target := net.JoinHostPort("127.0.0.1", env.UserPort)
 
@@ -75,7 +76,7 @@ func mainHandler(
 	if metricsSupported {
 		composedHandler = requestAppMetricsHandler(logger, composedHandler, breaker, env)
 	}
-	composedHandler = queue.ProxyHandler(breaker, stats, tracingEnabled, composedHandler, logger)
+	composedHandler = queue.ProxyHandler(breaker, stats, tracingEnabled, composedHandler, logger, startTime)
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
 	composedHandler = handler.NewTimeoutHandler(composedHandler, "request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
 		return timeout, responseStartTimeout, idleTimeout
