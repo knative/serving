@@ -2,18 +2,15 @@
 # Do not modify this file, instead modify peribolos/knative.yaml
 
 aliases:
-  client-reviewers:
-  - itsmurugappan
+  client-reviewers: []
   client-wg-leads:
   - dsimansk
   client-writers:
   - dsimansk
-  - vyasgun
   docs-reviewers:
   - nainaz
   - skonto
   docs-writers:
-  - csantanapr
   - skonto
   eventing-reviewers:
   - Leo6Leo
@@ -28,7 +25,6 @@ aliases:
   - aliok
   - cali0707
   - creydr
-  - lionelvillard
   - matzew
   - pierDipi
   func-reviewers:
@@ -37,7 +33,6 @@ aliases:
   func-writers:
   - gauron99
   - jrangelramos
-  - lance
   - lkingland
   - matejvasek
   - matzew
@@ -47,6 +42,7 @@ aliases:
   - salaboy
   knative-admin:
   - aliok
+  - arsenetar
   - cardil
   - dprotaso
   - dsimansk
@@ -58,7 +54,6 @@ aliases:
   - knative-prow-updater-robot
   - knative-test-reporter-robot
   - matzew
-  - nrrso
   - skonto
   - upodroid
   knative-release-leads:
@@ -115,10 +110,10 @@ aliases:
   - skonto
   steering-committee:
   - aliok
+  - arsenetar
   - dprotaso
   - evankanderson
   - matzew
-  - nrrso
   ux-wg-leads:
   - Leo6Leo
   - cali0707
