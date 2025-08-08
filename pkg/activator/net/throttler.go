@@ -19,7 +19,6 @@ package net
 import (
 	"context"
 	"net/http"
-	"slices"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -588,34 +587,13 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 	}
 }
 
-// pickIndices picks the indices for the slicing.
-func pickIndices(numTrackers, selfIndex, numActivators int) (beginIndex, endIndex, remnants int) {
-	if numActivators > numTrackers {
-		// 1. We have fewer pods than than activators. Assign the pods in round robin fashion.
-		// With subsetting this is less of a problem and should almost never happen.
-		// e.g. lt=3, #ac = 5; for selfIdx = 3 => 3 % 3 = 0, or for si = 5 => 5%3 = 2
-		beginIndex = selfIndex % numTrackers
-		endIndex = beginIndex + 1
-		return beginIndex, endIndex, 0
-	}
-
-	// 2. distribute equally and share the remnants
-	// among all the activators, but with reduced capacity, if finite.
-	sliceSize := numTrackers / numActivators
-	beginIndex = selfIndex * sliceSize
-	endIndex = beginIndex + sliceSize
-	remnants = numTrackers % numActivators
-	return beginIndex, endIndex, remnants
-}
-
 // assignSlice picks a subset of the individual pods to send requests to
 // for this Activator instance. This only matters in case of direct
 // to pod IP routing, and is irrelevant, when ClusterIP is used.
-// assignSlice should receive podTrackers sorted by address.
+// Uses consistent hashing to ensure all activators independently assign the correct endpoints.
 func assignSlice(trackers map[string]*podTracker, selfIndex, numActivators int) []*podTracker {
-	// When we're unassigned, doesn't matter what we return.
-	lt := len(trackers)
-	if selfIndex == -1 || lt <= 1 {
+	// Handle edge cases
+	if selfIndex == -1 || len(trackers) <= 1 {
 		// Sort for consistent ordering
 		dests := maps.Keys(trackers)
 		sort.Strings(dests)
@@ -626,39 +604,29 @@ func assignSlice(trackers map[string]*podTracker, selfIndex, numActivators int) 
 		return result
 	}
 
-	// If there's just a single activator. Take all the trackers.
-	if numActivators == 1 {
-		// Sort for consistent ordering
-		dests := maps.Keys(trackers)
-		sort.Strings(dests)
-		result := make([]*podTracker, 0, len(dests))
-		for _, d := range dests {
-			result = append(result, trackers[d])
-		}
-		return result
-	}
-
-	// If the number of pods is not divisible by the number of activators, we allocate one pod to each activator exclusively.
-	// examples
-	// 1. we have 20 pods and 3 activators -> we'd get 2 remnants so activator with index 0,1 would each pick up a unique tracker
-	// 2. we have 24 pods and 5 activators -> we'd get 4 remnants so the activator 0,1,2,3 would each pick up a unique tracker
+	// Get sorted list of pod addresses for consistent ordering
 	dests := maps.Keys(trackers)
 	sort.Strings(dests)
-	bi, ei, remnants := pickIndices(lt, selfIndex, numActivators)
-	pickedDests := slices.Clone(dests[bi:ei])
-	if remnants > 0 {
-		tail := dests[len(trackers)-remnants:]
-		if len(tail) > selfIndex {
-			t := tail[selfIndex]
-			pickedDests = append(pickedDests, t)
+
+	// If there's only one activator, it should handle all traffic regardless of its index
+	// This handles edge cases where an activator might have a non-zero index but be the only one left
+	if numActivators == 1 {
+		assigned := make([]*podTracker, len(dests))
+		for i, dest := range dests {
+			assigned[i] = trackers[dest]
+		}
+		return assigned
+	}
+
+	// Use consistent hashing: take all pods where podIdx % numActivators == selfIndex
+	assigned := make([]*podTracker, 0)
+	for i, dest := range dests {
+		if i%numActivators == selfIndex {
+			assigned = append(assigned, trackers[dest])
 		}
 	}
-	trackerSlice := make([]*podTracker, len(pickedDests))
 
-	for i, d := range pickedDests {
-		trackerSlice[i] = trackers[d]
-	}
-	return trackerSlice
+	return assigned
 }
 
 // This function will never be called in parallel but `try` can be called in parallel to this so we need

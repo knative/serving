@@ -1649,116 +1649,6 @@ func TestInferIndex(t *testing.T) {
 	}
 }
 
-func TestPickIndices(t *testing.T) {
-	tests := []struct {
-		l                   string
-		pods                int
-		acts                int
-		idx                 int
-		wantB, wantE, wantR int
-	}{{
-		l:     "1 pod, 1 activator",
-		pods:  1,
-		acts:  1,
-		idx:   0,
-		wantB: 0,
-		wantE: 1,
-	}, {
-		l:     "1 pod, 2 activators, this is 0",
-		pods:  1,
-		acts:  2,
-		idx:   0,
-		wantB: 0,
-		wantE: 1,
-	}, {
-		l:     "1 pod, 2 activators, this is 1",
-		pods:  1,
-		acts:  2,
-		idx:   1,
-		wantB: 0,
-		wantE: 1,
-	}, {
-		l:     "2 pods, 3 activators, this is 1",
-		pods:  2,
-		acts:  3,
-		idx:   1,
-		wantB: 1,
-		wantE: 2,
-	}, {
-		l:     "2 pods, 3 activators, this is 2",
-		pods:  2,
-		acts:  3,
-		idx:   2,
-		wantB: 0,
-		wantE: 1,
-	}, {
-		l:     "3 pods, 3 activators, this is 2",
-		pods:  3,
-		acts:  3,
-		idx:   2,
-		wantB: 2,
-		wantE: 3,
-	}, {
-		l:     "10 pods, 3 activators this is 0",
-		pods:  10,
-		acts:  3,
-		idx:   0,
-		wantB: 0,
-		wantE: 3,
-		wantR: 1,
-	}, {
-		l:     "10 pods, 3 activators this is 1",
-		pods:  10,
-		acts:  3,
-		idx:   1,
-		wantB: 3,
-		wantE: 6,
-		wantR: 1,
-	}, {
-		l:     "10 pods, 3 activators this is 2",
-		pods:  10,
-		acts:  3,
-		idx:   2,
-		wantB: 6,
-		wantE: 9,
-		wantR: 1,
-	}, {
-		l:     "150 pods, 5 activators this is 0",
-		pods:  150,
-		acts:  5,
-		idx:   0,
-		wantB: 0,
-		wantE: 30,
-	}, {
-		l:     "150 pods, 5 activators this is 1",
-		pods:  150,
-		acts:  5,
-		idx:   1,
-		wantB: 30,
-		wantE: 60,
-	}, {
-		l:     "150 pods, 5 activators this is 4",
-		pods:  150,
-		acts:  5,
-		idx:   4,
-		wantB: 120,
-		wantE: 150,
-	}}
-	for _, test := range tests {
-		t.Run(test.l, func(tt *testing.T) {
-			bi, ei, rem := pickIndices(test.pods, test.idx, test.acts)
-			if got, want := bi, test.wantB; got != want {
-				t.Errorf("BeginIndex = %d, want: %d", got, want)
-			}
-			if got, want := ei, test.wantE; got != want {
-				t.Errorf("EndIndex = %d, want: %d", got, want)
-			}
-			if got, want := rem, test.wantR; got != want {
-				t.Errorf("Remnants = %d, want: %d", got, want)
-			}
-		})
-	}
-}
 
 func TestAssignSlice(t *testing.T) {
 	opt := cmp.Comparer(func(a, b *podTracker) bool {
@@ -1808,8 +1698,9 @@ func TestAssignSlice(t *testing.T) {
 		cp := make(map[string]*podTracker)
 		maps.Copy(cp, trackers)
 		got := assignSlice(cp, 1, 3)
+		// With consistent hashing: idx=1 gets pod at index 1 (dest2)
 		if !cmp.Equal(got, assignedTrackers[1:2], opt) {
-			t.Errorf("Got=%v, want: %v; diff: %s", got, assignedTrackers[0:1],
+			t.Errorf("Got=%v, want: %v; diff: %s", got, assignedTrackers[1:2],
 				cmp.Diff(assignedTrackers[1:2], got, opt))
 		}
 	})
@@ -1819,9 +1710,11 @@ func TestAssignSlice(t *testing.T) {
 		delete(cp, "dest2")
 		delete(cp, "dest3")
 		got := assignSlice(cp, 1, 3)
-		if !cmp.Equal(got, assignedTrackers[0:1], opt) {
-			t.Errorf("Got=%v, want: %v; diff: %s", got, assignedTrackers[0:1],
-				cmp.Diff(assignedTrackers[0:1], got, opt))
+		// With consistent hashing: 1 pod, 3 activators, selfIndex=1
+		// Pod at index 0: 0%3=0 goes to activator 0, so activator 1 gets nothing
+		if !cmp.Equal(got, []*podTracker{}, opt) {
+			t.Errorf("Got=%v, want: %v; diff: %s", got, []*podTracker{},
+				cmp.Diff([]*podTracker{}, got, opt))
 		}
 	})
 
@@ -1852,13 +1745,48 @@ func TestAssignSlice(t *testing.T) {
 		}}
 		cp := maps.Clone(trackers)
 		got := assignSlice(cp, 1, 2)
-		want := assignedTrackers[1:2]
+		// With consistent hashing: idx=1, na=2 gets pods at indices where i%2==1, so dest2 and dest3 don't match
+		// Actually, with sorted keys ["dest1", "dest2", "dest3"], idx=1 gets index 1 (dest2)
+		want := []*podTracker{assignedTrackers[1]} // Just dest2
 		if !cmp.Equal(got, want, opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, want,
 				cmp.Diff(want, got, opt))
 		}
 		if got, want := got[0].b.Capacity(), uint64(0); got != want {
 			t.Errorf("Capacity for the tail pod = %d, want: %d", got, want)
+		}
+	})
+
+	// Additional tests for consistent hashing
+	t.Run("5 pods, 3 activators", func(t *testing.T) {
+		fivePodTrackers := map[string]*podTracker{
+			"dest1": {dest: "1"},
+			"dest2": {dest: "2"}, 
+			"dest3": {dest: "3"},
+			"dest4": {dest: "4"},
+			"dest5": {dest: "5"},
+		}
+		// Sorted: ["dest1", "dest2", "dest3", "dest4", "dest5"] 
+		// Activator 0: indices 0, 3 -> dest1, dest4
+		// Activator 1: indices 1, 4 -> dest2, dest5  
+		// Activator 2: index 2 -> dest3
+		
+		got0 := assignSlice(fivePodTrackers, 0, 3)
+		want0 := []*podTracker{{dest: "1"}, {dest: "4"}}
+		if !cmp.Equal(got0, want0, opt) {
+			t.Errorf("Activator 0: Got=%v, want: %v; diff: %s", got0, want0, cmp.Diff(want0, got0, opt))
+		}
+
+		got1 := assignSlice(fivePodTrackers, 1, 3)
+		want1 := []*podTracker{{dest: "2"}, {dest: "5"}}
+		if !cmp.Equal(got1, want1, opt) {
+			t.Errorf("Activator 1: Got=%v, want: %v; diff: %s", got1, want1, cmp.Diff(want1, got1, opt))
+		}
+
+		got2 := assignSlice(fivePodTrackers, 2, 3)
+		want2 := []*podTracker{{dest: "3"}}
+		if !cmp.Equal(got2, want2, opt) {
+			t.Errorf("Activator 2: Got=%v, want: %v; diff: %s", got2, want2, cmp.Diff(want2, got2, opt))
 		}
 	})
 }
