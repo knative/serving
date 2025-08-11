@@ -121,7 +121,15 @@ func TestRequestMetricHandler(t *testing.T) {
 }
 
 func reset() {
-	metricstest.Unregister(requestConcurrencyM.Name(), requestCountM.Name(), responseTimeInMsecM.Name())
+	metricstest.Unregister(
+		requestConcurrencyM.Name(),
+		requestCountM.Name(),
+		responseTimeInMsecM.Name(),
+		healthyConnLatencyM.Name(),
+		transportFailuresM.Name(),
+		healthyTargetTimeoutsM.Name(),
+		healthyTarget502sM.Name(),
+	)
 	register()
 }
 
