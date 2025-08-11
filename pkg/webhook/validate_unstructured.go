@@ -73,7 +73,8 @@ func validateRevisionTemplate(ctx context.Context, uns *unstructured.Unstructure
 	// TODO(https://github.com/knative/serving/issues/3425): remove this guard once variations
 	// of this are well-tested. Only run extra validation for the dry-run test.
 	// This will be in place to while the feature is tested for compatibility and later removed.
-	if mode != DryRunStrict && mode != DryRunEnabled {
+	// Allow dry-run if specified in request (dry-run=server) and creating the resource
+	if mode != DryRunStrict && mode != DryRunEnabled && !apis.IsDryRun(ctx) {
 		return nil
 	}
 
@@ -96,6 +97,10 @@ func validateRevisionTemplate(ctx context.Context, uns *unstructured.Unstructure
 	}
 	if templ == nil || templ == (&v1.RevisionTemplateSpec{}) {
 		return nil // Don't need to validate empty templates
+	}
+
+	if apis.IsInCreate(ctx) && !apis.IsDryRun(ctx) {
+		return nil // Don't validate create requests unless specified as a dry-run
 	}
 
 	if apis.IsInUpdate(ctx) {
