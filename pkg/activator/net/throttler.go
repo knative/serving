@@ -287,6 +287,35 @@ func validateLoadBalancingPolicy(policy string) bool {
 	return validPolicies[policy]
 }
 
+func pickLBPolicy(loadBalancerPolicy *string, _ map[string]string, containerConcurrency int, logger *zap.SugaredLogger) (lbPolicy, string) {
+	// Honor explicit spec field first
+	if loadBalancerPolicy != nil && *loadBalancerPolicy != "" {
+		if !validateLoadBalancingPolicy(*loadBalancerPolicy) {
+			logger.Errorf("Invalid load balancing policy %q, using defaults", *loadBalancerPolicy)
+		} else {
+			switch *loadBalancerPolicy {
+			case "random-choice-2":
+				return randomChoice2Policy, "random-choice-2"
+			case "round-robin":
+				return newRoundRobinPolicy(), "round-robin"
+			case "least-connections":
+				return leastConnectionsPolicy, "least-connections"
+			case "first-available":
+				return firstAvailableLBPolicy, "first-available"
+			}
+		}
+	}
+	// Fall back to containerConcurrency-based defaults
+	switch {
+	case containerConcurrency == 0:
+		return randomChoice2Policy, "random-choice-2 (default for CC=0)"
+	case containerConcurrency <= 3:
+		return firstAvailableLBPolicy, "first-available (default for CC<=3)"
+	default:
+		return newRoundRobinPolicy(), "round-robin (default for CC>3)"
+	}
+}
+
 func newRevisionThrottler(revID types.NamespacedName,
 	loadBalancerPolicy *string,
 	containerConcurrency int, proto string,
@@ -300,50 +329,7 @@ func newRevisionThrottler(revID types.NamespacedName,
 		lbpName    string
 	)
 
-	// Determine load balancing policy
-	if loadBalancerPolicy != nil && *loadBalancerPolicy != "" {
-		// Validate the policy first
-		if !validateLoadBalancingPolicy(*loadBalancerPolicy) {
-			logger.Errorf("Invalid load balancing policy %q, using defaults", *loadBalancerPolicy)
-			loadBalancerPolicy = nil // Fall back to default selection
-		}
-	}
-
-	if loadBalancerPolicy != nil {
-		switch *loadBalancerPolicy {
-		case "random-choice-2":
-			lbp = randomChoice2Policy
-			lbpName = "random-choice-2"
-		case "round-robin":
-			lbp = newRoundRobinPolicy()
-			lbpName = "round-robin"
-		case "least-connections":
-			lbp = leastConnectionsPolicy
-			lbpName = "least-connections"
-		case "first-available":
-			lbp = firstAvailableLBPolicy
-			lbpName = "first-available"
-		default:
-			// This shouldn't happen due to validation, but fall back to random-choice-2
-			logger.Warnf("Unknown load balancing policy %q, falling back to random-choice-2", *loadBalancerPolicy)
-			lbp = randomChoice2Policy
-			lbpName = "random-choice-2"
-		}
-	} else {
-		// Fall back to containerConcurrency-based defaults
-		switch {
-		case containerConcurrency == 0:
-			lbp = randomChoice2Policy
-			lbpName = "random-choice-2 (default for CC=0)"
-		case containerConcurrency <= 3:
-			lbp = firstAvailableLBPolicy
-			lbpName = "first-available (default for CC<=3)"
-		default:
-			lbp = newRoundRobinPolicy()
-			lbpName = "round-robin (default for CC>3)"
-		}
-	}
-
+	lbp, lbpName = pickLBPolicy(loadBalancerPolicy, nil, containerConcurrency, logger)
 	logger.Infof("Creating revision throttler with load balancing policy: %s, container concurrency: %d", lbpName, containerConcurrency)
 
 	if containerConcurrency == 0 {
@@ -838,10 +824,21 @@ func (t *Throttler) revisionUpdated(obj any) {
 
 	t.logger.Debug("Revision update", zap.String(logkey.Key, revID.String()))
 
-	if _, err := t.getOrCreateRevisionThrottler(revID); err != nil {
+	if rt, err := t.getOrCreateRevisionThrottler(revID); err != nil {
 		t.logger.Errorw("Failed to get revision throttler for revision",
 			zap.Error(err), zap.String(logkey.Key, revID.String()))
+	} else if rt != nil {
+		// Update the lbPolicy dynamically if the revision's spec policy changed
+		newPolicy, name := pickLBPolicy(rev.Spec.LoadBalancingPolicy, nil, int(rev.Spec.GetContainerConcurrency()), t.logger)
+		// Assign without heavy locking; lbPolicy is a function pointer used in request path.
+		// Use the mux to serialize with request-path reads as best-effort.
+		rt.mux.Lock()
+		rt.lbPolicy = newPolicy
+		rt.containerConcurrency = int(rev.Spec.GetContainerConcurrency())
+		rt.mux.Unlock()
+		t.logger.Infof("Updated revision throttler LB policy to: %s", name)
 	}
+
 }
 
 // revisionDeleted is to clean up revision throttlers after a revision is deleted to prevent unbounded
