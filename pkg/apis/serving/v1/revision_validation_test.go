@@ -866,7 +866,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue("not a DNS 1035 label: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+		want: apis.ErrInvalidValue("not a DNS label: [a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')]",
 			"metadata.name"),
 	}, {
 		name: "invalid generate name for revision template",
@@ -883,7 +883,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue("not a DNS 1035 label prefix: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+		want: apis.ErrInvalidValue("not a DNS label prefix: [a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')]",
 			"metadata.generateName"),
 	}, {
 		name: "invalid metadata.annotations for scale",
@@ -1225,12 +1225,12 @@ func TestValidateRevisionName(t *testing.T) {
 	}{{
 		name:            "invalid revision generateName - dots",
 		revGenerateName: "foo.bar",
-		expectErr: apis.ErrInvalidValue("not a DNS 1035 label prefix: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+		expectErr: apis.ErrInvalidValue("not a DNS label prefix: [must not contain dots]",
 			"metadata.generateName"),
 	}, {
 		name:    "invalid revision name - dots",
 		revName: "foo.bar",
-		expectErr: apis.ErrInvalidValue("not a DNS 1035 label: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+		expectErr: apis.ErrInvalidValue("not a DNS label: [must not contain dots]",
 			"metadata.name"),
 	}, {
 		name: "invalid name (not prefixed)",

@@ -186,7 +186,7 @@ func TestConfigurationValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue("not a DNS 1035 label: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+		want: apis.ErrInvalidValue("not a DNS label: [must not contain dots]",
 			"spec.template.metadata.name"),
 	}, {
 		name: "invalid generate name for configuration spec",
@@ -209,7 +209,7 @@ func TestConfigurationValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue("not a DNS 1035 label prefix: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+		want: apis.ErrInvalidValue("not a DNS label prefix: [must not contain dots]",
 			"spec.template.metadata.generateName"),
 	}, {
 		name: "valid generate name for configuration spec",
