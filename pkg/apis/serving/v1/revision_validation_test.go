@@ -1253,6 +1253,12 @@ func TestValidateRevisionName(t *testing.T) {
 			Name: "valid",
 		},
 		revName: "valid-name",
+	}, {
+		name: "valid name - starts with a digit",
+		objectMeta: metav1.ObjectMeta{
+			Name: "1valid",
+		},
+		revName: "1valid-name",
 	}}
 
 	for _, c := range cases {
