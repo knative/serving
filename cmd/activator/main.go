@@ -146,6 +146,8 @@ func main() {
 	// reconnect for the first request after the probe succeeds.
 	logger.Debugf("MaxIdleProxyConns: %d, MaxIdleProxyConnsPerHost: %d", env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
 	transport := pkgnet.NewProxyAutoTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
+	// Wrap transport to record quarantine/connection metrics for healthy targets.
+	transport = activatorhandler.NewMetricsRoundTripper(transport)
 
 	// Fetch networking configuration to determine whether EnableMeshPodAddressability
 	// is enabled or not.
@@ -173,6 +175,8 @@ func main() {
 			logger.Fatalw("Failed to create certificate cache", zap.Error(err))
 		}
 		transport = pkgnet.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, certCache.TLSContext())
+		// Wrap again after TLS transport is created.
+		transport = activatorhandler.NewMetricsRoundTripper(transport)
 	}
 
 	// Start throttler.

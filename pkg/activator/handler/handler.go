@@ -151,6 +151,8 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 		pkghandler.Error(a.logger.With(zap.String(logkey.Key, revID.String())))(w, req, err)
 	}
 
+	// Mark this request as targeting a healthy backend so metrics can be scoped appropriately.
+	r = r.WithContext(WithHealthyTarget(r.Context(), true))
 	proxy.ServeHTTP(w, r)
 }
 

@@ -45,6 +45,8 @@ func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rev := RevisionFrom(r.Context())
 	reporterCtx, _ := metrics.PodRevisionContext(h.podName, activator.Name,
 		rev.Namespace, rev.Labels[serving.ServiceLabelKey], rev.Labels[serving.ConfigurationLabelKey], rev.Name)
+	// Stash reporter context for downstream transports to record metrics.
+	r = r.WithContext(WithReporterContext(r.Context(), reporterCtx))
 
 	start := time.Now()
 
