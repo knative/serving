@@ -1290,6 +1290,132 @@ func TestLoadBalancingAlgorithms(t *testing.T) {
 	})
 }
 
+func TestThrottlerHonorsSpecLoadBalancingPolicy(t *testing.T) {
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	defer cancel()
+
+	servingClient := fakeservingclient.Get(ctx)
+	revisions := fakerevisioninformer.Get(ctx)
+
+	// Create a revision without spec policy but with annotation specifying round-robin
+	rev := &v1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-revision-spec",
+			Namespace: testNamespace,
+		},
+		Spec: v1.RevisionSpec{
+			ContainerConcurrency: ptr.Int64(1), // would default to first-available without spec override
+			LoadBalancingPolicy:  stringPtr("round-robin"),
+		},
+	}
+	servingClient.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
+	revisions.Informer().GetIndexer().Add(rev)
+
+	throttler := NewThrottler(ctx, "10.10.10.10")
+	revID := types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name}
+	rt, err := throttler.getOrCreateRevisionThrottler(revID)
+	if err != nil {
+		t.Fatalf("Failed to get revision throttler: %v", err)
+	}
+
+	// Set up 2 trackers and attach directly
+	trackers := makeTrackers(2, 1)
+	rt.mux.Lock()
+	rt.assignedTrackers = trackers
+	rt.mux.Unlock()
+
+	// Make several selections; round-robin should distribute across both trackers, not always the first
+	selections := make(map[string]int)
+	for i := 0; i < 10; i++ {
+		cb, tracker := rt.lbPolicy(ctx, rt.assignedTrackers)
+		if tracker != nil {
+			selections[tracker.dest]++
+			if cb != nil {
+				cb()
+			}
+		}
+	}
+	if len(selections) < 2 {
+		t.Errorf("Spec loadBalancingPolicy not honored: selections only from %v", selections)
+	}
+}
+
+func TestDynamicLoadBalancingPolicyUpdate(t *testing.T) {
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	defer cancel()
+
+	servingClient := fakeservingclient.Get(ctx)
+	revisions := fakerevisioninformer.Get(ctx)
+
+	// Create a revision with no policy (defaults to first-available for CC=1)
+	rev := &v1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-revision-dyn",
+			Namespace: testNamespace,
+		},
+		Spec: v1.RevisionSpec{
+			ContainerConcurrency: ptr.Int64(1),
+		},
+	}
+	servingClient.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
+	revisions.Informer().GetIndexer().Add(rev)
+
+	throttler := NewThrottler(ctx, "10.10.10.10")
+	revID := types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name}
+	rt, err := throttler.getOrCreateRevisionThrottler(revID)
+	if err != nil {
+		t.Fatalf("Failed to get revision throttler: %v", err)
+	}
+
+	// Two trackers capacity 1 each
+	trackers := makeTrackers(2, 1)
+	rt.mux.Lock()
+	rt.assignedTrackers = trackers
+	rt.mux.Unlock()
+
+	// With first-available, repeated selections should be biased to the first tracker
+	selections := make(map[string]int)
+	for i := 0; i < 10; i++ {
+		cb, tracker := rt.lbPolicy(ctx, rt.assignedTrackers)
+		if tracker != nil {
+			selections[tracker.dest]++
+			if cb != nil {
+				cb()
+			}
+		}
+	}
+	if len(selections) == 0 {
+		t.Fatal("No selections made")
+	}
+	// Expect mostly or exclusively first dest before update
+	firstDest := trackers[0].dest
+	if selections[firstDest] < 5 { // should be majority
+		t.Fatalf("Unexpected distribution before update: %v", selections)
+	}
+
+	// Update the revision to set round-robin via spec and invoke revisionUpdated
+	rev = rev.DeepCopy()
+	rev.Spec.LoadBalancingPolicy = stringPtr("round-robin")
+	// Update informer store and call revisionUpdated
+	revisions.Informer().GetIndexer().Update(rev)
+	throttler.revisionUpdated(rev)
+
+	// Reset counts and sample again
+	selections = make(map[string]int)
+	for i := 0; i < 10; i++ {
+		cb, tracker := rt.lbPolicy(ctx, rt.assignedTrackers)
+		if tracker != nil {
+			selections[tracker.dest]++
+			if cb != nil {
+				cb()
+			}
+		}
+	}
+	if len(selections) < 2 {
+		t.Fatalf("Policy did not update dynamically, selections: %v", selections)
+	}
+}
+
 func TestThrottlerWithLoadBalancingPolicy(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	servingClient := fakeservingclient.Get(ctx)
