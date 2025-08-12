@@ -834,7 +834,7 @@ func (t *Throttler) revisionUpdated(obj any) {
 		// Use the mux to serialize with request-path reads as best-effort.
 		rt.mux.Lock()
 		rt.lbPolicy = newPolicy
-		rt.containerConcurrency = int(rev.Spec.GetContainerConcurrency())
+		rt.containerConcurrency.Store(int32(rev.Spec.GetContainerConcurrency()))
 		rt.mux.Unlock()
 		t.logger.Infof("Updated revision throttler LB policy to: %s", name)
 	}
