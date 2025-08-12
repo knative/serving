@@ -64,6 +64,8 @@ jobs:
             path: ./cmd/queue
           - name: webhook
             path: ./cmd/webhook
+          - name: controller
+            path: ./cmd/controller
     steps:
       - name: "Checkout"
         uses: actions/checkout@v4
