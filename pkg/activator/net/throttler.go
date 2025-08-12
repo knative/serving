@@ -238,7 +238,7 @@ type breaker interface {
 
 type revisionThrottler struct {
 	revID                types.NamespacedName
-	containerConcurrency int
+	containerConcurrency atomic.Int32
 	lbPolicy             lbPolicy
 
 	// These are used in slicing to infer which pods to assign
@@ -338,14 +338,14 @@ func newRevisionThrottler(revID types.NamespacedName,
 		revBreaker = queue.NewBreaker(breakerParams)
 	}
 	t := &revisionThrottler{
-		revID:                revID,
-		containerConcurrency: containerConcurrency,
-		breaker:              revBreaker,
+		revID:   revID,
+		breaker: revBreaker,
 		logger:               logger,
 		protocol:             proto,
-		lbPolicy:             lbp,
-		podTrackers:          make(map[string]*podTracker),
+		lbPolicy:    lbp,
+		podTrackers: make(map[string]*podTracker),
 	}
+	t.containerConcurrency.Store(int32(containerConcurrency))
 
 	// Start with unknown
 	t.activatorIndex.Store(-1)
@@ -420,17 +420,17 @@ func (rt *revisionThrottler) calculateCapacity(backendCount, numTrackers, activa
 		// when using pod direct routing.
 		// We use number of assignedTrackers (numTrackers) for calculation
 		// since assignedTrackers means activator's capacity
-		targetCapacity = rt.containerConcurrency * numTrackers
+		targetCapacity = int(rt.containerConcurrency.Load()) * numTrackers
 	} else {
 		// Capacity is computed off of number of ready backends,
 		// when we are using clusterIP routing.
-		targetCapacity = rt.containerConcurrency * backendCount
+		targetCapacity = int(rt.containerConcurrency.Load()) * backendCount
 		if targetCapacity > 0 {
 			targetCapacity = minOneOrValue(targetCapacity / minOneOrValue(activatorCount))
 		}
 	}
 
-	if (backendCount > 0) && (rt.containerConcurrency == 0 || targetCapacity > revisionMaxConcurrency) {
+	if (backendCount > 0) && (rt.containerConcurrency.Load() == 0 || targetCapacity > revisionMaxConcurrency) {
 		// If cc==0, we need to pick a number, but it does not matter, since
 		// infinite breaker will dole out as many tokens as it can.
 		// For cc>0 we clamp targetCapacity to maxConcurrency because the backing
@@ -445,12 +445,13 @@ func (rt *revisionThrottler) calculateCapacity(backendCount, numTrackers, activa
 // This makes sure we reset the capacity to the CC, since the pod
 // might be reassigned to be exclusively used.
 func (rt *revisionThrottler) resetTrackers() {
-	if rt.containerConcurrency <= 0 {
+	cc := int(rt.containerConcurrency.Load())
+	if cc <= 0 {
 		return
 	}
 	for _, t := range rt.podTrackers {
 		// Reset to default.
-		t.UpdateConcurrency(rt.containerConcurrency)
+		t.UpdateConcurrency(cc)
 	}
 }
 
@@ -474,7 +475,7 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 		}
 
 		var assigned []*podTracker
-		if rt.containerConcurrency > 0 {
+		if rt.containerConcurrency.Load() > 0 {
 			rt.resetTrackers()
 			assigned = assignSlice(rt.podTrackers, ai, ac)
 		} else {
@@ -674,13 +675,14 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 			newDestsSet[newDest] = struct{}{}
 			tracker, ok := rt.podTrackers[newDest]
 			if !ok {
-				if rt.containerConcurrency == 0 {
+				cc := int(rt.containerConcurrency.Load())
+				if cc == 0 {
 					tracker = newPodTracker(newDest, nil)
 				} else {
 					tracker = newPodTracker(newDest, queue.NewBreaker(queue.BreakerParams{
 						QueueDepth:      breakerQueueDepth,
-						MaxConcurrency:  rt.containerConcurrency,
-						InitialCapacity: rt.containerConcurrency, // Presume full unused capacity.
+						MaxConcurrency:  cc,
+						InitialCapacity: cc, // Presume full unused capacity.
 					}))
 				}
 				newTrackers = append(newTrackers, tracker)
@@ -834,8 +836,8 @@ func (t *Throttler) revisionUpdated(obj any) {
 		// Use the mux to serialize with request-path reads as best-effort.
 		rt.mux.Lock()
 		rt.lbPolicy = newPolicy
-		rt.containerConcurrency.Store(int32(rev.Spec.GetContainerConcurrency()))
 		rt.mux.Unlock()
+		rt.containerConcurrency.Store(int32(rev.Spec.GetContainerConcurrency()))
 		t.logger.Infof("Updated revision throttler LB policy to: %s", name)
 	}
 

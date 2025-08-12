@@ -219,8 +219,8 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 			rt := &revisionThrottler{
 				logger:               logger,
 				breaker:              queue.NewBreaker(testBreakerParams),
-				containerConcurrency: tt.containerConcurrency,
 			}
+			rt.containerConcurrency.Store(int32(tt.containerConcurrency))
 			rt.numActivators.Store(tt.numActivators)
 			rt.activatorIndex.Store(tt.activatorIndex)
 			rtPodTrackers := make(map[string]*podTracker)
@@ -267,8 +267,8 @@ func TestThrottlerCalculateCapacity(t *testing.T) {
 			rt := &revisionThrottler{
 				logger:               logger,
 				breaker:              newInfiniteBreaker(logger),
-				containerConcurrency: tt.containerConcurrency,
 			}
+			rt.containerConcurrency.Store(int32(tt.containerConcurrency))
 			rt.numActivators.Store(tt.numActivators)
 			// shouldn't really happen since revisionMaxConcurrency is very, very large,
 			// but check that we behave reasonably if it's exceeded.
