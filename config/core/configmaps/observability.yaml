@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: observability
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "6bc8b73d"
+    knative.dev/example-checksum: "f183bbc6"
 data:
   _example: |
     ################################
@@ -130,9 +130,8 @@ data:
     # The HTTP context root for profiling is then /debug/pprof/.
     runtime-profiling: enabled
 
-
-    # tracing-protocol field specifies the protocol used when exporting metrics
-    # It supports either 'none' (the default), 'prometheus', 'http/protobuf' (OTLP HTTP), 'grpc' (OTLP gRPC)
+    # tracing-protocol field specifies the protocol used when exporting traces
+    # It supports either 'none' (the default), 'http/protobuf' (OTLP HTTP), 'grpc' (OTLP gRPC)
     # or `stdout` for debugging purposes
     tracing-protocol: http/protobuf
 
