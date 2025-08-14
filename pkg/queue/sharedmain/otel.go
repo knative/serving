@@ -46,8 +46,10 @@ func SetupObservabilityOrDie(
 ) (*metrics.MeterProvider, *tracing.TracerProvider) {
 	r := res(logger, cfg)
 
-	if cfg.Observability.RequestMetrics.Protocol == metrics.ProtocolPrometheus {
-		// Force the port to be the default queue user metrics port
+	// Force the port to be the default queue user metrics port if it's not overriden
+	// by the operator
+	if cfg.Observability.RequestMetrics.Protocol == metrics.ProtocolPrometheus &&
+		cfg.Observability.RequestMetrics.Endpoint == "" {
 		cfg.Observability.RequestMetrics.Endpoint = fmt.Sprintf(":%d", networking.UserQueueMetricsPort)
 	}
 
