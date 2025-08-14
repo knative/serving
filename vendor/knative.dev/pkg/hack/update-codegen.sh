@@ -73,7 +73,6 @@ go run k8s.io/code-generator/cmd/deepcopy-gen \
   knative.dev/pkg/apis/duck/v1 \
   knative.dev/pkg/tracker \
   knative.dev/pkg/logging \
-  knative.dev/pkg/metrics \
   knative.dev/pkg/testing \
   knative.dev/pkg/testing/duck \
   knative.dev/pkg/webhook/resourcesemantics/conversion/internal
