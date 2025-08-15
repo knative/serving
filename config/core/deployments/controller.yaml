@@ -73,10 +73,6 @@ spec:
         - name: CONFIG_OBSERVABILITY_NAME
           value: config-observability
 
-        # TODO(https://github.com/knative/pkg/pull/953): Remove stackdriver specific config
-        - name: METRICS_DOMAIN
-          value: knative.dev/internal/serving
-
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
