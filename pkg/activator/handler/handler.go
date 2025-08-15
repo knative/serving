@@ -90,6 +90,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		r.Header.Del("X-Run-Id")
 	}
 	xRequestId := r.Header.Get("X-Request-Id")
+	a.logger.Infow("Proxy started", zap.String("x-request-id", xRequestId))
 
 	revID := RevIDFrom(r.Context())
 	if err := a.throttler.Try(tryContext, revID, xRequestId, func(dest string, isClusterIP bool) error {
