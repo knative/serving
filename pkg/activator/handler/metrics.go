@@ -70,6 +70,16 @@ func init() {
 	register()
 }
 
+// RecordPendingRequest increments the pending requests metric
+func RecordPendingRequest(ctx context.Context) {
+	pkgmetrics.RecordBatch(ctx, breakerPendingRequestsM.M(1))
+}
+
+// RecordPendingRequestComplete decrements the pending requests metric
+func RecordPendingRequestComplete(ctx context.Context) {
+	pkgmetrics.RecordBatch(ctx, breakerPendingRequestsM.M(-1))
+}
+
 func register() {
 	// Create views to see our measurements. This can return an error if
 	// a previously-registered view has the same name with a different value.
