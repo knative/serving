@@ -19,6 +19,7 @@ package sharedmain
 import (
 	"cmp"
 	"context"
+	"fmt"
 	"os"
 
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
@@ -35,6 +36,7 @@ import (
 	"knative.dev/pkg/observability/tracing"
 	"knative.dev/pkg/system"
 	servingmetrics "knative.dev/serving/pkg/metrics"
+	"knative.dev/serving/pkg/networking"
 )
 
 func SetupObservabilityOrDie(
@@ -43,6 +45,13 @@ func SetupObservabilityOrDie(
 	logger *zap.SugaredLogger,
 ) (*metrics.MeterProvider, *tracing.TracerProvider) {
 	r := res(logger, cfg)
+
+	// Force the port to be the default queue user metrics port if it's not overridden
+	// by the operator
+	if cfg.Observability.RequestMetrics.Protocol == metrics.ProtocolPrometheus &&
+		cfg.Observability.RequestMetrics.Endpoint == "" {
+		cfg.Observability.RequestMetrics.Endpoint = fmt.Sprintf(":%d", networking.UserQueueMetricsPort)
+	}
 
 	meterProvider, err := metrics.NewMeterProvider(
 		ctx,
