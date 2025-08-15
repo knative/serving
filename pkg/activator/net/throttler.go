@@ -27,6 +27,7 @@ import (
 
 	"golang.org/x/exp/maps"
 
+	"go.opencensus.io/stats"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -44,6 +45,7 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/reconciler"
+	"knative.dev/serving/pkg/activator/handler"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
@@ -338,10 +340,10 @@ func newRevisionThrottler(revID types.NamespacedName,
 		revBreaker = queue.NewBreaker(breakerParams)
 	}
 	t := &revisionThrottler{
-		revID:   revID,
-		breaker: revBreaker,
-		logger:               logger,
-		protocol:             proto,
+		revID:       revID,
+		breaker:     revBreaker,
+		logger:      logger,
+		protocol:    proto,
 		lbPolicy:    lbp,
 		podTrackers: make(map[string]*podTracker),
 	}
@@ -372,6 +374,10 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 			panic(r)
 		}
 	}()
+
+	// Record that this request is now pending for a podTracker
+	handler.RecordPendingRequest(ctx)
+	defer handler.RecordPendingRequestComplete(ctx)
 
 	var ret error
 
@@ -840,7 +846,6 @@ func (t *Throttler) revisionUpdated(obj any) {
 		rt.containerConcurrency.Store(int32(rev.Spec.GetContainerConcurrency()))
 		t.logger.Infof("Updated revision throttler LB policy to: %s", name)
 	}
-
 }
 
 // revisionDeleted is to clean up revision throttlers after a revision is deleted to prevent unbounded
