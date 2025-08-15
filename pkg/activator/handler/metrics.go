@@ -54,7 +54,11 @@ var (
 		stats.UnitDimensionless)
 	healthyTarget502sM = stats.Int64(
 		"healthy_target_502_total",
-		"Total number of 502 responses produced due to transport errors while targeting healthy backends",
+		"Current number of 502 responses produced due to transport errors while targeting healthy backends",
+		stats.UnitDimensionless)
+	breakerPendingRequestsM = stats.Int64(
+		"breaker_pending_requests",
+		"Current number of requests waiting to acquire a podTracker",
 		stats.UnitDimensionless)
 
 	// NOTE: 0 should not be used as boundary. See
@@ -109,9 +113,15 @@ func register() {
 			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey},
 		},
 		&view.View{
-			Description: "Total number of 502 responses produced due to transport errors while targeting healthy backends",
+			Description: "Current number of 502 responses produced due to transport errors while targeting healthy backends",
 			Measure:     healthyTarget502sM,
-			Aggregation: view.Count(),
+			Aggregation: view.LastValue(),
+			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey},
+		},
+		&view.View{
+			Description: "Current number of requests waiting to acquire a podTracker",
+			Measure:     breakerPendingRequestsM,
+			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey},
 		},
 	); err != nil {
