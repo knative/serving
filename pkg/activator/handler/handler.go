@@ -19,10 +19,13 @@ package handler
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"
@@ -149,6 +152,7 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 	}
 	proxy.FlushInterval = netproxy.FlushInterval
 	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
+		a.logDetailedProxyError(revID, target, req, err)
 		pkghandler.Error(a.logger.With(zap.String(logkey.Key, revID.String())))(w, req, err)
 	}
 
@@ -176,4 +180,66 @@ func WrapActivatorHandlerWithFullDuplex(h http.Handler, logger *zap.SugaredLogge
 		}
 		h.ServeHTTP(w, r)
 	})
+}
+
+// logDetailedProxyError provides detailed logging about proxy failures to help with 502 debugging
+func (a *activationHandler) logDetailedProxyError(revID types.NamespacedName, target string, req *http.Request, err error) {
+	logger := a.logger.With(zap.String(logkey.Key, revID.String()))
+	
+	// Extract request ID for correlation
+	xRequestId := req.Header.Get("X-Request-Id")
+	
+	// Classify the error type
+	errorType := "unknown"
+	errorDetails := make(map[string]interface{})
+	
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		errorType = "timeout"
+		errorDetails["reason"] = "request deadline exceeded"
+	case errors.Is(err, context.Canceled):
+		errorType = "canceled"
+		errorDetails["reason"] = "request context canceled"
+	default:
+		if netErr, ok := err.(net.Error); ok {
+			if netErr.Timeout() {
+				errorType = "network_timeout"
+				errorDetails["reason"] = "network timeout"
+			} else {
+				errorType = "network_error"
+				errorDetails["reason"] = netErr.Error()
+			}
+		} else if urlErr, ok := err.(*url.Error); ok {
+			errorType = "url_error"
+			errorDetails["op"] = urlErr.Op
+			errorDetails["url"] = urlErr.URL
+			if urlErr.Err != nil {
+				// Check for specific connection errors
+				if errors.Is(urlErr.Err, syscall.ECONNREFUSED) {
+					errorDetails["reason"] = "connection refused"
+				} else if errors.Is(urlErr.Err, syscall.ECONNRESET) {
+					errorDetails["reason"] = "connection reset by peer"
+				} else if errors.Is(urlErr.Err, syscall.EHOSTUNREACH) {
+					errorDetails["reason"] = "host unreachable"
+				} else if errors.Is(urlErr.Err, syscall.ENETUNREACH) {
+					errorDetails["reason"] = "network unreachable"
+				} else {
+					errorDetails["reason"] = urlErr.Err.Error()
+				}
+			}
+		} else {
+			errorType = "other"
+			errorDetails["reason"] = err.Error()
+		}
+	}
+	
+	logger.Errorw("Proxy request failed - returning 502 Bad Gateway",
+		zap.String("x-request-id", xRequestId),
+		zap.String("target", target),
+		zap.String("method", req.Method),
+		zap.String("path", req.URL.Path),
+		zap.String("error_type", errorType),
+		zap.Any("error_details", errorDetails),
+		zap.Error(err),
+	)
 }

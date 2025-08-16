@@ -17,6 +17,8 @@ limitations under the License.
 package handler
 
 import (
+	"context"
+
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/metrics"
 
