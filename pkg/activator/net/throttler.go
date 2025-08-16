@@ -27,7 +27,6 @@ import (
 
 	"golang.org/x/exp/maps"
 
-	"go.opencensus.io/stats"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 

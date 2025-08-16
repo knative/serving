@@ -129,6 +129,7 @@ func reset() {
 		transportFailuresM.Name(),
 		healthyTargetTimeoutsM.Name(),
 		healthyTarget502sM.Name(),
+		breakerPendingRequestsM.Name(),
 	)
 	register()
 }
