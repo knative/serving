@@ -268,6 +268,101 @@ func TestSkipUpdate(t *testing.T) {
 	}
 }
 
+func TestSkipCreate(t *testing.T) {
+	validServiceWithDryRun := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				config.DryRunFeatureKey: "enabled",
+			},
+		},
+		Spec: v1.ServiceSpec{
+			ConfigurationSpec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					Spec: v1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "busybox",
+							}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	validServiceNoDryRun := &v1.Service{
+		Spec: v1.ServiceSpec{
+			ConfigurationSpec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					Spec: v1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "busybox",
+							}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// for testing behavior with annotation
+	validServiceWithDryRunFlagUns, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(validServiceWithDryRun)
+
+	// for testing behavior without annotation
+	validServiceNoDryRunFlagUns, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(validServiceNoDryRun)
+
+	tests := []struct {
+		name             string
+		input            map[string]interface{}
+		cliDryRunEnabled bool
+		want             string
+	}{{
+		name:             "skip_create_dryrun_with_annotation",
+		cliDryRunEnabled: false,
+		input:            validServiceWithDryRunFlagUns,
+	}, {
+		name:             "create_with_dryrun_with_annotation",
+		cliDryRunEnabled: true,
+		input:            validServiceWithDryRunFlagUns,
+		want:             "dry run failed with kubeclient error: spec.template",
+	}, {
+		name:             "skip_create_dryrun_no_annotation",
+		cliDryRunEnabled: false,
+		input:            validServiceNoDryRunFlagUns,
+	}, {
+		name:             "create_with_dryrun_no_annotation",
+		cliDryRunEnabled: true,
+		input:            validServiceNoDryRunFlagUns,
+		want:             "dry run failed with kubeclient error: spec.template",
+	},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx, _ := fakekubeclient.With(context.Background())
+			failKubeCalls(ctx)
+			ctx = logging.WithLogger(ctx, logtesting.TestLogger(t))
+			ctx = apis.WithinCreate(ctx)
+			if test.cliDryRunEnabled {
+				ctx = apis.WithDryRun(ctx)
+			}
+
+			unstruct := &unstructured.Unstructured{}
+			unstruct.SetUnstructuredContent(test.input)
+
+			got := ValidateService(ctx, unstruct)
+			if got == nil {
+				if test.want != "" {
+					t.Errorf("Validate got=nil, want=%q", test.want)
+				}
+			} else if got.Error() != test.want {
+				t.Errorf("Validate got=%q, want=%q", got.Error(), test.want)
+			}
+		})
+	}
+}
+
 func enableDryRun(ctx context.Context, flag config.Flag) context.Context {
 	return config.ToContext(ctx, &config.Config{
 		Features: &config.Features{
