@@ -269,41 +269,31 @@ func TestSkipUpdate(t *testing.T) {
 }
 
 func TestSkipCreate(t *testing.T) {
-	validServiceWithDryRun := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				config.DryRunFeatureKey: "enabled",
-			},
-		},
-		Spec: v1.ServiceSpec{
-			ConfigurationSpec: v1.ConfigurationSpec{
-				Template: v1.RevisionTemplateSpec{
-					Spec: v1.RevisionSpec{
-						PodSpec: corev1.PodSpec{
-							Containers: []corev1.Container{{
-								Image: "busybox",
-							}},
-						},
+	serviceSpec := v1.ServiceSpec{
+		ConfigurationSpec: v1.ConfigurationSpec{
+			Template: v1.RevisionTemplateSpec{
+				Spec: v1.RevisionSpec{
+					PodSpec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Image: "busybox",
+						}},
 					},
 				},
 			},
 		},
 	}
 
-	validServiceNoDryRun := &v1.Service{
-		Spec: v1.ServiceSpec{
-			ConfigurationSpec: v1.ConfigurationSpec{
-				Template: v1.RevisionTemplateSpec{
-					Spec: v1.RevisionSpec{
-						PodSpec: corev1.PodSpec{
-							Containers: []corev1.Container{{
-								Image: "busybox",
-							}},
-						},
-					},
-				},
+	validServiceWithDryRun := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				config.DryRunFeatureKey: "enabled",
 			},
 		},
+		Spec: serviceSpec,
+	}
+
+	validServiceNoDryRun := &v1.Service{
+		Spec: serviceSpec,
 	}
 
 	// for testing behavior with annotation
@@ -342,11 +332,11 @@ func TestSkipCreate(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx, _ := fakekubeclient.With(context.Background())
 			failKubeCalls(ctx)
-			ctx = logging.WithLogger(ctx, logtesting.TestLogger(t))
 			ctx = apis.WithinCreate(ctx)
 			if test.cliDryRunEnabled {
 				ctx = apis.WithDryRun(ctx)
 			}
+			ctx = logging.WithLogger(ctx, logtesting.TestLogger(t))
 
 			unstruct := &unstructured.Unstructured{}
 			unstruct.SetUnstructuredContent(test.input)
