@@ -40,7 +40,7 @@ require (
 	knative.dev/caching v0.0.0-20250716150501-fd36b19e8e44
 	knative.dev/hack v0.0.0-20250708013849-70d4b00da6ba
 	knative.dev/networking v0.0.0-20250716125000-edb1a4a0c863
-	knative.dev/pkg v0.0.0-20250716115900-19d3cc2da0b9
+	knative.dev/pkg v0.0.0-20250817152444-53ed1d53d232
 	sigs.k8s.io/randfill v1.0.0
 	sigs.k8s.io/yaml v1.5.0
 )
