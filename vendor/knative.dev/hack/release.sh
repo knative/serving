@@ -219,9 +219,9 @@ function prepare_dot_release() {
   # Use the original tag (ie. potentially with a knative- prefix) when determining the last version commit sha
   local github_tag="$(gh_tool release list --json tagName --jq '.[].tagName' | grep "${last_version}")"
   local last_release_commit="$(git rev-list -n 1 "${github_tag}")"
-  local last_release_commit_filtered="$(git rev-list --invert-grep --grep "\[skip-dot-release\]" -n 1 "${github_tag}")"
+  local last_release_commit_filtered="$(git rev-list --invert-grep --grep '^(?!\s*>).*?\[skip-dot-release\]'-n 1 "${github_tag}")"
   local release_branch_commit="$(git rev-list -n 1 upstream/"${RELEASE_BRANCH}")"
-  local release_branch_commit_filtered="$(git rev-list --invert-grep --grep "\[skip-dot-release\]" -n 1 upstream/"${RELEASE_BRANCH}")"
+  local release_branch_commit_filtered="$(git rev-list --invert-grep --grep '^(?!\s*>).*?\[skip-dot-release\]' -n 1 upstream/"${RELEASE_BRANCH}")"
   [[ -n "${last_release_commit}" ]] || abort "cannot get last release commit"
   [[ -n "${release_branch_commit}" ]] || abort "cannot get release branch last commit"
   echo "Version ${last_version} is at commit ${last_release_commit}. Comparing using ${last_release_commit_filtered}. If it is different is because commits with the [skip-dot-release] flag in their commit body are not being considered."
