@@ -43,6 +43,7 @@ type PodAutoscaler struct {
 	Spec PodAutoscalerSpec `json:"spec,omitempty"`
 
 	// Status communicates the observed state of the PodAutoscaler (from the controller).
+	// +kubebuilder:default={"serviceName": "", "metricsServiceName": "", "conditions": {{"type":"Active", "status": "Unknown", "reason": "Deploying",  "message": "", "lastTransitionTime": "1970-01-01T00:00:00Z"}, {"type":"Ready", "status": "Unknown", "reason": "Deploying", "message": "", "lastTransitionTime": "1970-01-01T00:00:00Z"}, {"type":"SKSReady", "status": "Unknown", "reason": "Deploying", "message": "", "lastTransitionTime": "1970-01-01T00:00:00Z"}, {"type":"ScaleTargetInitialized", "status": "Unknown", "reason": "Deploying", "message": "", "lastTransitionTime": "1970-01-01T00:00:00Z"}}}
 	// +optional
 	Status PodAutoscalerStatus `json:"status,omitempty"`
 }
