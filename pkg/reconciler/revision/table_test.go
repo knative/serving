@@ -340,7 +340,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Revision("foo", "pa-inactive",
-				WithLogURL, withDefaultContainerStatuses(), MarkDeploying(""),
+				WithLogURL, withDefaultContainerStatuses(), MarkContainerHealthyUnknown(""),
 				// When we reconcile an "all ready" revision when the PA
 				// is inactive, we should see the following change.
 				MarkInactive("NoTraffic", "This thing is inactive."), WithRevisionObservedGeneration(1),
