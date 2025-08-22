@@ -93,6 +93,8 @@ func MakeDecider(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig
 			Reachable:           pa.Spec.Reachability != autoscalingv1alpha1.ReachabilityUnreachable,
 			ActivationScale:     activationScale,
 			ScaleBuffer:         scaleBuffer,
+			RevisionReady:       pa.Status.GetCondition(autoscalingv1alpha1.PodAutoscalerConditionReady).IsTrue(),
+			MinScale:            func() int32 { min, _ := pa.ScaleBounds(config); return min }(),
 		},
 	}
 }

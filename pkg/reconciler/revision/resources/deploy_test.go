@@ -88,7 +88,8 @@ var (
 					}},
 				},
 			},
-			PeriodSeconds: 0,
+			PeriodSeconds:    1,
+			FailureThreshold: 1,
 		},
 		SecurityContext: queueSecurityContext,
 		Env: []corev1.EnvVar{{
@@ -171,7 +172,7 @@ var (
 			Value: metrics.Domain(),
 		}, {
 			Name:  "SERVING_READINESS_PROBE",
-			Value: fmt.Sprintf(`{"tcpSocket":{"port":%d,"host":"127.0.0.1"}}`, v1.DefaultUserPort),
+			Value: fmt.Sprintf(`{"tcpSocket":{"port":%d,"host":"127.0.0.1"},"failureThreshold":1}`, v1.DefaultUserPort),
 		}, {
 			Name:  "ENABLE_PROFILING",
 			Value: "false",
@@ -336,6 +337,16 @@ func sidecarContainer(containerName string, opts ...containerOption) corev1.Cont
 
 func queueContainer(opts ...containerOption) corev1.Container {
 	return container(defaultQueueContainer.DeepCopy(), opts...)
+}
+
+// Helper to get default probe JSON with failureThreshold
+func defaultProbeJSON(port int32) string {
+	return fmt.Sprintf(`{"tcpSocket":{"port":%d,"host":"127.0.0.1"},"failureThreshold":1}`, port)
+}
+
+// Helper to get default HTTP probe JSON with failureThreshold
+func defaultHTTPProbeJSON(path string, port int32, scheme string) string {
+	return fmt.Sprintf(`{"httpGet":{"path":"%s","port":%d,"host":"127.0.0.1","scheme":"%s"},"failureThreshold":1}`, path, port, scheme)
 }
 
 func withEnvVar(name, value string) containerOption {
@@ -616,7 +627,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("USER_PORT", "8888"),
-					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"}}`),
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"},"failureThreshold":1}`),
 				),
 			}),
 	}, {
@@ -663,7 +674,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("USER_PORT", "8888"),
-					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"}}`),
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"},"failureThreshold":1}`),
 				),
 			}, withPrependedVolumes(corev1.Volume{
 				Name: "asdf",
@@ -690,7 +701,9 @@ func TestMakePodSpec(t *testing.T) {
 				servingContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			}, func(p *corev1.PodSpec) {
 				p.EnableServiceLinks = ptr.Bool(true)
 			}),
@@ -717,7 +730,9 @@ func TestMakePodSpec(t *testing.T) {
 				servingContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			}, func(p *corev1.PodSpec) {
 				p.EnableServiceLinks = nil
 			}),
@@ -822,7 +837,9 @@ func TestMakePodSpec(t *testing.T) {
 				servingContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			},
 		),
 	}, {
@@ -873,7 +890,9 @@ func TestMakePodSpec(t *testing.T) {
 				servingContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			},
 		),
 	}, {
@@ -896,7 +915,9 @@ func TestMakePodSpec(t *testing.T) {
 				servingContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			},
 		),
 	}, {
@@ -963,7 +984,7 @@ func TestMakePodSpec(t *testing.T) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
 				queueContainer(
-					withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"}}`),
+					withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"},"failureThreshold":1}`),
 				),
 			}),
 	}, {
@@ -984,7 +1005,7 @@ func TestMakePodSpec(t *testing.T) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
 				queueContainer(
-					withEnvVar("SERVING_READINESS_PROBE", `{"grpc":{"port":8080,"service":null}}`),
+					withEnvVar("SERVING_READINESS_PROBE", `{"grpc":{"port":8080,"service":null},"failureThreshold":1}`),
 				),
 			}),
 	}, {
@@ -1005,7 +1026,7 @@ func TestMakePodSpec(t *testing.T) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
 				queueContainer(
-					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":12345,"host":"127.0.0.1"}}`),
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":12345,"host":"127.0.0.1"},"failureThreshold":1}`),
 				),
 			}),
 	}, {
@@ -1028,7 +1049,7 @@ func TestMakePodSpec(t *testing.T) {
 						container.ReadinessProbe = withExecReadinessProbe([]string{"echo", "hello"})
 					}),
 				queueContainer(
-					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}`),
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"},"failureThreshold":1}`),
 				),
 			}),
 	}, {
@@ -1063,7 +1084,9 @@ func TestMakePodSpec(t *testing.T) {
 						},
 					}),
 				),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			}),
 	}, {
 		name: "with tcp liveness probe",
@@ -1095,7 +1118,9 @@ func TestMakePodSpec(t *testing.T) {
 						},
 					}),
 				),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			}),
 	}, {
 		name: "with HTTP startup probe",
@@ -1128,7 +1153,9 @@ func TestMakePodSpec(t *testing.T) {
 						},
 					}),
 				),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			}),
 	}, {
 		name: "with TCP startup probe",
@@ -1158,7 +1185,9 @@ func TestMakePodSpec(t *testing.T) {
 						TCPSocket: &corev1.TCPSocketAction{},
 					}),
 				),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			}),
 	}, {
 		name: "complex pod spec",
@@ -1191,6 +1220,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("SERVING_SERVICE", "svc"),
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
 				),
 			}),
 	}, {
@@ -1309,7 +1339,7 @@ func TestMakePodSpec(t *testing.T) {
 				queueContainer(
 					withEnvVar("SERVING_SERVICE", "svc"),
 					withEnvVar("USER_PORT", "8888"),
-					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"}}`),
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"},"failureThreshold":1}`),
 				),
 			}),
 	}, {
@@ -1335,7 +1365,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("USER_PORT", "8080"),
-					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}`),
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"},"failureThreshold":1}`),
 				),
 			},
 			func(p *corev1.PodSpec) {
@@ -1400,7 +1430,7 @@ func TestMakePodSpec(t *testing.T) {
 						})
 				}),
 				queueContainer(
-					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}`),
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"},"failureThreshold":1}`),
 				),
 			},
 			withAppendedVolumes(varLogVolume),
@@ -1518,7 +1548,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("ENABLE_MULTI_CONTAINER_PROBES", "true"),
-					withEnvVar("SERVING_READINESS_PROBE", `[{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"}},{"httpGet":{"path":"/","port":8090,"host":"127.0.0.1","scheme":"HTTP"}}]`),
+					withEnvVar("SERVING_READINESS_PROBE", `[{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"},"failureThreshold":1},{"httpGet":{"path":"/","port":8090,"host":"127.0.0.1","scheme":"HTTP"},"failureThreshold":1}]`),
 				),
 			}),
 	}, {
@@ -1557,7 +1587,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("ENABLE_MULTI_CONTAINER_PROBES", "true"),
-					withEnvVar("SERVING_READINESS_PROBE", `[{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}]`),
+					withEnvVar("SERVING_READINESS_PROBE", `[{"tcpSocket":{"port":8080,"host":"127.0.0.1"},"failureThreshold":1}]`),
 				),
 			}),
 	}, {
@@ -1583,7 +1613,9 @@ func TestMakePodSpec(t *testing.T) {
 				servingContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			},
 			func(p *corev1.PodSpec) {
 				p.Affinity = &corev1.Affinity{
@@ -1614,7 +1646,9 @@ func TestMakePodSpec(t *testing.T) {
 				servingContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			},
 		),
 	}, {
@@ -1644,7 +1678,9 @@ func TestMakePodSpec(t *testing.T) {
 				servingContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			},
 			func(p *corev1.PodSpec) {
 				p.Affinity = &corev1.Affinity{
@@ -1672,7 +1708,7 @@ func TestMakePodSpec(t *testing.T) {
 				container.Image = "busybox"
 			}),
 			queueContainer(
-				withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"}}`),
+				withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"},"failureThreshold":1}`),
 			),
 		}, withRuntimeClass("gvisor")),
 	}, {
@@ -1699,7 +1735,7 @@ func TestMakePodSpec(t *testing.T) {
 				container.Image = "busybox"
 			}),
 			queueContainer(
-				withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"}}`),
+				withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"},"failureThreshold":1}`),
 			),
 		}),
 	}, {
@@ -1727,7 +1763,7 @@ func TestMakePodSpec(t *testing.T) {
 				container.Image = "busybox"
 			}),
 			queueContainer(
-				withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"}}`),
+				withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"},"failureThreshold":1}`),
 			),
 		}, withRuntimeClass("gvisor")),
 	}, {
@@ -1756,7 +1792,7 @@ func TestMakePodSpec(t *testing.T) {
 				container.Image = "busybox"
 			}),
 			queueContainer(
-				withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"}}`),
+				withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"},"failureThreshold":1}`),
 			),
 		}, withRuntimeClass("kata")),
 	}}

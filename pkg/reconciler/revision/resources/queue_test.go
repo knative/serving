@@ -81,7 +81,7 @@ var (
 	defaults, _      = apicfg.NewDefaultsConfigFromMap(nil)
 )
 
-const testProbeJSONTemplate = `{"tcpSocket":{"port":%d,"host":"127.0.0.1"}}`
+const testProbeJSONTemplate = `{"tcpSocket":{"port":%d,"host":"127.0.0.1"},"failureThreshold":1}`
 
 func TestMakeQueueContainer(t *testing.T) {
 	tests := []struct {
@@ -805,8 +805,9 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
-		PeriodSeconds:  1,
-		TimeoutSeconds: 10,
+		PeriodSeconds:    1,
+		TimeoutSeconds:   10,
+		FailureThreshold: 1,
 	}
 
 	wantProbeJSON, err := json.Marshal(expectedProbe)
@@ -828,8 +829,9 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 					}},
 				},
 			},
-			PeriodSeconds:  1,
-			TimeoutSeconds: 10,
+			PeriodSeconds:    1,
+			TimeoutSeconds:   10,
+			FailureThreshold: 1,
 		}
 	})
 
@@ -876,8 +878,9 @@ func TestProbeGenerationHTTP(t *testing.T) {
 				Scheme: corev1.URISchemeHTTPS,
 			},
 		},
-		PeriodSeconds:  2,
-		TimeoutSeconds: 10,
+		PeriodSeconds:    2,
+		TimeoutSeconds:   10,
+		FailureThreshold: 1,
 	}
 
 	wantProbeJSON, err := json.Marshal(expectedProbe)
@@ -900,8 +903,9 @@ func TestProbeGenerationHTTP(t *testing.T) {
 					}},
 				},
 			},
-			PeriodSeconds:  2,
-			TimeoutSeconds: 10,
+			PeriodSeconds:    2,
+			TimeoutSeconds:   10,
+			FailureThreshold: 1,
 		}
 	})
 
@@ -934,6 +938,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 			},
 			PeriodSeconds:    0,
 			SuccessThreshold: 3,
+			FailureThreshold: 1,
 		},
 		rev: v1.RevisionSpec{
 			TimeoutSeconds: ptr.Int64(45),
@@ -967,9 +972,10 @@ func TestTCPProbeGeneration(t *testing.T) {
 						}},
 					},
 				},
-				PeriodSeconds:    0,
+				PeriodSeconds:    1,
 				TimeoutSeconds:   0,
 				SuccessThreshold: 3,
+				FailureThreshold: 1,
 			}
 			c.Env = env(map[string]string{"USER_PORT": strconv.Itoa(userPort)})
 		}),
@@ -996,8 +1002,9 @@ func TestTCPProbeGeneration(t *testing.T) {
 					Port: intstr.FromInt(int(v1.DefaultUserPort)),
 				},
 			},
-			PeriodSeconds:  1,
-			TimeoutSeconds: 1,
+			PeriodSeconds:    1,
+			TimeoutSeconds:   1,
+			FailureThreshold: 1,
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.ReadinessProbe = &corev1.Probe{
@@ -1012,7 +1019,8 @@ func TestTCPProbeGeneration(t *testing.T) {
 				},
 				PeriodSeconds: 1,
 				// Inherit Kubernetes default here rather than overriding as we need to do for exec probe.
-				TimeoutSeconds: 0,
+				TimeoutSeconds:   0,
+				FailureThreshold: 1,
 			}
 			c.Env = env(map[string]string{})
 		}),
