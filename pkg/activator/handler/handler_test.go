@@ -331,6 +331,10 @@ func TestErrorPropagationFromProxy(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			// TODO: TEMPORARILY DISABLED - Re-enable when quick 502 detection is re-enabled
+			if test.name == "genuine quick 502" {
+				t.Skip("Quick 502 detection is currently disabled - see TODO comments in handler.go")
+			}
 			// Setup a transport that fails with the specified error
 			responseCode := http.StatusBadGateway
 			responseBody := "proxy error"

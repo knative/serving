@@ -259,12 +259,14 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 		return proxyError
 	}
 
+	// TODO: TEMPORARILY DISABLED - Re-enable quick 502 detection when quarantine functionality is re-enabled
+	// This feature was disabled due to issues with quick 502s causing unnecessary quarantines
 	// Check for quick 502 response under configured threshold (only if no proxy error)
-	duration := time.Since(start)
-	const quick502Threshold = 200 * time.Millisecond
-	if wrapper.status == http.StatusBadGateway && duration < quick502Threshold {
-		return ErrQuick502{Duration: duration}
-	}
+	// duration := time.Since(start)
+	// const quick502Threshold = 200 * time.Millisecond
+	// if wrapper.status == http.StatusBadGateway && duration < quick502Threshold {
+	//     return ErrQuick502{Duration: duration}
+	// }
 
 	return nil
 }
