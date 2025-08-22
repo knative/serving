@@ -385,6 +385,7 @@ func transitionOutOfQuarantine(ctx context.Context, p *podTracker, newState podS
 	// Move to new state and decrement gauge once
 	p.state.Store(uint32(newState))
 	handler.RecordPodQuarantineChange(ctx, -1)
+	handler.RecordPodQuarantineExit(ctx) // New counter-based metric
 	return true
 }
 
@@ -450,7 +451,11 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 
 	// Record that this request is now pending for a podTracker
 	handler.RecordPendingRequest(ctx)
-	defer handler.RecordPendingRequestComplete(ctx)
+	handler.RecordPendingRequestStart(ctx) // New counter-based metric
+	defer func() {
+		handler.RecordPendingRequestComplete(ctx)
+		handler.RecordPendingRequestCompleted(ctx) // New counter-based metric
+	}()
 
 	var ret error
 
@@ -526,6 +531,7 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 					tracker.quarantineEndTime.Store(time.Now().Unix() + int64(backoff))
 					// Record metrics
 					handler.RecordPodQuarantineChange(ctx, 1)
+					handler.RecordPodQuarantineEntry(ctx) // New counter-based metric
 					handler.RecordTCPPingFailureEvent(ctx)
 					// Re-queue the request to try another backend
 					reenqueue = true
@@ -567,6 +573,7 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 			// 	// Record metrics
 			//
 			// 	handler.RecordPodQuarantineChange(ctx, 1)
+			// 	handler.RecordPodQuarantineEntry(ctx) // New counter-based metric
 			// 	handler.RecordImmediate502Event(ctx)
 			//
 			// 	// Re-queue the request to try another backend

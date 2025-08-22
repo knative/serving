@@ -56,7 +56,7 @@ var (
 		stats.UnitDimensionless)
 	healthyTarget502sM = stats.Int64(
 		"healthy_target_502_total",
-		"Current number of 502 responses produced due to transport errors while targeting healthy backends",
+		"Total number of 502 responses produced due to transport errors while targeting healthy backends",
 		stats.UnitDimensionless)
 	breakerPendingRequestsM = stats.Int64(
 		"breaker_pending_requests",
@@ -76,6 +76,24 @@ var (
 	immediate502sTotalM = stats.Int64(
 		"instant_502_quarantines_total",
 		"Total number of immediate 502 responses that resulted in pod quarantine",
+		stats.UnitDimensionless)
+
+	// New counter-based metrics (preferred over gauges)
+	podQuarantineEntriesM = stats.Int64(
+		"pod_quarantine_entries_total",
+		"Total number of times pods entered quarantine state",
+		stats.UnitDimensionless)
+	podQuarantineExitsM = stats.Int64(
+		"pod_quarantine_exits_total",
+		"Total number of times pods exited quarantine state",
+		stats.UnitDimensionless)
+	pendingRequestStartsM = stats.Int64(
+		"pending_request_starts_total",
+		"Total number of requests that started pending for pod trackers",
+		stats.UnitDimensionless)
+	pendingRequestCompletesM = stats.Int64(
+		"pending_request_completes_total",
+		"Total number of requests that completed pending for pod trackers",
 		stats.UnitDimensionless)
 
 	// NOTE: 0 should not be used as boundary. See
@@ -125,6 +143,28 @@ func RecordTCPPingFailureEvent(ctx context.Context) {
 // RecordImmediate502Event increments the immediate-502 quarantine counter
 func RecordImmediate502Event(ctx context.Context) {
 	pkgmetrics.RecordBatch(ctx, immediate502sTotalM.M(1))
+}
+
+// New counter-based recording functions (preferred over gauge-based ones)
+
+// RecordPodQuarantineEntry increments the pod quarantine entry counter
+func RecordPodQuarantineEntry(ctx context.Context) {
+	pkgmetrics.RecordBatch(ctx, podQuarantineEntriesM.M(1))
+}
+
+// RecordPodQuarantineExit increments the pod quarantine exit counter
+func RecordPodQuarantineExit(ctx context.Context) {
+	pkgmetrics.RecordBatch(ctx, podQuarantineExitsM.M(1))
+}
+
+// RecordPendingRequestStart increments the pending request start counter
+func RecordPendingRequestStart(ctx context.Context) {
+	pkgmetrics.RecordBatch(ctx, pendingRequestStartsM.M(1))
+}
+
+// RecordPendingRequestCompleted increments the pending request complete counter
+func RecordPendingRequestCompleted(ctx context.Context) {
+	pkgmetrics.RecordBatch(ctx, pendingRequestCompletesM.M(1))
 }
 
 func register() {
@@ -197,6 +237,31 @@ func register() {
 		&view.View{
 			Description: "Total number of immediate 502 responses that resulted in pod quarantine",
 			Measure:     immediate502sTotalM,
+			Aggregation: view.Count(),
+			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey},
+		},
+		// New counter-based metric views (preferred over gauges)
+		&view.View{
+			Description: "Total number of times pods entered quarantine state",
+			Measure:     podQuarantineEntriesM,
+			Aggregation: view.Count(),
+			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey},
+		},
+		&view.View{
+			Description: "Total number of times pods exited quarantine state",
+			Measure:     podQuarantineExitsM,
+			Aggregation: view.Count(),
+			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey},
+		},
+		&view.View{
+			Description: "Total number of requests that started pending for pod trackers",
+			Measure:     pendingRequestStartsM,
+			Aggregation: view.Count(),
+			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey},
+		},
+		&view.View{
+			Description: "Total number of requests that completed pending for pod trackers",
+			Measure:     pendingRequestCompletesM,
 			Aggregation: view.Count(),
 			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey},
 		},
