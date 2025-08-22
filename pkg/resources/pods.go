@@ -86,6 +86,98 @@ func (pa PodAccessor) NotReadyCount() (int, error) {
 	return nr, err
 }
 
+// EffectiveCapacityCount implements EndpointsCounter.
+// Returns ready pods + starting pods (running but not ready due to startup reasons),
+// excluding pods that became unready (running but not ready due to failure reasons).
+func (pa PodAccessor) EffectiveCapacityCount() (int, error) {
+	pods, err := pa.podsLister.List(pa.selector)
+	if err != nil {
+		return 0, err
+	}
+
+	effectiveCapacity := 0
+	for _, p := range pods {
+		switch p.Status.Phase {
+		case corev1.PodRunning:
+			if p.DeletionTimestamp != nil {
+				continue // Ignore terminating pods
+			}
+			if podReady(p) {
+				effectiveCapacity++ // Ready pods count as capacity
+			} else if podIsStarting(p) {
+				effectiveCapacity++ // Starting pods count as capacity
+			}
+			// Pods that became unready (not starting) are excluded
+		}
+		// Pending pods are not included in effective capacity
+		// as they're not yet running and consuming resources
+	}
+
+	return effectiveCapacity, nil
+}
+
+// podIsStarting determines if a running pod is in a starting state vs became unready
+func podIsStarting(p *corev1.Pod) bool {
+	// Look at the Ready condition to determine the reason for not being ready
+	for _, cond := range p.Status.Conditions {
+		if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionFalse {
+			// Reasons that indicate the pod is starting up (not failed)
+			switch cond.Reason {
+			case "ContainersNotReady":
+				// Check if containers are still starting vs failed
+				return containersAreStarting(p)
+			case "PodReadinessGatesNotReady":
+				// Pod readiness gates not satisfied, typically during startup
+				return true
+			case "":
+				// No specific reason, likely still initializing
+				return true
+			default:
+				// Other reasons typically indicate failure states
+				return false
+			}
+		}
+	}
+	// If no Ready condition found or status is not False, default to not starting
+	return false
+}
+
+// containersAreStarting checks if containers are starting vs failed
+func containersAreStarting(p *corev1.Pod) bool {
+	for _, containerStatus := range p.Status.ContainerStatuses {
+		if !containerStatus.Ready {
+			// If container is in waiting state, check the reason
+			if containerStatus.State.Waiting != nil {
+				reason := containerStatus.State.Waiting.Reason
+				switch reason {
+				case "ContainerCreating", "PodInitializing":
+					// Genuine startup states
+					return true
+				case "ImagePullBackOff", "ErrImagePull":
+					// Treat persistent image pull issues as failures (no capacity)
+					return false
+				case "CrashLoopBackOff", "Error", "CreateContainerConfigError", "InvalidImageName":
+					// These indicate failure, not startup
+					return false
+				default:
+					// Unknown waiting reason: do not count as starting
+					return false
+				}
+			}
+			// If container is running but not ready, it's likely a readiness probe failure
+			if containerStatus.State.Running != nil {
+				return false // Running but not ready suggests it became unready
+			}
+			// If container is terminated, it's definitely not starting
+			if containerStatus.State.Terminated != nil {
+				return false
+			}
+		}
+	}
+	// If all containers are ready, this shouldn't be called, but default to not starting
+	return false
+}
+
 // PodFilter provides a way to filter pods for a revision.
 // Returning true, means that pod should be kept.
 type PodFilter func(p *corev1.Pod) bool

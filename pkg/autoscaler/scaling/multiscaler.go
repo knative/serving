@@ -88,6 +88,11 @@ type DeciderSpec struct {
 	// have a high variance in traffic. For example, if ScaleBuffer = 2, the desired
 	// scale would be the desired scale + 2.
 	ScaleBuffer int32
+	// RevisionReady indicates whether the owning Revision has Ready condition true.
+	// Used to gate ScaleBuffer to only apply after readiness and per cold-start.
+	RevisionReady bool
+	// MinScale is the minimum replicas configured for the revision.
+	MinScale int32
 }
 
 // DeciderStatus is the current scale recommendation.

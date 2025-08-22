@@ -59,11 +59,20 @@ var wantResource = &resource.Resource{
 
 type fakePodCounter struct {
 	resources.EndpointsCounter
-	readyCount int
-	err        error
+	readyCount           int
+	effectiveCapacityCount int
+	err                  error
 }
 
 func (fpc fakePodCounter) ReadyCount() (int, error) {
+	return fpc.readyCount, fpc.err
+}
+
+func (fpc fakePodCounter) EffectiveCapacityCount() (int, error) {
+	if fpc.effectiveCapacityCount > 0 {
+		return fpc.effectiveCapacityCount, fpc.err
+	}
+	// Default to ready count if effective capacity not set
 	return fpc.readyCount, fpc.err
 }
 
@@ -796,7 +805,7 @@ func (mc *metricClient) StableAndPanicRPS(key types.NamespacedName, now time.Tim
 	return mc.StableRPS, mc.PanicRPS, err
 }
 
-func TestAutoscalerScaleBufferWithReachability(t *testing.T) {
+func TestAutoscalerScaleBufferWithReadinessAndColdStart(t *testing.T) {
 	pc := &fakePodCounter{}
 	metrics := &metricClient{}
 	spec := &DeciderSpec{
@@ -806,6 +815,7 @@ func TestAutoscalerScaleBufferWithReachability(t *testing.T) {
 		PanicThreshold:   100,
 		ScaleBuffer:      5,
 		Reachable:        true,
+		RevisionReady:    true,
 		StableWindow:     stableWindow,
 	}
 	as := New(context.Background(), testNamespace, testRevision, metrics, pc, spec)
@@ -813,12 +823,11 @@ func TestAutoscalerScaleBufferWithReachability(t *testing.T) {
 	now := time.Now()
 
 	t.Run("reachable revision with ScaleBuffer", func(t *testing.T) {
-		// With 10 requests and target of 10, we'd need 1 pod
-		// But with ScaleBuffer of 5, we should get 6 pods
+		// With 10 requests and target of 10, headroom applies -> ceil((10+5)/10)=2 pods
 		metrics.SetStableAndPanicConcurrency(10, 10)
 		expectScale(t, as, now, ScaleResult{
 			ScaleValid:      true,
-			DesiredPodCount: 6, // 1 + 5 (ScaleBuffer)
+			DesiredPodCount: 2,
 		})
 	})
 
@@ -831,6 +840,7 @@ func TestAutoscalerScaleBufferWithReachability(t *testing.T) {
 			PanicThreshold:   100,
 			ScaleBuffer:      5,
 			Reachable:        false,
+			RevisionReady:    false,
 			StableWindow:     stableWindow,
 		}
 		as.Update(unreachableSpec)
@@ -843,15 +853,15 @@ func TestAutoscalerScaleBufferWithReachability(t *testing.T) {
 		})
 	})
 
-	t.Run("reachable revision with zero traffic still applies ScaleBuffer", func(t *testing.T) {
+	t.Run("reachable revision with zero traffic does not apply ScaleBuffer unless panic or cold start", func(t *testing.T) {
 		// Mark as reachable again
 		as.Update(spec)
 
-		// Even with 0 requests, if reachable, ScaleBuffer should still apply
+		// 0 requests: no buffer unless panic; expect 0
 		metrics.SetStableAndPanicConcurrency(0, 0)
 		expectScale(t, as, now.Add(2*time.Second), ScaleResult{
 			ScaleValid:      true,
-			DesiredPodCount: 5, // 0 + 5 (ScaleBuffer)
+			DesiredPodCount: 0,
 		})
 	})
 }
