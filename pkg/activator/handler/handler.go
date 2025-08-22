@@ -243,7 +243,8 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 
 	// Wrap response writer to capture status and time the request
 	wrapper := &statusCapturingResponseWriter{ResponseWriter: w}
-	start := time.Now()
+	// TODO: TEMPORARILY DISABLED - Re-enable when quick 502 detection is re-enabled
+	// start := time.Now()
 	// Log proxy attempt
 	a.logger.Debugw("Proxy attempt",
 		zap.String("x-request-id", r.Header.Get("X-Request-Id")),
