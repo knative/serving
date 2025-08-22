@@ -41,6 +41,7 @@ import (
 	. "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 	rtesting "knative.dev/pkg/reconciler/testing"
+	"knative.dev/serving/pkg/activator/handler"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
@@ -63,6 +64,23 @@ type tryResult struct {
 
 func newTestThrottler(ctx context.Context) *Throttler {
 	return NewThrottler(ctx, "10.10.10.10")
+}
+
+// mockTCPPingCheck sets a custom TCP ping check function for testing
+// and returns a cleanup function to restore the original
+func mockTCPPingCheck(fn func(string) bool) func() {
+	oldFunc := tcpPingCheckFunc.Load()
+	setTCPPingCheckFunc(fn)
+	return func() {
+		tcpPingCheckFunc.Store(oldFunc)
+	}
+}
+
+// TestMain sets up the test environment
+func TestMain(m *testing.M) {
+	// Mock TCP ping check to always succeed for all tests
+	setTCPPingCheckFunc(func(dest string) bool { return true })
+	m.Run()
 }
 
 func TestThrottlerUpdateCapacity(t *testing.T) {
@@ -217,11 +235,11 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rt := &revisionThrottler{
-				logger:               logger,
-				breaker:              queue.NewBreaker(testBreakerParams),
+				logger:  logger,
+				breaker: queue.NewBreaker(testBreakerParams),
 			}
-			rt.containerConcurrency.Store(int32(tt.containerConcurrency))
-			rt.numActivators.Store(tt.numActivators)
+			rt.containerConcurrency.Store(uint32(tt.containerConcurrency))
+			rt.numActivators.Store(uint32(tt.numActivators))
 			rt.activatorIndex.Store(tt.activatorIndex)
 			rtPodTrackers := make(map[string]*podTracker)
 			for _, pt := range tt.podTrackers {
@@ -265,11 +283,11 @@ func TestThrottlerCalculateCapacity(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rt := &revisionThrottler{
-				logger:               logger,
-				breaker:              newInfiniteBreaker(logger),
+				logger:  logger,
+				breaker: newInfiniteBreaker(logger),
 			}
-			rt.containerConcurrency.Store(int32(tt.containerConcurrency))
-			rt.numActivators.Store(tt.numActivators)
+			rt.containerConcurrency.Store(uint32(tt.containerConcurrency))
+			rt.numActivators.Store(uint32(tt.numActivators))
 			// shouldn't really happen since revisionMaxConcurrency is very, very large,
 			// but check that we behave reasonably if it's exceeded.
 			capacity := rt.calculateCapacity(tt.backendCount, tt.numTrackers, tt.activatorCount)
@@ -448,7 +466,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			Dests:         sets.New("128.0.0.1:1234"),
 		}},
 		requests:  1,
-		wantDests: sets.New("129.0.0.1:1234"),
+		wantDests: sets.New("128.0.0.1:1234"), // Now expects pod routing instead of clusterIP
 	}, {
 		name:     "spread podIP load",
 		revision: revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, pkgnet.ProtocolHTTP1),
@@ -491,7 +509,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			Dests:         sets.New("128.0.0.1:1234", "128.0.0.2:1234"),
 		}},
 		requests:  2,
-		wantDests: sets.New("129.0.0.1:1234"),
+		wantDests: sets.New("128.0.0.1:1234", "128.0.0.2:1234"), // Now expects pod routing instead of clusterIP
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
@@ -786,7 +804,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 		t.Fatal("Timed out waiting for the capacity to be updated")
 	}
 
-	if got, want := rt.numActivators.Load(), int32(2); got != want {
+	if got, want := rt.numActivators.Load(), uint32(2); got != want {
 		t.Fatalf("numActivators = %d, want %d", got, want)
 	}
 	if got, want := rt.activatorIndex.Load(), int32(1); got != want {
@@ -989,7 +1007,7 @@ func TestLoadBalancingPolicySelection(t *testing.T) {
 			// We can't directly check the function type since they're just functions.
 			// Instead, we'll check the behavior by using the policy with test data.
 			// For now, we'll just ensure the policy is not nil.
-			if rt.lbPolicy == nil {
+			if rt.lbPolicy.Load() == nil {
 				t.Errorf("Got nil lbPolicy, expected %s", test.wantPolicy)
 			}
 		})
@@ -1084,7 +1102,7 @@ func TestThrottlerUsesRevisionLoadBalancingPolicy(t *testing.T) {
 			}
 
 			// Verify the throttler was created with a load balancing policy
-			if revThrottler.lbPolicy == nil {
+			if revThrottler.lbPolicy.Load() == nil {
 				t.Errorf("Expected lbPolicy to be set, got nil")
 			}
 
@@ -1149,7 +1167,8 @@ func TestLoadBalancingAlgorithms(t *testing.T) {
 		// Track which pods get selected
 		selections := make(map[string]int)
 		for range 30 {
-			_, tracker := rt.lbPolicy(ctx, rt.assignedTrackers)
+			lbPolicy := rt.lbPolicy.Load().(lbPolicy)
+		_, tracker := lbPolicy(ctx, rt.assignedTrackers)
 			if tracker != nil {
 				selections[tracker.dest]++
 			}
@@ -1194,7 +1213,8 @@ func TestLoadBalancingAlgorithms(t *testing.T) {
 		rt.assignedTrackers = trackers
 
 		// Should select second tracker since first is full
-		_, tracker := rt.lbPolicy(ctx, rt.assignedTrackers)
+		lbPolicy := rt.lbPolicy.Load().(lbPolicy)
+		_, tracker := lbPolicy(ctx, rt.assignedTrackers)
 		if tracker == nil || tracker.dest != trackers[1].dest {
 			t.Errorf("Expected to select second tracker, got %v", tracker)
 		}
@@ -1234,7 +1254,8 @@ func TestLoadBalancingAlgorithms(t *testing.T) {
 		rt.assignedTrackers = trackers
 
 		// Should select tracker with least connections (trackers[2])
-		_, tracker := rt.lbPolicy(ctx, rt.assignedTrackers)
+		lbPolicy := rt.lbPolicy.Load().(lbPolicy)
+		_, tracker := lbPolicy(ctx, rt.assignedTrackers)
 		if tracker == nil || tracker.dest != trackers[2].dest {
 			t.Errorf("Expected to select tracker with 0 connections, got %v", tracker)
 		}
@@ -1275,7 +1296,8 @@ func TestLoadBalancingAlgorithms(t *testing.T) {
 		// Run multiple selections to verify it tends to pick lower weight
 		selections := make(map[string]int)
 		for range 100 {
-			_, tracker := rt.lbPolicy(ctx, rt.assignedTrackers)
+			lbPolicy := rt.lbPolicy.Load().(lbPolicy)
+		_, tracker := lbPolicy(ctx, rt.assignedTrackers)
 			if tracker != nil {
 				selections[tracker.dest]++
 			}
@@ -1327,7 +1349,8 @@ func TestThrottlerHonorsSpecLoadBalancingPolicy(t *testing.T) {
 	// Make several selections; round-robin should distribute across both trackers, not always the first
 	selections := make(map[string]int)
 	for i := 0; i < 10; i++ {
-		cb, tracker := rt.lbPolicy(ctx, rt.assignedTrackers)
+		lbPolicy := rt.lbPolicy.Load().(lbPolicy)
+		cb, tracker := lbPolicy(ctx, rt.assignedTrackers)
 		if tracker != nil {
 			selections[tracker.dest]++
 			if cb != nil {
@@ -1376,7 +1399,8 @@ func TestDynamicLoadBalancingPolicyUpdate(t *testing.T) {
 	// With first-available, repeated selections should be biased to the first tracker
 	selections := make(map[string]int)
 	for i := 0; i < 10; i++ {
-		cb, tracker := rt.lbPolicy(ctx, rt.assignedTrackers)
+		lbPolicy := rt.lbPolicy.Load().(lbPolicy)
+		cb, tracker := lbPolicy(ctx, rt.assignedTrackers)
 		if tracker != nil {
 			selections[tracker.dest]++
 			if cb != nil {
@@ -1403,7 +1427,8 @@ func TestDynamicLoadBalancingPolicyUpdate(t *testing.T) {
 	// Reset counts and sample again
 	selections = make(map[string]int)
 	for i := 0; i < 10; i++ {
-		cb, tracker := rt.lbPolicy(ctx, rt.assignedTrackers)
+		lbPolicy := rt.lbPolicy.Load().(lbPolicy)
+		cb, tracker := lbPolicy(ctx, rt.assignedTrackers)
 		if tracker != nil {
 			selections[tracker.dest]++
 			if cb != nil {
@@ -1787,6 +1812,255 @@ func TestAssignSlice(t *testing.T) {
 		want2 := []*podTracker{{dest: "3"}}
 		if !cmp.Equal(got2, want2, opt) {
 			t.Errorf("Activator 2: Got=%v, want: %v; diff: %s", got2, want2, cmp.Diff(want2, got2, opt))
+		}
+	})
+}
+
+// TestTryWithAllPodsQuarantined verifies requests are re-enqueued when all pods are quarantined
+func TestTryWithAllPodsQuarantined(t *testing.T) {
+	logger := TestLogger(t)
+
+	t.Run("re-enqueue when all pods quarantined until healthy", func(t *testing.T) {
+		// Set up a revision throttler with quarantined pods
+		rt := &revisionThrottler{
+			logger:  logger,
+			revID:   types.NamespacedName{Namespace: "test", Name: "revision"},
+			breaker: queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
+		}
+		rt.lbPolicy.Store(lbPolicy(firstAvailableLBPolicy))
+
+		// Create only quarantined trackers
+		quarantinedTracker1 := &podTracker{dest: "quarantined-pod-1"}
+		quarantinedTracker1.state.Store(uint32(podQuarantined))
+		quarantinedTracker1.quarantineEndTime.Store(time.Now().Unix() + 1)
+
+		quarantinedTracker2 := &podTracker{dest: "quarantined-pod-2"}
+		quarantinedTracker2.state.Store(uint32(podQuarantined))
+		quarantinedTracker2.quarantineEndTime.Store(time.Now().Unix() + 1)
+
+		rt.assignedTrackers = []*podTracker{quarantinedTracker1, quarantinedTracker2}
+
+		// After a short delay, flip one tracker to healthy to let try() proceed
+		go func() {
+			time.Sleep(50 * time.Millisecond)
+			quarantinedTracker1.state.Store(uint32(podHealthy))
+			quarantinedTracker1.quarantineEndTime.Store(0)
+		}()
+
+		// Try to make a request; ensure function eventually called
+		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+		defer cancel()
+		called := false
+		err := rt.try(ctx, "test-request-id", func(dest string, isClusterIP bool) error {
+			called = true
+			return nil
+		})
+
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		if !called {
+			t.Fatal("Expected function to be called after a tracker becomes healthy")
+		}
+	})
+}
+
+func TestThrottlerQuick502Quarantine(t *testing.T) {
+	// TODO: Unskip this test once quarantine functionality is re-enabled
+	t.Skip("Quarantine functionality is currently disabled - see TODO comments in throttler.go")
+	logger := TestLogger(t)
+
+	t.Run("pod quarantined on quick 502", func(t *testing.T) {
+		// Create a simple revision throttler
+		rt := &revisionThrottler{
+			logger:      logger,
+			breaker:     queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10}),
+			podTrackers: make(map[string]*podTracker),
+			}
+		rt.lbPolicy.Store(lbPolicy(firstAvailableLBPolicy))
+
+		// Create two pod trackers - one will get quarantined, one will succeed
+		pod1 := &podTracker{
+			dest: "10.0.0.1:8080",
+			b:    queue.NewBreaker(testBreakerParams),
+		}
+		pod1.state.Store(uint32(podHealthy))
+		pod1.b.UpdateConcurrency(1) // Give it capacity
+
+		pod2 := &podTracker{
+			dest: "10.0.0.2:8080",
+			b:    queue.NewBreaker(testBreakerParams),
+		}
+		pod2.state.Store(uint32(podHealthy))
+		pod2.b.UpdateConcurrency(1) // Give it capacity
+
+		// Add them to the throttler
+		rt.podTrackers[pod1.dest] = pod1
+		rt.podTrackers[pod2.dest] = pod2
+		rt.assignedTrackers = []*podTracker{pod1, pod2}
+
+		// Initialize main breaker capacity
+		rt.breaker.UpdateConcurrency(2)
+
+		// Simulate a quick 502 response
+		attemptCount := 0
+		ctx := context.Background()
+		err := rt.try(ctx, "test-502", func(dest string, isClusterIP bool) error {
+			attemptCount++
+			if dest == pod1.dest {
+				// First pod returns quick 502
+				return handler.ErrQuick502{Duration: 50 * time.Millisecond}
+			}
+			// Second pod succeeds
+			return nil
+		})
+
+		// Request should succeed (nil error) because it was retried
+		if err != nil {
+			t.Errorf("Expected nil error after retry, got %v", err)
+		}
+
+		// Verify the first pod was quarantined
+		if podState(pod1.state.Load()) != podQuarantined {
+			t.Error("Pod1 should be quarantined after quick 502")
+		}
+
+		// Verify quarantine end time is set
+		quarantineEnd := pod1.quarantineEndTime.Load()
+		if quarantineEnd == 0 {
+			t.Error("Quarantine end time should be set")
+		}
+
+		// Verify quarantine uses first backoff step
+		expectedEnd := time.Now().Unix() + int64(quarantineBackoffSeconds(1))
+		if quarantineEnd > expectedEnd+1 || quarantineEnd < expectedEnd-1 {
+			t.Errorf("Quarantine end time incorrect: got %d, expected ~%d", quarantineEnd, expectedEnd)
+		}
+	})
+
+	t.Run("pod not quarantined on slow 502", func(t *testing.T) {
+		// Create a simple revision throttler
+		rt := &revisionThrottler{
+			logger:      logger,
+			breaker:     queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10}),
+			podTrackers: make(map[string]*podTracker),
+			}
+		rt.lbPolicy.Store(lbPolicy(firstAvailableLBPolicy))
+
+		// Create a healthy pod tracker
+		healthyPod := &podTracker{
+			dest: "10.0.0.2:8080",
+			b:    queue.NewBreaker(testBreakerParams),
+		}
+		healthyPod.state.Store(uint32(podHealthy))
+		healthyPod.b.UpdateConcurrency(1) // Give it capacity
+
+		// Add it to the throttler
+		rt.podTrackers[healthyPod.dest] = healthyPod
+		rt.assignedTrackers = []*podTracker{healthyPod}
+
+		// Initialize main breaker capacity
+		rt.breaker.UpdateConcurrency(1)
+
+		// Simulate a slow 502 response (over 100ms)
+		ctx := context.Background()
+		err := rt.try(ctx, "test-slow-502", func(dest string, isClusterIP bool) error {
+			// Return a regular error, not ErrQuick502
+			return errors.New("some error")
+		})
+
+		// Should get the error back
+		if err == nil || err.Error() != "some error" {
+			t.Errorf("Expected 'some error', got %v", err)
+		}
+
+		// Verify the pod was NOT quarantined
+		if podState(healthyPod.state.Load()) != podHealthy {
+			t.Error("Pod should remain healthy after slow 502")
+		}
+	})
+
+	t.Run("multiple pods with quick 502", func(t *testing.T) {
+		// Create a simple revision throttler with round-robin policy for predictable behavior
+		rt := &revisionThrottler{
+			logger:      logger,
+			breaker:     queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10}),
+			podTrackers: make(map[string]*podTracker),
+			}
+		rt.lbPolicy.Store(lbPolicy(firstAvailableLBPolicy))
+
+		// Create multiple pod trackers
+		pod1 := &podTracker{
+			dest: "10.0.0.1:8080",
+			b:    queue.NewBreaker(testBreakerParams),
+		}
+		pod1.state.Store(uint32(podHealthy))
+
+		pod2 := &podTracker{
+			dest: "10.0.0.2:8080",
+			b:    queue.NewBreaker(testBreakerParams),
+		}
+		pod2.state.Store(uint32(podHealthy))
+
+		pod3 := &podTracker{
+			dest: "10.0.0.3:8080",
+			b:    queue.NewBreaker(testBreakerParams),
+		}
+		pod3.state.Store(uint32(podHealthy))
+
+		// Give pods capacity
+		pod1.b.UpdateConcurrency(1)
+		pod2.b.UpdateConcurrency(1)
+		pod3.b.UpdateConcurrency(1)
+
+		// Add them to the throttler
+		rt.podTrackers[pod1.dest] = pod1
+		rt.podTrackers[pod2.dest] = pod2
+		rt.podTrackers[pod3.dest] = pod3
+		rt.assignedTrackers = []*podTracker{pod1, pod2, pod3}
+
+		// Initialize main breaker capacity
+		rt.breaker.UpdateConcurrency(3)
+
+		// Track which pods were tried
+		triedPods := make(map[string]bool)
+		attemptCount := 0
+
+		ctx := context.Background()
+		err := rt.try(ctx, "test-multi-502", func(dest string, isClusterIP bool) error {
+			attemptCount++
+			triedPods[dest] = true
+
+			// First two pods return quick 502
+			if dest == pod1.dest || dest == pod2.dest {
+				return handler.ErrQuick502{Duration: 50 * time.Millisecond}
+			}
+
+			// Third pod succeeds
+			return nil
+		})
+
+		// Request should succeed
+		if err != nil {
+			t.Errorf("Expected nil error, got %v", err)
+		}
+
+		// Should have tried 3 pods (2 failures + 1 success)
+		if attemptCount != 3 {
+			t.Errorf("Expected 3 attempts, got %d", attemptCount)
+		}
+
+		// First two pods should be quarantined
+		if podState(pod1.state.Load()) != podQuarantined {
+			t.Error("Pod1 should be quarantined")
+		}
+		if podState(pod2.state.Load()) != podQuarantined {
+			t.Error("Pod2 should be quarantined")
+		}
+
+		// Third pod should remain healthy
+		if podState(pod3.state.Load()) != podHealthy {
+			t.Error("Pod3 should remain healthy")
 		}
 	})
 }
