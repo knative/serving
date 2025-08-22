@@ -51,6 +51,10 @@ func NotReadyAddressCount(endpoints *corev1.Endpoints) int {
 type EndpointsCounter interface {
 	ReadyCount() (int, error)
 	NotReadyCount() (int, error)
+	// EffectiveCapacityCount returns the count of pods that should be considered
+	// for scaling capacity calculations. This includes ready pods and starting pods,
+	// but excludes pods that became unready (running but not ready).
+	EffectiveCapacityCount() (int, error)
 }
 
 type scopedEndpointCounter struct {
@@ -72,6 +76,13 @@ func (eac *scopedEndpointCounter) NotReadyCount() (int, error) {
 		return 0, err
 	}
 	return NotReadyAddressCount(endpoints), nil
+}
+
+func (eac *scopedEndpointCounter) EffectiveCapacityCount() (int, error) {
+	// For endpoint-based counting, we can only see ready/not-ready addresses,
+	// we cannot distinguish between starting vs became-unready pods.
+	// Fall back to ready count only for endpoint-based counters.
+	return eac.ReadyCount()
 }
 
 // NewScopedEndpointsCounter creates a EndpointsCounter that uses

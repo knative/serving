@@ -39,6 +39,7 @@ import (
 
 type podCounter interface {
 	ReadyCount() (int, error)
+	EffectiveCapacityCount() (int, error)
 }
 
 // autoscaler stores current state of an instance of an autoscaler.
@@ -93,7 +94,7 @@ func newAutoscaler(
 	// momentarily scale down, and that is not a desired behaviour.
 	// Thus, we're keeping at least the current scale until we
 	// accumulate enough data to make conscious decisions.
-	curC, err := podCounter.ReadyCount()
+	curC, err := podCounter.EffectiveCapacityCount()
 	if err != nil {
 		// This always happens on new revision creation, since decider
 		// is reconciled before SKS has even chance of creating the service/endpoints.
@@ -148,8 +149,16 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 		logger.Errorw("Failed to get ready pod count via K8S Lister", zap.Error(err))
 		return invalidSR
 	}
-	// Use 1 if there are zero current pods.
-	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
+
+	// Get effective capacity count (ready + starting pods, excluding unready pods)
+	effectiveCapacityCount, err := a.podCounter.EffectiveCapacityCount()
+	if err != nil && !apierrors.IsNotFound(err) {
+		logger.Errorw("Failed to get effective capacity count via K8S Lister", zap.Error(err))
+		return invalidSR
+	}
+
+	// Use effective capacity for scaling calculations, but use 1 if there are zero pods
+	readyPodsCount := math.Max(1, float64(effectiveCapacityCount))
 
 	metricKey := types.NamespacedName{Namespace: a.namespace, Name: a.revision}
 
@@ -187,19 +196,41 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 	desiredStablePodCount := math.Ceil(observedStableValue / spec.TargetValue)
 	desiredPanicPodCount := math.Ceil(observedPanicValue / spec.TargetValue)
 
-	// Apply ScaleBuffer before clamping to max scale limits
-	// Only apply ScaleBuffer when the revision is reachable (has active traffic)
-	if spec.Reachable {
-		desiredStablePodCount += float64(spec.ScaleBuffer)
-		desiredPanicPodCount += float64(spec.ScaleBuffer)
+	// Apply ScaleBuffer as headroom: ensure total_capacity - in_use >= ScaleBuffer
+	// Headroom enforcement kicks in after the first increment above the floor.
+	inPanic := !a.panicTime.IsZero()
+	revReady := spec.RevisionReady
+	target := spec.TargetValue
+	applyHeadroom := func(observed, base float64) float64 {
+		min := float64(spec.MinScale)
+		b := float64(spec.ScaleBuffer)
+		if min == 0 && observed == 0 {
+			return 0
+		}
+		if min <= b {
+			// desired = max(min, ceil((observed + B)/target))
+			return math.Max(min, math.Ceil((observed+b)/target))
+		}
+		// min > B: stay at min while min provides >= B headroom; otherwise enforce headroom B
+		threshold := math.Max(0, min*target-b)
+		if observed <= threshold {
+			return min
+		}
+		return math.Max(min, math.Ceil((observed+b)/target))
+	}
+	// Apply headroom when in panic or when reachable and either revision is Ready
+	// or there is observed load (non-zero) to smooth warm-up before RevReady flips.
+	if inPanic || (spec.Reachable && (revReady || observedStableValue > 0 || observedPanicValue > 0)) {
+		desiredStablePodCount = applyHeadroom(observedStableValue, desiredStablePodCount)
+		desiredPanicPodCount = applyHeadroom(observedPanicValue, desiredPanicPodCount)
 	}
 
 	if debugEnabled {
 		desugared.Debug(
 			fmt.Sprintf("For metric %s observed values: stable = %0.3f; panic = %0.3f; target = %0.3f "+
-				"Desired StablePodCount = %0.0f, PanicPodCount = %0.0f, ReadyEndpointCount = %d, MaxScaleUp = %0.0f, MaxScaleDown = %0.0f",
+				"Desired StablePodCount = %0.0f, PanicPodCount = %0.0f, ReadyEndpointCount = %d, EffectiveCapacityCount = %d, MaxScaleUp = %0.0f, MaxScaleDown = %0.0f",
 				metricName, observedStableValue, observedPanicValue, spec.TargetValue,
-				desiredStablePodCount, desiredPanicPodCount, originalReadyPodsCount, maxScaleUp, maxScaleDown))
+				desiredStablePodCount, desiredPanicPodCount, originalReadyPodsCount, effectiveCapacityCount, maxScaleUp, maxScaleDown))
 	}
 
 	// We want to keep desired pod count in the  [maxScaleDown, maxScaleUp] range.
@@ -217,7 +248,9 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 		}
 	}
 
-	isOverPanicThreshold := desiredPanicPodCount/readyPodsCount >= spec.PanicThreshold
+	// Use actual ready pods for panic threshold to avoid masking panic by "starting" pods
+	panicDenominator := math.Max(1, float64(originalReadyPodsCount))
+	isOverPanicThreshold := desiredPanicPodCount/panicDenominator >= spec.PanicThreshold
 
 	if a.panicTime.IsZero() && isOverPanicThreshold {
 		// Begin panicking when we cross the threshold in the panic window.
@@ -287,13 +320,13 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 	case spec.TargetBurstCapacity == 0:
 		excessBCF = 0
 	case spec.TargetBurstCapacity > 0:
-		totCap := float64(originalReadyPodsCount) * spec.TotalValue
+		totCap := float64(effectiveCapacityCount) * spec.TotalValue
 		excessBCF = math.Floor(totCap - spec.TargetBurstCapacity - observedPanicValue)
 	}
 
 	if debugEnabled {
-		desugared.Debug(fmt.Sprintf("PodCount=%d Total1PodCapacity=%0.3f ObsStableValue=%0.3f ObsPanicValue=%0.3f TargetBC=%0.3f ExcessBC=%0.3f",
-			originalReadyPodsCount, spec.TotalValue, observedStableValue,
+		desugared.Debug(fmt.Sprintf("ReadyPodCount=%d EffectiveCapacityCount=%d Total1PodCapacity=%0.3f ObsStableValue=%0.3f ObsPanicValue=%0.3f TargetBC=%0.3f ExcessBC=%0.3f",
+			originalReadyPodsCount, effectiveCapacityCount, spec.TotalValue, observedStableValue,
 			observedPanicValue, spec.TargetBurstCapacity, excessBCF))
 	}
 
