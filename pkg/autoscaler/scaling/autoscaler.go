@@ -94,7 +94,8 @@ func newAutoscaler(
 	// momentarily scale down, and that is not a desired behaviour.
 	// Thus, we're keeping at least the current scale until we
 	// accumulate enough data to make conscious decisions.
-	curC, err := podCounter.EffectiveCapacityCount()
+	// TODO: Re-enable effective capacity usage once calculation is fixed
+	curC, err := podCounter.ReadyCount()
 	if err != nil {
 		// This always happens on new revision creation, since decider
 		// is reconciled before SKS has even chance of creating the service/endpoints.
@@ -157,8 +158,12 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 		return invalidSR
 	}
 
+	// TODO: Re-enable effective capacity usage once calculation is fixed
 	// Use effective capacity for scaling calculations, but use 1 if there are zero pods
-	readyPodsCount := math.Max(1, float64(effectiveCapacityCount))
+	// readyPodsCount := math.Max(1, float64(effectiveCapacityCount))
+	
+	// Temporarily revert to original ready count approach
+	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
 
 	metricKey := types.NamespacedName{Namespace: a.namespace, Name: a.revision}
 
@@ -207,16 +212,20 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 		if min == 0 && observed == 0 {
 			return 0
 		}
+		
+		// First calculate the base desired count without buffer
+		baseDesired := math.Ceil(observed / target)
+		
 		if min <= b {
-			// desired = max(min, ceil((observed + B)/target))
-			return math.Max(min, math.Ceil((observed+b)/target))
+			// Apply headroom: desired = max(min, baseDesired + B)
+			return math.Max(min, baseDesired + b)
 		}
-		// min > B: stay at min while min provides >= B headroom; otherwise enforce headroom B
+		// min > B: stay at min while min provides >= B headroom; otherwise add headroom B
 		threshold := math.Max(0, min*target-b)
 		if observed <= threshold {
 			return min
 		}
-		return math.Max(min, math.Ceil((observed+b)/target))
+		return math.Max(min, baseDesired + b)
 	}
 	// Apply headroom when in panic or when reachable and either revision is Ready
 	// or there is observed load (non-zero) to smooth warm-up before RevReady flips.
@@ -320,7 +329,8 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 	case spec.TargetBurstCapacity == 0:
 		excessBCF = 0
 	case spec.TargetBurstCapacity > 0:
-		totCap := float64(effectiveCapacityCount) * spec.TotalValue
+		// TODO: Re-enable effective capacity usage once calculation is fixed
+		totCap := float64(originalReadyPodsCount) * spec.TotalValue
 		excessBCF = math.Floor(totCap - spec.TargetBurstCapacity - observedPanicValue)
 	}
 

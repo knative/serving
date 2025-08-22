@@ -36,7 +36,7 @@ func TestHeadroomAppliesWhenReachableAndObservedLoad(t *testing.T) {
 	now := time.Now()
 	// Non-zero observed load should apply headroom even if not RevisionReady
 	mc.SetStableAndPanicConcurrency(10, 10)
-	expectScale(t, as, now, ScaleResult{ScaleValid: true, DesiredPodCount: 2}) // ceil((10+5)/10)=2
+	expectScale(t, as, now, ScaleResult{ScaleValid: true, DesiredPodCount: 6}) // ceil(10/10)=1, then 1+5=6
 }
 
 func TestPanicThresholdUsesReadyDenominator(t *testing.T) {
