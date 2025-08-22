@@ -296,9 +296,13 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 				}},
 			},
 		}
-		// Make queue proxy readiness probe more aggressive
-		queueProxyReadinessProbe.PeriodSeconds = 1
-		queueProxyReadinessProbe.FailureThreshold = 1
+		// Make queue proxy readiness probe more aggressive only if not user-defined
+		if queueProxyReadinessProbe.PeriodSeconds == 0 {
+			queueProxyReadinessProbe.PeriodSeconds = 1
+		}
+		if queueProxyReadinessProbe.FailureThreshold == 0 {
+			queueProxyReadinessProbe.FailureThreshold = 1
+		}
 	}
 
 	// Sidecar readiness probes
@@ -503,7 +507,7 @@ func applyReadinessProbeDefaults(p *corev1.Probe, port int32) {
 
 	// Set aggressive defaults for faster failure detection
 	if p.FailureThreshold == 0 {
-		p.FailureThreshold = 1  // Mark unready immediately on failure
+		p.FailureThreshold = 1 // Mark unready immediately on failure
 	}
 	if p.PeriodSeconds > 0 && p.TimeoutSeconds < 1 {
 		p.TimeoutSeconds = 1
