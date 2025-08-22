@@ -442,6 +442,9 @@ func (rt *revisionThrottler) acquireDest(ctx context.Context) (func(), *podTrack
 }
 
 func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, function func(dest string, isClusterIP bool) error) error {
+	// Start timing for proxy start latency
+	proxyStartTime := time.Now()
+	
 	defer func() {
 		if r := recover(); r != nil {
 			rt.logger.Errorf("Panic in revisionThrottler.try for request %s: %v", xRequestId, r)
@@ -538,6 +541,11 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 					return
 				}
 			}
+			
+			// Record proxy start latency (successful tracker acquisition)
+			proxyStartLatencyMs := float64(time.Since(proxyStartTime).Nanoseconds()) / 1e6
+			handler.RecordProxyStartLatency(ctx, proxyStartLatencyMs)
+			
 			ret = function(tracker.dest, isClusterIP)
 			
 			// Handle successful request completion
