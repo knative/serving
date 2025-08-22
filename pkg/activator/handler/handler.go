@@ -17,8 +17,10 @@ limitations under the License.
 package handler
 
 import (
+	"bufio"
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -26,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"
@@ -38,6 +41,7 @@ import (
 	pkghandler "knative.dev/pkg/network/handlers"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/pkg/tracing/propagation/tracecontextb3"
+	"knative.dev/pkg/websocket"
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	apiconfig "knative.dev/serving/pkg/apis/config"
@@ -46,6 +50,15 @@ import (
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
 )
+
+// ErrQuick502 indicates a pod returned a 502 error in less than 100ms
+type ErrQuick502 struct {
+	Duration time.Duration
+}
+
+func (e ErrQuick502) Error() string {
+	return fmt.Sprintf("pod returned 502 in %v", e.Duration)
+}
 
 // Throttler is the interface that Handler calls to Try to proxy the user request.
 type Throttler interface {
@@ -62,6 +75,47 @@ type activationHandler struct {
 	bufferPool       httputil.BufferPool
 	logger           *zap.SugaredLogger
 	tls              bool
+}
+
+// statusCapturingResponseWriter wraps http.ResponseWriter to capture the response status code
+type statusCapturingResponseWriter struct {
+	http.ResponseWriter
+	status  int
+	written bool
+}
+
+// Implement optional interfaces to preserve upgrade and streaming behavior.
+func (w *statusCapturingResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return websocket.HijackIfPossible(w.ResponseWriter)
+}
+
+func (w *statusCapturingResponseWriter) Flush() {
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+func (w *statusCapturingResponseWriter) Push(target string, opts *http.PushOptions) error {
+	if p, ok := w.ResponseWriter.(http.Pusher); ok {
+		return p.Push(target, opts)
+	}
+	return http.ErrNotSupported
+}
+
+func (w *statusCapturingResponseWriter) WriteHeader(status int) {
+	if !w.written {
+		w.status = status
+		w.written = true
+	}
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *statusCapturingResponseWriter) Write(b []byte) (int, error) {
+	if !w.written {
+		w.status = http.StatusOK
+		w.written = true
+	}
+	return w.ResponseWriter.Write(b)
 }
 
 // New constructs a new http.Handler that deals with revision activation.
@@ -103,16 +157,29 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if tracingEnabled {
 			proxyCtx, proxySpan = trace.StartSpan(r.Context(), "activator_proxy")
 		}
-		a.proxyRequest(revID, w, r.WithContext(proxyCtx), dest, tracingEnabled, a.usePassthroughLb, isClusterIP)
+		err := a.proxyRequest(revID, w, r.WithContext(proxyCtx), dest, tracingEnabled, a.usePassthroughLb, isClusterIP)
 		proxySpan.End()
 
-		return nil
+		return err
 	}); err != nil {
 		// Set error on our capacity waiting span and end it.
 		trySpan.Annotate([]trace.Attribute{trace.StringAttribute("activator.throttler.error", err.Error())}, "ThrottlerTry")
 		trySpan.End()
 
-		a.logger.Errorw("Throttler try error", zap.String(logkey.Key, revID.String()), zap.Error(err))
+		// Correlated error logging with cause classification
+		if errors.Is(err, queue.ErrRequestQueueFull) {
+			a.logger.Errorw("breaker queue full",
+				zap.String(logkey.Key, revID.String()),
+				zap.String("x-request-id", xRequestId),
+			)
+		} else if errors.Is(err, context.DeadlineExceeded) {
+			a.logger.Errorw("activator wait timed out",
+				zap.String(logkey.Key, revID.String()),
+				zap.String("x-request-id", xRequestId),
+			)
+		} else {
+			a.logger.Errorw("Throttler try error", zap.String(logkey.Key, revID.String()), zap.String("x-request-id", xRequestId), zap.Error(err))
+		}
 
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, queue.ErrRequestQueueFull) {
 			http.Error(w, err.Error(), http.StatusServiceUnavailable)
@@ -124,7 +191,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.ResponseWriter,
 	r *http.Request, target string, tracingEnabled bool, usePassthroughLb bool, isClusterIP bool,
-) {
+) error {
 	netheader.RewriteHostIn(r)
 	r.Header.Set(netheader.ProxyKey, activator.Name)
 
@@ -153,12 +220,44 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 	proxy.FlushInterval = netproxy.FlushInterval
 	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
 		a.logDetailedProxyError(revID, target, req, err)
+		// Increment transport failure counter
+		RecordTransportFailure(req.Context())
+		// If this request targeted a healthy backend, attribute specific metrics
+		if IsHealthyTarget(req.Context()) {
+			// Any proxy error returns 502; record it for healthy targets
+			RecordHealthyTarget502(req.Context())
+			// If the error was a timeout, record timeout as well
+			if errors.Is(err, context.DeadlineExceeded) {
+				RecordHealthyTargetTimeout(req.Context())
+			}
+		}
 		pkghandler.Error(a.logger.With(zap.String(logkey.Key, revID.String())))(w, req, err)
 	}
 
 	// Mark this request as targeting a healthy backend so metrics can be scoped appropriately.
 	r = r.WithContext(WithHealthyTarget(r.Context(), true))
-	proxy.ServeHTTP(w, r)
+
+	// Wrap response writer to capture status and time the request
+	wrapper := &statusCapturingResponseWriter{ResponseWriter: w}
+	start := time.Now()
+	// Log proxy attempt
+	a.logger.Debugw("Proxy attempt",
+		zap.String("x-request-id", r.Header.Get("X-Request-Id")),
+		zap.String("target", target),
+		zap.Bool("clusterIP", isClusterIP),
+		zap.String("method", r.Method),
+		zap.String("path", r.URL.Path),
+	)
+	proxy.ServeHTTP(wrapper, r)
+
+	// Check for quick 502 response under configured threshold
+	duration := time.Since(start)
+	const quick502Threshold = 200 * time.Millisecond
+	if wrapper.status == http.StatusBadGateway && duration < quick502Threshold {
+		return ErrQuick502{Duration: duration}
+	}
+
+	return nil
 }
 
 // useSecurePort replaces the default port with HTTPS port (8112).
@@ -185,14 +284,14 @@ func WrapActivatorHandlerWithFullDuplex(h http.Handler, logger *zap.SugaredLogge
 // logDetailedProxyError provides detailed logging about proxy failures to help with 502 debugging
 func (a *activationHandler) logDetailedProxyError(revID types.NamespacedName, target string, req *http.Request, err error) {
 	logger := a.logger.With(zap.String(logkey.Key, revID.String()))
-	
+
 	// Extract request ID for correlation
 	xRequestId := req.Header.Get("X-Request-Id")
-	
+
 	// Classify the error type
 	errorType := "unknown"
 	errorDetails := make(map[string]interface{})
-	
+
 	switch {
 	case errors.Is(err, context.DeadlineExceeded):
 		errorType = "timeout"
@@ -232,7 +331,7 @@ func (a *activationHandler) logDetailedProxyError(revID types.NamespacedName, ta
 			errorDetails["reason"] = err.Error()
 		}
 	}
-	
+
 	logger.Errorw("Proxy request failed - returning 502 Bad Gateway",
 		zap.String("x-request-id", xRequestId),
 		zap.String("target", target),

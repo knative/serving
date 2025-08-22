@@ -130,6 +130,9 @@ func reset() {
 		healthyTargetTimeoutsM.Name(),
 		healthyTarget502sM.Name(),
 		breakerPendingRequestsM.Name(),
+		podQuarantinesM.Name(),
+		tcpPingFailuresTotalM.Name(),
+		immediate502sTotalM.Name(),
 	)
 	register()
 }
