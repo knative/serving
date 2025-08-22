@@ -823,11 +823,11 @@ func TestAutoscalerScaleBufferWithReadinessAndColdStart(t *testing.T) {
 	now := time.Now()
 
 	t.Run("reachable revision with ScaleBuffer", func(t *testing.T) {
-		// With 10 requests and target of 10, headroom applies -> ceil((10+5)/10)=2 pods
+		// With 10 requests and target of 10, base desired = ceil(10/10)=1, then add buffer: 1+5=6 pods
 		metrics.SetStableAndPanicConcurrency(10, 10)
 		expectScale(t, as, now, ScaleResult{
 			ScaleValid:      true,
-			DesiredPodCount: 2,
+			DesiredPodCount: 6,
 		})
 	})
 
