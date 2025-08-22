@@ -96,6 +96,7 @@ const (
 	podHealthy podState = iota
 	podDraining
 	podQuarantined
+	podRecovering
 	podRemoved
 )
 
@@ -147,6 +148,10 @@ func (p *podTracker) getRefCount() uint64 {
 
 func (p *podTracker) tryDrain() bool {
 	if p.state.CompareAndSwap(uint32(podHealthy), uint32(podDraining)) {
+		p.drainingStartTime.Store(time.Now().Unix())
+		return true
+	}
+	if p.state.CompareAndSwap(uint32(podRecovering), uint32(podDraining)) {
 		p.drainingStartTime.Store(time.Now().Unix())
 		return true
 	}
@@ -398,18 +403,17 @@ func (rt *revisionThrottler) filterAvailableTrackers(ctx context.Context, tracke
 		// Check if quarantined and if quarantine period has expired
 		if state == podQuarantined {
 			if now >= tracker.quarantineEndTime.Load() {
-				// Quarantine expired, move back to healthy state and reset backoff counter
-				transitionOutOfQuarantine(ctx, tracker, podHealthy)
-				tracker.quarantineCount.Store(0)
-				rt.logger.Infof("Pod %s quarantine expired, returning to healthy state", tracker.dest)
+				// Quarantine expired, move to recovering state for health verification
+				transitionOutOfQuarantine(ctx, tracker, podRecovering)
+				rt.logger.Infof("Pod %s quarantine expired, entering recovery state", tracker.dest)
 				available = append(available, tracker)
 			}
 			// Skip quarantined pods that haven't expired
 			continue
 		}
 
-		// Only include healthy pods
-		if state == podHealthy {
+		// Include healthy and recovering pods
+		if state == podHealthy || state == podRecovering {
 			available = append(available, tracker)
 		}
 	}
@@ -529,9 +533,20 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 				}
 			}
 			ret = function(tracker.dest, isClusterIP)
-			// On success, if pod was previously quarantined, reset the counter to reduce future backoff
-			if podState(tracker.state.Load()) == podHealthy && tracker.quarantineCount.Load() > 0 {
-				tracker.quarantineCount.Store(0)
+			
+			// Handle successful request completion
+			currentState := podState(tracker.state.Load())
+			if ret == nil { // Successful request
+				// If pod is recovering, promote to healthy after successful request
+				if currentState == podRecovering {
+					tracker.state.Store(uint32(podHealthy))
+					tracker.quarantineCount.Store(0)
+					rt.logger.Infof("Pod %s successfully recovered, promoting to healthy state", tracker.dest)
+				}
+				// On success, if pod was previously quarantined, reset the counter to reduce future backoff
+				if currentState == podHealthy && tracker.quarantineCount.Load() > 0 {
+					tracker.quarantineCount.Store(0)
+				}
 			}
 
 			// Check if we got a quick 502 response
@@ -696,10 +711,15 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 		}
 		for _, d := range healthyDests {
 			tracker := rt.podTrackers[d]
-			if tracker != nil && tracker.state.Load() != uint32(podHealthy) {
-				// If coming from quarantine, decrement gauge once
-				transitionOutOfQuarantine(context.Background(), tracker, podHealthy)
-				tracker.drainingStartTime.Store(0)
+			if tracker != nil {
+				currentState := podState(tracker.state.Load())
+				// Only transition to healthy if not already healthy or recovering
+				// Let recovering pods transition naturally after successful requests
+				if currentState != podHealthy && currentState != podRecovering {
+					// If coming from quarantine, decrement gauge once
+					transitionOutOfQuarantine(context.Background(), tracker, podHealthy)
+					tracker.drainingStartTime.Store(0)
+				}
 			}
 		}
 		// Handle pod draining to prevent dropped requests during pod removal
@@ -711,7 +731,7 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 			}
 
 			switch podState(tracker.state.Load()) {
-			case podHealthy:
+			case podHealthy, podRecovering:
 				if tracker.tryDrain() {
 					rt.logger.Infof("Pod %s transitioning to draining state, refCount=%d", d, tracker.getRefCount())
 					if tracker.getRefCount() == 0 {
