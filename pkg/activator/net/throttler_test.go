@@ -1866,8 +1866,8 @@ func TestTryWithAllPodsQuarantined(t *testing.T) {
 }
 
 func TestThrottlerQuick502Quarantine(t *testing.T) {
-	// TODO: Unskip this test once quarantine functionality is re-enabled
-	t.Skip("Quarantine functionality is currently disabled - see TODO comments in throttler.go")
+	// TODO: TEMPORARILY DISABLED - Re-enable this test when quick 502 quarantine functionality is re-enabled
+	t.Skip("Quick 502 quarantine functionality is currently disabled - see TODO comments in throttler.go")
 	logger := TestLogger(t)
 
 	t.Run("pod quarantined on quick 502", func(t *testing.T) {

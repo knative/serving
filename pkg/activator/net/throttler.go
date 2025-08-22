@@ -550,7 +550,8 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 			}
 
 			// Check if we got a quick 502 response
-			// TODO: Re-enable this check
+			// TODO: TEMPORARILY DISABLED - Re-enable quick 502 quarantine functionality
+			// This feature was disabled due to issues with quick 502s causing unnecessary quarantines
 			// var quick502Err handler.ErrQuick502
 			// if errors.As(ret, &quick502Err) {
 			// 	rt.logger.Errorw("instant 502; quarantine", "x-request-id", xRequestId, "dest", tracker.dest, "duration", quick502Err.Duration.String())
