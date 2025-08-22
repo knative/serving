@@ -618,17 +618,14 @@ func (rt *revisionThrottler) resetTrackers() {
 		return
 	}
 	
-	// Take a snapshot of podTrackers under lock to avoid race
+	// Update trackers directly under lock to avoid race condition
 	rt.mux.RLock()
-	trackers := make([]*podTracker, 0, len(rt.podTrackers))
-	for _, t := range rt.podTrackers {
-		trackers = append(trackers, t)
-	}
-	rt.mux.RUnlock()
+	defer rt.mux.RUnlock()
 	
-	// Update concurrency outside of lock to avoid holding lock too long
-	for _, t := range trackers {
-		t.UpdateConcurrency(cc)
+	for _, t := range rt.podTrackers {
+		if t != nil {
+			t.UpdateConcurrency(cc)
+		}
 	}
 }
 
