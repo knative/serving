@@ -2243,3 +2243,96 @@ func TestQuarantineRecoveryMechanism(t *testing.T) {
 		}
 	})
 }
+
+func TestResetTrackersRaceCondition(t *testing.T) {
+	logger := TestLogger(t)
+	
+	t.Run("resetTrackers concurrent with tracker modifications", func(t *testing.T) {
+		rt := &revisionThrottler{
+			logger:      logger,
+			revID:       types.NamespacedName{Namespace: "test", Name: "revision"},
+			breaker:     queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
+			podTrackers: make(map[string]*podTracker),
+		}
+		rt.containerConcurrency.Store(2) // Enable resetTrackers to actually do work
+		rt.lbPolicy.Store(lbPolicy(firstAvailableLBPolicy))
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
+
+		// Create initial trackers
+		initialTrackers := make([]*podTracker, 3)
+		for i := 0; i < 3; i++ {
+			tracker := newPodTracker(fmt.Sprintf("pod-%d:8080", i), 
+				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
+			initialTrackers[i] = tracker
+		}
+		
+		// Add initial trackers
+		rt.updateThrottlerState(3, initialTrackers, nil, nil, nil)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		defer cancel()
+
+		var wg sync.WaitGroup
+		
+		// Goroutine 1: Continuously call resetTrackers
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for ctx.Err() == nil {
+				rt.resetTrackers()
+				// Small delay to let other goroutine work
+				time.Sleep(time.Microsecond)
+			}
+		}()
+
+		// Goroutine 2: Continuously add/remove trackers
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			counter := 0
+			for ctx.Err() == nil {
+				counter++
+				trackerName := fmt.Sprintf("dynamic-pod-%d:8080", counter%5)
+				
+				if counter%2 == 0 {
+					// Add a tracker
+					newTracker := newPodTracker(trackerName, 
+						queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
+					rt.updateThrottlerState(1, []*podTracker{newTracker}, nil, nil, nil)
+				} else {
+					// Remove a tracker by putting it in draining
+					rt.updateThrottlerState(0, nil, nil, []string{trackerName}, nil)
+				}
+				
+				// Small delay to let resetTrackers work
+				time.Sleep(time.Microsecond)
+			}
+		}()
+
+		// Wait for goroutines to finish
+		wg.Wait()
+		
+		// Test should complete without race conditions or panics
+		// The actual race detection happens when run with -race flag
+	})
+
+	t.Run("resetTrackers with nil tracker in map", func(t *testing.T) {
+		// This tests a specific edge case where a tracker might be nil
+		rt := &revisionThrottler{
+			logger:      logger,
+			revID:       types.NamespacedName{Namespace: "test", Name: "revision"},
+			breaker:     queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
+			podTrackers: make(map[string]*podTracker),
+		}
+		rt.containerConcurrency.Store(2)
+
+		// Manually add a nil tracker (simulating corruption)
+		rt.mux.Lock()
+		rt.podTrackers["nil-tracker"] = nil
+		rt.mux.Unlock()
+
+		// This should not panic
+		rt.resetTrackers()
+	})
+}
