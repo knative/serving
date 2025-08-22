@@ -63,6 +63,21 @@ var (
 		"Current number of requests waiting to acquire a podTracker",
 		stats.UnitDimensionless)
 
+	// Pod health metrics
+	podQuarantinesM = stats.Int64(
+		"pod_quarantines",
+		"Current number of pods in quarantine state",
+		stats.UnitDimensionless)
+	// Event counters
+	tcpPingFailuresTotalM = stats.Int64(
+		"tcp_ping_failures_total",
+		"Total number of TCP ping failures that resulted in pod quarantine",
+		stats.UnitDimensionless)
+	immediate502sTotalM = stats.Int64(
+		"instant_502_quarantines_total",
+		"Total number of immediate 502 responses that resulted in pod quarantine",
+		stats.UnitDimensionless)
+
 	// NOTE: 0 should not be used as boundary. See
 	// https://github.com/census-ecosystem/opencensus-go-exporter-stackdriver/issues/98
 	defaultLatencyDistribution = view.Distribution(5, 10, 20, 40, 60, 80, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000, 2000, 5000, 10000, 20000, 50000, 100000)
@@ -77,9 +92,39 @@ func RecordPendingRequest(ctx context.Context) {
 	pkgmetrics.RecordBatch(ctx, breakerPendingRequestsM.M(1))
 }
 
+// RecordTransportFailure increments transport failures counter
+func RecordTransportFailure(ctx context.Context) {
+	pkgmetrics.RecordBatch(ctx, transportFailuresM.M(1))
+}
+
+// RecordHealthyTargetTimeout increments timeout counter for healthy targets
+func RecordHealthyTargetTimeout(ctx context.Context) {
+	pkgmetrics.RecordBatch(ctx, healthyTargetTimeoutsM.M(1))
+}
+
+// RecordHealthyTarget502 increments 502 counter for healthy targets
+func RecordHealthyTarget502(ctx context.Context) {
+	pkgmetrics.RecordBatch(ctx, healthyTarget502sM.M(1))
+}
+
 // RecordPendingRequestComplete decrements the pending requests metric
 func RecordPendingRequestComplete(ctx context.Context) {
 	pkgmetrics.RecordBatch(ctx, breakerPendingRequestsM.M(-1))
+}
+
+// RecordPodQuarantineChange updates the pod quarantine gauge metric
+func RecordPodQuarantineChange(ctx context.Context, delta int64) {
+	pkgmetrics.RecordBatch(ctx, podQuarantinesM.M(delta))
+}
+
+// RecordTCPPingFailureEvent increments the TCP ping failure counter
+func RecordTCPPingFailureEvent(ctx context.Context) {
+	pkgmetrics.RecordBatch(ctx, tcpPingFailuresTotalM.M(1))
+}
+
+// RecordImmediate502Event increments the immediate-502 quarantine counter
+func RecordImmediate502Event(ctx context.Context) {
+	pkgmetrics.RecordBatch(ctx, immediate502sTotalM.M(1))
 }
 
 func register() {
@@ -125,15 +170,34 @@ func register() {
 			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey},
 		},
 		&view.View{
-			Description: "Current number of 502 responses produced due to transport errors while targeting healthy backends",
+			Description: "Total number of 502 responses produced due to transport errors while targeting healthy backends",
 			Measure:     healthyTarget502sM,
-			Aggregation: view.LastValue(),
+			Aggregation: view.Count(),
 			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey},
 		},
 		&view.View{
 			Description: "Current number of requests waiting to acquire a podTracker",
 			Measure:     breakerPendingRequestsM,
 			Aggregation: view.LastValue(),
+			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey},
+		},
+		// Pod health metrics views
+		&view.View{
+			Description: "Current number of pods in quarantine state",
+			Measure:     podQuarantinesM,
+			Aggregation: view.LastValue(),
+			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey},
+		},
+		&view.View{
+			Description: "Total number of TCP ping failures that resulted in pod quarantine",
+			Measure:     tcpPingFailuresTotalM,
+			Aggregation: view.Count(),
+			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey},
+		},
+		&view.View{
+			Description: "Total number of immediate 502 responses that resulted in pod quarantine",
+			Measure:     immediate502sTotalM,
+			Aggregation: view.Count(),
 			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey},
 		},
 	); err != nil {

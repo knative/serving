@@ -339,7 +339,7 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 		// precise load balancing in the throttler.
 		hs, noop, notMesh, err := rw.probePodIPs(curDests.ready, curDests.notReady)
 		if err != nil {
-			rw.logger.Warnw("Failed probing pods", zap.Object("curDests", curDests), zap.Error(err))
+			rw.logger.Debugw("Failed probing pods", zap.Object("curDests", curDests), zap.Error(err))
 			// We dont want to return here as an error still affects health states.
 		}
 
@@ -395,7 +395,7 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 
 	// If clusterIP is healthy send this update and we are done.
 	if ok, err := rw.probeClusterIP(dest); err != nil {
-		rw.logger.Errorw("Failed to probe clusterIP "+dest, zap.Error(err))
+		rw.logger.Debugw("Failed to probe clusterIP "+dest, zap.Error(err))
 	} else if ok {
 		// We can reach here only iff pods are not successfully individually probed
 		// but ClusterIP conversely has been successfully probed.
