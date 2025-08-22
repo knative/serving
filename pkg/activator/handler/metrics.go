@@ -96,6 +96,12 @@ var (
 		"Total number of requests that completed pending for pod trackers",
 		stats.UnitDimensionless)
 
+	// Proxy start latency metric
+	proxyStartLatencyM = stats.Float64(
+		"proxy_start_latency_ms",
+		"Time in milliseconds from request entry to successful proxy start (pod tracker acquisition)",
+		stats.UnitMilliseconds)
+
 	// NOTE: 0 should not be used as boundary. See
 	// https://github.com/census-ecosystem/opencensus-go-exporter-stackdriver/issues/98
 	defaultLatencyDistribution = view.Distribution(5, 10, 20, 40, 60, 80, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000, 2000, 5000, 10000, 20000, 50000, 100000)
@@ -165,6 +171,11 @@ func RecordPendingRequestStart(ctx context.Context) {
 // RecordPendingRequestCompleted increments the pending request complete counter
 func RecordPendingRequestCompleted(ctx context.Context) {
 	pkgmetrics.RecordBatch(ctx, pendingRequestCompletesM.M(1))
+}
+
+// RecordProxyStartLatency records the time taken to successfully start proxying a request
+func RecordProxyStartLatency(ctx context.Context, latencyMs float64) {
+	pkgmetrics.RecordBatch(ctx, proxyStartLatencyM.M(latencyMs))
 }
 
 func register() {
@@ -263,6 +274,12 @@ func register() {
 			Description: "Total number of requests that completed pending for pod trackers",
 			Measure:     pendingRequestCompletesM,
 			Aggregation: view.Count(),
+			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey},
+		},
+		&view.View{
+			Description: "Time in milliseconds from request entry to successful proxy start (pod tracker acquisition)",
+			Measure:     proxyStartLatencyM,
+			Aggregation: defaultLatencyDistribution,
 			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey},
 		},
 	); err != nil {
