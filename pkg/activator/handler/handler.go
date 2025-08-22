@@ -218,7 +218,11 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 		proxy.Transport = a.tracingTransport
 	}
 	proxy.FlushInterval = netproxy.FlushInterval
+	
+	// Capture proxy errors to return them properly instead of swallowing them
+	var proxyError error
 	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
+		proxyError = err // Capture the error for return
 		a.logDetailedProxyError(revID, target, req, err)
 		// Increment transport failure counter
 		RecordTransportFailure(req.Context())
@@ -250,7 +254,12 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 	)
 	proxy.ServeHTTP(wrapper, r)
 
-	// Check for quick 502 response under configured threshold
+	// If proxy error occurred, return the original error for proper classification
+	if proxyError != nil {
+		return proxyError
+	}
+
+	// Check for quick 502 response under configured threshold (only if no proxy error)
 	duration := time.Since(start)
 	const quick502Threshold = 200 * time.Millisecond
 	if wrapper.status == http.StatusBadGateway && duration < quick502Threshold {

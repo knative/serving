@@ -298,6 +298,133 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 	}
 }
 
+// TestErrorPropagationFromProxy demonstrates that proxy errors are not properly
+// propagated through throttler.Try(), making it impossible to distinguish between
+// breaker errors (ErrRequestQueueFull, context.DeadlineExceeded) and proxy errors.
+func TestErrorPropagationFromProxy(t *testing.T) {
+	tests := []struct {
+		name                string
+		proxyError          error
+		expectThrottlerErr  bool  // Whether throttler.Try should return an error
+		expectSpecificError error // The specific error type expected
+	}{{
+		name:                "successful request",
+		proxyError:          nil,
+		expectThrottlerErr:  false,
+		expectSpecificError: nil,
+	}, {
+		name:                "proxy network error",
+		proxyError:          errors.New("connection refused"),
+		expectThrottlerErr:  true,  // This SHOULD preserve the original error
+		expectSpecificError: errors.New("connection refused"), // Should get the original error, not ErrQuick502
+	}, {
+		name:                "proxy timeout", 
+		proxyError:          context.DeadlineExceeded,
+		expectThrottlerErr:  true,  // This SHOULD preserve the original error
+		expectSpecificError: context.DeadlineExceeded, // Should get timeout error, not ErrQuick502
+	}, {
+		name:                "genuine quick 502",
+		proxyError:          nil,  // No transport error, but fast 502 response
+		expectThrottlerErr:  true,  // Should still return ErrQuick502
+		expectSpecificError: ErrQuick502{}, // Should get ErrQuick502 for fast 502 responses
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// Setup a transport that fails with the specified error
+			responseCode := http.StatusBadGateway
+			responseBody := "proxy error"
+			if test.proxyError == nil {
+				if test.name == "genuine quick 502" {
+					// Keep 502 status but no transport error for quick 502 test
+					responseCode = http.StatusBadGateway
+					responseBody = "quick 502"
+				} else {
+					// Success case
+					responseCode = http.StatusOK
+					responseBody = "success"
+				}
+			}
+			
+			fakeRT := activatortest.FakeRoundTripper{
+				RequestResponse: &activatortest.FakeResponse{
+					Err:  test.proxyError,
+					Code: responseCode,
+					Body: responseBody,
+				},
+			}
+			rt := pkgnet.RoundTripperFunc(fakeRT.RT)
+
+			// Create handler with real throttler (not fake) to test actual error flow
+			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+			defer cancel()
+			
+			// Track what error the throttler actually receives
+			var actualThrottlerError error
+			
+			// Create a capturing throttler to intercept the error
+			captureThrottler := &capturingThrottler{
+				onTry: func(ctx context.Context, revID types.NamespacedName, xRequestId string, f func(string, bool) error) error {
+					actualThrottlerError = f("10.10.10.10:1234", false) // Call proxyRequest
+					return actualThrottlerError
+				},
+			}
+			
+			handler := New(ctx, captureThrottler, rt, false /*usePassthroughLb*/, logging.FromContext(ctx), false /* TLS */)
+
+			// Set up config store to populate context.
+			configStore := setupConfigStore(t, logging.FromContext(ctx))
+			ctx = configStore.ToContext(ctx)
+			ctx = WithRevisionAndID(ctx, nil, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
+
+			// Make request
+			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+			req.Host = "test-host"
+			resp := httptest.NewRecorder()
+
+			handler.ServeHTTP(resp, req.WithContext(ctx))
+
+			// Verify error propagation behavior
+			if test.expectThrottlerErr {
+				if actualThrottlerError == nil {
+					t.Errorf("Expected throttler to receive error, but got nil. This demonstrates the error propagation issue.")
+				}
+				if test.expectSpecificError != nil {
+					// For timeout errors, check if it's the correct type
+					if errors.Is(test.expectSpecificError, context.DeadlineExceeded) {
+						if !errors.Is(actualThrottlerError, context.DeadlineExceeded) {
+							t.Errorf("Expected context.DeadlineExceeded error, got %v", actualThrottlerError)
+						}
+					} else if _, isQuick502 := test.expectSpecificError.(ErrQuick502); isQuick502 {
+						// For ErrQuick502, check if we got the right error type
+						if _, gotQuick502 := actualThrottlerError.(ErrQuick502); !gotQuick502 {
+							t.Errorf("Expected ErrQuick502 error, got %T: %v", actualThrottlerError, actualThrottlerError)
+						}
+					} else {
+						// For other errors, compare the error message
+						if actualThrottlerError.Error() != test.expectSpecificError.Error() {
+							t.Errorf("Expected specific error %v, got %v", test.expectSpecificError, actualThrottlerError)
+						}
+					}
+				}
+			} else {
+				if actualThrottlerError != nil {
+					t.Errorf("Expected no error from throttler, got %v", actualThrottlerError)
+				}
+			}
+		})
+	}
+}
+
+// capturingThrottler captures the error returned by the function passed to Try()
+type capturingThrottler struct {
+	onTry func(context.Context, types.NamespacedName, string, func(string, bool) error) error
+}
+
+func (ct *capturingThrottler) Try(ctx context.Context, revID types.NamespacedName, xRequestId string, f func(string, bool) error) error {
+	return ct.onTry(ctx, revID, xRequestId, f)
+}
+
 func sendRequest(namespace, revName string, handler http.Handler, store *activatorconfig.Store) *httptest.ResponseRecorder {
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com/", nil)
