@@ -79,10 +79,6 @@ spec:
         - name: WEBHOOK_PORT
           value: "8443"
 
-        # TODO(https://github.com/knative/pkg/pull/953): Remove stackdriver specific config
-        - name: METRICS_DOMAIN
-          value: knative.dev/internal/serving
-
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
