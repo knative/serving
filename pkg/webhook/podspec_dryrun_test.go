@@ -109,7 +109,6 @@ func TestExtraServiceValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx, _ := fakekubeclient.With(context.Background())
-			ctx = enableDryRun(ctx)
 			if test.modifyContext != nil {
 				test.modifyContext(ctx)
 			}
