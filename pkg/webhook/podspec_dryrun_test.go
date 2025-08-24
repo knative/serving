@@ -32,7 +32,6 @@ import (
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
-	"knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
@@ -52,9 +51,6 @@ func TestExtraServiceValidation(t *testing.T) {
 	om := metav1.ObjectMeta{
 		Name:      "valid",
 		Namespace: "foo",
-		Annotations: map[string]string{
-			config.DryRunFeatureKey: "enabled",
-		},
 	}
 
 	tests := []struct {
@@ -113,6 +109,7 @@ func TestExtraServiceValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx, _ := fakekubeclient.With(context.Background())
+			ctx = enableDryRun(ctx)
 			if test.modifyContext != nil {
 				test.modifyContext(ctx)
 			}
@@ -151,9 +148,6 @@ func TestConfigurationValidation(t *testing.T) {
 	om := metav1.ObjectMeta{
 		Name:      "valid",
 		Namespace: "foo",
-		Annotations: map[string]string{
-			config.DryRunFeatureKey: "enabled",
-		},
 	}
 
 	tests := []struct {
@@ -184,9 +178,6 @@ func TestConfigurationValidation(t *testing.T) {
 				Namespace: "foo",
 				Labels: map[string]string{
 					"serving.knative.dev/service": "skip-me",
-				},
-				Annotations: map[string]string{
-					config.DryRunFeatureKey: "enabled",
 				},
 			},
 			Spec: goodConfigSpec,

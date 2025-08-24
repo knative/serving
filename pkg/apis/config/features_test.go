@@ -63,7 +63,6 @@ func TestFeaturesConfiguration(t *testing.T) {
 			MultiContainerProbing:            Enabled,
 			PodSpecAffinity:                  Enabled,
 			PodSpecTopologySpreadConstraints: Enabled,
-			PodSpecDryRun:                    Enabled,
 			PodSpecHostAliases:               Enabled,
 			PodSpecNodeSelector:              Enabled,
 			PodSpecRuntimeClassName:          Enabled,
@@ -86,7 +85,6 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"multi-container-probing":                      "Enabled",
 			"kubernetes.podspec-affinity":                  "Enabled",
 			"kubernetes.podspec-topologyspreadconstraints": "Enabled",
-			"kubernetes.podspec-dryrun":                    "Enabled",
 			"kubernetes.podspec-hostaliases":               "Enabled",
 			"kubernetes.podspec-nodeselector":              "Enabled",
 			"kubernetes.podspec-runtimeclassname":          "Enabled",
@@ -220,15 +218,6 @@ func TestFeaturesConfiguration(t *testing.T) {
 		}),
 		data: map[string]string{
 			"kubernetes.podspec-fieldref": "Disabled",
-		},
-	}, {
-		name:    "kubernetes.podspec-dryrun Disabled",
-		wantErr: false,
-		wantFeatures: defaultWith(&Features{
-			PodSpecDryRun: Disabled,
-		}),
-		data: map[string]string{
-			"kubernetes.podspec-dryrun": "Disabled",
 		},
 	}, {
 		name:    "kubernetes.podspec-hostaliases Disabled",

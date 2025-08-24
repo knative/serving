@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -30,27 +29,18 @@ import (
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
-	"knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
-var validMetadata = map[string]interface{}{
-	"name":      "valid",
-	"namespace": "foo",
-	"annotations": map[string]interface{}{
-		config.DryRunFeatureKey: "enabled",
-	},
-}
-
 func TestUnstructuredValidation(t *testing.T) {
 	tests := []struct {
-		name string
-		data map[string]interface{}
-		want string
+		name   string
+		data   map[string]interface{}
+		want   string
+		dryrun bool
 	}{{
 		name: "valid run latest",
 		data: map[string]interface{}{
-			"metadata": validMetadata,
 			"spec": map[string]interface{}{
 				"template": map[string]interface{}{
 					"spec": map[string]interface{}{
@@ -63,19 +53,20 @@ func TestUnstructuredValidation(t *testing.T) {
 				},
 			},
 		},
+		dryrun: true,
 	}, {
 		name: "no template",
 		data: map[string]interface{}{
-			"metadata": validMetadata,
-			"spec":     map[string]interface{}{},
+			"spec": map[string]interface{}{},
 		},
+		dryrun: true,
 	}, {
 		name: "invalid structure",
 		data: map[string]interface{}{
-			"metadata": validMetadata,
-			"spec":     true, // Invalid, spec is expected to be a struct
+			"spec": true, // Invalid, spec is expected to be a struct
 		},
-		want: "could not traverse nested spec.template field",
+		dryrun: true,
+		want:   "could not traverse nested spec.template field",
 	}, {
 		name: "no test annotation",
 		data: map[string]interface{}{
@@ -93,7 +84,9 @@ func TestUnstructuredValidation(t *testing.T) {
 			ctx, _ := fakekubeclient.With(context.Background())
 			logger := logtesting.TestLogger(t)
 			ctx = logging.WithLogger(ctx, logger)
-
+			if test.dryrun {
+				ctx = enableDryRun(ctx)
+			}
 			unstruct := &unstructured.Unstructured{}
 			unstruct.SetUnstructuredContent(test.data)
 
@@ -121,59 +114,50 @@ func TestDryRunFeatureFlag(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		dryRunFlag config.Flag
+		dryRunFlag bool
 		data       map[string]interface{}
 		want       string
 	}{{
 		name:       "enabled dry-run",
-		dryRunFlag: config.Enabled,
+		dryRunFlag: true,
 		data:       om,
 		want:       "could not traverse nested spec.template field",
 	}, {
 		name:       "enabled with strict annotation",
-		dryRunFlag: config.Enabled,
+		dryRunFlag: true,
 		data: map[string]interface{}{
 			"metadata": map[string]interface{}{
 				"name":      "valid",
 				"namespace": "foo",
-				"annotations": map[string]interface{}{
-					config.DryRunFeatureKey: "strict",
-				},
 			},
 			"spec": true, // Invalid, spec is expected to be a struct
 		},
 		want: "could not traverse nested spec.template field",
 	}, {
 		name:       "disabled with enabled annotation",
-		dryRunFlag: config.Disabled,
+		dryRunFlag: false,
 		data: map[string]interface{}{
 			"metadata": map[string]interface{}{
 				"name":      "invalid",
 				"namespace": "foo",
-				"annotations": map[string]interface{}{
-					config.DryRunFeatureKey: "enabled",
-				},
 			},
 			"spec": true, // Invalid, spec is expected to be a struct
 		},
 		want: "", // expect no error despite invalid data.
 	}, {
 		name:       "disabled with strict annotation",
-		dryRunFlag: config.Disabled,
+		dryRunFlag: false,
 		data: map[string]interface{}{
 			"metadata": map[string]interface{}{
 				"name":      "invalid",
 				"namespace": "foo",
-				"annotations": map[string]interface{}{
-					config.DryRunFeatureKey: "strict",
-				},
 			},
 			"spec": true, // Invalid, spec is expected to be a struct
 		},
 		want: "", // expect no error despite invalid data.
 	}, {
 		name:       "disabled dry-run",
-		dryRunFlag: config.Disabled,
+		dryRunFlag: false,
 		data:       om,
 		want:       "", // expect no error despite invalid data.
 	}}
@@ -183,7 +167,9 @@ func TestDryRunFeatureFlag(t *testing.T) {
 			ctx, _ := fakekubeclient.With(context.Background())
 			logger := logtesting.TestLogger(t)
 			ctx = logging.WithLogger(ctx, logger)
-			ctx = enableDryRun(ctx, test.dryRunFlag)
+			if test.dryRunFlag {
+				ctx = enableDryRun(ctx)
+			}
 
 			unstruct := &unstructured.Unstructured{}
 			unstruct.SetUnstructuredContent(test.data)
@@ -202,11 +188,6 @@ func TestDryRunFeatureFlag(t *testing.T) {
 
 func TestSkipUpdate(t *testing.T) {
 	validService := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				config.DryRunFeatureKey: "enabled",
-			},
-		},
 		Spec: v1.ServiceSpec{
 			ConfigurationSpec: v1.ConfigurationSpec{
 				Template: v1.RevisionTemplateSpec{
@@ -252,7 +233,7 @@ func TestSkipUpdate(t *testing.T) {
 			failKubeCalls(ctx)
 			ctx = logging.WithLogger(ctx, logtesting.TestLogger(t))
 			ctx = apis.WithinUpdate(ctx, test.old)
-
+			ctx = enableDryRun(ctx)
 			unstruct := &unstructured.Unstructured{}
 			unstruct.SetUnstructuredContent(test.new)
 
@@ -268,95 +249,6 @@ func TestSkipUpdate(t *testing.T) {
 	}
 }
 
-func TestSkipCreate(t *testing.T) {
-	serviceSpec := v1.ServiceSpec{
-		ConfigurationSpec: v1.ConfigurationSpec{
-			Template: v1.RevisionTemplateSpec{
-				Spec: v1.RevisionSpec{
-					PodSpec: corev1.PodSpec{
-						Containers: []corev1.Container{{
-							Image: "busybox",
-						}},
-					},
-				},
-			},
-		},
-	}
-
-	validServiceWithDryRun := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				config.DryRunFeatureKey: "enabled",
-			},
-		},
-		Spec: serviceSpec,
-	}
-
-	validServiceNoDryRun := &v1.Service{
-		Spec: serviceSpec,
-	}
-
-	// for testing behavior with annotation
-	validServiceWithDryRunFlagUns, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(validServiceWithDryRun)
-
-	// for testing behavior without annotation
-	validServiceNoDryRunFlagUns, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(validServiceNoDryRun)
-
-	tests := []struct {
-		name             string
-		input            map[string]interface{}
-		cliDryRunEnabled bool
-		want             string
-	}{{
-		name:             "skip_create_dryrun_with_annotation",
-		cliDryRunEnabled: false,
-		input:            validServiceWithDryRunFlagUns,
-	}, {
-		name:             "create_with_dryrun_with_annotation",
-		cliDryRunEnabled: true,
-		input:            validServiceWithDryRunFlagUns,
-		want:             "dry run failed with kubeclient error: spec.template",
-	}, {
-		name:             "skip_create_dryrun_no_annotation",
-		cliDryRunEnabled: false,
-		input:            validServiceNoDryRunFlagUns,
-	}, {
-		name:             "create_with_dryrun_no_annotation",
-		cliDryRunEnabled: true,
-		input:            validServiceNoDryRunFlagUns,
-		want:             "dry run failed with kubeclient error: spec.template",
-	},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			ctx, _ := fakekubeclient.With(context.Background())
-			failKubeCalls(ctx)
-			ctx = apis.WithinCreate(ctx)
-			if test.cliDryRunEnabled {
-				ctx = apis.WithDryRun(ctx)
-			}
-			ctx = logging.WithLogger(ctx, logtesting.TestLogger(t))
-
-			unstruct := &unstructured.Unstructured{}
-			unstruct.SetUnstructuredContent(test.input)
-
-			got := ValidateService(ctx, unstruct)
-			if got == nil {
-				if test.want != "" {
-					t.Errorf("Validate got=nil, want=%q", test.want)
-				}
-			} else if got.Error() != test.want {
-				t.Errorf("Validate got=%q, want=%q", got.Error(), test.want)
-			}
-		})
-	}
-}
-
-func enableDryRun(ctx context.Context, flag config.Flag) context.Context {
-	return config.ToContext(ctx, &config.Config{
-		Features: &config.Features{
-			PodSpecDryRun: flag,
-		},
-	})
+func enableDryRun(ctx context.Context) context.Context {
+	return apis.WithDryRun(ctx)
 }
