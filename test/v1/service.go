@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/reconciler"
 	pkgTest "knative.dev/pkg/test"
@@ -210,9 +209,8 @@ func PatchServiceWithDryRun(t testing.TB, clients *test.Clients, service *v1.Ser
 	if err != nil {
 		return nil, err
 	}
-	ctx := apis.WithDryRun(context.Background())
 	return svc, reconciler.RetryTestErrors(func(int) (err error) {
-		svc, err = clients.ServingClient.Services.Patch(ctx, service.ObjectMeta.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		svc, err = clients.ServingClient.Services.Patch(context.Background(), service.ObjectMeta.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: []string{metav1.DryRunAll}})
 		return err
 	})
 }
