@@ -37,6 +37,8 @@ const (
 	// Allowed neither explicitly disables or enables a behavior.
 	// eg. allow a client to control behavior with an annotation or allow a new value through validation.
 	Allowed Flag = "Allowed"
+	// Restricted is used by secure-pod-defaults to enable the restricted profile, including runAsNonRoot.
+	Restricted Flag = "Restricted"
 )
 
 // service annotations under features.knative.dev/*
@@ -112,7 +114,7 @@ func defaultFeaturesConfig() *Features {
 		PodSpecInitContainers:            Disabled,
 		PodSpecDNSPolicy:                 Disabled,
 		PodSpecDNSConfig:                 Disabled,
-		SecurePodDefaults:                Disabled,
+		SecurePodDefaults:                Enabled,
 		TagHeaderBasedRouting:            Disabled,
 		AutoDetectHTTP2:                  Disabled,
 	}
@@ -208,7 +210,7 @@ type Features struct {
 func asFlag(key string, target *Flag) cm.ParseFunc {
 	return func(data map[string]string) error {
 		if raw, ok := data[key]; ok {
-			for _, flag := range []Flag{Enabled, Allowed, Disabled} {
+			for _, flag := range []Flag{Enabled, Allowed, Disabled, Restricted} {
 				if strings.EqualFold(raw, string(flag)) {
 					*target = flag
 					return nil
