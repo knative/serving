@@ -147,11 +147,6 @@ spec:
                     reason: Deploying
                     status: Unknown
                     type: ScaleTargetInitialized
-                metricsServiceName: ""
-                serviceName: ""
-              required:
-                - metricsServiceName
-                - serviceName
               properties:
                 actualScale:
                   description: ActualScale shows the actual number of replicas for the revision.
