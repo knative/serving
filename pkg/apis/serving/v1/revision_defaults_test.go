@@ -842,7 +842,10 @@ func TestRevisionDefaulting(t *testing.T) {
 		name: "Default security context with feature enabled",
 		wc: configMapsToContext(logger, nil, corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName},
-			Data:       map[string]string{"secure-pod-defaults": "Enabled"},
+			Data: map[string]string{
+				"secure-pod-defaults":                "Enabled",
+				"kubernetes.podspec-securitycontext": "Enabled",
+			},
 		}),
 		in: &Revision{
 			Spec: RevisionSpec{
@@ -943,6 +946,237 @@ func TestRevisionDefaulting(t *testing.T) {
 							},
 							Capabilities: &corev1.Capabilities{
 								Add: []corev1.Capability{"NET_ADMIN"},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}, {
+		name: "Default security context with feature enabled when input securityContext is empty",
+		wc: configMapsToContext(logger, nil, corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName},
+			Data: map[string]string{
+				"secure-pod-defaults":                "Enabled",
+				"kubernetes.podspec-securitycontext": "Enabled",
+			},
+		}),
+		in: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "user-container",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 80,
+						}},
+					}, {
+						Name: "sidecar",
+					}},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "user-container",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 80,
+						}},
+						ReadinessProbe: defaultProbe,
+						Resources:      defaultResources,
+						SecurityContext: &corev1.SecurityContext{
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+								Add:  []corev1.Capability{"NET_BIND_SERVICE"},
+							},
+						},
+					}, {
+						Name:      "sidecar",
+						Resources: defaultResources,
+						SecurityContext: &corev1.SecurityContext{
+							RunAsNonRoot:             ptr.Bool(true),
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}, {
+		name: "Default security context with feature set to AllowRootBounded",
+		wc: configMapsToContext(logger, nil, corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName},
+			Data:       map[string]string{"secure-pod-defaults": "AllowRootBounded"},
+		}),
+		in: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "user-container",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 80,
+						}},
+					}, {
+						Name:            "sidecar",
+						SecurityContext: &corev1.SecurityContext{},
+					}, {
+						Name: "special-sidecar",
+						SecurityContext: &corev1.SecurityContext{
+							AllowPrivilegeEscalation: ptr.Bool(true),
+							Capabilities: &corev1.Capabilities{
+								Add:  []corev1.Capability{"NET_ADMIN"},
+								Drop: []corev1.Capability{},
+							},
+						},
+					}},
+					InitContainers: []corev1.Container{{
+						Name: "special-init",
+						SecurityContext: &corev1.SecurityContext{
+							AllowPrivilegeEscalation: ptr.Bool(true),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type:             corev1.SeccompProfileTypeLocalhost,
+								LocalhostProfile: ptr.String("special"),
+							},
+							Capabilities: &corev1.Capabilities{
+								Add: []corev1.Capability{"NET_ADMIN"},
+							},
+						},
+					}},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "user-container",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 80,
+						}},
+						ReadinessProbe: defaultProbe,
+						Resources:      defaultResources,
+						SecurityContext: &corev1.SecurityContext{
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+								Add:  []corev1.Capability{"NET_BIND_SERVICE"},
+							},
+						},
+					}, {
+						Name:      "sidecar",
+						Resources: defaultResources,
+						SecurityContext: &corev1.SecurityContext{
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+						},
+					}, {
+						Name:      "special-sidecar",
+						Resources: defaultResources,
+						SecurityContext: &corev1.SecurityContext{
+							AllowPrivilegeEscalation: ptr.Bool(true),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+							Capabilities: &corev1.Capabilities{
+								Add:  []corev1.Capability{"NET_ADMIN"},
+								Drop: []corev1.Capability{},
+							},
+						},
+					}},
+					InitContainers: []corev1.Container{{
+						Name: "special-init",
+						SecurityContext: &corev1.SecurityContext{
+							AllowPrivilegeEscalation: ptr.Bool(true),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type:             corev1.SeccompProfileTypeLocalhost,
+								LocalhostProfile: ptr.String("special"),
+							},
+							Capabilities: &corev1.Capabilities{
+								Add: []corev1.Capability{"NET_ADMIN"},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}, {
+		name: "Default security context with feature set to AllowRootBounded when input securityContext is empty",
+		wc: configMapsToContext(logger, nil, corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: config.FeaturesConfigName},
+			Data: map[string]string{
+				"secure-pod-defaults":                "AllowRootBounded",
+				"kubernetes.podspec-securitycontext": "Enabled",
+			},
+		}),
+		in: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "user-container",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 80,
+						}},
+					}, {
+						Name: "sidecar",
+					}},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "user-container",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 80,
+						}},
+						ReadinessProbe: defaultProbe,
+						Resources:      defaultResources,
+						SecurityContext: &corev1.SecurityContext{
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+								Add:  []corev1.Capability{"NET_BIND_SERVICE"},
+							},
+						},
+					}, {
+						Name:      "sidecar",
+						Resources: defaultResources,
+						SecurityContext: &corev1.SecurityContext{
+							AllowPrivilegeEscalation: ptr.Bool(false),
+							SeccompProfile: &corev1.SeccompProfile{
+								Type: corev1.SeccompProfileTypeRuntimeDefault,
+							},
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
 							},
 						},
 					}},

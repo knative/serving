@@ -206,7 +206,7 @@ func (*RevisionSpec) applyGRPCProbeDefaults(container *corev1.Container) {
 // This does not currently set `runAsNonRoot` for the restricted profile, because
 // that feels harder to default safely.
 func (rs *RevisionSpec) defaultSecurityContext(psc *corev1.PodSecurityContext, container *corev1.Container, cfg *config.Config) {
-	if cfg.Features.SecurePodDefaults != config.Enabled {
+	if cfg.Features.SecurePodDefaults != config.Enabled && cfg.Features.SecurePodDefaults != config.AllowRootBounded {
 		return
 	}
 
@@ -225,7 +225,9 @@ func (rs *RevisionSpec) defaultSecurityContext(psc *corev1.PodSecurityContext, c
 	}
 	if psc.SeccompProfile == nil || psc.SeccompProfile.Type == "" {
 		if updatedSC.SeccompProfile == nil {
-			updatedSC.SeccompProfile = &corev1.SeccompProfile{}
+			updatedSC.SeccompProfile = &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			}
 		}
 		if updatedSC.SeccompProfile.Type == "" {
 			updatedSC.SeccompProfile.Type = corev1.SeccompProfileTypeRuntimeDefault
@@ -247,8 +249,16 @@ func (rs *RevisionSpec) defaultSecurityContext(psc *corev1.PodSecurityContext, c
 		}
 	}
 
-	if psc.RunAsNonRoot == nil {
-		updatedSC.RunAsNonRoot = ptr.Bool(true)
+	if cfg.Features.SecurePodDefaults == config.Enabled {
+		if psc.RunAsNonRoot == nil {
+			if updatedSC.RunAsNonRoot == nil {
+				updatedSC.RunAsNonRoot = ptr.Bool(true)
+			} else {
+				updatedSC.RunAsNonRoot = container.SecurityContext.RunAsNonRoot
+			}
+		} else {
+			updatedSC.RunAsNonRoot = psc.RunAsNonRoot
+		}
 	}
 
 	if *updatedSC != (corev1.SecurityContext{}) {
