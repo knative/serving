@@ -197,24 +197,6 @@ func PatchService(t testing.TB, clients *test.Clients, service *v1.Service, fopt
 	})
 }
 
-// PatchServiceWithDryRun patches the existing service passed in with the applied mutations running in dryrun mode.
-// Returns the latest service object
-func PatchServiceWithDryRun(t testing.TB, clients *test.Clients, service *v1.Service, fopt ...rtesting.ServiceOption) (svc *v1.Service, err error) {
-	newSvc := service.DeepCopy()
-	for _, opt := range fopt {
-		opt(newSvc)
-	}
-	LogResourceObject(t, ResourceObjects{Service: newSvc})
-	patchBytes, err := duck.CreateBytePatch(service, newSvc)
-	if err != nil {
-		return nil, err
-	}
-	return svc, reconciler.RetryTestErrors(func(int) (err error) {
-		svc, err = clients.ServingClient.Services.Patch(context.Background(), service.ObjectMeta.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: []string{metav1.DryRunAll}})
-		return err
-	})
-}
-
 // PatchServiceRouteSpec patches a service to use the route name in names.
 func PatchServiceRouteSpec(t testing.TB, clients *test.Clients, names test.ResourceNames, rs v1.RouteSpec) (svc *v1.Service, err error) {
 	patch := []map[string]interface{}{{

@@ -20,9 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/apis/serving"
@@ -71,15 +69,6 @@ func validateRevisionTemplate(ctx context.Context, uns *unstructured.Unstructure
 	}
 	if templ == nil || templ == (&v1.RevisionTemplateSpec{}) {
 		return nil // Don't need to validate empty templates
-	}
-
-	if apis.IsInUpdate(ctx) {
-		if uns, err := runtime.DefaultUnstructuredConverter.ToUnstructured(apis.GetBaseline(ctx)); err == nil {
-			if oldVal, found, _ := unstructured.NestedFieldNoCopy(uns, "spec", "template"); found &&
-				equality.Semantic.DeepEqual(val, oldVal) {
-				return nil // Don't validate no-change updates.
-			}
-		}
 	}
 
 	return validatePodSpec(ctx, templ.Spec, namespace)

@@ -21,15 +21,12 @@ import (
 	"strings"
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	"knative.dev/pkg/apis"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestUnstructuredValidation(t *testing.T) {
@@ -180,69 +177,6 @@ func TestDryRunFeatureFlag(t *testing.T) {
 					t.Errorf("Validate got=nil, want=%q", test.want)
 				}
 			} else if test.want == "" || !strings.Contains(got.Error(), test.want) {
-				t.Errorf("Validate got=%q, want=%q", got.Error(), test.want)
-			}
-		})
-	}
-}
-
-func TestSkipUpdate(t *testing.T) {
-	validService := &v1.Service{
-		Spec: v1.ServiceSpec{
-			ConfigurationSpec: v1.ConfigurationSpec{
-				Template: v1.RevisionTemplateSpec{
-					Spec: v1.RevisionSpec{
-						PodSpec: corev1.PodSpec{
-							Containers: []corev1.Container{{
-								Image: "busybox",
-							}},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	validServiceUns, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(validService)
-
-	tests := []struct {
-		name string
-		new  map[string]interface{}
-		old  *v1.Service
-		want string
-	}{{
-		name: "valid_empty_old",
-		new:  validServiceUns,
-		old: &v1.Service{
-			Spec: v1.ServiceSpec{
-				ConfigurationSpec: v1.ConfigurationSpec{
-					Template: v1.RevisionTemplateSpec{},
-				},
-			},
-		},
-		want: "dry run failed with kubeclient error: spec.template",
-	}, {
-		name: "skip_identical_old",
-		new:  validServiceUns,
-		old:  validService,
-	}}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			ctx, _ := fakekubeclient.With(context.Background())
-			failKubeCalls(ctx)
-			ctx = logging.WithLogger(ctx, logtesting.TestLogger(t))
-			ctx = apis.WithinUpdate(ctx, test.old)
-			ctx = enableDryRun(ctx)
-			unstruct := &unstructured.Unstructured{}
-			unstruct.SetUnstructuredContent(test.new)
-
-			got := ValidateService(ctx, unstruct)
-			if got == nil {
-				if test.want != "" {
-					t.Errorf("Validate got=nil, want=%q", test.want)
-				}
-			} else if got.Error() != test.want {
 				t.Errorf("Validate got=%q, want=%q", got.Error(), test.want)
 			}
 		})
