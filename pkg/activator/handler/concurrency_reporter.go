@@ -228,7 +228,6 @@ func (cr *ConcurrencyReporter) reportToMetricsBackend(key types.NamespacedName, 
 			metrics.ConfigurationNameKey.With(configurationName),
 			metrics.RevisionNameKey.With(revName),
 			metrics.K8sNamespaceKey.With(ns),
-			metrics.ActivatorKeyValue,
 		)),
 	)
 }
