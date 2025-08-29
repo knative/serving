@@ -28,5 +28,4 @@ var (
 	RouteTagNameKey      = attributekey.String("kn.route.tag")
 	K8sNamespaceKey      = attributekey.String("k8s.namespace.name")
 	K8sPodIPKey          = attributekey.String("k8s.pod.ip")
-	ActivatorKeyValue    = attributekey.Bool("kn.activator.proxy").With(true)
 )
