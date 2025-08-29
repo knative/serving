@@ -101,6 +101,20 @@ var (
 		"proxy_start_latency_ms",
 		"Time in milliseconds from request entry to successful proxy start (pod tracker acquisition)",
 		stats.UnitMilliseconds)
+	
+	// Proxy queue time threshold breach metrics
+	proxyQueueTimeWarningM = stats.Int64(
+		"proxy_queue_time_warning_total",
+		"Total number of requests that exceeded 4s waiting to proxy (warning threshold)",
+		stats.UnitDimensionless)
+	proxyQueueTimeErrorM = stats.Int64(
+		"proxy_queue_time_error_total",
+		"Total number of requests that exceeded 60s waiting to proxy (error threshold)",
+		stats.UnitDimensionless)
+	proxyQueueTimeCriticalM = stats.Int64(
+		"proxy_queue_time_critical_total",
+		"Total number of requests that exceeded 3m waiting to proxy (critical threshold)",
+		stats.UnitDimensionless)
 
 	// NOTE: 0 should not be used as boundary. See
 	// https://github.com/census-ecosystem/opencensus-go-exporter-stackdriver/issues/98
@@ -176,6 +190,21 @@ func RecordPendingRequestCompleted(ctx context.Context) {
 // RecordProxyStartLatency records the time taken to successfully start proxying a request
 func RecordProxyStartLatency(ctx context.Context, latencyMs float64) {
 	pkgmetrics.RecordBatch(ctx, proxyStartLatencyM.M(latencyMs))
+}
+
+// RecordProxyQueueTimeWarning increments the warning threshold breach counter (>4s)
+func RecordProxyQueueTimeWarning(ctx context.Context) {
+	pkgmetrics.RecordBatch(ctx, proxyQueueTimeWarningM.M(1))
+}
+
+// RecordProxyQueueTimeError increments the error threshold breach counter (>60s)
+func RecordProxyQueueTimeError(ctx context.Context) {
+	pkgmetrics.RecordBatch(ctx, proxyQueueTimeErrorM.M(1))
+}
+
+// RecordProxyQueueTimeCritical increments the critical threshold breach counter (>3m)
+func RecordProxyQueueTimeCritical(ctx context.Context) {
+	pkgmetrics.RecordBatch(ctx, proxyQueueTimeCriticalM.M(1))
 }
 
 func register() {
@@ -280,6 +309,25 @@ func register() {
 			Description: "Time in milliseconds from request entry to successful proxy start (pod tracker acquisition)",
 			Measure:     proxyStartLatencyM,
 			Aggregation: defaultLatencyDistribution,
+			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey},
+		},
+		// Proxy queue time threshold breach metrics
+		&view.View{
+			Description: "Total number of requests that exceeded 4s waiting to proxy (warning threshold)",
+			Measure:     proxyQueueTimeWarningM,
+			Aggregation: view.Count(),
+			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey},
+		},
+		&view.View{
+			Description: "Total number of requests that exceeded 60s waiting to proxy (error threshold)",
+			Measure:     proxyQueueTimeErrorM,
+			Aggregation: view.Count(),
+			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey},
+		},
+		&view.View{
+			Description: "Total number of requests that exceeded 3m waiting to proxy (critical threshold)",
+			Measure:     proxyQueueTimeCriticalM,
+			Aggregation: view.Count(),
 			TagKeys:     []tag.Key{metrics.PodKey, metrics.ContainerKey},
 		},
 	); err != nil {
