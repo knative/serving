@@ -463,52 +463,45 @@ func (rt *revisionThrottler) acquireDest(ctx context.Context) (func(), *podTrack
 func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, function func(dest string, isClusterIP bool) error) error {
 	// Start timing for proxy start latency and threshold tracking
 	proxyStartTime := time.Now()
-	
-	// Channel to track threshold breaches
-	thresholdTimer := time.NewTimer(4 * time.Second)
+
+	// Timers to track threshold breaches
+	warningTimer := time.NewTimer(4 * time.Second)
+	errorTimer := time.NewTimer(60 * time.Second)
+	criticalTimer := time.NewTimer(180 * time.Second)
+	defer warningTimer.Stop()
+	defer errorTimer.Stop()
+	defer criticalTimer.Stop()
+
+	// Channel to ensure shutdown
 	thresholdChan := make(chan struct{})
 	defer close(thresholdChan)
-	defer thresholdTimer.Stop()
-	
+
 	// Goroutine to track threshold breaches
 	go func() {
-		warningRecorded := false
-		errorRecorded := false
-		criticalRecorded := false
-		
 		for {
 			select {
-			case <-thresholdTimer.C:
-				elapsed := time.Since(proxyStartTime)
-				
-				if elapsed >= 3*time.Minute && !criticalRecorded {
-					// Critical threshold (3 minutes)
-					handler.RecordProxyQueueTimeCritical(ctx)
-					rt.logger.Warnf("Request %s exceeded CRITICAL proxy queue time threshold (3m)", xRequestId)
-					criticalRecorded = true
-					return // No need to continue monitoring after critical
-				} else if elapsed >= 60*time.Second && !errorRecorded {
-					// Error threshold (60 seconds)
-					handler.RecordProxyQueueTimeError(ctx)
-					rt.logger.Warnf("Request %s exceeded ERROR proxy queue time threshold (60s)", xRequestId)
-					errorRecorded = true
-					// Reset timer for critical threshold check
-					thresholdTimer.Reset(2 * time.Minute) // 3m - 60s = 2m remaining
-				} else if elapsed >= 4*time.Second && !warningRecorded {
-					// Warning threshold (4 seconds)
-					handler.RecordProxyQueueTimeWarning(ctx)
-					rt.logger.Debugf("Request %s exceeded WARNING proxy queue time threshold (4s)", xRequestId)
-					warningRecorded = true
-					// Reset timer for error threshold check
-					thresholdTimer.Reset(56 * time.Second) // 60s - 4s = 56s remaining
-				}
+			case <-warningTimer.C:
+				handler.RecordProxyQueueTimeWarning(ctx)
+				rt.logger.Debugf("Request %s exceeded WARNING proxy queue time threshold (4s)", xRequestId)
+			case <-errorTimer.C:
+				handler.RecordProxyQueueTimeError(ctx)
+				rt.logger.Warnf("Request %s exceeded ERROR proxy queue time threshold (60s)", xRequestId)
+			case <-criticalTimer.C:
+				handler.RecordProxyQueueTimeCritical(ctx)
+				rt.logger.Warnf("Request %s exceeded CRITICAL proxy queue time threshold (3m)", xRequestId)
 			case <-thresholdChan:
 				// Request completed, stop monitoring
 				return
+			case <-ctx.Done():
+				// Context has terminated
+				return
+			default:
+				// Catch-all case
+				continue
 			}
 		}
 	}()
-	
+
 	defer func() {
 		if r := recover(); r != nil {
 			rt.logger.Errorf("Panic in revisionThrottler.try for request %s: %v", xRequestId, r)
