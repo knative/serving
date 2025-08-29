@@ -88,6 +88,8 @@ func SetupObservabilityOrDie(
 }
 
 func res(logger *zap.SugaredLogger, cfg *config) *resource.Resource {
+	podName := system.PodName()
+
 	serviceName := cmp.Or(
 		os.Getenv("OTEL_SERVICE_NAME"),
 		os.Getenv("SERVING_SERVICE"),
@@ -96,14 +98,16 @@ func res(logger *zap.SugaredLogger, cfg *config) *resource.Resource {
 
 		// I always expect SERVING_REVISION to be set but in case it's
 		// not fallback on pod name
-		system.PodName(),
+		podName,
 	)
 
 	attrs := []attribute.KeyValue{
+		semconv.K8SContainerName("queue-proxy"),
 		semconv.K8SNamespaceName(cfg.ServingNamespace),
+		semconv.K8SPodName(podName),
 		semconv.ServiceVersion(changeset.Get()),
 		semconv.ServiceName(serviceName),
-		semconv.ServiceInstanceID(system.PodName()),
+		semconv.ServiceInstanceID(podName),
 	}
 
 	if val := os.Getenv("SERVING_SERVICE"); val != "" {
