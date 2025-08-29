@@ -24,8 +24,9 @@ import (
 	"knative.dev/serving/pkg/metrics"
 )
 
-// NewMetricHandler creates a handler that collects and reports request metrics.
-func NewMetricHandler(podName string, next http.Handler) *MetricHandler {
+// NewMetricAttributeHandler creates a handler that adds serving attributes
+// to the otelhttp labeler
+func NewMetricAttributeHandler(podName string, next http.Handler) *MetricHandler {
 	return &MetricHandler{
 		nextHandler: next,
 		podName:     podName,

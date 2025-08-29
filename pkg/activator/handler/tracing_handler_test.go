@@ -30,7 +30,7 @@ import (
 	rtesting "knative.dev/pkg/reconciler/testing"
 )
 
-func TestTracingHandler(t *testing.T) {
+func TestTracingAttributeHandler(t *testing.T) {
 	exporter := tracetest.NewInMemoryExporter()
 	tp := trace.NewTracerProvider(
 		trace.WithSyncer(exporter),
@@ -43,7 +43,8 @@ func TestTracingHandler(t *testing.T) {
 		labeler, _ := otelhttp.LabelerFromContext(r.Context())
 		labeler.Add(attribute.Bool("x", true))
 	})
-	handler := NewTracingHandler(tp, baseHandler)
+	handler := NewTracingAttributeHandler(tp, baseHandler)
+	handler = otelhttp.NewHandler(handler, "op", otelhttp.WithTracerProvider(tp))
 
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
