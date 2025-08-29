@@ -20,7 +20,6 @@ import (
 	"io"
 	"net/http"
 
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
 	netheader "knative.dev/networking/pkg/http/header"
@@ -35,36 +34,18 @@ func ProbeHandler(tracer trace.Tracer, prober func() bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ph := netheader.GetKnativeProbeValue(r)
 
-		_, probeSpan := tracer.Start(r.Context(), "kn.queueproxy.probe")
-		defer probeSpan.End()
-
 		if ph != queue.Name {
 			http.Error(w, badProbeTemplate+ph, http.StatusBadRequest)
-			probeSpan.AddEvent("kn.queueproxy.probe.error",
-				trace.WithAttributes(
-					attribute.String("reason", badProbeTemplate+ph),
-				),
-			)
 			return
 		}
 
 		if prober == nil {
 			http.Error(w, "no probe", http.StatusInternalServerError)
-			probeSpan.AddEvent("kn.queueproxy.probe.error",
-				trace.WithAttributes(
-					attribute.String("reason", "no probe"),
-				),
-			)
 			return
 		}
 
 		if !prober() {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			probeSpan.AddEvent("kn.queueproxy.probe.error",
-				trace.WithAttributes(
-					attribute.String("reason", "container not healthy"),
-				),
-			)
 			return
 		}
 
