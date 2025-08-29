@@ -23,8 +23,10 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func NewTracingHandler(tp trace.TracerProvider, next http.Handler) http.Handler {
-	shim := http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+// NewTracingAttributeHandler creates a handler that adds serving attributes
+// to the span
+func NewTracingAttributeHandler(tp trace.TracerProvider, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		defer func() {
 			// otelhttp middleware creates the labeler
 			labeler, _ := otelhttp.LabelerFromContext(r.Context())
@@ -36,8 +38,4 @@ func NewTracingHandler(tp trace.TracerProvider, next http.Handler) http.Handler 
 
 		next.ServeHTTP(rw, r)
 	})
-
-	return otelhttp.NewHandler(shim, "activate",
-		otelhttp.WithTracerProvider(tp),
-	)
 }

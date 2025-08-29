@@ -35,6 +35,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	// Injection related imports.
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+
 	network "knative.dev/networking/pkg"
 	netcfg "knative.dev/networking/pkg/config"
 	netprobe "knative.dev/networking/pkg/http/probe"
@@ -230,7 +232,7 @@ func main() {
 			apiconfig.DefaultRevisionIdleTimeoutSeconds * time.Second
 	})
 	ah = concurrencyReporter.Handler(ah)
-	ah = activatorhandler.NewTracingHandler(tp, ah)
+	ah = activatorhandler.NewTracingAttributeHandler(tp, ah)
 	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",
 		requestLogTemplateInputGetter, false /*enableProbeRequestLog*/)
 	if err != nil {
@@ -240,10 +242,15 @@ func main() {
 
 	// NOTE: MetricHandler is being used as the outermost handler of the meaty bits. We're not interested in measuring
 	// the healthchecks or probes.
-	ah = activatorhandler.NewMetricHandler(env.PodName, ah)
+	ah = activatorhandler.NewMetricAttributeHandler(env.PodName, ah)
 	// We need the context handler to run first so ctx gets the revision info.
 	ah = activatorhandler.WrapActivatorHandlerWithFullDuplex(ah, logger)
 	ah = activatorhandler.NewContextHandler(ctx, ah, configStore)
+
+	ah = otelhttp.NewHandler(ah, "handle",
+		otelhttp.WithTracerProvider(tp),
+		otelhttp.WithMeterProvider(mp),
+	)
 
 	// Network probe handlers.
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
