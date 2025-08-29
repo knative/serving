@@ -96,7 +96,6 @@ func TestRequestMetricHandler(t *testing.T) {
 					metrics.ConfigurationNameKey.With(rev.Labels[serving.ConfigurationLabelKey]),
 					metrics.RevisionNameKey.With(rev.Name),
 					metrics.K8sNamespaceKey.With(rev.Namespace),
-					metrics.ActivatorKeyValue,
 				}
 
 				if diff := cmp.Diff(want, got, cmpOpts...); diff != "" {
