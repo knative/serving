@@ -203,7 +203,7 @@ func Main(opts ...Option) error {
 		}
 	}()
 
-	d.Transport = buildTransport(env, tp)
+	d.Transport = buildTransport(env, tp, mp)
 
 	// allow extensions to read d and return modified context and transport
 	for _, opts := range opts {
@@ -344,7 +344,7 @@ func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 
 	return readiness.NewProbe(coreProbes)
 }
 
-func buildTransport(env config, tp trace.TracerProvider) http.RoundTripper {
+func buildTransport(env config, tp trace.TracerProvider, mp metric.MeterProvider) http.RoundTripper {
 	maxIdleConns := 1000 // TODO: somewhat arbitrary value for CC=0, needs experimental validation.
 	if env.ContainerConcurrency > 0 {
 		maxIdleConns = env.ContainerConcurrency
@@ -355,6 +355,7 @@ func buildTransport(env config, tp trace.TracerProvider) http.RoundTripper {
 	return otelhttp.NewTransport(
 		transport,
 		otelhttp.WithTracerProvider(tp),
+		otelhttp.WithMeterProvider(mp),
 	)
 }
 

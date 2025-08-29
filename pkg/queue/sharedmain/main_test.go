@@ -32,65 +32,26 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
-	netheader "knative.dev/networking/pkg/http/header"
 	netstats "knative.dev/networking/pkg/http/stats"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/serving/pkg/queue"
-	"knative.dev/serving/pkg/queue/health"
 )
 
 func TestQueueTraceSpans(t *testing.T) {
 	testcases := []struct {
 		name          string
-		prober        func() bool
 		wantSpans     int
 		requestHeader string
 		infiniteCC    bool
-		probeWillFail bool
-		probeTrace    bool
 	}{{
 		name:          "proxy trace",
-		prober:        func() bool { return true },
 		wantSpans:     3,
 		requestHeader: "",
-		probeWillFail: false,
-		probeTrace:    false,
 	}, {
 		name:          "proxy trace, no breaker",
-		prober:        func() bool { return true },
 		wantSpans:     2,
 		requestHeader: "",
-		probeWillFail: false,
-		probeTrace:    false,
 		infiniteCC:    true,
-	}, {
-		name:          "true prober function with probe trace",
-		prober:        func() bool { return true },
-		wantSpans:     1,
-		requestHeader: queue.Name,
-		probeWillFail: false,
-		probeTrace:    true,
-	}, {
-		name:          "unexpected probe header",
-		prober:        func() bool { return true },
-		wantSpans:     1,
-		requestHeader: "test-probe",
-		probeWillFail: true,
-		probeTrace:    true,
-	}, {
-		name:          "nil prober function",
-		prober:        nil,
-		wantSpans:     1,
-		requestHeader: queue.Name,
-		probeWillFail: true,
-		probeTrace:    true,
-	}, {
-		name:          "false prober function",
-		prober:        func() bool { return false },
-		wantSpans:     1,
-		requestHeader: queue.Name,
-		probeWillFail: true,
-		probeTrace:    true,
 	}}
 
 	for _, tc := range testcases {
@@ -105,47 +66,37 @@ func TestQueueTraceSpans(t *testing.T) {
 			writer := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 
-			if !tc.probeTrace {
-				t.Log("skip probe trace")
-				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					w.WriteHeader(http.StatusOK)
-				}))
-				defer server.Close()
-				serverURL, _ := url.Parse(server.URL)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer server.Close()
+			serverURL, _ := url.Parse(server.URL)
 
-				proxy := httputil.NewSingleHostReverseProxy(serverURL)
-				params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
-				var breaker *queue.Breaker
-				if !tc.infiniteCC {
-					breaker = queue.NewBreaker(params)
-				}
-
-				proxy.Transport = otelhttp.NewTransport(
-					pkgnet.AutoTransport,
-					otelhttp.WithMeterProvider(mp),
-					otelhttp.WithTracerProvider(tp),
-					otelhttp.WithSpanNameFormatter(func(op string, r *http.Request) string {
-						return r.URL.Path
-					}),
-				)
-
-				h := queue.ProxyHandler(tracer, breaker, netstats.NewRequestStats(time.Now()), proxy)
-				h(writer, req)
-			} else {
-				t.Log("probe trace")
-				h := health.ProbeHandler(tracer, tc.prober)
-				req.Header.Set(netheader.ProbeKey, tc.requestHeader)
-				h(writer, req)
+			proxy := httputil.NewSingleHostReverseProxy(serverURL)
+			params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
+			var breaker *queue.Breaker
+			if !tc.infiniteCC {
+				breaker = queue.NewBreaker(params)
 			}
+
+			proxy.Transport = otelhttp.NewTransport(
+				pkgnet.AutoTransport,
+				otelhttp.WithMeterProvider(mp),
+				otelhttp.WithTracerProvider(tp),
+				otelhttp.WithSpanNameFormatter(func(op string, r *http.Request) string {
+					return r.URL.Path
+				}),
+			)
+
+			h := queue.ProxyHandler(tracer, breaker, netstats.NewRequestStats(time.Now()), proxy)
+			h(writer, req)
 
 			gotSpans := exporter.GetSpans()
 			if len(gotSpans) != tc.wantSpans {
 				t.Errorf("Got %d spans, expected %d", len(gotSpans), tc.wantSpans)
 			}
-			spanNames := []string{"kn.queueproxy.probe", "/", "kn.queueproxy.proxy"}
-			if !tc.probeTrace {
-				spanNames = spanNames[1:]
-			}
+			spanNames := []string{"/", "kn.queueproxy.proxy"}
+
 			// We want to add `queueWait` span only if there is possible queueing
 			// and if the tests actually expects tracing.
 			if !tc.infiniteCC && tc.wantSpans > 1 {
@@ -160,13 +111,6 @@ func TestQueueTraceSpans(t *testing.T) {
 			for i, spanName := range spanNames[:tc.wantSpans] {
 				if gotSpans[i].Name != spanName {
 					t.Errorf("Span[%d].Name = %q, want: %q", i, gotSpans[i].Name, spanName)
-				}
-				if tc.probeWillFail {
-					if len(gotSpans[i].Events) == 0 {
-						t.Error("Expected error as value for failed span Annotation, got empty Annotation")
-					} else if gotSpans[i].Events[0].Name != "kn.queueproxy.probe.error" {
-						t.Errorf("Expected error as value for failed span Annotation, got %q", gotSpans[i].Events[0].Name)
-					}
 				}
 			}
 		})
