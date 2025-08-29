@@ -88,9 +88,9 @@ func BenchmarkHandlerChain(b *testing.B) {
 	// Make sure to update this if the activator's main file changes.
 	ah := New(ctx, fakeThrottler{}, rt, false, logger, false /* TLS */, tp)
 	ah = concurrencyReporter.Handler(ah)
-	ah = NewTracingHandler(tp, ah)
+	ah = NewTracingAttributeHandler(tp, ah)
 	ah, _ = pkghttp.NewRequestLogHandler(ah, io.Discard, "", nil, false)
-	ah = NewMetricHandler(activatorPodName, ah)
+	ah = NewMetricAttributeHandler(activatorPodName, ah)
 	ah = NewContextHandler(ctx, ah, configStore)
 	ah = &ProbeHandler{NextHandler: ah}
 	ah = netprobe.NewHandler(ah)
@@ -204,9 +204,9 @@ func TestActivatorChainHandlerWithFullDuplex(t *testing.T) {
 	})
 	var ah http.Handler
 	ah = concurrencyReporter.Handler(proxyWithMiddleware)
-	ah = NewTracingHandler(tp, ah)
+	ah = NewTracingAttributeHandler(tp, ah)
 	ah, _ = pkghttp.NewRequestLogHandler(ah, io.Discard, "", nil, false)
-	ah = NewMetricHandler(activatorPodName, ah)
+	ah = NewMetricAttributeHandler(activatorPodName, ah)
 	ah = WrapActivatorHandlerWithFullDuplex(ah, logger)
 	ah = NewContextHandler(ctx, ah, configStore)
 	ah = &ProbeHandler{NextHandler: ah}
