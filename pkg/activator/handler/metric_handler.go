@@ -52,7 +52,6 @@ func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		metrics.ConfigurationNameKey.With(configurationName),
 		metrics.RevisionNameKey.With(rev.Name),
 		metrics.K8sNamespaceKey.With(rev.Namespace),
-		metrics.ActivatorKeyValue,
 	)
 
 	h.nextHandler.ServeHTTP(w, r)

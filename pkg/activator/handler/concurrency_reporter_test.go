@@ -565,7 +565,6 @@ func TestMetricsReported(t *testing.T) {
 		metrics.ConfigurationNameKey.With("config-"+rev1.Name),
 		metrics.RevisionNameKey.With(rev1.Name),
 		metrics.K8sNamespaceKey.With(rev1.Namespace),
-		metrics.ActivatorKeyValue,
 	)
 
 	metricstest.AssertMetrics(
