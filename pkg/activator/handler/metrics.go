@@ -18,6 +18,7 @@ package handler
 
 import (
 	"context"
+	"sync"
 
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/metrics"
@@ -101,7 +102,7 @@ var (
 		"proxy_start_latency_ms",
 		"Time in milliseconds from request entry to successful proxy start (pod tracker acquisition)",
 		stats.UnitMilliseconds)
-	
+
 	// Proxy queue time threshold breach metrics
 	proxyQueueTimeWarningM = stats.Int64(
 		"proxy_queue_time_warning_total",
@@ -119,10 +120,13 @@ var (
 	// NOTE: 0 should not be used as boundary. See
 	// https://github.com/census-ecosystem/opencensus-go-exporter-stackdriver/issues/98
 	defaultLatencyDistribution = view.Distribution(5, 10, 20, 40, 60, 80, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000, 2000, 5000, 10000, 20000, 50000, 100000)
+
+	// registerOnce ensures metrics are only registered once
+	registerOnce sync.Once
 )
 
 func init() {
-	register()
+	registerOnce.Do(register)
 }
 
 // RecordPendingRequest increments the pending requests metric
