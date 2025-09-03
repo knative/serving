@@ -140,7 +140,7 @@ func adminHandler(ctx context.Context, logger *zap.SugaredLogger, drainer *pkgha
 			w.Write([]byte("drained"))
 		} else {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte(fmt.Sprintf("pending requests: %d", pendingRequests.Load())))
+			fmt.Fprintf(w, "pending requests: %d", pendingRequests.Load())
 		}
 	})
 

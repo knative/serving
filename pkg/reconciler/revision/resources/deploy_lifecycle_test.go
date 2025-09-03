@@ -47,7 +47,7 @@ func TestBuildLifecycleWithDrainWait(t *testing.T) {
 					},
 				},
 			},
-			want: []string{"/bin/sh", "-c", fmt.Sprintf("/app/cleanup.sh && %s", drainCommand)},
+			want: []string{"/bin/sh", "-c", "/app/cleanup.sh && " + drainCommand},
 		},
 		{
 			name: "existing HTTP GET",
@@ -59,7 +59,7 @@ func TestBuildLifecycleWithDrainWait(t *testing.T) {
 					},
 				},
 			},
-			want: []string{"/bin/sh", "-c", fmt.Sprintf("curl -f http://localhost:8080/shutdown && %s", drainCommand)},
+			want: []string{"/bin/sh", "-c", "curl -f http://localhost:8080/shutdown && " + drainCommand},
 		},
 		{
 			name: "existing HTTP GET without path",
@@ -70,7 +70,7 @@ func TestBuildLifecycleWithDrainWait(t *testing.T) {
 					},
 				},
 			},
-			want: []string{"/bin/sh", "-c", fmt.Sprintf("curl -f http://localhost:9090/ && %s", drainCommand)},
+			want: []string{"/bin/sh", "-c", "curl -f http://localhost:9090/ && " + drainCommand},
 		},
 	}
 
