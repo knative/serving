@@ -305,7 +305,7 @@ func buildLifecycleWithDrainWait(existingLifecycle *corev1.Lifecycle) *corev1.Li
 				Exec: &corev1.ExecAction{
 					Command: []string{
 						"/bin/sh", "-c",
-						fmt.Sprintf("%s && until curl -sf http://localhost:%d/drain-complete 2>/dev/null || false; do sleep 0.1; done",
+						fmt.Sprintf("%s; until curl -sf http://localhost:%d/drain-complete 2>/dev/null; do sleep 0.1; done",
 							existingCommand, networking.QueueAdminPort),
 					},
 				},
@@ -319,7 +319,7 @@ func buildLifecycleWithDrainWait(existingLifecycle *corev1.Lifecycle) *corev1.Li
 			Exec: &corev1.ExecAction{
 				Command: []string{
 					"/bin/sh", "-c",
-					fmt.Sprintf("until curl -sf http://localhost:%d/drain-complete 2>/dev/null || false; do sleep 0.1; done",
+					fmt.Sprintf("until curl -sf http://localhost:%d/drain-complete 2>/dev/null; do sleep 0.1; done",
 						networking.QueueAdminPort),
 				},
 			},

@@ -26,7 +26,7 @@ import (
 )
 
 func TestBuildLifecycleWithDrainWait(t *testing.T) {
-	drainCommand := fmt.Sprintf("until curl -sf http://localhost:%d/drain-complete 2>/dev/null || false; do sleep 0.1; done", networking.QueueAdminPort)
+	drainCommand := fmt.Sprintf("until curl -sf http://localhost:%d/drain-complete 2>/dev/null; do sleep 0.1; done", networking.QueueAdminPort)
 
 	tests := []struct {
 		name     string
@@ -47,7 +47,7 @@ func TestBuildLifecycleWithDrainWait(t *testing.T) {
 					},
 				},
 			},
-			want: []string{"/bin/sh", "-c", "/app/cleanup.sh && " + drainCommand},
+			want: []string{"/bin/sh", "-c", "/app/cleanup.sh; " + drainCommand},
 		},
 		{
 			name: "existing HTTP GET",
@@ -59,7 +59,7 @@ func TestBuildLifecycleWithDrainWait(t *testing.T) {
 					},
 				},
 			},
-			want: []string{"/bin/sh", "-c", "curl -f http://localhost:8080/shutdown && " + drainCommand},
+			want: []string{"/bin/sh", "-c", "curl -f http://localhost:8080/shutdown; " + drainCommand},
 		},
 		{
 			name: "existing HTTP GET without path",
@@ -70,7 +70,7 @@ func TestBuildLifecycleWithDrainWait(t *testing.T) {
 					},
 				},
 			},
-			want: []string{"/bin/sh", "-c", "curl -f http://localhost:9090/ && " + drainCommand},
+			want: []string{"/bin/sh", "-c", "curl -f http://localhost:9090/; " + drainCommand},
 		},
 	}
 
