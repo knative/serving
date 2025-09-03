@@ -70,8 +70,8 @@ func NewAppRequestMetricsHandler(
 
 	handler.queueLen, err = meter.Int64Gauge(
 		"kn.queueproxy.depth",
-		metric.WithDescription("Number of current items in the queue"),
-		metric.WithUnit("{item}"),
+		metric.WithDescription("Number of current requests in the queue"),
+		metric.WithUnit("{request}"),
 	)
 	if err != nil {
 		panic(err)
