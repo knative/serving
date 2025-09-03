@@ -26,7 +26,7 @@ import (
 )
 
 func TestBuildLifecycleWithDrainWait(t *testing.T) {
-	drainCommand := fmt.Sprintf("until curl -f http://localhost:%d/drain-complete; do sleep 0.1; done", networking.QueueAdminPort)
+	drainCommand := fmt.Sprintf("until curl -sf http://localhost:%d/drain-complete 2>/dev/null || false; do sleep 0.1; done", networking.QueueAdminPort)
 
 	tests := []struct {
 		name     string
