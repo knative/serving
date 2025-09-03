@@ -116,8 +116,8 @@ func assertMetrics(t *testing.T, reader *metric.ManualReader, status int) {
 			scopeName,
 			metricdata.Metrics{
 				Name:        "kn.queueproxy.depth",
-				Unit:        "{item}",
-				Description: "Number of current items in the queue",
+				Unit:        "{request}",
+				Description: "Number of current requests in the queue",
 				Data: metricdata.Gauge[int64]{
 					DataPoints: []metricdata.DataPoint[int64]{
 						{Value: 1},
