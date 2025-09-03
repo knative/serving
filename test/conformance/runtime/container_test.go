@@ -112,8 +112,11 @@ func TestShouldNotContainerConstraints(t *testing.T) {
 		},
 		assertIfNoError: func(t *testing.T, svc *v1.Service) {
 			lifecycle := svc.Spec.Template.Spec.Containers[0].Lifecycle
-			if lifecycle != nil && lifecycle.PreStop != nil {
-				t.Error("Expected Lifecycle.Prestop to be pruned")
+			// PreStop hooks are now preserved and augmented with drain wait
+			if lifecycle == nil || lifecycle.PreStop == nil {
+				t.Error("Expected Lifecycle.PreStop to be preserved with drain wait")
+			} else if lifecycle.PreStop.Exec == nil {
+				t.Error("Expected Lifecycle.PreStop.Exec to be set")
 			}
 		},
 	}, {
