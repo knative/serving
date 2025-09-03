@@ -97,19 +97,6 @@ var (
 		MountPath: queue.PodInfoDirectory,
 		ReadOnly:  true,
 	}
-
-	// This PreStop hook is actually calling an endpoint on the queue-proxy
-	// because of the way PreStop hooks are called by kubelet. We use this
-	// to block the user-container from exiting before the queue-proxy is ready
-	// to exit so we can guarantee that there are no more requests in flight.
-	userLifecycle = &corev1.Lifecycle{
-		PreStop: &corev1.LifecycleHandler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Port: intstr.FromInt(networking.QueueAdminPort),
-				Path: queue.RequestQueueDrainPath,
-			},
-		},
-	}
 )
 
 func addToken(tokenVolume *corev1.Volume, filename string, audience string, expiry *int64) {
@@ -261,7 +248,7 @@ func BuildUserContainers(rev *v1.Revision) []corev1.Container {
 func makeContainer(container corev1.Container, rev *v1.Revision) corev1.Container {
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the fieldmasks / validations in pkg/apis/serving
-	container.Lifecycle = userLifecycle
+	container.Lifecycle = buildLifecycleWithDrainWait(container.Lifecycle)
 	container.Env = append(container.Env, getKnativeEnvVar(rev)...)
 
 	// Explicitly disable stdin and tty allocation
@@ -292,6 +279,52 @@ func makeServingContainer(servingContainer corev1.Container, rev *v1.Revision) c
 	// If the user provides a liveness probe, we should rewrite in the port on the user-container for them.
 	rewriteUserLivenessProbe(container.LivenessProbe, int(userPort))
 	return container
+}
+
+// buildLifecycleWithDrainWait preserves any existing pre-stop hooks and adds the drain wait
+func buildLifecycleWithDrainWait(existingLifecycle *corev1.Lifecycle) *corev1.Lifecycle {
+	// If there's an existing lifecycle with a pre-stop hook, preserve it
+	if existingLifecycle != nil && existingLifecycle.PreStop != nil {
+		// Convert existing pre-stop to exec command if needed
+		var existingCommand string
+		if existingLifecycle.PreStop.Exec != nil {
+			existingCommand = strings.Join(existingLifecycle.PreStop.Exec.Command, " ")
+		} else if existingLifecycle.PreStop.HTTPGet != nil {
+			// Convert HTTP GET to curl command
+			port := existingLifecycle.PreStop.HTTPGet.Port.String()
+			path := existingLifecycle.PreStop.HTTPGet.Path
+			if path == "" {
+				path = "/"
+			}
+			existingCommand = fmt.Sprintf("curl -f http://localhost:%s%s", port, path)
+		}
+
+		// Combine: run existing hook first, then wait for drain
+		return &corev1.Lifecycle{
+			PreStop: &corev1.LifecycleHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{
+						"/bin/sh", "-c",
+						fmt.Sprintf("%s && until curl -f http://localhost:%d/drain-complete; do sleep 0.1; done",
+							existingCommand, networking.QueueAdminPort),
+					},
+				},
+			},
+		}
+	}
+
+	// No existing lifecycle, just add the drain wait
+	return &corev1.Lifecycle{
+		PreStop: &corev1.LifecycleHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{
+					"/bin/sh", "-c",
+					fmt.Sprintf("until curl -f http://localhost:%d/drain-complete; do sleep 0.1; done",
+						networking.QueueAdminPort),
+				},
+			},
+		},
+	}
 }
 
 // BuildPodSpec creates a PodSpec from the given revision and containers.
