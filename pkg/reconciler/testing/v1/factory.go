@@ -109,10 +109,10 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 					manager := condSet.Manage(&pa.Status)
 
 					// Set each condition to Unknown with "Deploying" reason to match kubebuilder defaults
-					manager.MarkUnknown(autoscalingv1alpha1.PodAutoscalerConditionActive, "Deploying", "")
-					manager.MarkUnknown(autoscalingv1alpha1.PodAutoscalerConditionReady, "Deploying", "")
-					manager.MarkUnknown(autoscalingv1alpha1.PodAutoscalerConditionSKSReady, "Deploying", "")
-					manager.MarkUnknown(autoscalingv1alpha1.PodAutoscalerConditionScaleTargetInitialized, "Deploying", "")
+					manager.MarkUnknown(autoscalingv1alpha1.PodAutoscalerConditionActive, "Pending", "Waiting for controller")
+					manager.MarkUnknown(autoscalingv1alpha1.PodAutoscalerConditionReady, "Pending", "Waiting for controller")
+					manager.MarkUnknown(autoscalingv1alpha1.PodAutoscalerConditionSKSReady, "Pending", "Waiting for controller")
+					manager.MarkUnknown(autoscalingv1alpha1.PodAutoscalerConditionScaleTargetInitialized, "Pending", "Waiting for controller")
 				}
 			}
 			return false, nil, nil
