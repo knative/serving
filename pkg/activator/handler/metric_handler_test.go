@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"sync"
 	"testing"
 
 	"go.opencensus.io/resource"
@@ -138,8 +139,12 @@ func reset() {
 		pendingRequestStartsM.Name(),
 		pendingRequestCompletesM.Name(),
 		proxyStartLatencyM.Name(),
+		proxyQueueTimeWarningM.Name(),
+		proxyQueueTimeErrorM.Name(),
+		proxyQueueTimeCriticalM.Name(),
 	)
-	register()
+	registerOnce = sync.Once{} // Reset the once to allow re-registration in tests
+	registerOnce.Do(register)
 }
 
 func BenchmarkMetricHandler(b *testing.B) {
