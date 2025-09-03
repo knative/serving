@@ -18,6 +18,7 @@ package sharedmain
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -111,7 +112,7 @@ func mainHandler(
 	return composedHandler, drainer
 }
 
-func adminHandler(ctx context.Context, logger *zap.SugaredLogger, drainer *pkghandler.Drainer) http.Handler {
+func adminHandler(ctx context.Context, logger *zap.SugaredLogger, drainer *pkghandler.Drainer, pendingRequests *atomic.Int32) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc(queue.RequestQueueDrainPath, func(w http.ResponseWriter, r *http.Request) {
 		logger.Info("Attached drain handler from user-container", r)
@@ -130,6 +131,17 @@ func adminHandler(ctx context.Context, logger *zap.SugaredLogger, drainer *pkgha
 
 		drainer.Drain()
 		w.WriteHeader(http.StatusOK)
+	})
+
+	// New endpoint that returns 200 only when all requests are drained
+	mux.HandleFunc("/drain-complete", func(w http.ResponseWriter, r *http.Request) {
+		if pendingRequests.Load() <= 0 {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("drained"))
+		} else {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte(fmt.Sprintf("pending requests: %d", pendingRequests.Load())))
+		}
 	})
 
 	return mux

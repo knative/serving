@@ -239,7 +239,7 @@ func Main(opts ...Option) error {
 	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
 	mainHandler, drainer := mainHandler(d.Ctx, env, d.Transport, probe, stats, logger, &pendingRequests, startTime)
-	adminHandler := adminHandler(d.Ctx, logger, drainer)
+	adminHandler := adminHandler(d.Ctx, logger, drainer, &pendingRequests)
 
 	// Enable TLS server when activator server certs are mounted.
 	// At this moment activator with TLS does not disable HTTP.

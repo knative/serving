@@ -57,7 +57,7 @@ var (
 		Name:                     servingContainerName,
 		Image:                    "busybox",
 		Ports:                    buildContainerPorts(v1.DefaultUserPort),
-		Lifecycle:                userLifecycle,
+		Lifecycle:                buildLifecycleWithDrainWait(nil),
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		Stdin:                    false,
 		TTY:                      false,
@@ -288,7 +288,7 @@ func defaultSidecarContainer(containerName string) *corev1.Container {
 	return &corev1.Container{
 		Name:                     containerName,
 		Image:                    "ubuntu",
-		Lifecycle:                userLifecycle,
+		Lifecycle:                buildLifecycleWithDrainWait(nil),
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		Stdin:                    false,
 		TTY:                      false,
