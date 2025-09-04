@@ -309,6 +309,8 @@ func makeTrackers(num, cc int) []*podTracker {
 				InitialCapacity: cc,
 			})
 		}
+		// For tests, set trackers to healthy state instead of pending
+		pt.state.Store(uint32(podHealthy))
 		trackers[i] = pt
 	}
 	return trackers
