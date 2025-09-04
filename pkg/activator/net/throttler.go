@@ -81,7 +81,7 @@ func newPodTracker(dest string, b breaker) *podTracker {
 		dest:      dest,
 		b:         b,
 	}
-	tracker.state.Store(uint32(podHealthy))
+	tracker.state.Store(uint32(podPending)) // Start in pending state until health verified
 	tracker.refCount.Store(0)
 	tracker.drainingStartTime.Store(0)
 	tracker.weight.Store(0)
@@ -102,6 +102,7 @@ const (
 	podQuarantined
 	podRecovering
 	podRemoved
+	podPending // New state for pods that haven't been health-checked yet
 )
 
 type podTracker struct {
@@ -221,7 +222,10 @@ func (p *podTracker) Reserve(ctx context.Context) (func(), bool) {
 	// Increment ref count before checking state to prevent race with pod removal
 	p.addRef()
 
-	if p.state.Load() != uint32(podHealthy) {
+	state := podState(p.state.Load())
+	// Only healthy and pending pods can be reserved
+	// Pending pods will be health-checked later in the request flow
+	if state != podHealthy && state != podPending && state != podRecovering {
 		p.releaseRef()
 		return nil, false
 	}
@@ -417,8 +421,9 @@ func (rt *revisionThrottler) filterAvailableTrackers(ctx context.Context, tracke
 			continue
 		}
 
-		// Include healthy and recovering pods
-		if state == podHealthy || state == podRecovering {
+		// Include healthy, recovering, and pending pods
+		// Pending pods will be health-checked on first use
+		if state == podHealthy || state == podRecovering || state == podPending {
 			available = append(available, tracker)
 		}
 	}
@@ -618,10 +623,21 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 			// First, perform a TCP ping check to ensure the destination is reachable
 			// Only do this for pod routing (not clusterIP)
 			if !isClusterIP {
-				rt.logger.Debugw("tcp ping attempt", "x-request-id", xRequestId, "dest", tracker.dest)
+				currentState := podState(tracker.state.Load())
+				rt.logger.Debugw("tcp ping attempt", "x-request-id", xRequestId, "dest", tracker.dest, "state", currentState)
+
 				if !tcpPingCheck(tracker.dest) {
-					rt.logger.Errorw("tcp ping failed; quarantine", "x-request-id", xRequestId, "dest", tracker.dest)
-					// Quarantine this tracker for 5 seconds
+					// For pending pods, this is their first health check
+					if currentState == podPending {
+						rt.logger.Infow("tcp ping failed for pending pod; quarantine",
+							"x-request-id", xRequestId,
+							"dest", tracker.dest)
+					} else {
+						rt.logger.Errorw("tcp ping failed; quarantine",
+							"x-request-id", xRequestId,
+							"dest", tracker.dest)
+					}
+					// Quarantine this tracker
 					tracker.state.Store(uint32(podQuarantined))
 					// Increment consecutive quarantine count
 					count := tracker.quarantineCount.Add(1)
@@ -635,6 +651,14 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 					// Re-queue the request to try another backend
 					reenqueue = true
 					return
+				}
+
+				// TCP ping successful - if pod was pending, promote to healthy
+				if currentState == podPending {
+					tracker.state.Store(uint32(podHealthy))
+					rt.logger.Infow("Pending pod passed TCP health check, promoting to healthy",
+						"x-request-id", xRequestId,
+						"dest", tracker.dest)
 				}
 			}
 
@@ -905,6 +929,11 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 				transitionOutOfQuarantine(context.Background(), tracker, podRemoved)
 				delete(rt.podTrackers, d)
 				rt.logger.Debugf("Pod %s removed while in quarantine", d)
+			case podPending:
+				// Pod being removed while still pending health check
+				tracker.state.Store(uint32(podRemoved))
+				delete(rt.podTrackers, d)
+				rt.logger.Debugf("Pod %s removed while pending health check", d)
 			default:
 				rt.logger.Errorf("Pod %s in unexpected state %d while processing draining destinations", d, tracker.state.Load())
 			}
@@ -999,8 +1028,12 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 				}
 				newTrackers = append(newTrackers, tracker)
 			} else if tracker.state.Load() != uint32(podHealthy) {
-				tracker.state.Store(uint32(podHealthy))
+				// Pod was previously in a non-healthy state, set to pending for re-validation
+				tracker.state.Store(uint32(podPending))
 				tracker.drainingStartTime.Store(0)
+				rt.logger.Infow("Re-adding previously unhealthy pod as pending",
+					"dest", newDest,
+					"previousState", podState(tracker.state.Load()))
 			}
 		}
 		healthyDests := make([]string, 0, len(currentDests))
@@ -1379,10 +1412,10 @@ func init() {
 }
 
 // defaultTCPPingCheck performs a quick TCP ping to verify the destination is reachable
-// Returns true if the connection succeeds within 2 seconds, false otherwise
-// Using a 2 second timeout to be more forgiving during pod startup/updates
+// Returns true if the connection succeeds within 1 second, false otherwise
+// Using a 1 second timeout to reduce latency during pod health checks
 func defaultTCPPingCheck(dest string) bool {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
 	dialer := &net.Dialer{}
@@ -1395,14 +1428,16 @@ func defaultTCPPingCheck(dest string) bool {
 }
 
 // quarantineBackoffSeconds returns backoff seconds for a given consecutive quarantine count.
-// Schedule: 2, 5, 10, 20 (clamped at 20s).
+// Schedule: 1, 2, 5, 10, 20 (clamped at 20s).
 func quarantineBackoffSeconds(count uint32) uint32 {
 	switch {
-	case count <= 1:
-		return 2
+	case count == 1:
+		return 1
 	case count == 2:
-		return 5
+		return 2
 	case count == 3:
+		return 5
+	case count == 4:
 		return 10
 	default:
 		return 20
