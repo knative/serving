@@ -128,7 +128,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			want: queueContainer(func(c *corev1.Container) {
 				c.Image = "alpine"
 				c.Ports = append(queueNonServingPorts, queueHTTP2Port, queueHTTPSPort)
-				c.ReadinessProbe.ProbeHandler.HTTPGet.Port.IntVal = queueHTTP2Port.ContainerPort
+				c.ReadinessProbe.HTTPGet.Port.IntVal = queueHTTP2Port.ContainerPort
 				c.Env = env(map[string]string{
 					"USER_PORT":          "1955",
 					"QUEUE_SERVING_PORT": "8013",
@@ -151,7 +151,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			want: queueContainer(func(c *corev1.Container) {
 				c.Image = "alpine"
 				c.Ports = append(queueNonServingPorts, queueHTTP2Port, queueHTTPSPort)
-				c.ReadinessProbe.ProbeHandler.HTTPGet.Port.IntVal = queueHTTP2Port.ContainerPort
+				c.ReadinessProbe.HTTPGet.Port.IntVal = queueHTTP2Port.ContainerPort
 				c.Env = env(map[string]string{
 					"USER_PORT":          "1955",
 					"QUEUE_SERVING_PORT": "8013",
@@ -177,7 +177,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				withContainers(containers),
 				withContainerConcurrency(0),
 				func(revision *v1.Revision) {
-					revision.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{
+					revision.OwnerReferences = []metav1.OwnerReference{{
 						APIVersion:         v1.SchemeGroupVersion.String(),
 						Kind:               "Configuration",
 						Name:               "the-parent-config-name",
