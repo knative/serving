@@ -1379,9 +1379,10 @@ func init() {
 }
 
 // defaultTCPPingCheck performs a quick TCP ping to verify the destination is reachable
-// Returns true if the connection succeeds within 500 milliseconds, false otherwise
+// Returns true if the connection succeeds within 2 seconds, false otherwise
+// Using a 2 second timeout to be more forgiving during pod startup/updates
 func defaultTCPPingCheck(dest string) bool {
-	conn, err := net.DialTimeout("tcp", dest, 500*time.Millisecond)
+	conn, err := net.DialTimeout("tcp", dest, 2*time.Second)
 	if err != nil {
 		return false
 	}
