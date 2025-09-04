@@ -61,6 +61,10 @@ var (
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		Stdin:                    false,
 		TTY:                      false,
+		VolumeMounts: []corev1.VolumeMount{{
+			Name:      "knative-drain-signal",
+			MountPath: "/var/run/knative",
+		}},
 		Env: []corev1.EnvVar{{
 			Name:  "PORT",
 			Value: "8080",
@@ -200,11 +204,23 @@ var (
 			Name:  "ENABLE_MULTI_CONTAINER_PROBES",
 			Value: "false",
 		}},
+		VolumeMounts: []corev1.VolumeMount{{
+			Name:      "knative-drain-signal",
+			MountPath: "/var/run/knative",
+		}},
 	}
 
 	defaultPodSpec = &corev1.PodSpec{
 		TerminationGracePeriodSeconds: ptr.Int64(45),
 		EnableServiceLinks:            ptr.Bool(false),
+		Volumes: []corev1.Volume{
+			{
+				Name: "knative-drain-signal",
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+		},
 	}
 
 	defaultPodAntiAffinityRules = &corev1.PodAntiAffinity{
@@ -292,6 +308,10 @@ func defaultSidecarContainer(containerName string) *corev1.Container {
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		Stdin:                    false,
 		TTY:                      false,
+		VolumeMounts: []corev1.VolumeMount{{
+			Name:      "knative-drain-signal",
+			MountPath: "/var/run/knative",
+		}},
 		Env: []corev1.EnvVar{{
 			Name:  "K_REVISION",
 			Value: "bar",
@@ -1397,11 +1417,11 @@ func TestMakePodSpec(t *testing.T) {
 			[]corev1.Container{
 				servingContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
-					container.VolumeMounts = []corev1.VolumeMount{{
+					container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 						Name:        varLogVolume.Name,
 						MountPath:   "/var/log",
 						SubPathExpr: "$(K_INTERNAL_POD_NAMESPACE)_$(K_INTERNAL_POD_NAME)_" + servingContainerName,
-					}}
+					})
 					container.Env = append(container.Env,
 						corev1.EnvVar{
 							Name:      "K_INTERNAL_POD_NAME",
@@ -1414,11 +1434,11 @@ func TestMakePodSpec(t *testing.T) {
 				}),
 				sidecarContainer(sidecarContainerName, func(c *corev1.Container) {
 					c.Image = "ubuntu@sha256:deadbeef"
-					c.VolumeMounts = []corev1.VolumeMount{{
+					c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
 						Name:        varLogVolume.Name,
 						MountPath:   "/var/log",
 						SubPathExpr: "$(K_INTERNAL_POD_NAMESPACE)_$(K_INTERNAL_POD_NAME)_" + sidecarContainerName,
-					}}
+					})
 					c.Env = append(c.Env,
 						corev1.EnvVar{
 							Name:      "K_INTERNAL_POD_NAME",
@@ -1478,10 +1498,10 @@ func TestMakePodSpec(t *testing.T) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
 				queueContainer(func(container *corev1.Container) {
-					container.VolumeMounts = []corev1.VolumeMount{{
+					container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 						Name:      varTokenVolume.Name,
 						MountPath: "/var/run/secrets/tokens",
-					}}
+					})
 				}),
 			},
 			withAppendedTokenVolumes([]appendTokenVolume{{filename: "boo-srv", audience: "boo-srv", expires: 3600}}),

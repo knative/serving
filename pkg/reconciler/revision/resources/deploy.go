@@ -97,6 +97,18 @@ var (
 		MountPath: queue.PodInfoDirectory,
 		ReadOnly:  true,
 	}
+
+	varDrainVolume = corev1.Volume{
+		Name: "knative-drain-signal",
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
+
+	varDrainVolumeMount = corev1.VolumeMount{
+		Name:      "knative-drain-signal",
+		MountPath: "/var/run/knative",
+	}
 )
 
 func addToken(tokenVolume *corev1.Volume, filename string, audience string, expiry *int64) {
@@ -160,7 +172,9 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 		return nil, fmt.Errorf("failed to create queue-proxy container: %w", err)
 	}
 
+	// Add drain volume for signaling between containers
 	var extraVolumes []corev1.Volume
+	extraVolumes = append(extraVolumes, varDrainVolume)
 
 	podInfoFeature, podInfoExists := rev.Annotations[apiconfig.QueueProxyPodInfoFeatureKey]
 
@@ -266,6 +280,9 @@ func makeContainer(container corev1.Container, rev *v1.Revision) corev1.Containe
 		}
 	}
 
+	// Mount the drain volume for PreStop hook to check drain signal
+	container.VolumeMounts = append(container.VolumeMounts, varDrainVolumeMount)
+
 	return container
 }
 
@@ -305,8 +322,8 @@ func buildLifecycleWithDrainWait(existingLifecycle *corev1.Lifecycle) *corev1.Li
 				Exec: &corev1.ExecAction{
 					Command: []string{
 						"/bin/sh", "-c",
-						fmt.Sprintf("%s; until curl -sf http://localhost:%d/drain-complete 2>/dev/null; do sleep 0.1; done",
-							existingCommand, networking.QueueAdminPort),
+						fmt.Sprintf("%s; until [ -f /var/run/knative/drain-complete ]; do sleep 0.1; done",
+							existingCommand),
 					},
 				},
 			},
@@ -319,8 +336,7 @@ func buildLifecycleWithDrainWait(existingLifecycle *corev1.Lifecycle) *corev1.Li
 			Exec: &corev1.ExecAction{
 				Command: []string{
 					"/bin/sh", "-c",
-					fmt.Sprintf("until curl -sf http://localhost:%d/drain-complete 2>/dev/null; do sleep 0.1; done",
-						networking.QueueAdminPort),
+					"until [ -f /var/run/knative/drain-complete ]; do sleep 0.1; done",
 				},
 			},
 		},
