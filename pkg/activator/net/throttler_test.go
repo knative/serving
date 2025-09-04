@@ -1854,7 +1854,6 @@ func TestTryWithAllPodsQuarantined(t *testing.T) {
 			called = true
 			return nil
 		})
-
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -1913,7 +1912,6 @@ func TestThrottlerQuick502Quarantine(t *testing.T) {
 			// Second pod succeeds
 			return nil
 		})
-
 		// Request should succeed (nil error) because it was retried
 		if err != nil {
 			t.Errorf("Expected nil error after retry, got %v", err)
@@ -2038,7 +2036,6 @@ func TestThrottlerQuick502Quarantine(t *testing.T) {
 			// Third pod succeeds
 			return nil
 		})
-
 		// Request should succeed
 		if err != nil {
 			t.Errorf("Expected nil error, got %v", err)

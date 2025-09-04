@@ -33,9 +33,11 @@ import (
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
-var _ = proto.Marshal
-var _ = fmt.Errorf
-var _ = math.Inf
+var (
+	_ = proto.Marshal
+	_ = fmt.Errorf
+	_ = math.Inf
+)
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
@@ -53,9 +55,11 @@ func (*Request) ProtoMessage()    {}
 func (*Request) Descriptor() ([]byte, []int) {
 	return fileDescriptor_baa7ad5f099fe3e5, []int{0}
 }
+
 func (m *Request) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
+
 func (m *Request) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
 		return xxx_messageInfo_Request.Marshal(b, m, deterministic)
@@ -68,12 +72,15 @@ func (m *Request) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return b[:n], nil
 	}
 }
+
 func (m *Request) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_Request.Merge(m, src)
 }
+
 func (m *Request) XXX_Size() int {
 	return m.Size()
 }
+
 func (m *Request) XXX_DiscardUnknown() {
 	xxx_messageInfo_Request.DiscardUnknown(m)
 }
@@ -97,9 +104,11 @@ func (*Response) ProtoMessage()    {}
 func (*Response) Descriptor() ([]byte, []int) {
 	return fileDescriptor_baa7ad5f099fe3e5, []int{1}
 }
+
 func (m *Response) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
+
 func (m *Response) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
 		return xxx_messageInfo_Response.Marshal(b, m, deterministic)
@@ -112,12 +121,15 @@ func (m *Response) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return b[:n], nil
 	}
 }
+
 func (m *Response) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_Response.Merge(m, src)
 }
+
 func (m *Response) XXX_Size() int {
 	return m.Size()
 }
+
 func (m *Response) XXX_DiscardUnknown() {
 	xxx_messageInfo_Response.DiscardUnknown(m)
 }
@@ -157,8 +169,10 @@ var fileDescriptor_baa7ad5f099fe3e5 = []byte{
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
-var _ context.Context
-var _ grpc.ClientConn
+var (
+	_ context.Context
+	_ grpc.ClientConn
+)
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
@@ -227,12 +241,12 @@ type PingServiceServer interface {
 }
 
 // UnimplementedPingServiceServer can be embedded to have forward compatible implementations.
-type UnimplementedPingServiceServer struct {
-}
+type UnimplementedPingServiceServer struct{}
 
 func (*UnimplementedPingServiceServer) Ping(ctx context.Context, req *Request) (*Response, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
 }
+
 func (*UnimplementedPingServiceServer) PingStream(srv PingService_PingStreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method PingStream not implemented")
 }
@@ -376,6 +390,7 @@ func encodeVarintPing(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
+
 func (m *Request) Size() (n int) {
 	if m == nil {
 		return 0
@@ -405,9 +420,11 @@ func (m *Response) Size() (n int) {
 func sovPing(x uint64) (n int) {
 	return (math_bits.Len64(x|1) + 6) / 7
 }
+
 func sozPing(x uint64) (n int) {
 	return sovPing(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
+
 func (m *Request) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -490,6 +507,7 @@ func (m *Request) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+
 func (m *Response) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -572,6 +590,7 @@ func (m *Response) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+
 func skipPing(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0

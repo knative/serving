@@ -324,7 +324,7 @@ func Main(opts ...Option) error {
 			if pendingRequests.Load() <= 0 {
 				logger.Infof("Drain: all pending requests completed")
 				// Write drain signal file for PreStop hooks to detect
-				if err := os.WriteFile("/var/run/knative/drain-complete", []byte(""), 0600); err != nil {
+				if err := os.WriteFile("/var/run/knative/drain-complete", []byte(""), 0o600); err != nil {
 					logger.Errorw("Failed to write drain signal file", zap.Error(err))
 				}
 				break WaitOnPendingRequests

@@ -64,12 +64,11 @@ func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsF
 	lister := serviceInformer.Lister()
 
 	var promoteFilterFunc func(obj interface{}) bool
-	var promoteFunc = func(bkt reconciler.Bucket) {}
+	promoteFunc := func(bkt reconciler.Bucket) {}
 
 	rec := &reconcilerImpl{
 		LeaderAwareFuncs: reconciler.LeaderAwareFuncs{
 			PromoteFunc: func(bkt reconciler.Bucket, enq func(reconciler.Bucket, types.NamespacedName)) error {
-
 				// Signal promotion event
 				promoteFunc(bkt)
 
