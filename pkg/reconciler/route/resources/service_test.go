@@ -28,7 +28,6 @@ import (
 	netapi "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	netcfg "knative.dev/networking/pkg/config"
-	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmeta"
 	pkgnet "knative.dev/pkg/network"
 	apiConfig "knative.dev/serving/pkg/apis/config"
@@ -291,7 +290,6 @@ func TestMakeK8SService(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ingress := &netv1alpha1.Ingress{Status: tc.status}
 			ctx := config.ToContext(context.Background(), testConfig())
-			ctx = apis.WithDryRun(ctx)
 
 			got, err := MakeK8sService(ctx, tc.route, tc.tagName, ingress, tc.private)
 			if tc.expectErr && err == nil {

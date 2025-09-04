@@ -33,7 +33,6 @@ import (
 	v1test "knative.dev/serving/test/v1"
 
 	. "knative.dev/serving/pkg/testing/v1"
-	rtesting "knative.dev/serving/pkg/testing/v1"
 )
 
 func withInvalidContainer() ServiceOption {
@@ -71,7 +70,7 @@ func TestServiceDryRunValidationWithInvalidPodSpec(t *testing.T) {
 
 // PatchServiceWithDryRun patches the existing service passed in with the applied mutations running in dryrun mode.
 // Returns the latest service object
-func PatchServiceWithDryRun(t testing.TB, clients *test.Clients, service *v1.Service, fopt ...rtesting.ServiceOption) (svc *v1.Service, err error) {
+func PatchServiceWithDryRun(t testing.TB, clients *test.Clients, service *v1.Service, fopt ...ServiceOption) (svc *v1.Service, err error) {
 	newSvc := service.DeepCopy()
 	for _, opt := range fopt {
 		opt(newSvc)

@@ -3388,7 +3388,6 @@ func NewTestReconciler(ctx context.Context, listers *Listers, cmw configmap.Watc
 		cfg.Domain = v.(*config.Domain)
 	}
 
-	ctx = apis.WithDryRun(ctx)
 	return routereconciler.NewReconciler(ctx,
 		logging.FromContext(ctx),
 		servingclient.Get(ctx),
