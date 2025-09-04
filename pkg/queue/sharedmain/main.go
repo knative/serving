@@ -273,7 +273,7 @@ func Main(opts ...Option) error {
 	}
 
 	logger.Info("Starting queue-proxy")
-	
+
 	// Clean up any stale drain signal file from previous runs
 	os.Remove("/var/run/knative/drain-complete")
 
