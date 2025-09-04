@@ -17,16 +17,14 @@ limitations under the License.
 package resources
 
 import (
-	"fmt"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"knative.dev/serving/pkg/networking"
 )
 
 func TestBuildLifecycleWithDrainWait(t *testing.T) {
-	drainCommand := fmt.Sprintf("until curl -sf http://localhost:%d/drain-complete 2>/dev/null; do sleep 0.1; done", networking.QueueAdminPort)
+	drainCommand := "until [ -f /var/run/knative/drain-complete ]; do sleep 0.1; done"
 
 	tests := []struct {
 		name     string

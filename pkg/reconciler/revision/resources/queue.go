@@ -474,6 +474,10 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			Name:  "ENABLE_MULTI_CONTAINER_PROBES",
 			Value: strconv.FormatBool(multiContainerProbingEnabled),
 		}},
+		VolumeMounts: []corev1.VolumeMount{{
+			Name:      "knative-drain-signal",
+			MountPath: "/var/run/knative",
+		}},
 	}
 
 	return c, nil

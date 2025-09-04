@@ -273,6 +273,9 @@ func Main(opts ...Option) error {
 	}
 
 	logger.Info("Starting queue-proxy")
+	
+	// Clean up any stale drain signal file from previous runs
+	os.Remove("/var/run/knative/drain-complete")
 
 	errCh := make(chan error)
 	for name, server := range httpServers {
@@ -320,6 +323,10 @@ func Main(opts ...Option) error {
 		for range ticker.C {
 			if pendingRequests.Load() <= 0 {
 				logger.Infof("Drain: all pending requests completed")
+				// Write drain signal file for PreStop hooks to detect
+				if err := os.WriteFile("/var/run/knative/drain-complete", []byte(""), 0644); err != nil {
+					logger.Errorw("Failed to write drain signal file", zap.Error(err))
+				}
 				break WaitOnPendingRequests
 			}
 		}
