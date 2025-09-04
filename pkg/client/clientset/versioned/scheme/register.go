@@ -29,16 +29,14 @@ import (
 	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
-var (
-	Scheme             = runtime.NewScheme()
-	Codecs             = serializer.NewCodecFactory(Scheme)
-	ParameterCodec     = runtime.NewParameterCodec(Scheme)
-	localSchemeBuilder = runtime.SchemeBuilder{
-		autoscalingv1alpha1.AddToScheme,
-		servingv1.AddToScheme,
-		servingv1beta1.AddToScheme,
-	}
-)
+var Scheme = runtime.NewScheme()
+var Codecs = serializer.NewCodecFactory(Scheme)
+var ParameterCodec = runtime.NewParameterCodec(Scheme)
+var localSchemeBuilder = runtime.SchemeBuilder{
+	autoscalingv1alpha1.AddToScheme,
+	servingv1.AddToScheme,
+	servingv1beta1.AddToScheme,
+}
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition
 // of clientsets, like in:
