@@ -1382,7 +1382,11 @@ func init() {
 // Returns true if the connection succeeds within 2 seconds, false otherwise
 // Using a 2 second timeout to be more forgiving during pod startup/updates
 func defaultTCPPingCheck(dest string) bool {
-	conn, err := net.DialTimeout("tcp", dest, 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	dialer := &net.Dialer{}
+	conn, err := dialer.DialContext(ctx, "tcp", dest)
 	if err != nil {
 		return false
 	}
