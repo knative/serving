@@ -322,8 +322,7 @@ func buildLifecycleWithDrainWait(existingLifecycle *corev1.Lifecycle) *corev1.Li
 				Exec: &corev1.ExecAction{
 					Command: []string{
 						"/bin/sh", "-c",
-						fmt.Sprintf("%s; until [ -f /var/run/knative/drain-complete ]; do sleep 0.1; done",
-							existingCommand),
+						existingCommand + "; until [ -f /var/run/knative/drain-complete ]; do sleep 0.1; done",
 					},
 				},
 			},
