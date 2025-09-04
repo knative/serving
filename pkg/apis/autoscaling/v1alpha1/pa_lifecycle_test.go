@@ -1024,6 +1024,7 @@ func TestActivationScaleAnnotation(t *testing.T) {
 		})
 	}
 }
+
 func TestScaleBufferAnnotation(t *testing.T) {
 	cases := []struct {
 		name        string
