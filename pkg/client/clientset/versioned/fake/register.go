@@ -29,10 +29,8 @@ import (
 	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
-var (
-	scheme = runtime.NewScheme()
-	codecs = serializer.NewCodecFactory(scheme)
-)
+var scheme = runtime.NewScheme()
+var codecs = serializer.NewCodecFactory(scheme)
 
 var localSchemeBuilder = runtime.SchemeBuilder{
 	autoscalingv1alpha1.AddToScheme,
