@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
@@ -58,7 +59,7 @@ const (
 	// Duration the /wait-for-drain handler should wait before returning.
 	// This is to give networking a little bit more time to remove the pod
 	// from its configuration and propagate that to all loadbalancers and nodes.
-	drainSleepDuration = 30 * time.Second
+	drainSleepDuration = 15 * time.Second
 
 	// certPath is the path for the server certificate mounted by queue-proxy.
 	certPath = queue.CertDirectory + "/" + certificates.CertName
@@ -157,6 +158,8 @@ func Main(opts ...Option) error {
 	d := Defaults{
 		Ctx: signals.NewContext(),
 	}
+	pendingRequests := atomic.Int32{}
+	pendingRequests.Store(0)
 
 	// Parse the environment.
 	env := config{
@@ -231,9 +234,8 @@ func Main(opts ...Option) error {
 
 	// Enable TLS when certificate is mounted.
 	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
-
-	mainHandler, drainer := mainHandler(env, d.Transport, probe, stats, logger, mp, tp)
-	adminHandler := adminHandler(d.Ctx, logger, drainer)
+	mainHandler, drainer := mainHandler(env, d.Transport, probe, stats, logger, mp, tp, &pendingRequests)
+	adminHandler := adminHandler(d.Ctx, logger, drainer, &pendingRequests)
 
 	// Enable TLS server when activator server certs are mounted.
 	// At this moment activator with TLS does not disable HTTP.
@@ -271,6 +273,9 @@ func Main(opts ...Option) error {
 
 	logger.Info("Starting queue-proxy")
 
+	// Clean up any stale drain signal file from previous runs
+	os.Remove("/var/run/knative/drain-complete")
+
 	errCh := make(chan error)
 	for name, server := range httpServers {
 		go func(name string, s *http.Server) {
@@ -304,8 +309,26 @@ func Main(opts ...Option) error {
 		return err
 	case <-d.Ctx.Done():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
-		logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
 		drainer.Drain()
+
+		// Wait on active requests to complete. This is done explicitly
+		// to avoid closing any connections which have been highjacked,
+		// as in net/http `.Shutdown` would do so ungracefully.
+		// See https://github.com/golang/go/issues/17721
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		logger.Infof("Drain: waiting for %d pending requests to complete", pendingRequests.Load())
+	WaitOnPendingRequests:
+		for range ticker.C {
+			if pendingRequests.Load() <= 0 {
+				logger.Infof("Drain: all pending requests completed")
+				// Write drain signal file for PreStop hooks to detect
+				if err := os.WriteFile("/var/run/knative/drain-complete", []byte(""), 0o600); err != nil {
+					logger.Errorw("Failed to write drain signal file", zap.Error(err))
+				}
+				break WaitOnPendingRequests
+			}
+		}
 
 		for name, srv := range httpServers {
 			logger.Info("Shutting down server: ", name)

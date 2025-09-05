@@ -9,3 +9,7 @@
 # Temporary output of build tools
 bazel-*
 *.out
+
+# Repomix outputs
+repomix*.xml
+
