@@ -618,7 +618,7 @@ func TestPodAssignmentFinite(t *testing.T) {
 	defer cancel()
 
 	throttler := newTestThrottler(ctx)
-	rt := newRevisionThrottler(revName, 42 /*cc*/, pkgnet.ServicePortNameHTTP1, testBreakerParams, logger)
+	rt := newRevisionThrottler(revName, 42 /*cc*/, pkgnet.ServicePortNameHTTP1, testBreakerParams, false /*disableClusterIP*/, logger)
 	rt.numActivators.Store(4)
 	rt.activatorIndex.Store(0)
 	throttler.revisionThrottlers[revName] = rt
@@ -670,7 +670,7 @@ func TestPodAssignmentInfinite(t *testing.T) {
 	defer cancel()
 
 	throttler := newTestThrottler(ctx)
-	rt := newRevisionThrottler(revName, 0 /*cc*/, pkgnet.ServicePortNameHTTP1, testBreakerParams, logger)
+	rt := newRevisionThrottler(revName, 0 /*cc*/, pkgnet.ServicePortNameHTTP1, testBreakerParams, false /*disableClusterIP*/, logger)
 	throttler.revisionThrottlers[revName] = rt
 
 	update := revisionDestsUpdate{
@@ -902,9 +902,84 @@ func TestMultipleActivators(t *testing.T) {
 func TestInfiniteBreakerCreation(t *testing.T) {
 	// This test verifies that we use infiniteBreaker when CC==0.
 	tttl := newRevisionThrottler(types.NamespacedName{Namespace: "a", Name: "b"}, 0, /*cc*/
-		pkgnet.ServicePortNameHTTP1, queue.BreakerParams{}, TestLogger(t))
+		pkgnet.ServicePortNameHTTP1, queue.BreakerParams{}, false /*disableClusterIP*/, TestLogger(t))
 	if _, ok := tttl.breaker.(*infiniteBreaker); !ok {
 		t.Errorf("The type of revisionBreaker = %T, want %T", tttl, (*infiniteBreaker)(nil))
+	}
+}
+
+func TestDisableClusterIPRouting(t *testing.T) {
+	// Test that when disableClusterIP is true, we always use pod trackers even when ClusterIP is available
+	logger := TestLogger(t)
+	revName := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
+
+	// Create a revision throttler with ClusterIP disabled
+	rt := newRevisionThrottler(revName, 42 /*cc*/, pkgnet.ServicePortNameHTTP1,
+		testBreakerParams, true /*disableClusterIP*/, logger)
+
+	// Update with both ClusterIP and pod destinations
+	update := revisionDestsUpdate{
+		Rev:           revName,
+		ClusterIPDest: "10.0.0.1:80", // ClusterIP is available
+		Dests:         sets.New("ip1", "ip2", "ip3"),
+	}
+
+	rt.handleUpdate(update)
+
+	// Verify that we're using pod trackers, not ClusterIP
+	rt.mux.RLock()
+	defer rt.mux.RUnlock()
+
+	if rt.clusterIPTracker != nil {
+		t.Error("Expected clusterIPTracker to be nil when ClusterIP routing is disabled")
+	}
+
+	if len(rt.podTrackers) != 3 {
+		t.Errorf("Expected 3 pod trackers, got %d", len(rt.podTrackers))
+	}
+
+	// Verify pod trackers have correct destinations
+	expectedDests := sets.New("ip1", "ip2", "ip3")
+	for _, tracker := range rt.podTrackers {
+		if !expectedDests.Has(tracker.dest) {
+			t.Errorf("Unexpected pod tracker destination: %s", tracker.dest)
+		}
+		expectedDests.Delete(tracker.dest)
+	}
+}
+
+func TestEnableClusterIPRoutingByDefault(t *testing.T) {
+	// Test that when disableClusterIP is false (default), we use ClusterIP when available
+	logger := TestLogger(t)
+	revName := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
+
+	// Create a revision throttler with ClusterIP enabled (default)
+	rt := newRevisionThrottler(revName, 42 /*cc*/, pkgnet.ServicePortNameHTTP1,
+		testBreakerParams, false /*disableClusterIP*/, logger)
+
+	// Update with both ClusterIP and pod destinations
+	update := revisionDestsUpdate{
+		Rev:           revName,
+		ClusterIPDest: "10.0.0.1:80", // ClusterIP is available
+		Dests:         sets.New("ip1", "ip2", "ip3"),
+	}
+
+	rt.handleUpdate(update)
+
+	// Verify that we're using ClusterIP, not pod trackers
+	rt.mux.RLock()
+	defer rt.mux.RUnlock()
+
+	if rt.clusterIPTracker == nil {
+		t.Error("Expected clusterIPTracker to be set when ClusterIP routing is enabled")
+	}
+
+	if rt.clusterIPTracker.dest != "10.0.0.1:80" {
+		t.Errorf("Expected clusterIPTracker dest to be '10.0.0.1:80', got %s", rt.clusterIPTracker.dest)
+	}
+
+	if rt.podTrackers != nil {
+		t.Error("Expected podTrackers to be nil when using ClusterIP")
 	}
 }
 

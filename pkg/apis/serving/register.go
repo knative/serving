@@ -144,6 +144,11 @@ const (
 
 	// ProgressDeadlineAnnotationKey is the label key for the per revision progress deadline to set for the deployment
 	ProgressDeadlineAnnotationKey = GroupName + "/progress-deadline"
+
+	// DisableClusterIPRoutingAnnotationKey is the annotation key to disable ClusterIP routing for a revision
+	// When set to "true", the activator will only use pod IP routing and not use ClusterIP for load balancing.
+	// By default, ClusterIP routing is enabled.
+	DisableClusterIPRoutingAnnotationKey = GroupName + "/disable-clusterip-routing"
 )
 
 var (

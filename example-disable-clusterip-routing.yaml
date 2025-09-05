@@ -1,0 +1,20 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: example-service
+spec:
+  template:
+    metadata:
+      annotations:
+        # Disable ClusterIP routing for this revision
+        # When set to "true", the activator will only use pod IP routing
+        serving.knative.dev/disable-clusterip-routing: "true"
+    spec:
+      containers:
+        - image: gcr.io/knative-samples/helloworld-go
+          ports:
+            - containerPort: 8080
+          env:
+            - name: TARGET
+              value: "Go Sample v1"
+
