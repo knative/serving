@@ -59,7 +59,7 @@ func TestRandomChoice2(t *testing.T) {
 		if got, want := pt.dest, podTrackers[0].dest; got != want {
 			t.Errorf("pt.dest = %s, want: %s", got, want)
 		}
-		wantW := int32(1) // to avoid casting on every check.
+		wantW := uint32(1) // to avoid casting on every check.
 		if got, want := pt.getWeight(), wantW; got != want {
 			t.Errorf("pt.weight = %d, want: %d", got, want)
 		}
@@ -79,7 +79,7 @@ func TestRandomChoice2(t *testing.T) {
 		podTrackers := makeTrackers(2, 0)
 		cb, pt := randomChoice2Policy(context.Background(), podTrackers)
 		t.Cleanup(cb)
-		wantW := int32(1) // to avoid casting on every check.
+		wantW := uint32(1) // to avoid casting on every check.
 		if got, want := pt.getWeight(), wantW; got != want {
 			t.Errorf("pt.weight = %d, want: %d", got, want)
 		}
@@ -103,7 +103,7 @@ func TestRandomChoice2(t *testing.T) {
 		podTrackers := makeTrackers(3, 0)
 		cb, pt := randomChoice2Policy(context.Background(), podTrackers)
 		t.Cleanup(cb)
-		wantW := int32(1) // to avoid casting on every check.
+		wantW := uint32(1) // to avoid casting on every check.
 		if got, want := pt.getWeight(), wantW; got != want {
 			t.Errorf("pt.weight = %d, want: %d", got, want)
 		}
