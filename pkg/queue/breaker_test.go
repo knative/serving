@@ -212,12 +212,12 @@ func TestBreakerUpdateConcurrency(t *testing.T) {
 	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 0}
 	b := NewBreaker(params)
 	b.UpdateConcurrency(1)
-	if got, want := b.Capacity(), 1; got != want {
+	if got, want := b.Capacity(), uint64(1); got != want {
 		t.Errorf("Capacity() = %d, want: %d", got, want)
 	}
 
 	b.UpdateConcurrency(0)
-	if got, want := b.Capacity(), 0; got != want {
+	if got, want := b.Capacity(), uint64(0); got != want {
 		t.Errorf("Capacity() = %d, want: %d", got, want)
 	}
 }
@@ -294,12 +294,12 @@ func TestSemaphoreRelease(t *testing.T) {
 func TestSemaphoreUpdateCapacity(t *testing.T) {
 	const initialCapacity = 1
 	sem := newSemaphore(3, initialCapacity)
-	if got, want := sem.Capacity(), 1; got != want {
+	if got, want := sem.Capacity(), uint64(1); got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 	sem.acquire(context.Background())
 	sem.updateCapacity(initialCapacity + 2)
-	if got, want := sem.Capacity(), 3; got != want {
+	if got, want := sem.Capacity(), uint64(3); got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 }
@@ -312,6 +312,219 @@ func TestPackUnpack(t *testing.T) {
 
 	if gotL != wantL || gotR != wantR {
 		t.Fatalf("Got %d, %d want %d, %d", gotL, gotR, wantL, wantR)
+	}
+}
+
+func TestBreakerPending(t *testing.T) {
+	b := NewBreaker(BreakerParams{
+		QueueDepth:      10,
+		MaxConcurrency:  5,
+		InitialCapacity: 5,
+	})
+
+	// Initially, pending should be 0
+	if pending := b.Pending(); pending != 0 {
+		t.Errorf("Expected initial pending to be 0, got %d", pending)
+	}
+
+	// Reserve a slot
+	ctx := context.Background()
+	release1, ok := b.Reserve(ctx)
+	if !ok {
+		t.Fatal("Expected first Reserve to succeed")
+	}
+
+	// After one reservation, pending should be 1 (tracks all acquired)
+	if pending := b.Pending(); pending != 1 {
+		t.Errorf("Expected pending to be 1 after first reservation, got %d", pending)
+	}
+
+	// Fill up the breaker to capacity
+	releases := []func(){release1}
+	for i := 1; i < 5; i++ {
+		release, ok := b.Reserve(ctx)
+		if !ok {
+			t.Fatalf("Expected Reserve %d to succeed", i+1)
+		}
+		releases = append(releases, release)
+	}
+
+	// All 5 slots are taken
+	if pending := b.Pending(); pending != 5 {
+		t.Errorf("Expected pending to be 5 at capacity, got %d", pending)
+	}
+
+	// Now the breaker is at capacity, Reserve will fail because tryAcquire fails
+	// But we can still track pending up to totalSlots
+	for i := 5; i < 15; i++ {
+		release, ok := b.Reserve(ctx)
+		if ok {
+			// This will be false since we're at capacity
+			releases = append(releases, release)
+		}
+	}
+
+	// Still have 5 pending (no new ones could be added)
+	if pending := b.Pending(); pending != 5 {
+		t.Errorf("Expected pending to still be 5, got %d", pending)
+	}
+
+	// Release all in-flight
+	for _, release := range releases {
+		release()
+	}
+
+	// After releasing all, pending should be back to 0
+	if pending := b.Pending(); pending != 0 {
+		t.Errorf("Expected pending to be 0 after releasing all, got %d", pending)
+	}
+}
+
+func TestBreakerInFlight(t *testing.T) {
+	b := NewBreaker(BreakerParams{
+		QueueDepth:      10,
+		MaxConcurrency:  5,
+		InitialCapacity: 5,
+	})
+
+	// Initially, in-flight should be 0
+	if inFlight := b.InFlight(); inFlight != 0 {
+		t.Errorf("Expected initial in-flight to be 0, got %d", inFlight)
+	}
+
+	// Reserve a slot
+	ctx := context.Background()
+	release1, ok := b.Reserve(ctx)
+	if !ok {
+		t.Fatal("Expected first Reserve to succeed")
+	}
+
+	// After one reservation, in-flight should be 1
+	if inFlight := b.InFlight(); inFlight != 1 {
+		t.Errorf("Expected in-flight to be 1 after first reservation, got %d", inFlight)
+	}
+
+	// Reserve more slots up to capacity
+	releases := []func(){release1}
+	for i := 1; i < 5; i++ {
+		release, ok := b.Reserve(ctx)
+		if !ok {
+			t.Fatalf("Expected Reserve %d to succeed", i+1)
+		}
+		releases = append(releases, release)
+
+		// Check in-flight count
+		if inFlight := b.InFlight(); inFlight != uint64(i+1) {
+			t.Errorf("Expected in-flight to be %d, got %d", i+1, inFlight)
+		}
+	}
+
+	// At capacity, in-flight should be 5
+	if inFlight := b.InFlight(); inFlight != 5 {
+		t.Errorf("Expected in-flight to be 5 at capacity, got %d", inFlight)
+	}
+
+	// Release one
+	releases[0]()
+
+	// After releasing one, in-flight should be 4
+	if inFlight := b.InFlight(); inFlight != 4 {
+		t.Errorf("Expected in-flight to be 4 after releasing one, got %d", inFlight)
+	}
+
+	// Release all remaining
+	for i := 1; i < len(releases); i++ {
+		releases[i]()
+	}
+
+	// After releasing all, in-flight should be 0
+	if inFlight := b.InFlight(); inFlight != 0 {
+		t.Errorf("Expected in-flight to be 0 after releasing all, got %d", inFlight)
+	}
+}
+
+func TestBreakerCapacityAsUint64(t *testing.T) {
+	b := NewBreaker(BreakerParams{
+		QueueDepth:      10,
+		MaxConcurrency:  5,
+		InitialCapacity: 5,
+	})
+
+	// Check initial capacity
+	if capacity := b.Capacity(); capacity != 5 {
+		t.Errorf("Expected initial capacity to be 5, got %d", capacity)
+	}
+
+	// Update capacity
+	b.UpdateConcurrency(10)
+
+	// Check updated capacity
+	if capacity := b.Capacity(); capacity != 10 {
+		t.Errorf("Expected capacity to be 10 after update, got %d", capacity)
+	}
+
+	// Update to a larger value
+	b.UpdateConcurrency(100)
+
+	// Check larger capacity
+	if capacity := b.Capacity(); capacity != 100 {
+		t.Errorf("Expected capacity to be 100 after update, got %d", capacity)
+	}
+}
+
+func TestSemaphoreInFlight(t *testing.T) {
+	sem := newSemaphore(10, 5)
+
+	// Initially, in-flight should be 0
+	if inFlight := sem.InFlight(); inFlight != 0 {
+		t.Errorf("Expected initial in-flight to be 0, got %d", inFlight)
+	}
+
+	// Acquire a slot
+	ok := sem.tryAcquire()
+	if !ok {
+		t.Fatal("Expected first acquire to succeed")
+	}
+
+	// After one acquisition, in-flight should be 1
+	if inFlight := sem.InFlight(); inFlight != 1 {
+		t.Errorf("Expected in-flight to be 1 after first acquisition, got %d", inFlight)
+	}
+
+	// Acquire more slots
+	for i := 1; i < 5; i++ {
+		ok := sem.tryAcquire()
+		if !ok {
+			t.Fatalf("Expected acquire %d to succeed", i+1)
+		}
+
+		// Check in-flight count
+		if inFlight := sem.InFlight(); inFlight != uint64(i+1) {
+			t.Errorf("Expected in-flight to be %d, got %d", i+1, inFlight)
+		}
+	}
+
+	// At capacity, in-flight should be 5
+	if inFlight := sem.InFlight(); inFlight != 5 {
+		t.Errorf("Expected in-flight to be 5 at capacity, got %d", inFlight)
+	}
+
+	// Release one
+	sem.release()
+
+	// After releasing one, in-flight should be 4
+	if inFlight := sem.InFlight(); inFlight != 4 {
+		t.Errorf("Expected in-flight to be 4 after releasing one, got %d", inFlight)
+	}
+
+	// Release all remaining
+	for i := 1; i < 5; i++ {
+		sem.release()
+	}
+
+	// After releasing all, in-flight should be 0
+	if inFlight := sem.InFlight(); inFlight != 0 {
+		t.Errorf("Expected in-flight to be 0 after releasing all, got %d", inFlight)
 	}
 }
 

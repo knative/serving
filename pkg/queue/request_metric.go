@@ -85,7 +85,7 @@ func (h *appRequestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 	startTime := h.clock.Now()
 
 	if h.breaker != nil {
-		h.queueLen.Record(r.Context(), int64(h.breaker.InFlight()))
+		h.queueLen.Record(r.Context(), int64(h.breaker.Pending()))
 	}
 	defer func() {
 		// Filter probe requests for revision metrics.
