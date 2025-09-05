@@ -21,6 +21,7 @@ package net
 import (
 	"context"
 	"math/rand"
+	"sort"
 	"sync"
 )
 
@@ -31,10 +32,26 @@ import (
 // and pointers therein are immutable.
 type lbPolicy func(ctx context.Context, targets []*podTracker) (func(), *podTracker)
 
+type TrackerLoad struct {
+	tracker  *podTracker
+	inFlight uint64
+}
+
 // randomLBPolicy is a load balancer policy that picks a random target.
 // This approximates the LB policy done by K8s Service (IPTables based).
 func randomLBPolicy(_ context.Context, targets []*podTracker) (func(), *podTracker) {
-	return noop, targets[rand.Intn(len(targets))] //nolint:gosec
+	if len(targets) == 0 {
+		return noop, nil
+	}
+	// Try to find a non-nil tracker with limited retries
+	for range targets {
+		idx := rand.Intn(len(targets)) //nolint:gosec
+		if targets[idx] != nil {
+			return noop, targets[idx]
+		}
+	}
+	// All trackers were nil
+	return noop, nil
 }
 
 // randomChoice2Policy implements the Power of 2 choices LB algorithm
@@ -44,23 +61,53 @@ func randomChoice2Policy(_ context.Context, targets []*podTracker) (func(), *pod
 	// One tracker = no choice.
 	if l == 1 {
 		pick := targets[0]
-		pick.increaseWeight()
-		return pick.decreaseWeight, pick
+		if pick != nil {
+			pick.increaseWeight()
+			return pick.decreaseWeight, pick
+		}
+		return noop, nil
 	}
 	r1, r2 := 0, 1
+
 	// Two trackers - we know both contestants,
 	// otherwise pick 2 random unequal integers.
-	if l > 2 {
-		r1, r2 = rand.Intn(l), rand.Intn(l-1) //nolint:gosec // We don't need cryptographic randomness here.
+	// Attempt this only n/2 times for each podTracker
+	var pick *podTracker
+	pickTrys := 0
+	var alt *podTracker
+	altTrys := 0
+	// Skip nil trackers (unhealthy pods removed from rotation)
+	// TODO: Should we explain why n/2 was chosen as the retry limit?
+	for pick == nil && pickTrys < len(targets)/2 {
+		if l > 2 {
+			r1 = rand.Intn(l) //nolint:gosec // We don't need cryptographic randomness for load balancing
+		}
+		pick = targets[r1]
+		pickTrys++
+	}
+	// If we couldn't find a non-nil pick after n/2 tries, fail
+	if pick == nil {
+		return noop, nil
+	}
+
+	// Try to find an alternative tracker for comparison
+	for alt == nil && altTrys < len(targets)/2 {
+		r2 = rand.Intn(l - 1) //nolint:gosec // We don't need cryptographic randomness here.
 		// shift second half of second rand.Intn down so we're picking
 		// from range of numbers other than r1.
 		// i.e. rand.Intn(l-1) range is now from range [0,r1),[r1+1,l).
 		if r2 >= r1 {
 			r2++
 		}
+		alt = targets[r2]
+		altTrys++
+	}
+	// If we couldn't find an alternative, just use pick
+	if alt == nil {
+		pick.increaseWeight()
+		return pick.decreaseWeight, pick
 	}
 
-	pick, alt := targets[r1], targets[r2]
 	// Possible race here, but this policy is for CC=0,
 	// so fine.
 	if pick.getWeight() > alt.getWeight() {
@@ -75,17 +122,22 @@ func randomChoice2Policy(_ context.Context, targets []*podTracker) (func(), *pod
 	return pick.decreaseWeight, pick
 }
 
-// firstAvailableLBPolicy is a load balancer policy, that picks the first target
+// firstAvailableLBPolicy is a load balancer policy that picks the first target
 // that has capacity to serve the request right now.
 func firstAvailableLBPolicy(ctx context.Context, targets []*podTracker) (func(), *podTracker) {
 	for _, t := range targets {
-		if cb, ok := t.Reserve(ctx); ok {
-			return cb, t
+		if t != nil {
+			if cb, ok := t.Reserve(ctx); ok {
+				return cb, t
+			}
 		}
 	}
 	return noop, nil
 }
 
+// roundRobinPolicy is a load balancer policy that tries all targets in order until one responds,
+// using it as the target. It then continues in order from the last target to determine
+// subsequent targets
 func newRoundRobinPolicy() lbPolicy {
 	var (
 		mu  sync.Mutex
@@ -104,13 +156,39 @@ func newRoundRobinPolicy() lbPolicy {
 		// round robin fashion.
 		for i := range l {
 			p := (idx + i) % l
-			if cb, ok := targets[p].Reserve(ctx); ok {
-				// We want to start with the next index.
-				idx = p + 1
-				return cb, targets[p]
+			if targets[p] != nil {
+				if cb, ok := targets[p].Reserve(ctx); ok {
+					// We want to start with the next index.
+					idx = p + 1
+					return cb, targets[p]
+				}
 			}
 		}
 		// We exhausted all the options...
 		return noop, nil
 	}
+}
+
+// leastConnectionsPolicy is a load balancer policy that uses the tracker with the
+// least connections to determine the next target
+func leastConnectionsPolicy(ctx context.Context, targets []*podTracker) (func(), *podTracker) {
+	trackerLoads := make([]TrackerLoad, len(targets))
+	for i, t := range targets {
+		if t != nil {
+			// Use the weight field as a proxy for in-flight connections
+			trackerLoads[i] = TrackerLoad{tracker: t, inFlight: uint64(t.weight.Load())}
+		}
+	}
+	sort.Slice(trackerLoads, func(i, j int) bool {
+		return trackerLoads[i].inFlight < trackerLoads[j].inFlight
+	})
+	for _, tl := range trackerLoads {
+		if tl.tracker == nil {
+			continue
+		}
+		if cb, ok := tl.tracker.Reserve(ctx); ok {
+			return cb, tl.tracker
+		}
+	}
+	return noop, nil
 }
