@@ -20,10 +20,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
@@ -37,7 +40,6 @@ import (
 	netproxy "knative.dev/networking/pkg/http/proxy"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/network"
-	pkghandler "knative.dev/pkg/network/handlers"
 	"knative.dev/serving/pkg/activator"
 	apiconfig "knative.dev/serving/pkg/apis/config"
 	pkghttp "knative.dev/serving/pkg/http"
@@ -121,8 +123,6 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		trySpan.SetStatus(codes.Error, err.Error())
 		trySpan.End()
 
-		a.logger.Errorw("Throttler try error", zap.String(logkey.Key, revID.String()), zap.Error(err))
-
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, queue.ErrRequestQueueFull) {
 			http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		} else {
@@ -157,10 +157,18 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 	proxy.BufferPool = a.bufferPool
 	proxy.Transport = a.transport
 	proxy.FlushInterval = netproxy.FlushInterval
-	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
-		pkghandler.Error(a.logger.With(zap.String(logkey.Key, revID.String())))(w, req, err)
-	}
 
+	// Mark this request as targeting a healthy backend so metrics can be scoped appropriately.
+	r = r.WithContext(WithHealthyTarget(r.Context(), true))
+
+	// Log proxy attempt
+	a.logger.Debugw("Proxy attempt",
+		zap.String("x-request-id", r.Header.Get("X-Request-Id")),
+		zap.String("target", target),
+		zap.Bool("clusterIP", isClusterIP),
+		zap.String("method", r.Method),
+		zap.String("path", r.URL.Path),
+	)
 	proxy.ServeHTTP(w, r)
 }
 
@@ -183,4 +191,66 @@ func WrapActivatorHandlerWithFullDuplex(h http.Handler, logger *zap.SugaredLogge
 		}
 		h.ServeHTTP(w, r)
 	})
+}
+
+// logDetailedProxyError provides detailed logging about proxy failures to help with 502 debugging
+func (a *activationHandler) logDetailedProxyError(revID types.NamespacedName, target string, req *http.Request, err error) {
+	logger := a.logger.With(zap.String(logkey.Key, revID.String()))
+
+	// Extract request ID for correlation
+	xRequestId := req.Header.Get("X-Request-Id")
+
+	// Classify the error type
+	errorType := "unknown"
+	errorDetails := make(map[string]interface{})
+
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		errorType = "timeout"
+		errorDetails["reason"] = "request deadline exceeded"
+	case errors.Is(err, context.Canceled):
+		errorType = "canceled"
+		errorDetails["reason"] = "request context canceled"
+	default:
+		if netErr, ok := err.(net.Error); ok {
+			if netErr.Timeout() {
+				errorType = "network_timeout"
+				errorDetails["reason"] = "network timeout"
+			} else {
+				errorType = "network_error"
+				errorDetails["reason"] = netErr.Error()
+			}
+		} else if urlErr, ok := err.(*url.Error); ok {
+			errorType = "url_error"
+			errorDetails["op"] = urlErr.Op
+			errorDetails["url"] = urlErr.URL
+			if urlErr.Err != nil {
+				// Check for specific connection errors
+				if errors.Is(urlErr.Err, syscall.ECONNREFUSED) {
+					errorDetails["reason"] = "connection refused"
+				} else if errors.Is(urlErr.Err, syscall.ECONNRESET) {
+					errorDetails["reason"] = "connection reset by peer"
+				} else if errors.Is(urlErr.Err, syscall.EHOSTUNREACH) {
+					errorDetails["reason"] = "host unreachable"
+				} else if errors.Is(urlErr.Err, syscall.ENETUNREACH) {
+					errorDetails["reason"] = "network unreachable"
+				} else {
+					errorDetails["reason"] = urlErr.Err.Error()
+				}
+			}
+		} else {
+			errorType = "other"
+			errorDetails["reason"] = err.Error()
+		}
+	}
+
+	logger.Errorw("Proxy request failed - returning 502 Bad Gateway",
+		zap.String("x-request-id", xRequestId),
+		zap.String("target", target),
+		zap.String("method", req.Method),
+		zap.String("path", req.URL.Path),
+		zap.String("error_type", errorType),
+		zap.Any("error_details", errorDetails),
+		zap.Error(err),
+	)
 }
