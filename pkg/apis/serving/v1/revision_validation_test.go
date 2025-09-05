@@ -75,6 +75,104 @@ func TestRevisionValidation(t *testing.T) {
 		want: apis.ErrOutOfBoundsValue(
 			-10, 0, config.DefaultMaxRevisionContainerConcurrency,
 			"spec.containerConcurrency"),
+	}, {
+		name: "valid load balancing policy - round-robin",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid-lb-policy",
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
+				},
+				LoadBalancingPolicy: ptr.String("round-robin"),
+			},
+		},
+		want: nil,
+	}, {
+		name: "valid load balancing policy - random-choice-2",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid-lb-policy",
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
+				},
+				LoadBalancingPolicy: ptr.String("random-choice-2"),
+			},
+		},
+		want: nil,
+	}, {
+		name: "valid load balancing policy - least-connections",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid-lb-policy",
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
+				},
+				LoadBalancingPolicy: ptr.String("least-connections"),
+			},
+		},
+		want: nil,
+	}, {
+		name: "valid load balancing policy - first-available",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid-lb-policy",
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
+				},
+				LoadBalancingPolicy: ptr.String("first-available"),
+			},
+		},
+		want: nil,
+	}, {
+		name: "invalid load balancing policy",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "invalid-lb-policy",
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
+				},
+				LoadBalancingPolicy: ptr.String("random"),
+			},
+		},
+		want: apis.ErrInvalidValue(
+			"random", "spec.loadBalancingPolicy",
+			"load balancing policy should be one of `random-choice-2`, `round-robin`, `least-connections` or `first-available`"),
+	}, {
+		name: "nil load balancing policy is valid",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "nil-lb-policy",
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
+				},
+				LoadBalancingPolicy: nil,
+			},
+		},
+		want: nil,
 	}}
 
 	// TODO(dangerd): PodSpec validation failures.
