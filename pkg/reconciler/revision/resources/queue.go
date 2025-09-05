@@ -297,6 +297,13 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 				}},
 			},
 		}
+		// Make queue proxy readiness probe more aggressive only if not user-defined
+		if queueProxyReadinessProbe.PeriodSeconds == 0 {
+			queueProxyReadinessProbe.PeriodSeconds = 1
+		}
+		if queueProxyReadinessProbe.FailureThreshold == 0 {
+			queueProxyReadinessProbe.FailureThreshold = 1
+		}
 	}
 
 	// Sidecar readiness probes
@@ -439,6 +446,10 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			Name:  "OBSERVABILITY_CONFIG",
 			Value: string(o11yConfig),
 		}},
+		VolumeMounts: []corev1.VolumeMount{{
+			Name:      "knative-drain-signal",
+			MountPath: "/var/run/knative",
+		}},
 	}
 
 	return c, nil
@@ -470,6 +481,10 @@ func applyReadinessProbeDefaults(p *corev1.Probe, port int32) {
 		p.GRPC.Port = port
 	}
 
+	// Set aggressive defaults for faster failure detection
+	if p.FailureThreshold == 0 {
+		p.FailureThreshold = 1 // Mark unready immediately on failure
+	}
 	if p.PeriodSeconds > 0 && p.TimeoutSeconds < 1 {
 		p.TimeoutSeconds = 1
 	}

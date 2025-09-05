@@ -201,7 +201,7 @@ func (m *manager) SLI() (total, failures int64) {
 		total += pt
 		failures += pf
 	}
-	return
+	return total, failures
 }
 
 // Foreach implements ProberManager

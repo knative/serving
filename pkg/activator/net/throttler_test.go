@@ -226,7 +226,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 				rt.breaker = newInfiniteBreaker(logger)
 			}
 			rt.updateCapacity(tt.capacity)
-			if got := rt.breaker.Capacity(); got != tt.want {
+			if got := rt.breaker.Capacity(); got != uint64(tt.want) {
 				t.Errorf("Capacity = %d, want: %d", got, tt.want)
 			}
 			if tt.checkAssignedPod {
@@ -560,7 +560,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 				rt.mux.RLock()
 				defer rt.mux.RUnlock()
 				if *cc != 0 {
-					return rt.activatorIndex.Load() != -1 && rt.breaker.Capacity() == wantCapacity &&
+					return rt.activatorIndex.Load() != -1 && rt.breaker.Capacity() == uint64(wantCapacity) &&
 						sortedTrackers(rt.assignedTrackers), nil
 				}
 				// If CC=0 then verify number of backends, rather the capacity of breaker.
@@ -638,7 +638,7 @@ func TestPodAssignmentFinite(t *testing.T) {
 	if got, want := trackerDestSet(rt.assignedTrackers), sets.New("ip0", "ip4"); !got.Equal(want) {
 		t.Errorf("Assigned trackers = %v, want: %v, diff: %s", got, want, cmp.Diff(want, got))
 	}
-	if got, want := rt.breaker.Capacity(), 2*42; got != want {
+	if got, want := rt.breaker.Capacity(), uint64(2*42); got != want {
 		t.Errorf("TotalCapacity = %d, want: %d", got, want)
 	}
 	if got, want := rt.assignedTrackers[0].Capacity(), 42; got != want {
@@ -657,7 +657,7 @@ func TestPodAssignmentFinite(t *testing.T) {
 	if got, want := len(rt.assignedTrackers), 0; got != want {
 		t.Errorf("NumAssignedTrackers = %d, want: %d", got, want)
 	}
-	if got, want := rt.breaker.Capacity(), 0; got != want {
+	if got, want := rt.breaker.Capacity(), uint64(0); got != want {
 		t.Errorf("TotalCapacity = %d, want: %d", got, want)
 	}
 }
@@ -687,7 +687,7 @@ func TestPodAssignmentInfinite(t *testing.T) {
 	if got, want := len(rt.assignedTrackers), 3; got != want {
 		t.Errorf("NumAssigned trackers = %d, want: %d", got, want)
 	}
-	if got, want := rt.breaker.Capacity(), 1; got != want {
+	if got, want := rt.breaker.Capacity(), uint64(1); got != want {
 		t.Errorf("TotalCapacity = %d, want: %d", got, want)
 	}
 	if got, want := rt.assignedTrackers[0].Capacity(), 1; got != want {
@@ -703,7 +703,7 @@ func TestPodAssignmentInfinite(t *testing.T) {
 	if got, want := len(rt.assignedTrackers), 0; got != want {
 		t.Errorf("NumAssignedTrackers = %d, want: %d", got, want)
 	}
-	if got, want := rt.breaker.Capacity(), 0; got != want {
+	if got, want := rt.breaker.Capacity(), uint64(0); got != want {
 		t.Errorf("TotalCapacity = %d, want: %d", got, want)
 	}
 }
@@ -935,7 +935,7 @@ func TestInfiniteBreaker(t *testing.T) {
 	}
 
 	// Verify initial condition.
-	if got, want := b.Capacity(), 0; got != want {
+	if got, want := b.Capacity(), uint64(0); got != want {
 		t.Errorf("Cap=%d, want: %d", got, want)
 	}
 	if _, ok := b.Reserve(context.Background()); ok != true {
@@ -949,7 +949,7 @@ func TestInfiniteBreaker(t *testing.T) {
 	}
 
 	b.UpdateConcurrency(1)
-	if got, want := b.Capacity(), 1; got != want {
+	if got, want := b.Capacity(), uint64(1); got != want {
 		t.Errorf("Cap=%d, want: %d", got, want)
 	}
 
@@ -976,7 +976,7 @@ func TestInfiniteBreaker(t *testing.T) {
 	if err := b.Maybe(ctx, nil); err == nil {
 		t.Error("Should have failed, but didn't")
 	}
-	if got, want := b.Capacity(), 0; got != want {
+	if got, want := b.Capacity(), uint64(0); got != want {
 		t.Errorf("Cap=%d, want: %d", got, want)
 	}
 
@@ -1212,7 +1212,7 @@ func TestAssignSlice(t *testing.T) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, want,
 				cmp.Diff(want, got, opt))
 		}
-		if got, want := got[0].b.Capacity(), 0; got != want {
+		if got, want := got[0].b.Capacity(), uint64(0); got != want {
 			t.Errorf("Capacity for the tail pod = %d, want: %d", got, want)
 		}
 	})

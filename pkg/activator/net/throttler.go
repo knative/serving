@@ -100,7 +100,13 @@ func (p *podTracker) Capacity() int {
 	if p.b == nil {
 		return 1
 	}
-	return p.b.Capacity()
+	capacity := p.b.Capacity()
+	// Safe conversion: breaker capacity is always reasonable for int
+	// Check for overflow before conversion
+	if capacity > 0x7FFFFFFF {
+		return 0x7FFFFFFF // Return max int32 value
+	}
+	return int(capacity)
 }
 
 func (p *podTracker) UpdateConcurrency(c int) {
@@ -118,7 +124,7 @@ func (p *podTracker) Reserve(ctx context.Context) (func(), bool) {
 }
 
 type breaker interface {
-	Capacity() int
+	Capacity() uint64
 	Maybe(ctx context.Context, thunk func()) error
 	UpdateConcurrency(int)
 	Reserve(ctx context.Context) (func(), bool)
@@ -721,8 +727,13 @@ func newInfiniteBreaker(logger *zap.SugaredLogger) *infiniteBreaker {
 }
 
 // Capacity returns the current capacity of the breaker
-func (ib *infiniteBreaker) Capacity() int {
-	return int(ib.concurrency.Load())
+func (ib *infiniteBreaker) Capacity() uint64 {
+	concurrency := ib.concurrency.Load()
+	// Safe conversion: concurrency is int32 and we check for non-negative
+	if concurrency >= 0 {
+		return uint64(concurrency)
+	}
+	return 0
 }
 
 func zeroOrOne(x int) int32 {

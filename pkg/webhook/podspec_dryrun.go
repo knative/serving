@@ -61,6 +61,16 @@ func validatePodSpec(ctx context.Context, ps v1.RevisionSpec, namespace string) 
 	rev.SetDefaults(ctx)
 	podSpec := resources.BuildPodSpec(rev, resources.BuildUserContainers(rev), nil /*configs*/)
 
+	// Add the drain volume that BuildUserContainers adds volume mounts for
+	// This is necessary because BuildUserContainers adds the volume mount but
+	// the volume itself is only added in makePodSpec when cfg is not nil
+	podSpec.Volumes = append(podSpec.Volumes, corev1.Volume{
+		Name: "knative-drain-signal",
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	})
+
 	// Make a sample pod with the template Revisions & PodSpec and dryrun call to API-server
 	pod := &corev1.Pod{
 		ObjectMeta: om,
