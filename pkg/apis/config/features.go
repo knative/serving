@@ -44,9 +44,6 @@ const (
 	// QueueProxyPodInfoFeatureKey gates mouting of podinfo with the value 'enabled'
 	QueueProxyPodInfoFeatureKey = "features.knative.dev/queueproxy-podinfo"
 
-	// DryRunFeatureKey gates the podspec dryrun feature and runs with the value 'enabled'
-	DryRunFeatureKey = "features.knative.dev/podspec-dryrun"
-
 	// AllowHTTPFullDuplexFeatureKey gates the use of http1 full duplex per workload
 	AllowHTTPFullDuplexFeatureKey = "features.knative.dev/http-full-duplex"
 )
@@ -57,7 +54,6 @@ const (
 	FeaturePodSpecAffinity                  = "kubernetes.podspec-affinity"
 	FeaturePodSpecDNSConfig                 = "kubernetes.podspec-dnsconfig"
 	FeaturePodSpecDNSPolicy                 = "kubernetes.podspec-dnspolicy"
-	FeaturePodSpecDryRun                    = "kubernetes.podspec-dryrun"
 	FeaturePodSpecEmptyDir                  = "kubernetes.podspec-volumes-emptydir"
 	FeaturePodSpecFieldRef                  = "kubernetes.podspec-fieldref"
 	FeaturePodSpecHostAliases               = "kubernetes.podspec-hostaliases"
@@ -86,7 +82,6 @@ func defaultFeaturesConfig() *Features {
 		MultiContainerProbing:            Disabled,
 		PodSpecAffinity:                  Disabled,
 		PodSpecTopologySpreadConstraints: Disabled,
-		PodSpecDryRun:                    Allowed,
 		PodSpecHostAliases:               Disabled,
 		PodSpecFieldRef:                  Disabled,
 		PodSpecNodeSelector:              Disabled,
@@ -124,7 +119,6 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 
 	if err := cm.Parse(data,
 		asFlag("autodetect-http2", &nc.AutoDetectHTTP2),
-		asFlag("kubernetes.podspec-dryrun", &nc.PodSpecDryRun),
 		asFlag("kubernetes.podspec-persistent-volume-write", &nc.PodSpecPersistentVolumeWrite),
 		asFlag("multi-container", &nc.MultiContainer),
 		asFlag("multi-container-probing", &nc.MultiContainerProbing),
@@ -173,7 +167,6 @@ type Features struct {
 	MultiContainerProbing            Flag
 	PodSpecAffinity                  Flag
 	PodSpecTopologySpreadConstraints Flag
-	PodSpecDryRun                    Flag
 	PodSpecFieldRef                  Flag
 	PodSpecHostAliases               Flag
 	PodSpecNodeSelector              Flag

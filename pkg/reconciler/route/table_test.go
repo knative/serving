@@ -3612,7 +3612,6 @@ func reconcilerTestConfig() *config.Config {
 			MultiContainer:           cfgmap.Disabled,
 			PodSpecAffinity:          cfgmap.Disabled,
 			PodSpecFieldRef:          cfgmap.Disabled,
-			PodSpecDryRun:            cfgmap.Enabled,
 			PodSpecHostAliases:       cfgmap.Disabled,
 			PodSpecNodeSelector:      cfgmap.Disabled,
 			PodSpecTolerations:       cfgmap.Disabled,
