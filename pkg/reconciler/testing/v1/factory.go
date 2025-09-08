@@ -25,6 +25,7 @@ import (
 	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 
@@ -95,6 +96,28 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 				return false, nil, nil
 			},
 		)
+
+		client.PrependReactor("create", "podautoscalers", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
+			if createAction, ok := action.(ktesting.CreateAction); ok {
+				if pa, ok := createAction.GetObject().(*autoscalingv1alpha1.PodAutoscaler); ok {
+					// Initialize conditions first
+					pa.Status.InitializeConditions()
+
+					// Set all conditions to match kubebuilder defaults: status="Unknown", reason="Deploying"
+					// This matches the behavior defined in the +kubebuilder:default annotation
+					condSet := pa.GetConditionSet()
+					manager := condSet.Manage(&pa.Status)
+
+					// Set each condition to Unknown with "Deploying" reason to match kubebuilder defaults
+					manager.MarkUnknown(autoscalingv1alpha1.PodAutoscalerConditionActive, "Pending", "Waiting for controller")
+					manager.MarkUnknown(autoscalingv1alpha1.PodAutoscalerConditionReady, "Pending", "Waiting for controller")
+					manager.MarkUnknown(autoscalingv1alpha1.PodAutoscalerConditionSKSReady, "Pending", "Waiting for controller")
+					manager.MarkUnknown(autoscalingv1alpha1.PodAutoscalerConditionScaleTargetInitialized, "Pending", "Waiting for controller")
+				}
+			}
+			return false, nil, nil
+		})
+
 		// This is needed by the Configuration controller tests, which
 		// use GenerateName to produce Revisions.
 		rtesting.PrependGenerateNameReactor(&client.Fake)

@@ -312,6 +312,7 @@ func TestReconcile(t *testing.T) {
 				WithPAStatusService("pa-inactive"),
 				WithNoTraffic("NoTraffic", "This thing is inactive."),
 				WithScaleTargetInitialized,
+				WithPASKSNotReady(""),
 				WithReachabilityUnreachable),
 			readyDeploy(deploy(t, "foo", "pa-inactive")),
 			image("foo", "pa-inactive"),
@@ -335,13 +336,14 @@ func TestReconcile(t *testing.T) {
 				WithRevisionObservedGeneration(1)),
 			pa("foo", "pa-inactive",
 				WithNoTraffic("NoTraffic", "This thing is inactive."),
-				WithPAStatusService("pa-inactive")),
+				WithPAStatusService("pa-inactive"),
+				WithPASKSReady),
 			readyDeploy(deploy(t, "foo", "pa-inactive")),
 			image("foo", "pa-inactive"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Revision("foo", "pa-inactive",
-				WithLogURL, withDefaultContainerStatuses(), MarkDeploying(""),
+				WithLogURL, withDefaultContainerStatuses(), MarkContainerHealthyUnknown(""),
 				// When we reconcile an "all ready" revision when the PA
 				// is inactive, we should see the following change.
 				MarkInactive("NoTraffic", "This thing is inactive."), WithRevisionObservedGeneration(1),
