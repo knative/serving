@@ -20,12 +20,15 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"strings"
 	"testing"
 
-	"knative.dev/serving/pkg/apis/config"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/webhook"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
 
@@ -38,7 +41,7 @@ func withInvalidContainer() ServiceOption {
 	}
 }
 
-func TestServiceValidationWithInvalidPodSpec(t *testing.T) {
+func TestServiceDryRunValidationWithInvalidPodSpec(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
@@ -51,17 +54,34 @@ func TestServiceValidationWithInvalidPodSpec(t *testing.T) {
 	test.EnsureTearDown(t, clients, &names)
 
 	// Setup Service
-	service, err := v1test.CreateService(t, clients, names,
-		WithServiceAnnotation(config.DryRunFeatureKey, string(webhook.DryRunStrict)))
+	service, err := v1test.CreateService(t, clients, names)
 	if err != nil {
 		t.Fatal("Create Service:", err)
 	}
 
-	_, err = v1test.PatchService(t, clients, service, withInvalidContainer())
+	_, err = PatchServiceWithDryRun(t, clients, service, withInvalidContainer())
 	if err == nil {
 		t.Fatal("Expected Service patch to fail")
 	}
 	if got, want := err.Error(), "validation callback failed"; !strings.Contains(got, want) {
 		t.Errorf("Error = %q, want to contain = %q", got, want)
 	}
+}
+
+// PatchServiceWithDryRun patches the existing service passed in with the applied mutations running in dryrun mode.
+// Returns the latest service object
+func PatchServiceWithDryRun(t testing.TB, clients *test.Clients, service *v1.Service, fopt ...ServiceOption) (svc *v1.Service, err error) {
+	newSvc := service.DeepCopy()
+	for _, opt := range fopt {
+		opt(newSvc)
+	}
+	v1test.LogResourceObject(t, v1test.ResourceObjects{Service: newSvc})
+	patchBytes, err := duck.CreateBytePatch(service, newSvc)
+	if err != nil {
+		return nil, err
+	}
+	return svc, reconciler.RetryTestErrors(func(int) (err error) {
+		svc, err = clients.ServingClient.Services.Patch(context.Background(), service.ObjectMeta.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: []string{metav1.DryRunAll}})
+		return err
+	})
 }

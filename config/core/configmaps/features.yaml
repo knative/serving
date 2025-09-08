@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "0f9b4ade"
+    knative.dev/example-checksum: "e6ec6806"
 data:
   _example: |-
     ################################
@@ -174,15 +174,6 @@ data:
     # For a list of possible capabilities, see https://man7.org/linux/man-pages/man7/capabilities.7.html
     kubernetes.containerspec-addcapabilities: "disabled"
 
-    # This feature validates PodSpecs from the validating webhook
-    # against the K8s API Server.
-    #
-    # When "enabled", the server will always run the extra validation.
-    # When "allowed", the server will not run the dry-run validation by default.
-    #   However, clients may enable the behavior on an individual Service by
-    #   attaching the following metadata annotation: "features.knative.dev/podspec-dryrun":"enabled".
-    # See: https://knative.dev/docs/serving/feature-flags/#kubernetes-dry-run
-    kubernetes.podspec-dryrun: "allowed"
 
     # Controls whether tag header based routing feature are enabled or not.
     # 1. Enabled: enabling tag header based routing
