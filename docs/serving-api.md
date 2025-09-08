@@ -459,6 +459,7 @@ string
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>ServiceName is the K8s Service name that serves the revision, scaled by this PA.
 The service is created and owned by the ServerlessService object owned by this PA.</p>
 </td>
@@ -471,6 +472,7 @@ string
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>MetricsServiceName is the K8s Service name that provides revision metrics.
 The service is managed by the PA object.</p>
 </td>
