@@ -54,10 +54,12 @@ var testBreakerParams = queue.BreakerParams{
 	MaxConcurrency:  revisionMaxConcurrency,
 	InitialCapacity: 0,
 }
+
 type tryResult struct {
 	dest string
 	err  error
 }
+
 func newTestThrottler(ctx context.Context) *Throttler {
 	return NewThrottler(ctx, "10.10.10.10")
 }
@@ -318,12 +320,12 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 	})
 
 	// Make sure it now works.
-	if err := throttler.Try(ctx, revID, "test", func(string, bool) error { return nil }); err != nil {
+	if err := throttler.Try(ctx, revID, func(string, bool) error { return nil }); err != nil {
 		t.Fatalf("Try() = %v, want no error", err)
 	}
 	// Make sure errors are propagated correctly.
 	innerError := errors.New("inner")
-	if err := throttler.Try(ctx, revID, "test", func(string, bool) error { return innerError }); !errors.Is(err, innerError) {
+	if err := throttler.Try(ctx, revID, func(string, bool) error { return innerError }); !errors.Is(err, innerError) {
 		t.Fatalf("Try() = %v, want %v", err, innerError)
 	}
 	servfake.ServingV1().Revisions(revision.Namespace).Delete(ctx, revision.Name, metav1.DeleteOptions{})
@@ -332,7 +334,7 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 	// Eventually it should now fail.
 	var lastError error
 	wait.PollUntilContextCancel(ctx, 10*time.Millisecond, false, func(context.Context) (bool, error) {
-		lastError = throttler.Try(ctx, revID, "test", func(string, bool) error { return nil })
+		lastError = throttler.Try(ctx, revID, func(string, bool) error { return nil })
 		return lastError != nil, nil
 	})
 	if lastError == nil || lastError.Error() != `revision.serving.knative.dev "test-revision" not found` {
@@ -882,10 +884,6 @@ func TestInfiniteBreakerCreation(t *testing.T) {
 	}
 }
 
-
-
-
-
 func (t *Throttler) try(ctx context.Context, requests int, try func(string) error) chan tryResult {
 	resultChan := make(chan tryResult)
 
@@ -893,7 +891,7 @@ func (t *Throttler) try(ctx context.Context, requests int, try func(string) erro
 	for range requests {
 		go func() {
 			var result tryResult
-			if err := t.Try(ctx, revID, "test", func(dest string, isClusterIP bool) error {
+			if err := t.Try(ctx, revID, func(dest string, isClusterIP bool) error {
 				result = tryResult{dest: dest}
 				return try(dest)
 			}); err != nil {
@@ -1140,6 +1138,7 @@ func TestAssignSlice(t *testing.T) {
 		}
 	})
 }
+
 // TestTryWithAllPodsQuarantined verifies requests are re-enqueued when all pods are quarantined
 func TestResetTrackersRaceCondition(t *testing.T) {
 	logger := TestLogger(t)
@@ -1158,7 +1157,7 @@ func TestResetTrackersRaceCondition(t *testing.T) {
 
 		// Create initial trackers
 		initialTrackers := make([]*podTracker, 3)
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			tracker := newPodTracker(fmt.Sprintf("pod-%d:8080", i),
 				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 			initialTrackers[i] = tracker

@@ -18,6 +18,7 @@ package net
 
 import (
 	"context"
+	"math"
 	"net/http"
 	"sort"
 	"sync"
@@ -43,7 +44,6 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/reconciler"
-	"knative.dev/serving/pkg/activator/handler"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
@@ -68,7 +68,6 @@ const (
 	// Maximum time a pod can stay in draining state before being forcefully removed
 	// This allows long-running requests to complete gracefully
 	maxDrainingDuration = 1 * time.Hour
-
 )
 
 func newPodTracker(dest string, b breaker) *podTracker {
@@ -271,7 +270,6 @@ type revisionThrottler struct {
 	logger *zap.SugaredLogger
 }
 
-
 func newRevisionThrottler(revID types.NamespacedName,
 	containerConcurrency int, proto string,
 	breakerParams queue.BreakerParams,
@@ -303,7 +301,18 @@ func newRevisionThrottler(revID types.NamespacedName,
 		protocol:    proto,
 		podTrackers: make(map[string]*podTracker),
 	}
-	t.containerConcurrency.Store(uint32(containerConcurrency))
+	// Handle negative or out-of-range values gracefully
+	// Safe conversion: clamping to uint32 range
+	var safeCC uint32
+	if containerConcurrency <= 0 {
+		safeCC = 0
+	} else if containerConcurrency > math.MaxInt32 {
+		// Clamp to a safe maximum value for container concurrency
+		safeCC = math.MaxInt32
+	} else {
+		safeCC = uint32(containerConcurrency)
+	}
+	t.containerConcurrency.Store(safeCC)
 
 	// Start with unknown
 	t.activatorIndex.Store(-1)
@@ -311,8 +320,6 @@ func newRevisionThrottler(revID types.NamespacedName,
 }
 
 func noop() {}
-
-
 
 func (rt *revisionThrottler) acquireDest(ctx context.Context) (func(), *podTracker, bool) {
 	rt.mux.RLock()
@@ -331,56 +338,7 @@ func (rt *revisionThrottler) acquireDest(ctx context.Context) (func(), *podTrack
 	return callback, pt, false
 }
 
-func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, function func(dest string, isClusterIP bool) error) error {
-	// Start timing for proxy start latency and threshold tracking
-	proxyStartTime := time.Now()
-
-	// Timers to track threshold breaches
-	warningTimer := time.NewTimer(4 * time.Second)
-	errorTimer := time.NewTimer(60 * time.Second)
-	criticalTimer := time.NewTimer(180 * time.Second)
-	defer warningTimer.Stop()
-	defer errorTimer.Stop()
-	defer criticalTimer.Stop()
-
-	// Channel to ensure shutdown
-	thresholdChan := make(chan struct{})
-	defer close(thresholdChan)
-
-	// Goroutine to track threshold breaches
-	go func() {
-		for {
-			select {
-			case <-warningTimer.C:
-				handler.RecordProxyQueueTimeWarning(ctx)
-				rt.logger.Debugf("Request %s exceeded WARNING proxy queue time threshold (4s)", xRequestId)
-			case <-errorTimer.C:
-				handler.RecordProxyQueueTimeError(ctx)
-				rt.logger.Warnf("Request %s exceeded ERROR proxy queue time threshold (60s)", xRequestId)
-			case <-criticalTimer.C:
-				handler.RecordProxyQueueTimeCritical(ctx)
-				rt.logger.Warnf("Request %s exceeded CRITICAL proxy queue time threshold (3m)", xRequestId)
-			case <-thresholdChan:
-				// Request completed, stop monitoring
-				return
-			case <-ctx.Done():
-				// Context has terminated
-				return
-			default:
-				// Catch-all case
-				continue
-			}
-		}
-	}()
-
-	// Record that this request is now pending for a podTracker
-	handler.RecordPendingRequest(ctx)
-	handler.RecordPendingRequestStart(ctx) // New counter-based metric
-	defer func() {
-		handler.RecordPendingRequestComplete(ctx)
-		handler.RecordPendingRequestCompleted(ctx) // New counter-based metric
-	}()
-
+func (rt *revisionThrottler) try(ctx context.Context, function func(dest string, isClusterIP bool) error) error {
 	var ret error
 
 	// Retrying infinitely as long as we receive no dest. Outer semaphore and inner
@@ -394,7 +352,7 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 		assignedTrackers := rt.assignedTrackers
 		rt.mux.RUnlock()
 		if len(assignedTrackers) == 0 {
-			rt.logger.Debugf("%s -> No Assigned trackers\n", xRequestId)
+			rt.logger.Debug("No Assigned trackers")
 		}
 		if err := rt.breaker.Maybe(ctx, func() {
 			callback, tracker, isClusterIP := rt.acquireDest(ctx)
@@ -402,27 +360,23 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 				// This can happen if individual requests raced each other or if pod
 				// capacity was decreased after passing the outer semaphore.
 				reenqueue = true
-				rt.logger.Debugf("%s -> Failed to acquire tracker\n", xRequestId)
+				rt.logger.Debug("Failed to acquire tracker")
 				return
 			}
-			trackerId := tracker.id
-			rt.logger.Infof("%s -> Acquired Pod Tracker %s - %s (createdAt %d)", xRequestId, trackerId, tracker.dest, tracker.createdAt)
-			rt.logger.Debugf("Tracker %s Breaker State: capacity: %d, inflight: %d, pending: %d", trackerId, tracker.Capacity(), tracker.InFlight(), tracker.Pending())
+			trackerID := tracker.id
+			rt.logger.Infof("Acquired Pod Tracker %s - %s (createdAt %d)", trackerID, tracker.dest, tracker.createdAt)
+			rt.logger.Debugf("Tracker %s Breaker State: capacity: %d, inflight: %d, pending: %d", trackerID, tracker.Capacity(), tracker.InFlight(), tracker.Pending())
 			defer func() {
 				callback()
-				rt.logger.Debugf("%s -> %s breaker release semaphore\n", xRequestId, trackerId)
+				rt.logger.Debugf("%s breaker release semaphore", trackerID)
 			}()
 			// We already reserved a guaranteed spot. So just execute the passed functor.
-
-			// Record proxy start latency (successful tracker acquisition)
-			proxyStartLatencyMs := float64(time.Since(proxyStartTime).Nanoseconds()) / 1e6
-			handler.RecordProxyStartLatency(ctx, proxyStartLatencyMs)
 
 			ret = function(tracker.dest, isClusterIP)
 		}); err != nil {
 			return err
 		}
-		rt.logger.Debugf("%s -> Reenqueue request\n", xRequestId)
+		rt.logger.Debug("Reenqueue request")
 	}
 	return ret
 }
@@ -524,7 +478,18 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 	rt.logger.Infof("Set capacity to %d (backends: %d, index: %d/%d)",
 		capacity, backendCount, ai, ac)
 
-	rt.backendCount.Store(uint32(backendCount))
+	// Handle negative or out-of-range values gracefully
+	// Safe conversion: clamping to uint32 range
+	var safeBackendCount uint32
+	if backendCount <= 0 {
+		safeBackendCount = 0
+	} else if backendCount > math.MaxInt32 {
+		// Clamp to a safe maximum value
+		safeBackendCount = math.MaxInt32
+	} else {
+		safeBackendCount = uint32(backendCount)
+	}
+	rt.backendCount.Store(safeBackendCount)
 	rt.breaker.UpdateConcurrency(capacity)
 }
 
@@ -790,12 +755,12 @@ func (t *Throttler) run(updateCh <-chan revisionDestsUpdate) {
 }
 
 // Try waits for capacity and then executes function, passing in a l4 dest to send a request
-func (t *Throttler) Try(ctx context.Context, revID types.NamespacedName, xRequestId string, function func(string, bool) error) error {
+func (t *Throttler) Try(ctx context.Context, revID types.NamespacedName, function func(string, bool) error) error {
 	rt, err := t.getOrCreateRevisionThrottler(revID)
 	if err != nil {
 		return err
 	}
-	return rt.try(ctx, xRequestId, function)
+	return rt.try(ctx, function)
 }
 
 func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*revisionThrottler, error) {
@@ -912,12 +877,22 @@ func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP st
 	}
 
 	na, ai := rt.numActivators.Load(), rt.activatorIndex.Load()
-	if na == uint32(newNA) && ai == newAI {
+	// newNA comes from len() so it's always >= 0, but we need to validate for gosec
+	// Safe conversion: newNA is from len(epsL) which is always non-negative
+	var safeNA uint32
+	if newNA < 0 {
+		// This should never happen since newNA comes from len()
+		rt.logger.Errorf("Unexpected negative value for newNA: %d", newNA)
+		return
+	}
+	safeNA = uint32(newNA)
+
+	if na == safeNA && ai == newAI {
 		// The state didn't change, do nothing
 		return
 	}
 
-	rt.numActivators.Store(uint32(newNA))
+	rt.numActivators.Store(safeNA)
 	rt.activatorIndex.Store(newAI)
 	rt.logger.Debugf("This activator index is %d/%d was %d/%d",
 		newAI, newNA, ai, na)
@@ -993,7 +968,7 @@ func newInfiniteBreaker(logger *zap.SugaredLogger) *infiniteBreaker {
 
 // Capacity returns the current capacity of the breaker
 func (ib *infiniteBreaker) Capacity() uint64 {
-	return uint64(ib.concurrency.Load()) //nolint:gosec // concurrency is always 0 or 1
+	return uint64(ib.concurrency.Load())
 }
 
 // Pending returns the current pending requests the breaker
@@ -1003,7 +978,7 @@ func (ib *infiniteBreaker) Pending() int {
 
 // Pending returns the current inflight requests the breaker
 func (ib *infiniteBreaker) InFlight() uint64 {
-	return uint64(ib.concurrency.Load()) //nolint:gosec // concurrency is always 0 or 1
+	return uint64(ib.concurrency.Load())
 }
 
 func zeroOrOne(x int) uint32 {
@@ -1060,4 +1035,3 @@ func (ib *infiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
 }
 
 func (ib *infiniteBreaker) Reserve(context.Context) (func(), bool) { return noop, true }
-
