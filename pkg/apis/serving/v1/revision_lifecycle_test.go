@@ -726,7 +726,6 @@ func TestPropagateAutoscalerStatusReplicas(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			tc.ps.InitializeConditions()
 			r.PropagateAutoscalerStatus(&tc.ps)
 
 			if !cmp.Equal(tc.wantActualReplicas, r.ActualReplicas) {
