@@ -237,6 +237,9 @@ func newRevisionThrottler(revID types.NamespacedName,
 		protocol:    proto,
 		podTrackers: []*podTracker{},
 	}
+	if containerConcurrency < 0 {
+		containerConcurrency = 0
+	}
 	t.containerConcurrency.Store(uint32(containerConcurrency))
 	t.lbPolicy.Store(lbp)
 
@@ -615,10 +618,14 @@ func (t *Throttler) revisionUpdated(obj any) {
 			zap.Error(err), zap.String(logkey.Key, revID.String()))
 	} else if rt != nil {
 		// Update the lbPolicy dynamically if the revision's spec policy changed
-		newPolicy, name := pickLBPolicy(rev.Spec.LoadBalancingPolicy, nil, int(rev.Spec.GetContainerConcurrency()), t.logger)
+		containerConcurrency := rev.Spec.GetContainerConcurrency()
+		if containerConcurrency < 0 {
+			containerConcurrency = 0
+		}
+		newPolicy, name := pickLBPolicy(rev.Spec.LoadBalancingPolicy, nil, int(containerConcurrency), t.logger)
 		// Use atomic store for lock-free access in the hot request path
 		rt.lbPolicy.Store(newPolicy)
-		rt.containerConcurrency.Store(uint32(rev.Spec.GetContainerConcurrency()))
+		rt.containerConcurrency.Store(uint32(containerConcurrency))
 		t.logger.Infof("Updated revision throttler LB policy to: %s", name)
 	}
 }
@@ -692,12 +699,14 @@ func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP st
 	}
 
 	na, ai := rt.numActivators.Load(), rt.activatorIndex.Load()
-	if na == uint32(newNA) && ai == newAI {
+	if newNA >= 0 && na == uint32(newNA) && ai == newAI {
 		// The state didn't change, do nothing
 		return
 	}
 
-	rt.numActivators.Store(uint32(newNA))
+	if newNA >= 0 {
+		rt.numActivators.Store(uint32(newNA))
+	}
 	rt.activatorIndex.Store(newAI)
 	rt.logger.Infof("This activator index is %d/%d was %d/%d",
 		newAI, newNA, ai, na)

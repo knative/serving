@@ -176,7 +176,11 @@ func leastConnectionsPolicy(ctx context.Context, targets []*podTracker) (func(),
 	for i, t := range targets {
 		if t != nil {
 			// Use the weight field as a proxy for in-flight connections
-			trackerLoads[i] = TrackerLoad{tracker: t, inFlight: uint64(t.weight.Load())}
+			weight := t.weight.Load()
+			if weight < 0 {
+				weight = 0
+			}
+			trackerLoads[i] = TrackerLoad{tracker: t, inFlight: uint64(weight)}
 		}
 	}
 	sort.Slice(trackerLoads, func(i, j int) bool {
