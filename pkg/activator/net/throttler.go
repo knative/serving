@@ -18,6 +18,7 @@ package net
 
 import (
 	"context"
+	"math"
 	"net/http"
 	"slices"
 	"sort"
@@ -240,7 +241,15 @@ func newRevisionThrottler(revID types.NamespacedName,
 	if containerConcurrency < 0 {
 		containerConcurrency = 0
 	}
-	t.containerConcurrency.Store(uint32(containerConcurrency))
+	// Safe conversion: containerConcurrency is guaranteed to be non-negative after the check above
+	var cc uint32
+	if containerConcurrency >= 0 && containerConcurrency <= math.MaxUint32 {
+		cc = uint32(containerConcurrency)
+	} else if containerConcurrency > math.MaxUint32 {
+		// Cap at max value if containerConcurrency exceeds uint32 range
+		cc = math.MaxUint32
+	}
+	t.containerConcurrency.Store(cc)
 	t.lbPolicy.Store(lbp)
 
 	// Start with unknown
@@ -625,7 +634,15 @@ func (t *Throttler) revisionUpdated(obj any) {
 		newPolicy, name := pickLBPolicy(rev.Spec.LoadBalancingPolicy, nil, int(containerConcurrency), t.logger)
 		// Use atomic store for lock-free access in the hot request path
 		rt.lbPolicy.Store(newPolicy)
-		rt.containerConcurrency.Store(uint32(containerConcurrency))
+		// Safe conversion: containerConcurrency is guaranteed to be non-negative after the check above
+		var cc uint32
+		if containerConcurrency >= 0 && containerConcurrency <= math.MaxUint32 {
+			cc = uint32(containerConcurrency)
+		} else if containerConcurrency > math.MaxUint32 {
+			// Cap at max value if containerConcurrency exceeds uint32 range
+			cc = math.MaxUint32
+		}
+		rt.containerConcurrency.Store(cc)
 		t.logger.Infof("Updated revision throttler LB policy to: %s", name)
 	}
 }

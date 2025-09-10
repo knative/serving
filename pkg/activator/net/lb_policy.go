@@ -180,7 +180,14 @@ func leastConnectionsPolicy(ctx context.Context, targets []*podTracker) (func(),
 			if weight < 0 {
 				weight = 0
 			}
-			trackerLoads[i] = TrackerLoad{tracker: t, inFlight: uint64(weight)}
+			// Safe conversion: weight is guaranteed to be non-negative after the check above
+			// Since weight is int32 and non-negative, it will always fit in uint64
+			// Use explicit check for gosec G115
+			var inFlight uint64
+			if weight >= 0 {
+				inFlight = uint64(weight)
+			}
+			trackerLoads[i] = TrackerLoad{tracker: t, inFlight: inFlight}
 		}
 	}
 	sort.Slice(trackerLoads, func(i, j int) bool {
