@@ -272,6 +272,12 @@ func computeActiveCondition(ctx context.Context, pa *autoscalingv1alpha1.PodAuto
 		pa.Status.MarkScaleTargetInitialized()
 	}
 
+	cond := pa.Status.GetCondition(autoscalingv1alpha1.PodAutoscalerConditionReady)
+	if cond.IsUnknown() && cond.GetReason() == autoscalingv1alpha1.PendingReason {
+		// still at default PA condition, no need to mark anything
+		return
+	}
+
 	switch {
 	// Need to check for minReady = 0 because in the initialScale 0 case, pc.want will be -1.
 	case pc.want == 0 || minReady == 0:

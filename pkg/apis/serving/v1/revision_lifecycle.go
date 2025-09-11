@@ -226,7 +226,8 @@ func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *autoscalingv1alpha1.PodA
 		// ScaleTargetInitialized down the road, we would have marked resources
 		// unavailable here, and have no way of recovering later.
 		// If the ResourcesAvailable is already false, don't override the message.
-		if !ps.IsScaleTargetInitialized() && !resUnavailable && ps.ServiceName != "" {
+		scaleTargetInitializedCondReason := ps.GetCondition(autoscalingv1alpha1.PodAutoscalerConditionScaleTargetInitialized).GetReason()
+		if !ps.IsScaleTargetInitialized() && !resUnavailable && ps.ServiceName != "" && scaleTargetInitializedCondReason != autoscalingv1alpha1.PendingReason {
 			rs.MarkResourcesAvailableFalse(ReasonProgressDeadlineExceeded,
 				"Initial scale was never achieved")
 		}
