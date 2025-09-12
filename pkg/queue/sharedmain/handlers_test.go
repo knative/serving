@@ -101,13 +101,13 @@ func TestRequestQueueDrainHandler(t *testing.T) {
 		if w.Code != http.StatusOK {
 			t.Errorf("Expected status 200, got %d", w.Code)
 		}
-		
+
 		// Verify the drainer is in draining state by sending a probe
 		probeReq := httptest.NewRequest(http.MethodGet, "/", nil)
 		probeReq.Header.Set("User-Agent", "kube-probe/1.0")
 		probeW := httptest.NewRecorder()
 		drainer.ServeHTTP(probeW, probeReq)
-		
+
 		// Should return 503 because drainer is draining
 		if probeW.Code != http.StatusServiceUnavailable {
 			t.Errorf("Expected probe to return 503 during drain, got %d", probeW.Code)
@@ -144,7 +144,7 @@ func TestRequestQueueDrainHandler(t *testing.T) {
 		probeReq.Header.Set("User-Agent", "kube-probe/1.0")
 		probeW := httptest.NewRecorder()
 		drainer.ServeHTTP(probeW, probeReq)
-		
+
 		if probeW.Code != http.StatusServiceUnavailable {
 			t.Errorf("Expected probe to return 503 during drain, got %d", probeW.Code)
 		}
@@ -157,7 +157,7 @@ func TestRequestQueueDrainHandler(t *testing.T) {
 		probeReq2.Header.Set("User-Agent", "kube-probe/1.0")
 		probeW2 := httptest.NewRecorder()
 		drainer.ServeHTTP(probeW2, probeReq2)
-		
+
 		// Should return 200 because drainer was reset
 		if probeW2.Code != http.StatusOK {
 			t.Errorf("Expected probe to return 200 after reset, got %d", probeW2.Code)
@@ -245,7 +245,7 @@ func TestWithRequestCounter(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(numRequests)
 
-		for i := 0; i < numRequests; i++ {
+		for range numRequests {
 			go func() {
 				defer wg.Done()
 				req := httptest.NewRequest(http.MethodGet, "/", nil)

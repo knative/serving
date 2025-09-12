@@ -127,7 +127,7 @@ func TestMainHandlerWithPendingRequests(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(numRequests)
 
-		for i := 0; i < numRequests; i++ {
+		for i := range numRequests {
 			go func(i int) {
 				defer wg.Done()
 				req := httptest.NewRequest(http.MethodGet, "/test", nil)
