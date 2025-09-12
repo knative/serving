@@ -1377,3 +1377,227 @@ func TestDynamicLoadBalancingPolicyUpdate(t *testing.T) {
 		t.Fatalf("Policy did not update dynamically, selections: %v", selections)
 	}
 }
+
+func TestValidateLoadBalancingPolicy(t *testing.T) {
+	tests := []struct {
+		name   string
+		policy string
+		want   bool
+	}{{
+		name:   "valid random-choice-2",
+		policy: "random-choice-2",
+		want:   true,
+	}, {
+		name:   "valid round-robin",
+		policy: "round-robin",
+		want:   true,
+	}, {
+		name:   "valid least-connections",
+		policy: "least-connections",
+		want:   true,
+	}, {
+		name:   "valid first-available",
+		policy: "first-available",
+		want:   true,
+	}, {
+		name:   "invalid policy",
+		policy: "invalid-policy",
+		want:   false,
+	}, {
+		name:   "empty policy",
+		policy: "",
+		want:   false,
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := validateLoadBalancingPolicy(test.policy)
+			if got != test.want {
+				t.Errorf("validateLoadBalancingPolicy(%q) = %v, want %v", test.policy, got, test.want)
+			}
+		})
+	}
+}
+
+func TestPickLBPolicy(t *testing.T) {
+	logger := TestLogger(t)
+
+	tests := []struct {
+		name               string
+		loadBalancerPolicy *string
+		cc                 int
+		wantPolicyName     string
+	}{{
+		name:               "explicit random-choice-2",
+		loadBalancerPolicy: stringPtr("random-choice-2"),
+		cc:                 10,
+		wantPolicyName:     "random-choice-2",
+	}, {
+		name:               "explicit round-robin",
+		loadBalancerPolicy: stringPtr("round-robin"),
+		cc:                 10,
+		wantPolicyName:     "round-robin",
+	}, {
+		name:               "explicit least-connections",
+		loadBalancerPolicy: stringPtr("least-connections"),
+		cc:                 10,
+		wantPolicyName:     "least-connections",
+	}, {
+		name:               "explicit first-available",
+		loadBalancerPolicy: stringPtr("first-available"),
+		cc:                 10,
+		wantPolicyName:     "first-available",
+	}, {
+		name:               "invalid policy falls back to defaults",
+		loadBalancerPolicy: stringPtr("invalid-policy"),
+		cc:                 0,
+		wantPolicyName:     "random-choice-2 (default for CC=0)",
+	}, {
+		name:               "nil policy with CC=0",
+		loadBalancerPolicy: nil,
+		cc:                 0,
+		wantPolicyName:     "random-choice-2 (default for CC=0)",
+	}, {
+		name:               "empty policy with CC=0",
+		loadBalancerPolicy: stringPtr(""),
+		cc:                 0,
+		wantPolicyName:     "random-choice-2 (default for CC=0)",
+	}, {
+		name:               "nil policy with CC=1",
+		loadBalancerPolicy: nil,
+		cc:                 1,
+		wantPolicyName:     "first-available (default for CC<=3)",
+	}, {
+		name:               "nil policy with CC=3",
+		loadBalancerPolicy: nil,
+		cc:                 3,
+		wantPolicyName:     "first-available (default for CC<=3)",
+	}, {
+		name:               "nil policy with CC=4",
+		loadBalancerPolicy: nil,
+		cc:                 4,
+		wantPolicyName:     "round-robin (default for CC>3)",
+	}, {
+		name:               "nil policy with CC=100",
+		loadBalancerPolicy: nil,
+		cc:                 100,
+		wantPolicyName:     "round-robin (default for CC>3)",
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, gotName := pickLBPolicy(test.loadBalancerPolicy, nil, test.cc, logger)
+			if gotName != test.wantPolicyName {
+				t.Errorf("pickLBPolicy policy name = %q, want %q", gotName, test.wantPolicyName)
+			}
+		})
+	}
+}
+
+func TestRevisionThrottlerWithCustomPolicy(t *testing.T) {
+	logger := TestLogger(t)
+
+	tests := []struct {
+		name               string
+		loadBalancerPolicy *string
+		cc                 int
+	}{{
+		name:               "least-connections policy",
+		loadBalancerPolicy: stringPtr("least-connections"),
+		cc:                 10,
+	}, {
+		name:               "round-robin policy with CC=0",
+		loadBalancerPolicy: stringPtr("round-robin"),
+		cc:                 0,
+	}, {
+		name:               "first-available policy with CC=0",
+		loadBalancerPolicy: stringPtr("first-available"),
+		cc:                 0,
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rt := newRevisionThrottler(
+				types.NamespacedName{Namespace: "test", Name: "test"},
+				test.loadBalancerPolicy,
+				test.cc,
+				"http",
+				testBreakerParams,
+				logger,
+			)
+
+			// Verify the policy was set correctly
+			lbPolicy := rt.lbPolicy.Load()
+			if lbPolicy == nil {
+				t.Error("lbPolicy should not be nil")
+			}
+
+			// Verify containerConcurrency is stored correctly
+			storedCC := rt.containerConcurrency.Load()
+			expectedCC := test.cc
+			if expectedCC < 0 {
+				expectedCC = 0
+			}
+			if storedCC != uint32(expectedCC) {
+				t.Errorf("containerConcurrency = %d, want %d", storedCC, expectedCC)
+			}
+		})
+	}
+}
+
+func TestRevisionThrottlerConcurrencyOverflow(t *testing.T) {
+	logger := TestLogger(t)
+	
+	// Test with negative containerConcurrency
+	rt := newRevisionThrottler(
+		types.NamespacedName{Namespace: "test", Name: "test"},
+		nil,
+		-10,
+		"http",
+		testBreakerParams,
+		logger,
+	)
+	
+	if cc := rt.containerConcurrency.Load(); cc != 0 {
+		t.Errorf("Negative containerConcurrency should be stored as 0, got %d", cc)
+	}
+	
+	// Test with very large containerConcurrency
+	rt = newRevisionThrottler(
+		types.NamespacedName{Namespace: "test", Name: "test"},
+		nil,
+		int(^uint32(0)) + 100, // Larger than max uint32
+		"http",
+		testBreakerParams,
+		logger,
+	)
+	
+	if cc := rt.containerConcurrency.Load(); cc != ^uint32(0) {
+		t.Errorf("Large containerConcurrency should be capped at max uint32, got %d", cc)
+	}
+}
+
+func TestHandlePubEpsUpdateWithNegativeValues(t *testing.T) {
+	logger := TestLogger(t)
+	rt := &revisionThrottler{
+		logger: logger,
+	}
+	rt.numActivators.Store(5)
+	rt.activatorIndex.Store(2)
+	
+	// Create endpoints with empty addresses
+	eps := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: networking.ActivatorServiceName,
+		},
+		Subsets: []corev1.EndpointSubset{},
+	}
+	
+	// This should result in negative values for newNA
+	rt.handlePubEpsUpdate(eps, "10.10.10.10")
+	
+	// numActivators should not change when newNA is negative
+	if na := rt.numActivators.Load(); na != 5 {
+		t.Errorf("numActivators should remain unchanged when newNA is negative, got %d", na)
+	}
+}
