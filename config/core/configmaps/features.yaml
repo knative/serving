@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "e6ec6806"
+    knative.dev/example-checksum: "68c65b08"
 data:
   _example: |-
     ################################
@@ -43,9 +43,10 @@ data:
     # Default SecurityContext settings to secure-by-default values
     # if unset.
     #
-    # This value will default to "enabled" in a future release,
-    # probably Knative 1.10
-    secure-pod-defaults: "disabled"
+    # Disabled - do nothing
+    # Enabled - enable most options but it still works with non-root images - still warn about nonRoot
+    # Restricted - enable all options that the restricted profile requires
+    secure-pod-defaults: "enabled"
 
     # Indicates whether multi container support is enabled
     #

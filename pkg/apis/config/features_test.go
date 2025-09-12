@@ -714,6 +714,33 @@ func TestFeaturesConfiguration(t *testing.T) {
 		data: map[string]string{
 			"kubernetes.podspec-hostnetwork": "Disabled",
 		},
+	}, {
+		name:    "secure-pod-defaults Restricted",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			SecurePodDefaults: Restricted,
+		}),
+		data: map[string]string{
+			"secure-pod-defaults": "Restricted",
+		},
+	}, {
+		name:    "secure-pod-defaults Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			SecurePodDefaults: Disabled,
+		}),
+		data: map[string]string{
+			"secure-pod-defaults": "Disabled",
+		},
+	}, {
+		name:    "invalid secure-pod-defaults value",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			SecurePodDefaults: Enabled,
+		}),
+		data: map[string]string{
+			"secure-pod-defaults": "InvalidValue",
+		},
 	}}
 
 	for _, tt := range configTests {
