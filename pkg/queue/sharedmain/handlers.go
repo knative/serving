@@ -18,8 +18,11 @@ package sharedmain
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -30,6 +33,7 @@ import (
 	netheader "knative.dev/networking/pkg/http/header"
 	netproxy "knative.dev/networking/pkg/http/proxy"
 	netstats "knative.dev/networking/pkg/http/stats"
+	"knative.dev/pkg/network"
 	pkghandler "knative.dev/pkg/network/handlers"
 	"knative.dev/serving/pkg/activator"
 	pkghttp "knative.dev/serving/pkg/http"
@@ -46,6 +50,7 @@ func mainHandler(
 	logger *zap.SugaredLogger,
 	mp metric.MeterProvider,
 	tp trace.TracerProvider,
+	pendingRequests *atomic.Int32,
 ) (http.Handler, *pkghandler.Drainer) {
 	target := net.JoinHostPort("127.0.0.1", env.UserPort)
 	tracer := tp.Tracer("knative.dev/serving/pkg/queue")
@@ -73,6 +78,7 @@ func mainHandler(
 
 	composedHandler = requestAppMetricsHandler(logger, composedHandler, breaker, mp)
 	composedHandler = queue.ProxyHandler(tracer, breaker, stats, composedHandler)
+
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
 	composedHandler = handler.NewTimeoutHandler(composedHandler, "request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
 		return timeout, responseStartTimeout, idleTimeout
@@ -80,6 +86,8 @@ func mainHandler(
 
 	composedHandler = queue.NewRouteTagHandler(composedHandler)
 	composedHandler = withFullDuplex(composedHandler, env.EnableHTTPFullDuplex, logger)
+
+	composedHandler = withRequestCounter(composedHandler, pendingRequests)
 
 	drainer := &pkghandler.Drainer{
 		QuietPeriod: drainSleepDuration,
@@ -105,11 +113,10 @@ func mainHandler(
 			return !netheader.IsProbe(r)
 		}),
 	)
-
 	return composedHandler, drainer
 }
 
-func adminHandler(ctx context.Context, logger *zap.SugaredLogger, drainer *pkghandler.Drainer) http.Handler {
+func adminHandler(ctx context.Context, logger *zap.SugaredLogger, drainer *pkghandler.Drainer, pendingRequests *atomic.Int32) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc(queue.RequestQueueDrainPath, func(w http.ResponseWriter, r *http.Request) {
 		logger.Info("Attached drain handler from user-container", r)
@@ -130,6 +137,17 @@ func adminHandler(ctx context.Context, logger *zap.SugaredLogger, drainer *pkgha
 		w.WriteHeader(http.StatusOK)
 	})
 
+	// New endpoint that returns 200 only when all requests are drained
+	mux.HandleFunc("/drain-complete", func(w http.ResponseWriter, r *http.Request) {
+		if pendingRequests.Load() <= 0 {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("drained"))
+		} else {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			fmt.Fprintf(w, "pending requests: %d", pendingRequests.Load())
+		}
+	})
+
 	return mux
 }
 
@@ -141,6 +159,16 @@ func withFullDuplex(h http.Handler, enableFullDuplex bool, logger *zap.SugaredLo
 		rc := http.NewResponseController(w)
 		if err := rc.EnableFullDuplex(); err != nil {
 			logger.Errorw("Unable to enable full duplex", zap.Error(err))
+		}
+		h.ServeHTTP(w, r)
+	})
+}
+
+func withRequestCounter(h http.Handler, pendingRequests *atomic.Int32) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get(network.ProbeHeaderName) != network.ProbeHeaderValue && !strings.HasPrefix(r.Header.Get("User-Agent"), "kube-probe/") {
+			pendingRequests.Add(1)
+			defer pendingRequests.Add(-1)
 		}
 		h.ServeHTTP(w, r)
 	})
