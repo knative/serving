@@ -1547,7 +1547,7 @@ func TestRevisionThrottlerWithCustomPolicy(t *testing.T) {
 
 func TestRevisionThrottlerConcurrencyOverflow(t *testing.T) {
 	logger := TestLogger(t)
-	
+
 	// Test with negative containerConcurrency
 	rt := newRevisionThrottler(
 		types.NamespacedName{Namespace: "test", Name: "test"},
@@ -1557,21 +1557,21 @@ func TestRevisionThrottlerConcurrencyOverflow(t *testing.T) {
 		testBreakerParams,
 		logger,
 	)
-	
+
 	if cc := rt.containerConcurrency.Load(); cc != 0 {
 		t.Errorf("Negative containerConcurrency should be stored as 0, got %d", cc)
 	}
-	
+
 	// Test with very large containerConcurrency
 	rt = newRevisionThrottler(
 		types.NamespacedName{Namespace: "test", Name: "test"},
 		nil,
-		int(^uint32(0)) + 100, // Larger than max uint32
+		int(^uint32(0))+100, // Larger than max uint32
 		"http",
 		testBreakerParams,
 		logger,
 	)
-	
+
 	if cc := rt.containerConcurrency.Load(); cc != ^uint32(0) {
 		t.Errorf("Large containerConcurrency should be capped at max uint32, got %d", cc)
 	}
@@ -1584,7 +1584,7 @@ func TestHandlePubEpsUpdateWithNegativeValues(t *testing.T) {
 	}
 	rt.numActivators.Store(5)
 	rt.activatorIndex.Store(2)
-	
+
 	// Create endpoints with empty addresses
 	eps := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1592,10 +1592,10 @@ func TestHandlePubEpsUpdateWithNegativeValues(t *testing.T) {
 		},
 		Subsets: []corev1.EndpointSubset{},
 	}
-	
+
 	// This should result in negative values for newNA
 	rt.handlePubEpsUpdate(eps, "10.10.10.10")
-	
+
 	// numActivators should not change when newNA is negative
 	if na := rt.numActivators.Load(); na != 5 {
 		t.Errorf("numActivators should remain unchanged when newNA is negative, got %d", na)
