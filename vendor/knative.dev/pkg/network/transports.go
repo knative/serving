@@ -96,8 +96,7 @@ func dialBackOffHelper(ctx context.Context, network, address string, bo wait.Bac
 		if tlsConf == nil {
 			c, err = dialer.DialContext(ctx, network, address)
 		} else {
-			d := tls.Dialer{NetDialer: dialer, Config: tlsConf}
-			c, err = d.DialContext(ctx, network, address)
+			c, err = tls.DialWithDialer(dialer, network, address, tlsConf)
 		}
 		if err != nil {
 			var errNet net.Error
