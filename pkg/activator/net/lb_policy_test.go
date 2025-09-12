@@ -370,9 +370,9 @@ func TestRandomLBPolicyWithNilTrackers(t *testing.T) {
 		podTrackers := makeTrackers(3, 0)
 		// Set middle one to nil
 		podTrackers[1] = nil
-		
+
 		// Run multiple times to ensure we don't get nil
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			cb, pt := randomLBPolicy(context.Background(), podTrackers)
 			defer cb()
 			if pt == nil {
@@ -409,10 +409,10 @@ func TestRandomChoice2PolicyWithNilTrackers(t *testing.T) {
 		// Set some to nil
 		podTrackers[1] = nil
 		podTrackers[3] = nil
-		
+
 		// Run multiple times to check behavior
 		foundNonNil := false
-		for i := 0; i < 20; i++ {
+		for range 20 {
 			cb, pt := randomChoice2Policy(context.Background(), podTrackers)
 			defer cb()
 			if pt != nil {
@@ -437,10 +437,10 @@ func TestRandomChoice2PolicyWithNilTrackers(t *testing.T) {
 		// Initialize the weight field properly
 		validTracker.weight.Store(0)
 		podTrackers[0] = validTracker
-		
+
 		// Run multiple times - should eventually find the valid tracker
 		foundValid := false
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			cb, pt := randomChoice2Policy(context.Background(), podTrackers)
 			if cb != nil {
 				defer cb()
@@ -496,13 +496,13 @@ func TestRoundRobinWithNilTrackers(t *testing.T) {
 		podTrackers := makeTrackers(3, 1)
 		// Set middle tracker to nil
 		podTrackers[1] = nil
-		
+
 		cb, pt := rrp(context.Background(), podTrackers)
 		t.Cleanup(cb)
 		if got, want := pt, podTrackers[0]; got != want {
 			t.Fatalf("Tracker = %v, want: %v", got, want)
 		}
-		
+
 		// Should skip nil tracker and go to next valid one
 		cb, pt = rrp(context.Background(), podTrackers)
 		t.Cleanup(cb)
@@ -514,7 +514,7 @@ func TestRoundRobinWithNilTrackers(t *testing.T) {
 	t.Run("all nil trackers", func(t *testing.T) {
 		rrp := newRoundRobinPolicy()
 		podTrackers := []*podTracker{nil, nil, nil}
-		
+
 		cb, pt := rrp(context.Background(), podTrackers)
 		defer cb()
 		if pt != nil {
