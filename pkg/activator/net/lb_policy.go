@@ -43,55 +43,49 @@ func randomLBPolicy(_ context.Context, targets []*podTracker) (func(), *podTrack
 	if len(targets) == 0 {
 		return noop, nil
 	}
-	// Try to find a non-nil tracker with limited retries
-	for range targets {
-		idx := rand.Intn(len(targets)) //nolint:gosec
-		if targets[idx] != nil {
-			return noop, targets[idx]
+
+	// Filter out nil trackers to ensure uniform distribution
+	validTargets := make([]*podTracker, 0, len(targets))
+	for _, t := range targets {
+		if t != nil {
+			validTargets = append(validTargets, t)
 		}
 	}
-	// All trackers were nil
-	return noop, nil
+
+	if len(validTargets) == 0 {
+		return noop, nil
+	}
+
+	return noop, validTargets[rand.Intn(len(validTargets))] //nolint:gosec
 }
 
 // randomChoice2Policy implements the Power of 2 choices LB algorithm
 func randomChoice2Policy(_ context.Context, targets []*podTracker) (func(), *podTracker) {
-	// Avoid random if possible.
-	l := len(targets)
-	// One tracker = no choice.
-	if l == 1 {
-		pick := targets[0]
-		if pick != nil {
-			pick.increaseWeight()
-			return pick.decreaseWeight, pick
+	// Filter out nil trackers first to ensure uniform distribution
+	validTargets := make([]*podTracker, 0, len(targets))
+	for _, t := range targets {
+		if t != nil {
+			validTargets = append(validTargets, t)
 		}
+	}
+
+	l := len(validTargets)
+	if l == 0 {
 		return noop, nil
 	}
-	r1, r2 := 0, 1
+
+	// One tracker = no choice.
+	if l == 1 {
+		pick := validTargets[0]
+		pick.increaseWeight()
+		return pick.decreaseWeight, pick
+	}
 
 	// Two trackers - we know both contestants,
 	// otherwise pick 2 random unequal integers.
-	// Attempt this only n/2 times for each podTracker
-	var pick *podTracker
-	pickTrys := 0
-	var alt *podTracker
-	altTrys := 0
-	// Skip nil trackers (unhealthy pods removed from rotation)
-	// TODO: Should we explain why n/2 was chosen as the retry limit?
-	for pick == nil && pickTrys < len(targets)/2 {
-		if l > 2 {
-			r1 = rand.Intn(l) //nolint:gosec // We don't need cryptographic randomness for load balancing
-		}
-		pick = targets[r1]
-		pickTrys++
-	}
-	// If we couldn't find a non-nil pick after n/2 tries, fail
-	if pick == nil {
-		return noop, nil
-	}
-
-	// Try to find an alternative tracker for comparison
-	for alt == nil && altTrys < len(targets)/2 {
+	r1, r2 := 0, 1
+	if l > 2 {
+		r1 = rand.Intn(l)     //nolint:gosec // We don't need cryptographic randomness for load balancing
 		r2 = rand.Intn(l - 1) //nolint:gosec // We don't need cryptographic randomness here.
 		// shift second half of second rand.Intn down so we're picking
 		// from range of numbers other than r1.
@@ -99,14 +93,9 @@ func randomChoice2Policy(_ context.Context, targets []*podTracker) (func(), *pod
 		if r2 >= r1 {
 			r2++
 		}
-		alt = targets[r2]
-		altTrys++
 	}
-	// If we couldn't find an alternative, just use pick
-	if alt == nil {
-		pick.increaseWeight()
-		return pick.decreaseWeight, pick
-	}
+
+	pick, alt := validTargets[r1], validTargets[r2]
 
 	// Possible race here, but this policy is for CC=0,
 	// so fine.
