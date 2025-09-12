@@ -35,9 +35,7 @@ import (
 
 	netheader "knative.dev/networking/pkg/http/header"
 	netproxy "knative.dev/networking/pkg/http/proxy"
-	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/network"
-	pkghandler "knative.dev/pkg/network/handlers"
 	"knative.dev/serving/pkg/activator"
 	apiconfig "knative.dev/serving/pkg/apis/config"
 	pkghttp "knative.dev/serving/pkg/http"
@@ -121,8 +119,6 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		trySpan.SetStatus(codes.Error, err.Error())
 		trySpan.End()
 
-		a.logger.Errorw("Throttler try error", zap.String(logkey.Key, revID.String()), zap.Error(err))
-
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, queue.ErrRequestQueueFull) {
 			http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		} else {
@@ -157,10 +153,18 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 	proxy.BufferPool = a.bufferPool
 	proxy.Transport = a.transport
 	proxy.FlushInterval = netproxy.FlushInterval
-	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
-		pkghandler.Error(a.logger.With(zap.String(logkey.Key, revID.String())))(w, req, err)
-	}
 
+	// Mark this request as targeting a healthy backend so metrics can be scoped appropriately.
+	r = r.WithContext(WithHealthyTarget(r.Context(), true))
+
+	// Log proxy attempt
+	a.logger.Debugw("Proxy attempt",
+		zap.String("x-request-id", r.Header.Get("X-Request-Id")),
+		zap.String("target", target),
+		zap.Bool("clusterIP", isClusterIP),
+		zap.String("method", r.Method),
+		zap.String("path", r.URL.Path),
+	)
 	proxy.ServeHTTP(w, r)
 }
 
