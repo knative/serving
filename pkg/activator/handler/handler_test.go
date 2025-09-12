@@ -39,6 +39,7 @@ import (
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	activatortest "knative.dev/serving/pkg/activator/testing"
+	apiconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/queue"
@@ -47,6 +48,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"knative.dev/pkg/logging"
+	ktesting "knative.dev/pkg/logging/testing"
 )
 
 const (
@@ -494,4 +496,73 @@ func (rr *responseRecorder) Write(p []byte) (int, error) {
 
 func (rr *responseRecorder) WriteHeader(code int) {
 	rr.code = code
+}
+
+func TestWrapActivatorHandlerWithFullDuplex(t *testing.T) {
+	logger := ktesting.TestLogger(t)
+	
+	tests := []struct {
+		name               string
+		annotation         string
+		expectFullDuplex   bool
+	}{
+		{
+			name:               "full duplex enabled",
+			annotation:         "Enabled",
+			expectFullDuplex:   true,
+		},
+		{
+			name:               "full duplex disabled",
+			annotation:         "Disabled",
+			expectFullDuplex:   false,
+		},
+		{
+			name:               "full duplex missing annotation",
+			annotation:         "",
+			expectFullDuplex:   false,
+		},
+		{
+			name:               "full duplex case insensitive",
+			annotation:         "enabled",
+			expectFullDuplex:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a test handler
+			testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// Just respond with OK
+				w.WriteHeader(http.StatusOK)
+			})
+			
+			// Wrap with full duplex handler
+			wrapped := WrapActivatorHandlerWithFullDuplex(testHandler, logger)
+			
+			// Create request with context
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			
+			// Set up revision context with annotation
+			rev := &v1.Revision{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+			}
+			if tt.annotation != "" {
+				rev.Annotations[apiconfig.AllowHTTPFullDuplexFeatureKey] = tt.annotation
+			}
+			
+			ctx := WithRevisionAndID(context.Background(), rev, types.NamespacedName{})
+			req = req.WithContext(ctx)
+			
+			// Execute request
+			resp := httptest.NewRecorder()
+			wrapped.ServeHTTP(resp, req)
+			
+			// Verify response code
+			if resp.Code != http.StatusOK {
+				t.Errorf("Expected status %d, got %d", http.StatusOK, resp.Code)
+			}
+		})
+	}
 }
