@@ -29,6 +29,7 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	semconv "go.opentelemetry.io/otel/semconv/v1.34.0"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -199,6 +200,7 @@ func newServiceScraperWithClient(
 		clock:            clock.RealClock{},
 		duration:         metric,
 		attrs: attribute.NewSet(
+			semconv.K8SNamespaceName(m.ObjectMeta.Namespace),
 			metrics.ServiceNameKey.With(svcName),
 			metrics.ConfigurationNameKey.With(cfgName),
 			metrics.RevisionNameKey.With(revisionName),
