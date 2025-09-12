@@ -37,6 +37,7 @@ cp -aR \
   "${REPO_ROOT_DIR}/go.sum" \
   "${REPO_ROOT_DIR}/apis" \
   "${REPO_ROOT_DIR}/logging" \
+  "${REPO_ROOT_DIR}/metrics" \
   "${REPO_ROOT_DIR}/testing" \
   "${REPO_ROOT_DIR}/vendor" \
   "${TMP_DIFFROOT}"
@@ -55,6 +56,9 @@ diff -Naupr --no-dereference \
   "${REPO_ROOT_DIR}/logging" "${TMP_DIFFROOT}/logging" || ret=1
 
 diff -Naupr --no-dereference \
+  "${REPO_ROOT_DIR}/metrics" "${TMP_DIFFROOT}/metrics" || ret=1
+
+diff -Naupr --no-dereference \
   "${REPO_ROOT_DIR}/testing" "${TMP_DIFFROOT}/testing" || ret=1
 
 diff -Naupr --no-dereference \
@@ -65,6 +69,7 @@ rm -fr \
   "${REPO_ROOT_DIR}/go.sum" \
   "${REPO_ROOT_DIR}/apis" \
   "${REPO_ROOT_DIR}/logging" \
+  "${REPO_ROOT_DIR}/metrics" \
   "${REPO_ROOT_DIR}/testing" \
   "${REPO_ROOT_DIR}/vendor"
 
