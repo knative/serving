@@ -88,12 +88,14 @@ func (m *queueMetrics) get(item any) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.depth.Dec()
-	m.processingStartTimes[item] = m.clock.Now()
-
 	if startTime, exists := m.addTimes[item]; exists {
+		m.depth.Dec()
 		m.latency.Observe(m.sinceInSeconds(startTime))
 		delete(m.addTimes, item)
+	}
+
+	if _, exists := m.processingStartTimes[item]; !exists {
+		m.processingStartTimes[item] = m.clock.Now()
 	}
 }
 
