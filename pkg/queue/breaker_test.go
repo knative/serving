@@ -412,7 +412,7 @@ func TestBreakerInFlight(t *testing.T) {
 			t.Fatalf("Expected Reserve %d to succeed", i+1)
 		}
 		releases = append(releases, release)
-		
+
 		// Check in-flight count
 		if inFlight := b.InFlight(); inFlight != uint64(i+1) {
 			t.Errorf("Expected in-flight to be %d, got %d", i+1, inFlight)
@@ -497,7 +497,7 @@ func TestSemaphoreInFlight(t *testing.T) {
 		if !ok {
 			t.Fatalf("Expected acquire %d to succeed", i+1)
 		}
-		
+
 		// Check in-flight count
 		if inFlight := sem.InFlight(); inFlight != uint64(i+1) {
 			t.Errorf("Expected in-flight to be %d, got %d", i+1, inFlight)

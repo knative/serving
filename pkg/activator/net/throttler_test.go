@@ -243,6 +243,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		})
 	}
 }
+
 func TestThrottlerCalculateCapacity(t *testing.T) {
 	logger := TestLogger(t)
 	tests := []struct {
@@ -277,6 +278,7 @@ func TestThrottlerCalculateCapacity(t *testing.T) {
 		})
 	}
 }
+
 func makeTrackers(num, cc int) []*podTracker {
 	trackers := make([]*podTracker, num)
 	for i := range num {
@@ -294,6 +296,7 @@ func makeTrackers(num, cc int) []*podTracker {
 	}
 	return trackers
 }
+
 func TestThrottlerErrorNoRevision(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	servfake := fakeservingclient.Get(ctx)
@@ -341,6 +344,7 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 		t.Fatalf("Try() = %v, wanted a not found error", lastError)
 	}
 }
+
 func TestThrottlerErrorOneTimesOut(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	servfake := fakeservingclient.Get(ctx)
@@ -388,6 +392,7 @@ func TestThrottlerErrorOneTimesOut(t *testing.T) {
 		t.Fatalf("err = %v, want no error", err)
 	}
 }
+
 func sortedTrackers(trk []*podTracker) bool {
 	for i := 1; i < len(trk); i++ {
 		if trk[i].dest < trk[i-1].dest {
@@ -396,6 +401,7 @@ func sortedTrackers(trk []*podTracker) bool {
 	}
 	return true
 }
+
 func TestThrottlerSuccesses(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
@@ -595,6 +601,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 		})
 	}
 }
+
 func trackerDestSet(ts []*podTracker) sets.Set[string] {
 	ret := sets.New[string]()
 	for _, t := range ts {
@@ -602,6 +609,7 @@ func trackerDestSet(ts []*podTracker) sets.Set[string] {
 	}
 	return ret
 }
+
 func TestPodAssignmentFinite(t *testing.T) {
 	// An e2e verification test of pod assignment and capacity
 	// computations.
@@ -653,6 +661,7 @@ func TestPodAssignmentFinite(t *testing.T) {
 		t.Errorf("TotalCapacity = %d, want: %d", got, want)
 	}
 }
+
 func TestPodAssignmentInfinite(t *testing.T) {
 	logger := TestLogger(t)
 	revName := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
@@ -696,6 +705,7 @@ func TestPodAssignmentInfinite(t *testing.T) {
 		t.Errorf("TotalCapacity = %d, want: %d", got, want)
 	}
 }
+
 func TestActivatorsIndexUpdate(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 
@@ -785,6 +795,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 		t.Fatal("Timed out waiting for the Activator Endpoints to be computed")
 	}
 }
+
 func TestMultipleActivators(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 
@@ -875,6 +886,7 @@ func TestMultipleActivators(t *testing.T) {
 		t.Fatalf("Request went to an unknown destination: %s, possibles: %v", result.dest, possibleDests)
 	}
 }
+
 func TestInfiniteBreakerCreation(t *testing.T) {
 	// This test verifies that we use infiniteBreaker when CC==0.
 	tttl := newRevisionThrottler(types.NamespacedName{Namespace: "a", Name: "b"}, 0, /*cc*/
@@ -902,6 +914,7 @@ func (t *Throttler) try(ctx context.Context, requests int, try func(string) erro
 	}
 	return resultChan
 }
+
 func TestInfiniteBreaker(t *testing.T) {
 	b := &infiniteBreaker{
 		broadcast: make(chan struct{}),
@@ -965,6 +978,7 @@ func TestInfiniteBreaker(t *testing.T) {
 		t.Error("thunk was not invoked")
 	}
 }
+
 func TestInferIndex(t *testing.T) {
 	const myIP = "10.10.10.3"
 	tests := []struct {
@@ -1000,6 +1014,7 @@ func TestInferIndex(t *testing.T) {
 		})
 	}
 }
+
 func TestAssignSlice(t *testing.T) {
 	opt := cmp.Comparer(func(a, b *podTracker) bool {
 		return a.dest == b.dest
@@ -1234,41 +1249,41 @@ func TestResetTrackersRaceCondition(t *testing.T) {
 func TestPodTrackerStateTransitions(t *testing.T) {
 	t.Run("initial state is healthy", func(t *testing.T) {
 		tracker := newPodTracker("10.0.0.1:8012", nil)
-		
+
 		state := podState(tracker.state.Load())
 		if state != podHealthy {
 			t.Errorf("Expected initial state to be podHealthy, got %v", state)
 		}
 	})
-	
+
 	t.Run("tryDrain transitions from healthy to draining", func(t *testing.T) {
 		tracker := newPodTracker("10.0.0.1:8012", nil)
-		
+
 		// Should successfully transition to draining
 		if !tracker.tryDrain() {
 			t.Error("Expected tryDrain to succeed on healthy pod")
 		}
-		
+
 		state := podState(tracker.state.Load())
 		if state != podDraining {
 			t.Errorf("Expected state to be podDraining after tryDrain, got %v", state)
 		}
-		
+
 		// Should not transition again
 		if tracker.tryDrain() {
 			t.Error("Expected tryDrain to fail on already draining pod")
 		}
-		
+
 		// Verify draining start time was set
 		if tracker.drainingStartTime.Load() == 0 {
 			t.Error("Expected drainingStartTime to be set")
 		}
 	})
-	
+
 	t.Run("pending state allows reservation", func(t *testing.T) {
 		tracker := newPodTracker("10.0.0.1:8012", nil)
 		tracker.state.Store(uint32(podPending))
-		
+
 		// Should be able to reserve on pending pod
 		release, ok := tracker.Reserve(context.Background())
 		if !ok {
@@ -1278,11 +1293,11 @@ func TestPodTrackerStateTransitions(t *testing.T) {
 			release()
 		}
 	})
-	
+
 	t.Run("draining state blocks new reservations", func(t *testing.T) {
 		tracker := newPodTracker("10.0.0.1:8012", nil)
 		tracker.tryDrain()
-		
+
 		// Should not be able to reserve on draining pod
 		release, ok := tracker.Reserve(context.Background())
 		if ok {
@@ -1292,11 +1307,11 @@ func TestPodTrackerStateTransitions(t *testing.T) {
 			release()
 		}
 	})
-	
+
 	t.Run("removed state blocks new reservations", func(t *testing.T) {
 		tracker := newPodTracker("10.0.0.1:8012", nil)
 		tracker.state.Store(uint32(podRemoved))
-		
+
 		// Should not be able to reserve on removed pod
 		release, ok := tracker.Reserve(context.Background())
 		if ok {
@@ -1311,39 +1326,39 @@ func TestPodTrackerStateTransitions(t *testing.T) {
 func TestPodTrackerReferenceCouting(t *testing.T) {
 	t.Run("reference counting on successful reserve", func(t *testing.T) {
 		tracker := newPodTracker("10.0.0.1:8012", nil)
-		
+
 		// Initial ref count should be 0
 		if tracker.getRefCount() != 0 {
 			t.Errorf("Expected initial ref count to be 0, got %d", tracker.getRefCount())
 		}
-		
+
 		// Reserve should increment ref count
 		release, ok := tracker.Reserve(context.Background())
 		if !ok {
 			t.Fatal("Expected Reserve to succeed")
 		}
-		
+
 		if tracker.getRefCount() != 1 {
 			t.Errorf("Expected ref count to be 1 after Reserve, got %d", tracker.getRefCount())
 		}
-		
+
 		// Release should decrement ref count
 		release()
-		
+
 		if tracker.getRefCount() != 0 {
 			t.Errorf("Expected ref count to be 0 after release, got %d", tracker.getRefCount())
 		}
 	})
-	
+
 	t.Run("reference counting on failed reserve", func(t *testing.T) {
 		tracker := newPodTracker("10.0.0.1:8012", nil)
 		tracker.state.Store(uint32(podDraining))
-		
+
 		// Initial ref count should be 0
 		if tracker.getRefCount() != 0 {
 			t.Errorf("Expected initial ref count to be 0, got %d", tracker.getRefCount())
 		}
-		
+
 		// Reserve should fail and not increment ref count
 		release, ok := tracker.Reserve(context.Background())
 		if ok {
@@ -1352,21 +1367,21 @@ func TestPodTrackerReferenceCouting(t *testing.T) {
 		if release != nil {
 			release()
 		}
-		
+
 		if tracker.getRefCount() != 0 {
 			t.Errorf("Expected ref count to remain 0 after failed Reserve, got %d", tracker.getRefCount())
 		}
 	})
-	
+
 	t.Run("multiple concurrent reservations", func(t *testing.T) {
 		tracker := newPodTracker("10.0.0.1:8012", nil)
-		
+
 		const numReservations = 10
 		var wg sync.WaitGroup
 		releases := make([]func(), numReservations)
-		
+
 		// Make concurrent reservations
-		for i := 0; i < numReservations; i++ {
+		for i := range numReservations {
 			wg.Add(1)
 			go func(idx int) {
 				defer wg.Done()
@@ -1376,9 +1391,9 @@ func TestPodTrackerReferenceCouting(t *testing.T) {
 				}
 			}(i)
 		}
-		
+
 		wg.Wait()
-		
+
 		// Check ref count
 		expectedCount := uint64(0)
 		for _, release := range releases {
@@ -1386,29 +1401,29 @@ func TestPodTrackerReferenceCouting(t *testing.T) {
 				expectedCount++
 			}
 		}
-		
+
 		if tracker.getRefCount() != expectedCount {
 			t.Errorf("Expected ref count to be %d, got %d", expectedCount, tracker.getRefCount())
 		}
-		
+
 		// Release all
 		for _, release := range releases {
 			if release != nil {
 				release()
 			}
 		}
-		
+
 		if tracker.getRefCount() != 0 {
 			t.Errorf("Expected ref count to be 0 after all releases, got %d", tracker.getRefCount())
 		}
 	})
-	
+
 	t.Run("releaseRef with zero refcount", func(t *testing.T) {
 		tracker := newPodTracker("10.0.0.1:8012", nil)
-		
+
 		// Should handle gracefully (not panic)
 		tracker.releaseRef()
-		
+
 		// Ref count should remain 0
 		if tracker.getRefCount() != 0 {
 			t.Errorf("Expected ref count to remain 0, got %d", tracker.getRefCount())
@@ -1419,31 +1434,31 @@ func TestPodTrackerReferenceCouting(t *testing.T) {
 func TestPodTrackerWeightOperations(t *testing.T) {
 	t.Run("weight increment and decrement", func(t *testing.T) {
 		tracker := newPodTracker("10.0.0.1:8012", nil)
-		
+
 		// Initial weight should be 0
 		if tracker.getWeight() != 0 {
 			t.Errorf("Expected initial weight to be 0, got %d", tracker.getWeight())
 		}
-		
+
 		// Increment weight
 		tracker.increaseWeight()
 		if tracker.getWeight() != 1 {
 			t.Errorf("Expected weight to be 1 after increase, got %d", tracker.getWeight())
 		}
-		
+
 		// Decrement weight
 		tracker.decreaseWeight()
 		if tracker.getWeight() != 0 {
 			t.Errorf("Expected weight to be 0 after decrease, got %d", tracker.getWeight())
 		}
 	})
-	
+
 	t.Run("weight underflow protection", func(t *testing.T) {
 		tracker := newPodTracker("10.0.0.1:8012", nil)
-		
+
 		// Decrement from 0 should not underflow
 		tracker.decreaseWeight()
-		
+
 		// Weight should remain 0 (not wrap around to max uint32)
 		weight := tracker.getWeight()
 		if weight != 0 && weight != ^uint32(0) {
@@ -1461,12 +1476,12 @@ func TestPodTrackerWithBreaker(t *testing.T) {
 			InitialCapacity: 5,
 		})
 		tracker := newPodTracker("10.0.0.1:8012", breaker)
-		
+
 		if tracker.Capacity() != 5 {
 			t.Errorf("Expected capacity to be 5, got %d", tracker.Capacity())
 		}
 	})
-	
+
 	t.Run("pending with breaker", func(t *testing.T) {
 		breaker := queue.NewBreaker(queue.BreakerParams{
 			QueueDepth:      10,
@@ -1474,13 +1489,13 @@ func TestPodTrackerWithBreaker(t *testing.T) {
 			InitialCapacity: 5,
 		})
 		tracker := newPodTracker("10.0.0.1:8012", breaker)
-		
+
 		// Initially should have 0 pending
 		if tracker.Pending() != 0 {
 			t.Errorf("Expected pending to be 0, got %d", tracker.Pending())
 		}
 	})
-	
+
 	t.Run("in-flight with breaker", func(t *testing.T) {
 		breaker := queue.NewBreaker(queue.BreakerParams{
 			QueueDepth:      10,
@@ -1488,12 +1503,12 @@ func TestPodTrackerWithBreaker(t *testing.T) {
 			InitialCapacity: 5,
 		})
 		tracker := newPodTracker("10.0.0.1:8012", breaker)
-		
+
 		// Initially should have 0 in-flight
 		if tracker.InFlight() != 0 {
 			t.Errorf("Expected in-flight to be 0, got %d", tracker.InFlight())
 		}
-		
+
 		// Reserve should increment in-flight
 		ctx := context.Background()
 		release, ok := breaker.Reserve(ctx)
@@ -1501,12 +1516,12 @@ func TestPodTrackerWithBreaker(t *testing.T) {
 			t.Fatal("Expected Reserve to succeed")
 		}
 		defer release()
-		
+
 		if tracker.InFlight() != 1 {
 			t.Errorf("Expected in-flight to be 1, got %d", tracker.InFlight())
 		}
 	})
-	
+
 	t.Run("update concurrency with breaker", func(t *testing.T) {
 		breaker := queue.NewBreaker(queue.BreakerParams{
 			QueueDepth:      10,
@@ -1514,10 +1529,10 @@ func TestPodTrackerWithBreaker(t *testing.T) {
 			InitialCapacity: 5,
 		})
 		tracker := newPodTracker("10.0.0.1:8012", breaker)
-		
+
 		// Update concurrency
 		tracker.UpdateConcurrency(10)
-		
+
 		// Capacity should be updated
 		if tracker.Capacity() != 10 {
 			t.Errorf("Expected capacity to be 10 after update, got %d", tracker.Capacity())

@@ -500,31 +500,31 @@ func (rr *responseRecorder) WriteHeader(code int) {
 
 func TestWrapActivatorHandlerWithFullDuplex(t *testing.T) {
 	logger := ktesting.TestLogger(t)
-	
+
 	tests := []struct {
-		name               string
-		annotation         string
-		expectFullDuplex   bool
+		name             string
+		annotation       string
+		expectFullDuplex bool
 	}{
 		{
-			name:               "full duplex enabled",
-			annotation:         "Enabled",
-			expectFullDuplex:   true,
+			name:             "full duplex enabled",
+			annotation:       "Enabled",
+			expectFullDuplex: true,
 		},
 		{
-			name:               "full duplex disabled",
-			annotation:         "Disabled",
-			expectFullDuplex:   false,
+			name:             "full duplex disabled",
+			annotation:       "Disabled",
+			expectFullDuplex: false,
 		},
 		{
-			name:               "full duplex missing annotation",
-			annotation:         "",
-			expectFullDuplex:   false,
+			name:             "full duplex missing annotation",
+			annotation:       "",
+			expectFullDuplex: false,
 		},
 		{
-			name:               "full duplex case insensitive",
-			annotation:         "enabled",
-			expectFullDuplex:   true,
+			name:             "full duplex case insensitive",
+			annotation:       "enabled",
+			expectFullDuplex: true,
 		},
 	}
 
@@ -535,13 +535,13 @@ func TestWrapActivatorHandlerWithFullDuplex(t *testing.T) {
 				// Just respond with OK
 				w.WriteHeader(http.StatusOK)
 			})
-			
+
 			// Wrap with full duplex handler
 			wrapped := WrapActivatorHandlerWithFullDuplex(testHandler, logger)
-			
+
 			// Create request with context
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
-			
+
 			// Set up revision context with annotation
 			rev := &v1.Revision{
 				ObjectMeta: metav1.ObjectMeta{
@@ -551,14 +551,14 @@ func TestWrapActivatorHandlerWithFullDuplex(t *testing.T) {
 			if tt.annotation != "" {
 				rev.Annotations[apiconfig.AllowHTTPFullDuplexFeatureKey] = tt.annotation
 			}
-			
+
 			ctx := WithRevisionAndID(context.Background(), rev, types.NamespacedName{})
 			req = req.WithContext(ctx)
-			
+
 			// Execute request
 			resp := httptest.NewRecorder()
 			wrapped.ServeHTTP(resp, req)
-			
+
 			// Verify response code
 			if resp.Code != http.StatusOK {
 				t.Errorf("Expected status %d, got %d", http.StatusOK, resp.Code)
