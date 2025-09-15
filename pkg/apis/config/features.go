@@ -126,7 +126,7 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag("multi-container-probing", &nc.MultiContainerProbing),
 		asFlag("queueproxy.mount-podinfo", &nc.QueueProxyMountPodInfo),
 		asFlag("queueproxy.resource-defaults", &nc.QueueProxyResourceDefaults),
-		asFlag("secure-pod-defaults", &nc.SecurePodDefaults),
+		asFlagWithRestricted("secure-pod-defaults", &nc.SecurePodDefaults),
 		asFlag("tag-header-based-routing", &nc.TagHeaderBasedRouting),
 		asFlag(FeatureContainerSpecAddCapabilities, &nc.ContainerSpecAddCapabilities),
 		asFlag(FeaturePodSpecAffinity, &nc.PodSpecAffinity),
@@ -200,7 +200,25 @@ type Features struct {
 }
 
 // asFlag parses the value at key as a Flag into the target, if it exists.
+// Only accepts Enabled, Disabled, and Allowed values.
 func asFlag(key string, target *Flag) cm.ParseFunc {
+	return func(data map[string]string) error {
+		if raw, ok := data[key]; ok {
+			for _, flag := range []Flag{Enabled, Allowed, Disabled} {
+				if strings.EqualFold(raw, string(flag)) {
+					*target = flag
+					return nil
+				}
+			}
+		}
+		return nil
+	}
+}
+
+// asFlagWithRestricted parses the value at key as a Flag into the target, if it exists.
+// Accepts Enabled, Disabled, Allowed, and Restricted values. The Restricted value should only
+// be used for features that specifically support it (currently only SecurePodDefaults).
+func asFlagWithRestricted(key string, target *Flag) cm.ParseFunc {
 	return func(data map[string]string) error {
 		if raw, ok := data[key]; ok {
 			for _, flag := range []Flag{Enabled, Allowed, Disabled, Restricted} {
