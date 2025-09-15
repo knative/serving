@@ -21,10 +21,10 @@ jobs:
         run: |
           # Base version for Knative 1.18.0
           BASE_VERSION="1.18.0c"
-          
+
           # Get all tags that match our pattern and find the highest number
           LAST_VERSION=$(git tag -l "${BASE_VERSION}*" | grep -E "^${BASE_VERSION}[0-9]+$" | sed "s/^${BASE_VERSION}//" | sort -n | tail -1)
-          
+
           # If no previous version found, start at 1
           if [ -z "$LAST_VERSION" ]; then
             NEXT_VERSION="${BASE_VERSION}1"
@@ -32,10 +32,10 @@ jobs:
             NEXT_NUMBER=$((LAST_VERSION + 1))
             NEXT_VERSION="${BASE_VERSION}${NEXT_NUMBER}"
           fi
-          
+
           echo "version=${NEXT_VERSION}" >> $GITHUB_OUTPUT
           echo "Next version: ${NEXT_VERSION}"
-          
+
       - name: Create tag
         run: |
           git config --local user.email "action@github.com"
@@ -51,10 +51,10 @@ jobs:
         region:
           - name: us-east-1
             identifier: virginia
-            context: aws-virginia
           - name: eu-west-2
             identifier: london
-            context: aws-london
+          - name: eu-north-1
+            identifier: stockholm
         component:
           - name: activator
             path: ./cmd/activator
