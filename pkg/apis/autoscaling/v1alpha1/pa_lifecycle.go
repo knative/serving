@@ -209,12 +209,6 @@ func (pas *PodAutoscalerStatus) IsScaleTargetInitialized() bool {
 	return pas.GetCondition(PodAutoscalerConditionScaleTargetInitialized).IsTrue()
 }
 
-// IsScaleTargetInitializedFalse returns false if the PodAutoscaler's scale target has been
-// set to false.
-func (pas *PodAutoscalerStatus) IsScaleTargetInitializedFalse() bool {
-	return pas.GetCondition(PodAutoscalerConditionScaleTargetInitialized).IsFalse()
-}
-
 // MarkScaleTargetInitialized marks the PA's PodAutoscalerConditionScaleTargetInitialized
 // condition true.
 func (pas *PodAutoscalerStatus) MarkScaleTargetInitialized() {

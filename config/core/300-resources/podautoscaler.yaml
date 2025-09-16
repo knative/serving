@@ -130,21 +130,25 @@ spec:
                   - lastTransitionTime: "1970-01-01T00:00:00Z"
                     message: Waiting for controller
                     reason: Pending
+                    severity: ""
                     status: Unknown
                     type: Active
                   - lastTransitionTime: "1970-01-01T00:00:00Z"
                     message: Waiting for controller
                     reason: Pending
+                    severity: ""
                     status: Unknown
                     type: Ready
                   - lastTransitionTime: "1970-01-01T00:00:00Z"
                     message: Waiting for controller
                     reason: Pending
+                    severity: ""
                     status: Unknown
                     type: SKSReady
                   - lastTransitionTime: "1970-01-01T00:00:00Z"
                     message: Waiting for controller
                     reason: Pending
+                    severity: ""
                     status: Unknown
                     type: ScaleTargetInitialized
               properties:
