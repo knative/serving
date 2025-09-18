@@ -22,7 +22,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	netproxy "knative.dev/networking/pkg/http/proxy"
+	pkghandler "knative.dev/pkg/network/handlers"
+	"knative.dev/serving/pkg/activator"
+	"net"
 	"net/http"
+	"net/http/httputil"
 	"os"
 	"strconv"
 	"time"
@@ -145,6 +150,12 @@ type Defaults struct {
 	// If Transport is wrapped, the new RoundTripper should replace the value of Transport.
 	// The new Transport will then be used by other Options (called next) and by QP.
 	Transport http.RoundTripper
+
+	// ProxyHandler provides Options with the QP's main ReverseProxy
+	// The default value is of type *httputil.ReverseProxy
+	// An Option may type assert to *httutil.ReverseProxy and adjust attributes of the ReverseProxy,
+	// or replace the handler entirely, typically to insert additional handler(s) into the chain.
+	ProxyHandler http.Handler
 }
 
 type Option func(*Defaults)
@@ -205,7 +216,9 @@ func Main(opts ...Option) error {
 
 	d.Transport = buildTransport(env, tp, mp)
 
-	// allow extensions to read d and return modified context and transport
+	d.ProxyHandler = buildProxyHandler(logger, env, d.Transport)
+
+	// allow extensions to read d and return modified context, transport, and proxy handler.
 	for _, opts := range opts {
 		opts(&d)
 	}
@@ -232,7 +245,7 @@ func Main(opts ...Option) error {
 	// Enable TLS when certificate is mounted.
 	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
-	mainHandler, drainer := mainHandler(env, d.Transport, probe, stats, logger, mp, tp)
+	mainHandler, drainer := mainHandler(env, d, probe, stats, logger, mp, tp)
 	adminHandler := adminHandler(d.Ctx, logger, drainer)
 
 	// Enable TLS server when activator server certs are mounted.
@@ -357,6 +370,17 @@ func buildTransport(env config, tp trace.TracerProvider, mp metric.MeterProvider
 		otelhttp.WithTracerProvider(tp),
 		otelhttp.WithMeterProvider(mp),
 	)
+}
+
+func buildProxyHandler(logger *zap.SugaredLogger, env config, transport http.RoundTripper) *httputil.ReverseProxy {
+	target := net.JoinHostPort("127.0.0.1", env.UserPort)
+	httpProxy := pkghttp.NewHeaderPruningReverseProxy(target, pkghttp.NoHostOverride, activator.RevisionHeaders, false /* use HTTP */)
+	httpProxy.Transport = transport
+	httpProxy.ErrorHandler = pkghandler.Error(logger)
+	httpProxy.BufferPool = netproxy.NewBufferPool()
+	httpProxy.FlushInterval = netproxy.FlushInterval
+
+	return httpProxy
 }
 
 func buildBreaker(logger *zap.SugaredLogger, env config) *queue.Breaker {
