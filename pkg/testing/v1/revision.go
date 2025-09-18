@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/clock"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -246,9 +247,29 @@ func WithRevisionInitContainers() RevisionOption {
 		r.Spec.InitContainers = []corev1.Container{{
 			Name:  "init1",
 			Image: "initimage",
+			SecurityContext: &corev1.SecurityContext{
+				RunAsNonRoot:             ptr.Bool(true),
+				AllowPrivilegeEscalation: ptr.Bool(false),
+				SeccompProfile: &corev1.SeccompProfile{
+					Type: corev1.SeccompProfileTypeRuntimeDefault,
+				},
+				Capabilities: &corev1.Capabilities{
+					Drop: []corev1.Capability{"ALL"},
+				},
+			},
 		}, {
 			Name:  "init2",
 			Image: "initimage",
+			SecurityContext: &corev1.SecurityContext{
+				RunAsNonRoot:             ptr.Bool(true),
+				AllowPrivilegeEscalation: ptr.Bool(false),
+				SeccompProfile: &corev1.SeccompProfile{
+					Type: corev1.SeccompProfileTypeRuntimeDefault,
+				},
+				Capabilities: &corev1.Capabilities{
+					Drop: []corev1.Capability{"ALL"},
+				},
+			},
 		}}
 	}
 }

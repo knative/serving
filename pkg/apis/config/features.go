@@ -37,6 +37,8 @@ const (
 	// Allowed neither explicitly disables or enables a behavior.
 	// eg. allow a client to control behavior with an annotation or allow a new value through validation.
 	Allowed Flag = "Allowed"
+	// Restricted is used by secure-pod-defaults to enable the restricted profile, including runAsNonRoot.
+	Restricted Flag = "Restricted"
 )
 
 // service annotations under features.knative.dev/*
@@ -107,7 +109,7 @@ func defaultFeaturesConfig() *Features {
 		PodSpecInitContainers:            Disabled,
 		PodSpecDNSPolicy:                 Disabled,
 		PodSpecDNSConfig:                 Disabled,
-		SecurePodDefaults:                Disabled,
+		SecurePodDefaults:                Enabled,
 		TagHeaderBasedRouting:            Disabled,
 		AutoDetectHTTP2:                  Disabled,
 	}
@@ -124,7 +126,7 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag("multi-container-probing", &nc.MultiContainerProbing),
 		asFlag("queueproxy.mount-podinfo", &nc.QueueProxyMountPodInfo),
 		asFlag("queueproxy.resource-defaults", &nc.QueueProxyResourceDefaults),
-		asFlag("secure-pod-defaults", &nc.SecurePodDefaults),
+		asSecurePodDefaultsFlag("secure-pod-defaults", &nc.SecurePodDefaults),
 		asFlag("tag-header-based-routing", &nc.TagHeaderBasedRouting),
 		asFlag(FeatureContainerSpecAddCapabilities, &nc.ContainerSpecAddCapabilities),
 		asFlag(FeaturePodSpecAffinity, &nc.PodSpecAffinity),
@@ -198,10 +200,28 @@ type Features struct {
 }
 
 // asFlag parses the value at key as a Flag into the target, if it exists.
+// Only accepts Enabled, Disabled, and Allowed values.
 func asFlag(key string, target *Flag) cm.ParseFunc {
 	return func(data map[string]string) error {
 		if raw, ok := data[key]; ok {
 			for _, flag := range []Flag{Enabled, Allowed, Disabled} {
+				if strings.EqualFold(raw, string(flag)) {
+					*target = flag
+					return nil
+				}
+			}
+		}
+		return nil
+	}
+}
+
+// asSecurePodDefaultsFlag parses the value at key as a Flag into the target, if it exists.
+// Accepts Enabled, Disabled, Allowed, and Restricted values. The Restricted value should only
+// be used for features that specifically support it (currently only SecurePodDefaults).
+func asSecurePodDefaultsFlag(key string, target *Flag) cm.ParseFunc {
+	return func(data map[string]string) error {
+		if raw, ok := data[key]; ok {
+			for _, flag := range []Flag{Disabled, Enabled, Restricted} {
 				if strings.EqualFold(raw, string(flag)) {
 					*target = flag
 					return nil
