@@ -82,7 +82,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 								Resources:      defaultResources,
 								ReadinessProbe: defaultProbe,
 								SecurityContext: &corev1.SecurityContext{
-									RunAsNonRoot:             ptr.Bool(false),
+									RunAsNonRoot:             ptr.Bool(true),
 									AllowPrivilegeEscalation: ptr.Bool(false),
 									SeccompProfile: &corev1.SeccompProfile{
 										Type: corev1.SeccompProfileTypeRuntimeDefault,
@@ -127,7 +127,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 								Resources:      defaultResources,
 								ReadinessProbe: defaultProbe,
 								SecurityContext: &corev1.SecurityContext{
-									RunAsNonRoot:             ptr.Bool(false),
+									RunAsNonRoot:             ptr.Bool(true),
 									AllowPrivilegeEscalation: ptr.Bool(false),
 									SeccompProfile: &corev1.SeccompProfile{
 										Type: corev1.SeccompProfileTypeRuntimeDefault,
@@ -174,7 +174,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 								Resources:      defaultResources,
 								ReadinessProbe: defaultProbe,
 								SecurityContext: &corev1.SecurityContext{
-									RunAsNonRoot:             ptr.Bool(false),
+									RunAsNonRoot:             ptr.Bool(true),
 									AllowPrivilegeEscalation: ptr.Bool(false),
 									SeccompProfile: &corev1.SeccompProfile{
 										Type: corev1.SeccompProfileTypeRuntimeDefault,
@@ -220,7 +220,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 								Resources:      defaultResources,
 								ReadinessProbe: defaultProbe,
 								SecurityContext: &corev1.SecurityContext{
-									RunAsNonRoot:             ptr.Bool(false),
+									RunAsNonRoot:             ptr.Bool(true),
 									AllowPrivilegeEscalation: ptr.Bool(false),
 									SeccompProfile: &corev1.SeccompProfile{
 										Type: corev1.SeccompProfileTypeRuntimeDefault,

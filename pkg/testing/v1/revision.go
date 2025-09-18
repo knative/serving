@@ -248,7 +248,7 @@ func WithRevisionInitContainers() RevisionOption {
 			Name:  "init1",
 			Image: "initimage",
 			SecurityContext: &corev1.SecurityContext{
-				RunAsNonRoot:             ptr.Bool(false),
+				RunAsNonRoot:             ptr.Bool(true),
 				AllowPrivilegeEscalation: ptr.Bool(false),
 				SeccompProfile: &corev1.SeccompProfile{
 					Type: corev1.SeccompProfileTypeRuntimeDefault,
@@ -261,7 +261,7 @@ func WithRevisionInitContainers() RevisionOption {
 			Name:  "init2",
 			Image: "initimage",
 			SecurityContext: &corev1.SecurityContext{
-				RunAsNonRoot:             ptr.Bool(false),
+				RunAsNonRoot:             ptr.Bool(true),
 				AllowPrivilegeEscalation: ptr.Bool(false),
 				SeccompProfile: &corev1.SeccompProfile{
 					Type: corev1.SeccompProfileTypeRuntimeDefault,

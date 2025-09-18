@@ -247,9 +247,16 @@ func (rs *RevisionSpec) defaultSecurityContext(psc *corev1.PodSecurityContext, c
 		}
 	}
 
-	if cfg.Features.SecurePodDefaults == config.Restricted {
+	switch cfg.Features.SecurePodDefaults {
+	case config.Restricted:
 		updatedSC.RunAsNonRoot = ptr.Bool(true)
-	} else {
+	case config.Enabled:
+		if psc.RunAsNonRoot == nil {
+			updatedSC.RunAsNonRoot = ptr.Bool(true)
+		} else {
+			updatedSC.RunAsNonRoot = psc.RunAsNonRoot
+		}
+	default:
 		updatedSC.RunAsNonRoot = ptr.Bool(false)
 	}
 
