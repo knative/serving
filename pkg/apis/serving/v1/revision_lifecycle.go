@@ -212,6 +212,20 @@ func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *autoscalingv1alpha1.PodA
 	case corev1.ConditionUnknown:
 		rs.MarkActiveUnknown(cond.Reason, cond.Message)
 	case corev1.ConditionFalse:
+		// check if SKS still coming up - don't fail yet
+		sksCondition := ps.GetCondition(autoscalingv1alpha1.PodAutoscalerConditionSKSReady)
+		if sksCondition != nil && sksCondition.IsUnknown() {
+			rs.MarkActiveUnknown("SKSPending", "ServerlessService is still being reconciled")
+			return
+		}
+
+		// check if PA still activating
+		activeCondition := ps.GetCondition(autoscalingv1alpha1.PodAutoscalerConditionActive)
+		if activeCondition != nil && activeCondition.IsUnknown() {
+			rs.MarkActiveUnknown("Activating", "PodAutoscaler is still activating")
+			return
+		}
+
 		// Here we have 2 things coming together at the same time:
 		// 1. The ready is False, meaning the revision is scaled to 0
 		// 2. Initial scale was never achieved, which means we failed to progress
