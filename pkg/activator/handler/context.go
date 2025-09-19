@@ -30,7 +30,9 @@ import (
 )
 
 type (
-	revCtxKey struct{}
+	revCtxKey        struct{}
+	reporterCtxKey   struct{}
+	healthyTargetKey struct{}
 )
 
 type revCtx struct {
@@ -44,6 +46,38 @@ func WithRevisionAndID(ctx context.Context, rev *v1.Revision, revID types.Namesp
 		revision: rev,
 		revID:    revID,
 	})
+}
+
+// WithReporterContext attaches a precomputed metrics reporter context to the request context.
+func WithReporterContext(ctx context.Context, reporterCtx context.Context) context.Context {
+	if reporterCtx == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, reporterCtxKey{}, reporterCtx)
+}
+
+// ReporterContextFrom retrieves the metrics reporter context from the request context if present.
+func ReporterContextFrom(ctx context.Context) context.Context {
+	v := ctx.Value(reporterCtxKey{})
+	if v == nil {
+		return nil
+	}
+	return v.(context.Context)
+}
+
+// WithHealthyTarget marks the request context as targeting a healthy backend.
+func WithHealthyTarget(ctx context.Context, healthy bool) context.Context {
+	if !healthy {
+		return ctx
+	}
+	return context.WithValue(ctx, healthyTargetKey{}, true)
+}
+
+// IsHealthyTarget returns whether the request context is marked as targeting a healthy backend.
+func IsHealthyTarget(ctx context.Context) bool {
+	v := ctx.Value(healthyTargetKey{})
+	b, _ := v.(bool)
+	return b
 }
 
 // RevisionFrom retrieves the Revision object from the context.
