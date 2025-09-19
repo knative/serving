@@ -132,6 +132,7 @@ type revisionThrottler struct {
 	revID                types.NamespacedName
 	containerConcurrency int
 	lbPolicy             lbPolicy
+	disableClusterIP     bool
 
 	// These are used in slicing to infer which pods to assign
 	// to this activator.
@@ -171,6 +172,7 @@ type revisionThrottler struct {
 func newRevisionThrottler(revID types.NamespacedName,
 	containerConcurrency int, proto string,
 	breakerParams queue.BreakerParams,
+	disableClusterIP bool,
 	logger *zap.SugaredLogger,
 ) *revisionThrottler {
 	logger = logger.With(zap.String(logkey.Key, revID.String()))
@@ -198,6 +200,7 @@ func newRevisionThrottler(revID types.NamespacedName,
 		logger:               logger,
 		protocol:             proto,
 		lbPolicy:             lbp,
+		disableClusterIP:     disableClusterIP,
 	}
 
 	// Start with unknown
@@ -414,10 +417,11 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 	rt.logger.Debugw("Handling update",
 		zap.String("ClusterIP", update.ClusterIPDest), zap.Object("dests", logging.StringSet(update.Dests)))
 
-	// ClusterIP is not yet ready, so we want to send requests directly to the pods.
+	// If ClusterIP routing is disabled OR ClusterIP is not yet ready,
+	// we want to send requests directly to the pods.
 	// NB: this will not be called in parallel, thus we can build a new podTrackers
 	// array before taking out a lock.
-	if update.ClusterIPDest == "" {
+	if rt.disableClusterIP || update.ClusterIPDest == "" {
 		// Create a map for fast lookup of existing trackers.
 		trackersMap := make(map[string]*podTracker, len(rt.podTrackers))
 		for _, tracker := range rt.podTrackers {
@@ -546,11 +550,16 @@ func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*r
 		if err != nil {
 			return nil, err
 		}
+		// Check if ClusterIP routing is disabled via annotation
+		disableClusterIP := rev.Annotations != nil &&
+			rev.Annotations[serving.DisableClusterIPRoutingAnnotationKey] == "true"
+
 		revThrottler = newRevisionThrottler(
 			revID,
 			int(rev.Spec.GetContainerConcurrency()),
 			pkgnet.ServicePortName(rev.GetProtocol()),
 			queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: revisionMaxConcurrency},
+			disableClusterIP,
 			t.logger,
 		)
 		t.revisionThrottlers[revID] = revThrottler
