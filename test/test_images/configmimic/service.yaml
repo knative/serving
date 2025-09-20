@@ -1,0 +1,45 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: revision-state
+spec:
+  template:
+    spec:
+      timeoutSeconds: 30
+      containers:
+      - image: ko://knative.dev/serving/test/test_images/configmimic
+        env:
+        - name: NAME
+          value: "$NAME"
+        volumeMounts:
+        - name: state
+          mountPath: /etc/config
+
+        # This seems broken now
+        # startupProbe:
+        #   httpGet:
+        #     path: /healthz/start
+
+        readinessProbe:
+          httpGet:
+            path: /healthz/ready
+
+        livenessProbe:
+          httpGet:
+            path: /healthz/live
+
+      volumes:
+      - name: state
+        configMap:
+          name: revision-state
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: revision-state
+data:
+   # By default the service is ready and live
+   revision-state: "startup,ready,live"
+   # Fail the second revision
+   revision-state-00002: ""
