@@ -30,14 +30,174 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/resources"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
 )
+
+func TestMinScaleTransition(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+
+	const (
+		minScale      = 4
+		scalingWindow = autoscaling.WindowMin
+	)
+
+	clients := Setup(t)
+	cmClient := clients.KubeClient.CoreV1().ConfigMaps(test.ServingFlags.TestNamespace)
+
+	names := test.ResourceNames{
+		// Config and Route have different names to avoid false positives
+		Config: test.ObjectNameForTest(t),
+		Route:  test.ObjectNameForTest(t),
+		Image:  test.ConfigMimic,
+	}
+
+	test.EnsureTearDown(t, clients, &names)
+
+	secondRevisionName := kmeta.ChildName(names.Config, fmt.Sprintf("-%05d", 2))
+
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      names.Config,
+			Namespace: test.ServingFlags.TestNamespace,
+		},
+		Data: map[string]string{
+			// By default the pods of the configuration are ready
+			names.Config: "startup,ready,live",
+
+			// By default the second revision doesn't become ready
+			secondRevisionName: "startup",
+		},
+	}
+	cm, err := cmClient.Create(t.Context(), cm, metav1.CreateOptions{})
+
+	test.EnsureCleanup(t, func() {
+		cmClient.Delete(t.Context(), cm.Name, metav1.DeleteOptions{})
+	})
+
+	t.Log("Creating route")
+	if _, err := v1test.CreateRoute(t, clients, names); err != nil {
+		t.Fatal("Failed to create Route:", err)
+	}
+
+	t.Log("Creating configuration")
+	cfg, err := v1test.CreateConfiguration(t, clients, names,
+		withMinScale(minScale),
+		// Make sure we scale down quickly after panic, before the autoscaler get killed by chaosduck.
+		withWindow(scalingWindow),
+		rtesting.WithConfigReadinessProbe(&corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/healthz/ready",
+					Port: intstr.FromInt(8080),
+				},
+			},
+		}),
+		rtesting.WithConfigVolume("state", "/etc/config", corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cm.Name,
+				},
+			},
+		}),
+	)
+
+	if err != nil {
+		t.Fatal("Failed to create Configuration:", err)
+	}
+
+	firstRevName := latestRevisionName(t, clients, names.Config, "")
+	firstRevServiceName := PrivateServiceName(t, clients, firstRevName)
+
+	t.Log("Waiting for first revision to become ready")
+	err = v1test.WaitForRevisionState(clients.ServingClient, firstRevName, v1test.IsRevisionReady, "RevisionIsReady")
+	if err != nil {
+		t.Fatalf("The Revision %q did not become ready: %v", firstRevName, err)
+	}
+
+	t.Log("Holding revision at minScale after becoming ready")
+	if lr, ok := ensureDesiredScale(clients, t, firstRevServiceName, gte(minScale)); !ok {
+		t.Fatalf("The revision %q observed scale %d < %d after becoming ready", firstRevName, lr, minScale)
+	}
+
+	t.Log("Updating configuration")
+	if _, err := v1test.PatchConfig(t, clients, cfg, rtesting.WithConfigEnv(corev1.EnvVar{Name: "FOO", Value: "BAR"})); err != nil {
+		t.Fatal("Failed to update Configuration:", err)
+	}
+
+	t.Logf("Waiting for %v pods to be created", minScale)
+	var podList *corev1.PodList
+	err = wait.PollUntilContextTimeout(ctx, 250*time.Millisecond, 10*time.Second, true, func(context.Context) (bool, error) {
+		revLabel, err := labels.NewRequirement(serving.RevisionLabelKey, selection.Equals, []string{secondRevisionName})
+		if err != nil {
+			return false, fmt.Errorf("unable to create rev label: %w", err)
+		}
+
+		pods := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace)
+		podList, err = pods.List(ctx, metav1.ListOptions{
+			LabelSelector: revLabel.String(),
+		})
+
+		if err != nil {
+			return false, err
+		}
+
+		runningPods := 0
+		for _, pod := range podList.Items {
+			if pod.Status.Phase == corev1.PodRunning {
+				runningPods++
+			}
+		}
+
+		return runningPods == minScale, nil
+	})
+
+	if errors.Is(err, context.DeadlineExceeded) {
+		t.Fatal("Timedout waiting for pods to be running", err)
+	} else if err != nil {
+		t.Fatal("Failed waiting for pods to be running", err)
+	}
+
+	podName := podList.Items[0].Name
+
+	t.Logf("Marking revision %s pod %s as ready", secondRevisionName, podName)
+	newCM := cm.DeepCopy()
+	newCM.Data[podName] = "startup,ready"
+
+	patchBytes, err := duck.CreateBytePatch(cm, newCM)
+	if err != nil {
+		t.Fatal("Failed to create patch:", err)
+	}
+
+	cm, err = cmClient.Patch(ctx, names.Config, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	if err != nil {
+		t.Fatal("Failed to patch ConfigMap", err)
+	}
+
+	t.Logf("Waiting for scaling window %v to pass", scalingWindow)
+
+	// Wait two autoscaling window durations
+	// Scaling decisions are made at the end of the window
+	time.Sleep(scalingWindow)
+
+	t.Log("Check original revision holding at min scale", minScale)
+	if _, ok := ensureDesiredScale(clients, t, firstRevServiceName, gte(minScale)); !ok {
+		t.Fatalf("Revision %q was scaled down prematurely", firstRevName)
+	}
+}
 
 func TestMinScale(t *testing.T) {
 	t.Parallel()
