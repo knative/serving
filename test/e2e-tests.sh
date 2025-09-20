@@ -26,7 +26,7 @@
 # cluster.
 
 source $(dirname "$0")/e2e-common.sh
-
+ENABLE_GKE_TELEMETRY=true
 # Script entry point.
 initialize --num-nodes=4 --enable-ha "$@"
 

@@ -168,6 +168,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 			return fmt.Errorf("failed to create PA %q: %w", paName, err)
 		}
 		logger.Info("Created PA: ", paName)
+		pa.Status.InitializeConditions()
 	} else if err != nil {
 		return fmt.Errorf("failed to get PA %q: %w", paName, err)
 	} else if !metav1.IsControlledBy(pa, rev) {

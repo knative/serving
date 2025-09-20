@@ -125,9 +125,32 @@ spec:
             status:
               description: Status communicates the observed state of the PodAutoscaler (from the controller).
               type: object
-              required:
-                - metricsServiceName
-                - serviceName
+              default:
+                conditions:
+                  - lastTransitionTime: "1970-01-01T00:00:00Z"
+                    message: Waiting for controller
+                    reason: Pending
+                    severity: ""
+                    status: Unknown
+                    type: Active
+                  - lastTransitionTime: "1970-01-01T00:00:00Z"
+                    message: Waiting for controller
+                    reason: Pending
+                    severity: ""
+                    status: Unknown
+                    type: Ready
+                  - lastTransitionTime: "1970-01-01T00:00:00Z"
+                    message: Waiting for controller
+                    reason: Pending
+                    severity: ""
+                    status: Unknown
+                    type: SKSReady
+                  - lastTransitionTime: "1970-01-01T00:00:00Z"
+                    message: Waiting for controller
+                    reason: Pending
+                    severity: ""
+                    status: Unknown
+                    type: ScaleTargetInitialized
               properties:
                 actualScale:
                   description: ActualScale shows the actual number of replicas for the revision.

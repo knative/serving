@@ -92,7 +92,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Revision("foo", "first-reconcile",
 				// The first reconciliation Populates the following status properties.
-				WithLogURL, allUnknownConditions, MarkDeploying("Deploying"),
+				WithLogURL, withRevisionConditionsGivenPADefault, MarkDeploying("Deploying"),
 				withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
 		}},
 		Key: "foo/first-reconcile",
@@ -256,7 +256,7 @@ func TestReconcile(t *testing.T) {
 		Name: "pa is ready",
 		Objects: []runtime.Object{
 			Revision("foo", "pa-ready",
-				WithLogURL, allUnknownConditions),
+				WithLogURL, withRevisionConditionsGivenPADefault),
 			pa("foo", "pa-ready", WithPASKSReady, WithTraffic,
 				WithScaleTargetInitialized, WithPAStatusService("new-stuff"), WithReachabilityUnknown),
 			deploy(t, "foo", "pa-ready"),
@@ -340,7 +340,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Revision("foo", "pa-inactive",
-				WithLogURL, withDefaultContainerStatuses(), MarkDeploying(""),
+				WithLogURL, withDefaultContainerStatuses(), MarkContainerHealthyUnknown(""),
 				// When we reconcile an "all ready" revision when the PA
 				// is inactive, we should see the following change.
 				MarkInactive("NoTraffic", "This thing is inactive."), WithRevisionObservedGeneration(1),
@@ -351,7 +351,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "pa is not ready with initial scale zero, but ServiceName still empty, so not marking resources available false",
 		Objects: []runtime.Object{
-			Revision("foo", "pa-inactive", allUnknownConditions,
+			Revision("foo", "pa-inactive", withRevisionConditionsGivenPADefault,
 				WithLogURL,
 				MarkDeploying(v1.ReasonDeploying),
 				WithRevisionObservedGeneration(1)),
@@ -363,7 +363,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			// We should not mark resources unavailable if ServiceName is empty
 			Object: Revision("foo", "pa-inactive",
-				WithLogURL, withDefaultContainerStatuses(), allUnknownConditions,
+				WithLogURL, withDefaultContainerStatuses(), withRevisionConditionsGivenPADefault,
 				MarkInactive("NoTraffic", "This thing is inactive."),
 				MarkDeploying(v1.ReasonDeploying),
 				WithRevisionObservedGeneration(1)),
@@ -403,7 +403,7 @@ func TestReconcile(t *testing.T) {
 		// Protocol type is the only thing that can be changed on PA
 		Objects: []runtime.Object{
 			Revision("foo", "fix-mutated-pa",
-				allUnknownConditions,
+				withRevisionConditionsGivenPADefault,
 				WithLogURL, MarkRevisionReady,
 				WithRoutingState(v1.RoutingStateActive, fc)),
 			pa("foo", "fix-mutated-pa", WithProtocolType(networking.ProtocolH2C),
@@ -414,7 +414,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Revision("foo", "fix-mutated-pa",
-				WithLogURL, allUnknownConditions,
+				WithLogURL, withRevisionConditionsGivenPADefault,
 				// When our reconciliation has to change the service
 				// we should see the following mutations to status.
 
@@ -693,7 +693,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Revision("foo", "image-pull-secrets",
 				WithImagePullSecrets("foo-secret"),
-				WithLogURL, allUnknownConditions, MarkDeploying("Deploying"), withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+				WithLogURL, withRevisionConditionsGivenPADefault, MarkDeploying("Deploying"), withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
 		}},
 		Key: "foo/image-pull-secrets",
 	}, {
@@ -714,7 +714,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Revision("foo", "first-reconcile", WithRevisionInitContainers(),
 				// The first reconciliation Populates the following status properties.
-				WithLogURL, allUnknownConditions, MarkDeploying("Deploying"),
+				WithLogURL, withRevisionConditionsGivenPADefault, MarkDeploying("Deploying"),
 				withDefaultContainerStatuses(), withInitContainerStatuses(), WithRevisionObservedGeneration(1)),
 		}},
 		Key: "foo/first-reconcile",
@@ -736,7 +736,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Revision("foo", "first-reconcile",
 				// The first reconciliation Populates the following status properties.
-				WithLogURL, allUnknownConditions, MarkDeploying("Deploying"),
+				WithLogURL, withRevisionConditionsGivenPADefault, MarkDeploying("Deploying"),
 				withDefaultContainerStatuses(), WithRevisionObservedGeneration(1), WithRevisionPVC()),
 		}},
 		Key: "foo/first-reconcile",
@@ -903,6 +903,15 @@ func allUnknownConditions(r *v1.Revision) {
 	WithInitRevConditions(r)
 	MarkDeploying("Deploying")(r)
 	MarkActivating("Deploying", "")(r)
+}
+
+// Revision Unknown conditions but with the generated default PA conditions
+// taken into consideration
+func withRevisionConditionsGivenPADefault(r *v1.Revision) {
+	WithInitRevConditions(r)
+	r.Status.MarkActiveUnknown("Pending", "Waiting for controller")
+	r.Status.MarkResourcesAvailableUnknown("Pending", "Waiting for controller")
+	r.Status.MarkContainerHealthyUnknown("Pending", "Waiting for controller")
 }
 
 type configOption func(*config.Config)
