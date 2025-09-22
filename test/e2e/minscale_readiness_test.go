@@ -83,6 +83,9 @@ func TestMinScaleTransition(t *testing.T) {
 		},
 	}
 	cm, err := cmClient.Create(t.Context(), cm, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatal("Failed to create create config map:", err)
+	}
 
 	test.EnsureCleanup(t, func() {
 		cmClient.Delete(t.Context(), cm.Name, metav1.DeleteOptions{})
@@ -114,7 +117,6 @@ func TestMinScaleTransition(t *testing.T) {
 			},
 		}),
 	)
-
 	if err != nil {
 		t.Fatal("Failed to create Configuration:", err)
 	}
@@ -150,7 +152,6 @@ func TestMinScaleTransition(t *testing.T) {
 		podList, err = pods.List(ctx, metav1.ListOptions{
 			LabelSelector: revLabel.String(),
 		})
-
 		if err != nil {
 			return false, err
 		}

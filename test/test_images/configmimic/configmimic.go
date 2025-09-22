@@ -148,7 +148,6 @@ func checkForStatus() {
 func addr() string {
 	if port := os.Getenv("PORT"); port != "" {
 		return ":" + port
-
 	}
 	return ":8080"
 }
