@@ -204,8 +204,10 @@ func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *autoscalingv1alpha1.PodA
 
 	// Mark resource unavailable if we don't have a Service Name and the deployment is ready
 	// This can happen when we have initial scale set to 0
-	if rs.GetCondition(RevisionConditionResourcesAvailable).IsTrue() && ps.ServiceName == "" {
-		rs.MarkResourcesAvailableUnknown(ReasonDeploying, "")
+	if rs.GetCondition(RevisionConditionResourcesAvailable).IsTrue() {
+		if ps.ServiceName == "" || !ps.IsScaleTargetInitialized() {
+			rs.MarkResourcesAvailableUnknown(ReasonDeploying, "")
+		}
 	}
 
 	switch cond.Status {
