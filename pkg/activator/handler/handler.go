@@ -147,7 +147,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		r.Header.Del("X-Run-Id")
 	}
 	xRequestId := r.Header.Get("X-Request-Id")
-	a.logger.Infow("Proxy started", zap.String("x-request-id", xRequestId))
+	a.logger.Debugw("Proxy started", zap.String("x-request-id", xRequestId))
 
 	revID := RevIDFrom(r.Context())
 	if err := a.throttler.Try(tryContext, revID, xRequestId, func(dest string, isClusterIP bool) error {
@@ -218,7 +218,7 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 		proxy.Transport = a.tracingTransport
 	}
 	proxy.FlushInterval = netproxy.FlushInterval
-	
+
 	// Capture proxy errors to return them properly instead of swallowing them
 	var proxyError error
 	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
