@@ -342,7 +342,7 @@ func TestRace_ThrottlerMap_DoubleCheckedLocking(t *testing.T) {
 				throttler.revisionThrottlersMutex.RLock()
 				_, ok := throttler.revisionThrottlers[revID]
 				throttler.revisionThrottlersMutex.RUnlock()
-				
+
 				if !ok {
 					throttler.revisionThrottlersMutex.Lock()
 					if _, exists := throttler.revisionThrottlers[revID]; !exists {

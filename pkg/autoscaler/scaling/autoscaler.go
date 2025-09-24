@@ -161,7 +161,7 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 	// TODO: Re-enable effective capacity usage once calculation is fixed
 	// Use effective capacity for scaling calculations, but use 1 if there are zero pods
 	// readyPodsCount := math.Max(1, float64(effectiveCapacityCount))
-	
+
 	// Temporarily revert to original ready count approach
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
 
@@ -212,20 +212,20 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 		if min == 0 && observed == 0 {
 			return 0
 		}
-		
+
 		// First calculate the base desired count without buffer
 		baseDesired := math.Ceil(observed / target)
-		
+
 		if min <= b {
 			// Apply headroom: desired = max(min, baseDesired + B)
-			return math.Max(min, baseDesired + b)
+			return math.Max(min, baseDesired+b)
 		}
 		// min > B: stay at min while min provides >= B headroom; otherwise add headroom B
 		threshold := math.Max(0, min*target-b)
 		if observed <= threshold {
 			return min
 		}
-		return math.Max(min, baseDesired + b)
+		return math.Max(min, baseDesired+b)
 	}
 	// Apply headroom when in panic or when reachable and either revision is Ready
 	// or there is observed load (non-zero) to smooth warm-up before RevReady flips.

@@ -59,9 +59,9 @@ var wantResource = &resource.Resource{
 
 type fakePodCounter struct {
 	resources.EndpointsCounter
-	readyCount           int
+	readyCount             int
 	effectiveCapacityCount int
-	err                  error
+	err                    error
 }
 
 func (fpc fakePodCounter) ReadyCount() (int, error) {

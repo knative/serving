@@ -2,9 +2,10 @@ package scaling
 
 import (
 	"context"
-	logtesting "knative.dev/pkg/logging/testing"
 	"testing"
 	"time"
+
+	logtesting "knative.dev/pkg/logging/testing"
 )
 
 func TestHeadroom_MinGreaterThanBuffer_Threshold(t *testing.T) {
