@@ -42,7 +42,7 @@ var (
 		"The response time in millisecond",
 		stats.UnitMilliseconds)
 
-	// New metrics for quarantine/connection diagnostics
+	// Connection health metrics
 	healthyConnLatencyM = stats.Float64(
 		"healthy_connection_latency_ms",
 		"Latency in ms to establish a connection to a healthy target (RoundTrip time)",
