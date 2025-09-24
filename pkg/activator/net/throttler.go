@@ -500,9 +500,6 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 			case <-ctx.Done():
 				// Context has terminated
 				return
-			default:
-				// Catch-all case
-				continue
 			}
 		}
 	}()
