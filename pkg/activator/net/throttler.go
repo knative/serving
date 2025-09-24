@@ -479,11 +479,22 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 	defer errorTimer.Stop()
 	defer criticalTimer.Stop()
 
-	// Channel to ensure shutdown
+	// Channel to ensure shutdown - will be closed when routing completes (not proxy)
 	thresholdChan := make(chan struct{})
-	defer close(thresholdChan)
+	var thresholdChanClosed bool
+	var thresholdMu sync.Mutex
 
-	// Goroutine to track threshold breaches
+	// Ensure we always close the channel on function exit
+	defer func() {
+		thresholdMu.Lock()
+		if !thresholdChanClosed {
+			close(thresholdChan)
+			thresholdChanClosed = true
+		}
+		thresholdMu.Unlock()
+	}()
+
+	// Goroutine to track threshold breaches for routing/queuing time only
 	go func() {
 		for {
 			select {
@@ -497,7 +508,7 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 				handler.RecordProxyQueueTimeCritical(ctx)
 				rt.logger.Warnf("Request %s exceeded CRITICAL proxy queue time threshold (3m)", xRequestId)
 			case <-thresholdChan:
-				// Request completed, stop monitoring
+				// Routing completed, stop monitoring
 				return
 			case <-ctx.Done():
 				// Context has terminated
@@ -678,6 +689,15 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 			// Record proxy start latency (successful tracker acquisition)
 			proxyStartLatencyMs := float64(time.Since(proxyStartTime).Nanoseconds()) / 1e6
 			handler.RecordProxyStartLatency(ctx, proxyStartLatencyMs)
+
+			// Stop threshold monitoring now that we've acquired a tracker and are starting to proxy
+			// This should only monitor routing/queuing time, not the actual proxy duration
+			thresholdMu.Lock()
+			if !thresholdChanClosed {
+				close(thresholdChan)
+				thresholdChanClosed = true
+			}
+			thresholdMu.Unlock()
 
 			// Log if routing took too long
 			if proxyStartLatencyMs > 1000 { // More than 1 second
