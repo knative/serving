@@ -1539,3 +1539,397 @@ func TestPodTrackerWithBreaker(t *testing.T) {
 		}
 	})
 }
+
+// TestPodTrackerStateRaces tests for race conditions in pod state transitions
+func TestPodTrackerStateRaces(t *testing.T) {
+	t.Run("concurrent state transitions", func(t *testing.T) {
+		tracker := newPodTracker("pod1:8080",
+			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
+
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
+		var wg sync.WaitGroup
+
+		// Goroutine 1: Toggle between states using atomic operations
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for ctx.Err() == nil {
+				// Toggle between draining and healthy
+				tracker.state.Store(uint32(podDraining))
+				time.Sleep(time.Microsecond)
+				// Mark as healthy
+				tracker.state.Store(uint32(podHealthy))
+				time.Sleep(time.Microsecond)
+			}
+		}()
+
+		// Goroutine 2: Read state and try to reserve
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for ctx.Err() == nil {
+				state := podState(tracker.state.Load())
+				if state == podHealthy {
+					cb, ok := tracker.Reserve(context.Background())
+					if ok && cb != nil {
+						cb()
+					}
+				}
+				time.Sleep(time.Microsecond)
+			}
+		}()
+
+		// Goroutine 3: Try to drain
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for ctx.Err() == nil {
+				tracker.tryDrain()
+				time.Sleep(5 * time.Microsecond)
+				tracker.state.Store(uint32(podHealthy))
+				time.Sleep(5 * time.Microsecond)
+			}
+		}()
+
+		wg.Wait()
+	})
+
+	t.Run("concurrent Reserve and state change", func(t *testing.T) {
+		tracker := newPodTracker("pod2:8080",
+			queue.NewBreaker(queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 100}))
+		tracker.state.Store(uint32(podHealthy))
+
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
+		var wg sync.WaitGroup
+
+		// Many goroutines trying to Reserve
+		for range 10 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for ctx.Err() == nil {
+					cb, ok := tracker.Reserve(context.Background())
+					if ok && cb != nil {
+						// Hold the reservation briefly
+						time.Sleep(time.Microsecond)
+						cb()
+					}
+				}
+			}()
+		}
+
+		// Goroutine changing states
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for ctx.Err() == nil {
+				tracker.state.Store(uint32(podDraining))
+				time.Sleep(time.Millisecond)
+				tracker.state.Store(uint32(podHealthy))
+				time.Sleep(time.Millisecond)
+			}
+		}()
+
+		wg.Wait()
+	})
+
+	t.Run("concurrent pending state transitions", func(t *testing.T) {
+		tracker := newPodTracker("pod3:8080",
+			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
+		// Start in pending state
+		tracker.state.Store(uint32(podPending))
+
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
+		var wg sync.WaitGroup
+
+		// Multiple goroutines doing state transitions
+		for i := range 5 {
+			wg.Add(1)
+			go func(id int) {
+				defer wg.Done()
+				for ctx.Err() == nil {
+					// Try CAS from pending to healthy
+					if tracker.state.CompareAndSwap(uint32(podPending), uint32(podHealthy)) {
+						// Successfully became healthy
+						time.Sleep(time.Microsecond)
+						// Reset to pending for next iteration
+						tracker.state.Store(uint32(podPending))
+					}
+				}
+			}(i)
+		}
+
+		wg.Wait()
+	})
+}
+
+// TestRevisionThrottlerRaces tests for race conditions in revisionThrottler operations
+func TestRevisionThrottlerRaces(t *testing.T) {
+	logger := TestLogger(t)
+
+	t.Run("concurrent updateThrottlerState calls", func(t *testing.T) {
+		rt := &revisionThrottler{
+			logger:      logger,
+			revID:       types.NamespacedName{Namespace: "test", Name: "revision"},
+			breaker:     queue.NewBreaker(queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 100}),
+			podTrackers: make(map[string]*podTracker),
+		}
+		rt.containerConcurrency.Store(10)
+		rt.lbPolicy = firstAvailableLBPolicy
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
+		var wg sync.WaitGroup
+
+		// Goroutine adding trackers
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			counter := 0
+			for ctx.Err() == nil {
+				counter++
+				tracker := newPodTracker(fmt.Sprintf("add-pod-%d:8080", counter),
+					queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
+				rt.updateThrottlerState(1, []*podTracker{tracker}, nil, nil, nil)
+				time.Sleep(time.Microsecond)
+			}
+		}()
+
+		// Goroutine removing trackers
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			counter := 0
+			for ctx.Err() == nil {
+				counter++
+				rt.updateThrottlerState(0, nil, nil, []string{fmt.Sprintf("add-pod-%d:8080", counter)}, nil)
+				time.Sleep(time.Microsecond)
+			}
+		}()
+
+		// Goroutine reading assignedTrackers
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for ctx.Err() == nil {
+				rt.mux.RLock()
+				_ = len(rt.assignedTrackers)
+				rt.mux.RUnlock()
+				time.Sleep(time.Microsecond)
+			}
+		}()
+
+		wg.Wait()
+	})
+
+	t.Run("concurrent acquireDest", func(t *testing.T) {
+		rt := &revisionThrottler{
+			logger:      logger,
+			revID:       types.NamespacedName{Namespace: "test", Name: "revision"},
+			breaker:     queue.NewBreaker(queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 100}),
+			podTrackers: make(map[string]*podTracker),
+		}
+		rt.containerConcurrency.Store(10)
+		rt.lbPolicy = firstAvailableLBPolicy
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
+
+		// Add some initial trackers
+		initialTrackers := make([]*podTracker, 5)
+		for i := range 5 {
+			initialTrackers[i] = newPodTracker(fmt.Sprintf("pod-%d:8080", i),
+				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
+			initialTrackers[i].state.Store(uint32(podHealthy))
+		}
+		rt.updateThrottlerState(5, initialTrackers, nil, nil, nil)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
+		var wg sync.WaitGroup
+
+		// Many goroutines trying to acquire dest
+		for range 20 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for ctx.Err() == nil {
+					cb, tracker, ok := rt.acquireDest(context.Background())
+					if ok && tracker != nil && cb != nil {
+						// Hold briefly then release
+						time.Sleep(time.Microsecond)
+						cb()
+					}
+				}
+			}()
+		}
+
+		// Goroutine updating throttler state
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			counter := 0
+			for ctx.Err() == nil {
+				counter++
+				if counter%2 == 0 {
+					// Add a tracker
+					tracker := newPodTracker(fmt.Sprintf("dynamic-%d:8080", counter),
+						queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
+					tracker.state.Store(uint32(podHealthy))
+					rt.updateThrottlerState(1, []*podTracker{tracker}, nil, nil, nil)
+				} else {
+					// Remove a tracker
+					rt.updateThrottlerState(0, nil, nil, []string{fmt.Sprintf("pod-%d:8080", counter%5)}, nil)
+				}
+				time.Sleep(time.Millisecond)
+			}
+		}()
+
+		wg.Wait()
+	})
+}
+
+// TestPodTrackerRefCountRaces tests for race conditions in reference counting
+func TestPodTrackerRefCountRaces(t *testing.T) {
+	t.Run("concurrent addRef and releaseRef", func(t *testing.T) {
+		tracker := newPodTracker("pod:8080",
+			queue.NewBreaker(queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 100}))
+		tracker.state.Store(uint32(podHealthy))
+
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
+		var wg sync.WaitGroup
+
+		// Goroutines increasing ref count
+		for range 5 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for ctx.Err() == nil {
+					tracker.addRef()
+					time.Sleep(time.Microsecond)
+				}
+			}()
+		}
+
+		// Goroutines decreasing ref count
+		for range 5 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for ctx.Err() == nil {
+					tracker.releaseRef()
+					time.Sleep(time.Microsecond)
+				}
+			}()
+		}
+
+		// Goroutine reading ref count
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for ctx.Err() == nil {
+				_ = tracker.getRefCount()
+				time.Sleep(time.Microsecond)
+			}
+		}()
+
+		wg.Wait()
+	})
+
+	t.Run("refCount races with state transitions", func(t *testing.T) {
+		tracker := newPodTracker("pod:8080",
+			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
+		tracker.state.Store(uint32(podHealthy))
+
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
+		var wg sync.WaitGroup
+
+		// Goroutine doing ref count operations
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for ctx.Err() == nil {
+				tracker.addRef()
+				time.Sleep(time.Microsecond)
+				tracker.releaseRef()
+				time.Sleep(time.Microsecond)
+			}
+		}()
+
+		// Goroutine trying to drain
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for ctx.Err() == nil {
+				tracker.tryDrain()
+				time.Sleep(time.Millisecond)
+				tracker.state.Store(uint32(podHealthy))
+				time.Sleep(time.Millisecond)
+			}
+		}()
+
+		wg.Wait()
+	})
+}
+
+// TestPodTrackerWeightRaces tests for race conditions in weight operations
+func TestPodTrackerWeightRaces(t *testing.T) {
+	t.Run("concurrent weight modifications", func(t *testing.T) {
+		tracker := newPodTracker("pod:8080",
+			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
+
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
+		var wg sync.WaitGroup
+
+		// Multiple goroutines increasing weight
+		for range 5 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for ctx.Err() == nil {
+					tracker.increaseWeight()
+					time.Sleep(time.Microsecond)
+				}
+			}()
+		}
+
+		// Multiple goroutines decreasing weight
+		for range 5 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for ctx.Err() == nil {
+					tracker.decreaseWeight()
+					time.Sleep(time.Microsecond)
+				}
+			}()
+		}
+
+		// Goroutine reading weight
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for ctx.Err() == nil {
+				_ = tracker.getWeight()
+				time.Sleep(time.Microsecond)
+			}
+		}()
+
+		wg.Wait()
+	})
+}
