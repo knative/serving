@@ -382,19 +382,21 @@ func transitionOutOfQuarantine(ctx context.Context, p *podTracker, newState podS
 	if p == nil {
 		return false
 	}
-	prev := podState(p.state.Load())
-	if prev != podQuarantined {
-		// Nothing to do
-		if newState != prev {
-			p.state.Store(uint32(newState))
-		}
-		return false
+	// Use CAS to atomically transition from quarantined to new state
+	if p.state.CompareAndSwap(uint32(podQuarantined), uint32(newState)) {
+		// Successfully transitioned out of quarantine
+		handler.RecordPodQuarantineChange(ctx, -1)
+		handler.RecordPodQuarantineExit(ctx) // New counter-based metric
+		return true
 	}
-	// Move to new state and decrement gauge once
-	p.state.Store(uint32(newState))
-	handler.RecordPodQuarantineChange(ctx, -1)
-	handler.RecordPodQuarantineExit(ctx) // New counter-based metric
-	return true
+
+	// Try to update to new state if it's different from current
+	// This handles the case where we're not in quarantine but need state update
+	prev := podState(p.state.Load())
+	if newState != prev && prev != podQuarantined {
+		p.state.CompareAndSwap(uint32(prev), uint32(newState))
+	}
+	return false
 }
 
 // filterAvailableTrackers filters out quarantined pods and recovers expired quarantines
@@ -634,17 +636,29 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 							"x-request-id", xRequestId,
 							"dest", tracker.dest)
 					}
-					// Quarantine this tracker
-					tracker.state.Store(uint32(podQuarantined))
-					// Increment consecutive quarantine count
-					count := tracker.quarantineCount.Add(1)
-					// Determine backoff duration
-					backoff := quarantineBackoffSeconds(count)
-					tracker.quarantineEndTime.Store(time.Now().Unix() + int64(backoff))
-					// Record metrics
-					handler.RecordPodQuarantineChange(ctx, 1)
-					handler.RecordPodQuarantineEntry(ctx) // New counter-based metric
-					handler.RecordTCPPingFailureEvent(ctx)
+					// Try to quarantine this tracker using CAS to avoid races
+					// We can transition from any non-quarantined state to quarantined
+					wasQuarantined := false
+					for !wasQuarantined {
+						prevState := podState(tracker.state.Load())
+						if prevState == podQuarantined {
+							// Already quarantined by another goroutine
+							break
+						}
+						if tracker.state.CompareAndSwap(uint32(prevState), uint32(podQuarantined)) {
+							wasQuarantined = true
+							// Only update metrics if we actually performed the quarantine
+							// Increment consecutive quarantine count
+							count := tracker.quarantineCount.Add(1)
+							// Determine backoff duration
+							backoff := quarantineBackoffSeconds(count)
+							tracker.quarantineEndTime.Store(time.Now().Unix() + int64(backoff))
+							// Record metrics
+							handler.RecordPodQuarantineChange(ctx, 1)
+							handler.RecordPodQuarantineEntry(ctx) // New counter-based metric
+							handler.RecordTCPPingFailureEvent(ctx)
+						}
+					}
 					// Re-queue the request to try another backend
 					reenqueue = true
 					return
@@ -652,10 +666,12 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 
 				// TCP ping successful - if pod was pending, promote to healthy
 				if currentState == podPending {
-					tracker.state.Store(uint32(podHealthy))
-					rt.logger.Infow("Pending pod passed TCP health check, promoting to healthy",
-						"x-request-id", xRequestId,
-						"dest", tracker.dest)
+					// Use CAS to atomically transition from pending to healthy
+					if tracker.state.CompareAndSwap(uint32(podPending), uint32(podHealthy)) {
+						rt.logger.Infow("Pending pod passed TCP health check, promoting to healthy",
+							"x-request-id", xRequestId,
+							"dest", tracker.dest)
+					}
 				}
 			}
 
@@ -681,15 +697,19 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 			proxyDurationMs = float64(time.Since(proxyCallStart).Milliseconds())
 
 			// Handle successful request completion
-			currentState := podState(tracker.state.Load())
 			if ret == nil { // Successful request
+				currentState := podState(tracker.state.Load())
 				// If pod is recovering, promote to healthy after successful request
 				if currentState == podRecovering {
-					tracker.state.Store(uint32(podHealthy))
-					tracker.quarantineCount.Store(0)
-					rt.logger.Infof("Pod %s successfully recovered, promoting to healthy state", tracker.dest)
+					// Use CAS to atomically transition from recovering to healthy
+					if tracker.state.CompareAndSwap(uint32(podRecovering), uint32(podHealthy)) {
+						tracker.quarantineCount.Store(0)
+						rt.logger.Infof("Pod %s successfully recovered, promoting to healthy state", tracker.dest)
+					}
 				}
 				// On success, if pod was previously quarantined, reset the counter to reduce future backoff
+				// Re-check state after potential transition
+				currentState = podState(tracker.state.Load())
 				if currentState == podHealthy && tracker.quarantineCount.Load() > 0 {
 					prevCount := tracker.quarantineCount.Swap(0)
 					rt.logger.Infow("Pod quarantine history cleared after success",
