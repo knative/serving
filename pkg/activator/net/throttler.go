@@ -85,7 +85,11 @@ func newPodTracker(dest string, b breaker) *podTracker {
 	tracker.refCount.Store(0)
 	tracker.drainingStartTime.Store(0)
 	tracker.weight.Store(0)
-	tracker.decreaseWeight = func() { if tracker.weight.Load() > 0 { tracker.weight.Add(^uint32(0)) } } // Subtract 1 with underflow protection
+	tracker.decreaseWeight = func() {
+		if tracker.weight.Load() > 0 {
+			tracker.weight.Add(^uint32(0))
+		}
+	} // Subtract 1 with underflow protection
 
 	return tracker
 }
@@ -344,7 +348,7 @@ func newRevisionThrottler(revID types.NamespacedName,
 	)
 
 	lbp, lbpName = pickLBPolicy(loadBalancerPolicy, nil, containerConcurrency, logger)
-	logger.Infof("Creating revision throttler with load balancing policy: %s, container concurrency: %d", lbpName, containerConcurrency)
+	logger.Debugf("Creating revision throttler with load balancing policy: %s, container concurrency: %d", lbpName, containerConcurrency)
 
 	if containerConcurrency == 0 {
 		revBreaker = newInfiniteBreaker(logger)
@@ -432,7 +436,22 @@ func (rt *revisionThrottler) acquireDest(ctx context.Context) (func(), *podTrack
 	// }
 
 	// Filter out quarantined pods and recover expired quarantines
+	originalCount := len(rt.assignedTrackers)
 	availableTrackers := rt.filterAvailableTrackers(ctx, rt.assignedTrackers)
+
+	// Log availability issues
+	if len(availableTrackers) == 0 && originalCount > 0 {
+		rt.logger.Warnw("No available pods after filtering",
+			"assigned", originalCount,
+			"available", 0,
+			"revision", rt.revID.String())
+	} else if originalCount > 2 && len(availableTrackers) < originalCount/2 {
+		rt.logger.Warnw("Many pods unavailable",
+			"assigned", originalCount,
+			"available", len(availableTrackers),
+			"revision", rt.revID.String())
+	}
+
 	if len(availableTrackers) == 0 {
 		return noop, nil, false
 	}
@@ -444,7 +463,7 @@ func (rt *revisionThrottler) acquireDest(ctx context.Context) (func(), *podTrack
 func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, function func(dest string, isClusterIP bool) error) error {
 	// Start timing for proxy start latency
 	proxyStartTime := time.Now()
-	
+
 	defer func() {
 		if r := recover(); r != nil {
 			rt.logger.Errorf("Panic in revisionThrottler.try for request %s: %v", xRequestId, r)
@@ -461,6 +480,9 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 	}()
 
 	var ret error
+	reenqueueCount := 0
+	var finalTracker string     // Store the final tracker destination
+	var proxyDurationMs float64 // Store the proxy call duration
 
 	// Retrying infinitely as long as we receive no dest. Outer semaphore and inner
 	// pod capacity are not changed atomically, hence they can race each other. We
@@ -468,6 +490,12 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 	reenqueue := true
 	for reenqueue {
 		reenqueue = false
+		if reenqueueCount > 0 {
+			rt.logger.Infow("Request retry attempt",
+				"x-request-id", xRequestId,
+				"retry", reenqueueCount,
+				"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()))
+		}
 
 		rt.mux.RLock()
 		assignedTrackers := rt.assignedTrackers
@@ -475,17 +503,41 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 		if len(assignedTrackers) == 0 {
 			rt.logger.Debugf("%s -> No Assigned trackers\n", xRequestId)
 		}
+
+		// Check if we're about to wait for capacity
+		var waitStartTime time.Time
+		if rt.breaker.Pending() > 0 {
+			waitStartTime = time.Now()
+			rt.logger.Infow("Request waiting for breaker capacity",
+				"x-request-id", xRequestId,
+				"pending", rt.breaker.Pending(),
+				"capacity", rt.breaker.Capacity(),
+				"in-flight", rt.breaker.InFlight())
+		}
+
 		if err := rt.breaker.Maybe(ctx, func() {
+			if !waitStartTime.IsZero() {
+				waitMs := float64(time.Since(waitStartTime).Milliseconds())
+				if waitMs > 100 { // Log if waited more than 100ms
+					rt.logger.Warnw("Request waited for breaker capacity",
+						"x-request-id", xRequestId,
+						"wait-ms", waitMs)
+				}
+			}
 			callback, tracker, isClusterIP := rt.acquireDest(ctx)
 			if tracker == nil {
 				// Check if all pods are quarantined
 				rt.mux.RLock()
 				allQuarantined := true
 				assignedCount := len(rt.assignedTrackers)
+				quarantinedCount := 0
 				for _, t := range rt.assignedTrackers {
-					if t != nil && podState(t.state.Load()) != podQuarantined {
-						allQuarantined = false
-						break
+					if t != nil {
+						if podState(t.state.Load()) == podQuarantined {
+							quarantinedCount++
+						} else {
+							allQuarantined = false
+						}
 					}
 				}
 				rt.mux.RUnlock()
@@ -494,6 +546,7 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 					rt.logger.Warnw("all pods quarantined; re-enqueue",
 						"x-request-id", xRequestId,
 						"assigned", assignedCount,
+						"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()),
 					)
 					reenqueue = true
 					// Small jittered backoff to avoid tight loop/herd effects
@@ -507,11 +560,16 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 				// This can happen if individual requests raced each other or if pod
 				// capacity was decreased after passing the outer semaphore.
 				reenqueue = true
-				rt.logger.Debugf("%s -> Failed to acquire tracker\n", xRequestId)
+				reenqueueCount++
+				rt.logger.Infow("Failed to acquire tracker; re-enqueue",
+					"x-request-id", xRequestId,
+					"quarantined", quarantinedCount,
+					"assigned", assignedCount,
+					"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()))
 				return
 			}
 			trackerId := tracker.id
-			rt.logger.Infof("%s -> Acquired Pod Tracker %s - %s (createdAt %d)", xRequestId, trackerId, tracker.dest, tracker.createdAt)
+			rt.logger.Debugf("%s -> Acquired Pod Tracker %s - %s (createdAt %d)", xRequestId, trackerId, tracker.dest, tracker.createdAt)
 			rt.logger.Debugf("Tracker %s Breaker State: capacity: %d, inflight: %d, pending: %d", trackerId, tracker.Capacity(), tracker.InFlight(), tracker.Pending())
 			defer func() {
 				callback()
@@ -541,13 +599,28 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 					return
 				}
 			}
-			
+
 			// Record proxy start latency (successful tracker acquisition)
 			proxyStartLatencyMs := float64(time.Since(proxyStartTime).Nanoseconds()) / 1e6
 			handler.RecordProxyStartLatency(ctx, proxyStartLatencyMs)
-			
+
+			// Log if routing took too long
+			if proxyStartLatencyMs > 1000 { // More than 1 second
+				rt.logger.Warnw("Slow routing decision",
+					"x-request-id", xRequestId,
+					"dest", tracker.dest,
+					"latency-ms", proxyStartLatencyMs,
+					"reenqueue-count", reenqueueCount)
+			}
+
+			// Store the final tracker used
+			finalTracker = tracker.dest
+
+			// Time the actual proxy call
+			proxyCallStart := time.Now()
 			ret = function(tracker.dest, isClusterIP)
-			
+			proxyDurationMs = float64(time.Since(proxyCallStart).Milliseconds())
+
 			// Handle successful request completion
 			currentState := podState(tracker.state.Load())
 			if ret == nil { // Successful request
@@ -559,7 +632,11 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 				}
 				// On success, if pod was previously quarantined, reset the counter to reduce future backoff
 				if currentState == podHealthy && tracker.quarantineCount.Load() > 0 {
-					tracker.quarantineCount.Store(0)
+					prevCount := tracker.quarantineCount.Swap(0)
+					rt.logger.Infow("Pod quarantine history cleared after success",
+						"x-request-id", xRequestId,
+						"dest", tracker.dest,
+						"previous-quarantine-count", prevCount)
 				}
 			}
 
@@ -592,8 +669,26 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 		}); err != nil {
 			return err
 		}
-		rt.logger.Debugf("%s -> Reenqueue request\n", xRequestId)
+		if reenqueue {
+			rt.logger.Debugw("Request will be re-queued",
+				"x-request-id", xRequestId,
+				"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()))
+		}
 	}
+
+	// Log final routing summary if it took significant time or had retries
+	totalMs := float64(time.Since(proxyStartTime).Milliseconds())
+	if totalMs > 500 || reenqueueCount > 0 { // Log if >500ms or had retries
+		rt.logger.Infow("Request routing completed",
+			"x-request-id", xRequestId,
+			"dest", finalTracker,
+			"total-ms", totalMs,
+			"routing-ms", totalMs-proxyDurationMs,
+			"proxy-ms", proxyDurationMs,
+			"retries", reenqueueCount,
+			"success", ret == nil)
+	}
+
 	return ret
 }
 
@@ -633,11 +728,11 @@ func (rt *revisionThrottler) resetTrackers() {
 	if cc <= 0 {
 		return
 	}
-	
+
 	// Update trackers directly under lock to avoid race condition
 	rt.mux.RLock()
 	defer rt.mux.RUnlock()
-	
+
 	for _, t := range rt.podTrackers {
 		if t != nil {
 			t.UpdateConcurrency(cc)
@@ -675,7 +770,7 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 			assigned = maps.Values(rt.podTrackers)
 		}
 		rt.mux.RUnlock()
-		
+
 		rt.logger.Debugf("Trackers %d/%d: assignment: %v", ai, ac, assigned)
 
 		// Sort, so we get more or less stable results.
@@ -691,7 +786,7 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 	}()
 
 	capacity := rt.calculateCapacity(backendCount, numTrackers, ac)
-	rt.logger.Infof("Set capacity to %d (backends: %d, index: %d/%d)",
+	rt.logger.Debugf("Set capacity to %d (backends: %d, index: %d/%d)",
 		capacity, backendCount, ai, ac)
 
 	rt.backendCount.Store(uint32(backendCount))
@@ -706,10 +801,10 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 		}
 	}()
 
-	rt.logger.Infof("Updating Throttler %s: trackers = %d, backends = %d",
+	rt.logger.Debugf("Updating Throttler %s: trackers = %d, backends = %d",
 		rt.revID, len(newTrackers), backendCount)
-	rt.logger.Infof("Throttler %s DrainingDests: %s", rt.revID, drainingDests)
-	rt.logger.Infof("Throttler %s healthyDests: %s", rt.revID, healthyDests)
+	rt.logger.Debugf("Throttler %s DrainingDests: %s", rt.revID, drainingDests)
+	rt.logger.Debugf("Throttler %s healthyDests: %s", rt.revID, healthyDests)
 
 	// Update trackers / clusterIP before capacity. Otherwise we can race updating our breaker when
 	// we increase capacity, causing a request to fall through before a tracker is added, causing an
@@ -746,11 +841,11 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 			switch podState(tracker.state.Load()) {
 			case podHealthy, podRecovering:
 				if tracker.tryDrain() {
-					rt.logger.Infof("Pod %s transitioning to draining state, refCount=%d", d, tracker.getRefCount())
+					rt.logger.Debugf("Pod %s transitioning to draining state, refCount=%d", d, tracker.getRefCount())
 					if tracker.getRefCount() == 0 {
 						tracker.state.Store(uint32(podRemoved))
 						delete(rt.podTrackers, d)
-						rt.logger.Infof("Pod %s removed immediately (no active requests)", d)
+						rt.logger.Debugf("Pod %s removed immediately (no active requests)", d)
 					}
 				}
 			case podDraining:
@@ -758,7 +853,7 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 				if refCount == 0 {
 					tracker.state.Store(uint32(podRemoved))
 					delete(rt.podTrackers, d)
-					rt.logger.Infof("Pod %s removed after draining (no active requests)", d)
+					rt.logger.Debugf("Pod %s removed after draining (no active requests)", d)
 				} else {
 					drainingStart := tracker.drainingStartTime.Load()
 					if drainingStart > 0 && now-drainingStart > int64(maxDrainingDuration.Seconds()) {
@@ -771,7 +866,7 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 				// Pod being removed while quarantined - decrement gauge exactly once
 				transitionOutOfQuarantine(context.Background(), tracker, podRemoved)
 				delete(rt.podTrackers, d)
-				rt.logger.Infof("Pod %s removed while in quarantine", d)
+				rt.logger.Debugf("Pod %s removed while in quarantine", d)
 			default:
 				rt.logger.Errorf("Pod %s in unexpected state %d while processing draining destinations", d, tracker.state.Load())
 			}
@@ -845,7 +940,7 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 		// Loop over dests, reuse existing tracker if we have one, otherwise create
 		// a new one.
 		newTrackers := make([]*podTracker, 0, len(update.Dests))
-		
+
 		// Take read lock to safely access podTrackers map
 		rt.mux.RLock()
 		currentDests := maps.Keys(rt.podTrackers)
@@ -1015,7 +1110,7 @@ func (t *Throttler) revisionUpdated(obj any) {
 		// Use atomic store for lock-free access in the hot request path
 		rt.lbPolicy.Store(newPolicy)
 		rt.containerConcurrency.Store(uint32(rev.Spec.GetContainerConcurrency()))
-		t.logger.Infof("Updated revision throttler LB policy to: %s", name)
+		t.logger.Debugf("Updated revision throttler LB policy to: %s", name)
 	}
 }
 

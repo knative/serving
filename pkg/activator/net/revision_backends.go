@@ -325,7 +325,7 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 		// so they have to be re-probed.
 		reprobe := curDests.becameNonReady(prevDests)
 		if len(reprobe) > 0 {
-			rw.logger.Infow("Need to reprobe pods who became non-ready",
+			rw.logger.Debugw("Need to reprobe pods who became non-ready",
 				zap.Object("IPs", logging.StringSet(reprobe)))
 			// Trim the pods that migrated to the non-ready set from the
 			// ready set from the healthy pods. They will automatically
