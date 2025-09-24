@@ -315,17 +315,17 @@ func TestErrorPropagationFromProxy(t *testing.T) {
 	}, {
 		name:                "proxy network error",
 		proxyError:          errors.New("connection refused"),
-		expectThrottlerErr:  true,  // This SHOULD preserve the original error
+		expectThrottlerErr:  true,                             // This SHOULD preserve the original error
 		expectSpecificError: errors.New("connection refused"), // Should get the original error, not ErrQuick502
 	}, {
-		name:                "proxy timeout", 
+		name:                "proxy timeout",
 		proxyError:          context.DeadlineExceeded,
-		expectThrottlerErr:  true,  // This SHOULD preserve the original error
+		expectThrottlerErr:  true,                     // This SHOULD preserve the original error
 		expectSpecificError: context.DeadlineExceeded, // Should get timeout error, not ErrQuick502
 	}, {
 		name:                "genuine quick 502",
-		proxyError:          nil,  // No transport error, but fast 502 response
-		expectThrottlerErr:  true,  // Should still return ErrQuick502
+		proxyError:          nil,           // No transport error, but fast 502 response
+		expectThrottlerErr:  true,          // Should still return ErrQuick502
 		expectSpecificError: ErrQuick502{}, // Should get ErrQuick502 for fast 502 responses
 	}}
 
@@ -349,7 +349,7 @@ func TestErrorPropagationFromProxy(t *testing.T) {
 					responseBody = "success"
 				}
 			}
-			
+
 			fakeRT := activatortest.FakeRoundTripper{
 				RequestResponse: &activatortest.FakeResponse{
 					Err:  test.proxyError,
@@ -362,10 +362,10 @@ func TestErrorPropagationFromProxy(t *testing.T) {
 			// Create handler with real throttler (not fake) to test actual error flow
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer cancel()
-			
+
 			// Track what error the throttler actually receives
 			var actualThrottlerError error
-			
+
 			// Create a capturing throttler to intercept the error
 			captureThrottler := &capturingThrottler{
 				onTry: func(ctx context.Context, revID types.NamespacedName, xRequestId string, f func(string, bool) error) error {
@@ -373,7 +373,7 @@ func TestErrorPropagationFromProxy(t *testing.T) {
 					return actualThrottlerError
 				},
 			}
-			
+
 			handler := New(ctx, captureThrottler, rt, false /*usePassthroughLb*/, logging.FromContext(ctx), false /* TLS */)
 
 			// Set up config store to populate context.

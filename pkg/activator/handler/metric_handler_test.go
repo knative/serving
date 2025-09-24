@@ -133,6 +133,11 @@ func reset() {
 		podQuarantinesM.Name(),
 		tcpPingFailuresTotalM.Name(),
 		immediate502sTotalM.Name(),
+		podQuarantineEntriesM.Name(),
+		podQuarantineExitsM.Name(),
+		pendingRequestStartsM.Name(),
+		pendingRequestCompletesM.Name(),
+		proxyStartLatencyM.Name(),
 	)
 	register()
 }

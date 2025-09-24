@@ -1168,7 +1168,7 @@ func TestLoadBalancingAlgorithms(t *testing.T) {
 		selections := make(map[string]int)
 		for range 30 {
 			lbPolicy := rt.lbPolicy.Load().(lbPolicy)
-		_, tracker := lbPolicy(ctx, rt.assignedTrackers)
+			_, tracker := lbPolicy(ctx, rt.assignedTrackers)
 			if tracker != nil {
 				selections[tracker.dest]++
 			}
@@ -1297,7 +1297,7 @@ func TestLoadBalancingAlgorithms(t *testing.T) {
 		selections := make(map[string]int)
 		for range 100 {
 			lbPolicy := rt.lbPolicy.Load().(lbPolicy)
-		_, tracker := lbPolicy(ctx, rt.assignedTrackers)
+			_, tracker := lbPolicy(ctx, rt.assignedTrackers)
 			if tracker != nil {
 				selections[tracker.dest]++
 			}
@@ -1674,7 +1674,6 @@ func TestInferIndex(t *testing.T) {
 	}
 }
 
-
 func TestAssignSlice(t *testing.T) {
 	opt := cmp.Comparer(func(a, b *podTracker) bool {
 		return a.dest == b.dest
@@ -1786,16 +1785,16 @@ func TestAssignSlice(t *testing.T) {
 	t.Run("5 pods, 3 activators", func(t *testing.T) {
 		fivePodTrackers := map[string]*podTracker{
 			"dest1": {dest: "1"},
-			"dest2": {dest: "2"}, 
+			"dest2": {dest: "2"},
 			"dest3": {dest: "3"},
 			"dest4": {dest: "4"},
 			"dest5": {dest: "5"},
 		}
-		// Sorted: ["dest1", "dest2", "dest3", "dest4", "dest5"] 
+		// Sorted: ["dest1", "dest2", "dest3", "dest4", "dest5"]
 		// Activator 0: indices 0, 3 -> dest1, dest4
-		// Activator 1: indices 1, 4 -> dest2, dest5  
+		// Activator 1: indices 1, 4 -> dest2, dest5
 		// Activator 2: index 2 -> dest3
-		
+
 		got0 := assignSlice(fivePodTrackers, 0, 3)
 		want0 := []*podTracker{{dest: "1"}, {dest: "4"}}
 		if !cmp.Equal(got0, want0, opt) {
@@ -1876,7 +1875,7 @@ func TestThrottlerQuick502Quarantine(t *testing.T) {
 			logger:      logger,
 			breaker:     queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10}),
 			podTrackers: make(map[string]*podTracker),
-			}
+		}
 		rt.lbPolicy.Store(lbPolicy(firstAvailableLBPolicy))
 
 		// Create two pod trackers - one will get quarantined, one will succeed
@@ -1944,7 +1943,7 @@ func TestThrottlerQuick502Quarantine(t *testing.T) {
 			logger:      logger,
 			breaker:     queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10}),
 			podTrackers: make(map[string]*podTracker),
-			}
+		}
 		rt.lbPolicy.Store(lbPolicy(firstAvailableLBPolicy))
 
 		// Create a healthy pod tracker
@@ -1986,7 +1985,7 @@ func TestThrottlerQuick502Quarantine(t *testing.T) {
 			logger:      logger,
 			breaker:     queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10}),
 			podTrackers: make(map[string]*podTracker),
-			}
+		}
 		rt.lbPolicy.Store(lbPolicy(firstAvailableLBPolicy))
 
 		// Create multiple pod trackers
@@ -2143,7 +2142,7 @@ func TestQuarantineRecoveryMechanism(t *testing.T) {
 
 	t.Run("recovering pods promote to healthy after successful request", func(t *testing.T) {
 		// Test this logic directly without the complex try() method to avoid infinite loops
-		
+
 		// Create a recovering tracker
 		tracker := &podTracker{
 			dest: "recovering-pod",
@@ -2246,7 +2245,7 @@ func TestQuarantineRecoveryMechanism(t *testing.T) {
 
 func TestResetTrackersRaceCondition(t *testing.T) {
 	logger := TestLogger(t)
-	
+
 	t.Run("resetTrackers concurrent with tracker modifications", func(t *testing.T) {
 		rt := &revisionThrottler{
 			logger:      logger,
@@ -2262,11 +2261,11 @@ func TestResetTrackersRaceCondition(t *testing.T) {
 		// Create initial trackers
 		initialTrackers := make([]*podTracker, 3)
 		for i := 0; i < 3; i++ {
-			tracker := newPodTracker(fmt.Sprintf("pod-%d:8080", i), 
+			tracker := newPodTracker(fmt.Sprintf("pod-%d:8080", i),
 				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 			initialTrackers[i] = tracker
 		}
-		
+
 		// Add initial trackers
 		rt.updateThrottlerState(3, initialTrackers, nil, nil, nil)
 
@@ -2274,7 +2273,7 @@ func TestResetTrackersRaceCondition(t *testing.T) {
 		defer cancel()
 
 		var wg sync.WaitGroup
-		
+
 		// Goroutine 1: Continuously call resetTrackers
 		wg.Add(1)
 		go func() {
@@ -2294,17 +2293,17 @@ func TestResetTrackersRaceCondition(t *testing.T) {
 			for ctx.Err() == nil {
 				counter++
 				trackerName := fmt.Sprintf("dynamic-pod-%d:8080", counter%5)
-				
+
 				if counter%2 == 0 {
 					// Add a tracker
-					newTracker := newPodTracker(trackerName, 
+					newTracker := newPodTracker(trackerName,
 						queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 					rt.updateThrottlerState(1, []*podTracker{newTracker}, nil, nil, nil)
 				} else {
 					// Remove a tracker by putting it in draining
 					rt.updateThrottlerState(0, nil, nil, []string{trackerName}, nil)
 				}
-				
+
 				// Small delay to let resetTrackers work
 				time.Sleep(time.Microsecond)
 			}
@@ -2312,7 +2311,7 @@ func TestResetTrackersRaceCondition(t *testing.T) {
 
 		// Wait for goroutines to finish
 		wg.Wait()
-		
+
 		// Test should complete without race conditions or panics
 		// The actual race detection happens when run with -race flag
 	})
