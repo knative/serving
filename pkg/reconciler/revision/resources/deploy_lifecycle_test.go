@@ -21,10 +21,12 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"knative.dev/serving/pkg/queue/drain"
 )
 
 func TestBuildLifecycleWithDrainWait(t *testing.T) {
-	drainCommand := "until [ -f /var/run/knative/drain-complete ]; do sleep 0.1; done"
+	// Use the same logic as production code
+	drainCommand := drain.BuildDrainWaitScript("")
 
 	tests := []struct {
 		name     string
@@ -45,7 +47,7 @@ func TestBuildLifecycleWithDrainWait(t *testing.T) {
 					},
 				},
 			},
-			want: []string{"/bin/sh", "-c", "/app/cleanup.sh; " + drainCommand},
+			want: []string{"/bin/sh", "-c", drain.BuildDrainWaitScript("/app/cleanup.sh")},
 		},
 		{
 			name: "existing HTTP GET",
@@ -57,7 +59,7 @@ func TestBuildLifecycleWithDrainWait(t *testing.T) {
 					},
 				},
 			},
-			want: []string{"/bin/sh", "-c", "curl -f http://localhost:8080/shutdown; " + drainCommand},
+			want: []string{"/bin/sh", "-c", drain.BuildDrainWaitScript("curl -f http://localhost:8080/shutdown")},
 		},
 		{
 			name: "existing HTTP GET without path",
@@ -68,7 +70,7 @@ func TestBuildLifecycleWithDrainWait(t *testing.T) {
 					},
 				},
 			},
-			want: []string{"/bin/sh", "-c", "curl -f http://localhost:9090/; " + drainCommand},
+			want: []string{"/bin/sh", "-c", drain.BuildDrainWaitScript("curl -f http://localhost:9090/")},
 		},
 	}
 
