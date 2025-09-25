@@ -30,6 +30,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/queue/drain"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
 
@@ -322,7 +323,7 @@ func buildLifecycleWithDrainWait(existingLifecycle *corev1.Lifecycle) *corev1.Li
 				Exec: &corev1.ExecAction{
 					Command: []string{
 						"/bin/sh", "-c",
-						existingCommand + "; until [ -f /var/run/knative/drain-complete ]; do sleep 0.1; done",
+						drain.BuildDrainWaitScript(existingCommand),
 					},
 				},
 			},
@@ -335,7 +336,7 @@ func buildLifecycleWithDrainWait(existingLifecycle *corev1.Lifecycle) *corev1.Li
 			Exec: &corev1.ExecAction{
 				Command: []string{
 					"/bin/sh", "-c",
-					"until [ -f /var/run/knative/drain-complete ]; do sleep 0.1; done",
+					drain.BuildDrainWaitScript(""),
 				},
 			},
 		},
