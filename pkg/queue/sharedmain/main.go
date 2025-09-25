@@ -50,6 +50,7 @@ import (
 	"knative.dev/serving/pkg/logging"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/queue/drain"
 	"knative.dev/serving/pkg/queue/readiness"
 )
 
@@ -274,8 +275,9 @@ func Main(opts ...Option) error {
 
 	logger.Info("Starting queue-proxy")
 
-	// Clean up any stale drain signal file from previous runs
-	os.Remove("/var/run/knative/drain-complete")
+	// Clean up any stale drain signal files from previous runs
+	os.Remove(drain.DrainStartedFile)
+	os.Remove(drain.DrainCompleteFile)
 
 	errCh := make(chan error)
 	for name, server := range httpServers {
@@ -323,12 +325,14 @@ func Main(opts ...Option) error {
 		for range ticker.C {
 			if pendingRequests.Load() <= 0 {
 				logger.Infof("Drain: all pending requests completed")
-				// Write drain signal file for PreStop hooks to detect
-				if err := os.WriteFile("/var/run/knative/drain-complete", []byte(""), 0o600); err != nil {
-					logger.Errorw("Failed to write drain signal file", zap.Error(err))
-				}
 				break WaitOnPendingRequests
 			}
+		}
+
+		// Write drain-complete signal file after draining is done
+		// This signals to user containers that queue-proxy has finished draining
+		if err := os.WriteFile(drain.DrainCompleteFile, []byte(""), 0o600); err != nil {
+			logger.Errorw("Failed to write drain-complete signal file", zap.Error(err))
 		}
 
 		for name, srv := range httpServers {

@@ -39,6 +39,7 @@ import (
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/queue/drain"
 	"knative.dev/serving/pkg/queue/readiness"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 )
@@ -358,6 +359,16 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		StartupProbe:    nil,
 		ReadinessProbe:  queueProxyReadinessProbe,
 		SecurityContext: queueSecurityContext,
+		Lifecycle: &corev1.Lifecycle{
+			PreStop: &corev1.LifecycleHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{
+						"/bin/sh", "-c",
+						drain.QueueProxyPreStopScript,
+					},
+				},
+			},
+		},
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
 			Value: rev.Namespace,
