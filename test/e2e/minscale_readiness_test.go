@@ -168,7 +168,10 @@ func TestMinScaleTransition(t *testing.T) {
 	})
 
 	if errors.Is(err, context.DeadlineExceeded) {
-		t.Fatal("Timedout waiting for pods to be running", err)
+		for _, pod := range podList.Items {
+			t.Logf("pod %s is in phase %s", pod.Name, pod.Status.Phase)
+		}
+		t.Fatal("Timed out waiting for pods to be running", err)
 	} else if err != nil {
 		t.Fatal("Failed waiting for pods to be running", err)
 	}
