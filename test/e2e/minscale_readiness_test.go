@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
@@ -67,7 +66,8 @@ func TestMinScaleTransition(t *testing.T) {
 
 	test.EnsureTearDown(t, clients, &names)
 
-	secondRevisionName := kmeta.ChildName(names.Config, fmt.Sprintf("-%05d", 2))
+	firstRevision := kmeta.ChildName(names.Config, fmt.Sprintf("-%05d", 1))
+	secondRevision := kmeta.ChildName(names.Config, fmt.Sprintf("-%05d", 2))
 
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -79,7 +79,7 @@ func TestMinScaleTransition(t *testing.T) {
 			names.Config: "startup,ready,live",
 
 			// By default the second revision doesn't become ready
-			secondRevisionName: "startup",
+			secondRevision: "startup",
 		},
 	}
 	cm, err := cmClient.Create(t.Context(), cm, metav1.CreateOptions{})
@@ -88,7 +88,7 @@ func TestMinScaleTransition(t *testing.T) {
 	}
 
 	test.EnsureCleanup(t, func() {
-		cmClient.Delete(t.Context(), cm.Name, metav1.DeleteOptions{})
+		cmClient.Delete(context.Background(), cm.Name, metav1.DeleteOptions{})
 	})
 
 	t.Log("Creating route")
@@ -121,18 +121,18 @@ func TestMinScaleTransition(t *testing.T) {
 		t.Fatal("Failed to create Configuration:", err)
 	}
 
-	firstRevName := latestRevisionName(t, clients, names.Config, "")
-	firstRevServiceName := PrivateServiceName(t, clients, firstRevName)
+	// This will wait for the revision to be created
+	firstRevisionService := PrivateServiceName(t, clients, firstRevision)
 
 	t.Log("Waiting for first revision to become ready")
-	err = v1test.WaitForRevisionState(clients.ServingClient, firstRevName, v1test.IsRevisionReady, "RevisionIsReady")
+	err = v1test.WaitForRevisionState(clients.ServingClient, firstRevision, v1test.IsRevisionReady, "RevisionIsReady")
 	if err != nil {
-		t.Fatalf("The Revision %q did not become ready: %v", firstRevName, err)
+		t.Fatalf("The Revision %q did not become ready: %v", firstRevision, err)
 	}
 
 	t.Log("Holding revision at minScale after becoming ready")
-	if lr, ok := ensureDesiredScale(clients, t, firstRevServiceName, gte(minScale)); !ok {
-		t.Fatalf("The revision %q observed scale %d < %d after becoming ready", firstRevName, lr, minScale)
+	if lr, ok := ensureDesiredScale(clients, t, firstRevisionService, gte(minScale)); !ok {
+		t.Fatalf("The revision %q observed scale %d < %d after becoming ready", firstRevision, lr, minScale)
 	}
 
 	t.Log("Updating configuration")
@@ -144,7 +144,7 @@ func TestMinScaleTransition(t *testing.T) {
 	var podList *corev1.PodList
 
 	err = wait.PollUntilContextTimeout(ctx, time.Second, time.Minute, true, func(context.Context) (bool, error) {
-		revLabel, err := labels.NewRequirement(serving.RevisionLabelKey, selection.Equals, []string{secondRevisionName})
+		revLabel, err := labels.NewRequirement(serving.RevisionLabelKey, selection.Equals, []string{secondRevision})
 		if err != nil {
 			return false, fmt.Errorf("unable to create rev label: %w", err)
 		}
@@ -176,31 +176,73 @@ func TestMinScaleTransition(t *testing.T) {
 		t.Fatal("Failed waiting for pods to be running", err)
 	}
 
-	podName := podList.Items[0].Name
+	secondRevisionService := PrivateServiceName(t, clients, secondRevision)
 
-	t.Logf("Marking revision %s pod %s as ready", secondRevisionName, podName)
-	newCM := cm.DeepCopy()
-	newCM.Data[podName] = "startup,ready"
+	// Go over all the new pods and start marking each one ready
+	// except the last one
+	for i, pod := range podList.Items {
+		podName := pod.Name
 
-	patchBytes, err := duck.CreateBytePatch(cm, newCM)
-	if err != nil {
-		t.Fatal("Failed to create patch:", err)
+		t.Logf("Marking revision %s pod %s as ready", secondRevision, podName)
+		markPodAsReadyAndWait(t, clients, cm.Name, podName)
+		t.Logf("Revision %s pod %s is ready", secondRevision, podName)
+
+		t.Logf("Waiting for 2x scaling window %v to pass", 2*scalingWindow)
+
+		// Wait two autoscaling window durations
+		// Scaling decisions are made at the end of the window
+		time.Sleep(2 * scalingWindow)
+
+		if i >= len(podList.Items)-1 {
+			// When marking the last pod ready we want to skip
+			// ensuring the previous revision doesn't scale down
+			break
+		}
+
+		t.Log("Check original revision holding at min scale", minScale)
+		if _, ok := ensureDesiredScale(clients, t, firstRevisionService, gte(minScale)); !ok {
+			t.Fatalf("Revision %q was scaled down prematurely", firstRevision)
+		}
 	}
 
-	cm, err = cmClient.Patch(ctx, names.Config, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	t.Log("Check new revision holding at min scale", minScale)
+	if _, ok := ensureDesiredScale(clients, t, secondRevisionService, gte(minScale)); !ok {
+		t.Fatalf("Revision %q was scaled down prematurely", secondRevision)
+	}
+
+	t.Log("Check old revision is scaled down")
+	if _, err := waitForDesiredScale(clients, firstRevisionService, eq(0)); err != nil {
+		t.Fatalf("Revision %q was not scaled down: %s", firstRevision, err)
+	}
+}
+
+func markPodAsReadyAndWait(t *testing.T, clients *test.Clients, cmName, podName string) {
+	ctx := t.Context()
+	coreClient := clients.KubeClient.CoreV1()
+	cmClient := coreClient.ConfigMaps(test.ServingFlags.TestNamespace)
+
+	patch := fmt.Sprintf(`[{"op":"add", "path":"/data/%s", "value": "startup,ready"}]`, podName)
+
+	_, err := cmClient.Patch(ctx, cmName, types.JSONPatchType, []byte(patch), metav1.PatchOptions{})
 	if err != nil {
 		t.Fatal("Failed to patch ConfigMap", err)
 	}
 
-	t.Logf("Waiting for scaling window %v to pass", scalingWindow)
+	if err = wait.PollUntilContextTimeout(ctx, 10*time.Second, 2*time.Minute, true, func(context.Context) (bool, error) {
+		pod, err := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).Get(context.Background(), podName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
 
-	// Wait two autoscaling window durations
-	// Scaling decisions are made at the end of the window
-	time.Sleep(scalingWindow)
+		for _, cond := range pod.Status.Conditions {
+			if cond.Type == corev1.PodReady {
+				return cond.Status == corev1.ConditionTrue, nil
+			}
+		}
 
-	t.Log("Check original revision holding at min scale", minScale)
-	if _, ok := ensureDesiredScale(clients, t, firstRevServiceName, gte(minScale)); !ok {
-		t.Fatalf("Revision %q was scaled down prematurely", firstRevName)
+		return false, nil
+	}); err != nil {
+		t.Fatalf("Pod %s didn't become ready: %s", podName, err)
 	}
 }
 
@@ -336,6 +378,12 @@ func lt(m int) func(int) bool {
 	}
 }
 
+func eq(m int) func(int) bool {
+	return func(n int) bool {
+		return n == m
+	}
+}
+
 func withMinScale(minScale int) func(cfg *v1.Configuration) {
 	return func(cfg *v1.Configuration) {
 		if cfg.Spec.Template.Annotations == nil {
@@ -379,7 +427,7 @@ func waitForDesiredScale(clients *test.Clients, serviceName string, cond func(in
 	endpoints := clients.KubeClient.CoreV1().Endpoints(test.ServingFlags.TestNamespace)
 
 	// See https://github.com/knative/serving/issues/7727#issuecomment-706772507 for context.
-	return latestReady, wait.PollUntilContextTimeout(context.Background(), 250*time.Millisecond, 3*time.Minute, true, func(context.Context) (bool, error) {
+	return latestReady, wait.PollUntilContextTimeout(context.Background(), time.Second, 3*time.Minute, true, func(context.Context) (bool, error) {
 		endpoint, err := endpoints.Get(context.Background(), serviceName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil //nolint:nilerr
@@ -392,7 +440,7 @@ func waitForDesiredScale(clients *test.Clients, serviceName string, cond func(in
 func ensureDesiredScale(clients *test.Clients, t *testing.T, serviceName string, cond func(int) bool) (latestReady int, observed bool) {
 	endpoints := clients.KubeClient.CoreV1().Endpoints(test.ServingFlags.TestNamespace)
 
-	err := wait.PollUntilContextTimeout(context.Background(), 250*time.Millisecond, 10*time.Second, true, func(context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), time.Second, 30*time.Second, true, func(context.Context) (bool, error) {
 		endpoint, err := endpoints.Get(context.Background(), serviceName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil //nolint:nilerr

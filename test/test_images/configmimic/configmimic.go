@@ -100,7 +100,7 @@ func main() {
 func checkForStatus() {
 	log.Println("Checking for status")
 
-	var path string
+	var lastPath string
 	var states sets.Set[string]
 
 	for _, entry := range priority {
@@ -108,7 +108,7 @@ func checkForStatus() {
 			continue
 		}
 
-		path = filepath.Join("/etc/config", entry)
+		path := filepath.Join("/etc/config", entry)
 		bytes, err := os.ReadFile(path)
 		if errors.Is(err, fs.ErrNotExist) {
 			continue
@@ -117,10 +117,11 @@ func checkForStatus() {
 			continue
 		}
 
+		lastPath = path
 		states = sets.New(strings.Split(string(bytes), ",")...)
 	}
 
-	log.Println("Read state", filepath.Base(path), sets.List(states))
+	log.Println("Read state", filepath.Base(lastPath), sets.List(states))
 
 	newReady := states.Has("ready")
 	oldReady := ready.Swap(newReady)
