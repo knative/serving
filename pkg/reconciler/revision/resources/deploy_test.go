@@ -95,6 +95,16 @@ var (
 			FailureThreshold: 1,
 		},
 		SecurityContext: queueSecurityContext,
+		Lifecycle: &corev1.Lifecycle{
+			PreStop: &corev1.LifecycleHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{
+						"/bin/sh", "-c",
+						"touch " + "/var/run/knative/drain-started", // Using string directly to match production
+					},
+				},
+			},
+		},
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
 			Value: "foo", // matches namespace
