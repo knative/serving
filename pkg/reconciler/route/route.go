@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubelabels "k8s.io/apimachinery/pkg/labels"
@@ -310,12 +311,7 @@ func (c *Reconciler) externalDomainTLS(ctx context.Context, host string, r *v1.R
 		return acmeChallenges[i].URL.String() < acmeChallenges[j].URL.String()
 	})
 
-	orphanCerts, err := c.getOrphanRouteCerts(r, domainToTagMap, netcfg.CertificateExternalDomain)
-	if err != nil {
-		return nil, nil, desiredCerts, err
-	}
-
-	c.deleteOrphanedCerts(ctx, orphanCerts)
+	c.deleteOrphanRouteCerts(ctx, r, domainToTagMap, netcfg.CertificateExternalDomain)
 
 	return tls, acmeChallenges, desiredCerts, nil
 }
@@ -363,26 +359,28 @@ func (c *Reconciler) clusterLocalDomainTLS(ctx context.Context, r *v1.Route, tc 
 		}
 	}
 
-	orphanCerts, err := c.getOrphanRouteCerts(r, usedDomains, netcfg.CertificateClusterLocalDomain)
-	if err != nil {
-		//nolint:nilerr // https://github.com/knative/serving/issues/15755
-		return nil, nil
-	}
-
-	c.deleteOrphanedCerts(ctx, orphanCerts)
+	c.deleteOrphanRouteCerts(ctx, r, usedDomains, netcfg.CertificateClusterLocalDomain)
 
 	return tls, nil
 }
 
 // Returns a slice of certificates that used to belong route's old domains/tags for a specific visibility that are currently not in use.
-func (c *Reconciler) getOrphanRouteCerts(r *v1.Route, domainToTagMap map[string]string, certificateType netcfg.CertificateType) ([]*netv1alpha1.Certificate, error) {
+func (c *Reconciler) deleteOrphanRouteCerts(
+	ctx context.Context,
+	r *v1.Route,
+	domainToTagMap map[string]string,
+	certificateType netcfg.CertificateType,
+) {
+	logger := logging.FromContext(ctx)
+
 	labelSelector := kubelabels.SelectorFromSet(kubelabels.Set{
 		serving.RouteLabelKey: r.Name,
 	})
 
 	certs, err := c.certificateLister.Certificates(r.Namespace).List(labelSelector)
 	if err != nil {
-		return nil, err
+		logger.Errorw("error listing orphaned certs for cleanup", zap.Error(err))
+		return
 	}
 
 	var unusedCerts []*netv1alpha1.Certificate
@@ -401,13 +399,11 @@ func (c *Reconciler) getOrphanRouteCerts(r *v1.Route, domainToTagMap map[string]
 		}
 	}
 
-	return unusedCerts, nil
-}
-
-func (c *Reconciler) deleteOrphanedCerts(ctx context.Context, orphanCerts []*netv1alpha1.Certificate) {
+	certClient := c.GetNetworkingClient().NetworkingV1alpha1()
 	recorder := controller.GetEventRecorder(ctx)
-	for _, cert := range orphanCerts {
-		err := c.GetNetworkingClient().NetworkingV1alpha1().Certificates(cert.Namespace).Delete(ctx, cert.Name, metav1.DeleteOptions{})
+
+	for _, cert := range unusedCerts {
+		err := certClient.Certificates(cert.Namespace).Delete(ctx, cert.Name, metav1.DeleteOptions{})
 		if err != nil {
 			recorder.Eventf(cert, corev1.EventTypeNormal, "DeleteFailed",
 				"Failed to delete orphaned Knative Certificate %s/%s: %v", cert.Namespace, cert.Name, err)
