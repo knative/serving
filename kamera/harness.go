@@ -24,6 +24,10 @@ import (
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route"
 	serviceinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/service"
+	"knative.dev/serving/pkg/gc"
+	"knative.dev/serving/pkg/reconciler/route/config"
+
+	netcfg "knative.dev/networking/pkg/config"
 
 	// Knative pkg imports
 	// Knative controller plumbing
@@ -81,7 +85,61 @@ func NewKnativeStrategy(ctx context.Context, factory ControllerFactory) (*Knativ
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{},
-	})
+	},
+		// added the following for route reconciler
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      config.DomainConfigName,
+				Namespace: system.Namespace(),
+			},
+			Data: map[string]string{
+				"test-domain.dev": "",
+				"prod-domain.com": "selector:\n  app: prod",
+			},
+		}, &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      netcfg.ConfigMapName,
+				Namespace: system.Namespace(),
+			},
+			Data: map[string]string{},
+		}, &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      gc.ConfigName,
+				Namespace: system.Namespace(),
+			},
+			Data: map[string]string{},
+		}, &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cfgmap.FeaturesConfigName,
+				Namespace: system.Namespace(),
+			},
+			Data: map[string]string{},
+		},
+		// added for revision informer
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "config-observability",
+				Namespace: system.Namespace(),
+			},
+			Data: map[string]string{},
+		},
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "config-deployment",
+				Namespace: system.Namespace(),
+			},
+			Data: map[string]string{
+				"queue-sidecar-image": "gcr.io/knative-releases/knative.dev/serving/cmd/queue@sha256:abc123",
+			},
+		},
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "config-logging",
+				Namespace: system.Namespace(),
+			},
+			Data: map[string]string{},
+		},
+	)
 
 	ctrl := factory(ctx, cmw)
 

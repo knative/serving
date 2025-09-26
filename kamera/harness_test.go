@@ -3,13 +3,21 @@ package kamera
 import (
 	"testing"
 
+	// filteredinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
+
 	reconcilertesting "knative.dev/pkg/reconciler/testing"
 
 	// The actual reconciler implementations
 	// Import the fakes for the informers we need.
+	// Import the fakes for the informers we need.
+	_ "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake"
 	_ "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 	_ "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
+	_ "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
+
+	// _ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration/fake"
@@ -17,6 +25,7 @@ import (
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/service/fake"
 
+	revisionreconciler "knative.dev/serving/pkg/reconciler/revision"
 	routereconciler "knative.dev/serving/pkg/reconciler/route"
 	servicereconciler "knative.dev/serving/pkg/reconciler/service"
 )
@@ -38,13 +47,14 @@ func TestNewKnativeStrategy(t *testing.T) {
 			name:    "Route Reconciler",
 			factory: routereconciler.NewController,
 		},
-		// {
-		// 	name:    "Revision Reconciler",
-		// 	factory: revisionreconciler.NewController,
-		// },
+		{
+			name:    "Revision Reconciler",
+			factory: revisionreconciler.NewController,
+		},
 		// {
 		// 	name: "KPA Reconciler",
 		// 	factory: func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+		// 		multiScaler := scaling.NewMultiScaler(ctx.Done(), nil, logging.FromContext(ctx))
 		// 		return kpareconciler.NewController(ctx, cmw, multiScaler)
 		// 	},
 		// },
@@ -67,7 +77,12 @@ func TestNewKnativeStrategy(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, _ := reconcilertesting.SetupFakeContext(t) // injects the informers
+			ctx, _ := reconcilertesting.SetupFakeContext(t)
+			// For reconcilers that use filtered informers, we need to tell the fake factory
+			// about the selectors we care about.
+			// if tt.name == "Revision Reconciler" || tt.name == "KPA Reconciler" {
+			// 	ctx = filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+			// }
 			_, err := NewKnativeStrategy(ctx, tt.factory)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewKnativeStrategy() error = %v, wantErr %v", err, tt.wantErr)
