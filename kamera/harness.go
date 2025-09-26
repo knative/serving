@@ -139,6 +139,15 @@ func NewKnativeStrategy(ctx context.Context, factory ControllerFactory) (*Knativ
 			},
 			Data: map[string]string{},
 		},
+
+		// added for certificate reconciler
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "config-certmanager",
+				Namespace: system.Namespace(),
+			},
+			Data: map[string]string{},
+		},
 	)
 
 	ctrl := factory(ctx, cmw)

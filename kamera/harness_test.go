@@ -20,6 +20,10 @@ import (
 	_ "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	// _ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
+	// for cert-manager
+	_ "knative.dev/serving/pkg/client/certmanager/injection/informers/acme/v1/challenge/fake"
+	_ "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1/certificate/fake"
+	_ "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1/clusterissuer/fake"
 	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration/fake"
@@ -27,6 +31,7 @@ import (
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/service/fake"
 
+	certreconciler "knative.dev/serving/pkg/reconciler/certificate"
 	revisionreconciler "knative.dev/serving/pkg/reconciler/revision"
 	routereconciler "knative.dev/serving/pkg/reconciler/route"
 	sksreconciler "knative.dev/serving/pkg/reconciler/serverlessservice"
@@ -64,17 +69,10 @@ func TestNewKnativeStrategy(t *testing.T) {
 			name:    "SKS Reconciler",
 			factory: sksreconciler.NewController,
 		},
-		// {
-		// 	name: "Certificate Reconciler",
-		// 	factory: func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
-		// 		return certreconciler.NewController(ctx, cmw)
-		// 	},
-		// },
-		// {
-		// 	name:    "Nil factory",
-		// 	factory: nil,
-		// 	wantErr: true,
-		// },
+		{
+			name:    "Certificate Reconciler",
+			factory: certreconciler.NewController,
+		},
 	}
 
 	for _, tt := range tests {
