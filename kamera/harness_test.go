@@ -17,8 +17,10 @@ import (
 	_ "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 
+	_ "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	// _ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
+	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
@@ -27,6 +29,7 @@ import (
 
 	revisionreconciler "knative.dev/serving/pkg/reconciler/revision"
 	routereconciler "knative.dev/serving/pkg/reconciler/route"
+	sksreconciler "knative.dev/serving/pkg/reconciler/serverlessservice"
 	servicereconciler "knative.dev/serving/pkg/reconciler/service"
 )
 
@@ -37,7 +40,6 @@ func TestNewKnativeStrategy(t *testing.T) {
 	tests := []struct {
 		name    string
 		factory ControllerFactory
-		wantErr bool
 	}{
 		{
 			name:    "Service Reconciler",
@@ -58,10 +60,10 @@ func TestNewKnativeStrategy(t *testing.T) {
 		// 		return kpareconciler.NewController(ctx, cmw, multiScaler)
 		// 	},
 		// },
-		// {
-		// 	name:    "SKS Reconciler",
-		// 	factory: sksreconciler.NewController,
-		// },
+		{
+			name:    "SKS Reconciler",
+			factory: sksreconciler.NewController,
+		},
 		// {
 		// 	name: "Certificate Reconciler",
 		// 	factory: func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
@@ -84,8 +86,8 @@ func TestNewKnativeStrategy(t *testing.T) {
 			// 	ctx = filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 			// }
 			_, err := NewKnativeStrategy(ctx, tt.factory)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewKnativeStrategy() error = %v, wantErr %v", err, tt.wantErr)
+			if err != nil {
+				t.Errorf("NewKnativeStrategy() error = %v", err)
 			}
 		})
 	}
