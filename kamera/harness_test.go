@@ -1,10 +1,13 @@
 package kamera
 
 import (
+	"context"
 	"testing"
 
-	// filteredinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
+	filteredinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
 
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
 	reconcilertesting "knative.dev/pkg/reconciler/testing"
 
 	// The actual reconciler implementations
@@ -17,20 +20,30 @@ import (
 	_ "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 
-	_ "knative.dev/pkg/injection/clients/dynamicclient/fake"
-	// _ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered/fake"
+	// for kpa reconciler
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/factory/filtered/fake"
+
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
+	_ "knative.dev/pkg/injection/clients/dynamicclient/fake"
+
 	// for cert-manager
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/autoscaler/scaling"
 	_ "knative.dev/serving/pkg/client/certmanager/injection/informers/acme/v1/challenge/fake"
 	_ "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1/certificate/fake"
 	_ "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1/clusterissuer/fake"
 	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/service/fake"
 
+	logging "knative.dev/pkg/logging"
+
+	kpareconciler "knative.dev/serving/pkg/reconciler/autoscaling/kpa"
 	certreconciler "knative.dev/serving/pkg/reconciler/certificate"
 	revisionreconciler "knative.dev/serving/pkg/reconciler/revision"
 	routereconciler "knative.dev/serving/pkg/reconciler/route"
@@ -58,13 +71,13 @@ func TestNewKnativeStrategy(t *testing.T) {
 			name:    "Revision Reconciler",
 			factory: revisionreconciler.NewController,
 		},
-		// {
-		// 	name: "KPA Reconciler",
-		// 	factory: func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
-		// 		multiScaler := scaling.NewMultiScaler(ctx.Done(), nil, logging.FromContext(ctx))
-		// 		return kpareconciler.NewController(ctx, cmw, multiScaler)
-		// 	},
-		// },
+		{
+			name: "KPA Reconciler",
+			factory: func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+				multiScaler := scaling.NewMultiScaler(ctx.Done(), nil, logging.FromContext(ctx))
+				return kpareconciler.NewController(ctx, cmw, multiScaler)
+			},
+		},
 		{
 			name:    "SKS Reconciler",
 			factory: sksreconciler.NewController,
@@ -77,12 +90,16 @@ func TestNewKnativeStrategy(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, _ := reconcilertesting.SetupFakeContext(t)
-			// For reconcilers that use filtered informers, we need to tell the fake factory
-			// about the selectors we care about.
-			// if tt.name == "Revision Reconciler" || tt.name == "KPA Reconciler" {
-			// 	ctx = filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
-			// }
+			// When a fake filtered informer is imported, the testing framework expects
+			// the context to be initialized with the selector key.
+			// For tests that don't need a filtered informer, we can pass an empty selector list.
+			selectors := []string{}
+			if tt.name == "KPA Reconciler" {
+				selectors = append(selectors, serving.RevisionUID)
+			}
+			ctx, _ := reconcilertesting.SetupFakeContext(t, func(ctx context.Context) context.Context {
+				return filteredinformerfactory.WithSelectors(ctx, selectors...)
+			})
 			_, err := NewKnativeStrategy(ctx, tt.factory)
 			if err != nil {
 				t.Errorf("NewKnativeStrategy() error = %v", err)
