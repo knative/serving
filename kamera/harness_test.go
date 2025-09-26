@@ -98,6 +98,7 @@ func TestNewKnativeStrategy(t *testing.T) {
 				selectors = append(selectors, serving.RevisionUID)
 			}
 			ctx, _ := reconcilertesting.SetupFakeContext(t, func(ctx context.Context) context.Context {
+				// callback ensures that we add the required selectors before SetupFakeContext proceeds.
 				return filteredinformerfactory.WithSelectors(ctx, selectors...)
 			})
 			_, err := NewKnativeStrategy(ctx, tt.factory)
