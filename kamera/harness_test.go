@@ -1,15 +1,26 @@
 package kamera
 
 import (
-	"context"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	filteredinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/reconciler"
+
+	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
+	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/injection"
 	reconcilertesting "knative.dev/pkg/reconciler/testing"
 
+	// Fake informers for reconcilers
 	// The actual reconciler implementations
 	// Import the fakes for the informers we need.
 	// Import the fakes for the informers we need.
@@ -27,8 +38,11 @@ import (
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	_ "knative.dev/pkg/injection/clients/dynamicclient/fake"
 
+	"knative.dev/serving/pkg/apis/autoscaling"
 	// for cert-manager
+
 	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	_ "knative.dev/serving/pkg/client/certmanager/injection/informers/acme/v1/challenge/fake"
 	_ "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1/certificate/fake"
@@ -40,21 +54,21 @@ import (
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/service/fake"
-
-	logging "knative.dev/pkg/logging"
+	"knative.dev/serving/pkg/reconciler/revision/resources"
 
 	kpareconciler "knative.dev/serving/pkg/reconciler/autoscaling/kpa"
 	certreconciler "knative.dev/serving/pkg/reconciler/certificate"
+	configurationreconciler "knative.dev/serving/pkg/reconciler/configuration"
 	revisionreconciler "knative.dev/serving/pkg/reconciler/revision"
 	routereconciler "knative.dev/serving/pkg/reconciler/route"
 	sksreconciler "knative.dev/serving/pkg/reconciler/serverlessservice"
 	servicereconciler "knative.dev/serving/pkg/reconciler/service"
+
+	"context"
+	// . "knative.dev/serving/pkg/reconciler/testing/v1"
 )
 
 func TestNewKnativeStrategy(t *testing.T) {
-	// The KPA reconciler needs a MultiScaler. We can create a fake one for initialization.
-	// multiScaler := scaling.NewMultiScaler(context.Background().Done(), nil, logging.FromContext(context.Background()))
-
 	tests := []struct {
 		name    string
 		factory ControllerFactory
@@ -106,5 +120,150 @@ func TestNewKnativeStrategy(t *testing.T) {
 				t.Errorf("NewKnativeStrategy() error = %v", err)
 			}
 		})
+	}
+}
+
+// setup creates a new context with fake clients and informers seeded with the given initial state.
+func setup(t *testing.T, initialState []runtime.Object, selectors ...string) context.Context {
+	t.Helper()
+	// Create a new context with a logger.
+	ctx, _ := reconcilertesting.SetupFakeContext(t, func(ctx context.Context) context.Context {
+		return filteredinformerfactory.WithSelectors(ctx, selectors...)
+	})
+
+	// Inject fake clients into the context, seeded with the initial state.
+	// This is the crucial step to ensure clients and informers are in sync.
+	ctx, _ = fakeservingclient.With(ctx, initialState...)
+	ctx, _ = fakekubeclient.With(ctx, initialState...)
+	ctx, _ = fakenetworkingclient.With(ctx, initialState...)
+
+	// Now, initialize the informers from the fake clients.
+	ctx = filteredinformerfactory.WithSelectors(ctx, selectors...)
+	ctx, informers := injection.Fake.SetupInformers(ctx, injection.GetConfig(ctx))
+
+	// Start and sync the informers. This must be done before the reconciler is created.
+	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+		t.Fatalf("Error starting and syncing informers: %v", err)
+	}
+
+	return ctx
+}
+
+func TestKnativeStrategyReconciliation(t *testing.T) {
+	ns, name := "default", "test-resource"
+	key := types.NamespacedName{Namespace: ns, Name: name}
+
+	t.Run("Service Reconciler", func(t *testing.T) {
+		initialState := []runtime.Object{
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+			},
+		}
+		ctx := setup(t, initialState)
+		strategy, err := NewKnativeStrategy(ctx, servicereconciler.NewController)
+		if err != nil {
+			t.Fatalf("NewKnativeStrategy() error = %v", err)
+		}
+
+		reconcileAndAssertCreates(t, ctx, strategy, key, "configurations", "routes")
+	})
+
+	t.Run("Revision Reconciler", func(t *testing.T) {
+		initialState := []runtime.Object{
+			&v1.Revision{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+				Spec: v1.RevisionSpec{
+					PodSpec: corev1.PodSpec{
+						Containers: []corev1.Container{{Image: "test"}},
+					},
+				},
+			},
+		}
+		ctx := setup(t, initialState)
+		strategy, err := NewKnativeStrategy(ctx, revisionreconciler.NewController)
+		if err != nil {
+			t.Fatalf("NewKnativeStrategy() error = %v", err)
+		}
+
+		reconcileAndAssertCreates(t, ctx, strategy, key, "deployments", "podautoscalers", "images")
+	})
+
+	t.Run("KPA Reconciler", func(t *testing.T) {
+		rev := &v1.Revision{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+			Spec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{Containers: []corev1.Container{{Image: "test"}}},
+			},
+		}
+		pa := resources.MakePA(rev, nil)
+		pa.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
+
+		initialState := []runtime.Object{pa}
+		ctx := setup(t, initialState, serving.RevisionUID)
+
+		factory := func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+			multiScaler := scaling.NewMultiScaler(ctx.Done(), nil, logging.FromContext(ctx))
+			return kpareconciler.NewController(ctx, cmw, multiScaler)
+		}
+		strategy, err := NewKnativeStrategy(ctx, factory)
+		if err != nil {
+			t.Fatalf("NewKnativeStrategy() error = %v", err)
+		}
+
+		reconcileAndAssertCreates(t, ctx, strategy, key, "serverlessservices")
+	})
+
+	t.Run("Configuration Reconciler", func(t *testing.T) {
+		initialState := []runtime.Object{
+			&v1.Configuration{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+				Spec: v1.ConfigurationSpec{Template: v1.RevisionTemplateSpec{
+					Spec: v1.RevisionSpec{PodSpec: corev1.PodSpec{
+						Containers: []corev1.Container{{Image: "test"}},
+					}}}},
+			},
+		}
+		ctx := setup(t, initialState)
+		strategy, err := NewKnativeStrategy(ctx, configurationreconciler.NewController)
+		if err != nil {
+			t.Fatalf("NewKnativeStrategy() error = %v", err)
+		}
+
+		reconcileAndAssertCreates(t, ctx, strategy, key, "revisions")
+	})
+}
+
+// reconcileAndAssertCreates is a test helper to run a reconciliation and assert that certain resources were created.
+func reconcileAndAssertCreates(t *testing.T, ctx context.Context, strategy *KnativeStrategy, key types.NamespacedName, wantCreates ...string) {
+	t.Helper()
+	// Promote the reconciler to leader, so it can perform actions.
+	if la, ok := strategy.Controller.Reconciler.(reconciler.LeaderAware); ok {
+		la.Promote(reconciler.UniversalBucket(), func(reconciler.Bucket, types.NamespacedName) {})
+	} else {
+		t.Fatalf("Reconciler is not leader-aware")
+	}
+
+	// We don't need to call PrepareState because TableTest has already set up the world.
+	_, err := strategy.ReconcileAtState(ctx, key)
+	if requeue, _ := controller.IsRequeueKey(err); err != nil && !requeue {
+		t.Fatalf("ReconcileAtState() returned an unexpected error: %v", err)
+	}
+
+	actions, err := strategy.RetrieveEffects(ctx)
+	if err != nil {
+		t.Fatalf("RetrieveEffects() error = %v", err)
+	}
+
+	created := make(map[string]bool)
+	for _, action := range actions {
+		if action.GetVerb() == "create" {
+			created[action.GetResource().Resource] = true
+		}
+	}
+
+	for _, want := range wantCreates {
+		if !created[want] {
+			t.Errorf("Expected a resource of type %q to be created, but it wasn't.", want)
+		}
 	}
 }
