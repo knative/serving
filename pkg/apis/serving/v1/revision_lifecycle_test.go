@@ -584,6 +584,44 @@ func TestPropagateAutoscalerStatus(t *testing.T) {
 	apistest.CheckConditionSucceeded(r, RevisionConditionResourcesAvailable, t)
 }
 
+func TestPropagateAutoscalerStatus_ScaleTargetNotInitialized(t *testing.T) {
+	r := &RevisionStatus{}
+	r.InitializeConditions()
+	apistest.CheckConditionOngoing(r, RevisionConditionReady, t)
+
+	// PodAutoscaler has no active condition, so we are just coming up.
+	r.PropagateAutoscalerStatus(&autoscalingv1alpha1.PodAutoscalerStatus{
+		Status: duckv1.Status{},
+	})
+
+	apistest.CheckConditionOngoing(r, RevisionConditionActive, t)
+	apistest.CheckConditionOngoing(r, RevisionConditionResourcesAvailable, t)
+
+	// Deployment is created we mark resources created
+	r.MarkResourcesAvailableTrue()
+
+	// PodAutoscaler resources have been created but initial scale target
+	// has not been achieved
+	r.PropagateAutoscalerStatus(&autoscalingv1alpha1.PodAutoscalerStatus{
+		ServiceName: "some-service",
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
+				Type:   autoscalingv1alpha1.PodAutoscalerConditionReady,
+				Status: corev1.ConditionUnknown,
+			}, {
+				Type:   autoscalingv1alpha1.PodAutoscalerConditionScaleTargetInitialized,
+				Status: corev1.ConditionUnknown,
+			}, {
+				Type:   autoscalingv1alpha1.PodAutoscalerConditionSKSReady,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+	})
+
+	// ResourcesAvailable should be reverted back to on-going
+	apistest.CheckConditionOngoing(r, RevisionConditionResourcesAvailable, t)
+}
+
 func TestPropagateAutoscalerStatus_NoOverridingResourcesAvailable(t *testing.T) {
 	// Cases to test Ready condition
 	// we fix ScaleTargetInitialized to True

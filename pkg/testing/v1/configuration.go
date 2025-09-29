@@ -138,3 +138,21 @@ func WithConfigRevisionIdleTimeoutSeconds(revisionIdleTimeoutSeconds int64) Conf
 		cfg.Spec.Template.Spec.IdleTimeoutSeconds = ptr.Int64(revisionIdleTimeoutSeconds)
 	}
 }
+
+// WithVolume adds a volume to the service
+func WithConfigVolume(name, mountPath string, volumeSource corev1.VolumeSource) ConfigOption {
+	return func(c *v1.Configuration) {
+		rt := &c.Spec.Template.Spec
+
+		rt.Containers[0].VolumeMounts = append(rt.Containers[0].VolumeMounts,
+			corev1.VolumeMount{
+				Name:      name,
+				MountPath: mountPath,
+			})
+
+		rt.Volumes = append(rt.Volumes, corev1.Volume{
+			Name:         name,
+			VolumeSource: volumeSource,
+		})
+	}
+}

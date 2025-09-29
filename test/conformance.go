@@ -53,6 +53,7 @@ const (
 	Timeout             = "timeout"
 	Volumes             = "volumes"
 	SlowStart           = "slowstart"
+	ConfigMimic         = "configmimic"
 
 	// Constants for test image output.
 	PizzaPlanetText1 = "What a spaceport!"

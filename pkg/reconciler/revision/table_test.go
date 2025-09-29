@@ -283,6 +283,7 @@ func TestReconcile(t *testing.T) {
 				WithRoutingState(v1.RoutingStateActive, fc),
 				MarkRevisionReady, WithRevisionObservedGeneration(1)),
 			pa("foo", "pa-not-ready",
+				WithScaleTargetInitialized,
 				WithPAStatusService("its-not-confidential"),
 				WithBufferedTraffic,
 				WithReachabilityReachable),
