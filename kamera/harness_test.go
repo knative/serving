@@ -1,6 +1,7 @@
 package kamera
 
 import (
+	"fmt"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -65,7 +66,8 @@ import (
 	servicereconciler "knative.dev/serving/pkg/reconciler/service"
 
 	"context"
-	// . "knative.dev/serving/pkg/reconciler/testing/v1"
+
+	stesting "knative.dev/serving/pkg/reconciler/testing/v1"
 )
 
 func TestNewKnativeStrategy(t *testing.T) {
@@ -131,18 +133,20 @@ func setup(t *testing.T, initialState []runtime.Object, selectors ...string) con
 		return filteredinformerfactory.WithSelectors(ctx, selectors...)
 	})
 
+	ls := stesting.NewListers(initialState)
+
 	// Inject fake clients into the context, seeded with the initial state.
 	// This is the crucial step to ensure clients and informers are in sync.
-	ctx, _ = fakeservingclient.With(ctx, initialState...)
-	ctx, _ = fakekubeclient.With(ctx, initialState...)
-	ctx, _ = fakenetworkingclient.With(ctx, initialState...)
+	ctx, _ = fakeservingclient.With(ctx, ls.GetServingObjects()...)
+	ctx, _ = fakekubeclient.With(ctx, ls.GetKubeObjects()...)
+	ctx, _ = fakenetworkingclient.With(ctx, ls.GetNetworkingObjects()...)
 
 	// Now, initialize the informers from the fake clients.
 	ctx = filteredinformerfactory.WithSelectors(ctx, selectors...)
 	ctx, informers := injection.Fake.SetupInformers(ctx, injection.GetConfig(ctx))
 
 	// Start and sync the informers. This must be done before the reconciler is created.
-	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+	if _, err := reconcilertesting.RunAndSyncInformers(ctx, informers...); err != nil {
 		t.Fatalf("Error starting and syncing informers: %v", err)
 	}
 
@@ -157,8 +161,23 @@ func TestKnativeStrategyReconciliation(t *testing.T) {
 		initialState := []runtime.Object{
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+				Spec: v1.ServiceSpec{
+					ConfigurationSpec: v1.ConfigurationSpec{
+						Template: v1.RevisionTemplateSpec{
+							Spec: v1.RevisionSpec{
+								PodSpec: corev1.PodSpec{
+									Containers: []corev1.Container{{Image: "test"}},
+								},
+							},
+						},
+					},
+					RouteSpec: v1.RouteSpec{
+						Traffic: []v1.TrafficTarget{},
+					},
+				},
 			},
 		}
+
 		ctx := setup(t, initialState)
 		strategy, err := NewKnativeStrategy(ctx, servicereconciler.NewController)
 		if err != nil {
@@ -256,6 +275,7 @@ func reconcileAndAssertCreates(t *testing.T, ctx context.Context, strategy *Knat
 
 	created := make(map[string]bool)
 	for _, action := range actions {
+		fmt.Println("Action:", action.GetVerb(), action.GetResource().Resource)
 		if action.GetVerb() == "create" {
 			created[action.GetResource().Resource] = true
 		}
