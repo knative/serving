@@ -33,7 +33,6 @@ import (
 	netheader "knative.dev/networking/pkg/http/header"
 	netproxy "knative.dev/networking/pkg/http/proxy"
 	netstats "knative.dev/networking/pkg/http/stats"
-	"knative.dev/pkg/network"
 	pkghandler "knative.dev/pkg/network/handlers"
 	"knative.dev/serving/pkg/activator"
 	pkghttp "knative.dev/serving/pkg/http"
@@ -164,14 +163,25 @@ func withFullDuplex(h http.Handler, enableFullDuplex bool, logger *zap.SugaredLo
 	})
 }
 
+func isProbeRequest(r *http.Request) bool {
+	// Check standard probes (K8s and Knative probe headers)
+	if netheader.IsProbe(r) {
+		return true
+	}
+
+	// Check all Knative internal probe user agents that should not be counted
+	// as pending requests (matching what the Drainer filters)
+	userAgent := r.Header.Get("User-Agent")
+	return strings.HasPrefix(userAgent, netheader.ActivatorUserAgent) ||
+		strings.HasPrefix(userAgent, netheader.AutoscalingUserAgent) ||
+		strings.HasPrefix(userAgent, netheader.QueueProxyUserAgent) ||
+		strings.HasPrefix(userAgent, netheader.IngressReadinessUserAgent)
+}
+
 func withRequestCounter(h http.Handler, pendingRequests *atomic.Int32) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userAgent := r.Header.Get("User-Agent")
-		// Skip counting probe requests and internal Knative probes
-		if r.Header.Get(network.ProbeHeaderName) != network.ProbeHeaderValue &&
-			!strings.HasPrefix(userAgent, "kube-probe/") &&
-			!strings.HasPrefix(userAgent, netheader.ActivatorUserAgent) &&
-			!strings.HasPrefix(userAgent, netheader.AutoscalingUserAgent) {
+		// Only count non-probe requests as pending
+		if !isProbeRequest(r) {
 			pendingRequests.Add(1)
 			defer pendingRequests.Add(-1)
 		}
