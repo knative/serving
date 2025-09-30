@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"knative.dev/pkg/network"
+	netheader "knative.dev/networking/pkg/http/header"
 	pkghandler "knative.dev/pkg/network/handlers"
 	"knative.dev/serving/pkg/queue"
 )
@@ -213,7 +213,7 @@ func TestWithRequestCounter(t *testing.T) {
 
 	t.Run("skips counter for probe requests", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
-		req.Header.Set(network.ProbeHeaderName, network.ProbeHeaderValue)
+		req.Header.Set(netheader.ProbeKey, netheader.ProbeValue)
 		w := httptest.NewRecorder()
 
 		wrappedHandler.ServeHTTP(w, req)
@@ -260,6 +260,32 @@ func TestWithRequestCounter(t *testing.T) {
 		// Check that counter was not incremented
 		if pendingRequests.Load() != 0 {
 			t.Errorf("Expected pending requests to remain 0 for Autoscaling probe, got %d", pendingRequests.Load())
+		}
+	})
+
+	t.Run("skips counter for QueueProxy probe requests", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.Header.Set("User-Agent", "Knative-Queue-Proxy-Probe")
+		w := httptest.NewRecorder()
+
+		wrappedHandler.ServeHTTP(w, req)
+
+		// Check that counter was not incremented
+		if pendingRequests.Load() != 0 {
+			t.Errorf("Expected pending requests to remain 0 for QueueProxy probe, got %d", pendingRequests.Load())
+		}
+	})
+
+	t.Run("skips counter for Ingress probe requests", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.Header.Set("User-Agent", "Knative-Ingress-Probe")
+		w := httptest.NewRecorder()
+
+		wrappedHandler.ServeHTTP(w, req)
+
+		// Check that counter was not incremented
+		if pendingRequests.Load() != 0 {
+			t.Errorf("Expected pending requests to remain 0 for Ingress probe, got %d", pendingRequests.Load())
 		}
 	})
 
