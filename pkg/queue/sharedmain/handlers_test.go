@@ -237,6 +237,32 @@ func TestWithRequestCounter(t *testing.T) {
 		}
 	})
 
+	t.Run("skips counter for Activator probe requests", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.Header.Set("User-Agent", "Knative-Activator-Probe")
+		w := httptest.NewRecorder()
+
+		wrappedHandler.ServeHTTP(w, req)
+
+		// Check that counter was not incremented
+		if pendingRequests.Load() != 0 {
+			t.Errorf("Expected pending requests to remain 0 for Activator probe, got %d", pendingRequests.Load())
+		}
+	})
+
+	t.Run("skips counter for Autoscaling probe requests", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.Header.Set("User-Agent", "Knative-Autoscaling-Probe")
+		w := httptest.NewRecorder()
+
+		wrappedHandler.ServeHTTP(w, req)
+
+		// Check that counter was not incremented
+		if pendingRequests.Load() != 0 {
+			t.Errorf("Expected pending requests to remain 0 for Autoscaling probe, got %d", pendingRequests.Load())
+		}
+	})
+
 	t.Run("handles concurrent requests correctly", func(t *testing.T) {
 		// Reset counter
 		pendingRequests.Store(0)

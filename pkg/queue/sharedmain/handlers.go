@@ -166,7 +166,12 @@ func withFullDuplex(h http.Handler, enableFullDuplex bool, logger *zap.SugaredLo
 
 func withRequestCounter(h http.Handler, pendingRequests *atomic.Int32) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get(network.ProbeHeaderName) != network.ProbeHeaderValue && !strings.HasPrefix(r.Header.Get("User-Agent"), "kube-probe/") {
+		userAgent := r.Header.Get("User-Agent")
+		// Skip counting probe requests and internal Knative probes
+		if r.Header.Get(network.ProbeHeaderName) != network.ProbeHeaderValue &&
+			!strings.HasPrefix(userAgent, "kube-probe/") &&
+			!strings.HasPrefix(userAgent, netheader.ActivatorUserAgent) &&
+			!strings.HasPrefix(userAgent, netheader.AutoscalingUserAgent) {
 			pendingRequests.Add(1)
 			defer pendingRequests.Add(-1)
 		}
