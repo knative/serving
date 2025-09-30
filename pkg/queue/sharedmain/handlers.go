@@ -87,8 +87,6 @@ func mainHandler(
 	composedHandler = queue.NewRouteTagHandler(composedHandler)
 	composedHandler = withFullDuplex(composedHandler, env.EnableHTTPFullDuplex, logger)
 
-	composedHandler = withRequestCounter(composedHandler, pendingRequests)
-
 	drainer := &pkghandler.Drainer{
 		QuietPeriod: drainSleepDuration,
 		// Add Activator probe header to the drainer so it can handle probes directly from activator
@@ -97,6 +95,8 @@ func mainHandler(
 		HealthCheck:           health.ProbeHandler(tracer, prober),
 	}
 	composedHandler = drainer
+
+	composedHandler = withRequestCounter(composedHandler, pendingRequests)
 
 	if env.Observability.EnableRequestLog {
 		// We want to capture the probes/healthchecks in the request logs.
