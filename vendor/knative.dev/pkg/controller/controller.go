@@ -470,7 +470,7 @@ func (c *Impl) RunContext(ctx context.Context, threadiness int) error {
 	}
 
 	// Launch workers to process resources that get enqueued to our workqueue.
-	c.logger.Info("Starting controller and workers")
+	c.logger.Infow("Starting controller and workers", zap.Int("threadiness", threadiness))
 	for range threadiness {
 		sg.Add(1)
 		go func() {
