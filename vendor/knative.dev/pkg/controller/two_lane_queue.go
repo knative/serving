@@ -223,9 +223,9 @@ func (q *twoLaneRateLimitingQueue) slowLane() workqueue.TypedInterface[any] {
 // It gets the item from fast lane if it has anything, alternatively
 // the slow lane.
 func (tlq *twoLaneQueue) Get() (any, bool) {
-	item, ok := tlq.consumerQueue.Get()
+	item, shutdown := tlq.consumerQueue.Get()
 	tlq.metrics.get(item)
-	return item, ok
+	return item, shutdown
 }
 
 // Len returns the sum of lengths.
