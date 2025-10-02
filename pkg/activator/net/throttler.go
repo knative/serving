@@ -601,9 +601,14 @@ func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*r
 		if err != nil {
 			return nil, err
 		}
+		// Get load balancing policy from annotation
+		var lbPolicy *string
+		if _, v, ok := serving.LoadBalancingPolicyAnnotation.Get(rev.GetAnnotations()); ok && v != "" {
+			lbPolicy = &v
+		}
 		revThrottler = newRevisionThrottler(
 			revID,
-			rev.Spec.LoadBalancingPolicy,
+			lbPolicy,
 			int(rev.Spec.GetContainerConcurrency()),
 			pkgnet.ServicePortName(rev.GetProtocol()),
 			queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: revisionMaxConcurrency},
@@ -626,12 +631,17 @@ func (t *Throttler) revisionUpdated(obj any) {
 		t.logger.Errorw("Failed to get revision throttler for revision",
 			zap.Error(err), zap.String(logkey.Key, revID.String()))
 	} else if rt != nil {
-		// Update the lbPolicy dynamically if the revision's spec policy changed
+		// Update the lbPolicy dynamically if the revision's annotation policy changed
 		containerConcurrency := rev.Spec.GetContainerConcurrency()
 		if containerConcurrency < 0 {
 			containerConcurrency = 0
 		}
-		newPolicy, name := pickLBPolicy(rev.Spec.LoadBalancingPolicy, nil, int(containerConcurrency), t.logger)
+		// Get load balancing policy from annotation
+		var lbPolicy *string
+		if _, v, ok := serving.LoadBalancingPolicyAnnotation.Get(rev.GetAnnotations()); ok && v != "" {
+			lbPolicy = &v
+		}
+		newPolicy, name := pickLBPolicy(lbPolicy, nil, int(containerConcurrency), t.logger)
 		// Use atomic store for lock-free access in the hot request path
 		rt.lbPolicy.Store(newPolicy)
 		// Safe conversion: containerConcurrency is guaranteed to be non-negative after the check above

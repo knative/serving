@@ -100,12 +100,6 @@ type RevisionSpec struct {
 	// unspecified, a system default will be provided.
 	// +optional
 	IdleTimeoutSeconds *int64 `json:"idleTimeoutSeconds,omitempty"`
-
-	// LoadBalancingPolicy is the load balancing algorithm used by the
-	// activator to route requests to application pods. If unspecified,
-	// a suggested default is applied depending on ContainerConcurrency
-	// +optional
-	LoadBalancingPolicy *string `json:"loadBalancingPolicy,omitempty"`
 }
 
 const (

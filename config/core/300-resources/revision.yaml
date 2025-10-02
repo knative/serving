@@ -1003,12 +1003,6 @@ spec:
                     description: This is accessible behind a feature flag - kubernetes.podspec-init-containers
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
-                loadBalancingPolicy:
-                  description: |-
-                    LoadBalancingPolicy is the load balancing algorithm used by the
-                    activator to route requests to application pods. If unspecified,
-                    a suggested default is applied depending on ContainerConcurrency
-                  type: string
                 nodeSelector:
                   description: |-
                     This is accessible behind a feature flag - kubernetes.podspec-nodeselector
