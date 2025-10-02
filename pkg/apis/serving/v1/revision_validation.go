@@ -37,6 +37,7 @@ import (
 func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 	errs := serving.ValidateObjectMetadata(ctx, r.GetObjectMeta(), true).Also(
 		r.ValidateLabels().ViaField("labels")).ViaField("metadata")
+	errs = errs.Also(validateLoadBalancingPolicyAnnotation(r.GetAnnotations()).ViaField("metadata.annotations"))
 	errs = errs.Also(r.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
 
 	if apis.IsInUpdate(ctx) {
@@ -72,6 +73,7 @@ func (rts *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError 
 	errs = errs.Also(validateRevisionName(ctx, rts.Name, rts.GenerateName))
 	errs = errs.Also(validateQueueSidecarResourceAnnotations(rts.Annotations).ViaField("metadata.annotations"))
 	errs = errs.Also(validateProgressDeadlineAnnotation(rts.Annotations).ViaField("metadata.annotations"))
+	errs = errs.Also(validateLoadBalancingPolicyAnnotation(rts.Annotations).ViaField("metadata.annotations"))
 	return errs
 }
 
@@ -115,10 +117,6 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 
 	if rs.ContainerConcurrency != nil {
 		errs = errs.Also(serving.ValidateContainerConcurrency(ctx, rs.ContainerConcurrency).ViaField("containerConcurrency"))
-	}
-
-	if rs.LoadBalancingPolicy != nil {
-		errs = errs.Also(serving.ValidateLoadBalancingPolicy(ctx, rs.LoadBalancingPolicy).ViaField("loadBalancingPolicy"))
 	}
 
 	return errs
@@ -243,6 +241,17 @@ func validateProgressDeadlineAnnotation(annos map[string]string) *apis.FieldErro
 				Message: fmt.Sprintf("progress-deadline=%s must be positive", v),
 				Paths:   []string{k},
 			}
+		}
+	}
+	return nil
+}
+
+// validateLoadBalancingPolicyAnnotation validates the load balancing policy annotation.
+func validateLoadBalancingPolicyAnnotation(annos map[string]string) *apis.FieldError {
+	if k, v, _ := serving.LoadBalancingPolicyAnnotation.Get(annos); v != "" {
+		if v != "round-robin" && v != "random-choice-2" && v != "least-connections" && v != "first-available" {
+			return apis.ErrInvalidValue(
+				v, k, "load balancing policy should be one of `random-choice-2`, `round-robin`, `least-connections` or `first-available`")
 		}
 	}
 	return nil

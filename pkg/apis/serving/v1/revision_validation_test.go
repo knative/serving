@@ -80,6 +80,9 @@ func TestRevisionValidation(t *testing.T) {
 		r: &Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid-lb-policy",
+				Annotations: map[string]string{
+					"serving.knative.dev/load-balancing-policy": "round-robin",
+				},
 			},
 			Spec: RevisionSpec{
 				PodSpec: corev1.PodSpec{
@@ -87,7 +90,6 @@ func TestRevisionValidation(t *testing.T) {
 						Image: "busybox",
 					}},
 				},
-				LoadBalancingPolicy: ptr.String("round-robin"),
 			},
 		},
 		want: nil,
@@ -96,6 +98,9 @@ func TestRevisionValidation(t *testing.T) {
 		r: &Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid-lb-policy",
+				Annotations: map[string]string{
+					"serving.knative.dev/load-balancing-policy": "random-choice-2",
+				},
 			},
 			Spec: RevisionSpec{
 				PodSpec: corev1.PodSpec{
@@ -103,7 +108,6 @@ func TestRevisionValidation(t *testing.T) {
 						Image: "busybox",
 					}},
 				},
-				LoadBalancingPolicy: ptr.String("random-choice-2"),
 			},
 		},
 		want: nil,
@@ -112,6 +116,9 @@ func TestRevisionValidation(t *testing.T) {
 		r: &Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid-lb-policy",
+				Annotations: map[string]string{
+					"serving.knative.dev/load-balancing-policy": "least-connections",
+				},
 			},
 			Spec: RevisionSpec{
 				PodSpec: corev1.PodSpec{
@@ -119,7 +126,6 @@ func TestRevisionValidation(t *testing.T) {
 						Image: "busybox",
 					}},
 				},
-				LoadBalancingPolicy: ptr.String("least-connections"),
 			},
 		},
 		want: nil,
@@ -128,6 +134,9 @@ func TestRevisionValidation(t *testing.T) {
 		r: &Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid-lb-policy",
+				Annotations: map[string]string{
+					"serving.knative.dev/load-balancing-policy": "first-available",
+				},
 			},
 			Spec: RevisionSpec{
 				PodSpec: corev1.PodSpec{
@@ -135,7 +144,6 @@ func TestRevisionValidation(t *testing.T) {
 						Image: "busybox",
 					}},
 				},
-				LoadBalancingPolicy: ptr.String("first-available"),
 			},
 		},
 		want: nil,
@@ -144,6 +152,9 @@ func TestRevisionValidation(t *testing.T) {
 		r: &Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "invalid-lb-policy",
+				Annotations: map[string]string{
+					"serving.knative.dev/load-balancing-policy": "random",
+				},
 			},
 			Spec: RevisionSpec{
 				PodSpec: corev1.PodSpec{
@@ -151,11 +162,10 @@ func TestRevisionValidation(t *testing.T) {
 						Image: "busybox",
 					}},
 				},
-				LoadBalancingPolicy: ptr.String("random"),
 			},
 		},
 		want: apis.ErrInvalidValue(
-			"random", "spec.loadBalancingPolicy",
+			"random", "metadata.annotations.serving.knative.dev/load-balancing-policy",
 			"load balancing policy should be one of `random-choice-2`, `round-robin`, `least-connections` or `first-available`"),
 	}, {
 		name: "nil load balancing policy is valid",
@@ -169,7 +179,6 @@ func TestRevisionValidation(t *testing.T) {
 						Image: "busybox",
 					}},
 				},
-				LoadBalancingPolicy: nil,
 			},
 		},
 		want: nil,

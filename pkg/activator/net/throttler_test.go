@@ -1222,9 +1222,11 @@ func TestThrottlerUsesRevisionLoadBalancingPolicy(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-revision-rc2",
 				Namespace: "test-namespace",
+				Annotations: map[string]string{
+					"serving.knative.dev/load-balancing-policy": "random-choice-2",
+				},
 			},
 			Spec: v1.RevisionSpec{
-				LoadBalancingPolicy:  stringPtr("random-choice-2"),
 				ContainerConcurrency: ptr.Int64(10),
 			},
 		},
@@ -1235,9 +1237,11 @@ func TestThrottlerUsesRevisionLoadBalancingPolicy(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-revision-rr",
 				Namespace: "test-namespace",
+				Annotations: map[string]string{
+					"serving.knative.dev/load-balancing-policy": "round-robin",
+				},
 			},
 			Spec: v1.RevisionSpec{
-				LoadBalancingPolicy:  stringPtr("round-robin"),
 				ContainerConcurrency: ptr.Int64(10),
 			},
 		},
@@ -1248,9 +1252,11 @@ func TestThrottlerUsesRevisionLoadBalancingPolicy(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-revision-lc",
 				Namespace: "test-namespace",
+				Annotations: map[string]string{
+					"serving.knative.dev/load-balancing-policy": "least-connections",
+				},
 			},
 			Spec: v1.RevisionSpec{
-				LoadBalancingPolicy:  stringPtr("least-connections"),
 				ContainerConcurrency: ptr.Int64(10),
 			},
 		},
@@ -1354,9 +1360,12 @@ func TestDynamicLoadBalancingPolicyUpdate(t *testing.T) {
 		t.Fatalf("Unexpected distribution before update: %v", selections)
 	}
 
-	// Update the revision to set round-robin via spec and invoke revisionUpdated
+	// Update the revision to set round-robin via annotation and invoke revisionUpdated
 	rev = rev.DeepCopy()
-	rev.Spec.LoadBalancingPolicy = stringPtr("round-robin")
+	if rev.Annotations == nil {
+		rev.Annotations = make(map[string]string)
+	}
+	rev.Annotations["serving.knative.dev/load-balancing-policy"] = "round-robin"
 	// Update informer store and call revisionUpdated
 	revisions.Informer().GetIndexer().Update(rev)
 	throttler.revisionUpdated(rev)

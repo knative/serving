@@ -948,20 +948,6 @@ to stay open while not receiving any bytes from the user&rsquo;s application. If
 unspecified, a system default will be provided.</p>
 </td>
 </tr>
-<tr>
-<td>
-<code>loadBalancingPolicy</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>LoadBalancingPolicy is the load balancing algorithm used by the
-activator to route requests to application pods. If unspecified,
-a suggested default is applied depending on ContainerConcurrency</p>
-</td>
-</tr>
 </table>
 </td>
 </tr>
@@ -1452,20 +1438,6 @@ to stay open while not receiving any bytes from the user&rsquo;s application. If
 unspecified, a system default will be provided.</p>
 </td>
 </tr>
-<tr>
-<td>
-<code>loadBalancingPolicy</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>LoadBalancingPolicy is the load balancing algorithm used by the
-activator to route requests to application pods. If unspecified,
-a suggested default is applied depending on ContainerConcurrency</p>
-</td>
-</tr>
 </tbody>
 </table>
 <h3 id="serving.knative.dev/v1.RevisionStatus">RevisionStatus
@@ -1692,20 +1664,6 @@ int64
 <p>IdleTimeoutSeconds is the maximum duration in seconds a request will be allowed
 to stay open while not receiving any bytes from the user&rsquo;s application. If
 unspecified, a system default will be provided.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>loadBalancingPolicy</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>LoadBalancingPolicy is the load balancing algorithm used by the
-activator to route requests to application pods. If unspecified,
-a suggested default is applied depending on ContainerConcurrency</p>
 </td>
 </tr>
 </table>
