@@ -429,6 +429,8 @@ function test_setup() {
     go install github.com/boz/kail/cmd/kail@v0.17.4
   fi
 
+  echo "${KUBECONFIG}" && kubectl config view --minify
+
   # Capture all logs.
   kail > "${ARTIFACTS}/k8s.log-$(basename "${E2E_SCRIPT}").txt" &
   local kail_pid=$!
