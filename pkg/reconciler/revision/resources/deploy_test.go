@@ -56,10 +56,14 @@ var (
 		Name:                     servingContainerName,
 		Image:                    "busybox",
 		Ports:                    buildContainerPorts(v1.DefaultUserPort),
-		Lifecycle:                userLifecycle,
+		Lifecycle:                buildLifecycleWithDrainWait(nil),
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		Stdin:                    false,
 		TTY:                      false,
+		VolumeMounts: []corev1.VolumeMount{{
+			Name:      "knative-drain-signal",
+			MountPath: "/var/run/knative",
+		}},
 		Env: []corev1.EnvVar{{
 			Name:  "PORT",
 			Value: "8080",
@@ -87,9 +91,20 @@ var (
 					}},
 				},
 			},
-			PeriodSeconds: 0,
+			PeriodSeconds:    1,
+			FailureThreshold: 1,
 		},
 		SecurityContext: queueSecurityContext,
+		Lifecycle: &corev1.Lifecycle{
+			PreStop: &corev1.LifecycleHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{
+						"/bin/sh", "-c",
+						"touch " + "/var/run/knative/drain-started", // Using string directly to match production
+					},
+				},
+			},
+		},
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",
 			Value: "foo", // matches namespace
@@ -143,7 +158,7 @@ var (
 			Value: system.Namespace(),
 		}, {
 			Name:  "SERVING_READINESS_PROBE",
-			Value: fmt.Sprintf(`{"tcpSocket":{"port":%d,"host":"127.0.0.1"}}`, v1.DefaultUserPort),
+			Value: fmt.Sprintf(`{"tcpSocket":{"port":%d,"host":"127.0.0.1"},"failureThreshold":1}`, v1.DefaultUserPort),
 		}, {
 			Name: "HOST_IP",
 			ValueFrom: &corev1.EnvVarSource{
@@ -165,11 +180,23 @@ var (
 			Name:  "OBSERVABILITY_CONFIG",
 			Value: `{"tracing":{},"metrics":{},"runtime":{},"requestMetrics":{}}`,
 		}},
+		VolumeMounts: []corev1.VolumeMount{{
+			Name:      "knative-drain-signal",
+			MountPath: "/var/run/knative",
+		}},
 	}
 
 	defaultPodSpec = &corev1.PodSpec{
 		TerminationGracePeriodSeconds: ptr.Int64(45),
 		EnableServiceLinks:            ptr.Bool(false),
+		Volumes: []corev1.Volume{
+			{
+				Name: "knative-drain-signal",
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+		},
 	}
 
 	defaultPodAntiAffinityRules = &corev1.PodAntiAffinity{
@@ -253,10 +280,14 @@ func defaultSidecarContainer(containerName string) *corev1.Container {
 	return &corev1.Container{
 		Name:                     containerName,
 		Image:                    "ubuntu",
-		Lifecycle:                userLifecycle,
+		Lifecycle:                buildLifecycleWithDrainWait(nil),
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		Stdin:                    false,
 		TTY:                      false,
+		VolumeMounts: []corev1.VolumeMount{{
+			Name:      "knative-drain-signal",
+			MountPath: "/var/run/knative",
+		}},
 		Env: []corev1.EnvVar{{
 			Name:  "K_REVISION",
 			Value: "bar",
@@ -302,6 +333,11 @@ func sidecarContainer(containerName string, opts ...containerOption) corev1.Cont
 
 func queueContainer(opts ...containerOption) corev1.Container {
 	return container(defaultQueueContainer.DeepCopy(), opts...)
+}
+
+// Helper to get default probe JSON with failureThreshold
+func defaultProbeJSON(port int32) string {
+	return fmt.Sprintf(`{"tcpSocket":{"port":%d,"host":"127.0.0.1"},"failureThreshold":1}`, port)
 }
 
 func withEnvVar(name, value string) containerOption {
@@ -420,7 +456,7 @@ func withAppendedTokenVolumes(appended []appendTokenVolume) podSpecOption {
 					Audience:          a.audience,
 				},
 			}
-			tokenVolume.VolumeSource.Projected.Sources = append(tokenVolume.VolumeSource.Projected.Sources, *token)
+			tokenVolume.Projected.Sources = append(tokenVolume.Projected.Sources, *token)
 		}
 		ps.Volumes = append(ps.Volumes, *tokenVolume)
 	}
@@ -448,8 +484,8 @@ func appsv1deployment(opts ...deploymentOption) *appsv1.Deployment {
 
 func revision(name, ns string, opts ...RevisionOption) *v1.Revision {
 	revision := defaultRevision()
-	revision.ObjectMeta.Name = name
-	revision.ObjectMeta.Namespace = ns
+	revision.Name = name
+	revision.Namespace = ns
 	for _, option := range opts {
 		option(revision)
 	}
@@ -475,7 +511,7 @@ func withoutLabels(revision *v1.Revision) {
 
 func withOwnerReference(name string) RevisionOption {
 	return func(revision *v1.Revision) {
-		revision.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{
+		revision.OwnerReferences = []metav1.OwnerReference{{
 			APIVersion:         v1.SchemeGroupVersion.String(),
 			Kind:               "Configuration",
 			Name:               name,
@@ -582,7 +618,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("USER_PORT", "8888"),
-					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"}}`),
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"},"failureThreshold":1}`),
 				),
 			}),
 	}, {
@@ -629,7 +665,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("USER_PORT", "8888"),
-					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"}}`),
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"},"failureThreshold":1}`),
 				),
 			}, withPrependedVolumes(corev1.Volume{
 				Name: "asdf",
@@ -656,7 +692,9 @@ func TestMakePodSpec(t *testing.T) {
 				servingContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			}, func(p *corev1.PodSpec) {
 				p.EnableServiceLinks = ptr.Bool(true)
 			}),
@@ -683,7 +721,9 @@ func TestMakePodSpec(t *testing.T) {
 				servingContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			}, func(p *corev1.PodSpec) {
 				p.EnableServiceLinks = nil
 			}),
@@ -789,7 +829,9 @@ func TestMakePodSpec(t *testing.T) {
 				servingContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			},
 		),
 	}, {
@@ -840,7 +882,9 @@ func TestMakePodSpec(t *testing.T) {
 				servingContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			},
 		),
 	}, {
@@ -863,7 +907,9 @@ func TestMakePodSpec(t *testing.T) {
 				servingContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			},
 		),
 	}, {
@@ -930,7 +976,7 @@ func TestMakePodSpec(t *testing.T) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
 				queueContainer(
-					withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"}}`),
+					withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"},"failureThreshold":1}`),
 				),
 			}),
 	}, {
@@ -951,7 +997,7 @@ func TestMakePodSpec(t *testing.T) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
 				queueContainer(
-					withEnvVar("SERVING_READINESS_PROBE", `{"grpc":{"port":8080,"service":null}}`),
+					withEnvVar("SERVING_READINESS_PROBE", `{"grpc":{"port":8080,"service":null},"failureThreshold":1}`),
 				),
 			}),
 	}, {
@@ -972,7 +1018,7 @@ func TestMakePodSpec(t *testing.T) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
 				queueContainer(
-					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":12345,"host":"127.0.0.1"}}`),
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":12345,"host":"127.0.0.1"},"failureThreshold":1}`),
 				),
 			}),
 	}, {
@@ -995,7 +1041,7 @@ func TestMakePodSpec(t *testing.T) {
 						container.ReadinessProbe = withExecReadinessProbe([]string{"echo", "hello"})
 					}),
 				queueContainer(
-					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}`),
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"},"failureThreshold":1}`),
 				),
 			}),
 	}, {
@@ -1030,7 +1076,9 @@ func TestMakePodSpec(t *testing.T) {
 						},
 					}),
 				),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			}),
 	}, {
 		name: "with tcp liveness probe",
@@ -1062,7 +1110,9 @@ func TestMakePodSpec(t *testing.T) {
 						},
 					}),
 				),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			}),
 	}, {
 		name: "with HTTP startup probe",
@@ -1095,7 +1145,9 @@ func TestMakePodSpec(t *testing.T) {
 						},
 					}),
 				),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			}),
 	}, {
 		name: "with TCP startup probe",
@@ -1125,7 +1177,9 @@ func TestMakePodSpec(t *testing.T) {
 						TCPSocket: &corev1.TCPSocketAction{},
 					}),
 				),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			}),
 	}, {
 		name: "complex pod spec",
@@ -1158,6 +1212,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("SERVING_SERVICE", "svc"),
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
 				),
 			}),
 	}, {
@@ -1276,7 +1331,7 @@ func TestMakePodSpec(t *testing.T) {
 				queueContainer(
 					withEnvVar("SERVING_SERVICE", "svc"),
 					withEnvVar("USER_PORT", "8888"),
-					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"}}`),
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"},"failureThreshold":1}`),
 				),
 			}),
 	}, {
@@ -1302,7 +1357,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("USER_PORT", "8080"),
-					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}`),
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"},"failureThreshold":1}`),
 				),
 			},
 			func(p *corev1.PodSpec) {
@@ -1334,11 +1389,11 @@ func TestMakePodSpec(t *testing.T) {
 			[]corev1.Container{
 				servingContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
-					container.VolumeMounts = []corev1.VolumeMount{{
+					container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 						Name:        varLogVolume.Name,
 						MountPath:   "/var/log",
 						SubPathExpr: "$(K_INTERNAL_POD_NAMESPACE)_$(K_INTERNAL_POD_NAME)_" + servingContainerName,
-					}}
+					})
 					container.Env = append(container.Env,
 						corev1.EnvVar{
 							Name:      "K_INTERNAL_POD_NAME",
@@ -1351,11 +1406,11 @@ func TestMakePodSpec(t *testing.T) {
 				}),
 				sidecarContainer(sidecarContainerName, func(c *corev1.Container) {
 					c.Image = "ubuntu@sha256:deadbeef"
-					c.VolumeMounts = []corev1.VolumeMount{{
+					c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
 						Name:        varLogVolume.Name,
 						MountPath:   "/var/log",
 						SubPathExpr: "$(K_INTERNAL_POD_NAMESPACE)_$(K_INTERNAL_POD_NAME)_" + sidecarContainerName,
-					}}
+					})
 					c.Env = append(c.Env,
 						corev1.EnvVar{
 							Name:      "K_INTERNAL_POD_NAME",
@@ -1367,7 +1422,7 @@ func TestMakePodSpec(t *testing.T) {
 						})
 				}),
 				queueContainer(
-					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}`),
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"},"failureThreshold":1}`),
 					withEnvVar("OBSERVABILITY_CONFIG", `{"tracing":{},"metrics":{},"runtime":{},"requestMetrics":{},"EnableVarLogCollection":true}`),
 				),
 			},
@@ -1416,10 +1471,10 @@ func TestMakePodSpec(t *testing.T) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
 				queueContainer(func(container *corev1.Container) {
-					container.VolumeMounts = []corev1.VolumeMount{{
+					container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 						Name:      varTokenVolume.Name,
 						MountPath: "/var/run/secrets/tokens",
-					}}
+					})
 				}),
 			},
 			withAppendedTokenVolumes([]appendTokenVolume{{filename: "boo-srv", audience: "boo-srv", expires: 3600}}),
@@ -1486,7 +1541,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("ENABLE_MULTI_CONTAINER_PROBES", "true"),
-					withEnvVar("SERVING_READINESS_PROBE", `[{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"}},{"httpGet":{"path":"/","port":8090,"host":"127.0.0.1","scheme":"HTTP"}}]`),
+					withEnvVar("SERVING_READINESS_PROBE", `[{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"},"failureThreshold":1},{"httpGet":{"path":"/","port":8090,"host":"127.0.0.1","scheme":"HTTP"},"failureThreshold":1}]`),
 				),
 			}),
 	}, {
@@ -1525,7 +1580,7 @@ func TestMakePodSpec(t *testing.T) {
 				),
 				queueContainer(
 					withEnvVar("ENABLE_MULTI_CONTAINER_PROBES", "true"),
-					withEnvVar("SERVING_READINESS_PROBE", `[{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}]`),
+					withEnvVar("SERVING_READINESS_PROBE", `[{"tcpSocket":{"port":8080,"host":"127.0.0.1"},"failureThreshold":1}]`),
 				),
 			}),
 	}, {
@@ -1551,7 +1606,9 @@ func TestMakePodSpec(t *testing.T) {
 				servingContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			},
 			func(p *corev1.PodSpec) {
 				p.Affinity = &corev1.Affinity{
@@ -1582,7 +1639,9 @@ func TestMakePodSpec(t *testing.T) {
 				servingContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			},
 		),
 	}, {
@@ -1612,7 +1671,9 @@ func TestMakePodSpec(t *testing.T) {
 				servingContainer(func(container *corev1.Container) {
 					container.Image = "busybox@sha256:deadbeef"
 				}),
-				queueContainer(),
+				queueContainer(
+					withEnvVar("SERVING_READINESS_PROBE", defaultProbeJSON(v1.DefaultUserPort)),
+				),
 			},
 			func(p *corev1.PodSpec) {
 				p.Affinity = &corev1.Affinity{
@@ -1640,7 +1701,7 @@ func TestMakePodSpec(t *testing.T) {
 				container.Image = "busybox"
 			}),
 			queueContainer(
-				withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"}}`),
+				withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"},"failureThreshold":1}`),
 			),
 		}, withRuntimeClass("gvisor")),
 	}, {
@@ -1667,7 +1728,7 @@ func TestMakePodSpec(t *testing.T) {
 				container.Image = "busybox"
 			}),
 			queueContainer(
-				withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"}}`),
+				withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"},"failureThreshold":1}`),
 			),
 		}),
 	}, {
@@ -1695,7 +1756,7 @@ func TestMakePodSpec(t *testing.T) {
 				container.Image = "busybox"
 			}),
 			queueContainer(
-				withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"}}`),
+				withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"},"failureThreshold":1}`),
 			),
 		}, withRuntimeClass("gvisor")),
 	}, {
@@ -1724,7 +1785,7 @@ func TestMakePodSpec(t *testing.T) {
 				container.Image = "busybox"
 			}),
 			queueContainer(
-				withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"}}`),
+				withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP"},"failureThreshold":1}`),
 			),
 		}, withRuntimeClass("kata")),
 	}}

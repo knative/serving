@@ -78,7 +78,7 @@ var (
 	defaults, _      = apicfg.NewDefaultsConfigFromMap(nil)
 )
 
-const testProbeJSONTemplate = `{"tcpSocket":{"port":%d,"host":"127.0.0.1"}}`
+const testProbeJSONTemplate = `{"tcpSocket":{"port":%d,"host":"127.0.0.1"},"failureThreshold":1}`
 
 func TestMakeQueueContainer(t *testing.T) {
 	tests := []struct {
@@ -90,409 +90,411 @@ func TestMakeQueueContainer(t *testing.T) {
 		dc   deployment.Config
 		fc   apicfg.Features
 		want corev1.Container
-	}{{
-		name: "autoscaler single",
-		rev: revision("bar", "foo",
-			withContainers(containers),
-			withContainerConcurrency(1)),
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{
-				"CONTAINER_CONCURRENCY": "1",
-			})
-		}),
-	}, {
-		name: "custom readiness probe port",
-		rev: revision("bar", "foo",
-			withContainers([]corev1.Container{{
-				Name: servingContainerName,
-				ReadinessProbe: &corev1.Probe{
-					ProbeHandler: corev1.ProbeHandler{
-						TCPSocket: &corev1.TCPSocketAction{
-							Host: "127.0.0.1",
-							Port: intstr.FromInt(8087),
+	}{
+		{
+			name: "autoscaler single",
+			rev: revision("bar", "foo",
+				withContainers(containers),
+				withContainerConcurrency(1)),
+			want: queueContainer(func(c *corev1.Container) {
+				c.Env = env(map[string]string{
+					"CONTAINER_CONCURRENCY": "1",
+				})
+			}),
+		}, {
+			name: "custom readiness probe port",
+			rev: revision("bar", "foo",
+				withContainers([]corev1.Container{{
+					Name: servingContainerName,
+					ReadinessProbe: &corev1.Probe{
+						ProbeHandler: corev1.ProbeHandler{
+							TCPSocket: &corev1.TCPSocketAction{
+								Host: "127.0.0.1",
+								Port: intstr.FromInt(8087),
+							},
 						},
 					},
+					Ports: []corev1.ContainerPort{{
+						ContainerPort: 1955,
+						Name:          string(netapi.ProtocolH2C),
+					}},
+				}})),
+			dc: deployment.Config{
+				QueueSidecarImage: "alpine",
+			},
+			want: queueContainer(func(c *corev1.Container) {
+				c.Image = "alpine"
+				c.Ports = append(queueNonServingPorts, queueHTTP2Port, queueHTTPSPort)
+				c.ReadinessProbe.HTTPGet.Port.IntVal = queueHTTP2Port.ContainerPort
+				c.Env = env(map[string]string{
+					"USER_PORT":          "1955",
+					"QUEUE_SERVING_PORT": "8013",
+				})
+			}),
+		}, {
+			name: "custom sidecar image, container port, protocol",
+			rev: revision("bar", "foo",
+				withContainers([]corev1.Container{{
+					Name:           servingContainerName,
+					ReadinessProbe: testProbe,
+					Ports: []corev1.ContainerPort{{
+						ContainerPort: 1955,
+						Name:          string(netapi.ProtocolH2C),
+					}},
+				}})),
+			dc: deployment.Config{
+				QueueSidecarImage: "alpine",
+			},
+			want: queueContainer(func(c *corev1.Container) {
+				c.Image = "alpine"
+				c.Ports = append(queueNonServingPorts, queueHTTP2Port, queueHTTPSPort)
+				c.ReadinessProbe.HTTPGet.Port.IntVal = queueHTTP2Port.ContainerPort
+				c.Env = env(map[string]string{
+					"USER_PORT":          "1955",
+					"QUEUE_SERVING_PORT": "8013",
+				})
+			}),
+		}, {
+			name: "service name in labels",
+			rev: revision("bar", "foo",
+				withContainers(containers),
+				func(revision *v1.Revision) {
+					revision.Labels = map[string]string{
+						serving.ServiceLabelKey: "svc",
+					}
+				}),
+			want: queueContainer(func(c *corev1.Container) {
+				c.Env = env(map[string]string{
+					"SERVING_SERVICE": "svc",
+				})
+			}),
+		}, {
+			name: "config owner as env var, zero concurrency",
+			rev: revision("blah", "baz",
+				withContainers(containers),
+				withContainerConcurrency(0),
+				func(revision *v1.Revision) {
+					revision.OwnerReferences = []metav1.OwnerReference{{
+						APIVersion:         v1.SchemeGroupVersion.String(),
+						Kind:               "Configuration",
+						Name:               "the-parent-config-name",
+						Controller:         ptr.Bool(true),
+						BlockOwnerDeletion: ptr.Bool(true),
+					}}
+				}),
+			want: queueContainer(func(c *corev1.Container) {
+				c.Env = env(map[string]string{
+					"CONTAINER_CONCURRENCY": "0",
+					"SERVING_CONFIGURATION": "the-parent-config-name",
+					"SERVING_NAMESPACE":     "baz",
+					"SERVING_REVISION":      "blah",
+				})
+			}),
+		}, {
+			name: "logging configuration as env var",
+			rev: revision("this", "log",
+				withContainers(containers)),
+			lc: logging.Config{
+				LoggingConfig: "The logging configuration goes here",
+				LoggingLevel: map[string]zapcore.Level{
+					"queueproxy": zapcore.ErrorLevel,
 				},
-				Ports: []corev1.ContainerPort{{
-					ContainerPort: 1955,
-					Name:          string(netapi.ProtocolH2C),
-				}},
-			}})),
-		dc: deployment.Config{
-			QueueSidecarImage: "alpine",
-		},
-		want: queueContainer(func(c *corev1.Container) {
-			c.Image = "alpine"
-			c.Ports = append(queueNonServingPorts, queueHTTP2Port, queueHTTPSPort)
-			c.ReadinessProbe.ProbeHandler.HTTPGet.Port.IntVal = queueHTTP2Port.ContainerPort
-			c.Env = env(map[string]string{
-				"USER_PORT":          "1955",
-				"QUEUE_SERVING_PORT": "8013",
-			})
-		}),
-	}, {
-		name: "custom sidecar image, container port, protocol",
-		rev: revision("bar", "foo",
-			withContainers([]corev1.Container{{
-				Name:           servingContainerName,
-				ReadinessProbe: testProbe,
-				Ports: []corev1.ContainerPort{{
-					ContainerPort: 1955,
-					Name:          string(netapi.ProtocolH2C),
-				}},
-			}})),
-		dc: deployment.Config{
-			QueueSidecarImage: "alpine",
-		},
-		want: queueContainer(func(c *corev1.Container) {
-			c.Image = "alpine"
-			c.Ports = append(queueNonServingPorts, queueHTTP2Port, queueHTTPSPort)
-			c.ReadinessProbe.ProbeHandler.HTTPGet.Port.IntVal = queueHTTP2Port.ContainerPort
-			c.Env = env(map[string]string{
-				"USER_PORT":          "1955",
-				"QUEUE_SERVING_PORT": "8013",
-			})
-		}),
-	}, {
-		name: "service name in labels",
-		rev: revision("bar", "foo",
-			withContainers(containers),
-			func(revision *v1.Revision) {
-				revision.Labels = map[string]string{
-					serving.ServiceLabelKey: "svc",
+			},
+			want: queueContainer(func(c *corev1.Container) {
+				c.Env = env(map[string]string{
+					"SERVING_LOGGING_CONFIG": "The logging configuration goes here",
+					"SERVING_LOGGING_LEVEL":  "error",
+					"SERVING_NAMESPACE":      "log",
+					"SERVING_REVISION":       "this",
+				})
+			}),
+		}, {
+			name: "container concurrency 10",
+			rev: revision("bar", "foo",
+				withContainers(containers),
+				withContainerConcurrency(10)),
+			want: queueContainer(func(c *corev1.Container) {
+				c.Env = env(map[string]string{
+					"CONTAINER_CONCURRENCY": "10",
+				})
+			}),
+		}, {
+			name: "request log configuration as env var",
+			rev: revision("bar", "foo",
+				withContainers(containers)),
+			oc: observability.Config{
+				RequestLogTemplate:    "test template",
+				EnableProbeRequestLog: true,
+			},
+			want: queueContainer(func(c *corev1.Container) {
+				c.Env = env(map[string]string{
+					"OBSERVABILITY_CONFIG": `{"tracing":{},"metrics":{},"runtime":{},"requestMetrics":{},"requestLogTemplate":"test template","enableProbeRequestLog":true}`,
+				})
+			}),
+		}, {
+			name: "disabled request log configuration as env var",
+			rev: revision("bar", "foo",
+				withContainers(containers)),
+			oc: observability.Config{
+				RequestLogTemplate:    "test template",
+				EnableProbeRequestLog: false,
+				EnableRequestLog:      false,
+			},
+			want: queueContainer(func(c *corev1.Container) {
+				c.Env = env(map[string]string{
+					"OBSERVABILITY_CONFIG": `{"tracing":{},"metrics":{},"runtime":{},"requestMetrics":{},"requestLogTemplate":"test template"}`,
+				})
+			}),
+		}, {
+			name: "request metrics backend as env var",
+			rev: revision("bar", "foo",
+				withContainers(containers)),
+			oc: observability.Config{
+				RequestMetrics: observability.MetricsConfig{
+					Protocol: "prometheus",
+				},
+			},
+			want: queueContainer(func(c *corev1.Container) {
+				c.Env = env(map[string]string{
+					"OBSERVABILITY_CONFIG": `{"tracing":{},"metrics":{},"runtime":{},"requestMetrics":{"protocol":"prometheus"}}`,
+				})
+			}),
+		}, {
+			name: "enable profiling",
+			rev: revision("bar", "foo",
+				withContainers(containers)),
+			oc: observability.Config{
+				BaseConfig: observability.BaseConfig{
+					Runtime: observability.RuntimeConfig{
+						Profiling: "enabled",
+					},
+				},
+			},
+			want: queueContainer(func(c *corev1.Container) {
+				c.Env = env(map[string]string{
+					"OBSERVABILITY_CONFIG": `{"tracing":{},"metrics":{},"runtime":{"profiling":"enabled"},"requestMetrics":{}}`,
+				})
+				c.Ports = append(queueNonServingPorts, profilingPort, queueHTTPPort, queueHTTPSPort)
+			}),
+		}, {
+			name: "custom TimeoutSeconds",
+			rev: revision("bar", "foo",
+				withContainers(containers),
+				func(revision *v1.Revision) {
+					revision.Spec.TimeoutSeconds = ptr.Int64(99)
+				},
+			),
+			want: queueContainer(func(c *corev1.Container) {
+				c.Env = env(map[string]string{
+					"REVISION_TIMEOUT_SECONDS": "99",
+				})
+			}),
+		}, {
+			name: "custom ResponseStartTimeoutSeconds",
+			rev: revision("bar", "foo",
+				withContainers(containers),
+				func(revision *v1.Revision) {
+					revision.Spec.ResponseStartTimeoutSeconds = ptr.Int64(77)
+				},
+			),
+			want: queueContainer(func(c *corev1.Container) {
+				c.Env = env(map[string]string{
+					"REVISION_RESPONSE_START_TIMEOUT_SECONDS": "77",
+				})
+			}),
+		}, {
+			name: "custom IdleTimeoutSeconds",
+			rev: revision("bar", "foo",
+				withContainers(containers),
+				func(revision *v1.Revision) {
+					revision.Spec.IdleTimeoutSeconds = ptr.Int64(99)
+				},
+			),
+			want: queueContainer(func(c *corev1.Container) {
+				c.Env = env(map[string]string{
+					"REVISION_IDLE_TIMEOUT_SECONDS": "99",
+				})
+			}),
+		}, {
+			name: "default resource config with feature qp defaults disabled",
+			rev: revision("bar", "foo",
+				withContainers(containers)),
+			dc: deployment.Config{
+				QueueSidecarCPURequest: &deployment.QueueSidecarCPURequestDefault,
+			},
+			want: queueContainer(func(c *corev1.Container) {
+				c.Env = env(map[string]string{})
+				c.Resources.Requests = corev1.ResourceList{
+					corev1.ResourceCPU: deployment.QueueSidecarCPURequestDefault,
 				}
 			}),
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{
-				"SERVING_SERVICE": "svc",
-			})
-		}),
-	}, {
-		name: "config owner as env var, zero concurrency",
-		rev: revision("blah", "baz",
-			withContainers(containers),
-			withContainerConcurrency(0),
-			func(revision *v1.Revision) {
-				revision.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{
-					APIVersion:         v1.SchemeGroupVersion.String(),
-					Kind:               "Configuration",
-					Name:               "the-parent-config-name",
-					Controller:         ptr.Bool(true),
-					BlockOwnerDeletion: ptr.Bool(true),
-				}}
+		}, {
+			name: "resource config with feature qp defaults enabled",
+			rev: revision("bar", "foo",
+				withContainers(containers)),
+			dc: deployment.Config{
+				QueueSidecarCPURequest: &deployment.QueueSidecarCPURequestDefault,
+			},
+			fc: apicfg.Features{
+				QueueProxyResourceDefaults: apicfg.Enabled,
+			},
+			want: queueContainer(func(c *corev1.Container) {
+				c.Env = env(map[string]string{})
+				c.Resources.Requests = corev1.ResourceList{
+					corev1.ResourceCPU:    deployment.QueueSidecarCPURequestDefault,
+					corev1.ResourceMemory: deployment.QueueSidecarMemoryRequestDefault,
+				}
+				c.Resources.Limits = corev1.ResourceList{
+					corev1.ResourceCPU:    deployment.QueueSidecarCPULimitDefault,
+					corev1.ResourceMemory: deployment.QueueSidecarMemoryLimitDefault,
+				}
 			}),
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{
-				"CONTAINER_CONCURRENCY": "0",
-				"SERVING_CONFIGURATION": "the-parent-config-name",
-				"SERVING_NAMESPACE":     "baz",
-				"SERVING_REVISION":      "blah",
-			})
-		}),
-	}, {
-		name: "logging configuration as env var",
-		rev: revision("this", "log",
-			withContainers(containers)),
-		lc: logging.Config{
-			LoggingConfig: "The logging configuration goes here",
-			LoggingLevel: map[string]zapcore.Level{
-				"queueproxy": zapcore.ErrorLevel,
+		}, {
+			name: "overridden resources",
+			rev: revision("bar", "foo",
+				withContainers(containers)),
+			dc: deployment.Config{
+				QueueSidecarCPURequest:              resourcePtr(resource.MustParse("123m")),
+				QueueSidecarEphemeralStorageRequest: resourcePtr(resource.MustParse("456M")),
+				QueueSidecarMemoryLimit:             resourcePtr(resource.MustParse("789m")),
 			},
-		},
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{
-				"SERVING_LOGGING_CONFIG": "The logging configuration goes here",
-				"SERVING_LOGGING_LEVEL":  "error",
-				"SERVING_NAMESPACE":      "log",
-				"SERVING_REVISION":       "this",
-			})
-		}),
-	}, {
-		name: "container concurrency 10",
-		rev: revision("bar", "foo",
-			withContainers(containers),
-			withContainerConcurrency(10)),
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{
-				"CONTAINER_CONCURRENCY": "10",
-			})
-		}),
-	}, {
-		name: "request log configuration as env var",
-		rev: revision("bar", "foo",
-			withContainers(containers)),
-		oc: observability.Config{
-			RequestLogTemplate:    "test template",
-			EnableProbeRequestLog: true,
-		},
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{
-				"OBSERVABILITY_CONFIG": `{"tracing":{},"metrics":{},"runtime":{},"requestMetrics":{},"requestLogTemplate":"test template","enableProbeRequestLog":true}`,
-			})
-		}),
-	}, {
-		name: "disabled request log configuration as env var",
-		rev: revision("bar", "foo",
-			withContainers(containers)),
-		oc: observability.Config{
-			RequestLogTemplate:    "test template",
-			EnableProbeRequestLog: false,
-			EnableRequestLog:      false,
-		},
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{
-				"OBSERVABILITY_CONFIG": `{"tracing":{},"metrics":{},"runtime":{},"requestMetrics":{},"requestLogTemplate":"test template"}`,
-			})
-		}),
-	}, {
-		name: "request metrics backend as env var",
-		rev: revision("bar", "foo",
-			withContainers(containers)),
-		oc: observability.Config{
-			RequestMetrics: observability.MetricsConfig{
-				Protocol: "prometheus",
-			},
-		},
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{
-				"OBSERVABILITY_CONFIG": `{"tracing":{},"metrics":{},"runtime":{},"requestMetrics":{"protocol":"prometheus"}}`,
-			})
-		}),
-	}, {
-		name: "enable profiling",
-		rev: revision("bar", "foo",
-			withContainers(containers)),
-		oc: observability.Config{
-			BaseConfig: observability.BaseConfig{
-				Runtime: observability.RuntimeConfig{
-					Profiling: "enabled",
+			want: queueContainer(func(c *corev1.Container) {
+				c.Env = env(map[string]string{})
+				c.Resources.Requests = corev1.ResourceList{
+					corev1.ResourceCPU:              resource.MustParse("123m"),
+					corev1.ResourceEphemeralStorage: resource.MustParse("456M"),
+				}
+				c.Resources.Limits = corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("789m"),
+				}
+			}),
+		}, {
+			name: "collector address as env var",
+			rev: revision("bar", "foo",
+				withContainers(containers)),
+			oc: observability.Config{
+				RequestMetrics: observability.MetricsConfig{
+					Protocol: "http/protobuf",
+					Endpoint: "otel:55678",
 				},
 			},
-		},
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{
-				"OBSERVABILITY_CONFIG": `{"tracing":{},"metrics":{},"runtime":{"profiling":"enabled"},"requestMetrics":{}}`,
-			})
-			c.Ports = append(queueNonServingPorts, profilingPort, queueHTTPPort, queueHTTPSPort)
-		}),
-	}, {
-		name: "custom TimeoutSeconds",
-		rev: revision("bar", "foo",
-			withContainers(containers),
-			func(revision *v1.Revision) {
-				revision.Spec.TimeoutSeconds = ptr.Int64(99)
+			want: queueContainer(func(c *corev1.Container) {
+				c.Env = env(map[string]string{
+					"OBSERVABILITY_CONFIG": `{"tracing":{},"metrics":{},"runtime":{},"requestMetrics":{"protocol":"http/protobuf","endpoint":"otel:55678"}}`,
+				})
+			}),
+		}, {
+			name: "HTTP2 autodetection enabled",
+			rev: revision("bar", "foo",
+				withContainers(containers)),
+			fc: apicfg.Features{
+				AutoDetectHTTP2: apicfg.Enabled,
 			},
-		),
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{
-				"REVISION_TIMEOUT_SECONDS": "99",
-			})
-		}),
-	}, {
-		name: "custom ResponseStartTimeoutSeconds",
-		rev: revision("bar", "foo",
-			withContainers(containers),
-			func(revision *v1.Revision) {
-				revision.Spec.ResponseStartTimeoutSeconds = ptr.Int64(77)
+			want: queueContainer(func(c *corev1.Container) {
+				c.Env = env(map[string]string{
+					"ENABLE_HTTP2_AUTO_DETECTION": "true",
+				})
+			}),
+		}, {
+			name: "HTTP1 full duplex enabled",
+			rev: revision("bar", "foo",
+				withContainers(containers),
+				WithRevisionAnnotations(map[string]string{apicfg.AllowHTTPFullDuplexFeatureKey: string(apicfg.Enabled)})),
+			want: queueContainer(func(c *corev1.Container) {
+				c.Env = env(map[string]string{
+					"ENABLE_HTTP_FULL_DUPLEX": "true",
+				})
+			}),
+		}, {
+			name: "set root ca",
+			rev: revision("bar", "foo",
+				withContainers(containers)),
+			dc: deployment.Config{
+				QueueSidecarRootCA: "xyz",
 			},
-		),
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{
-				"REVISION_RESPONSE_START_TIMEOUT_SECONDS": "77",
-			})
-		}),
-	}, {
-		name: "custom IdleTimeoutSeconds",
-		rev: revision("bar", "foo",
-			withContainers(containers),
-			func(revision *v1.Revision) {
-				revision.Spec.IdleTimeoutSeconds = ptr.Int64(99)
+			want: queueContainer(func(c *corev1.Container) {
+				c.Env = env(map[string]string{
+					"ROOT_CA": "xyz",
+				})
+			}),
+		}, {
+			name: "HTTP2 autodetection disabled",
+			rev: revision("bar", "foo",
+				withContainers(containers)),
+			fc: apicfg.Features{
+				AutoDetectHTTP2: apicfg.Disabled,
 			},
-		),
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{
-				"REVISION_IDLE_TIMEOUT_SECONDS": "99",
-			})
-		}),
-	}, {
-		name: "default resource config with feature qp defaults disabled",
-		rev: revision("bar", "foo",
-			withContainers(containers)),
-		dc: deployment.Config{
-			QueueSidecarCPURequest: &deployment.QueueSidecarCPURequestDefault,
-		},
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{})
-			c.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceCPU: deployment.QueueSidecarCPURequestDefault,
-			}
-		}),
-	}, {
-		name: "resource config with feature qp defaults enabled",
-		rev: revision("bar", "foo",
-			withContainers(containers)),
-		dc: deployment.Config{
-			QueueSidecarCPURequest: &deployment.QueueSidecarCPURequestDefault,
-		},
-		fc: apicfg.Features{
-			QueueProxyResourceDefaults: apicfg.Enabled,
-		},
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{})
-			c.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceCPU:    deployment.QueueSidecarCPURequestDefault,
-				corev1.ResourceMemory: deployment.QueueSidecarMemoryRequestDefault,
-			}
-			c.Resources.Limits = corev1.ResourceList{
-				corev1.ResourceCPU:    deployment.QueueSidecarCPULimitDefault,
-				corev1.ResourceMemory: deployment.QueueSidecarMemoryLimitDefault,
-			}
-		}),
-	}, {
-		name: "overridden resources",
-		rev: revision("bar", "foo",
-			withContainers(containers)),
-		dc: deployment.Config{
-			QueueSidecarCPURequest:              resourcePtr(resource.MustParse("123m")),
-			QueueSidecarEphemeralStorageRequest: resourcePtr(resource.MustParse("456M")),
-			QueueSidecarMemoryLimit:             resourcePtr(resource.MustParse("789m")),
-		},
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{})
-			c.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceCPU:              resource.MustParse("123m"),
-				corev1.ResourceEphemeralStorage: resource.MustParse("456M"),
-			}
-			c.Resources.Limits = corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("789m"),
-			}
-		}),
-	}, {
-		name: "collector address as env var",
-		rev: revision("bar", "foo",
-			withContainers(containers)),
-		oc: observability.Config{
-			RequestMetrics: observability.MetricsConfig{
-				Protocol: "http/protobuf",
-				Endpoint: "otel:55678",
+			dc: deployment.Config{
+				ProgressDeadline: 0 * time.Second,
 			},
-		},
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{
-				"OBSERVABILITY_CONFIG": `{"tracing":{},"metrics":{},"runtime":{},"requestMetrics":{"protocol":"http/protobuf","endpoint":"otel:55678"}}`,
-			})
-		}),
-	}, {
-		name: "HTTP2 autodetection enabled",
-		rev: revision("bar", "foo",
-			withContainers(containers)),
-		fc: apicfg.Features{
-			AutoDetectHTTP2: apicfg.Enabled,
-		},
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{
-				"ENABLE_HTTP2_AUTO_DETECTION": "true",
-			})
-		}),
-	}, {
-		name: "HTTP1 full duplex enabled",
-		rev: revision("bar", "foo",
-			withContainers(containers),
-			WithRevisionAnnotations(map[string]string{apicfg.AllowHTTPFullDuplexFeatureKey: string(apicfg.Enabled)})),
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{
-				"ENABLE_HTTP_FULL_DUPLEX": "true",
-			})
-		}),
-	}, {
-		name: "set root ca",
-		rev: revision("bar", "foo",
-			withContainers(containers)),
-		dc: deployment.Config{
-			QueueSidecarRootCA: "xyz",
-		},
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{
-				"ROOT_CA": "xyz",
-			})
-		}),
-	}, {
-		name: "HTTP2 autodetection disabled",
-		rev: revision("bar", "foo",
-			withContainers(containers)),
-		fc: apicfg.Features{
-			AutoDetectHTTP2: apicfg.Disabled,
-		},
-		dc: deployment.Config{
-			ProgressDeadline: 0 * time.Second,
-		},
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{
-				"ENABLE_HTTP2_AUTO_DETECTION": "false",
-			})
-		}),
-	}, {
-		name: "multi container probing enabled",
-		rev:  revision("bar", "foo", withContainers(containers)),
-		fc: apicfg.Features{
-			MultiContainerProbing: apicfg.Enabled,
-		},
-		dc: deployment.Config{
-			ProgressDeadline: 0 * time.Second,
-		},
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{
-				"ENABLE_MULTI_CONTAINER_PROBES": "true",
-			})
-		}),
-	}, {
-		name: "multi container probing enabled with exec probes on all containers",
-		rev: revision("bar", "foo", withContainers([]corev1.Container{
-			{
-				Name: servingContainerName,
-				ReadinessProbe: &corev1.Probe{
-					ProbeHandler: corev1.ProbeHandler{
-						Exec: &corev1.ExecAction{
-							Command: []string{"bin/sh", "serving.sh"},
+			want: queueContainer(func(c *corev1.Container) {
+				c.Env = env(map[string]string{
+					"ENABLE_HTTP2_AUTO_DETECTION": "false",
+				})
+			}),
+		}, {
+			name: "multi container probing enabled",
+			rev:  revision("bar", "foo", withContainers(containers)),
+			fc: apicfg.Features{
+				MultiContainerProbing: apicfg.Enabled,
+			},
+			dc: deployment.Config{
+				ProgressDeadline: 0 * time.Second,
+			},
+			want: queueContainer(func(c *corev1.Container) {
+				c.Env = env(map[string]string{
+					"ENABLE_MULTI_CONTAINER_PROBES": "true",
+				})
+			}),
+		}, {
+			name: "multi container probing enabled with exec probes on all containers",
+			rev: revision("bar", "foo", withContainers([]corev1.Container{
+				{
+					Name: servingContainerName,
+					ReadinessProbe: &corev1.Probe{
+						ProbeHandler: corev1.ProbeHandler{
+							Exec: &corev1.ExecAction{
+								Command: []string{"bin/sh", "serving.sh"},
+							},
+						},
+					},
+					Ports: []corev1.ContainerPort{{
+						ContainerPort: 1955,
+						Name:          string(netapi.ProtocolH2C),
+					}},
+				},
+				{
+					Name: sidecarContainerName,
+					ReadinessProbe: &corev1.Probe{
+						ProbeHandler: corev1.ProbeHandler{
+							Exec: &corev1.ExecAction{
+								Command: []string{"bin/sh", "sidecar.sh"},
+							},
 						},
 					},
 				},
-				Ports: []corev1.ContainerPort{{
-					ContainerPort: 1955,
-					Name:          string(netapi.ProtocolH2C),
-				}},
+			})),
+			fc: apicfg.Features{
+				MultiContainerProbing: apicfg.Enabled,
 			},
-			{
-				Name: sidecarContainerName,
-				ReadinessProbe: &corev1.Probe{
-					ProbeHandler: corev1.ProbeHandler{
-						Exec: &corev1.ExecAction{
-							Command: []string{"bin/sh", "sidecar.sh"},
-						},
-					},
-				},
+			dc: deployment.Config{
+				ProgressDeadline: 0 * time.Second,
 			},
-		})),
-		fc: apicfg.Features{
-			MultiContainerProbing: apicfg.Enabled,
+			want: queueContainer(func(c *corev1.Container) {
+				c.Ports = append(queueNonServingPorts, queueHTTP2Port, queueHTTPSPort)
+				c.ReadinessProbe.HTTPGet.Port.IntVal = queueHTTP2Port.ContainerPort
+				c.Env = env(map[string]string{
+					"ENABLE_MULTI_CONTAINER_PROBES": "true",
+					"USER_PORT":                     "1955",
+					"QUEUE_SERVING_PORT":            "8013",
+				})
+			}),
 		},
-		dc: deployment.Config{
-			ProgressDeadline: 0 * time.Second,
-		},
-		want: queueContainer(func(c *corev1.Container) {
-			c.Ports = append(queueNonServingPorts, queueHTTP2Port, queueHTTPSPort)
-			c.ReadinessProbe.HTTPGet.Port.IntVal = queueHTTP2Port.ContainerPort
-			c.Env = env(map[string]string{
-				"ENABLE_MULTI_CONTAINER_PROBES": "true",
-				"USER_PORT":                     "1955",
-				"QUEUE_SERVING_PORT":            "8013",
-			})
-		}),
-	}}
+	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if len(test.rev.Spec.PodSpec.Containers) == 0 {
+			if len(test.rev.Spec.Containers) == 0 {
 				test.rev.Spec.PodSpec = corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:           servingContainerName,
@@ -544,7 +546,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				revision.Annotations = map[string]string{
 					serving.QueueSidecarResourcePercentageAnnotationKey: "20",
 				}
-				revision.Spec.PodSpec.Containers = []corev1.Container{{
+				revision.Spec.Containers = []corev1.Container{{
 					Name:           servingContainerName,
 					ReadinessProbe: testProbe,
 					Resources: corev1.ResourceRequirements{
@@ -569,7 +571,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				revision.Annotations = map[string]string{
 					serving.QueueSidecarResourcePercentageAnnotationKey: "0.2",
 				}
-				revision.Spec.PodSpec.Containers = []corev1.Container{{
+				revision.Spec.Containers = []corev1.Container{{
 					Name:           servingContainerName,
 					ReadinessProbe: testProbe,
 					Resources: corev1.ResourceRequirements{
@@ -594,7 +596,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				revision.Annotations = map[string]string{
 					serving.QueueSidecarResourcePercentageAnnotationKey: "foo",
 				}
-				revision.Spec.PodSpec.Containers = []corev1.Container{{
+				revision.Spec.Containers = []corev1.Container{{
 					Name:           servingContainerName,
 					ReadinessProbe: testProbe,
 					Resources: corev1.ResourceRequirements{
@@ -621,7 +623,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				revision.Annotations = map[string]string{
 					serving.QueueSidecarResourcePercentageAnnotationKey: "100",
 				}
-				revision.Spec.PodSpec.Containers = []corev1.Container{{
+				revision.Spec.Containers = []corev1.Container{{
 					Name:           servingContainerName,
 					ReadinessProbe: testProbe,
 					Resources: corev1.ResourceRequirements{
@@ -682,7 +684,7 @@ func TestMakeQueueContainerWithResourceAnnotations(t *testing.T) {
 					serving.QueueSidecarEphemeralStorageResourceRequestAnnotationKey: "500Mi",
 					serving.QueueSidecarEphemeralStorageResourceLimitAnnotationKey:   "600Mi",
 				}
-				revision.Spec.PodSpec.Containers = []corev1.Container{{
+				revision.Spec.Containers = []corev1.Container{{
 					Name:           servingContainerName,
 					ReadinessProbe: testProbe,
 				}}
@@ -710,7 +712,7 @@ func TestMakeQueueContainerWithResourceAnnotations(t *testing.T) {
 					serving.QueueSidecarMemoryResourceRequestAnnotationKey: "Gdx",
 					serving.QueueSidecarMemoryResourceLimitAnnotationKey:   "2Gi",
 				}
-				revision.Spec.PodSpec.Containers = []corev1.Container{{
+				revision.Spec.Containers = []corev1.Container{{
 					Name:           servingContainerName,
 					ReadinessProbe: testProbe,
 				}}
@@ -731,7 +733,7 @@ func TestMakeQueueContainerWithResourceAnnotations(t *testing.T) {
 					serving.QueueSidecarMemoryResourceLimitAnnotationKey: "4Gi",
 					serving.QueueSidecarResourcePercentageAnnotationKey:  "50",
 				}
-				revision.Spec.PodSpec.Containers = []corev1.Container{{
+				revision.Spec.Containers = []corev1.Container{{
 					Name:           servingContainerName,
 					ReadinessProbe: testProbe,
 					Resources: corev1.ResourceRequirements{
@@ -783,7 +785,7 @@ func TestMakeQueueContainerWithResourceAnnotations(t *testing.T) {
 func TestProbeGenerationHTTPDefaults(t *testing.T) {
 	rev := revision("bar", "foo",
 		func(revision *v1.Revision) {
-			revision.Spec.PodSpec.Containers = []corev1.Container{{
+			revision.Spec.Containers = []corev1.Container{{
 				Name: servingContainerName,
 				ReadinessProbe: &corev1.Probe{
 					ProbeHandler: corev1.ProbeHandler{
@@ -806,8 +808,9 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
-		PeriodSeconds:  1,
-		TimeoutSeconds: 10,
+		PeriodSeconds:    1,
+		TimeoutSeconds:   10,
+		FailureThreshold: 1,
 	}
 
 	wantProbeJSON, err := json.Marshal(expectedProbe)
@@ -829,8 +832,9 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 					}},
 				},
 			},
-			PeriodSeconds:  1,
-			TimeoutSeconds: 10,
+			PeriodSeconds:    1,
+			TimeoutSeconds:   10,
+			FailureThreshold: 1,
 		}
 	})
 
@@ -850,7 +854,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 
 	rev := revision("bar", "foo",
 		func(revision *v1.Revision) {
-			revision.Spec.PodSpec.Containers = []corev1.Container{{
+			revision.Spec.Containers = []corev1.Container{{
 				Name: servingContainerName,
 				Ports: []corev1.ContainerPort{{
 					ContainerPort: userPort,
@@ -877,8 +881,9 @@ func TestProbeGenerationHTTP(t *testing.T) {
 				Scheme: corev1.URISchemeHTTPS,
 			},
 		},
-		PeriodSeconds:  2,
-		TimeoutSeconds: 10,
+		PeriodSeconds:    2,
+		TimeoutSeconds:   10,
+		FailureThreshold: 1,
 	}
 
 	wantProbeJSON, err := json.Marshal(expectedProbe)
@@ -901,8 +906,9 @@ func TestProbeGenerationHTTP(t *testing.T) {
 					}},
 				},
 			},
-			PeriodSeconds:  2,
-			TimeoutSeconds: 10,
+			PeriodSeconds:    2,
+			TimeoutSeconds:   10,
+			FailureThreshold: 1,
 		}
 	})
 
@@ -935,6 +941,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 			},
 			PeriodSeconds:    0,
 			SuccessThreshold: 3,
+			FailureThreshold: 1,
 		},
 		rev: v1.RevisionSpec{
 			TimeoutSeconds: ptr.Int64(45),
@@ -968,9 +975,10 @@ func TestTCPProbeGeneration(t *testing.T) {
 						}},
 					},
 				},
-				PeriodSeconds:    0,
+				PeriodSeconds:    1,
 				TimeoutSeconds:   0,
 				SuccessThreshold: 3,
+				FailureThreshold: 1,
 			}
 			c.Env = env(map[string]string{"USER_PORT": strconv.Itoa(userPort)})
 		}),
@@ -997,8 +1005,9 @@ func TestTCPProbeGeneration(t *testing.T) {
 					Port: intstr.FromInt(int(v1.DefaultUserPort)),
 				},
 			},
-			PeriodSeconds:  1,
-			TimeoutSeconds: 1,
+			PeriodSeconds:    1,
+			TimeoutSeconds:   1,
+			FailureThreshold: 1,
 		},
 		want: queueContainer(func(c *corev1.Container) {
 			c.ReadinessProbe = &corev1.Probe{
@@ -1013,7 +1022,8 @@ func TestTCPProbeGeneration(t *testing.T) {
 				},
 				PeriodSeconds: 1,
 				// Inherit Kubernetes default here rather than overriding as we need to do for exec probe.
-				TimeoutSeconds: 0,
+				TimeoutSeconds:   0,
+				FailureThreshold: 1,
 			}
 			c.Env = env(map[string]string{})
 		}),
