@@ -1280,20 +1280,6 @@ func TestPodTrackerStateTransitions(t *testing.T) {
 		}
 	})
 
-	t.Run("pending state allows reservation", func(t *testing.T) {
-		tracker := newPodTracker("10.0.0.1:8012", nil)
-		tracker.state.Store(uint32(podPending))
-
-		// Should be able to reserve on pending pod
-		release, ok := tracker.Reserve(context.Background())
-		if !ok {
-			t.Error("Expected Reserve to succeed on pending pod")
-		}
-		if release != nil {
-			release()
-		}
-	})
-
 	t.Run("draining state blocks new reservations", func(t *testing.T) {
 		tracker := newPodTracker("10.0.0.1:8012", nil)
 		tracker.tryDrain()
@@ -1637,11 +1623,11 @@ func TestPodTrackerStateRaces(t *testing.T) {
 		wg.Wait()
 	})
 
-	t.Run("concurrent pending state transitions", func(t *testing.T) {
+	t.Run("concurrent draining state transitions", func(t *testing.T) {
 		tracker := newPodTracker("pod3:8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
-		// Start in pending state
-		tracker.state.Store(uint32(podPending))
+		// Start in draining state
+		tracker.state.Store(uint32(podDraining))
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
@@ -1654,12 +1640,12 @@ func TestPodTrackerStateRaces(t *testing.T) {
 			go func(id int) {
 				defer wg.Done()
 				for ctx.Err() == nil {
-					// Try CAS from pending to healthy
-					if tracker.state.CompareAndSwap(uint32(podPending), uint32(podHealthy)) {
-						// Successfully became healthy
+					// Try CAS from draining to removed
+					if tracker.state.CompareAndSwap(uint32(podDraining), uint32(podRemoved)) {
+						// Successfully became removed
 						time.Sleep(time.Microsecond)
-						// Reset to pending for next iteration
-						tracker.state.Store(uint32(podPending))
+						// Reset to draining for next iteration
+						tracker.state.Store(uint32(podDraining))
 					}
 				}
 			}(i)

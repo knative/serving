@@ -96,7 +96,6 @@ const (
 	podHealthy podState = iota
 	podDraining
 	podRemoved
-	podPending // New state for pods that haven't been health-checked yet
 )
 
 type podTracker struct {
@@ -196,8 +195,8 @@ func (p *podTracker) Reserve(ctx context.Context) (func(), bool) {
 	p.addRef()
 
 	state := podState(p.state.Load())
-	// Only healthy and pending pods can be reserved
-	if state != podHealthy && state != podPending {
+	// Only healthy pods can be reserved
+	if state != podHealthy {
 		p.releaseRef()
 		return nil, false
 	}
@@ -560,11 +559,6 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 						delete(rt.podTrackers, d)
 					}
 				}
-			case podPending:
-				// Pod being removed while still pending health check
-				tracker.state.Store(uint32(podRemoved))
-				delete(rt.podTrackers, d)
-				rt.logger.Infof("Pod %s removed while pending health check", d)
 			default:
 				rt.logger.Errorf("Pod %s in unexpected state %d while processing draining destinations", d, tracker.state.Load())
 			}
@@ -659,10 +653,10 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 				}
 				newTrackers = append(newTrackers, tracker)
 			} else if tracker.state.Load() != uint32(podHealthy) {
-				// Pod was previously in a non-healthy state, set to pending for re-validation
-				tracker.state.Store(uint32(podPending))
+				// Pod was previously in a non-healthy state, set back to healthy
+				tracker.state.Store(uint32(podHealthy))
 				tracker.drainingStartTime.Store(0)
-				rt.logger.Infow("Re-adding previously unhealthy pod as pending",
+				rt.logger.Infow("Re-adding previously unhealthy pod as healthy",
 					"dest", newDest,
 					"previousState", podState(tracker.state.Load()))
 			}
