@@ -221,3 +221,61 @@ func getFieldValue(cfg *config, fieldName string) reflect.Value {
 	f := reflect.Indirect(rVal).FieldByName(fieldName)
 	return f
 }
+
+func TestApplyOptions(t *testing.T) {
+	t.Run("option sets Transport on proxyHandler", func(t *testing.T) {
+		d := &Defaults{}
+		proxyHandler := &httputil.ReverseProxy{}
+		customTransport := &http.Transport{}
+
+		opt := func(d *Defaults) {
+			d.Transport = customTransport
+		}
+
+		applyOptions(d, proxyHandler, opt)
+
+		if proxyHandler.Transport != customTransport {
+			t.Errorf("proxyHandler.Transport = %v, want %v", proxyHandler.Transport, customTransport)
+		}
+	})
+
+	t.Run("option receives non-nil ProxyHandler", func(t *testing.T) {
+		d := &Defaults{}
+		proxyHandler := &httputil.ReverseProxy{}
+		var receivedHandler http.Handler
+
+		opt := func(d *Defaults) {
+			receivedHandler = d.ProxyHandler
+		}
+
+		applyOptions(d, proxyHandler, opt)
+
+		if receivedHandler == nil {
+			t.Error("option function received nil ProxyHandler, want non-nil")
+		}
+		if receivedHandler != proxyHandler {
+			t.Errorf("option function received %v, want %v", receivedHandler, proxyHandler)
+		}
+	})
+
+	t.Run("multiple options with handler and transport changes", func(t *testing.T) {
+		d := &Defaults{}
+		proxyHandler := &httputil.ReverseProxy{}
+		customTransport := &http.Transport{}
+		wrappedHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+
+		opt1 := func(d *Defaults) {
+			d.ProxyHandler = wrappedHandler
+		}
+
+		opt2 := func(d *Defaults) {
+			d.Transport = customTransport
+		}
+
+		applyOptions(d, proxyHandler, opt1, opt2)
+
+		if proxyHandler.Transport != customTransport {
+			t.Errorf("proxyHandler.Transport = %v, want %v", proxyHandler.Transport, customTransport)
+		}
+	})
+}
