@@ -8,17 +8,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	filteredinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/reconciler"
-
-	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
-	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
-	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/ptr"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	"knative.dev/pkg/injection"
 	reconcilertesting "knative.dev/pkg/reconciler/testing"
 
 	// Fake informers for reconcilers
@@ -45,6 +42,8 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/scaling"
+
+	// these have to be here to initialize the fake informers
 	_ "knative.dev/serving/pkg/client/certmanager/injection/informers/acme/v1/challenge/fake"
 	_ "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1/certificate/fake"
 	_ "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1/clusterissuer/fake"
@@ -66,8 +65,6 @@ import (
 	servicereconciler "knative.dev/serving/pkg/reconciler/service"
 
 	"context"
-
-	stesting "knative.dev/serving/pkg/reconciler/testing/v1"
 )
 
 func TestNewKnativeStrategy(t *testing.T) {
@@ -113,11 +110,11 @@ func TestNewKnativeStrategy(t *testing.T) {
 			if tt.name == "KPA Reconciler" {
 				selectors = append(selectors, serving.RevisionUID)
 			}
-			ctx, _ := reconcilertesting.SetupFakeContext(t, func(ctx context.Context) context.Context {
+			reconcilertesting.SetupFakeContext(t, func(ctx context.Context) context.Context {
 				// callback ensures that we add the required selectors before SetupFakeContext proceeds.
 				return filteredinformerfactory.WithSelectors(ctx, selectors...)
 			})
-			_, err := NewKnativeStrategy(ctx, tt.factory)
+			_, err := NewKnativeStrategy(tt.factory)
 			if err != nil {
 				t.Errorf("NewKnativeStrategy() error = %v", err)
 			}
@@ -125,66 +122,48 @@ func TestNewKnativeStrategy(t *testing.T) {
 	}
 }
 
-// setup creates a new context with fake clients and informers seeded with the given initial state.
-func setup(t *testing.T, initialState []runtime.Object, selectors ...string) context.Context {
-	t.Helper()
-	// Create a new context with a logger.
-	ctx, _ := reconcilertesting.SetupFakeContext(t, func(ctx context.Context) context.Context {
-		return filteredinformerfactory.WithSelectors(ctx, selectors...)
-	})
-
-	ls := stesting.NewListers(initialState)
-
-	// Inject fake clients into the context, seeded with the initial state.
-	// This is the crucial step to ensure clients and informers are in sync.
-	ctx, _ = fakeservingclient.With(ctx, ls.GetServingObjects()...)
-	ctx, _ = fakekubeclient.With(ctx, ls.GetKubeObjects()...)
-	ctx, _ = fakenetworkingclient.With(ctx, ls.GetNetworkingObjects()...)
-
-	// Now, initialize the informers from the fake clients.
-	ctx = filteredinformerfactory.WithSelectors(ctx, selectors...)
-	ctx, informers := injection.Fake.SetupInformers(ctx, injection.GetConfig(ctx))
-
-	// Start and sync the informers. This must be done before the reconciler is created.
-	if _, err := reconcilertesting.RunAndSyncInformers(ctx, informers...); err != nil {
-		t.Fatalf("Error starting and syncing informers: %v", err)
-	}
-
-	return ctx
-}
-
 func TestKnativeStrategyReconciliation(t *testing.T) {
 	ns, name := "default", "test-resource"
 	key := types.NamespacedName{Namespace: ns, Name: name}
 
 	t.Run("Service Reconciler", func(t *testing.T) {
-		initialState := []runtime.Object{
-			&v1.Service{
-				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
-				Spec: v1.ServiceSpec{
-					ConfigurationSpec: v1.ConfigurationSpec{
-						Template: v1.RevisionTemplateSpec{
-							Spec: v1.RevisionSpec{
-								PodSpec: corev1.PodSpec{
-									Containers: []corev1.Container{{Image: "test"}},
-								},
+		svc := &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{{Image: "gcr.io/knative-samples/helloworld-go"}},
 							},
 						},
 					},
-					RouteSpec: v1.RouteSpec{
-						Traffic: []v1.TrafficTarget{},
-					},
+				},
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
+						LatestRevision: ptr.Bool(true),
+						Percent:        ptr.Int64(100),
+					}},
 				},
 			},
 		}
 
-		ctx := setup(t, initialState)
-		strategy, err := NewKnativeStrategy(ctx, servicereconciler.NewController)
+		initialState := []runtime.Object{svc}
+		ctx := logtesting.TestContextWithLogger(t)
+
+		strategy, err := NewKnativeStrategy(servicereconciler.NewController)
 		if err != nil {
 			t.Fatalf("NewKnativeStrategy() error = %v", err)
 		}
+		ctx, err = strategy.PrepareState(ctx, initialState)
+		if err != nil {
+			t.Fatalf("SetupClientState() error = %v", err)
+		}
+		if _, err := strategy.ReconcileAtState(ctx, key); err != nil {
+			t.Fatalf("ReconcileAtState() error = %v", err)
+		}
 
-		reconcileAndAssertCreates(t, ctx, strategy, key, "configurations", "routes")
+		assertCreates(t, ctx, strategy, "configurations", "routes")
 	})
 
 	t.Run("Revision Reconciler", func(t *testing.T) {
@@ -196,15 +175,35 @@ func TestKnativeStrategyReconciliation(t *testing.T) {
 						Containers: []corev1.Container{{Image: "test"}},
 					},
 				},
+				Status: v1.RevisionStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{{
+							Type:   "Ready",
+							Status: "Unknown",
+						}},
+					},
+					ContainerStatuses: []v1.ContainerStatus{{
+						Name:        "user-container",
+						ImageDigest: "test@sha256:abcd",
+					}},
+				},
 			},
 		}
-		ctx := setup(t, initialState)
-		strategy, err := NewKnativeStrategy(ctx, revisionreconciler.NewController)
+
+		strategy, err := NewKnativeStrategy(revisionreconciler.NewController)
 		if err != nil {
 			t.Fatalf("NewKnativeStrategy() error = %v", err)
 		}
+		ctx, err := strategy.PrepareState(logtesting.TestContextWithLogger(t), initialState)
+		if err != nil {
+			t.Fatalf("SetupClientState() error = %v", err)
+		}
+		if _, err := strategy.ReconcileAtState(ctx, key); err != nil {
+			t.Fatalf("ReconcileAtState() error = %v", err)
+		}
 
-		reconcileAndAssertCreates(t, ctx, strategy, key, "deployments", "podautoscalers", "images")
+		// this just updated a revision -- did not create anything new
+		assertCreates(t, ctx, strategy, "podautoscalers")
 	})
 
 	t.Run("KPA Reconciler", func(t *testing.T) {
@@ -218,18 +217,26 @@ func TestKnativeStrategyReconciliation(t *testing.T) {
 		pa.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 
 		initialState := []runtime.Object{pa}
-		ctx := setup(t, initialState, serving.RevisionUID)
 
 		factory := func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 			multiScaler := scaling.NewMultiScaler(ctx.Done(), nil, logging.FromContext(ctx))
 			return kpareconciler.NewController(ctx, cmw, multiScaler)
 		}
-		strategy, err := NewKnativeStrategy(ctx, factory)
+		strategy, err := NewKnativeStrategy(factory, serving.RevisionUID)
 		if err != nil {
 			t.Fatalf("NewKnativeStrategy() error = %v", err)
 		}
 
-		reconcileAndAssertCreates(t, ctx, strategy, key, "serverlessservices")
+		ctx, err := strategy.PrepareState(logtesting.TestContextWithLogger(t), initialState)
+		if err != nil {
+			t.Fatalf("SetupClientState() error = %v", err)
+		}
+
+		if _, err := strategy.ReconcileAtState(ctx, types.NamespacedName{Namespace: ns, Name: pa.Name}); err != nil {
+			t.Fatalf("ReconcileAtState() error = %v", err)
+		}
+
+		assertCreates(t, ctx, strategy, "serverlessservices")
 	})
 
 	t.Run("Configuration Reconciler", func(t *testing.T) {
@@ -242,31 +249,25 @@ func TestKnativeStrategyReconciliation(t *testing.T) {
 					}}}},
 			},
 		}
-		ctx := setup(t, initialState)
-		strategy, err := NewKnativeStrategy(ctx, configurationreconciler.NewController)
+		strategy, err := NewKnativeStrategy(configurationreconciler.NewController)
 		if err != nil {
 			t.Fatalf("NewKnativeStrategy() error = %v", err)
 		}
+		ctx, err := strategy.PrepareState(logtesting.TestContextWithLogger(t), initialState)
+		if err != nil {
+			t.Fatalf("SetupClientState() error = %v", err)
+		}
+		if _, err := strategy.ReconcileAtState(ctx, key); err != nil {
+			t.Fatalf("ReconcileAtState() error = %v", err)
+		}
 
-		reconcileAndAssertCreates(t, ctx, strategy, key, "revisions")
+		assertCreates(t, ctx, strategy, "revisions")
 	})
 }
 
-// reconcileAndAssertCreates is a test helper to run a reconciliation and assert that certain resources were created.
-func reconcileAndAssertCreates(t *testing.T, ctx context.Context, strategy *KnativeStrategy, key types.NamespacedName, wantCreates ...string) {
+// assertCreates is a test helper to run a reconciliation and assert that certain resources were created.
+func assertCreates(t *testing.T, ctx context.Context, strategy *KnativeStrategy, wantCreates ...string) {
 	t.Helper()
-	// Promote the reconciler to leader, so it can perform actions.
-	if la, ok := strategy.Controller.Reconciler.(reconciler.LeaderAware); ok {
-		la.Promote(reconciler.UniversalBucket(), func(reconciler.Bucket, types.NamespacedName) {})
-	} else {
-		t.Fatalf("Reconciler is not leader-aware")
-	}
-
-	// We don't need to call PrepareState because TableTest has already set up the world.
-	_, err := strategy.ReconcileAtState(ctx, key)
-	if requeue, _ := controller.IsRequeueKey(err); err != nil && !requeue {
-		t.Fatalf("ReconcileAtState() returned an unexpected error: %v", err)
-	}
 
 	actions, err := strategy.RetrieveEffects(ctx)
 	if err != nil {
