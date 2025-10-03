@@ -855,8 +855,20 @@ func TestPodSecurityContextMask(t *testing.T) {
 		},
 	}
 
-	want := &corev1.PodSecurityContext{}
-	ctx := context.Background()
+	want := &corev1.PodSecurityContext{
+		SeccompProfile: &corev1.SeccompProfile{
+			Type:             corev1.SeccompProfileTypeRuntimeDefault,
+			LocalhostProfile: nil,
+		},
+	}
+	ctx := config.ToContext(context.Background(),
+		&config.Config{
+			Features: &config.Features{
+				SecurePodDefaults:      config.Enabled,
+				PodSpecSecurityContext: config.Disabled,
+			},
+		},
+	)
 
 	got := PodSecurityContextMask(ctx, in)
 
@@ -964,6 +976,111 @@ func TestPodSecurityContextMask_SecurePodDefaultsEnabled(t *testing.T) {
 		t.Error("Got error comparing output, err =", err)
 	} else if diff != "" {
 		t.Error("PostSecurityContextMask (-want, +got):", diff)
+	}
+}
+
+func TestPodSecurityContextMask_SecurePodDefaults_AllowRootBounded(t *testing.T) {
+	// Test that AllowRootBounded works the same as Enabled for masking purposes
+	want := &corev1.PodSecurityContext{
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+	}
+
+	in := &corev1.PodSecurityContext{
+		SELinuxOptions:     &corev1.SELinuxOptions{},
+		WindowsOptions:     &corev1.WindowsSecurityContextOptions{},
+		SupplementalGroups: []int64{1},
+		Sysctls:            []corev1.Sysctl{},
+		RunAsUser:          ptr.Int64(1),
+		RunAsGroup:         ptr.Int64(1),
+		RunAsNonRoot:       ptr.Bool(true),
+		FSGroup:            ptr.Int64(1),
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+	}
+
+	ctx := config.ToContext(context.Background(),
+		&config.Config{
+			Features: &config.Features{
+				SecurePodDefaults:      config.AllowRootBounded,
+				PodSpecSecurityContext: config.Disabled,
+			},
+		},
+	)
+
+	got := PodSecurityContextMask(ctx, in)
+
+	if &want == &got {
+		t.Error("Input and output share addresses. Want different addresses")
+	}
+
+	if diff, err := kmp.SafeDiff(want, got); err != nil {
+		t.Error("Got error comparing output, err =", err)
+	} else if diff != "" {
+		t.Error("PodSecurityContextMask (-want, +got):", diff)
+	}
+}
+
+func TestCapabilitiesMask_SecurePodDefaults_AllowRootBounded(t *testing.T) {
+	// Ensures users can only add NET_BIND_SERVICE or nil capabilities
+	tests := []struct {
+		name string
+		in   *corev1.Capabilities
+		want *corev1.Capabilities
+	}{{
+		name: "empty",
+		in: &corev1.Capabilities{
+			Add: nil,
+		},
+		want: &corev1.Capabilities{
+			Add: nil,
+		},
+	}, {
+		name: "allows NET_BIND_SERVICE capability",
+		in: &corev1.Capabilities{
+			Add: []corev1.Capability{"NET_BIND_SERVICE"},
+		},
+		want: &corev1.Capabilities{
+			Add: []corev1.Capability{"NET_BIND_SERVICE"},
+		},
+	}, {
+		name: "prevents restricted fields",
+		in: &corev1.Capabilities{
+			Add: []corev1.Capability{"CHOWN"},
+		},
+		want: &corev1.Capabilities{
+			Add: nil,
+		},
+	}}
+
+	for _, test := range tests {
+		ctx := config.ToContext(context.Background(),
+			&config.Config{
+				Features: &config.Features{
+					SecurePodDefaults: config.AllowRootBounded,
+				},
+			},
+		)
+
+		t.Run(test.name, func(t *testing.T) {
+			got := CapabilitiesMask(ctx, test.in)
+
+			if &test.want == &got {
+				t.Error("Input and output share addresses. Want different addresses")
+			}
+
+			if diff, err := kmp.SafeDiff(test.want, got); err != nil {
+				t.Error("Got error comparing output, err =", err)
+			} else if diff != "" {
+				t.Error("CapabilitiesMask (-want, +got):", diff)
+			}
+
+			if got = CapabilitiesMask(ctx, nil); got != nil {
+				t.Errorf("CapabilitiesMask = %v, want: nil", got)
+			}
+		})
 	}
 }
 

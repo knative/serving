@@ -1474,6 +1474,26 @@ func TestPodSpecFeatureValidation(t *testing.T) {
 	}
 }
 
+func TestPodSpecSecurityContext_FeatureEnabled_AllowsPodSecurityContext(t *testing.T) {
+	ctx := context.Background()
+	// Ensure the feature is enabled in context
+	cfg := config.FromContextOrDefaults(ctx)
+	cfg.Features.PodSpecSecurityContext = config.Enabled
+	ctx = config.ToContext(ctx, cfg)
+
+	ps := corev1.PodSpec{
+		SecurityContext: &corev1.PodSecurityContext{
+			RunAsNonRoot: ptr.Bool(false),
+		},
+		Containers: []corev1.Container{{
+			Image: "busybox",
+		}},
+	}
+	if got := ValidatePodSpec(ctx, ps).Filter(apis.ErrorLevel); got != nil {
+		t.Fatalf("ValidatePodSpec() = %v, want nil", got)
+	}
+}
+
 func TestPodSpecFieldRefValidation(t *testing.T) {
 	tests := []struct {
 		name     string
