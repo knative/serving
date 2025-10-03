@@ -21,6 +21,7 @@ package serving
 
 import (
 	"context"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/serving/pkg/apis/config"
@@ -252,6 +253,9 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 		out.Tolerations = in.Tolerations
 	}
 	if cfg.Features.PodSpecSecurityContext != config.Disabled {
+		out.SecurityContext = in.SecurityContext
+	} else if cfg.Features.SecurePodDefaults != config.Disabled {
+		// This is further validated in ValidatePodSecurityContext.
 		out.SecurityContext = in.SecurityContext
 	}
 	if cfg.Features.PodSpecShareProcessNamespace != config.Disabled {
@@ -661,7 +665,7 @@ func PodSecurityContextMask(ctx context.Context, in *corev1.PodSecurityContext) 
 
 	out := new(corev1.PodSecurityContext)
 
-	if config.FromContextOrDefaults(ctx).Features.SecurePodDefaults == config.Enabled || config.FromContextOrDefaults(ctx).Features.SecurePodDefaults == config.AllowRootBounded {
+	if slices.Contains([]config.Flag{config.Enabled, config.AllowRootBounded}, config.FromContextOrDefaults(ctx).Features.SecurePodDefaults) {
 		// Allow to opt out of more-secure defaults if SecurePodDefaults is enabled.
 		// This aligns with defaultSecurityContext in revision_defaults.go.
 		if in.SeccompProfile != nil {
@@ -747,7 +751,7 @@ func CapabilitiesMask(ctx context.Context, in *corev1.Capabilities) *corev1.Capa
 	if config.FromContextOrDefaults(ctx).Features.ContainerSpecAddCapabilities == config.Enabled {
 		out.Add = in.Add
 	} else if config.FromContextOrDefaults(ctx).Features.SecurePodDefaults == config.Enabled || config.FromContextOrDefaults(ctx).Features.SecurePodDefaults == config.AllowRootBounded {
-		if len(in.Add) == 1 && in.Add[0] == "NET_BIND_SERVICE" {
+		if slices.Equal(in.Add, []corev1.Capability{"NET_BIND_SERVICE"}) {
 			out.Add = in.Add
 		} else {
 			out.Add = nil

@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"cmp"
 	"context"
 	"strconv"
 
@@ -203,8 +204,11 @@ func (*RevisionSpec) applyGRPCProbeDefaults(container *corev1.Container) {
 
 // Upgrade SecurityContext for this container and the Pod definition to use settings
 // for the `restricted` profile when the feature flag is enabled.
-// This does not currently set `runAsNonRoot` for the restricted profile, because
-// that feels harder to default safely.
+// when the feature flag is enabled or AllowRootBounded:
+// `seccompProfile` is set to `RuntimeDefault` if its empty or nil
+// `capabilities` is set to `NET_BIND_SERVICE` if its empty or nil
+// when the feature flag is set to Enabled:
+// `runAsNonRoot` is set to true only if its empty or nil
 func (rs *RevisionSpec) defaultSecurityContext(psc *corev1.PodSecurityContext, container *corev1.Container, cfg *config.Config) {
 	if cfg.Features.SecurePodDefaults != config.Enabled && cfg.Features.SecurePodDefaults != config.AllowRootBounded {
 		return
@@ -224,11 +228,7 @@ func (rs *RevisionSpec) defaultSecurityContext(psc *corev1.PodSecurityContext, c
 		updatedSC.AllowPrivilegeEscalation = ptr.Bool(false)
 	}
 	if psc.SeccompProfile == nil || psc.SeccompProfile.Type == "" {
-		if updatedSC.SeccompProfile == nil {
-			updatedSC.SeccompProfile = &corev1.SeccompProfile{
-				Type: corev1.SeccompProfileTypeRuntimeDefault,
-			}
-		}
+		updatedSC.SeccompProfile = cmp.Or(updatedSC.SeccompProfile, &corev1.SeccompProfile{})
 		if updatedSC.SeccompProfile.Type == "" {
 			updatedSC.SeccompProfile.Type = corev1.SeccompProfileTypeRuntimeDefault
 		}
@@ -253,11 +253,7 @@ func (rs *RevisionSpec) defaultSecurityContext(psc *corev1.PodSecurityContext, c
 		if psc.RunAsNonRoot == nil {
 			if updatedSC.RunAsNonRoot == nil {
 				updatedSC.RunAsNonRoot = ptr.Bool(true)
-			} else {
-				updatedSC.RunAsNonRoot = container.SecurityContext.RunAsNonRoot
 			}
-		} else {
-			updatedSC.RunAsNonRoot = psc.RunAsNonRoot
 		}
 	}
 
