@@ -22,15 +22,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	netproxy "knative.dev/networking/pkg/http/proxy"
-	pkghandler "knative.dev/pkg/network/handlers"
-	"knative.dev/serving/pkg/activator"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"os"
 	"strconv"
 	"time"
+
+	netproxy "knative.dev/networking/pkg/http/proxy"
+	pkghandler "knative.dev/pkg/network/handlers"
+	"knative.dev/serving/pkg/activator"
 
 	"github.com/kelseyhightower/envconfig"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -215,13 +216,9 @@ func Main(opts ...Option) error {
 	}()
 
 	d.Transport = buildTransport(env, tp, mp)
+	proxyHandler := buildProxyHandler(logger, env, d.Transport)
 
-	d.ProxyHandler = buildProxyHandler(logger, env, d.Transport)
-
-	// allow extensions to read d and return modified context, transport, and proxy handler.
-	for _, opts := range opts {
-		opts(&d)
-	}
+	applyOptions(&d, proxyHandler, opts...)
 
 	protoStatReporter := queue.NewProtobufStatsReporter(env.ServingPod, reportingPeriod)
 
@@ -336,6 +333,17 @@ func Main(opts ...Option) error {
 		logger.Info("Shutdown complete, exiting...")
 	}
 	return nil
+}
+
+func applyOptions(d *Defaults, proxyHandler *httputil.ReverseProxy, opts ...Option) {
+	d.ProxyHandler = proxyHandler
+
+	// allow extensions to read d and return modified context, transport, and proxy handler.
+	for _, opts := range opts {
+		opts(d)
+	}
+
+	proxyHandler.Transport = d.Transport
 }
 
 func exists(logger *zap.SugaredLogger, filename string) bool {
