@@ -230,7 +230,7 @@ func main() {
 		return apiconfig.DefaultRevisionTimeoutSeconds * time.Second,
 			apiconfig.DefaultRevisionResponseStartTimeoutSeconds * time.Second,
 			apiconfig.DefaultRevisionIdleTimeoutSeconds * time.Second
-	})
+	}, logger)
 	ah = concurrencyReporter.Handler(ah)
 	ah = activatorhandler.NewTracingAttributeHandler(tp, ah)
 	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",

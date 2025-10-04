@@ -76,7 +76,7 @@ func mainHandler(
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
 	composedHandler = handler.NewTimeoutHandler(composedHandler, "request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
 		return timeout, responseStartTimeout, idleTimeout
-	})
+	}, logger)
 
 	composedHandler = queue.NewRouteTagHandler(composedHandler)
 	composedHandler = withFullDuplex(composedHandler, env.EnableHTTPFullDuplex, logger)
