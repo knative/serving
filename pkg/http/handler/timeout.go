@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/zap"
 	"k8s.io/utils/clock"
 	"knative.dev/pkg/websocket"
 )
@@ -37,6 +38,7 @@ type timeoutHandler struct {
 	timeoutFunc TimeoutFunc
 	body        string
 	clock       clock.Clock
+	logger      *zap.SugaredLogger
 }
 
 // NewTimeoutHandler returns a Handler that runs `h` with the
@@ -55,12 +57,13 @@ type timeoutHandler struct {
 // https://golang.org/pkg/net/http/#Handler.
 //
 // The implementation is largely inspired by http.TimeoutHandler.
-func NewTimeoutHandler(h http.Handler, msg string, timeoutFunc TimeoutFunc) http.Handler {
+func NewTimeoutHandler(h http.Handler, msg string, timeoutFunc TimeoutFunc, logger *zap.SugaredLogger) http.Handler {
 	return &timeoutHandler{
 		handler:     h,
 		body:        msg,
 		timeoutFunc: timeoutFunc,
 		clock:       clock.RealClock{},
+		logger:      logger,
 	}
 }
 
@@ -128,12 +131,14 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case <-timeout.C():
 			timeoutDrained = true
 			if tw.tryTimeoutAndWriteError(h.body) {
+				h.logger.Warnf("Request timeout: %v", revTimeout)
 				return
 			}
 		case now := <-idleTimeoutCh:
 			timedOut, timeToNextTimeout := tw.tryIdleTimeoutAndWriteError(now, revIdleTimeout, h.body)
 			if timedOut {
 				idleTimeoutDrained = true
+				h.logger.Warnf("Idle timeout: %v", revIdleTimeout)
 				return
 			}
 			idleTimeout.Reset(timeToNextTimeout)
@@ -143,6 +148,7 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			responseStartTimeoutDrained = true
 			timedOut := tw.tryResponseStartTimeoutAndWriteError(h.body)
 			if timedOut {
+				h.logger.Warnf("Response start timeout: %v", revResponseStartTimeout)
 				return
 			}
 		}
