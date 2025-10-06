@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 	"k8s.io/utils/clock"
 	clocktest "k8s.io/utils/clock/testing"
 )
@@ -224,7 +224,7 @@ func testTimeoutScenario(t *testing.T, scenarios []timeoutHandlerTestScenario) {
 				body:        scenario.timeoutMessage,
 				timeoutFunc: StaticTimeoutFunc(scenario.timeout, scenario.responseStartTimeout, scenario.idleTimeout),
 				clock:       fakeClock,
-				logger:      zap.NewNop().Sugar(),
+				logger:      zaptest.NewLogger(t).Sugar(),
 			}
 
 			defer func() {
@@ -352,7 +352,7 @@ func TestResponseStartTimeoutAfterResponseStarted(t *testing.T) {
 
 	// Create timeout handler with a responseStartTimeout
 	timeoutHandler := NewTimeoutHandler(handler, "timeout",
-		StaticTimeoutFunc(30*time.Second, 50*time.Millisecond, 0), zap.NewNop().Sugar())
+		StaticTimeoutFunc(30*time.Second, 50*time.Millisecond, 0), zaptest.NewLogger(t).Sugar())
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rr := httptest.NewRecorder()
@@ -606,7 +606,7 @@ func BenchmarkTimeoutHandler(b *testing.B) {
 			w.Write(write)
 		}
 	})
-	handler := NewTimeoutHandler(baseHandler, "test", StaticTimeoutFunc(10*time.Minute, 10*time.Minute, 10*time.Minute), zap.NewNop().Sugar())
+	handler := NewTimeoutHandler(baseHandler, "test", StaticTimeoutFunc(10*time.Minute, 10*time.Minute, 10*time.Minute), zaptest.NewLogger(b).Sugar())
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 
 	b.Run("sequential", func(b *testing.B) {
