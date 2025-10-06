@@ -1,9 +1,9 @@
 package kamera
 
 import (
-	"fmt"
 	"testing"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -55,6 +55,7 @@ import (
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/service/fake"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
+	"knative.dev/serving/pkg/reconciler/revision/resources/names"
 
 	kpareconciler "knative.dev/serving/pkg/reconciler/autoscaling/kpa"
 	certreconciler "knative.dev/serving/pkg/reconciler/certificate"
@@ -207,16 +208,26 @@ func TestKnativeStrategyReconciliation(t *testing.T) {
 	})
 
 	t.Run("KPA Reconciler", func(t *testing.T) {
+		// The KPA reconciler needs a Revision and a Deployment to exist
+		// to know what to scale.
 		rev := &v1.Revision{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
 			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{Containers: []corev1.Container{{Image: "test"}}},
 			},
 		}
+		// The PA's ScaleTargetRef points to this deployment.
+		dep := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      names.Deployment(rev),
+				Namespace: ns,
+			},
+		}
+
 		pa := resources.MakePA(rev, nil)
 		pa.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 
-		initialState := []runtime.Object{pa}
+		initialState := []runtime.Object{rev, dep, pa}
 
 		factory := func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 			multiScaler := scaling.NewMultiScaler(ctx.Done(), nil, logging.FromContext(ctx))
@@ -236,7 +247,7 @@ func TestKnativeStrategyReconciliation(t *testing.T) {
 			t.Fatalf("ReconcileAtState() error = %v", err)
 		}
 
-		assertCreates(t, ctx, strategy, "serverlessservices")
+		assertActions(t, ctx, strategy, "update", "podautoscalers")
 	})
 
 	t.Run("Configuration Reconciler", func(t *testing.T) {
@@ -268,23 +279,29 @@ func TestKnativeStrategyReconciliation(t *testing.T) {
 // assertCreates is a test helper to run a reconciliation and assert that certain resources were created.
 func assertCreates(t *testing.T, ctx context.Context, strategy *KnativeStrategy, wantCreates ...string) {
 	t.Helper()
+	assertActions(t, ctx, strategy, "create", wantCreates...)
+}
+
+// assertActions is a test helper to run a reconciliation and assert that resources of specific types were acted upon with a given verb.
+func assertActions(t *testing.T, ctx context.Context, strategy *KnativeStrategy, verb string, wantResources ...string) {
+	t.Helper()
 
 	actions, err := strategy.RetrieveEffects(ctx)
 	if err != nil {
 		t.Fatalf("RetrieveEffects() error = %v", err)
 	}
 
-	created := make(map[string]bool)
+	got := make(map[string]bool)
 	for _, action := range actions {
-		fmt.Println("Action:", action.GetVerb(), action.GetResource().Resource)
-		if action.GetVerb() == "create" {
-			created[action.GetResource().Resource] = true
+		t.Log("Action:", action.GetVerb(), action.GetResource().Resource)
+		if action.GetVerb() == verb {
+			got[action.GetResource().Resource] = true
 		}
 	}
 
-	for _, want := range wantCreates {
-		if !created[want] {
-			t.Errorf("Expected a resource of type %q to be created, but it wasn't.", want)
+	for _, want := range wantResources {
+		if !got[want] {
+			t.Errorf("Expected a '%s' action on a resource of type %q, but it wasn't found.", verb, want)
 		}
 	}
 }
