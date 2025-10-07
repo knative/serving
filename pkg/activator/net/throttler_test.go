@@ -2733,3 +2733,47 @@ func TestPodTrackerWeightRaces(t *testing.T) {
 		wg.Wait()
 	})
 }
+
+func TestPendingPodAggressiveBackoff(t *testing.T) {
+	t.Run("pending pods use aggressive backoff schedule", func(t *testing.T) {
+		testCases := []struct {
+			count    uint32
+			expected uint32
+		}{
+			{1, 0}, // Immediate retry
+			{2, 1}, // 1 second
+			{3, 1}, // 1 second
+			{4, 2}, // 2 seconds
+			{5, 5}, // 5 seconds (cap)
+			{10, 5}, // Still capped at 5s
+		}
+
+		for _, tc := range testCases {
+			got := quarantineBackoffSeconds(tc.count, true)
+			if got != tc.expected {
+				t.Errorf("quarantineBackoffSeconds(%d, true) = %d, want %d", tc.count, got, tc.expected)
+			}
+		}
+	})
+
+	t.Run("healthy pods use standard backoff schedule", func(t *testing.T) {
+		testCases := []struct {
+			count    uint32
+			expected uint32
+		}{
+			{1, 1},   // 1 second
+			{2, 2},   // 2 seconds
+			{3, 5},   // 5 seconds
+			{4, 10},  // 10 seconds
+			{5, 20},  // 20 seconds (cap)
+			{10, 20}, // Still capped at 20s
+		}
+
+		for _, tc := range testCases {
+			got := quarantineBackoffSeconds(tc.count, false)
+			if got != tc.expected {
+				t.Errorf("quarantineBackoffSeconds(%d, false) = %d, want %d", tc.count, got, tc.expected)
+			}
+		}
+	})
+}
