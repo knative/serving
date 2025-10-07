@@ -38,6 +38,7 @@ import (
 
 	pkgnet "knative.dev/networking/pkg/apis/networking"
 	netcfg "knative.dev/networking/pkg/config"
+	netheader "knative.dev/networking/pkg/http/header"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
@@ -70,8 +71,8 @@ const (
 	// This allows long-running requests to complete gracefully
 	maxDrainingDuration = 1 * time.Hour
 
-	// TCP ping timeout used to verify destination reachability
-	tcpPingTimeout = 500 * time.Millisecond
+	// Pod ready check timeout used to verify queue-proxy health
+	podReadyCheckTimeout = 500 * time.Millisecond
 )
 
 func newPodTracker(dest string, b breaker) *podTracker {
@@ -1445,23 +1446,49 @@ func (ib *infiniteBreaker) Reserve(context.Context) (func(), bool) { return noop
 var tcpPingCheckFunc atomic.Value
 
 func init() {
-	tcpPingCheckFunc.Store(defaultTCPPingCheck)
+	tcpPingCheckFunc.Store(podReadyCheck)
 }
 
-// defaultTCPPingCheck performs a quick TCP ping to verify the destination is reachable
-// Returns true if the connection succeeds within 1 second, false otherwise
-// Using a 1 second timeout to reduce latency during pod health checks
-func defaultTCPPingCheck(dest string) bool {
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+// podReadyCheck performs an HTTP health check to verify the queue-proxy is ready
+// Returns true if the health endpoint returns 200 OK, false otherwise (503 = draining)
+// Using podReadyCheckTimeout (500ms) to reduce latency during pod health checks
+func podReadyCheck(dest string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), podReadyCheckTimeout)
 	defer cancel()
 
-	dialer := &net.Dialer{}
-	conn, err := dialer.DialContext(ctx, "tcp", dest)
+	// Create HTTP request to queue-proxy health endpoint
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+dest+"/", nil)
 	if err != nil {
 		return false
 	}
-	conn.Close()
-	return true
+
+	// Set User-Agent so Drainer recognizes this as a health check (kube-probe prefix)
+	// This allows the Drainer to intercept and return 503 when draining
+	req.Header.Set("User-Agent", "kube-probe/activator")
+
+	// Add Knative probe header so queue-proxy health handler processes the request
+	req.Header.Set(netheader.ProbeKey, queue.Name)
+
+	// Use a custom client with short timeout
+	client := &http.Client{
+		Timeout: podReadyCheckTimeout,
+		Transport: &http.Transport{
+			DisableKeepAlives: true,
+			DialContext: (&net.Dialer{
+				Timeout: podReadyCheckTimeout,
+			}).DialContext,
+		},
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+
+	// Only consider 200 OK as healthy
+	// 503 Service Unavailable means the queue-proxy is draining
+	return resp.StatusCode == http.StatusOK
 }
 
 // quarantineBackoffSeconds returns backoff seconds for a given consecutive quarantine count.
