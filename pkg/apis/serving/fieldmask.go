@@ -750,7 +750,7 @@ func CapabilitiesMask(ctx context.Context, in *corev1.Capabilities) *corev1.Capa
 
 	if config.FromContextOrDefaults(ctx).Features.ContainerSpecAddCapabilities == config.Enabled {
 		out.Add = in.Add
-	} else if config.FromContextOrDefaults(ctx).Features.SecurePodDefaults == config.Enabled || config.FromContextOrDefaults(ctx).Features.SecurePodDefaults == config.AllowRootBounded {
+	} else if slices.Contains([]config.Flag{config.Enabled, config.AllowRootBounded}, config.FromContextOrDefaults(ctx).Features.SecurePodDefaults) {
 		if slices.Equal(in.Add, []corev1.Capability{"NET_BIND_SERVICE"}) {
 			out.Add = in.Add
 		} else {

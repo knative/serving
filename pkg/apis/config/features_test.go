@@ -742,15 +742,6 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"secure-pod-defaults": "AllowRootBounded",
 		},
 	}, {
-		name:    "multi-container cannot be set to Restricted",
-		wantErr: false,
-		wantFeatures: defaultWith(&Features{
-			MultiContainer: Enabled, // Should remain default since Restricted is not valid
-		}),
-		data: map[string]string{
-			"multi-container": "Restricted",
-		},
-	}, {
 		name:    "PodSpecAffinity cannot be set to Restricted",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{

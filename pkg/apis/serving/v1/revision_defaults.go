@@ -19,6 +19,7 @@ package v1
 import (
 	"cmp"
 	"context"
+	"slices"
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
@@ -210,7 +211,7 @@ func (*RevisionSpec) applyGRPCProbeDefaults(container *corev1.Container) {
 // when the feature flag is set to Enabled:
 // `runAsNonRoot` is set to true only if its empty or nil
 func (rs *RevisionSpec) defaultSecurityContext(psc *corev1.PodSecurityContext, container *corev1.Container, cfg *config.Config) {
-	if cfg.Features.SecurePodDefaults != config.Enabled && cfg.Features.SecurePodDefaults != config.AllowRootBounded {
+	if !slices.Contains([]config.Flag{config.Enabled, config.AllowRootBounded}, cfg.Features.SecurePodDefaults) {
 		return
 	}
 
