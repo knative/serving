@@ -69,17 +69,17 @@ func newTestThrottler(ctx context.Context) *Throttler {
 // mockTCPPingCheck sets a custom TCP ping check function for testing
 // and returns a cleanup function to restore the original
 func mockTCPPingCheck(fn func(string) bool) func() {
-	oldFunc := tcpPingCheckFunc.Load()
-	setTCPPingCheckFunc(fn)
+	oldFunc := podReadyCheckFunc.Load()
+	setPodReadyCheckFunc(fn)
 	return func() {
-		tcpPingCheckFunc.Store(oldFunc)
+		podReadyCheckFunc.Store(oldFunc)
 	}
 }
 
 // TestMain sets up the test environment
 func TestMain(m *testing.M) {
-	// Mock TCP ping check to always succeed for all tests
-	setTCPPingCheckFunc(func(dest string) bool { return true })
+	// Mock pod ready check to always succeed for all tests
+	setPodReadyCheckFunc(func(dest string) bool { return true })
 	m.Run()
 }
 

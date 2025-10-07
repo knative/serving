@@ -631,20 +631,20 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 			}()
 			// We already reserved a guaranteed spot. So just execute the passed functor.
 			// ClusterIP routing is intentionally disabled; we route directly to pods.
-			// First, perform a TCP ping check to ensure the destination is reachable
+			// First, perform a pod ready check to ensure the queue-proxy is healthy
 			// Only do this for pod routing (not clusterIP)
 			if !isClusterIP {
 				currentState := podState(tracker.state.Load())
-				rt.logger.Debugw("tcp ping attempt", "x-request-id", xRequestId, "dest", tracker.dest, "state", currentState)
+				rt.logger.Debugw("pod ready check attempt", "x-request-id", xRequestId, "dest", tracker.dest, "state", currentState)
 
 				if !tcpPingCheck(tracker.dest) {
 					// For pending pods, this is their first health check
 					if currentState == podPending {
-						rt.logger.Infow("tcp ping failed for pending pod; quarantine",
+						rt.logger.Infow("pod ready check failed for pending pod; quarantine",
 							"x-request-id", xRequestId,
 							"dest", tracker.dest)
 					} else {
-						rt.logger.Errorw("tcp ping failed; quarantine",
+						rt.logger.Errorw("pod ready check failed; quarantine",
 							"x-request-id", xRequestId,
 							"dest", tracker.dest)
 					}
@@ -676,11 +676,11 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 					return
 				}
 
-				// TCP ping successful - if pod was pending, promote to healthy
+				// Pod ready check successful - if pod was pending, promote to healthy
 				if currentState == podPending {
 					// Use CAS to atomically transition from pending to healthy
 					if tracker.state.CompareAndSwap(uint32(podPending), uint32(podHealthy)) {
-						rt.logger.Infow("Pending pod passed TCP health check, promoting to healthy",
+						rt.logger.Infow("Pending pod passed ready check, promoting to healthy",
 							"x-request-id", xRequestId,
 							"dest", tracker.dest)
 					}
@@ -1441,12 +1441,12 @@ func (ib *infiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
 
 func (ib *infiniteBreaker) Reserve(context.Context) (func(), bool) { return noop, true }
 
-// tcpPingCheckFunc is a function variable that can be overridden for testing
+// podReadyCheckFunc is a function variable that can be overridden for testing
 // Use atomic.Value for thread-safe access
-var tcpPingCheckFunc atomic.Value
+var podReadyCheckFunc atomic.Value
 
 func init() {
-	tcpPingCheckFunc.Store(podReadyCheck)
+	podReadyCheckFunc.Store(podReadyCheck)
 }
 
 // podReadyCheck performs an HTTP health check to verify the queue-proxy is ready
@@ -1486,9 +1486,9 @@ func podReadyCheck(dest string) bool {
 	}
 	defer resp.Body.Close()
 
-	// Only consider 200 OK as healthy
+	// Consider any 2XX response as healthy
 	// 503 Service Unavailable means the queue-proxy is draining
-	return resp.StatusCode == http.StatusOK
+	return resp.StatusCode >= 200 && resp.StatusCode < 300
 }
 
 // quarantineBackoffSeconds returns backoff seconds for a given consecutive quarantine count.
@@ -1508,13 +1508,14 @@ func quarantineBackoffSeconds(count uint32) uint32 {
 	}
 }
 
-// tcpPingCheck delegates to tcpPingCheckFunc to allow for testing
+// tcpPingCheck delegates to podReadyCheckFunc to allow for testing
+// Note: Despite the name, this now performs HTTP health checks via podReadyCheck
 func tcpPingCheck(dest string) bool {
-	fn := tcpPingCheckFunc.Load().(func(string) bool)
+	fn := podReadyCheckFunc.Load().(func(string) bool)
 	return fn(dest)
 }
 
-// setTCPPingCheckFunc sets the TCP ping function for testing
-func setTCPPingCheckFunc(fn func(string) bool) {
-	tcpPingCheckFunc.Store(fn)
+// setPodReadyCheckFunc sets the health check function for testing
+func setPodReadyCheckFunc(fn func(string) bool) {
+	podReadyCheckFunc.Store(fn)
 }

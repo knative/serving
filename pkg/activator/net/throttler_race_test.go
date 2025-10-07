@@ -142,9 +142,9 @@ func TestRace_RequestPath_TrackerRemovedDuringUse(t *testing.T) {
 	tr := newPodTracker("127.0.0.1:65534", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 	rt.updateThrottlerState(1, []*podTracker{tr}, []string{tr.dest}, nil, nil)
 
-	oldPing := tcpPingCheckFunc.Load()
-	setTCPPingCheckFunc(func(_ string) bool { return true })
-	defer func() { tcpPingCheckFunc.Store(oldPing) }()
+	oldPing := podReadyCheckFunc.Load()
+	setPodReadyCheckFunc(func(_ string) bool { return true })
+	defer func() { podReadyCheckFunc.Store(oldPing) }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -169,8 +169,8 @@ func TestRace_RequestPath_TrackerRemovedDuringUse(t *testing.T) {
 // 4) Global variable mutation race
 func TestRace_TCPPingCheckFunc_GlobalMutation(t *testing.T) {
 	t.Parallel()
-	orig := tcpPingCheckFunc.Load()
-	defer func() { tcpPingCheckFunc.Store(orig) }()
+	orig := podReadyCheckFunc.Load()
+	defer func() { podReadyCheckFunc.Store(orig) }()
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -182,8 +182,8 @@ func TestRace_TCPPingCheckFunc_GlobalMutation(t *testing.T) {
 				return
 			default:
 			}
-			setTCPPingCheckFunc(func(string) bool { return true })
-			setTCPPingCheckFunc(func(string) bool { return false })
+			setPodReadyCheckFunc(func(string) bool { return true })
+			setPodReadyCheckFunc(func(string) bool { return false })
 		}
 	}()
 	go func() {
