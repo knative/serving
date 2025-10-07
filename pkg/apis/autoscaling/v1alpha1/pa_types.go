@@ -112,17 +112,14 @@ const (
 
 // PodAutoscalerStatus communicates the observed state of the PodAutoscaler (from the controller).
 type PodAutoscalerStatus struct {
-	// +kubebuilder:default={"conditions": {{"type":"Active", "status": "Unknown", "reason": "Pending",  "message": "Waiting for controller", "severity": "", "lastTransitionTime": "1970-01-01T00:00:00Z"}, {"type":"Ready", "status": "Unknown", "reason": "Pending", "message": "Waiting for controller", "severity": "", "lastTransitionTime": "1970-01-01T00:00:00Z"}, {"type":"SKSReady", "status": "Unknown", "reason": "Pending", "message": "Waiting for controller", "severity": "", "lastTransitionTime": "1970-01-01T00:00:00Z"}, {"type":"ScaleTargetInitialized", "status": "Unknown", "reason": "Pending", "message": "Waiting for controller", "severity": "", "lastTransitionTime": "1970-01-01T00:00:00Z"}}}
 	duckv1.Status `json:",inline"`
 
 	// ServiceName is the K8s Service name that serves the revision, scaled by this PA.
 	// The service is created and owned by the ServerlessService object owned by this PA.
-	// +optional
 	ServiceName string `json:"serviceName"`
 
 	// MetricsServiceName is the K8s Service name that provides revision metrics.
 	// The service is managed by the PA object.
-	// +optional
 	MetricsServiceName string `json:"metricsServiceName"`
 
 	// DesiredScale shows the current desired number of replicas for the revision.
