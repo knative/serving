@@ -663,7 +663,9 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 							// Increment consecutive quarantine count
 							count := tracker.quarantineCount.Add(1)
 							// Determine backoff duration
-							backoff := quarantineBackoffSeconds(count)
+							// Use aggressive backoff for pods that were pending (never been healthy)
+							wasPending := currentState == podPending
+							backoff := quarantineBackoffSeconds(count, wasPending)
 							tracker.quarantineEndTime.Store(time.Now().Unix() + int64(backoff))
 							// Record metrics
 							handler.RecordPodQuarantineChange(ctx, 1)
@@ -921,12 +923,23 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 			tracker := rt.podTrackers[d]
 			if tracker != nil {
 				currentState := podState(tracker.state.Load())
-				// Only transition to healthy if not already healthy or recovering
-				// Let recovering pods transition naturally after successful requests
-				if currentState != podHealthy && currentState != podRecovering {
-					// If coming from quarantine, decrement gauge once
-					transitionOutOfQuarantine(context.Background(), tracker, podHealthy)
+				// Handle pods that K8s reports as healthy but activator has in non-healthy states
+				switch currentState {
+				case podDraining, podRemoved:
+					// Pod was being removed but is back in healthy endpoint list (e.g., rolling update rollback)
+					// Reset to pending for re-validation rather than trusting immediately
+					tracker.state.Store(uint32(podPending))
 					tracker.drainingStartTime.Store(0)
+					rt.logger.Infof("Pod %s was draining/removed, now back in healthy list - resetting to pending", d)
+				case podHealthy:
+					// Already healthy, nothing to do
+				case podRecovering:
+					// Let it recover naturally after successful request - don't interfere
+				case podQuarantined:
+					// Pod is in backoff - don't short-circuit quarantine just because K8s says it's ready
+					// Let the quarantine timer complete naturally
+				case podPending:
+					// Already pending, will be health-checked on first request
 				}
 			}
 		}
@@ -1065,13 +1078,28 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 					}))
 				}
 				newTrackers = append(newTrackers, tracker)
-			} else if tracker.state.Load() != uint32(podHealthy) {
-				// Pod was previously in a non-healthy state, set to pending for re-validation
-				tracker.state.Store(uint32(podPending))
-				tracker.drainingStartTime.Store(0)
-				rt.logger.Infow("Re-adding previously unhealthy pod as pending",
-					"dest", newDest,
-					"previousState", podState(tracker.state.Load()))
+			} else {
+				// Check current state and handle appropriately
+				currentState := podState(tracker.state.Load())
+
+				// Don't disrupt pods that are recovering, quarantined, or pending
+				// These states have their own recovery mechanisms with backoff timers
+				// Resetting them to pending would restart the health check process and interfere with recovery
+				switch currentState {
+				case podRecovering, podQuarantined, podPending:
+					// These states have their own recovery mechanisms - don't interfere
+					rt.logger.Debugf("Pod %s in state %v, allowing natural recovery", newDest, currentState)
+				case podDraining, podRemoved:
+					// Pod was removed but is now back in the endpoint list (e.g., controller restart)
+					// Reset to pending for re-validation
+					tracker.state.Store(uint32(podPending))
+					tracker.drainingStartTime.Store(0)
+					rt.logger.Infow("Re-adding previously draining/removed pod as pending",
+						"dest", newDest,
+						"previousState", currentState) // Log BEFORE changing state
+				case podHealthy:
+					// Already healthy, nothing to do
+				}
 			}
 		}
 		healthyDests := make([]string, 0, len(currentDests))
@@ -1492,16 +1520,34 @@ func podReadyCheck(dest string) bool {
 }
 
 // quarantineBackoffSeconds returns backoff seconds for a given consecutive quarantine count.
-// Schedule: 1, 2, 5, 10, 20 (clamped at 20s).
-func quarantineBackoffSeconds(count uint32) uint32 {
-	switch {
-	case count == 1:
+// For pending pods (never been healthy): 0s, 1s, 1s, 2s, 5s (be aggressive in retrying new pods)
+// For established pods (was healthy): 1s, 2s, 5s, 10s, 20s (more conservative for known-good pods)
+func quarantineBackoffSeconds(count uint32, wasPending bool) uint32 {
+	if wasPending {
+		// Shorter backoff for pods that are just starting up
+		switch count {
+		case 1:
+			return 0 // Retry immediately on first failure for pending pods
+		case 2:
+			return 1 // ~500ms effective retry time
+		case 3:
+			return 1
+		case 4:
+			return 2
+		default:
+			return 5 // Cap at 5s for pending pods
+		}
+	}
+
+	// Standard backoff for established pods that were previously healthy
+	switch count {
+	case 1:
 		return 1
-	case count == 2:
+	case 2:
 		return 2
-	case count == 3:
+	case 3:
 		return 5
-	case count == 4:
+	case 4:
 		return 10
 	default:
 		return 20

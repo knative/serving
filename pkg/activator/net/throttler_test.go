@@ -1931,7 +1931,8 @@ func TestThrottlerQuick502Quarantine(t *testing.T) {
 		}
 
 		// Verify quarantine uses first backoff step
-		expectedEnd := time.Now().Unix() + int64(quarantineBackoffSeconds(1))
+		// Pod was healthy before quarantine, so wasPending=false (standard backoff)
+		expectedEnd := time.Now().Unix() + int64(quarantineBackoffSeconds(1, false))
 		if quarantineEnd > expectedEnd+1 || quarantineEnd < expectedEnd-1 {
 			t.Errorf("Quarantine end time incorrect: got %d, expected ~%d", quarantineEnd, expectedEnd)
 		}
