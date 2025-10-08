@@ -20,11 +20,11 @@ import (
 	"os"
 
 	"knative.dev/pkg/changeset"
+	"knative.dev/pkg/observability/semconv"
 	"knative.dev/pkg/system"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/resource"
-	semconv "go.opentelemetry.io/otel/semconv/v1.34.0"
 )
 
 const otelServiceNameKey = "OTEL_SERVICE_NAME"

@@ -56,7 +56,7 @@ func (r *runtime) register() error {
 	}
 
 	_, err = r.meter.RegisterCallback(
-		func(ctx context.Context, o metric.Observer) error {
+		func(_ context.Context, o metric.Observer) error {
 			o.ObserveInt64(uptime, time.Since(startTime).Milliseconds())
 			o.ObserveInt64(goroutines, int64(goruntime.NumGoroutine()))
 			o.ObserveInt64(cgoCalls, goruntime.NumCgoCall())
@@ -179,7 +179,7 @@ func (r *runtime) registerMemStats() error {
 	// observation interval is too slow.
 	if pauseTotalNs, err = r.meter.Int64ObservableCounter(
 		"process.runtime.go.gc.pause_total_ns",
-		// TODO: nanoseconds units
+		metric.WithUnit("ns"),
 		metric.WithDescription("Cumulative nanoseconds in GC stop-the-world pauses since the program started"),
 	); err != nil {
 		return err
@@ -187,7 +187,7 @@ func (r *runtime) registerMemStats() error {
 
 	if gcPauseNs, err = r.meter.Int64Histogram(
 		"process.runtime.go.gc.pause_ns",
-		// TODO: nanoseconds units
+		metric.WithUnit("ns"),
 		metric.WithDescription("Amount of nanoseconds in GC stop-the-world pauses"),
 	); err != nil {
 		return err
@@ -244,7 +244,7 @@ func clampUint64(v uint64) int64 {
 	if v > math.MaxInt64 {
 		return math.MaxInt64
 	}
-	return int64(v) // nolint: gosec  // Overflow checked above.
+	return int64(v)
 }
 
 func computeGCPauses(
@@ -271,7 +271,7 @@ func computeGCPauses(
 		return
 	}
 
-	length := uint64(n) // nolint: gosec  // n >= 0
+	length := uint64(n)
 
 	i := uint64(lastNumGC) % length
 	j := uint64(currentNumGC) % length

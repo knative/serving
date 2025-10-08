@@ -5,6 +5,6 @@ package runtime // import "go.opentelemetry.io/contrib/instrumentation/runtime"
 
 // Version is the current release version of the runtime instrumentation.
 func Version() string {
-	return "0.62.0"
+	return "0.63.0"
 	// This string is updated by the pre_release.sh script during release
 }
