@@ -37,6 +37,9 @@ const (
 	// Allowed neither explicitly disables or enables a behavior.
 	// eg. allow a client to control behavior with an annotation or allow a new value through validation.
 	Allowed Flag = "Allowed"
+	// AllowRootBounded is used by secure-pod-defaults to apply secure defaults without enforcing strict policies;
+	// sets RunAsNonRoot to true if not already specified
+	AllowRootBounded Flag = "AllowRootBounded"
 )
 
 // service annotations under features.knative.dev/*
@@ -124,7 +127,7 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag("multi-container-probing", &nc.MultiContainerProbing),
 		asFlag("queueproxy.mount-podinfo", &nc.QueueProxyMountPodInfo),
 		asFlag("queueproxy.resource-defaults", &nc.QueueProxyResourceDefaults),
-		asFlag("secure-pod-defaults", &nc.SecurePodDefaults),
+		asSecurePodDefaultsFlag("secure-pod-defaults", &nc.SecurePodDefaults),
 		asFlag("tag-header-based-routing", &nc.TagHeaderBasedRouting),
 		asFlag(FeatureContainerSpecAddCapabilities, &nc.ContainerSpecAddCapabilities),
 		asFlag(FeaturePodSpecAffinity, &nc.PodSpecAffinity),
@@ -198,10 +201,27 @@ type Features struct {
 }
 
 // asFlag parses the value at key as a Flag into the target, if it exists.
+// Only accepts Enabled, Disabled, and Allowed values.
 func asFlag(key string, target *Flag) cm.ParseFunc {
 	return func(data map[string]string) error {
 		if raw, ok := data[key]; ok {
 			for _, flag := range []Flag{Enabled, Allowed, Disabled} {
+				if strings.EqualFold(raw, string(flag)) {
+					*target = flag
+					return nil
+				}
+			}
+		}
+		return nil
+	}
+}
+
+// asSecurePodDefaultsFlag parses the value at key as a Flag into the target, if it exists.
+// Accepts Enabled, Disabled, Allowed, and SecureDefaultsOverridable values.
+func asSecurePodDefaultsFlag(key string, target *Flag) cm.ParseFunc {
+	return func(data map[string]string) error {
+		if raw, ok := data[key]; ok {
+			for _, flag := range []Flag{Disabled, AllowRootBounded, Enabled} {
 				if strings.EqualFold(raw, string(flag)) {
 					*target = flag
 					return nil

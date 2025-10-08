@@ -714,6 +714,51 @@ func TestFeaturesConfiguration(t *testing.T) {
 		data: map[string]string{
 			"kubernetes.podspec-hostnetwork": "Disabled",
 		},
+	}, {
+		name:    "secure-pod-defaults Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			SecurePodDefaults: Disabled,
+		}),
+		data: map[string]string{
+			"secure-pod-defaults": "Disabled",
+		},
+	}, {
+		name:    "invalid secure-pod-defaults value",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			SecurePodDefaults: Disabled,
+		}),
+		data: map[string]string{
+			"secure-pod-defaults": "InvalidValue",
+		},
+	}, {
+		name:    "secure-pod-defaults AllowRootBounded",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			SecurePodDefaults: AllowRootBounded,
+		}),
+		data: map[string]string{
+			"secure-pod-defaults": "AllowRootBounded",
+		},
+	}, {
+		name:    "PodSpecAffinity cannot be set to Restricted",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecAffinity: Disabled, // Should remain default since Restricted is not valid
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-affinity": "Restricted",
+		},
+	}, {
+		name:    "tag-header-based-routing cannot be set to Restricted",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			TagHeaderBasedRouting: Disabled, // Should remain default since Restricted is not valid
+		}),
+		data: map[string]string{
+			"tag-header-based-routing": "Restricted",
+		},
 	}}
 
 	for _, tt := range configTests {
