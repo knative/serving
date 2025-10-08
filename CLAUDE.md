@@ -100,12 +100,63 @@ git diff upstream/release-1.18..HEAD
 
 ### Pod State Management
 
-The fork implements a sophisticated pod state machine:
+The fork implements a sophisticated pod state machine with six states:
 
-- `podHealthy`: Normal operation
-- `podDraining`: Being removed from service
-- `podQuarantined`: Temporarily isolated due to failures
-- `podRemoved`: Decommissioned
+- `podHealthy (0)`: Pod is healthy and serving traffic normally
+- `podDraining (1)`: Pod is being removed from service, draining active requests
+- `podQuarantined (2)`: Pod failed health check, in timed backoff period
+- `podRecovering (3)`: Post-quarantine probation, needs one successful request to be trusted again
+- `podRemoved (4)`: Pod completely removed from tracker (terminal state)
+- `podPending (5)`: Brand new pod, not yet health-checked
+
+#### Complete State Transition Map
+
+**Initial State:**
+```
+NEW POD → podPending (until first health check)
+```
+
+**From podPending (brand new pods):**
+- ✅ Health check passes → `podHealthy`
+- ❌ 1st health check fails → `podQuarantined` (0s backoff - immediate retry)
+- ❌ 2nd failure → `podQuarantined` (1s backoff)
+- ❌ 3rd failure → `podQuarantined` (1s backoff)
+- ❌ 4th failure → `podQuarantined` (2s backoff)
+- ❌ 5+ failures → `podQuarantined` (5s backoff, capped)
+- 🗑️ Removed from endpoints → `podRemoved`
+- ⚠️ Endpoint update → STAYS `podPending` (no disruption)
+
+**From podHealthy (established healthy pods):**
+- ❌ Health check fails → `podQuarantined` (conservative backoff: 1s, 2s, 5s, 10s, 20s)
+- 🗑️ Removed from endpoints → `podDraining` → `podRemoved`
+- ⚠️ Endpoint update → STAYS `podHealthy` (no action needed)
+
+**From podQuarantined (in backoff period):**
+- ⏱️ Quarantine timer expires → `podRecovering`
+- 🗑️ Removed from endpoints → `podRemoved`
+- ⚠️ Endpoint update → STAYS `podQuarantined` (respects backoff timer)
+
+**From podRecovering (probation state):**
+- ✅ Successful request served → `podHealthy` (clears quarantine count)
+- ❌ Health check fails → `podQuarantined` (appropriate backoff based on history)
+- 🗑️ Removed from endpoints → `podDraining` → `podRemoved`
+- ⚠️ Endpoint update → STAYS `podRecovering` (no disruption)
+
+**From podDraining (graceful shutdown):**
+- ⏱️ RefCount reaches 0 → `podRemoved`
+- ⏱️ Stuck for maxDrainingDuration → `podRemoved` (force remove)
+- 🔄 Re-added to endpoints → `podPending` (re-validate before trusting)
+
+**From podRemoved (terminal state):**
+- 🔄 Re-added to endpoints → `podPending` (treat as new pod)
+
+**Critical Invariants:**
+- Quarantine backoff is never short-circuited by endpoint updates
+- Recovering pods must serve one successful request before becoming healthy
+- Pending pods always get health-checked before accepting traffic
+- Only atomic CAS operations for critical state transitions
+- Quarantine metrics properly incremented/decremented
+- Endpoint updates respect in-progress recovery mechanisms
 
 ### Quarantine System
 
