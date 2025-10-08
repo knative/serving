@@ -21,10 +21,10 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel/metric"
-	semconv "go.opentelemetry.io/otel/semconv/v1.34.0"
 	"k8s.io/utils/clock"
 
 	netheader "knative.dev/networking/pkg/http/header"
+	"knative.dev/pkg/observability/semconv"
 	pkghttp "knative.dev/serving/pkg/http"
 )
 

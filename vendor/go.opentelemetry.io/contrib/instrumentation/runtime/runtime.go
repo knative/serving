@@ -12,7 +12,7 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/semconv/v1.34.0/goconv"
+	"go.opentelemetry.io/otel/semconv/v1.37.0/goconv"
 
 	"go.opentelemetry.io/contrib/instrumentation/runtime/internal/deprecatedruntime"
 	"go.opentelemetry.io/contrib/instrumentation/runtime/internal/x"
@@ -90,7 +90,7 @@ func Start(opts ...Option) error {
 	collector := newCollector(c.MinimumReadMemStatsInterval, runtimeMetrics)
 	var lock sync.Mutex
 	_, err = meter.RegisterCallback(
-		func(ctx context.Context, o metric.Observer) error {
+		func(_ context.Context, o metric.Observer) error {
 			lock.Lock()
 			defer lock.Unlock()
 			collector.refresh()
@@ -187,7 +187,7 @@ func (g *goCollector) getInt(name string) int64 {
 		if v > math.MaxInt64 {
 			return math.MaxInt64
 		}
-		return int64(v) // nolint: gosec  // Overflow checked above.
+		return int64(v)
 	}
 	return 0
 }

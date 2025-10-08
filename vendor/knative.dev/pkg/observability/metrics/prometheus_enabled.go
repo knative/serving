@@ -23,19 +23,16 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/prometheus/common/model"
+	"github.com/prometheus/otlptranslator"
 	otelprom "go.opentelemetry.io/otel/exporters/prometheus"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"knative.dev/pkg/observability/metrics/prometheus"
 )
 
-func init() {
-	//nolint:staticcheck
-	model.NameValidationScheme = model.LegacyValidation
-}
-
 func buildPrometheus(_ context.Context, cfg Config) (sdkmetric.Reader, shutdownFunc, error) {
-	r, err := otelprom.New()
+	r, err := otelprom.New(
+		otelprom.WithTranslationStrategy(otlptranslator.UnderscoreEscapingWithSuffixes),
+	)
 	if err != nil {
 		return nil, noopFunc, fmt.Errorf("unable to create otel prometheus exporter: %w", err)
 	}

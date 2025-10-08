@@ -28,11 +28,11 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.34.0"
 	"go.uber.org/zap"
 
 	"knative.dev/pkg/changeset"
 	"knative.dev/pkg/observability/metrics"
+	"knative.dev/pkg/observability/semconv"
 	"knative.dev/pkg/observability/tracing"
 	"knative.dev/pkg/system"
 	servingmetrics "knative.dev/serving/pkg/metrics"
