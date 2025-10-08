@@ -29,13 +29,13 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	semconv "go.opentelemetry.io/otel/semconv/v1.34.0"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/utils/clock"
 
 	netcfg "knative.dev/networking/pkg/config"
+	"knative.dev/pkg/observability/semconv"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/metrics"

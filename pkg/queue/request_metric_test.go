@@ -26,11 +26,11 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
-	semconv "go.opentelemetry.io/otel/semconv/v1.34.0"
 	clocktest "k8s.io/utils/clock/testing"
 
 	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/observability/metrics/metricstest"
+	"knative.dev/pkg/observability/semconv"
 )
 
 const targetURI = "http://example.com"
