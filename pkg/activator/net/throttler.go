@@ -931,6 +931,39 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 	}()
 
 	capacity := rt.calculateCapacity(backendCount, numTrackers, ac)
+
+	// Log capacity changes, especially when going to zero
+	oldCapacity := rt.breaker.Capacity()
+	if capacity == 0 && oldCapacity > 0 {
+		// Capacity dropped to zero - explain why
+		rt.mux.RLock()
+		totalPods := len(rt.podTrackers)
+		rt.mux.RUnlock()
+
+		rt.logger.Warnw("Revision capacity dropped to zero",
+			"old-capacity", oldCapacity,
+			"backends", backendCount,
+			"assigned-trackers", numTrackers,
+			"total-pods", totalPods,
+			"activator-index", ai,
+			"activator-count", ac)
+	} else if capacity == 0 {
+		// Starting with zero capacity - log reason
+		rt.mux.RLock()
+		totalPods := len(rt.podTrackers)
+		rt.mux.RUnlock()
+
+		if totalPods > 0 && numTrackers == 0 {
+			rt.logger.Infow("Revision has zero capacity: no pods assigned to this activator",
+				"total-pods", totalPods,
+				"activator-index", ai,
+				"activator-count", ac)
+		} else if backendCount == 0 {
+			rt.logger.Infow("Revision has zero capacity: no backends available",
+				"backends", backendCount)
+		}
+	}
+
 	rt.logger.Debugf("Set capacity to %d (backends: %d, index: %d/%d)",
 		capacity, backendCount, ai, ac)
 
