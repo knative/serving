@@ -72,7 +72,7 @@ const (
 	maxDrainingDuration = 1 * time.Hour
 
 	// Pod ready check timeout used to verify queue-proxy health
-	podReadyCheckTimeout = 2000 * time.Millisecond
+	podReadyCheckTimeout = 5000 * time.Millisecond
 )
 
 func newPodTracker(dest string, b breaker) *podTracker {
