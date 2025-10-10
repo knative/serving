@@ -558,51 +558,81 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 			rt.logger.Debugf("%s -> No Assigned trackers\n", xRequestId)
 		}
 
-		// Check if we're about to wait for capacity
-		var waitStartTime time.Time
-		if rt.breaker.Pending() > 0 {
-			waitStartTime = time.Now()
-			rt.logger.Infow("Request waiting for breaker capacity",
-				"x-request-id", xRequestId,
-				"pending", rt.breaker.Pending(),
-				"capacity", rt.breaker.Capacity(),
-				"in-flight", rt.breaker.InFlight())
-		}
+		// Track revision-level breaker wait
+		breakerWaitStart := time.Now()
+		breakerCapacity := rt.breaker.Capacity()
+		breakerPending := rt.breaker.Pending()
+		breakerInflight := rt.breaker.InFlight()
 
 		if err := rt.breaker.Maybe(ctx, func() {
-			if !waitStartTime.IsZero() {
-				waitMs := float64(time.Since(waitStartTime).Milliseconds())
-				if waitMs > 100 { // Log if waited more than 100ms
-					rt.logger.Warnw("Request waited for breaker capacity",
-						"x-request-id", xRequestId,
-						"wait-ms", waitMs)
-				}
+			breakerWaitMs := float64(time.Since(breakerWaitStart).Milliseconds())
+			if breakerWaitMs > 100 { // Log if waited more than 100ms for revision capacity
+				rt.logger.Warnw("Request waited for revision breaker capacity",
+					"x-request-id", xRequestId,
+					"wait-ms", breakerWaitMs,
+					"capacity", breakerCapacity,
+					"pending", breakerPending,
+					"inflight", breakerInflight)
 			}
+
+			// Track pod selection time
+			acquireStart := time.Now()
 			callback, tracker, isClusterIP := rt.acquireDest(ctx)
+			acquireMs := float64(time.Since(acquireStart).Milliseconds())
+			if acquireMs > 50 { // Log if pod selection took >50ms
+				rt.logger.Warnw("Slow pod selection",
+					"x-request-id", xRequestId,
+					"acquire-ms", acquireMs,
+					"tracker-found", tracker != nil)
+			}
 			if tracker == nil {
-				// Check if all pods are quarantined
+				// Check state of all assigned pods
 				rt.mux.RLock()
-				allQuarantined := true
 				assignedCount := len(rt.assignedTrackers)
 				quarantinedCount := 0
+				pendingCount := 0
 				for _, t := range rt.assignedTrackers {
 					if t != nil {
-						if podState(t.state.Load()) == podQuarantined {
+						state := podState(t.state.Load())
+						if state == podQuarantined {
 							quarantinedCount++
-						} else {
-							allQuarantined = false
+						} else if state == podPending {
+							pendingCount++
 						}
 					}
 				}
 				rt.mux.RUnlock()
 
-				if allQuarantined && assignedCount > 0 {
-					rt.logger.Warnw("all pods quarantined; re-enqueue",
-						"x-request-id", xRequestId,
-						"assigned", assignedCount,
-						"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()),
-					)
+				// Log specific scenario based on pod states
+				if assignedCount > 0 && (quarantinedCount+pendingCount) == assignedCount {
+					if pendingCount == assignedCount {
+						rt.logger.Warnw("all pods pending (starting up); re-enqueue",
+							"x-request-id", xRequestId,
+							"pending", pendingCount,
+							"assigned", assignedCount,
+							"reenqueueCount", reenqueueCount,
+							"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()),
+						)
+					} else if quarantinedCount == assignedCount {
+						rt.logger.Warnw("all pods quarantined (failed health); re-enqueue",
+							"x-request-id", xRequestId,
+							"quarantined", quarantinedCount,
+							"assigned", assignedCount,
+							"reenqueueCount", reenqueueCount,
+							"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()),
+						)
+					} else {
+						rt.logger.Warnw("all pods unavailable (pending + quarantined); re-enqueue",
+							"x-request-id", xRequestId,
+							"pending", pendingCount,
+							"quarantined", quarantinedCount,
+							"assigned", assignedCount,
+							"reenqueueCount", reenqueueCount,
+							"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()),
+						)
+					}
 					reenqueue = true
+					reenqueueCount++
 					// Small jittered backoff to avoid tight loop/herd effects
 					select {
 					case <-time.After(20*time.Millisecond + time.Duration(time.Now().UnixNano()%20_000_000)):
@@ -635,9 +665,22 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 			// Only do this for pod routing (not clusterIP)
 			if !isClusterIP {
 				currentState := podState(tracker.state.Load())
-				rt.logger.Debugw("pod ready check attempt", "x-request-id", xRequestId, "dest", tracker.dest, "state", currentState)
 
-				if !tcpPingCheck(tracker.dest) {
+				// Track health check duration
+				healthCheckStart := time.Now()
+				healthCheckPassed := tcpPingCheck(tracker.dest)
+				healthCheckMs := float64(time.Since(healthCheckStart).Milliseconds())
+
+				if healthCheckMs > 1000 { // Log if health check took >1s
+					rt.logger.Warnw("Slow health check",
+						"x-request-id", xRequestId,
+						"dest", tracker.dest,
+						"state", currentState,
+						"health-check-ms", healthCheckMs,
+						"passed", healthCheckPassed)
+				}
+
+				if !healthCheckPassed {
 					// For pending pods, this is their first health check
 					if currentState == podPending {
 						rt.logger.Infow("pod ready check failed for pending pod; quarantine",
