@@ -301,6 +301,11 @@ func (rw *revisionWatcher) sendUpdate(clusterIP string, dests sets.Set[string]) 
 	case <-rw.stopCh:
 		return
 	default:
+		sendTime := time.Now()
+		rw.logger.Infow("Sending update to throttler",
+			"cluster-ip", clusterIP,
+			"healthy-dests", len(dests),
+			"send-time", sendTime.Format(time.RFC3339Nano))
 		rw.updateCh <- revisionDestsUpdate{Rev: rw.rev, ClusterIPDest: clusterIP, Dests: dests}
 	}
 }
@@ -435,12 +440,22 @@ func (rw *revisionWatcher) run(probeFrequency time.Duration) {
 		case <-rw.stopCh:
 			return
 		case x := <-rw.destsCh:
-			rw.logger.Debugf("Updating Endpoints: ready backends: %d, not-ready backends: %d", len(x.ready), len(x.notReady))
+			rw.logger.Infow("Watcher processing endpoint change",
+				"ready", len(x.ready),
+				"not-ready", len(x.notReady))
 			prevDests, curDests = curDests, x
 		case <-tickCh:
 		}
 
+		checkStart := time.Now()
 		rw.checkDests(curDests, prevDests)
+		checkMs := float64(time.Since(checkStart).Milliseconds())
+		if checkMs > 500 { // Log if probing took >500ms
+			rw.logger.Warnw("Slow checkDests (probing)",
+				"check-ms", checkMs,
+				"ready", len(curDests.ready),
+				"not-ready", len(curDests.notReady))
+		}
 	}
 }
 
@@ -566,6 +581,8 @@ func (rbm *revisionBackendsManager) getOrCreateRevisionWatcher(revID types.Names
 // endpointsUpdated is a handler function to be used by the Endpoints informer.
 // It updates the endpoints in the RevisionBackendsManager if the hosts changed
 func (rbm *revisionBackendsManager) endpointsUpdated(newObj interface{}) {
+	receiveTime := time.Now()
+
 	// Ignore the updates when we've terminated.
 	select {
 	case <-rbm.ctx.Done():
@@ -581,6 +598,13 @@ func (rbm *revisionBackendsManager) endpointsUpdated(newObj interface{}) {
 		return
 	}
 	ready, notReady := endpointsToDests(endpoints, pkgnet.ServicePortName(rw.protocol))
+
+	rbm.logger.Infow("Received endpoint update from K8s informer",
+		zap.String(logkey.Key, revID.String()),
+		"ready", len(ready),
+		"not-ready", len(notReady),
+		"receive-time", receiveTime.Format(time.RFC3339Nano))
+
 	select {
 	case <-rbm.ctx.Done():
 		return

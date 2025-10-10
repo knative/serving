@@ -564,6 +564,27 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 		breakerPending := rt.breaker.Pending()
 		breakerInflight := rt.breaker.InFlight()
 
+		// Log if we're about to wait with zero capacity - helps diagnose why
+		if breakerCapacity == 0 {
+			rt.mux.RLock()
+			totalPods := len(rt.podTrackers)
+			assignedCount := len(rt.assignedTrackers)
+			rt.mux.RUnlock()
+
+			ai := rt.activatorIndex.Load()
+			ac := rt.numActivators.Load()
+			backends := rt.backendCount.Load()
+
+			rt.logger.Warnw("Request blocked: revision has zero capacity",
+				"x-request-id", xRequestId,
+				"total-pods", totalPods,
+				"assigned-trackers", assignedCount,
+				"backends", backends,
+				"activator-index", ai,
+				"activator-count", ac,
+				"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()))
+		}
+
 		if err := rt.breaker.Maybe(ctx, func() {
 			breakerWaitMs := float64(time.Since(breakerWaitStart).Milliseconds())
 			if breakerWaitMs > 100 { // Log if waited more than 100ms for revision capacity
@@ -932,7 +953,7 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 
 	capacity := rt.calculateCapacity(backendCount, numTrackers, ac)
 
-	// Log capacity changes, especially when going to zero
+	// Log capacity changes, especially when going to/from zero
 	oldCapacity := rt.breaker.Capacity()
 	if capacity == 0 && oldCapacity > 0 {
 		// Capacity dropped to zero - explain why
@@ -945,6 +966,14 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 			"backends", backendCount,
 			"assigned-trackers", numTrackers,
 			"total-pods", totalPods,
+			"activator-index", ai,
+			"activator-count", ac)
+	} else if capacity > 0 && oldCapacity == 0 {
+		// Capacity increased from zero - waiting requests will now be unblocked
+		rt.logger.Infow("Revision capacity restored (unblocking waiting requests)",
+			"new-capacity", capacity,
+			"backends", backendCount,
+			"assigned-trackers", numTrackers,
 			"activator-index", ai,
 			"activator-count", ac)
 	} else if capacity == 0 {
@@ -988,8 +1017,26 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 	// we increase capacity, causing a request to fall through before a tracker is added, causing an
 	// incorrect LB decision.
 	if func() bool {
+		lockStart := time.Now()
 		rt.mux.Lock()
-		defer rt.mux.Unlock()
+		lockAcquireMs := float64(time.Since(lockStart).Milliseconds())
+		if lockAcquireMs > 100 { // Log if lock acquisition took >100ms
+			rt.logger.Warnw("Slow lock acquisition in updateThrottlerState",
+				"lock-acquire-ms", lockAcquireMs)
+		}
+
+		lockHoldStart := time.Now()
+		defer func() {
+			lockHoldMs := float64(time.Since(lockHoldStart).Milliseconds())
+			rt.mux.Unlock()
+			if lockHoldMs > 100 { // Log if lock held >100ms
+				rt.logger.Warnw("Lock held for long time in updateThrottlerState",
+					"lock-hold-ms", lockHoldMs,
+					"new-trackers", len(newTrackers),
+					"healthy-dests", len(healthyDests),
+					"draining-dests", len(drainingDests))
+			}
+		}()
 		for _, t := range newTrackers {
 			if t != nil {
 				rt.podTrackers[t.dest] = t
@@ -1123,8 +1170,11 @@ func assignSlice(trackers map[string]*podTracker, selfIndex, numActivators int) 
 // This function will never be called in parallel but `try` can be called in parallel to this so we need
 // to lock on updating concurrency / trackers
 func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
-	rt.logger.Debugw("Handling update",
-		zap.String("ClusterIP", update.ClusterIPDest), zap.Object("dests", logging.StringSet(update.Dests)))
+	receiveTime := time.Now()
+	rt.logger.Infow("Throttler received update from revision backends",
+		"dests-count", len(update.Dests),
+		"cluster-ip", update.ClusterIPDest,
+		"receive-time", receiveTime.Format(time.RFC3339Nano))
 
 	// Force pod routing only - ignore ClusterIP routing entirely
 	// ClusterIP is not yet ready, so we want to send requests directly to the pods.
