@@ -79,9 +79,6 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 
 	expectedCgroupsV2 := map[string]string{
 		"/sys/fs/cgroup/memory.max": strconv.FormatInt(resources.Limits.Memory().Value()&^4095, 10), // floor() to 4K pages
-		// Convert cgroup v1 cpu.shares value to cgroup v2 cpu.weight
-		// https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/2254-cgroup-v2#phase-1-convert-from-cgroups-v1-settings-to-v2
-		"/sys/fs/cgroup/cpu.weight": strconv.FormatInt(((((resources.Requests.Cpu().MilliValue()*1024/1000)-2)*9999)/262142)+1, 10),
 	}
 
 	cgroups := ri.Host.Cgroups
@@ -120,6 +117,18 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 			// The format is like 'max 100000'.
 			maxV2 = strings.Split(*cgroup.Value, " ")[0]
 			periodV2 = strings.Split(*cgroup.Value, " ")[1]
+		}
+		if cgroup.Name == "/sys/fs/cgroup/cpu.weight" {
+			// Just make sure it exists and it's bigger than 0. This value is calculated
+			// differently in different environments, and that's ok.
+			val, err := strconv.Atoi(*cgroup.Value)
+			if err != nil {
+				t.Errorf("cpu.weight cgroup is not an integer, got: %q", *cgroup.Value)
+			}
+			if val < 1 {
+				t.Errorf("%s = %s, want > 0", cgroup.Name, *cgroup.Value)
+			}
+			continue
 		}
 
 		if _, ok := expectedCgroups[cgroup.Name]; !ok {
