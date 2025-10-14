@@ -99,7 +99,7 @@ func mainHandler(
 		// Add Activator probe header to the drainer so it can handle probes directly from activator
 		HealthCheckUAPrefixes: []string{netheader.ActivatorUserAgent, netheader.AutoscalingUserAgent},
 		Inner:                 composedHandler,
-		HealthCheck:           health.ProbeHandler(prober, tracingEnabled),
+		HealthCheck:           health.ProbeHandler(prober, tracingEnabled, env.ServingRevision, env.ServingNamespace),
 	}
 	composedHandler = drainer
 

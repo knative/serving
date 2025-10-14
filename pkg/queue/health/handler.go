@@ -30,7 +30,9 @@ const badProbeTemplate = "unexpected probe header value: "
 
 // ProbeHandler returns a http.HandlerFunc that responds to health checks.
 // This handler assumes the Knative Probe Header will be passed.
-func ProbeHandler(prober func() bool, tracingEnabled bool) http.HandlerFunc {
+// revisionName and revisionNamespace are returned in response headers to allow
+// the activator to validate the pod belongs to the expected revision.
+func ProbeHandler(prober func() bool, tracingEnabled bool, revisionName, revisionNamespace string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ph := netheader.GetKnativeProbeValue(r)
 
@@ -63,6 +65,10 @@ func ProbeHandler(prober func() bool, tracingEnabled bool) http.HandlerFunc {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
+
+		// Add revision context to response headers for cross-revision contamination prevention
+		w.Header().Set("X-Knative-Revision-Name", revisionName)
+		w.Header().Set("X-Knative-Revision-Namespace", revisionNamespace)
 
 		io.WriteString(w, queue.Name)
 	}

@@ -70,7 +70,7 @@ func newTestThrottler(ctx context.Context) *Throttler {
 // and returns a cleanup function to restore the original
 func mockTCPPingCheck(fn func(string) bool) func() {
 	oldFunc := podReadyCheckFunc.Load()
-	setPodReadyCheckFunc(fn)
+	setPodReadyCheckFunc(func(_ string, _ types.NamespacedName) bool { return fn("") })
 	return func() {
 		podReadyCheckFunc.Store(oldFunc)
 	}
@@ -79,7 +79,7 @@ func mockTCPPingCheck(fn func(string) bool) func() {
 // TestMain sets up the test environment
 func TestMain(m *testing.M) {
 	// Mock pod ready check to always succeed for all tests
-	setPodReadyCheckFunc(func(dest string) bool { return true })
+	setPodReadyCheckFunc(func(dest string, _ types.NamespacedName) bool { return true })
 	m.Run()
 }
 
@@ -301,7 +301,7 @@ func TestThrottlerCalculateCapacity(t *testing.T) {
 func makeTrackers(num, cc int) []*podTracker {
 	trackers := make([]*podTracker, num)
 	for i := range num {
-		pt := newPodTracker(strconv.Itoa(i), nil)
+		pt := newTestTracker(strconv.Itoa(i), nil)
 		if cc > 0 {
 			pt.b = queue.NewBreaker(queue.BreakerParams{
 				QueueDepth:      1,
@@ -1133,7 +1133,7 @@ func TestLoadBalancingAlgorithms(t *testing.T) {
 				MaxConcurrency:  capacity,
 				InitialCapacity: capacity,
 			})
-			trackers[i] = newPodTracker(dest, breaker)
+			trackers[i] = newTestTracker(dest, breaker)
 		}
 		return trackers
 	}
@@ -2176,7 +2176,7 @@ func TestQuarantineRecoveryMechanism(t *testing.T) {
 		}
 
 		// Create a recovering tracker with no active requests
-		tracker := newPodTracker("recovering-pod", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
+		tracker := newTestTracker("recovering-pod", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 		tracker.state.Store(uint32(podRecovering))
 
 		rt.podTrackers["recovering-pod"] = tracker
@@ -2261,7 +2261,7 @@ func TestResetTrackersRaceCondition(t *testing.T) {
 		// Create initial trackers
 		initialTrackers := make([]*podTracker, 3)
 		for i := 0; i < 3; i++ {
-			tracker := newPodTracker(fmt.Sprintf("pod-%d:8080", i),
+			tracker := newTestTracker(fmt.Sprintf("pod-%d:8080", i),
 				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 			initialTrackers[i] = tracker
 		}
@@ -2296,7 +2296,7 @@ func TestResetTrackersRaceCondition(t *testing.T) {
 
 				if counter%2 == 0 {
 					// Add a tracker
-					newTracker := newPodTracker(trackerName,
+					newTracker := newTestTracker(trackerName,
 						queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 					rt.updateThrottlerState(1, []*podTracker{newTracker}, nil, nil, nil)
 				} else {
@@ -2339,7 +2339,7 @@ func TestResetTrackersRaceCondition(t *testing.T) {
 // TestPodTrackerStateRaces tests for race conditions in pod state transitions
 func TestPodTrackerStateRaces(t *testing.T) {
 	t.Run("concurrent state transitions", func(t *testing.T) {
-		tracker := newPodTracker("pod1:8080",
+		tracker := newTestTracker("pod1:8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
@@ -2397,7 +2397,7 @@ func TestPodTrackerStateRaces(t *testing.T) {
 	})
 
 	t.Run("concurrent Reserve and state change", func(t *testing.T) {
-		tracker := newPodTracker("pod2:8080",
+		tracker := newTestTracker("pod2:8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 100}))
 		tracker.state.Store(uint32(podHealthy))
 
@@ -2438,7 +2438,7 @@ func TestPodTrackerStateRaces(t *testing.T) {
 	})
 
 	t.Run("concurrent pending state transitions", func(t *testing.T) {
-		tracker := newPodTracker("pod3:8080",
+		tracker := newTestTracker("pod3:8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 		// Start in pending state
 		tracker.state.Store(uint32(podPending))
@@ -2497,7 +2497,7 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 			counter := 0
 			for ctx.Err() == nil {
 				counter++
-				tracker := newPodTracker(fmt.Sprintf("add-pod-%d:8080", counter),
+				tracker := newTestTracker(fmt.Sprintf("add-pod-%d:8080", counter),
 					queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 				rt.updateThrottlerState(1, []*podTracker{tracker}, nil, nil, nil)
 				time.Sleep(time.Microsecond)
@@ -2546,7 +2546,7 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 		// Add some initial trackers
 		initialTrackers := make([]*podTracker, 5)
 		for i := range 5 {
-			initialTrackers[i] = newPodTracker(fmt.Sprintf("pod-%d:8080", i),
+			initialTrackers[i] = newTestTracker(fmt.Sprintf("pod-%d:8080", i),
 				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 			initialTrackers[i].state.Store(uint32(podHealthy))
 		}
@@ -2582,7 +2582,7 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 				counter++
 				if counter%2 == 0 {
 					// Add a tracker
-					tracker := newPodTracker(fmt.Sprintf("dynamic-%d:8080", counter),
+					tracker := newTestTracker(fmt.Sprintf("dynamic-%d:8080", counter),
 						queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 					tracker.state.Store(uint32(podHealthy))
 					rt.updateThrottlerState(1, []*podTracker{tracker}, nil, nil, nil)
@@ -2601,7 +2601,7 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 // TestPodTrackerRefCountRaces tests for race conditions in reference counting
 func TestPodTrackerRefCountRaces(t *testing.T) {
 	t.Run("concurrent addRef and releaseRef", func(t *testing.T) {
-		tracker := newPodTracker("pod:8080",
+		tracker := newTestTracker("pod:8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 100}))
 		tracker.state.Store(uint32(podHealthy))
 
@@ -2648,7 +2648,7 @@ func TestPodTrackerRefCountRaces(t *testing.T) {
 	})
 
 	t.Run("refCount races with state transitions", func(t *testing.T) {
-		tracker := newPodTracker("pod:8080",
+		tracker := newTestTracker("pod:8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 		tracker.state.Store(uint32(podHealthy))
 
@@ -2688,7 +2688,7 @@ func TestPodTrackerRefCountRaces(t *testing.T) {
 // TestPodTrackerWeightRaces tests for race conditions in weight operations
 func TestPodTrackerWeightRaces(t *testing.T) {
 	t.Run("concurrent weight modifications", func(t *testing.T) {
-		tracker := newPodTracker("pod:8080",
+		tracker := newTestTracker("pod:8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)

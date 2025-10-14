@@ -15,11 +15,13 @@ import (
 	"knative.dev/serving/pkg/queue"
 )
 
+var testRevID = types.NamespacedName{Namespace: "test", Name: "rev"}
+
 func newRaceTestRT(t *testing.T) *revisionThrottler {
 	t.Helper()
 	logger := zaptest.NewLogger(t, zaptest.WrapOptions(zap.AddCaller())).Sugar()
 	rt := newRevisionThrottler(
-		types.NamespacedName{Namespace: "default", Name: "rev"},
+		testRevID,
 		nil,
 		1,
 		"http",
@@ -27,6 +29,10 @@ func newRaceTestRT(t *testing.T) *revisionThrottler {
 		logger,
 	)
 	return rt
+}
+
+func newTestTracker(dest string, breaker *queue.Breaker) *podTracker {
+	return newPodTracker(dest, testRevID, breaker)
 }
 
 // 1) Concurrent access to podTrackers and assignedTrackers without consistent locking
@@ -47,7 +53,7 @@ func TestRace_PodTrackers_ReadWrite_NoLock(t *testing.T) {
 			default:
 			}
 			addr := "10.0.0." + strconv.Itoa(i%10)
-			tr := newPodTracker(addr+":8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
+			tr := newTestTracker(addr+":8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 			rt.updateThrottlerState(1, []*podTracker{tr}, []string{tr.dest}, nil, nil)
 			rt.updateThrottlerState(0, nil, nil, []string{tr.dest}, nil)
 			i++
@@ -88,7 +94,7 @@ func TestRace_UpdateCapacity_ReadsPodTrackersWhileWriterMutates(t *testing.T) {
 
 	initial := make([]*podTracker, 0, 5)
 	for i := 0; i < 5; i++ {
-		tr := newPodTracker("10.0.0."+string(rune('a'+i))+":8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
+		tr := newTestTracker("10.0.0."+string(rune('a'+i))+":8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 		initial = append(initial, tr)
 	}
 	rt.updateThrottlerState(len(initial), initial, nil, nil, nil)
@@ -108,7 +114,7 @@ func TestRace_UpdateCapacity_ReadsPodTrackersWhileWriterMutates(t *testing.T) {
 			}
 			addr := "192.168.1." + string(rune('a'+(i%3))) + ":8080"
 			if i%2 == 0 {
-				rt.updateThrottlerState(1, []*podTracker{newPodTracker(addr, nil)}, nil, nil, nil)
+				rt.updateThrottlerState(1, []*podTracker{newTestTracker(addr, nil)}, nil, nil, nil)
 			} else {
 				rt.updateThrottlerState(0, nil, nil, []string{addr}, nil)
 			}
@@ -140,11 +146,11 @@ func TestRace_RequestPath_TrackerRemovedDuringUse(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	rt := newRevisionThrottler(types.NamespacedName{Namespace: "ns", Name: "rev"}, nil, 1, "http", queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10}, logger)
 
-	tr := newPodTracker("127.0.0.1:65534", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
+	tr := newTestTracker("127.0.0.1:65534", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 	rt.updateThrottlerState(1, []*podTracker{tr}, []string{tr.dest}, nil, nil)
 
 	oldPing := podReadyCheckFunc.Load()
-	setPodReadyCheckFunc(func(_ string) bool { return true })
+	setPodReadyCheckFunc(func(_ string, _ types.NamespacedName) bool { return true })
 	defer func() { podReadyCheckFunc.Store(oldPing) }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -183,8 +189,8 @@ func TestRace_TCPPingCheckFunc_GlobalMutation(t *testing.T) {
 				return
 			default:
 			}
-			setPodReadyCheckFunc(func(string) bool { return true })
-			setPodReadyCheckFunc(func(string) bool { return false })
+			setPodReadyCheckFunc(func(string, types.NamespacedName) bool { return true })
+			setPodReadyCheckFunc(func(string, types.NamespacedName) bool { return false })
 		}
 	}()
 	go func() {
@@ -195,7 +201,7 @@ func TestRace_TCPPingCheckFunc_GlobalMutation(t *testing.T) {
 				return
 			default:
 			}
-			_ = tcpPingCheck("localhost:1")
+			_ = tcpPingCheck("localhost:1", types.NamespacedName{Namespace: "test", Name: "rev"})
 		}
 	}()
 	time.Sleep(300 * time.Millisecond)
@@ -210,8 +216,8 @@ func TestRace_LBPolicy_UpdateVsUsage(t *testing.T) {
 	rt := newRevisionThrottler(types.NamespacedName{Namespace: "default", Name: "rev"}, nil, 1, "http", queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 1}, logger)
 
 	// Add some initial trackers
-	tr1 := newPodTracker("10.0.0.1:8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
-	tr2 := newPodTracker("10.0.0.2:8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
+	tr1 := newTestTracker("10.0.0.1:8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
+	tr2 := newTestTracker("10.0.0.2:8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 	rt.updateThrottlerState(2, []*podTracker{tr1, tr2}, []string{tr1.dest, tr2.dest}, nil, nil)
 
 	stop := make(chan struct{})
@@ -268,7 +274,7 @@ func TestRace_ResetTrackers_ReadsPodTrackersWhileWriterMutates(t *testing.T) {
 	// Add initial trackers
 	initial := make([]*podTracker, 0, 3)
 	for i := 0; i < 3; i++ {
-		tr := newPodTracker("10.0.0."+strconv.Itoa(i)+":8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
+		tr := newTestTracker("10.0.0."+strconv.Itoa(i)+":8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 		initial = append(initial, tr)
 	}
 	rt.updateThrottlerState(len(initial), initial, nil, nil, nil)
@@ -289,7 +295,7 @@ func TestRace_ResetTrackers_ReadsPodTrackersWhileWriterMutates(t *testing.T) {
 			}
 			addr := "192.168.2." + strconv.Itoa(i%5) + ":8080"
 			if i%2 == 0 {
-				rt.updateThrottlerState(1, []*podTracker{newPodTracker(addr, queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))}, nil, nil, nil)
+				rt.updateThrottlerState(1, []*podTracker{newTestTracker(addr, queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))}, nil, nil, nil)
 			} else {
 				rt.updateThrottlerState(0, nil, nil, []string{addr}, nil)
 			}
@@ -452,7 +458,7 @@ func TestRace_PodStateTransitions_ConcurrentStateChanges(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	rt := newRevisionThrottler(types.NamespacedName{Namespace: "default", Name: "rev"}, nil, 1, "http", queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 1}, logger)
 
-	tr := newPodTracker("127.0.0.1:8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
+	tr := newTestTracker("127.0.0.1:8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 	rt.updateThrottlerState(1, []*podTracker{tr}, []string{tr.dest}, nil, nil)
 
 	stop := make(chan struct{})
@@ -526,7 +532,7 @@ func TestRace_CapacityUpdateLag_RequestsBlockedDuringCapacityIncrease(t *testing
 	// Create 2 initial pods
 	initialTrackers := make([]*podTracker, 2)
 	for i := 0; i < 2; i++ {
-		initialTrackers[i] = newPodTracker(
+		initialTrackers[i] = newTestTracker(
 			"10.0.0."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 		)
@@ -535,7 +541,7 @@ func TestRace_CapacityUpdateLag_RequestsBlockedDuringCapacityIncrease(t *testing
 
 	// Mock health check to always pass
 	oldPing := podReadyCheckFunc.Load()
-	setPodReadyCheckFunc(func(_ string) bool { return true })
+	setPodReadyCheckFunc(func(_ string, _ types.NamespacedName) bool { return true })
 	defer func() { podReadyCheckFunc.Store(oldPing) }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -573,7 +579,7 @@ func TestRace_CapacityUpdateLag_RequestsBlockedDuringCapacityIncrease(t *testing
 	// Now scale up to 10 pods while requests are blocked
 	newTrackers := make([]*podTracker, 8)
 	for i := 0; i < 8; i++ {
-		newTrackers[i] = newPodTracker(
+		newTrackers[i] = newTestTracker(
 			"10.0.1."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 		)
@@ -610,7 +616,7 @@ func TestRace_HandlePubEpsUpdate_StaleBackendCountOverwritesCapacity(t *testing.
 	// Initial state: 5 pods
 	initialTrackers := make([]*podTracker, 5)
 	for i := 0; i < 5; i++ {
-		initialTrackers[i] = newPodTracker(
+		initialTrackers[i] = newTestTracker(
 			"10.0.0."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 		)
@@ -633,7 +639,7 @@ func TestRace_HandlePubEpsUpdate_StaleBackendCountOverwritesCapacity(t *testing.
 			default:
 			}
 
-			newTracker := newPodTracker(
+			newTracker := newTestTracker(
 				"10.0.0."+strconv.Itoa(i)+":8080",
 				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 			)
@@ -694,7 +700,7 @@ func TestRace_BreakerCapacityCapture_StaleValueBeforeMaybe(t *testing.T) {
 	// Setup initial trackers
 	initialTrackers := make([]*podTracker, 5)
 	for i := 0; i < 5; i++ {
-		initialTrackers[i] = newPodTracker(
+		initialTrackers[i] = newTestTracker(
 			"10.0.0."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 		)
@@ -702,7 +708,7 @@ func TestRace_BreakerCapacityCapture_StaleValueBeforeMaybe(t *testing.T) {
 	rt.updateThrottlerState(5, initialTrackers, nil, nil, nil)
 
 	oldPing := podReadyCheckFunc.Load()
-	setPodReadyCheckFunc(func(_ string) bool { return true })
+	setPodReadyCheckFunc(func(_ string, _ types.NamespacedName) bool { return true })
 	defer func() { podReadyCheckFunc.Store(oldPing) }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -779,7 +785,7 @@ func TestRace_AssignedTrackers_ConcurrentReadDuringUpdate(t *testing.T) {
 
 	initialTrackers := make([]*podTracker, 5)
 	for i := 0; i < 5; i++ {
-		initialTrackers[i] = newPodTracker(
+		initialTrackers[i] = newTestTracker(
 			"10.0.0."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 		)
@@ -861,7 +867,7 @@ func TestRace_ContainerConcurrency_UpdateDuringCapacityCalc(t *testing.T) {
 
 	initialTrackers := make([]*podTracker, 5)
 	for i := 0; i < 5; i++ {
-		initialTrackers[i] = newPodTracker(
+		initialTrackers[i] = newTestTracker(
 			"10.0.0."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 		)
@@ -941,7 +947,7 @@ func TestRace_ActivatorIndex_ChangeDuringAssignSlice(t *testing.T) {
 
 	initialTrackers := make([]*podTracker, 10)
 	for i := 0; i < 10; i++ {
-		initialTrackers[i] = newPodTracker(
+		initialTrackers[i] = newTestTracker(
 			"10.0.0."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 		)
@@ -1038,7 +1044,7 @@ func TestRace_UpdateThrottlerState_ConcurrentUpdates(t *testing.T) {
 					return
 				default:
 				}
-				tracker := newPodTracker(
+				tracker := newTestTracker(
 					"10.0."+strconv.Itoa(id)+"."+strconv.Itoa(j)+":8080",
 					queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 				)
@@ -1085,7 +1091,7 @@ func TestRace_BackendCount_ConcurrentReadWriteDuringCapacityUpdates(t *testing.T
 
 	initialTrackers := make([]*podTracker, 5)
 	for i := 0; i < 5; i++ {
-		initialTrackers[i] = newPodTracker(
+		initialTrackers[i] = newTestTracker(
 			"10.0.0."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 		)
@@ -1105,7 +1111,7 @@ func TestRace_BackendCount_ConcurrentReadWriteDuringCapacityUpdates(t *testing.T
 				return
 			default:
 			}
-			tracker := newPodTracker(
+			tracker := newTestTracker(
 				"10.0.1."+strconv.Itoa(i)+":8080",
 				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 			)
@@ -1184,14 +1190,14 @@ func TestRace_WaitingRequests_CapacityUpdateVisibility(t *testing.T) {
 		logger,
 	)
 
-	tracker := newPodTracker(
+	tracker := newTestTracker(
 		"10.0.0.1:8080",
 		queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 	)
 	rt.updateThrottlerState(1, []*podTracker{tracker}, nil, nil, nil)
 
 	oldPing := podReadyCheckFunc.Load()
-	setPodReadyCheckFunc(func(_ string) bool { return true })
+	setPodReadyCheckFunc(func(_ string, _ types.NamespacedName) bool { return true })
 	defer func() { podReadyCheckFunc.Store(oldPing) }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -1222,7 +1228,7 @@ func TestRace_WaitingRequests_CapacityUpdateVisibility(t *testing.T) {
 	// Scale up capacity while requests are waiting
 	newTrackers := make([]*podTracker, 4)
 	for i := 0; i < 4; i++ {
-		newTrackers[i] = newPodTracker(
+		newTrackers[i] = newTestTracker(
 			"10.0.1."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 		)
@@ -1260,7 +1266,7 @@ func TestRace_AssignSlice_MapMutationDuringIteration(t *testing.T) {
 
 	initialTrackers := make([]*podTracker, 5)
 	for i := 0; i < 5; i++ {
-		initialTrackers[i] = newPodTracker(
+		initialTrackers[i] = newTestTracker(
 			"10.0.0."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 		)
@@ -1283,7 +1289,7 @@ func TestRace_AssignSlice_MapMutationDuringIteration(t *testing.T) {
 				return
 			default:
 			}
-			tracker := newPodTracker(
+			tracker := newTestTracker(
 				"192.168.1."+strconv.Itoa(i%10)+":8080",
 				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 			)
