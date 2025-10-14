@@ -1881,6 +1881,12 @@ func podReadyCheck(dest string, expectedRevision types.NamespacedName) bool {
 	respRevName := resp.Header.Get("X-Knative-Revision-Name")
 	respRevNamespace := resp.Header.Get("X-Knative-Revision-Namespace")
 
+	// Backwards compatibility: If headers are not present (old queue-proxy), skip validation
+	if respRevName == "" && respRevNamespace == "" {
+		return true
+	}
+
+	// If headers ARE present, validate they match expected revision
 	if respRevName != expectedRevision.Name || respRevNamespace != expectedRevision.Namespace {
 		if logger := logging.FromContext(context.Background()); logger != nil {
 			logger.Errorw("Health check response from wrong revision - IP reuse detected!",
