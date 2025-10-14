@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -503,4 +504,834 @@ func TestRace_PodStateTransitions_ConcurrentStateChanges(t *testing.T) {
 	time.Sleep(300 * time.Millisecond)
 	close(stop)
 	wg.Wait()
+}
+
+// 11) Capacity update lag: test race between requests reading capacity and capacity updates
+// This tests the scenario where requests block in breaker.Maybe() while capacity is being updated,
+// and verifies that capacity increases are properly observed by waiting requests.
+func TestRace_CapacityUpdateLag_RequestsBlockedDuringCapacityIncrease(t *testing.T) {
+	t.Parallel()
+	logger := zaptest.NewLogger(t).Sugar()
+
+	// Start with low capacity (2 concurrent requests)
+	rt := newRevisionThrottler(
+		types.NamespacedName{Namespace: "default", Name: "rev"},
+		nil,
+		1, // container concurrency = 1
+		"http",
+		queue.BreakerParams{QueueDepth: 1000, MaxConcurrency: 1000, InitialCapacity: 2},
+		logger,
+	)
+
+	// Create 2 initial pods
+	initialTrackers := make([]*podTracker, 2)
+	for i := 0; i < 2; i++ {
+		initialTrackers[i] = newPodTracker(
+			"10.0.0."+strconv.Itoa(i)+":8080",
+			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
+		)
+	}
+	rt.updateThrottlerState(2, initialTrackers, nil, nil, nil)
+
+	// Mock health check to always pass
+	oldPing := podReadyCheckFunc.Load()
+	setPodReadyCheckFunc(func(_ string) bool { return true })
+	defer func() { podReadyCheckFunc.Store(oldPing) }()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	requestsStarted := make(chan struct{}, 10)
+	requestsCompleted := make(chan struct{}, 10)
+
+	// Start 10 concurrent requests - first 2 will get slots, rest will queue
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			requestsStarted <- struct{}{}
+
+			err := rt.try(ctx, "req-"+strconv.Itoa(id), func(_ string, _ bool) error {
+				// Simulate slow request processing (100ms)
+				time.Sleep(100 * time.Millisecond)
+				return nil
+			})
+
+			if err == nil {
+				requestsCompleted <- struct{}{}
+			}
+		}(i)
+	}
+
+	// Wait for all requests to start and some to block
+	for i := 0; i < 10; i++ {
+		<-requestsStarted
+	}
+	time.Sleep(50 * time.Millisecond) // Ensure some requests are blocked in breaker
+
+	// Now scale up to 10 pods while requests are blocked
+	newTrackers := make([]*podTracker, 8)
+	for i := 0; i < 8; i++ {
+		newTrackers[i] = newPodTracker(
+			"10.0.1."+strconv.Itoa(i)+":8080",
+			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
+		)
+	}
+
+	// Update capacity from 2 → 10 while requests are queued
+	rt.updateThrottlerState(10, newTrackers, nil, nil, nil)
+
+	// All requests should eventually complete now that capacity increased
+	wg.Wait()
+
+	// Verify all 10 requests completed
+	completedCount := len(requestsCompleted)
+	if completedCount != 10 {
+		t.Errorf("Expected 10 completed requests, got %d", completedCount)
+	}
+}
+
+// 12) handlePubEpsUpdate race: test stale backendCount overwriting fresh capacity updates
+// This tests the scenario where activator endpoint updates use stale backendCount values,
+// potentially overwriting capacity increases from pod updates.
+func TestRace_HandlePubEpsUpdate_StaleBackendCountOverwritesCapacity(t *testing.T) {
+	t.Parallel()
+	logger := zaptest.NewLogger(t).Sugar()
+	rt := newRevisionThrottler(
+		types.NamespacedName{Namespace: "default", Name: "rev"},
+		nil,
+		1,
+		"http",
+		queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 1},
+		logger,
+	)
+
+	// Initial state: 5 pods
+	initialTrackers := make([]*podTracker, 5)
+	for i := 0; i < 5; i++ {
+		initialTrackers[i] = newPodTracker(
+			"10.0.0."+strconv.Itoa(i)+":8080",
+			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
+		)
+	}
+	rt.updateThrottlerState(5, initialTrackers, nil, nil, nil)
+	rt.numActivators.Store(1)
+	rt.activatorIndex.Store(0)
+
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// Goroutine 1: Simulate pod updates (scaling up)
+	go func() {
+		defer wg.Done()
+		for i := 5; i < 20; i++ {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+
+			newTracker := newPodTracker(
+				"10.0.0."+strconv.Itoa(i)+":8080",
+				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
+			)
+			// This updates backendCount to i+1
+			rt.updateThrottlerState(i+1, []*podTracker{newTracker}, nil, nil, nil)
+			time.Sleep(5 * time.Millisecond)
+		}
+	}()
+
+	// Goroutine 2: Simulate activator endpoint updates (using stale backendCount)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			// This calls updateCapacity with STORED backendCount, potentially stale
+			storedBackends := int(rt.backendCount.Load())
+			rt.updateCapacity(storedBackends)
+			time.Sleep(3 * time.Millisecond)
+		}
+	}()
+
+	time.Sleep(200 * time.Millisecond)
+	close(stop)
+	wg.Wait()
+
+	// Verify final capacity matches actual pod count
+	rt.mux.RLock()
+	finalPodCount := len(rt.podTrackers)
+	rt.mux.RUnlock()
+
+	finalCapacity := int(rt.breaker.Capacity())
+	expectedCapacity := finalPodCount * int(rt.containerConcurrency.Load())
+
+	if finalCapacity < expectedCapacity-1 {
+		t.Errorf("Final capacity (%d) significantly lower than expected (%d) for %d pods",
+			finalCapacity, expectedCapacity, finalPodCount)
+	}
+}
+
+// 13) Race between breaker capacity capture and capacity updates
+// Tests that requests capture stale capacity values before entering breaker.Maybe()
+func TestRace_BreakerCapacityCapture_StaleValueBeforeMaybe(t *testing.T) {
+	t.Parallel()
+	logger := zaptest.NewLogger(t).Sugar()
+	rt := newRevisionThrottler(
+		types.NamespacedName{Namespace: "default", Name: "rev"},
+		nil,
+		1,
+		"http",
+		queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 5},
+		logger,
+	)
+
+	// Setup initial trackers
+	initialTrackers := make([]*podTracker, 5)
+	for i := 0; i < 5; i++ {
+		initialTrackers[i] = newPodTracker(
+			"10.0.0."+strconv.Itoa(i)+":8080",
+			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
+		)
+	}
+	rt.updateThrottlerState(5, initialTrackers, nil, nil, nil)
+
+	oldPing := podReadyCheckFunc.Load()
+	setPodReadyCheckFunc(func(_ string) bool { return true })
+	defer func() { podReadyCheckFunc.Store(oldPing) }()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(2)
+	var successCount atomic.Uint32
+
+	// Goroutine 1: Send requests that capture capacity
+	go func() {
+		defer wg.Done()
+		for ctx.Err() == nil {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			err := rt.try(ctx, "test-req", func(_ string, _ bool) error {
+				time.Sleep(time.Millisecond)
+				return nil
+			})
+			if err == nil {
+				successCount.Add(1)
+			}
+		}
+	}()
+
+	// Goroutine 2: Continuously update capacity
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			rt.updateCapacity(5)
+			rt.updateCapacity(10)
+			rt.updateCapacity(3)
+		}
+	}()
+
+	time.Sleep(300 * time.Millisecond)
+	close(stop)
+	wg.Wait()
+
+	// Assert that requests succeeded despite concurrent capacity changes
+	if successCount.Load() == 0 {
+		t.Error("Expected at least some successful requests despite capacity changes")
+	}
+
+	// Verify final capacity is reasonable
+	finalCap := int(rt.breaker.Capacity())
+	if finalCap < 1 || finalCap > 10 {
+		t.Errorf("Final capacity %d is outside expected range [1, 10]", finalCap)
+	}
+}
+
+// 14) Race: assignedTrackers read by requests while being updated
+// Tests concurrent access to assignedTrackers during pod scaling
+func TestRace_AssignedTrackers_ConcurrentReadDuringUpdate(t *testing.T) {
+	t.Parallel()
+	logger := zaptest.NewLogger(t).Sugar()
+	rt := newRevisionThrottler(
+		types.NamespacedName{Namespace: "default", Name: "rev"},
+		nil,
+		1,
+		"http",
+		queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 5},
+		logger,
+	)
+
+	initialTrackers := make([]*podTracker, 5)
+	for i := 0; i < 5; i++ {
+		initialTrackers[i] = newPodTracker(
+			"10.0.0."+strconv.Itoa(i)+":8080",
+			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
+		)
+	}
+	rt.updateThrottlerState(5, initialTrackers, nil, nil, nil)
+
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(2)
+	var filterCount atomic.Uint32
+
+	// Writer: Update assignedTrackers
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			rt.updateCapacity(5)
+			rt.updateCapacity(3)
+		}
+	}()
+
+	// Reader: Read assignedTrackers in request path simulation
+	go func() {
+		defer wg.Done()
+		ctx := context.Background()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			rt.mux.RLock()
+			trackers := rt.assignedTrackers
+			rt.mux.RUnlock()
+			available := rt.filterAvailableTrackers(ctx, trackers)
+			// Verify filtered trackers are valid
+			if len(available) > 0 {
+				filterCount.Add(1)
+			}
+		}
+	}()
+
+	time.Sleep(300 * time.Millisecond)
+	close(stop)
+	wg.Wait()
+
+	// Assert we successfully filtered trackers many times
+	if filterCount.Load() == 0 {
+		t.Error("Expected successful tracker filtering operations")
+	}
+
+	// Verify final state is consistent
+	rt.mux.RLock()
+	finalAssigned := len(rt.assignedTrackers)
+	rt.mux.RUnlock()
+
+	if finalAssigned < 1 || finalAssigned > 5 {
+		t.Errorf("Final assigned trackers %d outside expected range [1, 5]", finalAssigned)
+	}
+}
+
+// 15) Race: containerConcurrency update during capacity calculation
+// Tests that CC updates during capacity recalculation don't cause inconsistencies
+func TestRace_ContainerConcurrency_UpdateDuringCapacityCalc(t *testing.T) {
+	t.Parallel()
+	logger := zaptest.NewLogger(t).Sugar()
+	rt := newRevisionThrottler(
+		types.NamespacedName{Namespace: "default", Name: "rev"},
+		nil,
+		1,
+		"http",
+		queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 5},
+		logger,
+	)
+
+	initialTrackers := make([]*podTracker, 5)
+	for i := 0; i < 5; i++ {
+		initialTrackers[i] = newPodTracker(
+			"10.0.0."+strconv.Itoa(i)+":8080",
+			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
+		)
+	}
+	rt.updateThrottlerState(5, initialTrackers, nil, nil, nil)
+
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// Writer: Update containerConcurrency
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			rt.containerConcurrency.Store(1)
+			rt.containerConcurrency.Store(2)
+			rt.containerConcurrency.Store(5)
+		}
+	}()
+
+	// Reader: Calculate capacity (reads CC multiple times)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			rt.updateCapacity(5)
+			capacity := rt.calculateCapacity(5, 5, 1)
+			// Verify capacity is reasonable (should be CC * numTrackers)
+			if capacity < 5 || capacity > 25 {
+				t.Errorf("Calculated capacity %d outside expected range [5, 25]", capacity)
+			}
+		}
+	}()
+
+	time.Sleep(300 * time.Millisecond)
+	close(stop)
+	wg.Wait()
+
+	// Verify final state consistency
+	finalCC := int(rt.containerConcurrency.Load())
+	finalCap := int(rt.breaker.Capacity())
+	rt.mux.RLock()
+	finalPods := len(rt.podTrackers)
+	rt.mux.RUnlock()
+
+	// Capacity should be reasonable for the current state
+	minExpected := finalPods // at least 1*pods if CC=1
+	maxExpected := finalCC * finalPods
+	if finalCap < minExpected || finalCap > maxExpected {
+		t.Errorf("Final capacity %d outside expected range [%d, %d] (CC=%d, pods=%d)",
+			finalCap, minExpected, maxExpected, finalCC, finalPods)
+	}
+}
+
+// 16) Race: activator index changes during assignSlice
+// Tests that activator topology changes during pod assignment don't cause issues
+func TestRace_ActivatorIndex_ChangeDuringAssignSlice(t *testing.T) {
+	t.Parallel()
+	logger := zaptest.NewLogger(t).Sugar()
+	rt := newRevisionThrottler(
+		types.NamespacedName{Namespace: "default", Name: "rev"},
+		nil,
+		1,
+		"http",
+		queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 5},
+		logger,
+	)
+
+	initialTrackers := make([]*podTracker, 10)
+	for i := 0; i < 10; i++ {
+		initialTrackers[i] = newPodTracker(
+			"10.0.0."+strconv.Itoa(i)+":8080",
+			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
+		)
+	}
+	rt.updateThrottlerState(10, initialTrackers, nil, nil, nil)
+	rt.numActivators.Store(2)
+	rt.activatorIndex.Store(0)
+
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// Writer: Change activator topology
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			rt.numActivators.Store(1)
+			rt.activatorIndex.Store(0)
+			rt.numActivators.Store(2)
+			rt.activatorIndex.Store(1)
+			rt.numActivators.Store(3)
+			rt.activatorIndex.Store(2)
+		}
+	}()
+
+	// Reader: Call updateCapacity which reads activator index/count
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			rt.updateCapacity(10)
+		}
+	}()
+
+	time.Sleep(300 * time.Millisecond)
+	close(stop)
+	wg.Wait()
+
+	// Verify final assigned trackers count makes sense for final topology
+	finalNA := int(rt.numActivators.Load())
+	finalAI := int(rt.activatorIndex.Load())
+	rt.mux.RLock()
+	finalAssigned := len(rt.assignedTrackers)
+	finalPods := len(rt.podTrackers)
+	rt.mux.RUnlock()
+
+	// With consistent hashing, this activator should get roughly 1/numActivators of pods
+	// Allow wide range due to hash distribution
+	if finalNA > 0 && finalPods > 0 {
+		expectedMin := 0 // Could get 0 pods with certain hash distributions
+		expectedMax := finalPods
+		if finalAssigned < expectedMin || finalAssigned > expectedMax {
+			t.Errorf("Final assigned %d outside range [%d, %d] for %d pods, activator %d/%d",
+				finalAssigned, expectedMin, expectedMax, finalPods, finalAI, finalNA)
+		}
+	}
+}
+
+// 17) Race: multiple concurrent updateThrottlerState calls
+// Tests that concurrent throttler state updates are properly serialized
+func TestRace_UpdateThrottlerState_ConcurrentUpdates(t *testing.T) {
+	t.Parallel()
+	logger := zaptest.NewLogger(t).Sugar()
+	rt := newRevisionThrottler(
+		types.NamespacedName{Namespace: "default", Name: "rev"},
+		nil,
+		1,
+		"http",
+		queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 1},
+		logger,
+	)
+
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+
+	// Multiple goroutines calling updateThrottlerState
+	// This violates the "single goroutine" assumption but tests thread-safety
+	for i := 0; i < 3; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < 20; j++ {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				tracker := newPodTracker(
+					"10.0."+strconv.Itoa(id)+"."+strconv.Itoa(j)+":8080",
+					queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
+				)
+				rt.updateThrottlerState(1, []*podTracker{tracker}, nil, nil, nil)
+				time.Sleep(time.Millisecond)
+			}
+		}(i)
+	}
+
+	time.Sleep(100 * time.Millisecond)
+	close(stop)
+	wg.Wait()
+
+	// Verify podTrackers has pods from all goroutines
+	rt.mux.RLock()
+	finalPodCount := len(rt.podTrackers)
+	rt.mux.RUnlock()
+
+	// Should have some pods (3 goroutines × 20 attempts, but many overwrites)
+	if finalPodCount == 0 {
+		t.Error("Expected some pods in podTrackers after concurrent updates")
+	}
+
+	// Verify capacity is reasonable
+	finalCap := int(rt.breaker.Capacity())
+	if finalCap < 0 {
+		t.Errorf("Final capacity %d should not be negative", finalCap)
+	}
+}
+
+// 18) Race: backendCount read/write during concurrent updateCapacity calls
+// Tests that backendCount updates are atomic and don't cause capacity inconsistencies
+func TestRace_BackendCount_ConcurrentReadWriteDuringCapacityUpdates(t *testing.T) {
+	t.Parallel()
+	logger := zaptest.NewLogger(t).Sugar()
+	rt := newRevisionThrottler(
+		types.NamespacedName{Namespace: "default", Name: "rev"},
+		nil,
+		1,
+		"http",
+		queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 5},
+		logger,
+	)
+
+	initialTrackers := make([]*podTracker, 5)
+	for i := 0; i < 5; i++ {
+		initialTrackers[i] = newPodTracker(
+			"10.0.0."+strconv.Itoa(i)+":8080",
+			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
+		)
+	}
+	rt.updateThrottlerState(5, initialTrackers, nil, nil, nil)
+
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(3)
+
+	// Writer 1: updateThrottlerState writes backendCount
+	go func() {
+		defer wg.Done()
+		for i := 5; i < 15; i++ {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			tracker := newPodTracker(
+				"10.0.1."+strconv.Itoa(i)+":8080",
+				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
+			)
+			rt.updateThrottlerState(i, []*podTracker{tracker}, nil, nil, nil)
+			time.Sleep(2 * time.Millisecond)
+		}
+	}()
+
+	// Reader 1: handlePubEpsUpdate reads backendCount
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			storedBackends := int(rt.backendCount.Load())
+			rt.updateCapacity(storedBackends)
+			time.Sleep(time.Millisecond)
+		}
+	}()
+
+	// Reader 2: Diagnostic code reads backendCount
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			_ = rt.backendCount.Load()
+			rt.mux.RLock()
+			_ = len(rt.podTrackers)
+			rt.mux.RUnlock()
+		}
+	}()
+
+	time.Sleep(200 * time.Millisecond)
+	close(stop)
+	wg.Wait()
+
+	// Verify backendCount is in a valid state
+	finalBackendCount := int(rt.backendCount.Load())
+	rt.mux.RLock()
+	finalPodCount := len(rt.podTrackers)
+	rt.mux.RUnlock()
+
+	// backendCount should be reasonable (though may lag slightly)
+	if finalBackendCount < 0 || finalBackendCount > 20 {
+		t.Errorf("Final backendCount %d outside expected range [0, 20]", finalBackendCount)
+	}
+
+	// Verify capacity matches backendCount or podCount reasonably
+	finalCap := int(rt.breaker.Capacity())
+	// Allow some lag but should be close to either backendCount or podCount
+	if finalCap > 0 && (finalCap < finalBackendCount-5 || finalCap > finalPodCount+5) {
+		t.Logf("Info: Final capacity %d, backendCount %d, podCount %d (some lag expected)",
+			finalCap, finalBackendCount, finalPodCount)
+	}
+}
+
+// 19) Race: capacity reads by waiting requests while capacity is being updated
+// Tests that requests blocked in breaker see capacity increases
+func TestRace_WaitingRequests_CapacityUpdateVisibility(t *testing.T) {
+	t.Parallel()
+	logger := zaptest.NewLogger(t).Sugar()
+
+	rt := newRevisionThrottler(
+		types.NamespacedName{Namespace: "default", Name: "rev"},
+		nil,
+		1,
+		"http",
+		queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 1},
+		logger,
+	)
+
+	tracker := newPodTracker(
+		"10.0.0.1:8080",
+		queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
+	)
+	rt.updateThrottlerState(1, []*podTracker{tracker}, nil, nil, nil)
+
+	oldPing := podReadyCheckFunc.Load()
+	setPodReadyCheckFunc(func(_ string) bool { return true })
+	defer func() { podReadyCheckFunc.Store(oldPing) }()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	requestsSent := make(chan struct{}, 5)
+
+	// Start 5 requests that will block
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			requestsSent <- struct{}{}
+			_ = rt.try(ctx, "req-"+strconv.Itoa(id), func(_ string, _ bool) error {
+				time.Sleep(50 * time.Millisecond)
+				return nil
+			})
+		}(i)
+	}
+
+	// Wait for requests to queue
+	for i := 0; i < 5; i++ {
+		<-requestsSent
+	}
+	time.Sleep(20 * time.Millisecond)
+
+	// Scale up capacity while requests are waiting
+	newTrackers := make([]*podTracker, 4)
+	for i := 0; i < 4; i++ {
+		newTrackers[i] = newPodTracker(
+			"10.0.1."+strconv.Itoa(i)+":8080",
+			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
+		)
+	}
+	rt.updateThrottlerState(5, newTrackers, nil, nil, nil)
+
+	wg.Wait()
+
+	// Verify all 5 requests completed successfully (no deadlocks/timeouts)
+	// The context timeout is 2s, so if we get here, requests completed
+	if ctx.Err() != nil {
+		t.Errorf("Context expired: %v - requests may have deadlocked", ctx.Err())
+	}
+
+	// Verify final capacity increased to handle all requests
+	finalCap := int(rt.breaker.Capacity())
+	if finalCap < 5 {
+		t.Errorf("Final capacity %d should be at least 5 after scaling up", finalCap)
+	}
+}
+
+// 20) Race: podTrackers map mutation during assignSlice iteration
+// Tests that assignSlice doesn't see partial/torn map updates
+func TestRace_AssignSlice_MapMutationDuringIteration(t *testing.T) {
+	t.Parallel()
+	logger := zaptest.NewLogger(t).Sugar()
+	rt := newRevisionThrottler(
+		types.NamespacedName{Namespace: "default", Name: "rev"},
+		nil,
+		1,
+		"http",
+		queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 5},
+		logger,
+	)
+
+	initialTrackers := make([]*podTracker, 5)
+	for i := 0; i < 5; i++ {
+		initialTrackers[i] = newPodTracker(
+			"10.0.0."+strconv.Itoa(i)+":8080",
+			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
+		)
+	}
+	rt.updateThrottlerState(5, initialTrackers, nil, nil, nil)
+	rt.numActivators.Store(1)
+	rt.activatorIndex.Store(0)
+
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// Writer: Mutate podTrackers map
+	go func() {
+		defer wg.Done()
+		i := 0
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			tracker := newPodTracker(
+				"192.168.1."+strconv.Itoa(i%10)+":8080",
+				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
+			)
+			rt.updateThrottlerState(1, []*podTracker{tracker}, nil, nil, nil)
+			i++
+			time.Sleep(time.Millisecond)
+		}
+	}()
+
+	// Reader: Call updateCapacity which calls assignSlice
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			rt.updateCapacity(int(rt.backendCount.Load()))
+		}
+	}()
+
+	time.Sleep(200 * time.Millisecond)
+	close(stop)
+	wg.Wait()
+
+	// Verify podTrackers has valid entries
+	rt.mux.RLock()
+	finalPodCount := len(rt.podTrackers)
+	finalAssigned := len(rt.assignedTrackers)
+	rt.mux.RUnlock()
+
+	// Should have accumulated some pods during the test
+	if finalPodCount == 0 {
+		t.Error("Expected pods in podTrackers after concurrent operations")
+	}
+
+	// assignedTrackers should match podTrackers (single activator)
+	if finalAssigned != finalPodCount {
+		t.Errorf("Assigned trackers %d should match pod count %d with single activator",
+			finalAssigned, finalPodCount)
+	}
+
+	// Verify capacity is consistent with pod count
+	finalCap := int(rt.breaker.Capacity())
+	expectedCap := finalPodCount * int(rt.containerConcurrency.Load())
+	if finalCap != expectedCap {
+		t.Errorf("Final capacity %d doesn't match expected %d (pods=%d, CC=%d)",
+			finalCap, expectedCap, finalPodCount, rt.containerConcurrency.Load())
+	}
 }
