@@ -564,17 +564,19 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 		breakerPending := rt.breaker.Pending()
 		breakerInflight := rt.breaker.InFlight()
 
+		// Get diagnostic info about pod/tracker state before entering breaker
+		rt.mux.RLock()
+		totalPods := len(rt.podTrackers)
+		assignedCount := len(rt.assignedTrackers)
+		rt.mux.RUnlock()
+
+		ai := rt.activatorIndex.Load()
+		ac := rt.numActivators.Load()
+		backends := rt.backendCount.Load()
+		cc := rt.containerConcurrency.Load()
+
 		// Log if we're about to wait with zero capacity - helps diagnose why
 		if breakerCapacity == 0 {
-			rt.mux.RLock()
-			totalPods := len(rt.podTrackers)
-			assignedCount := len(rt.assignedTrackers)
-			rt.mux.RUnlock()
-
-			ai := rt.activatorIndex.Load()
-			ac := rt.numActivators.Load()
-			backends := rt.backendCount.Load()
-
 			rt.logger.Warnw("Request blocked: revision has zero capacity",
 				"x-request-id", xRequestId,
 				"total-pods", totalPods,
@@ -582,6 +584,25 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 				"backends", backends,
 				"activator-index", ai,
 				"activator-count", ac,
+				"container-concurrency", cc,
+				"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()))
+		} else if breakerCapacity < 10 && breakerPending > 0 {
+			// TODO: Remove this diagnostic log after capacity lag investigation is complete
+			// Log when capacity is low and requests are queued - helps diagnose why capacity
+			// isn't increasing proportionally with pod count
+			rt.logger.Warnw("Request entering breaker with low capacity and queued requests",
+				"x-request-id", xRequestId,
+				"capacity", breakerCapacity,
+				"pending", breakerPending,
+				"inflight", breakerInflight,
+				"total-pods", totalPods,
+				"assigned-trackers", assignedCount,
+				"backends", backends,
+				"activator-index", ai,
+				"activator-count", ac,
+				"container-concurrency", cc,
+				"expected-capacity", int(cc)*assignedCount,
+				"capacity-deficit", int(cc)*assignedCount-int(breakerCapacity),
 				"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()))
 		}
 
@@ -935,9 +956,21 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 		} else {
 			assigned = maps.Values(rt.podTrackers)
 		}
+		// TODO: Remove this diagnostic log after capacity lag investigation is complete
+		// Capture total pods while still holding lock to avoid race
+		totalPodsSnapshot := len(rt.podTrackers)
 		rt.mux.RUnlock()
 
 		rt.logger.Debugf("Trackers %d/%d: assignment: %v", ai, ac, assigned)
+
+		// Log assignment details to diagnose why assigned count differs from total pods
+		if len(assigned) != totalPodsSnapshot {
+			rt.logger.Infow("Pod assignment mismatch detected",
+				"total-pods-in-map", totalPodsSnapshot,
+				"assigned-to-this-activator", len(assigned),
+				"activator-index", ai,
+				"activator-count", ac)
+		}
 
 		// Sort, so we get more or less stable results.
 		sort.Slice(assigned, func(i, j int) bool {
@@ -955,6 +988,25 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 
 	// Log capacity changes, especially when going to/from zero
 	oldCapacity := rt.breaker.Capacity()
+
+	// TODO: Remove this diagnostic log after capacity lag investigation is complete
+	// Log all capacity updates to diagnose why capacity doesn't match pod count
+	if capacity != int(oldCapacity) {
+		rt.logger.Infow("Revision capacity changing",
+			"old-capacity", oldCapacity,
+			"new-capacity", capacity,
+			"backends", backendCount,
+			"assigned-trackers", numTrackers,
+			"total-pods-in-map", func() int {
+				rt.mux.RLock()
+				defer rt.mux.RUnlock()
+				return len(rt.podTrackers)
+			}(),
+			"activator-index", ai,
+			"activator-count", ac,
+			"container-concurrency", rt.containerConcurrency.Load())
+	}
+
 	if capacity == 0 && oldCapacity > 0 {
 		// Capacity dropped to zero - explain why
 		rt.mux.RLock()
@@ -995,6 +1047,27 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 
 	rt.logger.Debugf("Set capacity to %d (backends: %d, index: %d/%d)",
 		capacity, backendCount, ai, ac)
+
+	// TODO: Remove this diagnostic log after capacity lag investigation is complete
+	// When there's a significant gap between expected and actual capacity, log pod states
+	expectedCapacity := int(rt.containerConcurrency.Load()) * numTrackers
+	if expectedCapacity > 0 && capacity < expectedCapacity {
+		rt.mux.RLock()
+		podStates := make(map[string]podState)
+		for dest, tracker := range rt.podTrackers {
+			if tracker != nil {
+				podStates[dest] = podState(tracker.state.Load())
+			}
+		}
+		rt.mux.RUnlock()
+		rt.logger.Warnw("Capacity gap detected",
+			"expected-capacity", expectedCapacity,
+			"actual-capacity", capacity,
+			"capacity-gap", expectedCapacity-capacity,
+			"backends-param", backendCount,
+			"num-trackers", numTrackers,
+			"pod-states", podStates)
+	}
 
 	rt.backendCount.Store(uint32(backendCount))
 	rt.breaker.UpdateConcurrency(capacity)
@@ -1241,6 +1314,15 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 		}
 		rt.mux.RUnlock()
 
+		// TODO: Remove this diagnostic log after capacity lag investigation is complete
+		// Log to trace the update flow and timing
+		rt.logger.Infow("Calling updateThrottlerState from handleUpdate",
+			"backend-count-param", len(update.Dests),
+			"new-trackers-count", len(newTrackers),
+			"healthy-dests-count", len(healthyDests),
+			"draining-dests-count", len(drainingDests),
+			"current-capacity", rt.breaker.Capacity())
+
 		rt.updateThrottlerState(len(update.Dests), newTrackers, healthyDests, drainingDests, nil /*clusterIP*/)
 		return
 	}
@@ -1455,7 +1537,24 @@ func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP st
 	rt.activatorIndex.Store(newAI)
 	rt.logger.Debugf("This activator index is %d/%d was %d/%d",
 		newAI, newNA, ai, na)
-	rt.updateCapacity(int(rt.backendCount.Load()))
+
+	// TODO: Remove this diagnostic log after capacity lag investigation is complete
+	// Log activator-triggered capacity updates to see if they're overwriting pod updates
+	storedBackendCount := int(rt.backendCount.Load())
+	rt.mux.RLock()
+	actualPodCount := len(rt.podTrackers)
+	rt.mux.RUnlock()
+	if storedBackendCount != actualPodCount {
+		rt.logger.Warnw("Activator update triggering capacity recalc with stale backend count",
+			"stored-backend-count", storedBackendCount,
+			"actual-pods-in-map", actualPodCount,
+			"new-activator-index", newAI,
+			"new-activator-count", newNA,
+			"old-activator-index", ai,
+			"old-activator-count", na)
+	}
+
+	rt.updateCapacity(storedBackendCount)
 }
 
 // inferIndex returns the index of this activator slice.
