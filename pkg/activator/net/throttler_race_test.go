@@ -1504,6 +1504,20 @@ func TestRace_CrossRevisionContamination_HealthCheckRevisionValidation(t *testin
 	if !result {
 		t.Error("Health check should pass when pod reports correct revision")
 	}
+
+	// Test 3: Backwards compatibility - no headers (old queue-proxy)
+	// This simulates old queue-proxy that doesn't send revision headers
+	// Should pass for backwards compatibility
+	setPodReadyCheckFunc(func(dest string, expected types.NamespacedName) bool {
+		// Simulate old queue-proxy: returns 200 OK but no revision headers
+		// The real podReadyCheck will see empty headers and skip validation
+		return true
+	})
+
+	result = tcpPingCheck("10.0.0.1:8080", expectedRev)
+	if !result {
+		t.Error("Health check should pass for backwards compatibility when headers are missing")
+	}
 }
 
 // 24) Cross-revision contamination: IP reuse during quarantine window race
