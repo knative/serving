@@ -22,19 +22,16 @@ package metrics
 import (
 	encoding_binary "encoding/binary"
 	fmt "fmt"
+	proto "github.com/gogo/protobuf/proto"
 	io "io"
 	math "math"
 	math_bits "math/bits"
-
-	proto "github.com/gogo/protobuf/proto"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
-var (
-	_ = proto.Marshal
-	_ = fmt.Errorf
-	_ = math.Inf
-)
+var _ = proto.Marshal
+var _ = fmt.Errorf
+var _ = math.Inf
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
@@ -68,11 +65,9 @@ func (*Stat) ProtoMessage()    {}
 func (*Stat) Descriptor() ([]byte, []int) {
 	return fileDescriptor_cf216df9f6fff44c, []int{0}
 }
-
 func (m *Stat) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-
 func (m *Stat) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
 		return xxx_messageInfo_Stat.Marshal(b, m, deterministic)
@@ -85,15 +80,12 @@ func (m *Stat) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return b[:n], nil
 	}
 }
-
 func (m *Stat) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_Stat.Merge(m, src)
 }
-
 func (m *Stat) XXX_Size() int {
 	return m.Size()
 }
-
 func (m *Stat) XXX_DiscardUnknown() {
 	xxx_messageInfo_Stat.DiscardUnknown(m)
 }
@@ -166,11 +158,9 @@ func (*WireStatMessage) ProtoMessage()    {}
 func (*WireStatMessage) Descriptor() ([]byte, []int) {
 	return fileDescriptor_cf216df9f6fff44c, []int{1}
 }
-
 func (m *WireStatMessage) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-
 func (m *WireStatMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
 		return xxx_messageInfo_WireStatMessage.Marshal(b, m, deterministic)
@@ -183,15 +173,12 @@ func (m *WireStatMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return b[:n], nil
 	}
 }
-
 func (m *WireStatMessage) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_WireStatMessage.Merge(m, src)
 }
-
 func (m *WireStatMessage) XXX_Size() int {
 	return m.Size()
 }
-
 func (m *WireStatMessage) XXX_DiscardUnknown() {
 	xxx_messageInfo_WireStatMessage.DiscardUnknown(m)
 }
@@ -231,11 +218,9 @@ func (*WireStatMessages) ProtoMessage()    {}
 func (*WireStatMessages) Descriptor() ([]byte, []int) {
 	return fileDescriptor_cf216df9f6fff44c, []int{2}
 }
-
 func (m *WireStatMessages) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-
 func (m *WireStatMessages) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
 		return xxx_messageInfo_WireStatMessages.Marshal(b, m, deterministic)
@@ -248,15 +233,12 @@ func (m *WireStatMessages) XXX_Marshal(b []byte, deterministic bool) ([]byte, er
 		return b[:n], nil
 	}
 }
-
 func (m *WireStatMessages) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_WireStatMessages.Merge(m, src)
 }
-
 func (m *WireStatMessages) XXX_Size() int {
 	return m.Size()
 }
-
 func (m *WireStatMessages) XXX_DiscardUnknown() {
 	xxx_messageInfo_WireStatMessages.DiscardUnknown(m)
 }
@@ -467,7 +449,6 @@ func encodeVarintStat(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
-
 func (m *Stat) Size() (n int) {
 	if m == nil {
 		return 0
@@ -538,11 +519,9 @@ func (m *WireStatMessages) Size() (n int) {
 func sovStat(x uint64) (n int) {
 	return (math_bits.Len64(x|1) + 6) / 7
 }
-
 func sozStat(x uint64) (n int) {
 	return sovStat(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-
 func (m *Stat) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -699,7 +678,6 @@ func (m *Stat) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-
 func (m *WireStatMessage) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -850,7 +828,6 @@ func (m *WireStatMessage) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-
 func (m *WireStatMessages) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -935,7 +912,6 @@ func (m *WireStatMessages) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-
 func skipStat(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
