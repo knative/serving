@@ -1440,7 +1440,7 @@ func TestRace_CrossRevisionContamination_StaleQuarantinedPodCleanup(t *testing.T
 	// Quarantine the tracker
 	tracker1.state.Store(uint32(podQuarantined))
 	tracker1.quarantineEndTime.Store(time.Now().Unix() + 60) // 60s quarantine
-	tracker1.refCount.Store(0) // No active requests
+	tracker1.refCount.Store(0)                               // No active requests
 
 	// Verify tracker exists before cleanup
 	rtA.mux.RLock()

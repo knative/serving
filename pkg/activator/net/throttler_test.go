@@ -2740,11 +2740,11 @@ func TestPendingPodAggressiveBackoff(t *testing.T) {
 			count    uint32
 			expected uint32
 		}{
-			{1, 0}, // Immediate retry
-			{2, 1}, // 1 second
-			{3, 1}, // 1 second
-			{4, 2}, // 2 seconds
-			{5, 5}, // 5 seconds (cap)
+			{1, 0},  // Immediate retry
+			{2, 1},  // 1 second
+			{3, 1},  // 1 second
+			{4, 2},  // 2 seconds
+			{5, 5},  // 5 seconds (cap)
 			{10, 5}, // Still capped at 5s
 		}
 
