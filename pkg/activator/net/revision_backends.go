@@ -303,8 +303,10 @@ func (rw *revisionWatcher) sendUpdate(clusterIP string, dests sets.Set[string]) 
 	default:
 		sendTime := time.Now()
 		rw.logger.Infow("Sending update to throttler",
+			"revision", rw.rev.String(),
 			"cluster-ip", clusterIP,
 			"healthy-dests", len(dests),
+			"dest-ips", dests.UnsortedList(),
 			"send-time", sendTime.Format(time.RFC3339Nano))
 		rw.updateCh <- revisionDestsUpdate{Rev: rw.rev, ClusterIPDest: clusterIP, Dests: dests}
 	}
@@ -592,6 +594,13 @@ func (rbm *revisionBackendsManager) endpointsUpdated(newObj interface{}) {
 	endpoints := newObj.(*corev1.Endpoints)
 	revID := types.NamespacedName{Namespace: endpoints.Namespace, Name: endpoints.Labels[serving.RevisionLabelKey]}
 
+	// Log the raw endpoints object details for cross-revision debugging
+	rbm.logger.Debugw("Processing K8s endpoint update",
+		"endpoints-name", endpoints.Name,
+		"endpoints-namespace", endpoints.Namespace,
+		"revision-from-label", revID.String(),
+		"revision-uid-label", endpoints.Labels[serving.RevisionUID])
+
 	rw, err := rbm.getOrCreateRevisionWatcher(revID)
 	if err != nil {
 		rbm.logger.Errorw("Failed to get revision watcher", zap.Error(err), zap.String(logkey.Key, revID.String()))
@@ -603,6 +612,7 @@ func (rbm *revisionBackendsManager) endpointsUpdated(newObj interface{}) {
 		zap.String(logkey.Key, revID.String()),
 		"ready", len(ready),
 		"not-ready", len(notReady),
+		"ready-ips", ready.UnsortedList(),
 		"receive-time", receiveTime.Format(time.RFC3339Nano))
 
 	select {
