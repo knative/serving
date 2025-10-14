@@ -18,6 +18,7 @@ package net
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"sort"
@@ -545,7 +546,7 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 	for reenqueue {
 		reenqueue = false
 		if reenqueueCount > 0 {
-			rt.logger.Infow("Request retry attempt",
+			rt.logger.Debugw("Request retry attempt",
 				"x-request-id", xRequestId,
 				"retry", reenqueueCount,
 				"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()))
@@ -687,7 +688,7 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 				// capacity was decreased after passing the outer semaphore.
 				reenqueue = true
 				reenqueueCount++
-				rt.logger.Infow("Failed to acquire tracker; re-enqueue",
+				rt.logger.Debugw("Failed to acquire tracker; re-enqueue",
 					"x-request-id", xRequestId,
 					"quarantined", quarantinedCount,
 					"assigned", assignedCount,
@@ -695,7 +696,14 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 				return
 			}
 			trackerId := tracker.id
-			rt.logger.Debugf("%s -> Acquired Pod Tracker %s - %s (createdAt %d)", xRequestId, trackerId, tracker.dest, tracker.createdAt)
+			rt.logger.Infow("Acquired pod tracker for request",
+				"x-request-id", xRequestId,
+				"tracker-id", trackerId,
+				"dest", tracker.dest,
+				"revision", rt.revID.String(),
+				"created-at", tracker.createdAt,
+				"state", podState(tracker.state.Load()),
+				"reenqueue-count", reenqueueCount)
 			rt.logger.Debugf("Tracker %s Breaker State: capacity: %d, inflight: %d, pending: %d", trackerId, tracker.Capacity(), tracker.InFlight(), tracker.Pending())
 			defer func() {
 				callback()
@@ -727,11 +735,18 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 					if currentState == podPending {
 						rt.logger.Infow("pod ready check failed for pending pod; quarantine",
 							"x-request-id", xRequestId,
-							"dest", tracker.dest)
+							"dest", tracker.dest,
+							"revision", rt.revID.String(),
+							"tracker-id", tracker.id,
+							"reenqueue-count", reenqueueCount)
 					} else {
 						rt.logger.Errorw("pod ready check failed; quarantine",
 							"x-request-id", xRequestId,
-							"dest", tracker.dest)
+							"dest", tracker.dest,
+							"revision", rt.revID.String(),
+							"tracker-id", tracker.id,
+							"previous-state", currentState,
+							"reenqueue-count", reenqueueCount)
 					}
 					// Try to quarantine this tracker using CAS to avoid races
 					// We can transition from any non-quarantined state to quarantined
@@ -1112,7 +1127,23 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 		}()
 		for _, t := range newTrackers {
 			if t != nil {
+				// Check if this dest was already in the map for a different tracker
+				if existing, exists := rt.podTrackers[t.dest]; exists {
+					rt.logger.Warnw("Replacing existing pod tracker - possible IP reuse",
+						"revision", rt.revID.String(),
+						"dest", t.dest,
+						"old-tracker-id", existing.id,
+						"old-created-at", existing.createdAt,
+						"old-state", podState(existing.state.Load()),
+						"new-tracker-id", t.id,
+						"new-created-at", t.createdAt)
+				}
 				rt.podTrackers[t.dest] = t
+				rt.logger.Debugw("Added pod tracker to revision map",
+					"revision", rt.revID.String(),
+					"dest", t.dest,
+					"tracker-id", t.id,
+					"total-trackers", len(rt.podTrackers))
 			}
 		}
 		for _, d := range healthyDests {
@@ -1244,7 +1275,19 @@ func assignSlice(trackers map[string]*podTracker, selfIndex, numActivators int) 
 // to lock on updating concurrency / trackers
 func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 	receiveTime := time.Now()
+
+	// CRITICAL: Validate that this update is for the correct revision
+	if update.Rev != rt.revID {
+		rt.logger.Errorw("CRITICAL BUG: Received update for wrong revision - possible cross-revision contamination!",
+			"expected-revision", rt.revID.String(),
+			"received-revision", update.Rev.String(),
+			"dests-count", len(update.Dests))
+		// Do NOT process this update - it belongs to a different revision
+		return
+	}
+
 	rt.logger.Infow("Throttler received update from revision backends",
+		"revision", rt.revID.String(),
 		"dests-count", len(update.Dests),
 		"cluster-ip", update.ClusterIPDest,
 		"receive-time", receiveTime.Format(time.RFC3339Nano))
@@ -1276,6 +1319,11 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 						InitialCapacity: cc, // Presume full unused capacity.
 					}))
 				}
+				rt.logger.Infow("Creating new pod tracker",
+					"revision", rt.revID.String(),
+					"dest", newDest,
+					"tracker-id", tracker.id,
+					"container-concurrency", cc)
 				newTrackers = append(newTrackers, tracker)
 			} else {
 				// Check current state and handle appropriately
@@ -1399,10 +1447,25 @@ func (t *Throttler) run(updateCh <-chan revisionDestsUpdate) {
 
 // Try waits for capacity and then executes function, passing in a l4 dest to send a request
 func (t *Throttler) Try(ctx context.Context, revID types.NamespacedName, xRequestId string, function func(string, bool) error) error {
+	// Log at entry point to track revision assignment
+	t.logger.Debugw("Request entering throttler",
+		"x-request-id", xRequestId,
+		"revision", revID.String())
+
 	rt, err := t.getOrCreateRevisionThrottler(revID)
 	if err != nil {
 		return err
 	}
+
+	// Verify we got the correct throttler
+	if rt.revID != revID {
+		t.logger.Errorw("CRITICAL BUG: getOrCreateRevisionThrottler returned wrong throttler!",
+			"requested-revision", revID.String(),
+			"returned-revision", rt.revID.String(),
+			"x-request-id", xRequestId)
+		return fmt.Errorf("throttler mismatch: requested %s but got %s", revID.String(), rt.revID.String())
+	}
+
 	return rt.try(ctx, xRequestId, function)
 }
 
