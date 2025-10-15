@@ -588,7 +588,7 @@ function report_go_test() {
   logfile="${logfile/.xml/.jsonl}"
   echo "Running go test with args: ${go_test_args[*]}"
   local gotest_retcode=0
-  go_run gotest.tools/gotestsum@v1.11.0 \
+  go_run gotest.tools/gotestsum@v1.13.0 \
     --format "${GO_TEST_VERBOSITY:-testname}" \
     --junitfile "${xml}" \
     --junitfile-testsuite-name relative \
