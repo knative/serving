@@ -353,6 +353,16 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 		// We need to send update if reprobe is non-empty, since the state
 		// of the world has been changed.
 		rw.logger.Debugf("Done probing, got %d healthy pods", len(hs))
+
+		// Log probe results to diagnose endpoint update delays
+		if len(hs) == 0 && (len(curDests.ready) > 0 || len(curDests.notReady) > 0) {
+			rw.logger.Debugw("All pod probes failed - waiting for K8s or probe success",
+				"ready-pods", len(curDests.ready),
+				"not-ready-pods", len(curDests.notReady),
+				"probe-optimization-enabled", rw.enableProbeOptimisation,
+				"error", err)
+		}
+
 		if !noop || len(reprobe) > 0 {
 			rw.healthyPods = hs
 			// Note: it's important that this copies (via hs.Union) the healthy pods
@@ -551,23 +561,48 @@ func (rbm *revisionBackendsManager) getOrCreateRevisionWatcher(revID types.Names
 		}
 
 		enableProbeOptimisation := true
+		var disableReason string
+
+		// Only disable probe optimization for exec readiness probes, since those
+		// might check state that queue-proxy can't verify.
 		if rp := rev.Spec.GetContainer().ReadinessProbe; rp != nil && rp.Exec != nil {
 			enableProbeOptimisation = false
+			disableReason = "exec readiness probe"
 		}
-		// Startup probes are executed by Kubelet, so we can only mark the container as ready
-		// once K8s sees it as ready.
-		if sp := rev.Spec.GetContainer().StartupProbe; sp != nil {
-			enableProbeOptimisation = false
-		}
-		// Startup probes for sidecars are executed by Kubelet, so we can only mark the container as ready
-		// once K8s sees it as ready.
+
+		// REMOVED: Startup probe checks no longer disable probe optimization.
+		// Rationale: Queue-proxy's readiness endpoint already waits for the user container's
+		// startup probe to pass before reporting ready. K8s startup probes gate readiness probes,
+		// so if queue-proxy reports ready, it means:
+		// 1. User container's startup probe passed
+		// 2. User container's readiness probe is passing
+		// 3. Container is truly ready to serve traffic
+		//
+		// Disabling probe optimization forces us to wait for K8s endpoint updates (60-70s delay)
+		// when the pod is actually ready much earlier. This was causing severe cold start latency.
+
+		// Sidecar startup probes still need to be considered since queue-proxy
+		// might not be aware of sidecar readiness state
 		if len(rev.Spec.GetSidecarContainers()) > 0 {
 			for _, sc := range rev.Spec.GetSidecarContainers() {
 				if sp := sc.StartupProbe; sp != nil {
 					enableProbeOptimisation = false
+					disableReason = "sidecar startup probe"
 					break
 				}
 			}
+		}
+
+		// Log probe optimization status - critical for diagnosing endpoint update delays
+		if enableProbeOptimisation {
+			rbm.logger.Infow("Creating revision watcher with probe optimization ENABLED",
+				zap.String(logkey.Key, revID.String()),
+				"probe-optimization", true)
+		} else {
+			rbm.logger.Warnw("Creating revision watcher with probe optimization DISABLED - will wait for K8s readiness",
+				zap.String(logkey.Key, revID.String()),
+				"probe-optimization", false,
+				"reason", disableReason)
 		}
 
 		destsCh := make(chan dests)
