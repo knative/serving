@@ -74,7 +74,7 @@ func TestProbeHandler(t *testing.T) {
 				req.Header.Set(netheader.ProbeKey, tc.requestHeader)
 			}
 
-			h := ProbeHandler(tc.prober, true /*tracingEnabled*/)
+			h := ProbeHandler(tc.prober, true /*tracingEnabled*/, "test-revision", "test-namespace")
 			h(writer, req)
 
 			if got, want := writer.Code, tc.wantCode; got != want {
