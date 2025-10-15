@@ -31,14 +31,14 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+
 	// Injection related imports.
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/http/handler"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	network "knative.dev/networking/pkg"
 	netcfg "knative.dev/networking/pkg/config"
@@ -93,6 +93,9 @@ func main() {
 
 	// Report stats on Go memory usage every 30 seconds.
 	metrics.MemStatsOrDie(ctx)
+
+	// Set up client-go metrics
+	activator.SetupClientMetrics(ctx)
 
 	cfg := injection.ParseAndGetRESTConfigOrDie()
 
