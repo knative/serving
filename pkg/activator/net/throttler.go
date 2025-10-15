@@ -421,12 +421,7 @@ func (rt *revisionThrottler) filterAvailableTrackers(ctx context.Context, tracke
 				// Check if pod has no active requests - if so, it's likely stale and should be deleted
 				// to prevent IP reuse contamination (IP reassigned to different revision)
 				if tracker.getRefCount() == 0 {
-					rt.logger.Warnw("Quarantined pod with zero refCount - likely stale, skipping recovery",
-						"dest", tracker.dest,
-						"revision", rt.revID.String(),
-						"tracker-revision", tracker.revisionID.String(),
-						"tracker-id", tracker.id,
-						"quarantine-count", tracker.quarantineCount.Load())
+					// REMOVED: This log was firing thousands of times per second in re-enqueue loops
 					// Don't add to available - let it be removed by next endpoint update
 					continue
 				}
@@ -462,14 +457,14 @@ func (rt *revisionThrottler) acquireDest(ctx context.Context) (func(), *podTrack
 	originalCount := len(rt.assignedTrackers)
 	availableTrackers := rt.filterAvailableTrackers(ctx, rt.assignedTrackers)
 
-	// Log availability issues
+	// Log availability issues - changed to DEBUG to avoid spam in re-enqueue loops
 	if len(availableTrackers) == 0 && originalCount > 0 {
-		rt.logger.Warnw("No available pods after filtering",
+		rt.logger.Debugw("No available pods after filtering",
 			"assigned", originalCount,
 			"available", 0,
 			"revision", rt.revID.String())
 	} else if originalCount > 2 && len(availableTrackers) < originalCount/2 {
-		rt.logger.Warnw("Many pods unavailable",
+		rt.logger.Debugw("Many pods unavailable",
 			"assigned", originalCount,
 			"available", len(availableTrackers),
 			"revision", rt.revID.String())
@@ -660,33 +655,41 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 				}
 				rt.mux.RUnlock()
 
-				// Log specific scenario based on pod states
+				// Log specific scenario based on pod states - rate limit to avoid spam in tight re-enqueue loops
+				// Only log on first occurrence and every 100 retries to show progress
 				if assignedCount > 0 && (quarantinedCount+pendingCount) == assignedCount {
+					shouldLog := reenqueueCount == 0 || reenqueueCount%100 == 0
 					if pendingCount == assignedCount {
-						rt.logger.Warnw("all pods pending (starting up); re-enqueue",
-							"x-request-id", xRequestId,
-							"pending", pendingCount,
-							"assigned", assignedCount,
-							"reenqueueCount", reenqueueCount,
-							"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()),
-						)
+						if shouldLog {
+							rt.logger.Warnw("all pods pending (starting up); re-enqueue",
+								"x-request-id", xRequestId,
+								"pending", pendingCount,
+								"assigned", assignedCount,
+								"reenqueueCount", reenqueueCount,
+								"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()),
+							)
+						}
 					} else if quarantinedCount == assignedCount {
-						rt.logger.Warnw("all pods quarantined (failed health); re-enqueue",
-							"x-request-id", xRequestId,
-							"quarantined", quarantinedCount,
-							"assigned", assignedCount,
-							"reenqueueCount", reenqueueCount,
-							"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()),
-						)
+						if shouldLog {
+							rt.logger.Warnw("all pods quarantined (failed health); re-enqueue",
+								"x-request-id", xRequestId,
+								"quarantined", quarantinedCount,
+								"assigned", assignedCount,
+								"reenqueueCount", reenqueueCount,
+								"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()),
+							)
+						}
 					} else {
-						rt.logger.Warnw("all pods unavailable (pending + quarantined); re-enqueue",
-							"x-request-id", xRequestId,
-							"pending", pendingCount,
-							"quarantined", quarantinedCount,
-							"assigned", assignedCount,
-							"reenqueueCount", reenqueueCount,
-							"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()),
-						)
+						if shouldLog {
+							rt.logger.Warnw("all pods unavailable (pending + quarantined); re-enqueue",
+								"x-request-id", xRequestId,
+								"pending", pendingCount,
+								"quarantined", quarantinedCount,
+								"assigned", assignedCount,
+								"reenqueueCount", reenqueueCount,
+								"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()),
+							)
+						}
 					}
 					reenqueue = true
 					reenqueueCount++
