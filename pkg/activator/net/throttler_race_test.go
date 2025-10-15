@@ -530,7 +530,7 @@ func TestRace_HandlePubEpsUpdate_StaleBackendCountOverwritesCapacity(t *testing.
 
 	// Initial state: 5 pods
 	initialTrackers := make([]*podTracker, 5)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		initialTrackers[i] = newTestTracker(
 			"10.0.0."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
@@ -613,7 +613,7 @@ func TestRace_BreakerCapacityCapture_ConcurrentCapacityUpdates(t *testing.T) {
 	)
 
 	initialTrackers := make([]*podTracker, 5)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		initialTrackers[i] = newTestTracker(
 			"10.0.0."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
@@ -681,7 +681,7 @@ func TestRace_AssignedTrackers_ConcurrentReadDuringUpdate(t *testing.T) {
 	)
 
 	initialTrackers := make([]*podTracker, 5)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		initialTrackers[i] = newTestTracker(
 			"10.0.0."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
@@ -763,7 +763,7 @@ func TestRace_ContainerConcurrency_UpdateDuringCapacityCalc(t *testing.T) {
 	)
 
 	initialTrackers := make([]*podTracker, 5)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		initialTrackers[i] = newTestTracker(
 			"10.0.0."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
@@ -843,7 +843,7 @@ func TestRace_ActivatorIndex_ChangeDuringAssignSlice(t *testing.T) {
 	)
 
 	initialTrackers := make([]*podTracker, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		initialTrackers[i] = newTestTracker(
 			"10.0.0."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
@@ -931,11 +931,11 @@ func TestRace_UpdateThrottlerState_ConcurrentUpdates(t *testing.T) {
 
 	// Multiple goroutines calling updateThrottlerState
 	// This violates the "single goroutine" assumption but tests thread-safety
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			for j := 0; j < 20; j++ {
+			for j := range 20 {
 				select {
 				case <-stop:
 					return
@@ -987,7 +987,7 @@ func TestRace_BackendCount_ConcurrentReadWriteDuringCapacityUpdates(t *testing.T
 	)
 
 	initialTrackers := make([]*podTracker, 5)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		initialTrackers[i] = newTestTracker(
 			"10.0.0."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
@@ -1088,7 +1088,7 @@ func TestRace_WaitingRequests_ConcurrentBreakerStateReads(t *testing.T) {
 	)
 
 	initialTrackers := make([]*podTracker, 5)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		initialTrackers[i] = newTestTracker(
 			"10.0.0."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
@@ -1155,7 +1155,7 @@ func TestRace_AssignSlice_MapMutationDuringIteration(t *testing.T) {
 	)
 
 	initialTrackers := make([]*podTracker, 5)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		initialTrackers[i] = newTestTracker(
 			"10.0.0."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
@@ -1287,18 +1287,18 @@ func TestRace_CrossRevisionContamination_TrackerAcquisitionValidation(t *testing
 		routedDest = dest
 		return nil
 	})
-
 	// Request should succeed
 	if err != nil {
 		t.Errorf("Expected request to succeed with correct tracker, got error: %v", err)
 	}
 
 	// CRITICAL: Verify request was routed to the CORRECT tracker, not the wrong one
-	if routedDest == sharedIP {
+	switch routedDest {
+	case sharedIP:
 		t.Fatal("VALIDATION FAILED: Request routed to pod from wrong revision (revision-B)!")
-	} else if routedDest == correctIP {
+	case correctIP:
 		t.Log("SUCCESS: Validation skipped wrong-revision tracker, used correct tracker")
-	} else {
+	default:
 		t.Errorf("Unexpected destination: %s (expected %s)", routedDest, correctIP)
 	}
 }

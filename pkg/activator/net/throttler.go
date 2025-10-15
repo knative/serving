@@ -617,7 +617,7 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 				"activator-count", ac,
 				"container-concurrency", cc,
 				"expected-capacity", int(cc)*assignedCount,
-				"capacity-deficit", int(cc)*assignedCount-int(breakerCapacity),
+				"capacity-deficit", int(cc)*assignedCount-int(uint64(breakerCapacity)), //nolint:gosec // breakerCapacity fits in int
 				"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()))
 		}
 
