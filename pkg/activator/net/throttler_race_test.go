@@ -115,7 +115,7 @@ func TestRace_UpdateCapacity_ReadsPodTrackersWhileWriterMutates(t *testing.T) {
 			}
 			addr := "192.168.1." + string(rune('a'+(i%3))) + ":8080"
 			if i%2 == 0 {
-				rt.updateThrottlerState(1, []*podTracker{newTestTracker(addr, nil)}, nil, nil, nil)
+				rt.updateThrottlerState(1, []*podTracker{newTestTracker(addr, queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))}, nil, nil, nil)
 			} else {
 				rt.updateThrottlerState(0, nil, nil, []string{addr}, nil)
 			}
@@ -145,7 +145,7 @@ func TestRace_UpdateCapacity_ReadsPodTrackersWhileWriterMutates(t *testing.T) {
 func TestRace_RequestPath_TrackerRemovedDuringUse(t *testing.T) {
 	t.Parallel()
 	logger := zaptest.NewLogger(t).Sugar()
-	rt := newRevisionThrottler(types.NamespacedName{Namespace: "ns", Name: "rev"}, nil, 1, "http", queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10}, logger)
+	rt := newRevisionThrottler(testRevID, nil, 1, "http", queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10}, logger)
 
 	tr := newTestTracker("127.0.0.1:65534", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 	rt.updateThrottlerState(1, []*podTracker{tr}, []string{tr.dest}, nil, nil)
