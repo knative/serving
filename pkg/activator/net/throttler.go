@@ -519,10 +519,10 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 				rt.logger.Debugf("Request %s exceeded WARNING proxy queue time threshold (4s)", xRequestId)
 			case <-errorTimer.C:
 				handler.RecordProxyQueueTimeError(ctx)
-				rt.logger.Warnf("Request %s exceeded ERROR proxy queue time threshold (60s)", xRequestId)
+				rt.logger.Debugf("Request %s exceeded ERROR proxy queue time threshold (60s)", xRequestId)
 			case <-criticalTimer.C:
 				handler.RecordProxyQueueTimeCritical(ctx)
-				rt.logger.Warnf("Request %s exceeded CRITICAL proxy queue time threshold (3m)", xRequestId)
+				rt.logger.Debugf("Request %s exceeded CRITICAL proxy queue time threshold (3m)", xRequestId)
 			case <-thresholdChan:
 				// Routing completed, stop monitoring
 				return
@@ -726,7 +726,7 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 				return
 			}
 
-			rt.logger.Infow("Acquired pod tracker for request",
+			rt.logger.Debugw("Acquired pod tracker for request",
 				"x-request-id", xRequestId,
 				"tracker-id", trackerId,
 				"dest", tracker.dest,
@@ -812,7 +812,7 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 				if currentState == podPending {
 					// Use CAS to atomically transition from pending to healthy
 					if tracker.state.CompareAndSwap(uint32(podPending), uint32(podHealthy)) {
-						rt.logger.Infow("Pending pod passed ready check, promoting to healthy",
+						rt.logger.Debugw("Pending pod passed ready check, promoting to healthy",
 							"x-request-id", xRequestId,
 							"dest", tracker.dest)
 					}
@@ -1010,7 +1010,7 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 
 		// Log assignment details to diagnose why assigned count differs from total pods
 		if len(assigned) != totalPodsSnapshot {
-			rt.logger.Infow("Pod assignment mismatch detected",
+			rt.logger.Debugw("Pod assignment mismatch detected",
 				"total-pods-in-map", totalPodsSnapshot,
 				"assigned-to-this-activator", len(assigned),
 				"activator-index", ai,
@@ -1037,7 +1037,7 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 	// TODO: Remove this diagnostic log after capacity lag investigation is complete
 	// Log all capacity updates to diagnose why capacity doesn't match pod count
 	if capacity != int(oldCapacity) {
-		rt.logger.Infow("Revision capacity changing",
+		rt.logger.Debugw("Revision capacity changing",
 			"old-capacity", oldCapacity,
 			"new-capacity", capacity,
 			"backends", backendCount,
@@ -1367,7 +1367,7 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 		return
 	}
 
-	rt.logger.Infow("Throttler received update from revision backends",
+	rt.logger.Debugw("Throttler received update from revision backends",
 		"revision", rt.revID.String(),
 		"dests-count", len(update.Dests),
 		"cluster-ip", update.ClusterIPDest,
@@ -1400,7 +1400,7 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 						InitialCapacity: cc, // Presume full unused capacity.
 					}))
 				}
-				rt.logger.Infow("Creating new pod tracker",
+				rt.logger.Debugw("Creating new pod tracker",
 					"revision", rt.revID.String(),
 					"dest", newDest,
 					"tracker-id", tracker.id,
@@ -1422,7 +1422,7 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 					// Reset to pending for re-validation
 					tracker.state.Store(uint32(podPending))
 					tracker.drainingStartTime.Store(0)
-					rt.logger.Infow("Re-adding previously draining/removed pod as pending",
+					rt.logger.Debugw("Re-adding previously draining/removed pod as pending",
 						"dest", newDest,
 						"previousState", currentState) // Log BEFORE changing state
 				case podHealthy:
@@ -1445,7 +1445,7 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 
 		// TODO: Remove this diagnostic log after capacity lag investigation is complete
 		// Log to trace the update flow and timing
-		rt.logger.Infow("Calling updateThrottlerState from handleUpdate",
+		rt.logger.Debugw("Calling updateThrottlerState from handleUpdate",
 			"backend-count-param", len(update.Dests),
 			"new-trackers-count", len(newTrackers),
 			"healthy-dests-count", len(healthyDests),
