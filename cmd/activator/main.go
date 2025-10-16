@@ -256,6 +256,9 @@ func main() {
 	hc := newHealthCheck(sigCtx, logger, statSink)
 	ah = &activatorhandler.HealthHandler{HealthCheck: hc, NextHandler: ah, Logger: logger}
 
+	// Wrap with pod registration router to intercept pod registration requests
+	ah = newPodRegistrationRouter(ah, throttler, logger)
+
 	profilingHandler := profiling.NewHandler(logger, false)
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher.Watch(pkglogging.ConfigMapName(), pkglogging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
@@ -346,4 +349,27 @@ func flush(logger *zap.SugaredLogger) {
 	os.Stdout.Sync()
 	os.Stderr.Sync()
 	metrics.FlushExporter()
+}
+
+// newPodRegistrationRouter creates an HTTP handler that routes pod registration requests
+// to the pod registration handler and passes everything else to the main activator handler.
+// Pod registration requests must come from queue-proxy with the correct User-Agent header.
+func newPodRegistrationRouter(mainHandler http.Handler, throttler *activatornet.Throttler, logger *zap.SugaredLogger) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Route pod registration requests to the pod registration handler
+		// Validate both path, method, and User-Agent header to ensure it's from queue-proxy
+		if r.URL.Path == "/api/v1/pod-registration" && r.Method == http.MethodPost {
+			userAgent := r.Header.Get("User-Agent")
+			if userAgent == "knative-queue-proxy" {
+				handler := activatornet.PodRegistrationHandler(throttler, logger)
+				handler.ServeHTTP(w, r)
+				return
+			}
+			// Invalid User-Agent - reject the request
+			http.Error(w, "Invalid User-Agent for pod registration", http.StatusUnauthorized)
+			return
+		}
+		// Route everything else to the main activator handler
+		mainHandler.ServeHTTP(w, r)
+	})
 }

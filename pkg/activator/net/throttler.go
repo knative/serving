@@ -1553,6 +1553,34 @@ func (t *Throttler) Try(ctx context.Context, revID types.NamespacedName, xReques
 	return rt.try(ctx, xRequestId, function)
 }
 
+// HandlePodRegistration processes a push-based pod registration from a queue-proxy.
+// This allows immediate pod discovery without waiting for K8s informer updates (which can take 60-70 seconds).
+// eventType should be "startup" (creates podPending tracker) or "ready" (creates/updates to podHealthy tracker).
+// This method is non-blocking and integrates with the existing handleUpdate flow.
+func (t *Throttler) HandlePodRegistration(revID types.NamespacedName, podIP string, eventType string, logger *zap.SugaredLogger) {
+	if podIP == "" {
+		logger.Debugw("Ignoring pod registration with empty pod IP",
+			"revision", revID.String(),
+			"event-type", eventType)
+		return
+	}
+
+	logger.Debugw("Throttler received pod registration",
+		"revision", revID.String(),
+		"pod-ip", podIP,
+		"event-type", eventType)
+
+	// Create a revisionDestsUpdate with just this pod
+	// This update will be processed by handleUpdate just like K8s endpoint updates
+	update := revisionDestsUpdate{
+		Rev:   revID,
+		Dests: sets.New(podIP),
+		// ClusterIPDest left empty - we always use pod routing
+	}
+
+	t.handleUpdate(update)
+}
+
 func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*revisionThrottler, error) {
 	// First, see if we can succeed with just an RLock. This is in the request path so optimizing
 	// for this case is important

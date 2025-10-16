@@ -111,6 +111,9 @@ type config struct {
 	TracingConfigSampleRate     float64                   `split_words:"true"` // optional
 	TracingConfigZipkinEndpoint string                    `split_words:"true"` // optional
 
+	// Pod registration configuration
+	ActivatorServiceURL string `split_words:"true"` // optional
+
 	Env
 }
 
@@ -198,6 +201,10 @@ func Main(opts ...Option) error {
 	d.Logger = logger
 	d.Transport = buildTransport(env)
 
+	// Send startup registration to activator (async, fire-and-forget)
+	queue.RegisterPodWithActivator(env.ActivatorServiceURL, queue.EventTypeStartup,
+		env.ServingPod, env.ServingPodIP, env.ServingNamespace, env.ServingRevision, logger)
+
 	if env.TracingConfigBackend != tracingconfig.None {
 		oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(env.ServingPod, env.ServingPodIP, logger))
 		oct.ApplyConfig(&tracingconfig.Config{
@@ -234,6 +241,21 @@ func Main(opts ...Option) error {
 	probe := func() bool { return true }
 	if env.ServingReadinessProbe != "" {
 		probe = buildProbe(logger, env.ServingReadinessProbe, env.EnableHTTP2AutoDetection, env.EnableMultiContainerProbes).ProbeContainer
+	}
+
+	// Wrap the prober to send ready registration on first successful probe
+	var readyRegistrationSent atomic.Bool
+	originalProbe := probe
+	probe = func() bool {
+		result := originalProbe()
+		// Send ready registration after first successful probe (async, fire-and-forget)
+		if result && !readyRegistrationSent.Load() {
+			if readyRegistrationSent.CompareAndSwap(false, true) {
+				queue.RegisterPodWithActivator(env.ActivatorServiceURL, queue.EventTypeReady,
+					env.ServingPod, env.ServingPodIP, env.ServingNamespace, env.ServingRevision, logger)
+			}
+		}
+		return result
 	}
 
 	// Enable TLS when certificate is mounted.
