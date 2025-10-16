@@ -167,26 +167,38 @@ func cleanupDeduplicationCache() {
 	defer deduplicationCache.mu.Unlock()
 
 	now := time.Now()
+	// Build list of keys to delete first to minimize time holding lock
+	toDelete := make([]string, 0)
 	for key, lastSeen := range deduplicationCache.cache {
 		if now.Sub(lastSeen) > RegistrationDuplicateCleanupInterval {
-			delete(deduplicationCache.cache, key)
+			toDelete = append(toDelete, key)
 		}
+	}
+	// Delete after iteration to avoid modifying map during iteration
+	for _, key := range toDelete {
+		delete(deduplicationCache.cache, key)
 	}
 }
 
+// cleanupOnce ensures we only start one cleanup goroutine even if the package is imported multiple times
+var cleanupOnce sync.Once
+
 // init starts background goroutines to clean up stale deduplication entries and update metrics
+// Uses sync.Once to prevent multiple cleanup goroutines in tests or if package is imported multiple times
 func init() {
-	go func() {
-		ticker := time.NewTicker(RegistrationDuplicateCleanupInterval)
-		defer ticker.Stop()
-		for range ticker.C {
-			cleanupDeduplicationCache()
-			// Update deduplication cache size metric
-			deduplicationCache.mu.Lock()
-			deduplicationCacheSize.Set(float64(len(deduplicationCache.cache)))
-			deduplicationCache.mu.Unlock()
-		}
-	}()
+	cleanupOnce.Do(func() {
+		go func() {
+			ticker := time.NewTicker(RegistrationDuplicateCleanupInterval)
+			defer ticker.Stop()
+			for range ticker.C {
+				cleanupDeduplicationCache()
+				// Update deduplication cache size metric
+				deduplicationCache.mu.Lock()
+				deduplicationCacheSize.Set(float64(len(deduplicationCache.cache)))
+				deduplicationCache.mu.Unlock()
+			}
+		}()
+	})
 }
 
 // ResetDeduplicationCacheForTesting resets the deduplication cache

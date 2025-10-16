@@ -18,6 +18,7 @@ package net
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 
 	"go.uber.org/zap"
@@ -50,7 +51,7 @@ func PodRegistrationHandler(throttler PodRegistrationThrottler, logger *zap.Suga
 
 		var req PodRegistrationRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			logger.Debugw("Failed to decode pod registration request",
+			logger.Warnw("Failed to decode pod registration request",
 				"error", err)
 			http.Error(w, "Invalid request body", http.StatusBadRequest)
 			return
@@ -58,13 +59,33 @@ func PodRegistrationHandler(throttler PodRegistrationThrottler, logger *zap.Suga
 
 		// Validate required fields
 		if req.PodName == "" || req.PodIP == "" || req.Namespace == "" || req.Revision == "" || req.EventType == "" {
-			logger.Debugw("Pod registration request missing required fields",
+			logger.Warnw("Pod registration request missing required fields",
 				"pod_name", req.PodName,
 				"pod_ip", req.PodIP,
 				"namespace", req.Namespace,
 				"revision", req.Revision,
 				"event_type", req.EventType)
 			http.Error(w, "Missing required fields", http.StatusBadRequest)
+			return
+		}
+
+		// Validate event type is one of the expected values
+		if req.EventType != "startup" && req.EventType != "ready" {
+			logger.Warnw("Invalid event type",
+				"event_type", req.EventType,
+				"pod_name", req.PodName,
+				"pod_ip", req.PodIP)
+			http.Error(w, "Invalid event_type: must be 'startup' or 'ready'", http.StatusBadRequest)
+			return
+		}
+
+		// Validate pod IP is a valid IP address
+		if net.ParseIP(req.PodIP) == nil {
+			logger.Warnw("Invalid pod IP address",
+				"pod_ip", req.PodIP,
+				"pod_name", req.PodName,
+				"event_type", req.EventType)
+			http.Error(w, "Invalid pod_ip: must be a valid IP address", http.StatusBadRequest)
 			return
 		}
 

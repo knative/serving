@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -359,8 +360,8 @@ func TestPodRegistrationHandler_MultipleRequests(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		req := PodRegistrationRequest{
-			PodName:   "test-pod-" + string(rune(i)),
-			PodIP:     "10.0.0." + string(rune(5+i)),
+			PodName:   fmt.Sprintf("test-pod-%d", i),
+			PodIP:     fmt.Sprintf("10.0.0.%d", 5+i),
 			Namespace: "default",
 			Revision:  "my-revision",
 			EventType: "startup",
@@ -448,8 +449,8 @@ func TestPodRegistrationHandler_ConcurrentRequests(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			req := PodRegistrationRequest{
-				PodName:   "test-pod-" + string(rune(index)),
-				PodIP:     "10.0.0." + string(rune((index%250)+5)),
+				PodName:   fmt.Sprintf("test-pod-%d", index),
+				PodIP:     fmt.Sprintf("10.%d.%d.%d", (index/65536)%256, (index/256)%256, index%256),
 				Namespace: "default",
 				Revision:  "my-revision",
 				EventType: "startup",

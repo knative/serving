@@ -355,14 +355,16 @@ func flush(logger *zap.SugaredLogger) {
 // to the pod registration handler and passes everything else to the main activator handler.
 // Pod registration requests must come from queue-proxy with the correct User-Agent header.
 func newPodRegistrationRouter(mainHandler http.Handler, throttler *activatornet.Throttler, logger *zap.SugaredLogger) http.Handler {
+	// Create the pod registration handler once to avoid allocating on every request
+	podRegHandler := activatornet.PodRegistrationHandler(throttler, logger)
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Route pod registration requests to the pod registration handler
 		// Validate both path, method, and User-Agent header to ensure it's from queue-proxy
 		if r.URL.Path == "/api/v1/pod-registration" && r.Method == http.MethodPost {
 			userAgent := r.Header.Get("User-Agent")
 			if userAgent == "knative-queue-proxy" {
-				handler := activatornet.PodRegistrationHandler(throttler, logger)
-				handler.ServeHTTP(w, r)
+				podRegHandler.ServeHTTP(w, r)
 				return
 			}
 			// Invalid User-Agent - reject the request
