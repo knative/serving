@@ -68,8 +68,8 @@ var (
 	// Labels: event_type (startup, ready)
 	registrationLatency = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name: "pod_registration_duration_seconds",
-			Help: "Time taken to complete pod registration request",
+			Name:    "pod_registration_duration_seconds",
+			Help:    "Time taken to complete pod registration request",
 			Buckets: []float64{.01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
 		},
 		[]string{"event_type"},
