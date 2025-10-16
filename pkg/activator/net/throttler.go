@@ -1462,6 +1462,89 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 	rt.updateThrottlerState(len(update.Dests), nil /*trackers*/, nil, nil, clusterIPPodTracker)
 }
 
+// addPodIncremental adds a single pod to the revision without removing other pods.
+// This is used for push-based pod discovery where queue-proxies self-register.
+// Unlike handleUpdate which is authoritative, this function only adds pods and never removes them.
+// eventType should be "startup" (podPending) or "ready" (podHealthy).
+// Handles duplicate events gracefully:
+// - Duplicate "startup": noop (pod already tracked)
+// - "ready" after "startup": promotes podPending to podHealthy
+// - Duplicate "ready": noop (pod already healthy)
+// - Does not interfere with quarantine/recovery states
+func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, logger *zap.SugaredLogger) {
+	rt.mux.Lock()
+	defer rt.mux.Unlock()
+
+	existing, exists := rt.podTrackers[podIP]
+
+	if exists {
+		// Pod already tracked - handle state transitions based on event type
+		currentState := podState(existing.state.Load())
+
+		if eventType == "ready" {
+			// Ready event: try to promote pending pods to healthy
+			if currentState == podPending {
+				if existing.state.CompareAndSwap(uint32(podPending), uint32(podHealthy)) {
+					logger.Infow("Promoted pending pod to healthy via ready registration",
+						"revision", rt.revID.String(),
+						"pod-ip", podIP,
+						"previous-state", "pending")
+				} else {
+					logger.Debugw("Pod already tracked: ready event on pending pod (CAS failed - likely already promoted)",
+						"revision", rt.revID.String(),
+						"pod-ip", podIP,
+						"current-state", currentState)
+				}
+			} else {
+				logger.Debugw("Pod already tracked: ready event received but pod not in pending state (duplicate)",
+					"revision", rt.revID.String(),
+					"pod-ip", podIP,
+					"current-state", currentState)
+			}
+		} else {
+			// startup event on existing pod - noop
+			logger.Debugw("Pod already tracked: startup event received (duplicate registration)",
+				"revision", rt.revID.String(),
+				"pod-ip", podIP,
+				"current-state", currentState)
+		}
+		return
+	}
+
+	// Pod doesn't exist - create new tracker
+	cc := int(rt.containerConcurrency.Load())
+	var tracker *podTracker
+	if cc == 0 {
+		tracker = newPodTracker(podIP, rt.revID, nil)
+	} else {
+		tracker = newPodTracker(podIP, rt.revID, queue.NewBreaker(queue.BreakerParams{
+			QueueDepth:      breakerQueueDepth,
+			MaxConcurrency:  cc,
+			InitialCapacity: cc,
+		}))
+	}
+
+	// Set initial state based on event type
+	// For "ready" events, assume pod is healthy; for others, mark as pending for health verification
+	if eventType == "ready" {
+		tracker.state.Store(uint32(podHealthy))
+	} else {
+		tracker.state.Store(uint32(podPending))
+	}
+
+	// Add tracker to the map
+	rt.podTrackers[podIP] = tracker
+	logger.Infow("Discovered new pod via push-based registration",
+		"revision", rt.revID.String(),
+		"pod-ip", podIP,
+		"event-type", eventType,
+		"initial-state", podState(tracker.state.Load()),
+		"total-trackers-now", len(rt.podTrackers))
+
+	// Recalculate capacity with the new pod
+	rt.updateCapacity(len(rt.podTrackers))
+}
+
 // Throttler load balances requests to revisions based on capacity. When `Run` is called it listens for
 // updates to revision backends and decides when and when and where to forward a request.
 type Throttler struct {
@@ -1555,8 +1638,9 @@ func (t *Throttler) Try(ctx context.Context, revID types.NamespacedName, xReques
 
 // HandlePodRegistration processes a push-based pod registration from a queue-proxy.
 // This allows immediate pod discovery without waiting for K8s informer updates (which can take 60-70 seconds).
-// eventType should be "startup" (creates podPending tracker) or "ready" (creates/updates to podHealthy tracker).
-// This method is non-blocking and integrates with the existing handleUpdate flow.
+// eventType should be "startup" (creates podPending tracker) or "ready" (promotes to podHealthy).
+// This uses a dedicated incremental add function instead of the authoritative handleUpdate flow,
+// so push-based registrations never remove existing pods.
 func (t *Throttler) HandlePodRegistration(revID types.NamespacedName, podIP string, eventType string, logger *zap.SugaredLogger) {
 	if podIP == "" {
 		logger.Debugw("Ignoring pod registration with empty pod IP",
@@ -1570,15 +1654,18 @@ func (t *Throttler) HandlePodRegistration(revID types.NamespacedName, podIP stri
 		"pod-ip", podIP,
 		"event-type", eventType)
 
-	// Create a revisionDestsUpdate with just this pod
-	// This update will be processed by handleUpdate just like K8s endpoint updates
-	update := revisionDestsUpdate{
-		Rev:   revID,
-		Dests: sets.New(podIP),
-		// ClusterIPDest left empty - we always use pod routing
+	rt, err := t.getOrCreateRevisionThrottler(revID)
+	if err != nil {
+		logger.Errorw("Failed to get revision throttler for pod registration",
+			"revision", revID.String(),
+			"pod-ip", podIP,
+			"error", err)
+		return
 	}
 
-	t.handleUpdate(update)
+	// Call the dedicated incremental add function instead of handleUpdate
+	// This ensures push-based registrations only add pods, never remove them
+	rt.addPodIncremental(podIP, eventType, logger)
 }
 
 func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*revisionThrottler, error) {
