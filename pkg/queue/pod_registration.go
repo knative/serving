@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"math"
 	"net"
 	"net/http"
 	"sync"
@@ -45,16 +44,6 @@ const (
 
 	// EventTypeReady indicates the pod is ready to serve traffic
 	EventTypeReady = "ready"
-
-	// Circuit breaking constants for resilience when activator is unavailable
-	// RegistrationInitialBackoff is the initial backoff duration on first failure (100ms)
-	RegistrationInitialBackoff = 100 * time.Millisecond
-
-	// RegistrationMaxBackoff is the maximum backoff duration (60 seconds)
-	RegistrationMaxBackoff = 60 * time.Second
-
-	// RegistrationBackoffMultiplier is the exponential multiplier for backoff (2x)
-	RegistrationBackoffMultiplier = 2.0
 
 	// RegistrationDeduplicationWindow is how long to ignore duplicate registration attempts (5 seconds)
 	RegistrationDeduplicationWindow = 5 * time.Second
@@ -86,17 +75,6 @@ var (
 		[]string{"event_type"},
 	)
 
-	// circuitBreakerFailures tracks the number of consecutive failures per activator
-	// This is a gauge that shows current failure count for each activator URL
-	// Labels: activator_url
-	circuitBreakerFailures = promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "pod_registration_circuit_breaker_failures",
-			Help: "Current number of consecutive registration failures for activator",
-		},
-		[]string{"activator_url"},
-	)
-
 	// deduplicationCacheSize tracks the size of the active deduplication cache
 	deduplicationCacheSize = promauto.NewGauge(
 		prometheus.GaugeOpts{
@@ -105,14 +83,14 @@ var (
 		},
 	)
 
-	// registrationSkipped tracks the number of registration attempts skipped due to circuit breaking or deduplication
-	// Labels: reason (duplicate, circuit_breaking), event_type (startup, ready)
+	// registrationSkipped tracks the number of duplicate registration attempts skipped
+	// Labels: event_type (startup, ready)
 	registrationSkipped = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "pod_registration_skipped_total",
-			Help: "Number of registration attempts skipped due to circuit breaking or deduplication",
+			Help: "Number of duplicate registration attempts skipped due to deduplication",
 		},
-		[]string{"reason", "event_type"},
+		[]string{"event_type"},
 	)
 )
 
@@ -133,89 +111,29 @@ var registrationClient = &http.Client{
 	},
 }
 
-// registrationBackoffTracker tracks failed registration attempts per activator URL
-// for implementing circuit breaking with exponential backoff
-type registrationBackoffTracker struct {
-	mu        sync.Mutex
-	attempts  map[string]int       // key: activator URL, value: consecutive failure count
-	lastTried map[string]time.Time  // key: activator URL, value: time of last attempt
-}
-
 // registrationDeduplicationCache tracks recent registration attempts to avoid duplicates
 type registrationDeduplicationCache struct {
 	mu    sync.Mutex
 	cache map[string]time.Time // key: "podIP:eventType", value: last seen time
 }
 
-// Global circuit breaker and deduplication instances
-var (
-	backoffTracker = &registrationBackoffTracker{
-		attempts:  make(map[string]int),
-		lastTried: make(map[string]time.Time),
-	}
-	deduplicationCache = &registrationDeduplicationCache{
-		cache: make(map[string]time.Time),
-	}
-)
-
-// getBackoffDuration calculates exponential backoff for a given attempt count
-func getBackoffDuration(attemptCount int) time.Duration {
-	if attemptCount <= 0 {
-		return 0
-	}
-	// exponential backoff: initial * multiplier^(attempts-1)
-	// Cap at maxBackoff to prevent overflow
-	backoffSeconds := RegistrationInitialBackoff.Seconds() * math.Pow(RegistrationBackoffMultiplier, float64(attemptCount-1))
-	maxSeconds := RegistrationMaxBackoff.Seconds()
-	if backoffSeconds > maxSeconds {
-		backoffSeconds = maxSeconds
-	}
-	return time.Duration(backoffSeconds * 1000) * time.Millisecond
+// Global deduplication cache
+var deduplicationCache = &registrationDeduplicationCache{
+	cache: make(map[string]time.Time),
 }
 
-// shouldSkipRegistration checks if we should skip this registration due to backoff or deduplication
-// Returns true if registration should be skipped (with optional reason)
-func shouldSkipRegistration(activatorURL string, podIP string, eventType string, logger *zap.SugaredLogger) bool {
-	// Check deduplication first - most common case
+// shouldSkipRegistration checks if we should skip this registration due to deduplication
+// Returns true if registration should be skipped
+func shouldSkipRegistration(podIP string, eventType string, logger *zap.SugaredLogger) bool {
 	if isDuplicate(podIP, eventType) {
 		if logger != nil {
 			logger.Debugw("Skipping duplicate registration attempt",
 				"pod-ip", podIP,
-				"event-type", eventType,
-				"activator-url", activatorURL)
+				"event-type", eventType)
 		}
-		registrationSkipped.WithLabelValues("duplicate", eventType).Inc()
+		registrationSkipped.WithLabelValues(eventType).Inc()
 		return true
 	}
-
-	// Check circuit breaker backoff
-	backoffTracker.mu.Lock()
-	defer backoffTracker.mu.Unlock()
-
-	attemptCount, ok := backoffTracker.attempts[activatorURL]
-	if !ok || attemptCount == 0 {
-		// No previous failures, allow registration
-		return false
-	}
-
-	lastTried := backoffTracker.lastTried[activatorURL]
-	backoffDuration := getBackoffDuration(attemptCount)
-	timeSinceLastTry := time.Since(lastTried)
-
-	if timeSinceLastTry < backoffDuration {
-		if logger != nil {
-			logger.Debugw("Skipping registration due to circuit breaker backoff",
-				"pod-ip", podIP,
-				"activator-url", activatorURL,
-				"attempt-count", attemptCount,
-				"backoff-duration", backoffDuration,
-				"time-since-last-try", timeSinceLastTry)
-		}
-		registrationSkipped.WithLabelValues("circuit_breaking", eventType).Inc()
-		return true
-	}
-
-	// Backoff period has expired, allow retry
 	return false
 }
 
@@ -240,26 +158,6 @@ func isDuplicate(podIP string, eventType string) bool {
 	// Outside window, treat as new registration
 	deduplicationCache.cache[key] = time.Now()
 	return false
-}
-
-// recordRegistrationAttempt records a registration attempt for circuit breaking
-func recordRegistrationAttempt(activatorURL string, success bool) {
-	backoffTracker.mu.Lock()
-	defer backoffTracker.mu.Unlock()
-
-	if success {
-		// Reset on success
-		backoffTracker.attempts[activatorURL] = 0
-		delete(backoffTracker.lastTried, activatorURL)
-		// Update gauge to reflect reset
-		circuitBreakerFailures.WithLabelValues(activatorURL).Set(0)
-	} else {
-		// Increment on failure
-		backoffTracker.attempts[activatorURL]++
-		backoffTracker.lastTried[activatorURL] = time.Now()
-		// Update gauge with new failure count
-		circuitBreakerFailures.WithLabelValues(activatorURL).Set(float64(backoffTracker.attempts[activatorURL]))
-	}
 }
 
 // cleanupDeduplicationCache removes stale entries from the deduplication cache
@@ -312,9 +210,9 @@ type PodRegistrationRequest struct {
 // RegisterPodWithActivator sends a pod registration request to the activator asynchronously
 // activatorServiceURL should be the full base URL (e.g., "http://activator-service.knative-serving.svc.cluster.local:80")
 // If activatorServiceURL is empty, this is a no-op
-// Failures are logged at debug level and never block the caller
-// Implements circuit breaking with exponential backoff to prevent thundering herd if activator is down
-// Implements request deduplication to prevent duplicate registrations from pod restarts
+// Failures are logged but never block the caller - this is a best-effort optimization
+// Implements request deduplication to prevent duplicate registrations within a 5-second window
+// The 2-second timeout provides natural backpressure if the activator is unavailable
 func RegisterPodWithActivator(
 	activatorServiceURL string,
 	eventType string,
@@ -328,8 +226,8 @@ func RegisterPodWithActivator(
 		return
 	}
 
-	// Check if this should be skipped due to deduplication or circuit breaker
-	if shouldSkipRegistration(activatorServiceURL, podIP, eventType, logger) {
+	// Check if this should be skipped due to deduplication
+	if shouldSkipRegistration(podIP, eventType, logger) {
 		return
 	}
 
@@ -339,7 +237,6 @@ func RegisterPodWithActivator(
 }
 
 // registerPodSync performs the actual registration request synchronously
-// Handles circuit breaking by recording failures for exponential backoff
 // Records metrics about registration attempts and latency
 func registerPodSync(
 	activatorServiceURL string,
@@ -393,8 +290,6 @@ func registerPodSync(
 	// Use shared HTTP client for efficiency - avoids creating new transport for each request
 	resp, err := registrationClient.Do(httpReq)
 	if err != nil {
-		// Record failure for circuit breaker
-		recordRegistrationAttempt(activatorServiceURL, false)
 		registrationLatency.WithLabelValues(eventType).Observe(time.Since(startTime).Seconds())
 
 		// Check if it's a timeout error specifically and record appropriate metric
@@ -425,8 +320,6 @@ func registerPodSync(
 	respBody, _ := io.ReadAll(resp.Body)
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		// Record successful registration for circuit breaker reset
-		recordRegistrationAttempt(activatorServiceURL, true)
 		// Record metrics
 		registrationAttempts.WithLabelValues("success", eventType).Inc()
 		registrationLatency.WithLabelValues(eventType).Observe(time.Since(startTime).Seconds())
@@ -439,8 +332,7 @@ func registerPodSync(
 		return
 	}
 
-	// Record failed registration for circuit breaker exponential backoff
-	recordRegistrationAttempt(activatorServiceURL, false)
+	// Record failed registration metrics
 	registrationLatency.WithLabelValues(eventType).Observe(time.Since(startTime).Seconds())
 
 	// Log non-success responses with appropriate levels and record metrics
