@@ -17,6 +17,7 @@ limitations under the License.
 package queue
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -28,6 +29,12 @@ import (
 
 	"go.uber.org/zap"
 )
+
+// TestSetupTeardown setup/teardown helper for tests
+func testSetup(t *testing.T) {
+	// Reset the deduplication cache before each test to avoid cross-test interference
+	ResetDeduplicationCacheForTesting()
+}
 
 // mockActivatorServer simulates an activator pod registration endpoint
 func mockActivatorServer(t *testing.T, requests chan<- *http.Request) *httptest.Server {
@@ -53,6 +60,12 @@ func mockActivatorServer(t *testing.T, requests chan<- *http.Request) *httptest.
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
+
+		// Read body before sending to channel to preserve it for tests
+		body, _ := io.ReadAll(r.Body)
+		r.Body.Close()
+		// Replace body with a new reader so tests can read it again
+		r.Body = io.NopCloser(bytes.NewReader(body))
 
 		requests <- r
 
@@ -81,6 +94,7 @@ func readPodRegistrationRequest(t *testing.T, r *http.Request) *PodRegistrationR
 }
 
 func TestRegisterPodWithActivator_EmptyURL(t *testing.T) {
+	testSetup(t)
 	logger, _ := zap.NewDevelopment()
 	sugaredLogger := logger.Sugar()
 
@@ -94,6 +108,7 @@ func TestRegisterPodWithActivator_EmptyURL(t *testing.T) {
 }
 
 func TestRegisterPodWithActivator_ValidStartupRequest(t *testing.T) {
+	testSetup(t)
 	logger, _ := zap.NewDevelopment()
 	sugaredLogger := logger.Sugar()
 
@@ -144,6 +159,7 @@ func TestRegisterPodWithActivator_ValidStartupRequest(t *testing.T) {
 }
 
 func TestRegisterPodWithActivator_ValidReadyRequest(t *testing.T) {
+	testSetup(t)
 	logger, _ := zap.NewDevelopment()
 	sugaredLogger := logger.Sugar()
 
@@ -175,6 +191,7 @@ func TestRegisterPodWithActivator_ValidReadyRequest(t *testing.T) {
 }
 
 func TestRegisterPodWithActivator_UserAgent(t *testing.T) {
+	testSetup(t)
 	logger, _ := zap.NewDevelopment()
 	sugaredLogger := logger.Sugar()
 
@@ -205,6 +222,7 @@ func TestRegisterPodWithActivator_UserAgent(t *testing.T) {
 }
 
 func TestRegisterPodWithActivator_Async(t *testing.T) {
+	testSetup(t)
 	logger, _ := zap.NewDevelopment()
 	sugaredLogger := logger.Sugar()
 
@@ -233,6 +251,7 @@ func TestRegisterPodWithActivator_Async(t *testing.T) {
 }
 
 func TestRegisterPodWithActivator_MultipleRequests(t *testing.T) {
+	testSetup(t)
 	logger, _ := zap.NewDevelopment()
 	sugaredLogger := logger.Sugar()
 
@@ -266,6 +285,7 @@ func TestRegisterPodWithActivator_MultipleRequests(t *testing.T) {
 }
 
 func TestRegisterPodWithActivator_ConcurrentRequests(t *testing.T) {
+	testSetup(t)
 	logger, _ := zap.NewDevelopment()
 	sugaredLogger := logger.Sugar()
 
@@ -308,6 +328,7 @@ func TestRegisterPodWithActivator_ConcurrentRequests(t *testing.T) {
 }
 
 func TestRegisterPodWithActivator_Timeout(t *testing.T) {
+	testSetup(t)
 	logger, _ := zap.NewDevelopment()
 	sugaredLogger := logger.Sugar()
 
@@ -330,6 +351,7 @@ func TestRegisterPodWithActivator_Timeout(t *testing.T) {
 }
 
 func TestRegisterPodWithActivator_ServerError(t *testing.T) {
+	testSetup(t)
 	logger, _ := zap.NewDevelopment()
 	sugaredLogger := logger.Sugar()
 
@@ -349,6 +371,7 @@ func TestRegisterPodWithActivator_ServerError(t *testing.T) {
 }
 
 func TestRegisterPodWithActivator_InvalidURL(t *testing.T) {
+	testSetup(t)
 	logger, _ := zap.NewDevelopment()
 	sugaredLogger := logger.Sugar()
 

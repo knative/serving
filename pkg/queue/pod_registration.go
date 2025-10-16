@@ -22,8 +22,10 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -41,6 +43,22 @@ const (
 
 	// EventTypeReady indicates the pod is ready to serve traffic
 	EventTypeReady = "ready"
+
+	// Circuit breaking constants for resilience when activator is unavailable
+	// RegistrationInitialBackoff is the initial backoff duration on first failure (100ms)
+	RegistrationInitialBackoff = 100 * time.Millisecond
+
+	// RegistrationMaxBackoff is the maximum backoff duration (60 seconds)
+	RegistrationMaxBackoff = 60 * time.Second
+
+	// RegistrationBackoffMultiplier is the exponential multiplier for backoff (2x)
+	RegistrationBackoffMultiplier = 2.0
+
+	// RegistrationDeduplicationWindow is how long to ignore duplicate registration attempts (5 seconds)
+	RegistrationDeduplicationWindow = 5 * time.Second
+
+	// RegistrationDuplicateCleanupInterval is how often to clean stale deduplication entries (30 seconds)
+	RegistrationDuplicateCleanupInterval = 30 * time.Second
 )
 
 // registrationClient is a shared HTTP client for pod registration requests.
@@ -60,6 +78,162 @@ var registrationClient = &http.Client{
 	},
 }
 
+// registrationBackoffTracker tracks failed registration attempts per activator URL
+// for implementing circuit breaking with exponential backoff
+type registrationBackoffTracker struct {
+	mu        sync.Mutex
+	attempts  map[string]int       // key: activator URL, value: consecutive failure count
+	lastTried map[string]time.Time  // key: activator URL, value: time of last attempt
+}
+
+// registrationDeduplicationCache tracks recent registration attempts to avoid duplicates
+type registrationDeduplicationCache struct {
+	mu    sync.Mutex
+	cache map[string]time.Time // key: "podIP:eventType", value: last seen time
+}
+
+// Global circuit breaker and deduplication instances
+var (
+	backoffTracker = &registrationBackoffTracker{
+		attempts:  make(map[string]int),
+		lastTried: make(map[string]time.Time),
+	}
+	deduplicationCache = &registrationDeduplicationCache{
+		cache: make(map[string]time.Time),
+	}
+)
+
+// getBackoffDuration calculates exponential backoff for a given attempt count
+func getBackoffDuration(attemptCount int) time.Duration {
+	if attemptCount <= 0 {
+		return 0
+	}
+	// exponential backoff: initial * multiplier^(attempts-1)
+	// Cap at maxBackoff to prevent overflow
+	backoffSeconds := RegistrationInitialBackoff.Seconds() * math.Pow(RegistrationBackoffMultiplier, float64(attemptCount-1))
+	maxSeconds := RegistrationMaxBackoff.Seconds()
+	if backoffSeconds > maxSeconds {
+		backoffSeconds = maxSeconds
+	}
+	return time.Duration(backoffSeconds * 1000) * time.Millisecond
+}
+
+// shouldSkipRegistration checks if we should skip this registration due to backoff or deduplication
+// Returns true if registration should be skipped (with optional reason)
+func shouldSkipRegistration(activatorURL string, podIP string, eventType string, logger *zap.SugaredLogger) bool {
+	// Check deduplication first - most common case
+	if isDuplicate(podIP, eventType) {
+		if logger != nil {
+			logger.Debugw("Skipping duplicate registration attempt",
+				"pod-ip", podIP,
+				"event-type", eventType,
+				"activator-url", activatorURL)
+		}
+		return true
+	}
+
+	// Check circuit breaker backoff
+	backoffTracker.mu.Lock()
+	defer backoffTracker.mu.Unlock()
+
+	attemptCount, ok := backoffTracker.attempts[activatorURL]
+	if !ok || attemptCount == 0 {
+		// No previous failures, allow registration
+		return false
+	}
+
+	lastTried := backoffTracker.lastTried[activatorURL]
+	backoffDuration := getBackoffDuration(attemptCount)
+	timeSinceLastTry := time.Since(lastTried)
+
+	if timeSinceLastTry < backoffDuration {
+		if logger != nil {
+			logger.Debugw("Skipping registration due to circuit breaker backoff",
+				"pod-ip", podIP,
+				"activator-url", activatorURL,
+				"attempt-count", attemptCount,
+				"backoff-duration", backoffDuration,
+				"time-since-last-try", timeSinceLastTry)
+		}
+		return true
+	}
+
+	// Backoff period has expired, allow retry
+	return false
+}
+
+// isDuplicate checks if this is a duplicate registration within the deduplication window
+func isDuplicate(podIP string, eventType string) bool {
+	deduplicationCache.mu.Lock()
+	defer deduplicationCache.mu.Unlock()
+
+	key := podIP + ":" + eventType
+	lastSeen, exists := deduplicationCache.cache[key]
+	if !exists {
+		// First time seeing this, record it
+		deduplicationCache.cache[key] = time.Now()
+		return false
+	}
+
+	// Check if still within deduplication window
+	if time.Since(lastSeen) < RegistrationDeduplicationWindow {
+		return true
+	}
+
+	// Outside window, treat as new registration
+	deduplicationCache.cache[key] = time.Now()
+	return false
+}
+
+// recordRegistrationAttempt records a registration attempt for circuit breaking
+func recordRegistrationAttempt(activatorURL string, success bool) {
+	backoffTracker.mu.Lock()
+	defer backoffTracker.mu.Unlock()
+
+	if success {
+		// Reset on success
+		backoffTracker.attempts[activatorURL] = 0
+		delete(backoffTracker.lastTried, activatorURL)
+	} else {
+		// Increment on failure
+		backoffTracker.attempts[activatorURL]++
+		backoffTracker.lastTried[activatorURL] = time.Now()
+	}
+}
+
+// cleanupDeduplicationCache removes stale entries from the deduplication cache
+// This is called periodically to prevent unbounded memory growth
+func cleanupDeduplicationCache() {
+	deduplicationCache.mu.Lock()
+	defer deduplicationCache.mu.Unlock()
+
+	now := time.Now()
+	for key, lastSeen := range deduplicationCache.cache {
+		if now.Sub(lastSeen) > RegistrationDuplicateCleanupInterval {
+			delete(deduplicationCache.cache, key)
+		}
+	}
+}
+
+// init starts a background goroutine to clean up stale deduplication entries
+func init() {
+	go func() {
+		ticker := time.NewTicker(RegistrationDuplicateCleanupInterval)
+		defer ticker.Stop()
+		for range ticker.C {
+			cleanupDeduplicationCache()
+		}
+	}()
+}
+
+// ResetDeduplicationCacheForTesting resets the deduplication cache
+// This is only exported for testing purposes and should not be used in production
+func ResetDeduplicationCacheForTesting() {
+	deduplicationCache.mu.Lock()
+	defer deduplicationCache.mu.Unlock()
+	deduplicationCache.cache = make(map[string]time.Time)
+}
+
 // PodRegistrationRequest is the JSON payload sent to the activator for pod registration
 type PodRegistrationRequest struct {
 	PodName   string `json:"pod_name"`
@@ -74,6 +248,8 @@ type PodRegistrationRequest struct {
 // activatorServiceURL should be the full base URL (e.g., "http://activator-service.knative-serving.svc.cluster.local:80")
 // If activatorServiceURL is empty, this is a no-op
 // Failures are logged at debug level and never block the caller
+// Implements circuit breaking with exponential backoff to prevent thundering herd if activator is down
+// Implements request deduplication to prevent duplicate registrations from pod restarts
 func RegisterPodWithActivator(
 	activatorServiceURL string,
 	eventType string,
@@ -87,12 +263,18 @@ func RegisterPodWithActivator(
 		return
 	}
 
+	// Check if this should be skipped due to deduplication or circuit breaker
+	if shouldSkipRegistration(activatorServiceURL, podIP, eventType, logger) {
+		return
+	}
+
 	go func() {
 		registerPodSync(activatorServiceURL, eventType, podName, podIP, namespace, revision, logger)
 	}()
 }
 
 // registerPodSync performs the actual registration request synchronously
+// Handles circuit breaking by recording failures for exponential backoff
 func registerPodSync(
 	activatorServiceURL string,
 	eventType string,
@@ -144,6 +326,9 @@ func registerPodSync(
 	// Use shared HTTP client for efficiency - avoids creating new transport for each request
 	resp, err := registrationClient.Do(httpReq)
 	if err != nil {
+		// Record failure for circuit breaker
+		recordRegistrationAttempt(activatorServiceURL, false)
+
 		if logger != nil {
 			// Check if it's a timeout error specifically
 			if errors.Is(err, context.DeadlineExceeded) {
@@ -168,6 +353,8 @@ func registerPodSync(
 	respBody, _ := io.ReadAll(resp.Body)
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		// Record successful registration for circuit breaker reset
+		recordRegistrationAttempt(activatorServiceURL, true)
 		if logger != nil {
 			logger.Debugw("Pod registration successful",
 				"event", eventType,
@@ -176,6 +363,9 @@ func registerPodSync(
 		}
 		return
 	}
+
+	// Record failed registration for circuit breaker exponential backoff
+	recordRegistrationAttempt(activatorServiceURL, false)
 
 	// Log non-success responses with appropriate levels
 	if logger != nil {
