@@ -20,7 +20,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
+	"net"
 	"net/http"
 	"time"
 
@@ -40,6 +42,23 @@ const (
 	// EventTypeReady indicates the pod is ready to serve traffic
 	EventTypeReady = "ready"
 )
+
+// registrationClient is a shared HTTP client for pod registration requests.
+// Using a shared client is more efficient than creating a new client for each request.
+// The transport is configured for connection pooling and keep-alives to reduce overhead.
+var registrationClient = &http.Client{
+	Timeout: RegistrationTimeout,
+	Transport: &http.Transport{
+		MaxIdleConns:        10,
+		MaxIdleConnsPerHost: 2,
+		IdleConnTimeout:     30 * time.Second,
+		DisableKeepAlives:   false, // Enable connection reuse
+		DialContext: (&net.Dialer{
+			Timeout:   5 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+	},
+}
 
 // PodRegistrationRequest is the JSON payload sent to the activator for pod registration
 type PodRegistrationRequest struct {
@@ -98,7 +117,7 @@ func registerPodSync(
 	body, err := json.Marshal(req)
 	if err != nil {
 		if logger != nil {
-			logger.Debugw("Failed to marshal pod registration request",
+			logger.Errorw("Failed to marshal pod registration request",
 				"event", eventType,
 				"pod", podName,
 				"error", err)
@@ -110,7 +129,7 @@ func registerPodSync(
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		if logger != nil {
-			logger.Debugw("Failed to create pod registration request",
+			logger.Errorw("Failed to create pod registration request",
 				"event", eventType,
 				"pod", podName,
 				"url", url,
@@ -122,24 +141,24 @@ func registerPodSync(
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", "knative-queue-proxy")
 
-	client := &http.Client{
-		Timeout: RegistrationTimeout,
-		Transport: &http.Transport{
-			MaxIdleConns:        10,
-			MaxIdleConnsPerHost: 2,
-			IdleConnTimeout:     30 * time.Second,
-		},
-	}
-	defer client.CloseIdleConnections()
-
-	resp, err := client.Do(httpReq)
+	// Use shared HTTP client for efficiency - avoids creating new transport for each request
+	resp, err := registrationClient.Do(httpReq)
 	if err != nil {
 		if logger != nil {
-			logger.Debugw("Pod registration request failed",
-				"event", eventType,
-				"pod", podName,
-				"url", url,
-				"error", err)
+			// Check if it's a timeout error specifically
+			if errors.Is(err, context.DeadlineExceeded) {
+				logger.Warnw("Pod registration request timeout",
+					"event", eventType,
+					"pod", podName,
+					"url", url,
+					"timeout", RegistrationTimeout)
+			} else {
+				logger.Errorw("Pod registration request failed",
+					"event", eventType,
+					"pod", podName,
+					"url", url,
+					"error", err)
+			}
 		}
 		return
 	}
@@ -158,12 +177,26 @@ func registerPodSync(
 		return
 	}
 
-	// Log non-success responses at debug level to avoid spam if activator is unavailable
+	// Log non-success responses with appropriate levels
 	if logger != nil {
-		logger.Debugw("Pod registration request failed with non-2xx status",
-			"event", eventType,
-			"pod", podName,
-			"status", resp.StatusCode,
-			"response", string(respBody))
+		if resp.StatusCode >= 500 {
+			logger.Errorw("Pod registration server error (5xx)",
+				"event", eventType,
+				"pod", podName,
+				"status", resp.StatusCode,
+				"response", string(respBody))
+		} else if resp.StatusCode >= 400 {
+			logger.Warnw("Pod registration client error (4xx)",
+				"event", eventType,
+				"pod", podName,
+				"status", resp.StatusCode,
+				"response", string(respBody))
+		} else {
+			logger.Warnw("Pod registration request failed with unexpected status",
+				"event", eventType,
+				"pod", podName,
+				"status", resp.StatusCode,
+				"response", string(respBody))
+		}
 	}
 }

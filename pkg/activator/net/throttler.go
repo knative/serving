@@ -1473,7 +1473,6 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 // - Does not interfere with quarantine/recovery states
 func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, logger *zap.SugaredLogger) {
 	rt.mux.Lock()
-	defer rt.mux.Unlock()
 
 	existing, exists := rt.podTrackers[podIP]
 
@@ -1508,6 +1507,7 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
 				"pod-ip", podIP,
 				"current-state", currentState)
 		}
+		rt.mux.Unlock()
 		return
 	}
 
@@ -1534,15 +1534,20 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
 
 	// Add tracker to the map
 	rt.podTrackers[podIP] = tracker
+	podCount := len(rt.podTrackers)
 	logger.Infow("Discovered new pod via push-based registration",
 		"revision", rt.revID.String(),
 		"pod-ip", podIP,
 		"event-type", eventType,
 		"initial-state", podState(tracker.state.Load()),
-		"total-trackers-now", len(rt.podTrackers))
+		"total-trackers-now", podCount)
 
-	// Recalculate capacity with the new pod
-	rt.updateCapacity(len(rt.podTrackers))
+	rt.mux.Unlock()
+
+	// CRITICAL: Must call updateCapacity OUTSIDE the lock to avoid deadlock.
+	// updateCapacity needs to acquire rt.mux.RLock() internally, which is incompatible
+	// with holding rt.mux.Lock() from above.
+	rt.updateCapacity(podCount)
 }
 
 // Throttler load balances requests to revisions based on capacity. When `Run` is called it listens for
