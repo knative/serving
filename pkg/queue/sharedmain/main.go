@@ -112,7 +112,7 @@ type config struct {
 	TracingConfigZipkinEndpoint string                    `split_words:"true"` // optional
 
 	// Pod registration configuration
-	ActivatorServiceURL string `split_words:"true"` // optional
+	ActivatorServiceURL string `split_words:"true" default:"http://activator-service.knative-serving.svc.cluster.local:80"` // optional
 
 	Env
 }

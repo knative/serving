@@ -243,7 +243,7 @@ func TestRegisterPodWithActivator_MultipleRequests(t *testing.T) {
 	defer server.Close()
 
 	// Send multiple registrations
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		podName := "test-pod-" + string(rune(i))
 		podIP := "10.0.0." + string(rune(5+i))
 
@@ -277,7 +277,7 @@ func TestRegisterPodWithActivator_ConcurrentRequests(t *testing.T) {
 
 	// Send 100 concurrent registrations
 	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		wg.Add(1)
 		go func(index int) {
 			defer wg.Done()
@@ -400,7 +400,7 @@ func BenchmarkRegisterPodWithActivator(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		RegisterPodWithActivator(server.URL, EventTypeStartup, "test-pod", "10.0.0.5", "default", "my-revision", sugaredLogger)
 	}
 
@@ -422,7 +422,7 @@ func BenchmarkRegisterPodWithActivator_Latency(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		RegisterPodWithActivator(server.URL, EventTypeStartup, "test-pod", "10.0.0.5", "default", "my-revision", sugaredLogger)
 	}
 

@@ -55,8 +55,15 @@ type PodRegistrationRequest struct {
 // activatorServiceURL should be the full base URL (e.g., "http://activator-service.knative-serving.svc.cluster.local:80")
 // If activatorServiceURL is empty, this is a no-op
 // Failures are logged at debug level and never block the caller
-func RegisterPodWithActivator(activatorServiceURL string, eventType string, podName string, podIP string,
-	namespace string, revision string, logger *zap.SugaredLogger) {
+func RegisterPodWithActivator(
+	activatorServiceURL string,
+	eventType string,
+	podName string,
+	podIP string,
+	namespace string,
+	revision string,
+	logger *zap.SugaredLogger,
+) {
 	if activatorServiceURL == "" {
 		return
 	}
@@ -67,8 +74,15 @@ func RegisterPodWithActivator(activatorServiceURL string, eventType string, podN
 }
 
 // registerPodSync performs the actual registration request synchronously
-func registerPodSync(activatorServiceURL string, eventType string, podName string, podIP string,
-	namespace string, revision string, logger *zap.SugaredLogger) {
+func registerPodSync(
+	activatorServiceURL string,
+	eventType string,
+	podName string,
+	podIP string,
+	namespace string,
+	revision string,
+	logger *zap.SugaredLogger,
+) {
 	ctx, cancel := context.WithTimeout(context.Background(), RegistrationTimeout)
 	defer cancel()
 

@@ -35,12 +35,9 @@ import (
 )
 
 type captureThrottler struct {
-	mu                sync.Mutex
-	registrations     []registrationCall
-	handleUpdateCh    chan bool
-	expectedRevID     types.NamespacedName
-	expectedPodIP     string
-	expectedEventType string
+	mu             sync.Mutex
+	registrations  []registrationCall
+	handleUpdateCh chan bool
 }
 
 type registrationCall struct {
@@ -95,7 +92,7 @@ func TestPodRegistrationHandler_ValidRequest(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(req)
-	r := httptest.NewRequest("POST", "/api/v1/pod-registration", bytes.NewReader(body))
+	r := httptest.NewRequest(http.MethodPost, "/api/v1/pod-registration", bytes.NewReader(body))
 
 	handler.ServeHTTP(w, r)
 
@@ -152,7 +149,7 @@ func TestPodRegistrationHandler_ReadyEvent(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(req)
-	r := httptest.NewRequest("POST", "/api/v1/pod-registration", bytes.NewReader(body))
+	r := httptest.NewRequest(http.MethodPost, "/api/v1/pod-registration", bytes.NewReader(body))
 
 	handler.ServeHTTP(w, r)
 
@@ -244,7 +241,7 @@ func TestPodRegistrationHandler_MissingField(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
 			body, _ := json.Marshal(tc.req)
-			r := httptest.NewRequest("POST", "/api/v1/pod-registration", bytes.NewReader(body))
+			r := httptest.NewRequest(http.MethodPost, "/api/v1/pod-registration", bytes.NewReader(body))
 
 			handler.ServeHTTP(w, r)
 
@@ -295,7 +292,7 @@ func TestPodRegistrationHandler_InvalidJSON(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	// Send invalid JSON
-	r := httptest.NewRequest("POST", "/api/v1/pod-registration", bytes.NewReader([]byte("invalid json {{")))
+	r := httptest.NewRequest(http.MethodPost, "/api/v1/pod-registration", bytes.NewReader([]byte("invalid json {{")))
 
 	handler.ServeHTTP(w, r)
 
@@ -316,7 +313,7 @@ func TestPodRegistrationHandler_EmptyBody(t *testing.T) {
 	handler := PodRegistrationHandler(throttler, logger)
 	w := httptest.NewRecorder()
 
-	r := httptest.NewRequest("POST", "/api/v1/pod-registration", io.NopCloser(bytes.NewReader([]byte(""))))
+	r := httptest.NewRequest(http.MethodPost, "/api/v1/pod-registration", io.NopCloser(bytes.NewReader([]byte(""))))
 
 	handler.ServeHTTP(w, r)
 
@@ -339,7 +336,7 @@ func TestPodRegistrationHandler_MultipleRequests(t *testing.T) {
 	handler := PodRegistrationHandler(throttler, logger)
 
 	// Send multiple requests
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		w := httptest.NewRecorder()
 
 		req := PodRegistrationRequest{
@@ -352,7 +349,7 @@ func TestPodRegistrationHandler_MultipleRequests(t *testing.T) {
 		}
 
 		body, _ := json.Marshal(req)
-		r := httptest.NewRequest("POST", "/api/v1/pod-registration", bytes.NewReader(body))
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/pod-registration", bytes.NewReader(body))
 
 		handler.ServeHTTP(w, r)
 
@@ -362,7 +359,7 @@ func TestPodRegistrationHandler_MultipleRequests(t *testing.T) {
 	}
 
 	// Wait for all registrations
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		select {
 		case <-throttler.handleUpdateCh:
 		case <-time.After(time.Second):
@@ -404,7 +401,7 @@ func TestPodRegistrationHandler_ResponseContentType(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(req)
-	r := httptest.NewRequest("POST", "/api/v1/pod-registration", bytes.NewReader(body))
+	r := httptest.NewRequest(http.MethodPost, "/api/v1/pod-registration", bytes.NewReader(body))
 
 	handler.ServeHTTP(w, r)
 
@@ -424,7 +421,7 @@ func TestPodRegistrationHandler_ConcurrentRequests(t *testing.T) {
 
 	// Send 100 concurrent requests
 	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		wg.Add(1)
 		go func(index int) {
 			defer wg.Done()
@@ -441,7 +438,7 @@ func TestPodRegistrationHandler_ConcurrentRequests(t *testing.T) {
 			}
 
 			body, _ := json.Marshal(req)
-			r := httptest.NewRequest("POST", "/api/v1/pod-registration", bytes.NewReader(body))
+			r := httptest.NewRequest(http.MethodPost, "/api/v1/pod-registration", bytes.NewReader(body))
 
 			handler.ServeHTTP(w, r)
 
@@ -454,7 +451,7 @@ func TestPodRegistrationHandler_ConcurrentRequests(t *testing.T) {
 	wg.Wait()
 
 	// Wait for all registrations
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		select {
 		case <-throttler.handleUpdateCh:
 		case <-time.After(5 * time.Second):
@@ -569,7 +566,7 @@ func TestPodRegistrationHandlerIntegration(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(req)
-	r := httptest.NewRequest("POST", "/api/v1/pod-registration", bytes.NewReader(body))
+	r := httptest.NewRequest(http.MethodPost, "/api/v1/pod-registration", bytes.NewReader(body))
 
 	// This should complete without panic
 	handler.ServeHTTP(w, r)
@@ -609,9 +606,9 @@ func BenchmarkPodRegistrationHandler(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		w := httptest.NewRecorder()
-		r := httptest.NewRequest("POST", "/api/v1/pod-registration", bytes.NewReader(body))
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/pod-registration", bytes.NewReader(body))
 		handler.ServeHTTP(w, r)
 	}
 }
