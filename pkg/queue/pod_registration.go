@@ -28,6 +28,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap"
 )
 
@@ -59,6 +61,59 @@ const (
 
 	// RegistrationDuplicateCleanupInterval is how often to clean stale deduplication entries (30 seconds)
 	RegistrationDuplicateCleanupInterval = 30 * time.Second
+)
+
+// Prometheus metrics for pod registration monitoring
+var (
+	// registrationAttempts tracks the number of pod registration attempts
+	// Labels: result (success, timeout, network_error, 4xx, 5xx), event_type (startup, ready)
+	registrationAttempts = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "pod_registration_attempts_total",
+			Help: "Total number of pod registration attempts to activator",
+		},
+		[]string{"result", "event_type"},
+	)
+
+	// registrationLatency tracks the time taken to register a pod
+	// Labels: event_type (startup, ready)
+	registrationLatency = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name: "pod_registration_duration_seconds",
+			Help: "Time taken to complete pod registration request",
+			Buckets: []float64{.01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+		},
+		[]string{"event_type"},
+	)
+
+	// circuitBreakerFailures tracks the number of consecutive failures per activator
+	// This is a gauge that shows current failure count for each activator URL
+	// Labels: activator_url
+	circuitBreakerFailures = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "pod_registration_circuit_breaker_failures",
+			Help: "Current number of consecutive registration failures for activator",
+		},
+		[]string{"activator_url"},
+	)
+
+	// deduplicationCacheSize tracks the size of the active deduplication cache
+	deduplicationCacheSize = promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "pod_registration_deduplication_cache_size",
+			Help: "Number of entries in the registration deduplication cache",
+		},
+	)
+
+	// registrationSkipped tracks the number of registration attempts skipped due to circuit breaking or deduplication
+	// Labels: reason (duplicate, circuit_breaking), event_type (startup, ready)
+	registrationSkipped = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "pod_registration_skipped_total",
+			Help: "Number of registration attempts skipped due to circuit breaking or deduplication",
+		},
+		[]string{"reason", "event_type"},
+	)
 )
 
 // registrationClient is a shared HTTP client for pod registration requests.
@@ -129,6 +184,7 @@ func shouldSkipRegistration(activatorURL string, podIP string, eventType string,
 				"event-type", eventType,
 				"activator-url", activatorURL)
 		}
+		registrationSkipped.WithLabelValues("duplicate", eventType).Inc()
 		return true
 	}
 
@@ -155,6 +211,7 @@ func shouldSkipRegistration(activatorURL string, podIP string, eventType string,
 				"backoff-duration", backoffDuration,
 				"time-since-last-try", timeSinceLastTry)
 		}
+		registrationSkipped.WithLabelValues("circuit_breaking", eventType).Inc()
 		return true
 	}
 
@@ -194,10 +251,14 @@ func recordRegistrationAttempt(activatorURL string, success bool) {
 		// Reset on success
 		backoffTracker.attempts[activatorURL] = 0
 		delete(backoffTracker.lastTried, activatorURL)
+		// Update gauge to reflect reset
+		circuitBreakerFailures.WithLabelValues(activatorURL).Set(0)
 	} else {
 		// Increment on failure
 		backoffTracker.attempts[activatorURL]++
 		backoffTracker.lastTried[activatorURL] = time.Now()
+		// Update gauge with new failure count
+		circuitBreakerFailures.WithLabelValues(activatorURL).Set(float64(backoffTracker.attempts[activatorURL]))
 	}
 }
 
@@ -215,13 +276,17 @@ func cleanupDeduplicationCache() {
 	}
 }
 
-// init starts a background goroutine to clean up stale deduplication entries
+// init starts background goroutines to clean up stale deduplication entries and update metrics
 func init() {
 	go func() {
 		ticker := time.NewTicker(RegistrationDuplicateCleanupInterval)
 		defer ticker.Stop()
 		for range ticker.C {
 			cleanupDeduplicationCache()
+			// Update deduplication cache size metric
+			deduplicationCache.mu.Lock()
+			deduplicationCacheSize.Set(float64(len(deduplicationCache.cache)))
+			deduplicationCache.mu.Unlock()
 		}
 	}()
 }
@@ -275,6 +340,7 @@ func RegisterPodWithActivator(
 
 // registerPodSync performs the actual registration request synchronously
 // Handles circuit breaking by recording failures for exponential backoff
+// Records metrics about registration attempts and latency
 func registerPodSync(
 	activatorServiceURL string,
 	eventType string,
@@ -284,6 +350,7 @@ func registerPodSync(
 	revision string,
 	logger *zap.SugaredLogger,
 ) {
+	startTime := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), RegistrationTimeout)
 	defer cancel()
 
@@ -328,16 +395,21 @@ func registerPodSync(
 	if err != nil {
 		// Record failure for circuit breaker
 		recordRegistrationAttempt(activatorServiceURL, false)
+		registrationLatency.WithLabelValues(eventType).Observe(time.Since(startTime).Seconds())
 
-		if logger != nil {
-			// Check if it's a timeout error specifically
-			if errors.Is(err, context.DeadlineExceeded) {
+		// Check if it's a timeout error specifically and record appropriate metric
+		if errors.Is(err, context.DeadlineExceeded) {
+			registrationAttempts.WithLabelValues("timeout", eventType).Inc()
+			if logger != nil {
 				logger.Warnw("Pod registration request timeout",
 					"event", eventType,
 					"pod", podName,
 					"url", url,
 					"timeout", RegistrationTimeout)
-			} else {
+			}
+		} else {
+			registrationAttempts.WithLabelValues("network_error", eventType).Inc()
+			if logger != nil {
 				logger.Errorw("Pod registration request failed",
 					"event", eventType,
 					"pod", podName,
@@ -355,6 +427,9 @@ func registerPodSync(
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		// Record successful registration for circuit breaker reset
 		recordRegistrationAttempt(activatorServiceURL, true)
+		// Record metrics
+		registrationAttempts.WithLabelValues("success", eventType).Inc()
+		registrationLatency.WithLabelValues(eventType).Observe(time.Since(startTime).Seconds())
 		if logger != nil {
 			logger.Debugw("Pod registration successful",
 				"event", eventType,
@@ -366,27 +441,40 @@ func registerPodSync(
 
 	// Record failed registration for circuit breaker exponential backoff
 	recordRegistrationAttempt(activatorServiceURL, false)
+	registrationLatency.WithLabelValues(eventType).Observe(time.Since(startTime).Seconds())
 
-	// Log non-success responses with appropriate levels
+	// Log non-success responses with appropriate levels and record metrics
 	if logger != nil {
 		if resp.StatusCode >= 500 {
+			registrationAttempts.WithLabelValues("5xx", eventType).Inc()
 			logger.Errorw("Pod registration server error (5xx)",
 				"event", eventType,
 				"pod", podName,
 				"status", resp.StatusCode,
 				"response", string(respBody))
 		} else if resp.StatusCode >= 400 {
+			registrationAttempts.WithLabelValues("4xx", eventType).Inc()
 			logger.Warnw("Pod registration client error (4xx)",
 				"event", eventType,
 				"pod", podName,
 				"status", resp.StatusCode,
 				"response", string(respBody))
 		} else {
+			registrationAttempts.WithLabelValues("unexpected", eventType).Inc()
 			logger.Warnw("Pod registration request failed with unexpected status",
 				"event", eventType,
 				"pod", podName,
 				"status", resp.StatusCode,
 				"response", string(respBody))
+		}
+	} else {
+		// Record metrics even if logger is nil
+		if resp.StatusCode >= 500 {
+			registrationAttempts.WithLabelValues("5xx", eventType).Inc()
+		} else if resp.StatusCode >= 400 {
+			registrationAttempts.WithLabelValues("4xx", eventType).Inc()
+		} else {
+			registrationAttempts.WithLabelValues("unexpected", eventType).Inc()
 		}
 	}
 }
