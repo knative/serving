@@ -28,10 +28,16 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	. "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/ptr"
+	rtesting "knative.dev/pkg/reconciler/testing"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 )
 
 type captureThrottler struct {
@@ -71,6 +77,19 @@ func (ct *captureThrottler) getRegistrations() []registrationCall {
 	result := make([]registrationCall, len(ct.registrations))
 	copy(result, ct.registrations)
 	return result
+}
+
+// newTestRevision creates a test revision with the given namespace, name, and container concurrency
+func newTestRevision(namespace, name string, cc int64) *v1.Revision {
+	return &v1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+		Spec: v1.RevisionSpec{
+			ContainerConcurrency: ptr.Int64(cc),
+		},
+	}
 }
 
 func TestPodRegistrationHandler_ValidRequest(t *testing.T) {
@@ -467,15 +486,32 @@ func TestPodRegistrationHandler_ConcurrentRequests(t *testing.T) {
 
 func TestThrottler_HandlePodRegistration(t *testing.T) {
 	logger := TestLogger(t)
-	ctx := context.Background()
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 
-	// Create a real throttler with fake informers
-	throttler := NewThrottler(ctx, "10.10.10.10")
+	servfake := fakeservingclient.Get(ctx)
+	revisions := fakerevisioninformer.Get(ctx)
 
 	revID := types.NamespacedName{
 		Namespace: "default",
 		Name:      "my-revision",
 	}
+
+	// Create the revision in the fake client
+	revision := newTestRevision(revID.Namespace, revID.Name, 1)
+	servfake.ServingV1().Revisions(revID.Namespace).Create(ctx, revision, metav1.CreateOptions{})
+	revisions.Informer().GetIndexer().Add(revision)
+
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, revisions.Informer())
+	if err != nil {
+		t.Fatal("Failed to start informers:", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
+
+	// Create a real throttler with fake informers
+	throttler := NewThrottler(ctx, "10.10.10.10")
 
 	// Call HandlePodRegistration
 	throttler.HandlePodRegistration(revID, "10.0.0.5", "startup", logger)
@@ -498,14 +534,31 @@ func TestThrottler_HandlePodRegistration(t *testing.T) {
 
 func TestThrottler_HandlePodRegistration_MultipleIPs(t *testing.T) {
 	logger := TestLogger(t)
-	ctx := context.Background()
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 
-	throttler := NewThrottler(ctx, "10.10.10.10")
+	servfake := fakeservingclient.Get(ctx)
+	revisions := fakerevisioninformer.Get(ctx)
 
 	revID := types.NamespacedName{
 		Namespace: "default",
 		Name:      "my-revision",
 	}
+
+	// Create the revision in the fake client
+	revision := newTestRevision(revID.Namespace, revID.Name, 1)
+	servfake.ServingV1().Revisions(revID.Namespace).Create(ctx, revision, metav1.CreateOptions{})
+	revisions.Informer().GetIndexer().Add(revision)
+
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, revisions.Informer())
+	if err != nil {
+		t.Fatal("Failed to start informers:", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
+
+	throttler := NewThrottler(ctx, "10.10.10.10")
 
 	// Register multiple pod IPs for the same revision
 	ips := []string{"10.0.0.5", "10.0.0.6", "10.0.0.7"}
@@ -522,14 +575,31 @@ func TestThrottler_HandlePodRegistration_MultipleIPs(t *testing.T) {
 
 func TestThrottler_HandlePodRegistration_EmptyIP(t *testing.T) {
 	logger := TestLogger(t)
-	ctx := context.Background()
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 
-	throttler := NewThrottler(ctx, "10.10.10.10")
+	servfake := fakeservingclient.Get(ctx)
+	revisions := fakerevisioninformer.Get(ctx)
 
 	revID := types.NamespacedName{
 		Namespace: "default",
 		Name:      "my-revision",
 	}
+
+	// Create the revision in the fake client
+	revision := newTestRevision(revID.Namespace, revID.Name, 1)
+	servfake.ServingV1().Revisions(revID.Namespace).Create(ctx, revision, metav1.CreateOptions{})
+	revisions.Informer().GetIndexer().Add(revision)
+
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, revisions.Informer())
+	if err != nil {
+		t.Fatal("Failed to start informers:", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
+
+	throttler := NewThrottler(ctx, "10.10.10.10")
 
 	// Call with empty IP - should be no-op
 	throttler.HandlePodRegistration(revID, "", "startup", logger)
@@ -543,18 +613,35 @@ func TestThrottler_HandlePodRegistration_EmptyIP(t *testing.T) {
 // Verify the handler integrates properly with the Throttler interface
 func TestPodRegistrationHandlerIntegration(t *testing.T) {
 	logger := TestLogger(t)
-	ctx := context.Background()
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+
+	servfake := fakeservingclient.Get(ctx)
+	revisions := fakerevisioninformer.Get(ctx)
+
+	revID := types.NamespacedName{
+		Namespace: "default",
+		Name:      "test-revision",
+	}
+
+	// Create the revision in the fake client
+	revision := newTestRevision(revID.Namespace, revID.Name, 1)
+	servfake.ServingV1().Revisions(revID.Namespace).Create(ctx, revision, metav1.CreateOptions{})
+	revisions.Informer().GetIndexer().Add(revision)
+
+	waitInformers, err := rtesting.RunAndSyncInformers(ctx, revisions.Informer())
+	if err != nil {
+		t.Fatal("Failed to start informers:", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
 
 	// Create a real throttler
 	throttler := NewThrottler(ctx, "10.10.10.10")
 
 	handler := PodRegistrationHandler(throttler, logger)
 	w := httptest.NewRecorder()
-
-	revID := types.NamespacedName{
-		Namespace: "default",
-		Name:      "test-revision",
-	}
 
 	req := PodRegistrationRequest{
 		PodName:   "test-pod",
