@@ -255,7 +255,7 @@ func Main(opts ...Option) error {
 	}
 
 	if env.Observability.Runtime.ProfilingEnabled() {
-		logger.Info("Rutime profiling enabled")
+		logger.Info("Runtime profiling enabled")
 		pprof := runtime.NewProfilingServer()
 		pprof.SetEnabled(true)
 		httpServers["profile"] = pprof.Server
@@ -267,16 +267,13 @@ func Main(opts ...Option) error {
 
 	if tlsEnabled {
 		tlsServers["main"] = mainServer(":"+env.QueueServingTLSPort, mainHandler)
-		tlsServers["admin"] = adminServer(":"+strconv.Itoa(networking.QueueAdminPort), adminHandler)
+		// Keep admin server on HTTP even with TLS enabled since it's only accessed locally by kubelet
 
 		certWatcher, err = certificate.NewCertWatcher(certPath, keyPath, 1*time.Minute, logger)
 		if err != nil {
 			logger.Fatal("failed to create certWatcher", zap.Error(err))
 		}
 		defer certWatcher.Stop()
-
-		// Drop admin http server since the admin TLS server is listening on the same port
-		delete(httpServers, "admin")
 	}
 
 	logger.Info("Starting queue-proxy")
