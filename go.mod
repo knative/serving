@@ -15,6 +15,7 @@ require (
 	github.com/hashicorp/golang-lru v1.0.2
 	github.com/influxdata/influxdb-client-go/v2 v2.9.0
 	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/prometheus/client_golang v1.20.5
 	github.com/tsenart/vegeta/v12 v12.12.0
 	go.opencensus.io v0.24.0
 	go.uber.org/automaxprocs v1.6.0
@@ -122,7 +123,6 @@ require (
 	github.com/opencontainers/image-spec v1.1.0 // indirect
 	github.com/openzipkin/zipkin-go v0.4.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/prometheus/client_golang v1.20.5 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.62.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
