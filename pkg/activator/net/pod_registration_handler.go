@@ -34,9 +34,14 @@ type PodRegistrationRequest struct {
 	Timestamp string `json:"timestamp"`
 }
 
+// PodRegistrationThrottler defines the interface for throttler operations needed by the pod registration handler
+type PodRegistrationThrottler interface {
+	HandlePodRegistration(revID types.NamespacedName, podIP string, eventType string, logger *zap.SugaredLogger)
+}
+
 // PodRegistrationHandler creates an HTTP handler for receiving pod registration notifications
 // The handler integrates with the throttler to create/update pod trackers on startup and ready events
-func PodRegistrationHandler(throttler *Throttler, logger *zap.SugaredLogger) http.HandlerFunc {
+func PodRegistrationHandler(throttler PodRegistrationThrottler, logger *zap.SugaredLogger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
