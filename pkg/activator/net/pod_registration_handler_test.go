@@ -35,11 +35,11 @@ import (
 )
 
 type captureThrottler struct {
-	mu              sync.Mutex
-	registrations   []registrationCall
-	handleUpdateCh  chan bool
-	expectedRevID   types.NamespacedName
-	expectedPodIP   string
+	mu                sync.Mutex
+	registrations     []registrationCall
+	handleUpdateCh    chan bool
+	expectedRevID     types.NamespacedName
+	expectedPodIP     string
 	expectedEventType string
 }
 
@@ -433,7 +433,7 @@ func TestPodRegistrationHandler_ConcurrentRequests(t *testing.T) {
 
 			req := PodRegistrationRequest{
 				PodName:   "test-pod-" + string(rune(index)),
-				PodIP:     "10.0.0." + string(rune((index % 250) + 5)),
+				PodIP:     "10.0.0." + string(rune((index%250)+5)),
 				Namespace: "default",
 				Revision:  "my-revision",
 				EventType: "startup",

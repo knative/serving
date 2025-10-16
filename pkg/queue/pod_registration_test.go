@@ -283,7 +283,7 @@ func TestRegisterPodWithActivator_ConcurrentRequests(t *testing.T) {
 			defer wg.Done()
 
 			podName := "test-pod-" + string(rune(index))
-			podIP := "10.0.0." + string(rune((index % 250) + 5))
+			podIP := "10.0.0." + string(rune((index%250)+5))
 
 			RegisterPodWithActivator(server.URL, EventTypeStartup, podName, podIP, "default", "my-revision", sugaredLogger)
 		}(i)
