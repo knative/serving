@@ -126,7 +126,7 @@ func TestQPAuthorityOverridesInformer(t *testing.T) {
 
 		// 2. Manually set QP data to be old (>60s ago) to simulate stale QP
 		tracker.lastQPUpdate.Store(time.Now().Unix() - 70) // 70s ago
-		tracker.lastQPState.Store("not-ready")              // Last said not-ready
+		tracker.lastQPState.Store("not-ready")             // Last said not-ready
 
 		// Verify pod is pending
 		if podState(tracker.state.Load()) != podPending {
