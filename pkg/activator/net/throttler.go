@@ -1310,82 +1310,166 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 // - "not-ready": demotes podReady → podPending (stops new traffic, preserves active requests)
 // - "draining": transitions podReady → podDraining (graceful shutdown)
 // QP events are AUTHORITATIVE and override K8s informer state (see QP_AUTHORITATIVE_REFACTOR.md)
+//
+// PERFORMANCE: Lock hold time minimized to reduce contention under high pod registration load.
+// Logging and metrics recording happen outside critical section.
 func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, logger *zap.SugaredLogger) {
+	// Variables to capture state for logging/metrics outside lock
+	var (
+		shouldLog          bool
+		logLevel           string // "info", "warn", "debug"
+		logMessage         string
+		logPodIP           string
+		logRevision        string
+		logCurrentState    podState
+		logRefCount        uint64
+		shouldRecordMetric bool
+		metricFrom         string
+		metricTo           string
+	)
+
 	rt.mux.Lock()
 
 	existing, exists := rt.podTrackers[podIP]
 
 	if exists {
-		// Update QP freshness tracking
+		// Update QP freshness tracking (atomic ops, fast)
 		existing.lastQPUpdate.Store(time.Now().Unix())
 		existing.lastQPState.Store(eventType)
 
 		currentState := podState(existing.state.Load())
 
+		// Perform state transitions - NO logging inside lock
 		switch eventType {
 		case "startup":
-			// Duplicate startup - noop
-			logger.Debugw("Duplicate startup event (pod already tracked)",
-				"revision", rt.revID.String(),
-				"pod-ip", podIP,
-				"current-state", currentState)
+			// Duplicate startup - capture for logging
+			shouldLog = true
+			logLevel = "debug"
+			logMessage = "Duplicate startup event (pod already tracked)"
+			logPodIP = podIP
+			logRevision = rt.revID.String()
+			logCurrentState = currentState
 
 		case "ready":
 			// QP says ready - promote to healthy immediately
 			if currentState == podPending {
 				if existing.state.CompareAndSwap(uint32(podPending), uint32(podReady)) {
-					podStateTransitions.WithLabelValues("pending", "ready", "qp_push").Inc()
-					logger.Infow("QP promoted pending pod to healthy",
-						"revision", rt.revID.String(),
-						"pod-ip", podIP)
+					// Transition succeeded - capture for metric and log
+					shouldRecordMetric = true
+					metricFrom = "pending"
+					metricTo = "ready"
+					shouldLog = true
+					logLevel = "info"
+					logMessage = "QP promoted pending pod to ready"
+					logPodIP = podIP
+					logRevision = rt.revID.String()
 				}
 			} else {
-				logger.Debugw("Duplicate ready event (pod already in non-pending state)",
-					"revision", rt.revID.String(),
-					"pod-ip", podIP,
-					"current-state", currentState)
+				shouldLog = true
+				logLevel = "debug"
+				logMessage = "Duplicate ready event (pod already in non-pending state)"
+				logPodIP = podIP
+				logRevision = rt.revID.String()
+				logCurrentState = currentState
 			}
 
 		case "not-ready":
 			// QP says not-ready - demote to pending
 			// CRITICAL: Preserves breaker and refCount - just stops NEW traffic
 			if currentState == podReady {
+				refCount := existing.refCount.Load() // Capture before CAS
 				if existing.state.CompareAndSwap(uint32(podReady), uint32(podPending)) {
-					podStateTransitions.WithLabelValues("ready", "pending", "qp_push").Inc()
-					logger.Warnw("QP demoted pod to pending (readiness probe failed)",
-						"revision", rt.revID.String(),
-						"pod-ip", podIP,
-						"active-requests", existing.refCount.Load())
+					// Transition succeeded
+					shouldRecordMetric = true
+					metricFrom = "ready"
+					metricTo = "pending"
+					shouldLog = true
+					logLevel = "warn"
+					logMessage = "QP demoted pod to pending (readiness probe failed)"
+					logPodIP = podIP
+					logRevision = rt.revID.String()
+					logRefCount = refCount
 				}
 			} else {
-				logger.Debugw("not-ready event on non-healthy pod",
-					"revision", rt.revID.String(),
-					"pod-ip", podIP,
-					"current-state", currentState)
+				shouldLog = true
+				logLevel = "debug"
+				logMessage = "not-ready event on non-ready pod"
+				logPodIP = podIP
+				logRevision = rt.revID.String()
+				logCurrentState = currentState
 			}
 
 		case "draining":
 			// QP says draining - transition to draining state
+			refCount := existing.refCount.Load() // Capture before tryDrain
 			if existing.tryDrain() {
-				podStateTransitions.WithLabelValues("ready", "draining", "qp_push").Inc()
-				logger.Infow("QP initiated pod draining",
-					"revision", rt.revID.String(),
-					"pod-ip", podIP,
-					"active-requests", existing.refCount.Load())
+				// Transition succeeded
+				shouldRecordMetric = true
+				metricFrom = "ready"
+				metricTo = "draining"
+				shouldLog = true
+				logLevel = "info"
+				logMessage = "QP initiated pod draining"
+				logPodIP = podIP
+				logRevision = rt.revID.String()
+				logRefCount = refCount
 			} else {
-				logger.Debugw("draining event on non-healthy pod (already draining/removed)",
-					"revision", rt.revID.String(),
-					"pod-ip", podIP,
-					"current-state", currentState)
+				shouldLog = true
+				logLevel = "debug"
+				logMessage = "draining event on non-ready pod (already draining/removed)"
+				logPodIP = podIP
+				logRevision = rt.revID.String()
+				logCurrentState = currentState
 			}
 		}
 
 		rt.mux.Unlock()
+
+		// Log and record metrics OUTSIDE lock to minimize contention
+		if shouldRecordMetric {
+			podStateTransitions.WithLabelValues(metricFrom, metricTo, "qp_push").Inc()
+		}
+
+		if shouldLog {
+			switch logLevel {
+			case "info":
+				if logRefCount > 0 {
+					logger.Infow(logMessage,
+						"revision", logRevision,
+						"pod-ip", logPodIP,
+						"active-requests", logRefCount)
+				} else {
+					logger.Infow(logMessage,
+						"revision", logRevision,
+						"pod-ip", logPodIP)
+				}
+			case "warn":
+				logger.Warnw(logMessage,
+					"revision", logRevision,
+					"pod-ip", logPodIP,
+					"active-requests", logRefCount)
+			case "debug":
+				if logCurrentState != 0 {
+					logger.Debugw(logMessage,
+						"revision", logRevision,
+						"pod-ip", logPodIP,
+						"current-state", logCurrentState)
+				} else {
+					logger.Debugw(logMessage,
+						"revision", logRevision,
+						"pod-ip", logPodIP)
+				}
+			}
+		}
+
 		return
 	}
 
-	// Pod doesn't exist - create new tracker
+	// Pod doesn't exist - create new tracker OUTSIDE lock to minimize contention
 	cc := int(rt.containerConcurrency.Load())
+
+	rt.mux.Unlock() // Release lock while creating tracker (expensive)
+
 	var tracker *podTracker
 	if cc == 0 {
 		tracker = newPodTracker(podIP, rt.revID, nil)
@@ -1398,28 +1482,48 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
 	}
 
 	// Set initial state based on event type
-	// For "ready" events, assume pod is healthy; for others, mark as pending
 	if eventType == "ready" {
 		tracker.state.Store(uint32(podReady))
 	} else {
 		tracker.state.Store(uint32(podPending))
 	}
 
-	// Initialize QP tracking for new pod
+	// Initialize QP tracking
 	tracker.lastQPUpdate.Store(time.Now().Unix())
 	tracker.lastQPState.Store(eventType)
 
-	// Add tracker to the map
+	// Re-acquire lock to add tracker to map
+	rt.mux.Lock()
+
+	// Check if another goroutine added this pod while we were creating tracker
+	if existing, exists := rt.podTrackers[podIP]; exists {
+		// Race: another registration beat us to it
+		// Update the existing tracker's QP data and discard our new tracker
+		existing.lastQPUpdate.Store(time.Now().Unix())
+		existing.lastQPState.Store(eventType)
+
+		rt.mux.Unlock()
+
+		logger.Debugw("Pod added by concurrent registration, updated QP tracking",
+			"revision", rt.revID.String(),
+			"pod-ip", podIP,
+			"event-type", eventType)
+		return
+	}
+
+	// Add our tracker to the map
 	rt.podTrackers[podIP] = tracker
 	podCount := len(rt.podTrackers)
+
+	rt.mux.Unlock()
+
+	// Log and trigger capacity update OUTSIDE lock
 	logger.Infow("Discovered new pod via push-based registration",
 		"revision", rt.revID.String(),
 		"pod-ip", podIP,
 		"event-type", eventType,
 		"initial-state", podState(tracker.state.Load()),
 		"total-trackers-now", podCount)
-
-	rt.mux.Unlock()
 
 	// CRITICAL: Must call updateCapacity OUTSIDE the lock to avoid deadlock.
 	// updateCapacity needs to acquire rt.mux.RLock() internally, which is incompatible
