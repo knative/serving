@@ -248,6 +248,7 @@ func Main(opts ...Option) error {
 	var lastProbeResult atomic.Bool
 	lastProbeResult.Store(false) // Start as not-ready
 	var readyRegistrationSent atomic.Bool
+	var notReadyRegistrationSent atomic.Bool
 
 	originalProbe := probe
 	probe = func() bool {
@@ -257,6 +258,8 @@ func Main(opts ...Option) error {
 		// Detect state transition: not-ready → ready
 		if result && !previous {
 			if readyRegistrationSent.CompareAndSwap(false, true) {
+				// Also reset the not-ready flag so we can send it again if we go not-ready later
+				notReadyRegistrationSent.Store(false)
 				logger.Infow("Readiness probe passed - notifying activator",
 					"pod", env.ServingPod,
 					"pod-ip", env.ServingPodIP)
@@ -266,12 +269,17 @@ func Main(opts ...Option) error {
 		}
 
 		// Detect state transition: ready → not-ready
+		// Use CAS to prevent duplicate not-ready events if probe flaps
 		if !result && previous {
-			logger.Warnw("Readiness probe failed - notifying activator",
-				"pod", env.ServingPod,
-				"pod-ip", env.ServingPodIP)
-			queue.RegisterPodWithActivator(env.ActivatorServiceURL, queue.EventTypeNotReady,
-				env.ServingPod, env.ServingPodIP, env.ServingNamespace, env.ServingRevision, logger)
+			if notReadyRegistrationSent.CompareAndSwap(false, true) {
+				// Also reset the ready flag so we can send it again when we become ready
+				readyRegistrationSent.Store(false)
+				logger.Warnw("Readiness probe failed - notifying activator",
+					"pod", env.ServingPod,
+					"pod-ip", env.ServingPodIP)
+				queue.RegisterPodWithActivator(env.ActivatorServiceURL, queue.EventTypeNotReady,
+					env.ServingPod, env.ServingPodIP, env.ServingNamespace, env.ServingRevision, logger)
+			}
 		}
 
 		return result
