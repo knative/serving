@@ -176,7 +176,9 @@ func cleanupDeduplicationCache() {
 	// Build list of keys to delete first to minimize time holding lock
 	toDelete := make([]string, 0)
 	for key, lastSeen := range deduplicationCache.cache {
-		if now.Sub(lastSeen) > RegistrationDuplicateCleanupInterval {
+		// Remove entries older than the deduplication window (5s)
+		// Cleanup runs every 30s, but we remove entries older than 5s for precision
+		if now.Sub(lastSeen) > RegistrationDeduplicationWindow {
 			toDelete = append(toDelete, key)
 		}
 	}
