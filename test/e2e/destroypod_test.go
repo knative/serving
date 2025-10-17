@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -63,7 +64,20 @@ func TestDestroyPodInflight(t *testing.T) {
 	test.EnsureTearDown(t, clients, &names)
 
 	t.Log("Creating a new Route and Configuration")
-	if _, err := v1test.CreateConfiguration(t, clients, names, rtesting.WithConfigRevisionTimeoutSeconds(revisionTimeoutSeconds)); err != nil {
+	// Set minScale=1 and target-burst-capacity=0 to ensure:
+	// 1. The revision stays active (doesn't scale to zero)
+	// 2. Traffic goes directly to the revision, bypassing the activator
+	// This prevents "revision not found" errors when deleting the configuration
+	// while in-flight requests are being handled by the activator.
+	if _, err := v1test.CreateConfiguration(t, clients, names,
+		rtesting.WithConfigRevisionTimeoutSeconds(revisionTimeoutSeconds),
+		func(cfg *v1.Configuration) {
+			if cfg.Spec.Template.Annotations == nil {
+				cfg.Spec.Template.Annotations = make(map[string]string)
+			}
+			cfg.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey] = "1"
+			cfg.Spec.Template.Annotations[autoscaling.TargetBurstCapacityKey] = "0"
+		}); err != nil {
 		t.Fatal("Failed to create Configuration:", err)
 	}
 	if _, err := v1test.CreateRoute(t, clients, names); err != nil {
@@ -144,8 +158,14 @@ func TestDestroyPodInflight(t *testing.T) {
 		// Give the request a bit of time to be established and reach the pod.
 		time.Sleep(timeoutRequestDuration / 2)
 
-		t.Log("Destroying the configuration (also destroys the pods)")
-		return clients.ServingClient.Configs.Delete(egCtx, names.Config, metav1.DeleteOptions{})
+		t.Log("Destroying the configuration and route (also destroys the pods)")
+		if err := clients.ServingClient.Configs.Delete(egCtx, names.Config, metav1.DeleteOptions{}); err != nil {
+			return fmt.Errorf("failed to delete config: %w", err)
+		}
+		if err := clients.ServingClient.Routes.Delete(egCtx, names.Route, metav1.DeleteOptions{}); err != nil {
+			return fmt.Errorf("failed to delete route: %w", err)
+		}
+		return nil
 	})
 
 	if err := g.Wait(); err != nil {
