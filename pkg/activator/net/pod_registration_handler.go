@@ -71,10 +71,10 @@ func PodRegistrationHandler(throttler PodRegistrationThrottler, logger *zap.Suga
 
 		// Validate event type is one of the expected values
 		validEvents := map[string]bool{
-			"startup":    true,
-			"ready":      true,
-			"not-ready":  true,
-			"draining":   true,
+			"startup":   true,
+			"ready":     true,
+			"not-ready": true,
+			"draining":  true,
 		}
 		if !validEvents[req.EventType] {
 			logger.Warnw("Invalid event type",
