@@ -30,6 +30,9 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -80,6 +83,29 @@ const (
 	// QPStalenessThreshold - Queue-proxy older than this, trust K8s instead
 	// If QP has been silent this long, it's likely dead and informer is authoritative
 	QPStalenessThreshold = 60 * time.Second
+)
+
+// Prometheus metrics for monitoring QP authoritative state system
+var (
+	// podStateTransitions tracks pod state transitions
+	// Labels: from_state, to_state, source (qp_push or k8s_informer)
+	podStateTransitions = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "pod_state_transitions_total",
+			Help: "Total number of pod state transitions in activator",
+		},
+		[]string{"from_state", "to_state", "source"},
+	)
+
+	// qpAuthorityOverrides tracks when QP data overrides K8s informer
+	// Labels: action (ignored_promotion or ignored_demotion), reason
+	qpAuthorityOverrides = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "pod_qp_authority_overrides_total",
+			Help: "Number of times QP state overrode K8s informer state",
+		},
+		[]string{"action", "reason"},
+	)
 )
 
 func newPodTracker(dest string, revisionID types.NamespacedName, b breaker) *podTracker {
@@ -1022,6 +1048,7 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 					// K8s says healthy, pod is pending
 					// Only promote if QP hasn't recently said "not-ready"
 					if lastQPEvent == "not-ready" && qpAge < int64(QPFreshnessWindow.Seconds()) {
+						qpAuthorityOverrides.WithLabelValues("ignored_promotion", "qp_recently_not_ready").Inc()
 						rt.logger.Debugw("Ignoring K8s healthy - QP recently said not-ready",
 							"dest", d,
 							"qp-age-sec", qpAge,
@@ -1030,6 +1057,7 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 					} else {
 						// Safe to promote (QP hasn't objected recently, or QP data is stale)
 						if tracker.state.CompareAndSwap(uint32(podPending), uint32(podReady)) {
+							podStateTransitions.WithLabelValues("pending", "ready", "k8s_informer").Inc()
 							rt.logger.Infow("K8s informer promoted pending pod to healthy",
 								"dest", d,
 								"qp-age-sec", qpAge)
@@ -1060,6 +1088,7 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 
 			// CRITICAL: If QP recently said "ready", don't drain (informer is stale)
 			if currentState == podReady && lastQPEvent == "ready" && qpAge < int64(QPFreshnessWindow.Seconds()) {
+				qpAuthorityOverrides.WithLabelValues("ignored_drain", "qp_recently_ready").Inc()
 				rt.logger.Warnw("Ignoring K8s draining signal - QP recently confirmed ready",
 					"dest", d,
 					"qp-age-sec", qpAge,
@@ -1077,6 +1106,7 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 			switch currentState {
 			case podReady:
 				if tracker.tryDrain() {
+					podStateTransitions.WithLabelValues("ready", "draining", "k8s_informer").Inc()
 					rt.logger.Debugf("Pod %s transitioning to draining state, refCount=%d", d, tracker.getRefCount())
 					if tracker.getRefCount() == 0 {
 						tracker.state.Store(uint32(podRemoved))
@@ -1304,6 +1334,7 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
 			// QP says ready - promote to healthy immediately
 			if currentState == podPending {
 				if existing.state.CompareAndSwap(uint32(podPending), uint32(podReady)) {
+					podStateTransitions.WithLabelValues("pending", "ready", "qp_push").Inc()
 					logger.Infow("QP promoted pending pod to healthy",
 						"revision", rt.revID.String(),
 						"pod-ip", podIP)
@@ -1320,6 +1351,7 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
 			// CRITICAL: Preserves breaker and refCount - just stops NEW traffic
 			if currentState == podReady {
 				if existing.state.CompareAndSwap(uint32(podReady), uint32(podPending)) {
+					podStateTransitions.WithLabelValues("ready", "pending", "qp_push").Inc()
 					logger.Warnw("QP demoted pod to pending (readiness probe failed)",
 						"revision", rt.revID.String(),
 						"pod-ip", podIP,
@@ -1335,6 +1367,7 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
 		case "draining":
 			// QP says draining - transition to draining state
 			if existing.tryDrain() {
+				podStateTransitions.WithLabelValues("ready", "draining", "qp_push").Inc()
 				logger.Infow("QP initiated pod draining",
 					"revision", rt.revID.String(),
 					"pod-ip", podIP,
