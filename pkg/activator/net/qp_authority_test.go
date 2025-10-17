@@ -18,6 +18,7 @@ package net
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -28,11 +29,17 @@ import (
 	. "knative.dev/pkg/logging/testing"
 )
 
+// TestMain sets feature gates for QP authority mode (QP events authoritative)
+func TestMain(m *testing.M) {
+	// QP authority enabled, quarantine disabled
+	setFeatureGatesForTesting(true, false)
+	code := m.Run()
+	resetFeatureGatesForTesting()
+	os.Exit(code)
+}
+
 // TestQPAuthorityOverridesInformer tests that QP events override K8s informer
 func TestQPAuthorityOverridesInformer(t *testing.T) {
-	// Enable QP authority for these tests
-	setFeatureGatesForTesting(true, false)
-	defer resetFeatureGatesForTesting()
 
 	logger := TestLogger(t)
 
@@ -191,9 +198,6 @@ func TestQPAuthorityOverridesInformer(t *testing.T) {
 
 // TestPodStateTransitionPreservesBreaker tests that state transitions don't break active requests
 func TestPodStateTransitionPreservesBreaker(t *testing.T) {
-	// Enable QP authority for these tests
-	setFeatureGatesForTesting(true, false)
-	defer resetFeatureGatesForTesting()
 
 	logger := TestLogger(t)
 
@@ -343,9 +347,6 @@ func TestPodStateTransitionPreservesBreaker(t *testing.T) {
 
 // TestQPEventSequences tests various QP event sequences
 func TestQPEventSequences(t *testing.T) {
-	// Enable QP authority for these tests
-	setFeatureGatesForTesting(true, false)
-	defer resetFeatureGatesForTesting()
 
 	logger := TestLogger(t)
 
@@ -470,9 +471,6 @@ func TestQPEventSequences(t *testing.T) {
 
 // TestInformerWithQPCoexistence tests K8s informer and QP working together
 func TestInformerWithQPCoexistence(t *testing.T) {
-	// Enable QP authority for these tests
-	setFeatureGatesForTesting(true, false)
-	defer resetFeatureGatesForTesting()
 
 	logger := TestLogger(t)
 
@@ -589,9 +587,6 @@ func TestInformerWithQPCoexistence(t *testing.T) {
 
 // TestPodNotReadyNonViable tests that podNotReady pods don't receive traffic
 func TestPodNotReadyNonViable(t *testing.T) {
-	// Enable QP authority for these tests
-	setFeatureGatesForTesting(true, false)
-	defer resetFeatureGatesForTesting()
 
 	logger := TestLogger(t)
 
@@ -688,9 +683,6 @@ func TestPodNotReadyNonViable(t *testing.T) {
 
 // TestDrainingWithActiveRequests tests draining behavior with in-flight requests
 func TestDrainingWithActiveRequests(t *testing.T) {
-	// Enable QP authority for these tests
-	setFeatureGatesForTesting(true, false)
-	defer resetFeatureGatesForTesting()
 
 	logger := TestLogger(t)
 
@@ -777,9 +769,6 @@ func TestDrainingWithActiveRequests(t *testing.T) {
 
 // TestQPvsInformerTimingScenarios tests timing-based authority
 func TestQPvsInformerTimingScenarios(t *testing.T) {
-	// Enable QP authority for these tests
-	setFeatureGatesForTesting(true, false)
-	defer resetFeatureGatesForTesting()
 
 	logger := TestLogger(t)
 
@@ -865,9 +854,6 @@ func TestQPvsInformerTimingScenarios(t *testing.T) {
 
 // TestStateMachineValidation tests state machine validation and edge case handling
 func TestStateMachineValidation(t *testing.T) {
-	// Enable QP authority for these tests
-	setFeatureGatesForTesting(true, false)
-	defer resetFeatureGatesForTesting()
 
 	logger := TestLogger(t)
 

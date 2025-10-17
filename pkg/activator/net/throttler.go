@@ -163,10 +163,10 @@ func newPodTracker(dest string, revisionID types.NamespacedName, b breaker) *pod
 type podState uint32
 
 const (
-	podReady podState = iota
-	podDraining    // Graceful shutdown - only from QP "draining" event when enableQPAuthority=true
-	podQuarantined // Pod failed health check (only used when enableQuarantine=true)
-	podRecovering  // Pod recovering from quarantine (only used when enableQuarantine=true)
+	podReady       podState = iota
+	podDraining             // Graceful shutdown - only from QP "draining" event when enableQPAuthority=true
+	podQuarantined          // Pod failed health check (only used when enableQuarantine=true)
+	podRecovering           // Pod recovering from quarantine (only used when enableQuarantine=true)
 	podRemoved
 	podNotReady // Pod not ready to receive traffic (not routable)
 )
@@ -295,10 +295,9 @@ func (p *podTracker) Reserve(ctx context.Context) (func(), bool) {
 	p.addRef()
 
 	state := podState(p.state.Load())
-	// ONLY healthy pods can accept new requests
+	// ONLY healthy and Recovering pods can accept new requests
 	// podNotReady pods are excluded from routing until explicitly promoted to healthy
-	// This prevents premature health check failures and quarantine churn
-	if state != podReady {
+	if state != podReady && state != podRecovering {
 		p.releaseRef()
 		return nil, false
 	}
@@ -477,23 +476,7 @@ func transitionOutOfQuarantine(ctx context.Context, p *podTracker, newState podS
 // quarantineBackoffSeconds returns backoff seconds for a given consecutive quarantine count.
 // For pending pods (never been healthy): 0s, 1s, 1s, 2s, 5s (be aggressive in retrying new pods)
 // For established pods (was healthy): 1s, 2s, 5s, 10s, 20s (more conservative for known-good pods)
-func quarantineBackoffSeconds(count uint32, wasPending bool) uint32 {
-	if wasPending {
-		// Shorter backoff for pods that are just starting up
-		switch count {
-		case 1:
-			return 0 // Retry immediately on first failure for pending pods
-		case 2:
-			return 1 // ~500ms effective retry time
-		case 3:
-			return 1
-		case 4:
-			return 2
-		default:
-			return 5 // Cap at 5s for pending pods
-		}
-	}
-
+func quarantineBackoffSeconds(count uint32) uint32 {
 	// Standard backoff for established pods that were previously healthy
 	switch count {
 	case 1:
@@ -997,7 +980,7 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 								// Increment consecutive quarantine count
 								count := tracker.quarantineCount.Add(1)
 								// Determine backoff duration
-								backoff := quarantineBackoffSeconds(count, false)
+								backoff := quarantineBackoffSeconds(count)
 								tracker.quarantineEndTime.Store(time.Now().Unix() + int64(backoff))
 								// Record metrics
 								handler.RecordPodQuarantineChange(ctx, 1)
@@ -1357,21 +1340,10 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 				case podReady:
 					// Already healthy, nothing to do
 
-				case podRecovering:
-					// When quarantine is enabled, let recovering pods continue naturally
-					if enableQuarantine {
-						// Let it recover naturally after successful request - don't interfere
-					}
-
-				case podQuarantined:
-					// When quarantine is enabled, don't short-circuit quarantine just because K8s says ready
-					if enableQuarantine {
-						// Pod is in backoff - let the quarantine timer complete naturally
-					}
-
+				case podRecovering, podQuarantined:
+					// Quarantine states, nothing to do
 				case podNotReady:
 					// K8s says healthy, pod is pending
-					// Only process if QP authority is enabled (otherwise pods start as ready)
 					if enableQPAuthority {
 						// Only promote if QP hasn't recently said "not-ready"
 						if lastQPEvent == "not-ready" && qpAge < int64(QPFreshnessWindow.Seconds()) {
@@ -1390,6 +1362,9 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 									"qp-age-sec", qpAge)
 							}
 						}
+					} else {
+						// Promote immediately (no QP to check)
+						tracker.state.CompareAndSwap(uint32(podNotReady), uint32(podReady))
 					}
 				}
 			}

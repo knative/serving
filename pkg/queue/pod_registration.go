@@ -84,7 +84,7 @@ var registrationClient = &http.Client{
 		MaxIdleConns:        10,
 		MaxIdleConnsPerHost: 2,
 		IdleConnTimeout:     30 * time.Second,
-		DisableKeepAlives:   false, // Enable connection reuse
+		DisableKeepAlives:   true, // Disable connection reuse, prevent goroutine build up on the activator
 		DialContext: (&net.Dialer{
 			Timeout:   5 * time.Second,
 			KeepAlive: 30 * time.Second,
