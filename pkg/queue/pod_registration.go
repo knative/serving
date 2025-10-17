@@ -61,24 +61,24 @@ const (
 // Prometheus metrics for pod registration monitoring
 var (
 	// registrationAttempts tracks the number of pod registration attempts
-	// Labels: result (success, timeout, network_error, 4xx, 5xx), event_type (startup, ready)
+	// Labels: result, event_type, namespace, revision, activator_url
 	registrationAttempts = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "pod_registration_attempts_total",
 			Help: "Total number of pod registration attempts to activator",
 		},
-		[]string{"result", "event_type"},
+		[]string{"result", "event_type", "namespace", "revision", "activator_url"},
 	)
 
 	// registrationLatency tracks the time taken to register a pod
-	// Labels: event_type (startup, ready)
+	// Labels: event_type, namespace, revision, activator_url
 	registrationLatency = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "pod_registration_duration_seconds",
 			Help:    "Time taken to complete pod registration request",
 			Buckets: []float64{.01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
 		},
-		[]string{"event_type"},
+		[]string{"event_type", "namespace", "revision", "activator_url"},
 	)
 
 	// deduplicationCacheSize tracks the size of the active deduplication cache
@@ -90,13 +90,13 @@ var (
 	)
 
 	// registrationSkipped tracks the number of duplicate registration attempts skipped
-	// Labels: event_type (startup, ready)
+	// Labels: event_type, namespace, revision
 	registrationSkipped = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "pod_registration_skipped_total",
 			Help: "Number of duplicate registration attempts skipped due to deduplication",
 		},
-		[]string{"event_type"},
+		[]string{"event_type", "namespace", "revision"},
 	)
 )
 
@@ -130,14 +130,14 @@ var deduplicationCache = &registrationDeduplicationCache{
 
 // shouldSkipRegistration checks if we should skip this registration due to deduplication
 // Returns true if registration should be skipped
-func shouldSkipRegistration(podIP string, eventType string, logger *zap.SugaredLogger) bool {
+func shouldSkipRegistration(podIP string, eventType string, namespace string, revision string, logger *zap.SugaredLogger) bool {
 	if isDuplicate(podIP, eventType) {
 		if logger != nil {
 			logger.Debugw("Skipping duplicate registration attempt",
 				"pod-ip", podIP,
 				"event-type", eventType)
 		}
-		registrationSkipped.WithLabelValues(eventType).Inc()
+		registrationSkipped.WithLabelValues(eventType, namespace, revision).Inc()
 		return true
 	}
 	return false
@@ -245,7 +245,7 @@ func RegisterPodWithActivator(
 	}
 
 	// Check if this should be skipped due to deduplication
-	if shouldSkipRegistration(podIP, eventType, logger) {
+	if shouldSkipRegistration(podIP, eventType, namespace, revision, logger) {
 		return
 	}
 
@@ -308,11 +308,11 @@ func registerPodSync(
 	// Use shared HTTP client for efficiency - avoids creating new transport for each request
 	resp, err := registrationClient.Do(httpReq)
 	if err != nil {
-		registrationLatency.WithLabelValues(eventType).Observe(time.Since(startTime).Seconds())
+		registrationLatency.WithLabelValues(eventType, namespace, revision, activatorServiceURL).Observe(time.Since(startTime).Seconds())
 
 		// Check if it's a timeout error specifically and record appropriate metric
 		if errors.Is(err, context.DeadlineExceeded) {
-			registrationAttempts.WithLabelValues("timeout", eventType).Inc()
+			registrationAttempts.WithLabelValues("timeout", eventType, namespace, revision, activatorServiceURL).Inc()
 			if logger != nil {
 				logger.Warnw("Pod registration request timeout",
 					"event", eventType,
@@ -321,7 +321,7 @@ func registerPodSync(
 					"timeout", RegistrationTimeout)
 			}
 		} else {
-			registrationAttempts.WithLabelValues("network_error", eventType).Inc()
+			registrationAttempts.WithLabelValues("network_error", eventType, namespace, revision, activatorServiceURL).Inc()
 			if logger != nil {
 				logger.Errorw("Pod registration request failed",
 					"event", eventType,
@@ -339,8 +339,8 @@ func registerPodSync(
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		// Record metrics
-		registrationAttempts.WithLabelValues("success", eventType).Inc()
-		registrationLatency.WithLabelValues(eventType).Observe(time.Since(startTime).Seconds())
+		registrationAttempts.WithLabelValues("success", eventType, namespace, revision, activatorServiceURL).Inc()
+		registrationLatency.WithLabelValues(eventType, namespace, revision, activatorServiceURL).Observe(time.Since(startTime).Seconds())
 		if logger != nil {
 			logger.Debugw("Pod registration successful",
 				"event", eventType,
@@ -351,26 +351,26 @@ func registerPodSync(
 	}
 
 	// Record failed registration metrics
-	registrationLatency.WithLabelValues(eventType).Observe(time.Since(startTime).Seconds())
+	registrationLatency.WithLabelValues(eventType, namespace, revision, activatorServiceURL).Observe(time.Since(startTime).Seconds())
 
 	// Log non-success responses with appropriate levels and record metrics
 	if logger != nil {
 		if resp.StatusCode >= 500 {
-			registrationAttempts.WithLabelValues("5xx", eventType).Inc()
+			registrationAttempts.WithLabelValues("5xx", eventType, namespace, revision, activatorServiceURL).Inc()
 			logger.Errorw("Pod registration server error (5xx)",
 				"event", eventType,
 				"pod", podName,
 				"status", resp.StatusCode,
 				"response", string(respBody))
 		} else if resp.StatusCode >= 400 {
-			registrationAttempts.WithLabelValues("4xx", eventType).Inc()
+			registrationAttempts.WithLabelValues("4xx", eventType, namespace, revision, activatorServiceURL).Inc()
 			logger.Warnw("Pod registration client error (4xx)",
 				"event", eventType,
 				"pod", podName,
 				"status", resp.StatusCode,
 				"response", string(respBody))
 		} else {
-			registrationAttempts.WithLabelValues("unexpected", eventType).Inc()
+			registrationAttempts.WithLabelValues("unexpected", eventType, namespace, revision, activatorServiceURL).Inc()
 			logger.Warnw("Pod registration request failed with unexpected status",
 				"event", eventType,
 				"pod", podName,
@@ -380,11 +380,11 @@ func registerPodSync(
 	} else {
 		// Record metrics even if logger is nil
 		if resp.StatusCode >= 500 {
-			registrationAttempts.WithLabelValues("5xx", eventType).Inc()
+			registrationAttempts.WithLabelValues("5xx", eventType, namespace, revision, activatorServiceURL).Inc()
 		} else if resp.StatusCode >= 400 {
-			registrationAttempts.WithLabelValues("4xx", eventType).Inc()
+			registrationAttempts.WithLabelValues("4xx", eventType, namespace, revision, activatorServiceURL).Inc()
 		} else {
-			registrationAttempts.WithLabelValues("unexpected", eventType).Inc()
+			registrationAttempts.WithLabelValues("unexpected", eventType, namespace, revision, activatorServiceURL).Inc()
 		}
 	}
 }
