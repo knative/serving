@@ -1351,7 +1351,7 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
 			logCurrentState = currentState
 
 		case "ready":
-			// QP says ready - promote to healthy immediately
+			// QP says ready - promote to ready immediately
 			if currentState == podPending {
 				if existing.state.CompareAndSwap(uint32(podPending), uint32(podReady)) {
 					// Transition succeeded - capture for metric and log
@@ -1364,10 +1364,19 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
 					logPodIP = podIP
 					logRevision = rt.revID.String()
 				}
+			} else if currentState == podDraining || currentState == podRemoved {
+				// Stale ready event on draining/removed pod - log and ignore
+				shouldLog = true
+				logLevel = "warn"
+				logMessage = "Ignoring stale ready event on draining/removed pod"
+				logPodIP = podIP
+				logRevision = rt.revID.String()
+				logCurrentState = currentState
 			} else {
+				// Already ready - duplicate event
 				shouldLog = true
 				logLevel = "debug"
-				logMessage = "Duplicate ready event (pod already in non-pending state)"
+				logMessage = "Duplicate ready event (pod already ready)"
 				logPodIP = podIP
 				logRevision = rt.revID.String()
 				logCurrentState = currentState
@@ -1390,20 +1399,29 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
 					logRevision = rt.revID.String()
 					logRefCount = refCount
 				}
-			} else {
+			} else if currentState == podDraining || currentState == podRemoved {
+				// Stale not-ready event on draining/removed pod - log and ignore
 				shouldLog = true
-				logLevel = "debug"
-				logMessage = "not-ready event on non-ready pod"
+				logLevel = "warn"
+				logMessage = "Ignoring stale not-ready event on draining/removed pod"
 				logPodIP = podIP
 				logRevision = rt.revID.String()
 				logCurrentState = currentState
+			} else if currentState == podPending {
+				// Not-ready on pending pod - probe flapping or never became ready
+				shouldLog = true
+				logLevel = "debug"
+				logMessage = "not-ready event on pending pod (probe flapping before first ready)"
+				logPodIP = podIP
+				logRevision = rt.revID.String()
 			}
 
 		case "draining":
 			// QP says draining - transition to draining state
-			refCount := existing.refCount.Load() // Capture before tryDrain
+			refCount := existing.refCount.Load() // Capture before state change
+
 			if existing.tryDrain() {
-				// Transition succeeded
+				// Transitioned ready → draining
 				shouldRecordMetric = true
 				metricFrom = "ready"
 				metricTo = "draining"
@@ -1413,13 +1431,34 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
 				logPodIP = podIP
 				logRevision = rt.revID.String()
 				logRefCount = refCount
-			} else {
+			} else if currentState == podPending {
+				// Pod draining before becoming ready (crash during startup)
+				// Allow pending → draining transition
+				if existing.state.CompareAndSwap(uint32(podPending), uint32(podDraining)) {
+					existing.drainingStartTime.Store(time.Now().Unix())
+					shouldRecordMetric = true
+					metricFrom = "pending"
+					metricTo = "draining"
+					shouldLog = true
+					logLevel = "warn"
+					logMessage = "Pod draining before ready - crashed during startup"
+					logPodIP = podIP
+					logRevision = rt.revID.String()
+				}
+			} else if currentState == podDraining {
+				// Already draining - duplicate event, log and ignore
 				shouldLog = true
 				logLevel = "debug"
-				logMessage = "draining event on non-ready pod (already draining/removed)"
+				logMessage = "Duplicate draining event (pod already draining)"
 				logPodIP = podIP
 				logRevision = rt.revID.String()
-				logCurrentState = currentState
+			} else if currentState == podRemoved {
+				// Stale draining event on removed pod - log and ignore
+				shouldLog = true
+				logLevel = "debug"
+				logMessage = "Ignoring stale draining event on removed pod"
+				logPodIP = podIP
+				logRevision = rt.revID.String()
 			}
 		}
 

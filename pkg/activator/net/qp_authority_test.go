@@ -834,3 +834,164 @@ func TestQPvsInformerTimingScenarios(t *testing.T) {
 		}
 	})
 }
+
+// TestStateMachineValidation tests state machine validation and edge case handling
+func TestStateMachineValidation(t *testing.T) {
+	logger := TestLogger(t)
+
+	t.Run("draining on pending pod - crash before ready", func(t *testing.T) {
+		rt := newRevisionThrottler(
+			types.NamespacedName{Namespace: "test", Name: "revision"},
+			nil, 1, "http",
+			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
+			logger,
+		)
+
+		podIP := "10.0.0.1:8080"
+
+		// Pod starts up but crashes before becoming ready
+		rt.addPodIncremental(podIP, "startup", logger)
+
+		rt.mux.RLock()
+		tracker := rt.podTrackers[podIP]
+		rt.mux.RUnlock()
+
+		if podState(tracker.state.Load()) != podPending {
+			t.Fatal("Pod should be pending after startup")
+		}
+
+		// Pod sends draining event (crash during startup)
+		rt.addPodIncremental(podIP, "draining", logger)
+
+		// Should transition pending → draining
+		if podState(tracker.state.Load()) != podDraining {
+			t.Error("Pod should transition from pending to draining on crash")
+		}
+
+		// Verify draining timestamp was set
+		if tracker.drainingStartTime.Load() == 0 {
+			t.Error("Draining start time should be set")
+		}
+	})
+
+	t.Run("stale ready event on draining pod - ignored", func(t *testing.T) {
+		rt := newRevisionThrottler(
+			types.NamespacedName{Namespace: "test", Name: "revision"},
+			nil, 1, "http",
+			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
+			logger,
+		)
+
+		podIP := "10.0.0.1:8080"
+
+		// Get to draining state
+		rt.addPodIncremental(podIP, "startup", logger)
+		rt.addPodIncremental(podIP, "ready", logger)
+		rt.addPodIncremental(podIP, "draining", logger)
+
+		rt.mux.RLock()
+		tracker := rt.podTrackers[podIP]
+		rt.mux.RUnlock()
+
+		if podState(tracker.state.Load()) != podDraining {
+			t.Fatal("Pod should be draining")
+		}
+
+		// Stale ready event arrives (out of order)
+		rt.addPodIncremental(podIP, "ready", logger)
+
+		// Should STAY draining (ready event ignored)
+		if podState(tracker.state.Load()) != podDraining {
+			t.Error("Pod should stay draining - stale ready event should be ignored")
+		}
+	})
+
+	t.Run("stale not-ready event on draining pod - ignored", func(t *testing.T) {
+		rt := newRevisionThrottler(
+			types.NamespacedName{Namespace: "test", Name: "revision"},
+			nil, 1, "http",
+			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
+			logger,
+		)
+
+		podIP := "10.0.0.1:8080"
+
+		// Get to draining state
+		rt.addPodIncremental(podIP, "startup", logger)
+		rt.addPodIncremental(podIP, "ready", logger)
+		rt.addPodIncremental(podIP, "draining", logger)
+
+		rt.mux.RLock()
+		tracker := rt.podTrackers[podIP]
+		rt.mux.RUnlock()
+
+		if podState(tracker.state.Load()) != podDraining {
+			t.Fatal("Pod should be draining")
+		}
+
+		// Stale not-ready event arrives
+		rt.addPodIncremental(podIP, "not-ready", logger)
+
+		// Should STAY draining (not-ready event ignored)
+		if podState(tracker.state.Load()) != podDraining {
+			t.Error("Pod should stay draining - stale not-ready event should be ignored")
+		}
+	})
+
+	t.Run("not-ready on pending pod - probe flapping", func(t *testing.T) {
+		rt := newRevisionThrottler(
+			types.NamespacedName{Namespace: "test", Name: "revision"},
+			nil, 1, "http",
+			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
+			logger,
+		)
+
+		podIP := "10.0.0.1:8080"
+
+		// Pod starts but probe keeps failing (flapping)
+		rt.addPodIncremental(podIP, "startup", logger)
+
+		rt.mux.RLock()
+		tracker := rt.podTrackers[podIP]
+		rt.mux.RUnlock()
+
+		// Send not-ready on pending pod (probe flapping before first success)
+		rt.addPodIncremental(podIP, "not-ready", logger)
+
+		// Should STAY pending (not-ready on pending is noop)
+		if podState(tracker.state.Load()) != podPending {
+			t.Error("Pod should stay pending - not-ready on pending is ignored")
+		}
+	})
+
+	t.Run("ready after not-ready - pod recovery", func(t *testing.T) {
+		rt := newRevisionThrottler(
+			types.NamespacedName{Namespace: "test", Name: "revision"},
+			nil, 1, "http",
+			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
+			logger,
+		)
+
+		podIP := "10.0.0.1:8080"
+
+		// Normal flow: startup → ready → not-ready → ready
+		rt.addPodIncremental(podIP, "startup", logger)
+		rt.addPodIncremental(podIP, "ready", logger)
+
+		rt.mux.RLock()
+		tracker := rt.podTrackers[podIP]
+		rt.mux.RUnlock()
+
+		// Pod becomes unhealthy
+		rt.addPodIncremental(podIP, "not-ready", logger)
+		if podState(tracker.state.Load()) != podPending {
+			t.Error("Pod should be pending after not-ready")
+		}
+
+		// Pod recovers
+		rt.addPodIncremental(podIP, "ready", logger)
+		if podState(tracker.state.Load()) != podReady {
+			t.Error("Pod should be ready again after recovery")
+		}
+	})
+}
