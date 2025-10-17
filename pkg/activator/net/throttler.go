@@ -108,7 +108,7 @@ func newPodTracker(dest string, revisionID types.NamespacedName, b breaker) *pod
 type podState uint32
 
 const (
-	podHealthy podState = iota
+	podReady podState = iota
 	podDraining
 	podRemoved
 	podPending // Waiting for ready signal (not viable for routing)
@@ -162,7 +162,7 @@ func (p *podTracker) getRefCount() uint64 {
 }
 
 func (p *podTracker) tryDrain() bool {
-	if p.state.CompareAndSwap(uint32(podHealthy), uint32(podDraining)) {
+	if p.state.CompareAndSwap(uint32(podReady), uint32(podDraining)) {
 		p.drainingStartTime.Store(time.Now().Unix())
 		return true
 	}
@@ -232,7 +232,7 @@ func (p *podTracker) Reserve(ctx context.Context) (func(), bool) {
 	// ONLY healthy pods can accept new requests
 	// podPending pods are excluded from routing until explicitly promoted to healthy
 	// This prevents premature health check failures and quarantine churn
-	if state != podHealthy {
+	if state != podReady {
 		p.releaseRef()
 		return nil, false
 	}
@@ -389,7 +389,7 @@ func (rt *revisionThrottler) filterAvailableTrackers(trackers []*podTracker) []*
 	available := make([]*podTracker, 0, len(trackers))
 
 	for _, tracker := range trackers {
-		if tracker != nil && podState(tracker.state.Load()) == podHealthy {
+		if tracker != nil && podState(tracker.state.Load()) == podReady {
 			available = append(available, tracker)
 		}
 	}
@@ -1015,7 +1015,7 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 					tracker.drainingStartTime.Store(0)
 					rt.logger.Infow("Pod %s was draining/removed, now back in healthy list - resetting to pending", d)
 
-				case podHealthy:
+				case podReady:
 					// Already healthy, nothing to do
 
 				case podPending:
@@ -1029,7 +1029,7 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 						// Don't promote - trust fresh QP data
 					} else {
 						// Safe to promote (QP hasn't objected recently, or QP data is stale)
-						if tracker.state.CompareAndSwap(uint32(podPending), uint32(podHealthy)) {
+						if tracker.state.CompareAndSwap(uint32(podPending), uint32(podReady)) {
 							rt.logger.Infow("K8s informer promoted pending pod to healthy",
 								"dest", d,
 								"qp-age-sec", qpAge)
@@ -1059,7 +1059,7 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 			}
 
 			// CRITICAL: If QP recently said "ready", don't drain (informer is stale)
-			if currentState == podHealthy && lastQPEvent == "ready" && qpAge < int64(QPFreshnessWindow.Seconds()) {
+			if currentState == podReady && lastQPEvent == "ready" && qpAge < int64(QPFreshnessWindow.Seconds()) {
 				rt.logger.Warnw("Ignoring K8s draining signal - QP recently confirmed ready",
 					"dest", d,
 					"qp-age-sec", qpAge,
@@ -1075,7 +1075,7 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 			}
 
 			switch currentState {
-			case podHealthy:
+			case podReady:
 				if tracker.tryDrain() {
 					rt.logger.Debugf("Pod %s transitioning to draining state, refCount=%d", d, tracker.getRefCount())
 					if tracker.getRefCount() == 0 {
@@ -1233,7 +1233,7 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 					rt.logger.Debugw("Re-adding previously draining/removed pod as pending",
 						"dest", newDest,
 						"previousState", currentState)
-				case podHealthy:
+				case podReady:
 					// Already healthy, nothing to do
 				}
 			}
@@ -1276,9 +1276,9 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 // Unlike handleUpdate which is authoritative, this function only adds pods and never removes them.
 // Handles 4 event types from queue-proxy:
 // - "startup": creates podPending tracker (not yet viable for traffic)
-// - "ready": promotes podPending → podHealthy (now viable for traffic)
-// - "not-ready": demotes podHealthy → podPending (stops new traffic, preserves active requests)
-// - "draining": transitions podHealthy → podDraining (graceful shutdown)
+// - "ready": promotes podPending → podReady (now viable for traffic)
+// - "not-ready": demotes podReady → podPending (stops new traffic, preserves active requests)
+// - "draining": transitions podReady → podDraining (graceful shutdown)
 // QP events are AUTHORITATIVE and override K8s informer state (see QP_AUTHORITATIVE_REFACTOR.md)
 func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, logger *zap.SugaredLogger) {
 	rt.mux.Lock()
@@ -1303,7 +1303,7 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
 		case "ready":
 			// QP says ready - promote to healthy immediately
 			if currentState == podPending {
-				if existing.state.CompareAndSwap(uint32(podPending), uint32(podHealthy)) {
+				if existing.state.CompareAndSwap(uint32(podPending), uint32(podReady)) {
 					logger.Infow("QP promoted pending pod to healthy",
 						"revision", rt.revID.String(),
 						"pod-ip", podIP)
@@ -1318,8 +1318,8 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
 		case "not-ready":
 			// QP says not-ready - demote to pending
 			// CRITICAL: Preserves breaker and refCount - just stops NEW traffic
-			if currentState == podHealthy {
-				if existing.state.CompareAndSwap(uint32(podHealthy), uint32(podPending)) {
+			if currentState == podReady {
+				if existing.state.CompareAndSwap(uint32(podReady), uint32(podPending)) {
 					logger.Warnw("QP demoted pod to pending (readiness probe failed)",
 						"revision", rt.revID.String(),
 						"pod-ip", podIP,
@@ -1367,7 +1367,7 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
 	// Set initial state based on event type
 	// For "ready" events, assume pod is healthy; for others, mark as pending
 	if eventType == "ready" {
-		tracker.state.Store(uint32(podHealthy))
+		tracker.state.Store(uint32(podReady))
 	} else {
 		tracker.state.Store(uint32(podPending))
 	}
@@ -1487,7 +1487,7 @@ func (t *Throttler) Try(ctx context.Context, revID types.NamespacedName, xReques
 
 // HandlePodRegistration processes a push-based pod registration from a queue-proxy.
 // This allows immediate pod discovery without waiting for K8s informer updates (which can take 60-70 seconds).
-// eventType should be "startup" (creates podPending tracker) or "ready" (promotes to podHealthy).
+// eventType should be "startup" (creates podPending tracker) or "ready" (promotes to podReady).
 // This uses a dedicated incremental add function instead of the authoritative handleUpdate flow,
 // so push-based registrations never remove existing pods.
 func (t *Throttler) HandlePodRegistration(revID types.NamespacedName, podIP string, eventType string, logger *zap.SugaredLogger) {

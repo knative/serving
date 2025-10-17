@@ -292,7 +292,7 @@ func makeTrackers(num, cc int) []*podTracker {
 			})
 		}
 		// For tests, set trackers to healthy state instead of pending
-		pt.state.Store(uint32(podHealthy))
+		pt.state.Store(uint32(podReady))
 		trackers[i] = pt
 	}
 	return trackers
@@ -1117,7 +1117,7 @@ func TestLoadBalancingAlgorithms(t *testing.T) {
 			})
 			trackers[i] = newTestTracker(dest, breaker)
 			// Set to healthy so they're viable for routing
-			trackers[i].state.Store(uint32(podHealthy))
+			trackers[i].state.Store(uint32(podReady))
 		}
 		return trackers
 	}
@@ -1983,7 +1983,7 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 		for i := range 5 {
 			initialTrackers[i] = newTestTracker(fmt.Sprintf("pod-%d:8080", i),
 				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
-			initialTrackers[i].state.Store(uint32(podHealthy))
+			initialTrackers[i].state.Store(uint32(podReady))
 		}
 		rt.updateThrottlerState(5, initialTrackers, nil, nil, nil)
 
@@ -2019,7 +2019,7 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 					// Add a tracker
 					tracker := newTestTracker(fmt.Sprintf("dynamic-%d:8080", counter),
 						queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
-					tracker.state.Store(uint32(podHealthy))
+					tracker.state.Store(uint32(podReady))
 					rt.updateThrottlerState(1, []*podTracker{tracker}, nil, nil, nil)
 				} else {
 					// Remove a tracker
@@ -2038,7 +2038,7 @@ func TestPodTrackerRefCountRaces(t *testing.T) {
 	t.Run("concurrent addRef and releaseRef", func(t *testing.T) {
 		tracker := newTestTracker("pod:8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 100}))
-		tracker.state.Store(uint32(podHealthy))
+		tracker.state.Store(uint32(podReady))
 		// Seed refCount to prevent underflow in racy test
 		tracker.refCount.Store(10000)
 
@@ -2087,7 +2087,7 @@ func TestPodTrackerRefCountRaces(t *testing.T) {
 	t.Run("refCount races with state transitions", func(t *testing.T) {
 		tracker := newTestTracker("pod:8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
-		tracker.state.Store(uint32(podHealthy))
+		tracker.state.Store(uint32(podReady))
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
@@ -2113,7 +2113,7 @@ func TestPodTrackerRefCountRaces(t *testing.T) {
 			for ctx.Err() == nil {
 				tracker.tryDrain()
 				time.Sleep(time.Millisecond)
-				tracker.state.Store(uint32(podHealthy))
+				tracker.state.Store(uint32(podReady))
 				time.Sleep(time.Millisecond)
 			}
 		}()
