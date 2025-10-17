@@ -201,10 +201,6 @@ func Main(opts ...Option) error {
 	d.Logger = logger
 	d.Transport = buildTransport(env)
 
-	// Send startup registration to activator (async, fire-and-forget)
-	queue.RegisterPodWithActivator(env.ActivatorServiceURL, queue.EventTypeStartup,
-		env.ServingPod, env.ServingPodIP, env.ServingNamespace, env.ServingRevision, logger)
-
 	if env.TracingConfigBackend != tracingconfig.None {
 		oct := tracing.NewOpenCensusTracer(tracing.WithExporterFull(env.ServingPod, env.ServingPodIP, logger))
 		oct.ApplyConfig(&tracingconfig.Config{
@@ -263,7 +259,7 @@ func Main(opts ...Option) error {
 				logger.Infow("Readiness probe passed - notifying activator",
 					"pod", env.ServingPod,
 					"pod-ip", env.ServingPodIP)
-				queue.RegisterPodWithActivator(env.ActivatorServiceURL, queue.EventTypeReady,
+				queue.RegisterPodWithActivator(env.ActivatorServiceURL, queue.EventReady,
 					env.ServingPod, env.ServingPodIP, env.ServingNamespace, env.ServingRevision, logger)
 			}
 		}
@@ -277,7 +273,7 @@ func Main(opts ...Option) error {
 				logger.Warnw("Readiness probe failed - notifying activator",
 					"pod", env.ServingPod,
 					"pod-ip", env.ServingPodIP)
-				queue.RegisterPodWithActivator(env.ActivatorServiceURL, queue.EventTypeNotReady,
+				queue.RegisterPodWithActivator(env.ActivatorServiceURL, queue.EventNotReady,
 					env.ServingPod, env.ServingPodIP, env.ServingNamespace, env.ServingRevision, logger)
 			}
 		}
@@ -367,7 +363,7 @@ func Main(opts ...Option) error {
 		logger.Infow("Notifying activator of pod draining",
 			"pod", env.ServingPod,
 			"pod-ip", env.ServingPodIP)
-		queue.RegisterPodWithActivator(env.ActivatorServiceURL, queue.EventTypeDraining,
+		queue.RegisterPodWithActivator(env.ActivatorServiceURL, queue.EventDraining,
 			env.ServingPod, env.ServingPodIP, env.ServingNamespace, env.ServingRevision, logger)
 
 		drainer.Drain()

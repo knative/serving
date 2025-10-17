@@ -24,7 +24,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -39,23 +38,17 @@ const (
 	// RegistrationTimeout is the maximum time to wait for a registration request to complete
 	RegistrationTimeout = 2 * time.Second
 
-	// EventTypeStartup indicates the pod is starting up
-	EventTypeStartup = "startup"
+	// EventStartup indicates the pod is starting up
+	EventStartup = "startup"
 
-	// EventTypeReady indicates the pod is ready to serve traffic
-	EventTypeReady = "ready"
+	// EventReady indicates the pod is ready to serve traffic
+	EventReady = "ready"
 
-	// EventTypeNotReady indicates the pod's readiness probe failed
-	EventTypeNotReady = "not-ready"
+	// EventNotReady indicates the pod's readiness probe failed
+	EventNotReady = "not-ready"
 
-	// EventTypeDraining indicates the pod is shutting down gracefully
-	EventTypeDraining = "draining"
-
-	// RegistrationDeduplicationWindow is how long to ignore duplicate registration attempts (5 seconds)
-	RegistrationDeduplicationWindow = 5 * time.Second
-
-	// RegistrationDuplicateCleanupInterval is how often to clean stale deduplication entries (30 seconds)
-	RegistrationDuplicateCleanupInterval = 30 * time.Second
+	// EventDraining indicates the pod is shutting down gracefully
+	EventDraining = "draining"
 )
 
 // Prometheus metrics for pod registration monitoring
@@ -80,24 +73,6 @@ var (
 		},
 		[]string{"event_type", "namespace", "revision", "activator_url"},
 	)
-
-	// deduplicationCacheSize tracks the size of the active deduplication cache
-	deduplicationCacheSize = promauto.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "pod_registration_deduplication_cache_size",
-			Help: "Number of entries in the registration deduplication cache",
-		},
-	)
-
-	// registrationSkipped tracks the number of duplicate registration attempts skipped
-	// Labels: event_type, namespace, revision
-	registrationSkipped = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "pod_registration_skipped_total",
-			Help: "Number of duplicate registration attempts skipped due to deduplication",
-		},
-		[]string{"event_type", "namespace", "revision"},
-	)
 )
 
 // registrationClient is a shared HTTP client for pod registration requests.
@@ -117,106 +92,6 @@ var registrationClient = &http.Client{
 	},
 }
 
-// registrationDeduplicationCache tracks recent registration attempts to avoid duplicates
-type registrationDeduplicationCache struct {
-	mu    sync.Mutex
-	cache map[string]time.Time // key: "podIP:eventType", value: last seen time
-}
-
-// Global deduplication cache
-var deduplicationCache = &registrationDeduplicationCache{
-	cache: make(map[string]time.Time),
-}
-
-// shouldSkipRegistration checks if we should skip this registration due to deduplication
-// Returns true if registration should be skipped
-func shouldSkipRegistration(podIP string, eventType string, namespace string, revision string, logger *zap.SugaredLogger) bool {
-	if isDuplicate(podIP, eventType) {
-		if logger != nil {
-			logger.Debugw("Skipping duplicate registration attempt",
-				"pod-ip", podIP,
-				"event-type", eventType)
-		}
-		registrationSkipped.WithLabelValues(eventType, namespace, revision).Inc()
-		return true
-	}
-	return false
-}
-
-// isDuplicate checks if this is a duplicate registration within the deduplication window
-func isDuplicate(podIP string, eventType string) bool {
-	deduplicationCache.mu.Lock()
-	defer deduplicationCache.mu.Unlock()
-
-	key := podIP + ":" + eventType
-	lastSeen, exists := deduplicationCache.cache[key]
-	if !exists {
-		// First time seeing this, record it
-		deduplicationCache.cache[key] = time.Now()
-		return false
-	}
-
-	// Check if still within deduplication window
-	if time.Since(lastSeen) < RegistrationDeduplicationWindow {
-		return true
-	}
-
-	// Outside window, treat as new registration
-	deduplicationCache.cache[key] = time.Now()
-	return false
-}
-
-// cleanupDeduplicationCache removes stale entries from the deduplication cache
-// This is called periodically to prevent unbounded memory growth
-func cleanupDeduplicationCache() {
-	deduplicationCache.mu.Lock()
-	defer deduplicationCache.mu.Unlock()
-
-	now := time.Now()
-	// Build list of keys to delete first to minimize time holding lock
-	toDelete := make([]string, 0)
-	for key, lastSeen := range deduplicationCache.cache {
-		// Remove entries older than the deduplication window (5s)
-		// Cleanup runs every 30s, but we remove entries older than 5s for precision
-		if now.Sub(lastSeen) > RegistrationDeduplicationWindow {
-			toDelete = append(toDelete, key)
-		}
-	}
-	// Delete after iteration to avoid modifying map during iteration
-	for _, key := range toDelete {
-		delete(deduplicationCache.cache, key)
-	}
-}
-
-// cleanupOnce ensures we only start one cleanup goroutine even if the package is imported multiple times
-var cleanupOnce sync.Once
-
-// init starts background goroutines to clean up stale deduplication entries and update metrics
-// Uses sync.Once to prevent multiple cleanup goroutines in tests or if package is imported multiple times
-func init() {
-	cleanupOnce.Do(func() {
-		go func() {
-			ticker := time.NewTicker(RegistrationDuplicateCleanupInterval)
-			defer ticker.Stop()
-			for range ticker.C {
-				cleanupDeduplicationCache()
-				// Update deduplication cache size metric
-				deduplicationCache.mu.Lock()
-				deduplicationCacheSize.Set(float64(len(deduplicationCache.cache)))
-				deduplicationCache.mu.Unlock()
-			}
-		}()
-	})
-}
-
-// ResetDeduplicationCacheForTesting resets the deduplication cache
-// This is only exported for testing purposes and should not be used in production
-func ResetDeduplicationCacheForTesting() {
-	deduplicationCache.mu.Lock()
-	defer deduplicationCache.mu.Unlock()
-	deduplicationCache.cache = make(map[string]time.Time)
-}
-
 // PodRegistrationRequest is the JSON payload sent to the activator for pod registration
 type PodRegistrationRequest struct {
 	PodName   string `json:"pod_name"`
@@ -231,8 +106,8 @@ type PodRegistrationRequest struct {
 // activatorServiceURL should be the full base URL (e.g., "http://activator-service.knative-serving.svc.cluster.local:80")
 // If activatorServiceURL is empty, this is a no-op
 // Failures are logged but never block the caller - this is a best-effort optimization
-// Implements request deduplication to prevent duplicate registrations within a 5-second window
 // The 2-second timeout provides natural backpressure if the activator is unavailable
+// Deduplication is handled at the caller level via state-based transition detection
 func RegisterPodWithActivator(
 	activatorServiceURL string,
 	eventType string,
@@ -243,11 +118,6 @@ func RegisterPodWithActivator(
 	logger *zap.SugaredLogger,
 ) {
 	if activatorServiceURL == "" {
-		return
-	}
-
-	// Check if this should be skipped due to deduplication
-	if shouldSkipRegistration(podIP, eventType, namespace, revision, logger) {
 		return
 	}
 
@@ -346,7 +216,7 @@ func registerPodSync(
 		registrationAttempts.WithLabelValues("success", eventType, namespace, revision, activatorServiceURL).Inc()
 		registrationLatency.WithLabelValues(eventType, namespace, revision, activatorServiceURL).Observe(time.Since(startTime).Seconds())
 		if logger != nil {
-			logger.Debugw("Pod registration successful",
+			logger.Infow("Pod registration successful",
 				"event", eventType,
 				"pod", podName,
 				"status", resp.StatusCode)

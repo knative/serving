@@ -30,6 +30,10 @@ import (
 
 // TestQPAuthorityOverridesInformer tests that QP events override K8s informer
 func TestQPAuthorityOverridesInformer(t *testing.T) {
+	// Enable QP authority for these tests
+	setFeatureGatesForTesting(true, false)
+	defer resetFeatureGatesForTesting()
+
 	logger := TestLogger(t)
 
 	t.Run("QP not-ready overrides K8s healthy (fresh QP data)", func(t *testing.T) {
@@ -60,7 +64,7 @@ func TestQPAuthorityOverridesInformer(t *testing.T) {
 		rt.addPodIncremental(podIP, "not-ready", logger)
 
 		// Verify pod is pending
-		if podState(tracker.state.Load()) != podPending {
+		if podState(tracker.state.Load()) != podNotReady {
 			t.Error("Pod should be pending after QP not-ready event")
 		}
 
@@ -69,7 +73,7 @@ func TestQPAuthorityOverridesInformer(t *testing.T) {
 		rt.updateThrottlerState(1, nil, []string{podIP}, nil, nil)
 
 		// Verify pod is STILL pending (QP authority wins)
-		if podState(tracker.state.Load()) != podPending {
+		if podState(tracker.state.Load()) != podNotReady {
 			t.Error("Pod should stay pending - QP authority should override fresh informer")
 		}
 	})
@@ -129,7 +133,7 @@ func TestQPAuthorityOverridesInformer(t *testing.T) {
 		tracker.lastQPState.Store("not-ready")             // Last said not-ready
 
 		// Verify pod is pending
-		if podState(tracker.state.Load()) != podPending {
+		if podState(tracker.state.Load()) != podNotReady {
 			t.Fatal("Pod should be pending initially")
 		}
 
@@ -170,7 +174,7 @@ func TestQPAuthorityOverridesInformer(t *testing.T) {
 		}
 
 		// Verify pod is pending
-		if podState(tracker.state.Load()) != podPending {
+		if podState(tracker.state.Load()) != podNotReady {
 			t.Fatal("Pod should be pending initially")
 		}
 
@@ -187,9 +191,13 @@ func TestQPAuthorityOverridesInformer(t *testing.T) {
 
 // TestPodStateTransitionPreservesBreaker tests that state transitions don't break active requests
 func TestPodStateTransitionPreservesBreaker(t *testing.T) {
+	// Enable QP authority for these tests
+	setFeatureGatesForTesting(true, false)
+	defer resetFeatureGatesForTesting()
+
 	logger := TestLogger(t)
 
-	t.Run("ready to pending preserves refCount and breaker", func(t *testing.T) {
+	t.Run("ready to not-ready preserves refCount and breaker", func(t *testing.T) {
 		rt := newRevisionThrottler(
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 10, "http",
@@ -225,7 +233,7 @@ func TestPodStateTransitionPreservesBreaker(t *testing.T) {
 		rt.addPodIncremental(podIP, "not-ready", logger)
 
 		// Verify state changed to pending
-		if podState(tracker.state.Load()) != podPending {
+		if podState(tracker.state.Load()) != podNotReady {
 			t.Error("Pod should be pending after not-ready event")
 		}
 
@@ -335,6 +343,10 @@ func TestPodStateTransitionPreservesBreaker(t *testing.T) {
 
 // TestQPEventSequences tests various QP event sequences
 func TestQPEventSequences(t *testing.T) {
+	// Enable QP authority for these tests
+	setFeatureGatesForTesting(true, false)
+	defer resetFeatureGatesForTesting()
+
 	logger := TestLogger(t)
 
 	t.Run("startup → ready → not-ready → ready cycle", func(t *testing.T) {
@@ -352,7 +364,7 @@ func TestQPEventSequences(t *testing.T) {
 		rt.mux.RLock()
 		tracker := rt.podTrackers[podIP]
 		rt.mux.RUnlock()
-		if podState(tracker.state.Load()) != podPending {
+		if podState(tracker.state.Load()) != podNotReady {
 			t.Error("After startup, pod should be pending")
 		}
 
@@ -364,7 +376,7 @@ func TestQPEventSequences(t *testing.T) {
 
 		// Not-ready
 		rt.addPodIncremental(podIP, "not-ready", logger)
-		if podState(tracker.state.Load()) != podPending {
+		if podState(tracker.state.Load()) != podNotReady {
 			t.Error("After not-ready, pod should be pending")
 		}
 
@@ -458,9 +470,13 @@ func TestQPEventSequences(t *testing.T) {
 
 // TestInformerWithQPCoexistence tests K8s informer and QP working together
 func TestInformerWithQPCoexistence(t *testing.T) {
+	// Enable QP authority for these tests
+	setFeatureGatesForTesting(true, false)
+	defer resetFeatureGatesForTesting()
+
 	logger := TestLogger(t)
 
-	t.Run("informer creates pending, QP promotes to ready", func(t *testing.T) {
+	t.Run("informer creates not-ready, QP promotes to ready", func(t *testing.T) {
 		rt := newRevisionThrottler(
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
@@ -511,7 +527,7 @@ func TestInformerWithQPCoexistence(t *testing.T) {
 		tracker := rt.podTrackers[podIP]
 		rt.mux.RUnlock()
 
-		if podState(tracker.state.Load()) != podPending {
+		if podState(tracker.state.Load()) != podNotReady {
 			t.Fatal("QP startup should create pending pod")
 		}
 
@@ -565,17 +581,21 @@ func TestInformerWithQPCoexistence(t *testing.T) {
 			t.Fatal("QP should be able to re-create pod")
 		}
 
-		if podState(tracker.state.Load()) != podPending {
+		if podState(tracker.state.Load()) != podNotReady {
 			t.Error("Re-created pod should be pending")
 		}
 	})
 }
 
-// TestPodPendingNonViable tests that podPending pods don't receive traffic
-func TestPodPendingNonViable(t *testing.T) {
+// TestPodNotReadyNonViable tests that podNotReady pods don't receive traffic
+func TestPodNotReadyNonViable(t *testing.T) {
+	// Enable QP authority for these tests
+	setFeatureGatesForTesting(true, false)
+	defer resetFeatureGatesForTesting()
+
 	logger := TestLogger(t)
 
-	t.Run("pending pods excluded from filterAvailableTrackers", func(t *testing.T) {
+	t.Run("not-ready pods excluded from filterAvailableTrackers", func(t *testing.T) {
 		rt := newRevisionThrottler(
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
@@ -585,13 +605,13 @@ func TestPodPendingNonViable(t *testing.T) {
 
 		// Create mix of pending and ready pods
 		pod1 := newPodTracker("10.0.0.1:8080", rt.revID, nil)
-		pod1.state.Store(uint32(podPending))
+		pod1.state.Store(uint32(podNotReady))
 
 		pod2 := newPodTracker("10.0.0.2:8080", rt.revID, nil)
 		pod2.state.Store(uint32(podReady))
 
 		pod3 := newPodTracker("10.0.0.3:8080", rt.revID, nil)
-		pod3.state.Store(uint32(podPending))
+		pod3.state.Store(uint32(podNotReady))
 
 		trackers := []*podTracker{pod1, pod2, pod3}
 
@@ -608,18 +628,18 @@ func TestPodPendingNonViable(t *testing.T) {
 		}
 	})
 
-	t.Run("Reserve() rejects pending pods", func(t *testing.T) {
+	t.Run("Reserve() rejects not-ready pods", func(t *testing.T) {
 		tracker := newPodTracker("10.0.0.1:8080",
 			types.NamespacedName{Namespace: "test", Name: "rev"},
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 
-		tracker.state.Store(uint32(podPending))
+		tracker.state.Store(uint32(podNotReady))
 
 		ctx := context.Background()
 		_, ok := tracker.Reserve(ctx)
 
 		if ok {
-			t.Error("Reserve() should reject pending pods")
+			t.Error("Reserve() should reject not-ready pods")
 		}
 
 		// Verify refCount is 0 (didn't increment)
@@ -628,7 +648,7 @@ func TestPodPendingNonViable(t *testing.T) {
 		}
 	})
 
-	t.Run("pending pods excluded from routing but counted in capacity", func(t *testing.T) {
+	t.Run("not-ready pods excluded from routing but counted in capacity", func(t *testing.T) {
 		rt := newRevisionThrottler(
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
@@ -668,6 +688,10 @@ func TestPodPendingNonViable(t *testing.T) {
 
 // TestDrainingWithActiveRequests tests draining behavior with in-flight requests
 func TestDrainingWithActiveRequests(t *testing.T) {
+	// Enable QP authority for these tests
+	setFeatureGatesForTesting(true, false)
+	defer resetFeatureGatesForTesting()
+
 	logger := TestLogger(t)
 
 	t.Run("draining pod not removed until refCount zero", func(t *testing.T) {
@@ -753,6 +777,10 @@ func TestDrainingWithActiveRequests(t *testing.T) {
 
 // TestQPvsInformerTimingScenarios tests timing-based authority
 func TestQPvsInformerTimingScenarios(t *testing.T) {
+	// Enable QP authority for these tests
+	setFeatureGatesForTesting(true, false)
+	defer resetFeatureGatesForTesting()
+
 	logger := TestLogger(t)
 
 	t.Run("fresh QP data blocks informer promotion", func(t *testing.T) {
@@ -783,7 +811,7 @@ func TestQPvsInformerTimingScenarios(t *testing.T) {
 		rt.updateThrottlerState(1, nil, []string{podIP}, nil, nil)
 
 		// Pod should STAY pending (QP authority)
-		if podState(tracker.state.Load()) != podPending {
+		if podState(tracker.state.Load()) != podNotReady {
 			t.Error("Fresh QP not-ready should block informer promotion")
 		}
 	})
@@ -837,9 +865,13 @@ func TestQPvsInformerTimingScenarios(t *testing.T) {
 
 // TestStateMachineValidation tests state machine validation and edge case handling
 func TestStateMachineValidation(t *testing.T) {
+	// Enable QP authority for these tests
+	setFeatureGatesForTesting(true, false)
+	defer resetFeatureGatesForTesting()
+
 	logger := TestLogger(t)
 
-	t.Run("draining on pending pod - crash before ready", func(t *testing.T) {
+	t.Run("draining on not-ready pod - crash before ready", func(t *testing.T) {
 		rt := newRevisionThrottler(
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
@@ -856,7 +888,7 @@ func TestStateMachineValidation(t *testing.T) {
 		tracker := rt.podTrackers[podIP]
 		rt.mux.RUnlock()
 
-		if podState(tracker.state.Load()) != podPending {
+		if podState(tracker.state.Load()) != podNotReady {
 			t.Fatal("Pod should be pending after startup")
 		}
 
@@ -959,7 +991,7 @@ func TestStateMachineValidation(t *testing.T) {
 		rt.addPodIncremental(podIP, "not-ready", logger)
 
 		// Should STAY pending (not-ready on pending is noop)
-		if podState(tracker.state.Load()) != podPending {
+		if podState(tracker.state.Load()) != podNotReady {
 			t.Error("Pod should stay pending - not-ready on pending is ignored")
 		}
 	})
@@ -984,7 +1016,7 @@ func TestStateMachineValidation(t *testing.T) {
 
 		// Pod becomes unhealthy
 		rt.addPodIncremental(podIP, "not-ready", logger)
-		if podState(tracker.state.Load()) != podPending {
+		if podState(tracker.state.Load()) != podNotReady {
 			t.Error("Pod should be pending after not-ready")
 		}
 
