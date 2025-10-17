@@ -19,7 +19,6 @@ package net
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
 	"sort"
 	"sync"
@@ -39,7 +38,6 @@ import (
 
 	pkgnet "knative.dev/networking/pkg/apis/networking"
 	netcfg "knative.dev/networking/pkg/config"
-	netheader "knative.dev/networking/pkg/http/header"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
@@ -112,10 +110,8 @@ type podState uint32
 const (
 	podHealthy podState = iota
 	podDraining
-	podQuarantined
-	podRecovering
 	podRemoved
-	podPending // New state for pods that haven't been health-checked yet
+	podPending // Waiting for ready signal (not viable for routing)
 )
 
 type podTracker struct {
@@ -131,10 +127,6 @@ type podTracker struct {
 	refCount atomic.Uint64
 	// Unix timestamp when the pod entered draining state
 	drainingStartTime atomic.Int64
-	// Unix timestamp when the pod should exit quarantine state
-	quarantineEndTime atomic.Int64
-	// Number of consecutive quarantine events for this pod
-	quarantineCount atomic.Uint32
 
 	// Queue-proxy push tracking (for trust hierarchy over K8s informer)
 	// Unix timestamp of last queue-proxy push update (0 if never received)
@@ -171,10 +163,6 @@ func (p *podTracker) getRefCount() uint64 {
 
 func (p *podTracker) tryDrain() bool {
 	if p.state.CompareAndSwap(uint32(podHealthy), uint32(podDraining)) {
-		p.drainingStartTime.Store(time.Now().Unix())
-		return true
-	}
-	if p.state.CompareAndSwap(uint32(podRecovering), uint32(podDraining)) {
 		p.drainingStartTime.Store(time.Now().Unix())
 		return true
 	}
@@ -395,29 +383,6 @@ func newRevisionThrottler(revID types.NamespacedName,
 
 func noop() {}
 
-// transitionOutOfQuarantine ensures we decrement quarantine gauge exactly once
-// and optionally set a new state. Returns true if a decrement happened.
-func transitionOutOfQuarantine(ctx context.Context, p *podTracker, newState podState) bool {
-	if p == nil {
-		return false
-	}
-	// Use CAS to atomically transition from quarantined to new state
-	if p.state.CompareAndSwap(uint32(podQuarantined), uint32(newState)) {
-		// Successfully transitioned out of quarantine
-		handler.RecordPodQuarantineChange(ctx, -1)
-		handler.RecordPodQuarantineExit(ctx) // New counter-based metric
-		return true
-	}
-
-	// Try to update to new state if it's different from current
-	// This handles the case where we're not in quarantine but need state update
-	prev := podState(p.state.Load())
-	if newState != prev && prev != podQuarantined {
-		p.state.CompareAndSwap(uint32(prev), uint32(newState))
-	}
-	return false
-}
-
 // filterAvailableTrackers returns only healthy pods ready to serve traffic
 // podPending pods are excluded until explicitly promoted to healthy
 func (rt *revisionThrottler) filterAvailableTrackers(trackers []*podTracker) []*podTracker {
@@ -629,55 +594,28 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 				// Check state of all assigned pods
 				rt.mux.RLock()
 				assignedCount := len(rt.assignedTrackers)
-				quarantinedCount := 0
 				pendingCount := 0
 				for _, t := range rt.assignedTrackers {
 					if t != nil {
 						state := podState(t.state.Load())
-						if state == podQuarantined {
-							quarantinedCount++
-						} else if state == podPending {
+						if state == podPending {
 							pendingCount++
 						}
 					}
 				}
 				rt.mux.RUnlock()
 
-				// Log specific scenario based on pod states - rate limit to avoid spam in tight re-enqueue loops
-				// Only log on first occurrence and every 100 retries to show progress
-				if assignedCount > 0 && (quarantinedCount+pendingCount) == assignedCount {
+				// Log if all pods are pending - rate limit to avoid spam
+				if pendingCount == assignedCount && assignedCount > 0 {
 					shouldLog := reenqueueCount == 0 || reenqueueCount%100 == 0
-					if pendingCount == assignedCount {
-						if shouldLog {
-							rt.logger.Warnw("all pods pending (starting up); re-enqueue",
-								"x-request-id", xRequestId,
-								"pending", pendingCount,
-								"assigned", assignedCount,
-								"reenqueueCount", reenqueueCount,
-								"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()),
-							)
-						}
-					} else if quarantinedCount == assignedCount {
-						if shouldLog {
-							rt.logger.Warnw("all pods quarantined (failed health); re-enqueue",
-								"x-request-id", xRequestId,
-								"quarantined", quarantinedCount,
-								"assigned", assignedCount,
-								"reenqueueCount", reenqueueCount,
-								"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()),
-							)
-						}
-					} else {
-						if shouldLog {
-							rt.logger.Warnw("all pods unavailable (pending + quarantined); re-enqueue",
-								"x-request-id", xRequestId,
-								"pending", pendingCount,
-								"quarantined", quarantinedCount,
-								"assigned", assignedCount,
-								"reenqueueCount", reenqueueCount,
-								"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()),
-							)
-						}
+					if shouldLog {
+						rt.logger.Warnw("all pods pending (starting up); re-enqueue",
+							"x-request-id", xRequestId,
+							"pending", pendingCount,
+							"assigned", assignedCount,
+							"reenqueueCount", reenqueueCount,
+							"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()),
+						)
 					}
 					reenqueue = true
 					reenqueueCount++
@@ -695,7 +633,7 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 				reenqueueCount++
 				rt.logger.Debugw("Failed to acquire tracker; re-enqueue",
 					"x-request-id", xRequestId,
-					"quarantined", quarantinedCount,
+					"pending", pendingCount,
 					"assigned", assignedCount,
 					"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()))
 				return
@@ -730,85 +668,6 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 				callback()
 				rt.logger.Debugf("%s -> %s breaker release semaphore\n", xRequestId, trackerId)
 			}()
-			// We already reserved a guaranteed spot. So just execute the passed functor.
-			// ClusterIP routing is intentionally disabled; we route directly to pods.
-			// First, perform a pod ready check to ensure the queue-proxy is healthy
-			// Only do this for pod routing (not clusterIP)
-			if !isClusterIP {
-				currentState := podState(tracker.state.Load())
-
-				// Track health check duration
-				healthCheckStart := time.Now()
-				healthCheckPassed := tcpPingCheck(tracker.dest, tracker.revisionID)
-				healthCheckMs := float64(time.Since(healthCheckStart).Milliseconds())
-
-				if healthCheckMs > 1000 { // Log if health check took >1s
-					rt.logger.Warnw("Slow health check",
-						"x-request-id", xRequestId,
-						"dest", tracker.dest,
-						"state", currentState,
-						"health-check-ms", healthCheckMs,
-						"passed", healthCheckPassed)
-				}
-
-				if !healthCheckPassed {
-					// For pending pods, this is their first health check
-					if currentState == podPending {
-						rt.logger.Infow("pod ready check failed for pending pod; quarantine",
-							"x-request-id", xRequestId,
-							"dest", tracker.dest,
-							"revision", rt.revID.String(),
-							"tracker-id", tracker.id,
-							"reenqueue-count", reenqueueCount)
-					} else {
-						rt.logger.Errorw("pod ready check failed; quarantine",
-							"x-request-id", xRequestId,
-							"dest", tracker.dest,
-							"revision", rt.revID.String(),
-							"tracker-id", tracker.id,
-							"previous-state", currentState,
-							"reenqueue-count", reenqueueCount)
-					}
-					// Try to quarantine this tracker using CAS to avoid races
-					// We can transition from any non-quarantined state to quarantined
-					wasQuarantined := false
-					for !wasQuarantined {
-						prevState := podState(tracker.state.Load())
-						if prevState == podQuarantined {
-							// Already quarantined by another goroutine
-							break
-						}
-						if tracker.state.CompareAndSwap(uint32(prevState), uint32(podQuarantined)) {
-							wasQuarantined = true
-							// Only update metrics if we actually performed the quarantine
-							// Increment consecutive quarantine count
-							count := tracker.quarantineCount.Add(1)
-							// Determine backoff duration
-							// Use aggressive backoff for pods that were pending (never been healthy)
-							wasPending := currentState == podPending
-							backoff := quarantineBackoffSeconds(count, wasPending)
-							tracker.quarantineEndTime.Store(time.Now().Unix() + int64(backoff))
-							// Record metrics
-							handler.RecordPodQuarantineChange(ctx, 1)
-							handler.RecordPodQuarantineEntry(ctx) // New counter-based metric
-							handler.RecordTCPPingFailureEvent(ctx)
-						}
-					}
-					// Re-queue the request to try another backend
-					reenqueue = true
-					return
-				}
-
-				// Pod ready check successful - if pod was pending, promote to healthy
-				if currentState == podPending {
-					// Use CAS to atomically transition from pending to healthy
-					if tracker.state.CompareAndSwap(uint32(podPending), uint32(podHealthy)) {
-						rt.logger.Debugw("Pending pod passed ready check, promoting to healthy",
-							"x-request-id", xRequestId,
-							"dest", tracker.dest)
-					}
-				}
-			}
 
 			// Record proxy start latency (successful tracker acquisition)
 			proxyStartLatencyMs := float64(time.Since(proxyStartTime).Nanoseconds()) / 1e6
@@ -840,55 +699,8 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 			ret = function(tracker.dest, isClusterIP)
 			proxyDurationMs = float64(time.Since(proxyCallStart).Milliseconds())
 
-			// Handle successful request completion
-			if ret == nil { // Successful request
-				currentState := podState(tracker.state.Load())
-				// If pod is recovering, promote to healthy after successful request
-				if currentState == podRecovering {
-					// Use CAS to atomically transition from recovering to healthy
-					if tracker.state.CompareAndSwap(uint32(podRecovering), uint32(podHealthy)) {
-						tracker.quarantineCount.Store(0)
-						rt.logger.Infof("Pod %s successfully recovered, promoting to healthy state", tracker.dest)
-					}
-				}
-				// On success, if pod was previously quarantined, reset the counter to reduce future backoff
-				// Re-check state after potential transition
-				currentState = podState(tracker.state.Load())
-				if currentState == podHealthy && tracker.quarantineCount.Load() > 0 {
-					prevCount := tracker.quarantineCount.Swap(0)
-					rt.logger.Infow("Pod quarantine history cleared after success",
-						"x-request-id", xRequestId,
-						"dest", tracker.dest,
-						"previous-quarantine-count", prevCount)
-				}
-			}
-
-			// Check if we got a quick 502 response
-			// TODO: TEMPORARILY DISABLED - Re-enable quick 502 quarantine functionality
-			// This feature was disabled due to issues with quick 502s causing unnecessary quarantines
-			// var quick502Err handler.ErrQuick502
-			// if errors.As(ret, &quick502Err) {
-			// 	rt.logger.Errorw("instant 502; quarantine", "x-request-id", xRequestId, "dest", tracker.dest, "duration", quick502Err.Duration.String())
-			//
-			// 	// Quarantine this tracker
-			// 	tracker.state.Store(uint32(podQuarantined))
-			// 	// Increment consecutive quarantine count
-			// 	count := tracker.quarantineCount.Add(1)
-			// 	// Determine backoff duration
-			// 	backoff := quarantineBackoffSeconds(count)
-			// 	tracker.quarantineEndTime.Store(time.Now().Unix() + int64(backoff))
-			//
-			// 	// Record metrics
-			//
-			// 	handler.RecordPodQuarantineChange(ctx, 1)
-			// 	handler.RecordPodQuarantineEntry(ctx) // New counter-based metric
-			// 	handler.RecordImmediate502Event(ctx)
-			//
-			// 	// Re-queue the request to try another backend
-			// 	reenqueue = true
-			// 	ret = nil // Clear error so we retry
-			// 	return
-			// }
+			// Request completed - no state transitions needed
+			// Trust that backend manager and QP handle health state
 		}); err != nil {
 			return err
 		}
@@ -1188,19 +1000,15 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 				switch currentState {
 				case podDraining, podRemoved:
 					// Pod was being removed but is back in healthy endpoint list (e.g., rolling update rollback)
-					// Reset to pending for re-validation rather than trusting immediately
+					// Reset to pending - QP or informer will promote to healthy
 					tracker.state.Store(uint32(podPending))
 					tracker.drainingStartTime.Store(0)
-					rt.logger.Infof("Pod %s was draining/removed, now back in healthy list - resetting to pending", d)
+					rt.logger.Infow("Pod %s was draining/removed, now back in healthy list - resetting to pending", d)
 				case podHealthy:
 					// Already healthy, nothing to do
-				case podRecovering:
-					// Let it recover naturally after successful request - don't interfere
-				case podQuarantined:
-					// Pod is in backoff - don't short-circuit quarantine just because K8s says it's ready
-					// Let the quarantine timer complete naturally
 				case podPending:
-					// Already pending, will be health-checked on first request
+					// K8s says healthy, pod is pending
+					// Will be promoted by QP ready event or on next update cycle
 				}
 			}
 		}
@@ -1213,7 +1021,7 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 			}
 
 			switch podState(tracker.state.Load()) {
-			case podHealthy, podRecovering:
+			case podHealthy:
 				if tracker.tryDrain() {
 					rt.logger.Debugf("Pod %s transitioning to draining state, refCount=%d", d, tracker.getRefCount())
 					if tracker.getRefCount() == 0 {
@@ -1236,55 +1044,13 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 						delete(rt.podTrackers, d)
 					}
 				}
-			case podQuarantined:
-				transitionOutOfQuarantine(context.Background(), tracker, podRemoved)
-				delete(rt.podTrackers, d)
-				rt.logger.Infow("Pod removed while in quarantine",
-					"dest", d,
-					"revision", rt.revID.String(),
-					"tracker-id", tracker.id,
-					"tracker-revision", tracker.revisionID.String())
 			case podPending:
-				// Pod being removed while still pending health check
+				// Pod being removed while still pending
 				tracker.state.Store(uint32(podRemoved))
 				delete(rt.podTrackers, d)
-				rt.logger.Debugf("Pod %s removed while pending health check", d)
+				rt.logger.Debugf("Pod %s removed while pending", d)
 			default:
 				rt.logger.Errorf("Pod %s in unexpected state %d while processing draining destinations", d, tracker.state.Load())
-			}
-		}
-
-		// Proactive cleanup: Remove stale quarantined pods with no active requests
-		// This prevents IP reuse contamination during the quarantine window
-		healthyDestsSet := make(map[string]bool, len(healthyDests))
-		for _, d := range healthyDests {
-			healthyDestsSet[d] = true
-		}
-		drainingDestsSet := make(map[string]bool, len(drainingDests))
-		for _, d := range drainingDests {
-			drainingDestsSet[d] = true
-		}
-
-		for dest, tracker := range rt.podTrackers {
-			if tracker == nil {
-				continue
-			}
-			state := podState(tracker.state.Load())
-			// If quarantined with no active requests and not in healthy/draining sets, delete immediately
-			if state == podQuarantined && tracker.getRefCount() == 0 {
-				_, inHealthy := healthyDestsSet[dest]
-				_, inDraining := drainingDestsSet[dest]
-				// If not in either set, this pod disappeared from K8s and is stale
-				if !inHealthy && !inDraining {
-					rt.logger.Warnw("Proactively removing stale quarantined pod to prevent IP reuse",
-						"dest", dest,
-						"revision", rt.revID.String(),
-						"tracker-id", tracker.id,
-						"tracker-revision", tracker.revisionID.String(),
-						"quarantine-count", tracker.quarantineCount.Load())
-					transitionOutOfQuarantine(context.Background(), tracker, podRemoved)
-					delete(rt.podTrackers, dest)
-				}
 			}
 		}
 
@@ -1401,21 +1167,18 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 				// Check current state and handle appropriately
 				currentState := podState(tracker.state.Load())
 
-				// Don't disrupt pods that are recovering, quarantined, or pending
-				// These states have their own recovery mechanisms with backoff timers
-				// Resetting them to pending would restart the health check process and interfere with recovery
 				switch currentState {
-				case podRecovering, podQuarantined, podPending:
-					// These states have their own recovery mechanisms - don't interfere
-					rt.logger.Debugf("Pod %s in state %v, allowing natural recovery", newDest, currentState)
+				case podPending:
+					// Pod is pending - let QP or informer promote it
+					rt.logger.Debugf("Pod %s in pending state, waiting for promotion", newDest)
 				case podDraining, podRemoved:
 					// Pod was removed but is now back in the endpoint list (e.g., controller restart)
-					// Reset to pending for re-validation
+					// Reset to pending - QP will promote to healthy when ready
 					tracker.state.Store(uint32(podPending))
 					tracker.drainingStartTime.Store(0)
 					rt.logger.Debugw("Re-adding previously draining/removed pod as pending",
 						"dest", newDest,
-						"previousState", currentState) // Log BEFORE changing state
+						"previousState", currentState)
 				case podHealthy:
 					// Already healthy, nothing to do
 				}
@@ -1948,109 +1711,3 @@ func (ib *infiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
 }
 
 func (ib *infiniteBreaker) Reserve(context.Context) (func(), bool) { return noop, true }
-
-// podReadyCheckFunc is a function variable that can be overridden for testing
-// Use atomic.Value for thread-safe access
-var podReadyCheckFunc atomic.Value
-
-func init() {
-	podReadyCheckFunc.Store(podReadyCheck)
-}
-
-func podReadyCheck(dest string, expectedRevision types.NamespacedName) bool {
-	ctx, cancel := context.WithTimeout(context.Background(), podReadyCheckTimeout)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+dest+"/", nil)
-	if err != nil {
-		return false
-	}
-
-	req.Header.Set("User-Agent", "kube-probe/activator")
-	req.Header.Set(netheader.ProbeKey, queue.Name)
-
-	client := &http.Client{
-		Timeout: podReadyCheckTimeout,
-		Transport: &http.Transport{
-			DisableKeepAlives: true,
-			DialContext: (&net.Dialer{
-				Timeout: podReadyCheckTimeout,
-			}).DialContext,
-		},
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return false
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return false
-	}
-
-	respRevName := resp.Header.Get("X-Knative-Revision-Name")
-	respRevNamespace := resp.Header.Get("X-Knative-Revision-Namespace")
-
-	// Backwards compatibility: If headers are not present (old queue-proxy), skip validation
-	if respRevName == "" && respRevNamespace == "" {
-		return true
-	}
-
-	// If headers ARE present, validate they match expected revision
-	if respRevName != expectedRevision.Name || respRevNamespace != expectedRevision.Namespace {
-		if logger := logging.FromContext(context.Background()); logger != nil {
-			logger.Errorw("Health check response from wrong revision - IP reuse detected!",
-				"dest", dest,
-				"expected-revision", expectedRevision.String(),
-				"response-revision", types.NamespacedName{Name: respRevName, Namespace: respRevNamespace}.String())
-		}
-		return false
-	}
-
-	return true
-}
-
-// quarantineBackoffSeconds returns backoff seconds for a given consecutive quarantine count.
-// For pending pods (never been healthy): 0s, 1s, 1s, 2s, 5s (be aggressive in retrying new pods)
-// For established pods (was healthy): 1s, 2s, 5s, 10s, 20s (more conservative for known-good pods)
-func quarantineBackoffSeconds(count uint32, wasPending bool) uint32 {
-	if wasPending {
-		// Shorter backoff for pods that are just starting up
-		switch count {
-		case 1:
-			return 0 // Retry immediately on first failure for pending pods
-		case 2:
-			return 1 // ~500ms effective retry time
-		case 3:
-			return 1
-		case 4:
-			return 2
-		default:
-			return 5 // Cap at 5s for pending pods
-		}
-	}
-
-	// Standard backoff for established pods that were previously healthy
-	switch count {
-	case 1:
-		return 1
-	case 2:
-		return 2
-	case 3:
-		return 5
-	case 4:
-		return 10
-	default:
-		return 20
-	}
-}
-
-func tcpPingCheck(dest string, expectedRevision types.NamespacedName) bool {
-	fn := podReadyCheckFunc.Load().(func(string, types.NamespacedName) bool)
-	return fn(dest, expectedRevision)
-}
-
-func setPodReadyCheckFunc(fn func(string, types.NamespacedName) bool) {
-	podReadyCheckFunc.Store(fn)
-}
