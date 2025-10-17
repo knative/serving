@@ -243,18 +243,37 @@ func Main(opts ...Option) error {
 		probe = buildProbe(logger, env.ServingReadinessProbe, env.EnableHTTP2AutoDetection, env.EnableMultiContainerProbes).ProbeContainer
 	}
 
-	// Wrap the prober to send ready registration on first successful probe
+	// Wrap the prober to send state change events to activator
+	// Track probe state transitions to notify activator of ready ↔ not-ready changes
+	var lastProbeResult atomic.Bool
+	lastProbeResult.Store(false) // Start as not-ready
 	var readyRegistrationSent atomic.Bool
+
 	originalProbe := probe
 	probe = func() bool {
 		result := originalProbe()
-		// Send ready registration after first successful probe (async, fire-and-forget)
-		if result && !readyRegistrationSent.Load() {
+		previous := lastProbeResult.Swap(result)
+
+		// Detect state transition: not-ready → ready
+		if result && !previous {
 			if readyRegistrationSent.CompareAndSwap(false, true) {
+				logger.Infow("Readiness probe passed - notifying activator",
+					"pod", env.ServingPod,
+					"pod-ip", env.ServingPodIP)
 				queue.RegisterPodWithActivator(env.ActivatorServiceURL, queue.EventTypeReady,
 					env.ServingPod, env.ServingPodIP, env.ServingNamespace, env.ServingRevision, logger)
 			}
 		}
+
+		// Detect state transition: ready → not-ready
+		if !result && previous {
+			logger.Warnw("Readiness probe failed - notifying activator",
+				"pod", env.ServingPod,
+				"pod-ip", env.ServingPodIP)
+			queue.RegisterPodWithActivator(env.ActivatorServiceURL, queue.EventTypeNotReady,
+				env.ServingPod, env.ServingPodIP, env.ServingNamespace, env.ServingRevision, logger)
+		}
+
 		return result
 	}
 
@@ -334,6 +353,15 @@ func Main(opts ...Option) error {
 		return err
 	case <-d.Ctx.Done():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
+
+		// Notify activator we're draining BEFORE starting drain
+		// This gives activator immediate signal to stop routing traffic here
+		logger.Infow("Notifying activator of pod draining",
+			"pod", env.ServingPod,
+			"pod-ip", env.ServingPodIP)
+		queue.RegisterPodWithActivator(env.ActivatorServiceURL, queue.EventTypeDraining,
+			env.ServingPod, env.ServingPodIP, env.ServingNamespace, env.ServingRevision, logger)
+
 		drainer.Drain()
 
 		// Wait on active requests to complete. This is done explicitly

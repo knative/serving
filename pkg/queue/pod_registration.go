@@ -45,6 +45,12 @@ const (
 	// EventTypeReady indicates the pod is ready to serve traffic
 	EventTypeReady = "ready"
 
+	// EventTypeNotReady indicates the pod's readiness probe failed
+	EventTypeNotReady = "not-ready"
+
+	// EventTypeDraining indicates the pod is shutting down gracefully
+	EventTypeDraining = "draining"
+
 	// RegistrationDeduplicationWindow is how long to ignore duplicate registration attempts (5 seconds)
 	RegistrationDeduplicationWindow = 5 * time.Second
 

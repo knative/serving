@@ -70,12 +70,18 @@ func PodRegistrationHandler(throttler PodRegistrationThrottler, logger *zap.Suga
 		}
 
 		// Validate event type is one of the expected values
-		if req.EventType != "startup" && req.EventType != "ready" {
+		validEvents := map[string]bool{
+			"startup":    true,
+			"ready":      true,
+			"not-ready":  true,
+			"draining":   true,
+		}
+		if !validEvents[req.EventType] {
 			logger.Warnw("Invalid event type",
 				"event_type", req.EventType,
 				"pod_name", req.PodName,
 				"pod_ip", req.PodIP)
-			http.Error(w, "Invalid event_type: must be 'startup' or 'ready'", http.StatusBadRequest)
+			http.Error(w, "Invalid event_type: must be 'startup', 'ready', 'not-ready', or 'draining'", http.StatusBadRequest)
 			return
 		}
 
