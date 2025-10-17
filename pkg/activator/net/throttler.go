@@ -1238,15 +1238,19 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 				}
 			}
 		}
-		healthyDests := make([]string, 0, len(currentDests))
-		drainingDests := make([]string, 0, len(currentDests))
+		// Build healthyDests from ALL dests in update.Dests (both new and existing)
+		// This ensures new pods get promoted from pending to healthy
+		healthyDests := make([]string, 0, len(update.Dests))
+		for newDest := range update.Dests {
+			healthyDests = append(healthyDests, newDest)
+		}
+
+		// Build drainingDests from pods that are no longer in the update
+		drainingDests := make([]string, 0)
 		for _, d := range currentDests {
-			_, ok := newDestsSet[d]
-			// If dest is no longer in the active set, it needs draining/removal
-			if !ok {
+			if _, ok := newDestsSet[d]; !ok {
+				// Pod is no longer in the active set, needs draining/removal
 				drainingDests = append(drainingDests, d)
-			} else {
-				healthyDests = append(healthyDests, d)
 			}
 		}
 		rt.mux.RUnlock()

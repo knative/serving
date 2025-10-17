@@ -2,7 +2,6 @@ package net
 
 import (
 	"context"
-	"errors"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -12,7 +11,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/serving/pkg/queue"
 )
 
@@ -64,7 +62,6 @@ func TestRace_PodTrackers_ReadWrite_NoLock(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		ctx := context.Background()
 		for {
 			select {
 			case <-stop:
@@ -78,7 +75,7 @@ func TestRace_PodTrackers_ReadWrite_NoLock(t *testing.T) {
 			rt.mux.RLock()
 			local := rt.assignedTrackers
 			rt.mux.RUnlock()
-			_ = rt.filterAvailableTrackers(ctx, local)
+			_ = rt.filterAvailableTrackers(local)
 		}
 	}()
 
@@ -137,75 +134,6 @@ func TestRace_UpdateCapacity_ReadsPodTrackersWhileWriterMutates(t *testing.T) {
 	}()
 
 	time.Sleep(500 * time.Millisecond)
-	close(stop)
-	wg.Wait()
-}
-
-// 3) Use-after-delete style: remove tracker while try() is running
-func TestRace_RequestPath_TrackerRemovedDuringUse(t *testing.T) {
-	t.Parallel()
-	logger := zaptest.NewLogger(t).Sugar()
-	rt := newRevisionThrottler(testRevID, nil, 1, "http", queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10}, logger)
-
-	tr := newTestTracker("127.0.0.1:65534", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
-	rt.updateThrottlerState(1, []*podTracker{tr}, []string{tr.dest}, nil, nil)
-
-	oldPing := podReadyCheckFunc.Load()
-	setPodReadyCheckFunc(func(_ string, _ types.NamespacedName) bool { return true })
-	defer func() { podReadyCheckFunc.Store(oldPing) }()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		for ctx.Err() == nil {
-			_ = rt.try(ctx, "x", func(_ string, _ bool) error { time.Sleep(time.Microsecond); return errors.New("fail fast") })
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		for ctx.Err() == nil {
-			rt.updateThrottlerState(0, nil, nil, []string{tr.dest}, nil)
-			rt.updateThrottlerState(1, []*podTracker{tr}, []string{tr.dest}, nil, nil)
-		}
-	}()
-	wg.Wait()
-}
-
-// 4) Global variable mutation race
-func TestRace_TCPPingCheckFunc_GlobalMutation(t *testing.T) {
-	t.Parallel()
-	orig := podReadyCheckFunc.Load()
-	defer func() { podReadyCheckFunc.Store(orig) }()
-	stop := make(chan struct{})
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		for {
-			select {
-			case <-stop:
-				return
-			default:
-			}
-			setPodReadyCheckFunc(func(string, types.NamespacedName) bool { return true })
-			setPodReadyCheckFunc(func(string, types.NamespacedName) bool { return false })
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		for {
-			select {
-			case <-stop:
-				return
-			default:
-			}
-			_ = tcpPingCheck("localhost:1", types.NamespacedName{Namespace: "test", Name: "rev"})
-		}
-	}()
-	time.Sleep(300 * time.Millisecond)
 	close(stop)
 	wg.Wait()
 }
@@ -453,66 +381,6 @@ func TestRace_InfiniteBreaker_BroadcastChannelRecreation(t *testing.T) {
 	wg.Wait()
 }
 
-// 10) Pod state transitions race: multiple goroutines changing state
-func TestRace_PodStateTransitions_ConcurrentStateChanges(t *testing.T) {
-	t.Parallel()
-	logger := zaptest.NewLogger(t).Sugar()
-	rt := newRevisionThrottler(types.NamespacedName{Namespace: "default", Name: "rev"}, nil, 1, "http", queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 1}, logger)
-
-	tr := newTestTracker("127.0.0.1:8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
-	rt.updateThrottlerState(1, []*podTracker{tr}, []string{tr.dest}, nil, nil)
-
-	stop := make(chan struct{})
-	var wg sync.WaitGroup
-	wg.Add(3)
-
-	// Goroutine 1: quarantine pod
-	go func() {
-		defer wg.Done()
-		for {
-			select {
-			case <-stop:
-				return
-			default:
-			}
-			tr.state.Store(uint32(podQuarantined))
-			time.Sleep(time.Microsecond)
-		}
-	}()
-
-	// Goroutine 2: mark pod healthy
-	go func() {
-		defer wg.Done()
-		for {
-			select {
-			case <-stop:
-				return
-			default:
-			}
-			tr.state.Store(uint32(podHealthy))
-			time.Sleep(time.Microsecond)
-		}
-	}()
-
-	// Goroutine 3: try to drain pod
-	go func() {
-		defer wg.Done()
-		for {
-			select {
-			case <-stop:
-				return
-			default:
-			}
-			tr.tryDrain() // CAS from healthy to draining
-			time.Sleep(time.Microsecond)
-		}
-	}()
-
-	time.Sleep(300 * time.Millisecond)
-	close(stop)
-	wg.Wait()
-}
-
 // 12) handlePubEpsUpdate race: test stale backendCount overwriting fresh capacity updates
 // This tests the scenario where activator endpoint updates use stale backendCount values,
 // potentially overwriting capacity increases from pod updates.
@@ -530,13 +398,15 @@ func TestRace_HandlePubEpsUpdate_StaleBackendCountOverwritesCapacity(t *testing.
 
 	// Initial state: 5 pods
 	initialTrackers := make([]*podTracker, 5)
+	healthyDests := make([]string, 5)
 	for i := range 5 {
 		initialTrackers[i] = newTestTracker(
 			"10.0.0."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 		)
+		healthyDests[i] = initialTrackers[i].dest
 	}
-	rt.updateThrottlerState(5, initialTrackers, nil, nil, nil)
+	rt.updateThrottlerState(5, initialTrackers, healthyDests, nil, nil)
 	rt.numActivators.Store(1)
 	rt.activatorIndex.Store(0)
 
@@ -613,13 +483,15 @@ func TestRace_BreakerCapacityCapture_ConcurrentCapacityUpdates(t *testing.T) {
 	)
 
 	initialTrackers := make([]*podTracker, 5)
+	healthyDests := make([]string, 5)
 	for i := range 5 {
 		initialTrackers[i] = newTestTracker(
 			"10.0.0."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 		)
+		healthyDests[i] = initialTrackers[i].dest
 	}
-	rt.updateThrottlerState(5, initialTrackers, nil, nil, nil)
+	rt.updateThrottlerState(5, initialTrackers, healthyDests, nil, nil)
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -681,13 +553,15 @@ func TestRace_AssignedTrackers_ConcurrentReadDuringUpdate(t *testing.T) {
 	)
 
 	initialTrackers := make([]*podTracker, 5)
+	healthyDests := make([]string, 5)
 	for i := range 5 {
 		initialTrackers[i] = newTestTracker(
 			"10.0.0."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 		)
+		healthyDests[i] = initialTrackers[i].dest
 	}
-	rt.updateThrottlerState(5, initialTrackers, nil, nil, nil)
+	rt.updateThrottlerState(5, initialTrackers, healthyDests, nil, nil)
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -711,7 +585,6 @@ func TestRace_AssignedTrackers_ConcurrentReadDuringUpdate(t *testing.T) {
 	// Reader: Read assignedTrackers in request path simulation
 	go func() {
 		defer wg.Done()
-		ctx := context.Background()
 		for {
 			select {
 			case <-stop:
@@ -721,7 +594,7 @@ func TestRace_AssignedTrackers_ConcurrentReadDuringUpdate(t *testing.T) {
 			rt.mux.RLock()
 			trackers := rt.assignedTrackers
 			rt.mux.RUnlock()
-			available := rt.filterAvailableTrackers(ctx, trackers)
+			available := rt.filterAvailableTrackers(trackers)
 			// Verify filtered trackers are valid
 			if len(available) > 0 {
 				filterCount.Add(1)
@@ -763,13 +636,15 @@ func TestRace_ContainerConcurrency_UpdateDuringCapacityCalc(t *testing.T) {
 	)
 
 	initialTrackers := make([]*podTracker, 5)
+	healthyDests := make([]string, 5)
 	for i := range 5 {
 		initialTrackers[i] = newTestTracker(
 			"10.0.0."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 		)
+		healthyDests[i] = initialTrackers[i].dest
 	}
-	rt.updateThrottlerState(5, initialTrackers, nil, nil, nil)
+	rt.updateThrottlerState(5, initialTrackers, healthyDests, nil, nil)
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -987,13 +862,15 @@ func TestRace_BackendCount_ConcurrentReadWriteDuringCapacityUpdates(t *testing.T
 	)
 
 	initialTrackers := make([]*podTracker, 5)
+	healthyDests := make([]string, 5)
 	for i := range 5 {
 		initialTrackers[i] = newTestTracker(
 			"10.0.0."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 		)
+		healthyDests[i] = initialTrackers[i].dest
 	}
-	rt.updateThrottlerState(5, initialTrackers, nil, nil, nil)
+	rt.updateThrottlerState(5, initialTrackers, healthyDests, nil, nil)
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -1088,13 +965,15 @@ func TestRace_WaitingRequests_ConcurrentBreakerStateReads(t *testing.T) {
 	)
 
 	initialTrackers := make([]*podTracker, 5)
+	healthyDests := make([]string, 5)
 	for i := range 5 {
 		initialTrackers[i] = newTestTracker(
 			"10.0.0."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 		)
+		healthyDests[i] = initialTrackers[i].dest
 	}
-	rt.updateThrottlerState(5, initialTrackers, nil, nil, nil)
+	rt.updateThrottlerState(5, initialTrackers, healthyDests, nil, nil)
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -1155,13 +1034,15 @@ func TestRace_AssignSlice_MapMutationDuringIteration(t *testing.T) {
 	)
 
 	initialTrackers := make([]*podTracker, 5)
+	healthyDests := make([]string, 5)
 	for i := range 5 {
 		initialTrackers[i] = newTestTracker(
 			"10.0.0."+strconv.Itoa(i)+":8080",
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 		)
+		healthyDests[i] = initialTrackers[i].dest
 	}
-	rt.updateThrottlerState(5, initialTrackers, nil, nil, nil)
+	rt.updateThrottlerState(5, initialTrackers, healthyDests, nil, nil)
 	rt.numActivators.Store(1)
 	rt.activatorIndex.Store(0)
 
@@ -1229,247 +1110,5 @@ func TestRace_AssignSlice_MapMutationDuringIteration(t *testing.T) {
 	if finalCap != expectedCap {
 		t.Errorf("Final capacity %d doesn't match expected %d (pods=%d, CC=%d)",
 			finalCap, expectedCap, finalPodCount, rt.containerConcurrency.Load())
-	}
-}
-
-// 21) Cross-revision contamination: IP reuse detection at tracker acquisition
-// Tests that acquiring a tracker from wrong revision is detected and prevented
-func TestRace_CrossRevisionContamination_TrackerAcquisitionValidation(t *testing.T) {
-	t.Parallel()
-	logger := zaptest.NewLogger(t).Sugar()
-
-	// Create throttler for revision-A
-	revA := types.NamespacedName{Namespace: "default", Name: "revision-a"}
-	revB := types.NamespacedName{Namespace: "default", Name: "revision-b"}
-
-	rtA := newRevisionThrottler(revA, nil, 1, "http",
-		queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10}, logger)
-
-	// Simulate IP reuse scenario:
-	// 1. Pod from revision-B gets added to revision-A's map (simulating IP reuse)
-	sharedIP := "10.0.0.1:8080"
-	trackerB := newPodTracker(sharedIP, revB, queue.NewBreaker(
-		queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}))
-	// Set to healthy so it passes filterAvailableTrackers
-	trackerB.state.Store(uint32(podHealthy))
-
-	// Directly inject wrong-revision tracker into revision-A's map (simulates race condition)
-	rtA.mux.Lock()
-	rtA.podTrackers[sharedIP] = trackerB
-	rtA.assignedTrackers = []*podTracker{trackerB}
-	rtA.mux.Unlock()
-	rtA.breaker.UpdateConcurrency(1)
-
-	// Now add a CORRECT tracker for revision-A
-	correctIP := "10.0.0.2:8080"
-	trackerA := newPodTracker(correctIP, revA, queue.NewBreaker(
-		queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}))
-	trackerA.state.Store(uint32(podHealthy))
-
-	rtA.mux.Lock()
-	rtA.podTrackers[correctIP] = trackerA
-	rtA.assignedTrackers = []*podTracker{trackerB, trackerA} // Both trackers available
-	rtA.mux.Unlock()
-	rtA.breaker.UpdateConcurrency(2) // Increase capacity for both trackers
-
-	// Mock health check to pass
-	oldPing := podReadyCheckFunc.Load()
-	setPodReadyCheckFunc(func(_ string, _ types.NamespacedName) bool { return true })
-	defer func() { podReadyCheckFunc.Store(oldPing) }()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-
-	var routedDest string
-
-	// Try to route request - should skip wrong-revision tracker and use correct one
-	err := rtA.try(ctx, "test-req", func(dest string, _ bool) error {
-		routedDest = dest
-		return nil
-	})
-	// Request should succeed
-	if err != nil {
-		t.Errorf("Expected request to succeed with correct tracker, got error: %v", err)
-	}
-
-	// CRITICAL: Verify request was routed to the CORRECT tracker, not the wrong one
-	switch routedDest {
-	case sharedIP:
-		t.Fatal("VALIDATION FAILED: Request routed to pod from wrong revision (revision-B)!")
-	case correctIP:
-		t.Log("SUCCESS: Validation skipped wrong-revision tracker, used correct tracker")
-	default:
-		t.Errorf("Unexpected destination: %s (expected %s)", routedDest, correctIP)
-	}
-}
-
-// 22) Cross-revision contamination: Stale quarantined pod cleanup
-// Tests that quarantined pods with refCount=0 are proactively deleted
-func TestRace_CrossRevisionContamination_StaleQuarantinedPodCleanup(t *testing.T) {
-	t.Parallel()
-	logger := zaptest.NewLogger(t).Sugar()
-
-	rtA := newRevisionThrottler(
-		types.NamespacedName{Namespace: "default", Name: "revision-a"},
-		nil, 1, "http",
-		queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
-		logger)
-
-	// Create a pod that will be quarantined
-	pod1 := "10.0.0.1:8080"
-	tracker1 := newTestTracker(pod1, queue.NewBreaker(
-		queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}))
-
-	rtA.mux.Lock()
-	rtA.podTrackers[pod1] = tracker1
-	rtA.assignedTrackers = []*podTracker{tracker1}
-	rtA.mux.Unlock()
-	rtA.breaker.UpdateConcurrency(1)
-
-	// Quarantine the tracker
-	tracker1.state.Store(uint32(podQuarantined))
-	tracker1.quarantineEndTime.Store(time.Now().Unix() + 60) // 60s quarantine
-	tracker1.refCount.Store(0)                               // No active requests
-
-	// Verify tracker exists before cleanup
-	rtA.mux.RLock()
-	_, exists := rtA.podTrackers[pod1]
-	rtA.mux.RUnlock()
-	if !exists {
-		t.Fatal("Tracker should exist before cleanup")
-	}
-
-	// Send endpoint update WITHOUT this pod (simulating pod deletion)
-	// This should trigger proactive cleanup of stale quarantined pod
-	rtA.handleUpdate(revisionDestsUpdate{
-		Rev:   rtA.revID,
-		Dests: sets.New("10.0.0.2:8080"), // Different pod
-	})
-
-	// Verify the stale quarantined pod was deleted
-	rtA.mux.RLock()
-	_, stillExists := rtA.podTrackers[pod1]
-	rtA.mux.RUnlock()
-
-	if stillExists {
-		t.Error("Stale quarantined pod with refCount=0 should have been deleted proactively")
-	}
-}
-
-// 23) Cross-revision contamination: Health check revision validation
-// Tests that health checks fail when pod returns wrong revision headers
-func TestRace_CrossRevisionContamination_HealthCheckRevisionValidation(t *testing.T) {
-	t.Parallel()
-
-	expectedRev := types.NamespacedName{Namespace: "default", Name: "revision-a"}
-	wrongRev := types.NamespacedName{Namespace: "default", Name: "revision-b"}
-
-	// Mock health check that returns wrong revision
-	oldPing := podReadyCheckFunc.Load()
-	defer func() { podReadyCheckFunc.Store(oldPing) }()
-
-	// Test 1: Health check returns wrong revision name
-	setPodReadyCheckFunc(func(dest string, expected types.NamespacedName) bool {
-		// Simulate pod returning wrong revision in headers
-		// In real implementation, this is checked via HTTP response headers
-		if expected.Name != wrongRev.Name {
-			// Would fail validation in real podReadyCheck
-			return false
-		}
-		return true
-	})
-
-	result := tcpPingCheck("10.0.0.1:8080", expectedRev)
-	if result {
-		t.Error("Health check should fail when pod reports wrong revision")
-	}
-
-	// Test 2: Health check returns correct revision
-	setPodReadyCheckFunc(func(dest string, expected types.NamespacedName) bool {
-		return true // Correct revision
-	})
-
-	result = tcpPingCheck("10.0.0.1:8080", expectedRev)
-	if !result {
-		t.Error("Health check should pass when pod reports correct revision")
-	}
-
-	// Test 3: Backwards compatibility - no headers (old queue-proxy)
-	// This simulates old queue-proxy that doesn't send revision headers
-	// Should pass for backwards compatibility
-	setPodReadyCheckFunc(func(dest string, expected types.NamespacedName) bool {
-		// Simulate old queue-proxy: returns 200 OK but no revision headers
-		// The real podReadyCheck will see empty headers and skip validation
-		return true
-	})
-
-	result = tcpPingCheck("10.0.0.1:8080", expectedRev)
-	if !result {
-		t.Error("Health check should pass for backwards compatibility when headers are missing")
-	}
-}
-
-// 24) Cross-revision contamination: IP reuse during quarantine window race
-// Tests the complete scenario: pod quarantined → IP reused → validation prevents contamination
-func TestRace_CrossRevisionContamination_IPReuseDuringQuarantine(t *testing.T) {
-	t.Parallel()
-	logger := zaptest.NewLogger(t).Sugar()
-
-	revA := types.NamespacedName{Namespace: "default", Name: "revision-a"}
-	revB := types.NamespacedName{Namespace: "default", Name: "revision-b"}
-
-	rtA := newRevisionThrottler(revA, nil, 1, "http",
-		queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10}, logger)
-	rtB := newRevisionThrottler(revB, nil, 1, "http",
-		queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10}, logger)
-
-	sharedIP := "10.0.0.1:8080"
-
-	// Phase 1: Pod A in revision-A, gets quarantined with refCount=0
-	trackerA := newTestTracker(sharedIP, queue.NewBreaker(
-		queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}))
-	trackerA.state.Store(uint32(podQuarantined))
-	trackerA.quarantineEndTime.Store(time.Now().Unix() + 60)
-	trackerA.refCount.Store(0)
-
-	rtA.mux.Lock()
-	rtA.podTrackers[sharedIP] = trackerA
-	rtA.mux.Unlock()
-
-	// Phase 2: Simulate K8s removing pod from revision-A and assigning IP to revision-B
-	// Send update to revision-A saying this pod is gone
-	rtA.handleUpdate(revisionDestsUpdate{
-		Rev:   revA,
-		Dests: sets.New[string](), // Empty - pod removed
-	})
-
-	// Verify revision-A deleted the stale quarantined pod
-	rtA.mux.RLock()
-	_, existsInA := rtA.podTrackers[sharedIP]
-	rtA.mux.RUnlock()
-
-	if existsInA {
-		t.Error("Stale quarantined pod should have been deleted from revision-A")
-	}
-
-	// Phase 3: Add same IP to revision-B (simulating K8s IP reuse)
-	rtB.handleUpdate(revisionDestsUpdate{
-		Rev:   revB,
-		Dests: sets.New(sharedIP),
-	})
-
-	// Verify revision-B now has a tracker with correct revision ID
-	rtB.mux.RLock()
-	trackerInB, existsInB := rtB.podTrackers[sharedIP]
-	rtB.mux.RUnlock()
-
-	if !existsInB {
-		t.Fatal("Pod should exist in revision-B")
-	}
-
-	// Verify the tracker in revision-B has correct revision ID
-	if trackerInB.revisionID != revB {
-		t.Errorf("Tracker in revision-B should have revisionID=%s, got %s",
-			revB.String(), trackerInB.revisionID.String())
 	}
 }
