@@ -74,6 +74,14 @@ const (
 
 	// Pod ready check timeout used to verify queue-proxy health
 	podReadyCheckTimeout = 5000 * time.Millisecond
+
+	// QPFreshnessWindow - Queue-proxy data fresher than this overrides K8s informer
+	// If QP spoke within this window, trust QP state over informer
+	QPFreshnessWindow = 30 * time.Second
+
+	// QPStalenessThreshold - Queue-proxy older than this, trust K8s instead
+	// If QP has been silent this long, it's likely dead and informer is authoritative
+	QPStalenessThreshold = 60 * time.Second
 )
 
 func newPodTracker(dest string, revisionID types.NamespacedName, b breaker) *podTracker {
@@ -88,6 +96,8 @@ func newPodTracker(dest string, revisionID types.NamespacedName, b breaker) *pod
 	tracker.refCount.Store(0)
 	tracker.drainingStartTime.Store(0)
 	tracker.weight.Store(0)
+	tracker.lastQPUpdate.Store(0)
+	tracker.lastQPState.Store("")
 	tracker.decreaseWeight = func() {
 		if tracker.weight.Load() > 0 {
 			tracker.weight.Add(^uint32(0))
@@ -126,7 +136,11 @@ type podTracker struct {
 	// Number of consecutive quarantine events for this pod
 	quarantineCount atomic.Uint32
 
-	// TODO: Should we clarify what makes a pod unhealthy (failed health checks, etc.)?
+	// Queue-proxy push tracking (for trust hierarchy over K8s informer)
+	// Unix timestamp of last queue-proxy push update (0 if never received)
+	lastQPUpdate atomic.Int64
+	// Last queue-proxy event type: "startup", "ready", "not-ready", "draining"
+	lastQPState atomic.Value
 
 	// weight is used for LB policy implementations.
 	weight atomic.Uint32
@@ -227,9 +241,10 @@ func (p *podTracker) Reserve(ctx context.Context) (func(), bool) {
 	p.addRef()
 
 	state := podState(p.state.Load())
-	// Only healthy and pending pods can be reserved
-	// Pending pods will be health-checked later in the request flow
-	if state != podHealthy && state != podPending && state != podRecovering {
+	// ONLY healthy pods can accept new requests
+	// podPending pods are excluded from routing until explicitly promoted to healthy
+	// This prevents premature health check failures and quarantine churn
+	if state != podHealthy {
 		p.releaseRef()
 		return nil, false
 	}
@@ -403,40 +418,13 @@ func transitionOutOfQuarantine(ctx context.Context, p *podTracker, newState podS
 	return false
 }
 
-// filterAvailableTrackers filters out quarantined pods and recovers expired quarantines
-func (rt *revisionThrottler) filterAvailableTrackers(ctx context.Context, trackers []*podTracker) []*podTracker {
+// filterAvailableTrackers returns only healthy pods ready to serve traffic
+// podPending pods are excluded until explicitly promoted to healthy
+func (rt *revisionThrottler) filterAvailableTrackers(trackers []*podTracker) []*podTracker {
 	available := make([]*podTracker, 0, len(trackers))
-	now := time.Now().Unix()
 
 	for _, tracker := range trackers {
-		if tracker == nil {
-			continue
-		}
-
-		state := podState(tracker.state.Load())
-
-		// Check if quarantined and if quarantine period has expired
-		if state == podQuarantined {
-			if now >= tracker.quarantineEndTime.Load() {
-				// Check if pod has no active requests - if so, it's likely stale and should be deleted
-				// to prevent IP reuse contamination (IP reassigned to different revision)
-				if tracker.getRefCount() == 0 {
-					// REMOVED: This log was firing thousands of times per second in re-enqueue loops
-					// Don't add to available - let it be removed by next endpoint update
-					continue
-				}
-				// Quarantine expired with active refs, move to recovering state for health verification
-				transitionOutOfQuarantine(ctx, tracker, podRecovering)
-				rt.logger.Infof("Pod %s quarantine expired, entering recovery state", tracker.dest)
-				available = append(available, tracker)
-			}
-			// Skip quarantined pods that haven't expired
-			continue
-		}
-
-		// Include healthy, recovering, and pending pods
-		// Pending pods will be health-checked on first use
-		if state == podHealthy || state == podRecovering || state == podPending {
+		if tracker != nil && podState(tracker.state.Load()) == podHealthy {
 			available = append(available, tracker)
 		}
 	}
@@ -453,9 +441,9 @@ func (rt *revisionThrottler) acquireDest(ctx context.Context) (func(), *podTrack
 	// 	return noop, rt.clusterIPTracker, true
 	// }
 
-	// Filter out quarantined pods and recover expired quarantines
+	// Filter to only healthy pods (excludes pending, draining, removed)
 	originalCount := len(rt.assignedTrackers)
-	availableTrackers := rt.filterAvailableTrackers(ctx, rt.assignedTrackers)
+	availableTrackers := rt.filterAvailableTrackers(rt.assignedTrackers)
 
 	// Log availability issues - changed to DEBUG to avoid spam in re-enqueue loops
 	if len(availableTrackers) == 0 && originalCount > 0 {
