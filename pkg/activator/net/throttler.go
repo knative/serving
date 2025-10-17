@@ -996,19 +996,45 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 			tracker := rt.podTrackers[d]
 			if tracker != nil {
 				currentState := podState(tracker.state.Load())
-				// Handle pods that K8s reports as healthy but activator has in non-healthy states
+
+				// Check QP freshness to determine if we should trust informer
+				lastQPSeen := tracker.lastQPUpdate.Load()
+				qpAge := time.Now().Unix() - lastQPSeen
+				lastQPEvent := ""
+				if val := tracker.lastQPState.Load(); val != nil {
+					if s, ok := val.(string); ok {
+						lastQPEvent = s
+					}
+				}
+
 				switch currentState {
 				case podDraining, podRemoved:
 					// Pod was being removed but is back in healthy endpoint list (e.g., rolling update rollback)
-					// Reset to pending - QP or informer will promote to healthy
+					// Reset to pending - QP will promote to healthy when ready
 					tracker.state.Store(uint32(podPending))
 					tracker.drainingStartTime.Store(0)
 					rt.logger.Infow("Pod %s was draining/removed, now back in healthy list - resetting to pending", d)
+
 				case podHealthy:
 					// Already healthy, nothing to do
+
 				case podPending:
 					// K8s says healthy, pod is pending
-					// Will be promoted by QP ready event or on next update cycle
+					// Only promote if QP hasn't recently said "not-ready"
+					if lastQPEvent == "not-ready" && qpAge < int64(QPFreshnessWindow.Seconds()) {
+						rt.logger.Debugw("Ignoring K8s healthy - QP recently said not-ready",
+							"dest", d,
+							"qp-age-sec", qpAge,
+							"qp-last-event", lastQPEvent)
+						// Don't promote - trust fresh QP data
+					} else {
+						// Safe to promote (QP hasn't objected recently, or QP data is stale)
+						if tracker.state.CompareAndSwap(uint32(podPending), uint32(podHealthy)) {
+							rt.logger.Infow("K8s informer promoted pending pod to healthy",
+								"dest", d,
+								"qp-age-sec", qpAge)
+						}
+					}
 				}
 			}
 		}
@@ -1020,7 +1046,35 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 				continue
 			}
 
-			switch podState(tracker.state.Load()) {
+			currentState := podState(tracker.state.Load())
+
+			// Check QP freshness - if QP recently said "ready", K8s might be stale
+			lastQPSeen := tracker.lastQPUpdate.Load()
+			qpAge := now - lastQPSeen
+			lastQPEvent := ""
+			if val := tracker.lastQPState.Load(); val != nil {
+				if s, ok := val.(string); ok {
+					lastQPEvent = s
+				}
+			}
+
+			// CRITICAL: If QP recently said "ready", don't drain (informer is stale)
+			if currentState == podHealthy && lastQPEvent == "ready" && qpAge < int64(QPFreshnessWindow.Seconds()) {
+				rt.logger.Warnw("Ignoring K8s draining signal - QP recently confirmed ready",
+					"dest", d,
+					"qp-age-sec", qpAge,
+					"qp-last-event", lastQPEvent)
+				continue
+			}
+
+			// If QP silent > 60s, trust informer (QP likely dead)
+			if qpAge > int64(QPStalenessThreshold.Seconds()) || lastQPSeen == 0 {
+				rt.logger.Debugw("QP silent - trusting K8s informer to drain pod",
+					"dest", d,
+					"qp-age-sec", qpAge)
+			}
+
+			switch currentState {
 			case podHealthy:
 				if tracker.tryDrain() {
 					rt.logger.Debugf("Pod %s transitioning to draining state, refCount=%d", d, tracker.getRefCount())
@@ -1216,48 +1270,79 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 // addPodIncremental adds a single pod to the revision without removing other pods.
 // This is used for push-based pod discovery where queue-proxies self-register.
 // Unlike handleUpdate which is authoritative, this function only adds pods and never removes them.
-// eventType should be "startup" (podPending) or "ready" (podHealthy).
-// Handles duplicate events gracefully:
-// - Duplicate "startup": noop (pod already tracked)
-// - "ready" after "startup": promotes podPending to podHealthy
-// - Duplicate "ready": noop (pod already healthy)
-// - Does not interfere with quarantine/recovery states
+// Handles 4 event types from queue-proxy:
+// - "startup": creates podPending tracker (not yet viable for traffic)
+// - "ready": promotes podPending → podHealthy (now viable for traffic)
+// - "not-ready": demotes podHealthy → podPending (stops new traffic, preserves active requests)
+// - "draining": transitions podHealthy → podDraining (graceful shutdown)
+// QP events are AUTHORITATIVE and override K8s informer state (see QP_AUTHORITATIVE_REFACTOR.md)
 func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, logger *zap.SugaredLogger) {
 	rt.mux.Lock()
 
 	existing, exists := rt.podTrackers[podIP]
 
 	if exists {
-		// Pod already tracked - handle state transitions based on event type
+		// Update QP freshness tracking
+		existing.lastQPUpdate.Store(time.Now().Unix())
+		existing.lastQPState.Store(eventType)
+
 		currentState := podState(existing.state.Load())
 
-		if eventType == "ready" {
-			// Ready event: try to promote pending pods to healthy
+		switch eventType {
+		case "startup":
+			// Duplicate startup - noop
+			logger.Debugw("Duplicate startup event (pod already tracked)",
+				"revision", rt.revID.String(),
+				"pod-ip", podIP,
+				"current-state", currentState)
+
+		case "ready":
+			// QP says ready - promote to healthy immediately
 			if currentState == podPending {
 				if existing.state.CompareAndSwap(uint32(podPending), uint32(podHealthy)) {
-					logger.Infow("Promoted pending pod to healthy via ready registration",
+					logger.Infow("QP promoted pending pod to healthy",
 						"revision", rt.revID.String(),
-						"pod-ip", podIP,
-						"previous-state", "pending")
-				} else {
-					logger.Debugw("Pod already tracked: ready event on pending pod (CAS failed - likely already promoted)",
-						"revision", rt.revID.String(),
-						"pod-ip", podIP,
-						"current-state", currentState)
+						"pod-ip", podIP)
 				}
 			} else {
-				logger.Debugw("Pod already tracked: ready event received but pod not in pending state (duplicate)",
+				logger.Debugw("Duplicate ready event (pod already in non-pending state)",
 					"revision", rt.revID.String(),
 					"pod-ip", podIP,
 					"current-state", currentState)
 			}
-		} else {
-			// startup event on existing pod - noop
-			logger.Debugw("Pod already tracked: startup event received (duplicate registration)",
-				"revision", rt.revID.String(),
-				"pod-ip", podIP,
-				"current-state", currentState)
+
+		case "not-ready":
+			// QP says not-ready - demote to pending
+			// CRITICAL: Preserves breaker and refCount - just stops NEW traffic
+			if currentState == podHealthy {
+				if existing.state.CompareAndSwap(uint32(podHealthy), uint32(podPending)) {
+					logger.Warnw("QP demoted pod to pending (readiness probe failed)",
+						"revision", rt.revID.String(),
+						"pod-ip", podIP,
+						"active-requests", existing.refCount.Load())
+				}
+			} else {
+				logger.Debugw("not-ready event on non-healthy pod",
+					"revision", rt.revID.String(),
+					"pod-ip", podIP,
+					"current-state", currentState)
+			}
+
+		case "draining":
+			// QP says draining - transition to draining state
+			if existing.tryDrain() {
+				logger.Infow("QP initiated pod draining",
+					"revision", rt.revID.String(),
+					"pod-ip", podIP,
+					"active-requests", existing.refCount.Load())
+			} else {
+				logger.Debugw("draining event on non-healthy pod (already draining/removed)",
+					"revision", rt.revID.String(),
+					"pod-ip", podIP,
+					"current-state", currentState)
+			}
 		}
+
 		rt.mux.Unlock()
 		return
 	}
@@ -1276,12 +1361,16 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
 	}
 
 	// Set initial state based on event type
-	// For "ready" events, assume pod is healthy; for others, mark as pending for health verification
+	// For "ready" events, assume pod is healthy; for others, mark as pending
 	if eventType == "ready" {
 		tracker.state.Store(uint32(podHealthy))
 	} else {
 		tracker.state.Store(uint32(podPending))
 	}
+
+	// Initialize QP tracking for new pod
+	tracker.lastQPUpdate.Store(time.Now().Unix())
+	tracker.lastQPState.Store(eventType)
 
 	// Add tracker to the map
 	rt.podTrackers[podIP] = tracker
