@@ -282,6 +282,8 @@ func registerPodSync(
 
 	body, err := json.Marshal(req)
 	if err != nil {
+		// Record metric for marshal failure (should never happen but good for completeness)
+		registrationAttempts.WithLabelValues("marshal_error", eventType, namespace, revision, activatorServiceURL).Inc()
 		if logger != nil {
 			logger.Errorw("Failed to marshal pod registration request",
 				"event", eventType,

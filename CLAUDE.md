@@ -98,97 +98,113 @@ git diff upstream/release-1.18..HEAD
 
 ## Key Technical Decisions
 
-### Pod State Management
+### Pod State Management (Queue-Proxy Authoritative Model)
 
-The fork implements a sophisticated pod state machine with six states:
+The activator implements a simplified 4-state pod state machine where queue-proxy readiness signals are authoritative over K8s informer updates.
 
-- `podHealthy (0)`: Pod is healthy and serving traffic normally
+**Pod States:**
+- `podReady (0)`: Pod is ready to serve traffic (QP confirmed readiness)
 - `podDraining (1)`: Pod is being removed from service, draining active requests
-- `podQuarantined (2)`: Pod failed health check, in timed backoff period
-- `podRecovering (3)`: Post-quarantine probation, needs one successful request to be trusted again
-- `podRemoved (4)`: Pod completely removed from tracker (terminal state)
-- `podPending (5)`: Brand new pod, not yet health-checked
+- `podRemoved (2)`: Pod completely removed from tracker (terminal state)
+- `podPending (3)`: Pod waiting for ready signal (NOT viable for routing)
 
-#### Complete State Transition Map
+**REMOVED:** `podQuarantined`, `podRecovering` (quarantine system removed, trust backend manager probing)
 
-**Initial State:**
+#### State Transition Map
+
+**State Flow:**
 ```
-NEW POD → podPending (until first health check)
+NEW POD → podPending → podReady → podDraining → podRemoved
+            ↓            ↓
+            └────────────┘
+           (ready/not-ready cycle)
 ```
 
-**From podPending (brand new pods):**
-- ✅ Health check passes → `podHealthy`
-- ❌ 1st health check fails → `podQuarantined` (0s backoff - immediate retry)
-- ❌ 2nd failure → `podQuarantined` (1s backoff)
-- ❌ 3rd failure → `podQuarantined` (1s backoff)
-- ❌ 4th failure → `podQuarantined` (2s backoff)
-- ❌ 5+ failures → `podQuarantined` (5s backoff, capped)
-- 🗑️ Removed from endpoints → `podRemoved`
-- ⚠️ Endpoint update → STAYS `podPending` (no disruption)
+**From podPending (new pods waiting for ready signal):**
+- ✅ QP "ready" event → `podReady` (immediate, no health check)
+- ✅ K8s informer "healthy" → `podReady` (if QP hasn't said "not-ready" recently)
+- 🗑️ K8s informer removed → `podRemoved` (cleanup)
+- 🗑️ QP "draining" event → `podDraining` (crash before ready)
 
-**From podHealthy (established healthy pods):**
-- ❌ Health check fails → `podQuarantined` (conservative backoff: 1s, 2s, 5s, 10s, 20s)
-- 🗑️ Removed from endpoints → `podDraining` → `podRemoved`
-- ⚠️ Endpoint update → STAYS `podHealthy` (no action needed)
-
-**From podQuarantined (in backoff period):**
-- ⏱️ Quarantine timer expires → `podRecovering`
-- 🗑️ Removed from endpoints → `podRemoved`
-- ⚠️ Endpoint update → STAYS `podQuarantined` (respects backoff timer)
-
-**From podRecovering (probation state):**
-- ✅ Successful request served → `podHealthy` (clears quarantine count)
-- ❌ Health check fails → `podQuarantined` (appropriate backoff based on history)
-- 🗑️ Removed from endpoints → `podDraining` → `podRemoved`
-- ⚠️ Endpoint update → STAYS `podRecovering` (no disruption)
+**From podReady (established ready pods):**
+- ⚠️ QP "not-ready" event → `podPending` (preserves refCount/breaker, stops NEW traffic)
+- 🗑️ QP "draining" event → `podDraining` (graceful shutdown)
+- 🗑️ K8s informer removed → `podDraining` (if QP data stale >60s)
+- ✅ K8s informer "healthy" → STAYS `podReady` (confirmation)
 
 **From podDraining (graceful shutdown):**
-- ⏱️ RefCount reaches 0 → `podRemoved`
+- ⏱️ RefCount reaches 0 → `podRemoved` (all requests complete)
 - ⏱️ Stuck for maxDrainingDuration → `podRemoved` (force remove)
-- 🔄 Re-added to endpoints → `podPending` (re-validate before trusting)
+- 🔄 Re-added to endpoints → `podPending` (treat as new pod)
 
 **From podRemoved (terminal state):**
 - 🔄 Re-added to endpoints → `podPending` (treat as new pod)
 
+#### Queue-Proxy Authority Model
+
+**Trust Hierarchy:**
+1. **Queue-Proxy Push (AUTHORITATIVE)** - Pod knows its own state best
+   - QP data < 30s old: QP state overrides K8s informer
+   - QP events: "startup", "ready", "not-ready", "draining"
+
+2. **K8s Informer (FALLBACK)** - Trusted when QP silent
+   - QP data > 60s old: Trust informer (QP likely dead/crashed)
+   - QP never heard from: Informer is sole authority
+
+**QP Events:**
+- `startup`: Creates podPending tracker (not viable for traffic)
+- `ready`: Promotes podPending → podReady (now viable)
+- `not-ready`: Demotes podReady → podPending (stops new traffic, preserves active requests)
+- `draining`: Transitions podReady → podDraining (graceful shutdown)
+
+**Informer Override Rules:**
+- ✅ QP "not-ready" < 30s ago → Informer "healthy" IGNORED
+- ✅ QP "ready" < 30s ago → Informer "draining" IGNORED
+- ✅ QP silent > 60s → Informer is AUTHORITATIVE (QP likely dead)
+- ✅ No QP data → Informer is AUTHORITATIVE
+
 **Critical Invariants:**
-- Quarantine backoff is never short-circuited by endpoint updates
-- Recovering pods must serve one successful request before becoming healthy
-- Pending pods always get health-checked before accepting traffic
-- Only atomic CAS operations for critical state transitions
-- Quarantine metrics properly incremented/decremented
-- Endpoint updates respect in-progress recovery mechanisms
-
-### Quarantine System
-
-- Pods failing health checks are quarantined with exponential backoff
-- Automatic recovery with health verification
-- Maximum quarantine count before permanent eviction
+- podPending pods NEVER receive traffic (excluded from routing)
+- State transitions preserve breaker capacity and refCount
+- Active requests complete even when pod demoted to pending
+- Only atomic CAS operations for state transitions
+- No health checks in request path (trust backend manager + QP)
 
 ### Capacity Calculation
 
-- Tracks "effective capacity" considering pod health states
-- Prevents capacity starvation from unhealthy pods
-- Dynamic adjustment based on real-time health metrics
+- Capacity based on ALL trackers (podReady + podPending)
+- Filtering at routing time excludes podPending pods
+- Prevents capacity starvation while pods are starting up
+- Dynamic adjustment based on QP readiness signals
 
 ## Known Issues & TODOs
 
-See `ACTIVATOR_FIXES.md` for detailed list of known issues including:
+See `ACTIVATOR_FIXES.md` for detailed list of known issues.
 
-1. Error handling in ServeHTTP needs improvement
-2. Quarantine recovery mechanism requires health verification
-3. Race condition in resetTrackers() method
-4. Need for pod eviction after persistent quarantines
-5. ErrRequestQueueFull investigation needed
+**Recent Changes:**
+- ✅ Quarantine system removed (commits da65d8228, ff6ef96aa)
+- ✅ Health checks removed from request path (commit da65d8228)
+- ✅ QP authoritative state model implemented (commits b94f5b134, a434d10b9)
+- ✅ Comprehensive test coverage added (commit 20208ea9e)
 
 ## Testing Considerations
 
 When making changes:
 
-1. Run unit tests with race detection: `go test -race`
-2. Test pod health transitions under load
-3. Verify metrics are correctly reported
-4. Check WebSocket compatibility if modifying proxy code
-5. Ensure error propagation works end-to-end
+1. Run unit tests with race detection: `go test -race ./pkg/activator/net`
+2. Test QP event sequences (startup, ready, not-ready, draining)
+3. Verify QP authority overrides K8s informer correctly
+4. Test time-based trust transitions (30s freshness, 60s staleness)
+5. Verify state transitions preserve breaker capacity and refCount
+6. Ensure podPending pods are excluded from routing
+7. Test draining with active requests
+8. Verify metrics are correctly reported
+9. Check WebSocket compatibility if modifying proxy code
+
+**Key Test Files:**
+- `pkg/activator/net/qp_authority_test.go` - QP authority and state transitions
+- `pkg/activator/net/pod_registration_handler_test.go` - Handler validation
+- `pkg/queue/pod_registration_test.go` - Client-side registration
 
 ## Deployment Notes
 

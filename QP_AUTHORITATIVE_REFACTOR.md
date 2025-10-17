@@ -1,4 +1,9 @@
-# Queue-Proxy Authoritative State - Architectural Refactoring
+# Queue-Proxy Authoritative State - IMPLEMENTED ✅
+
+**Status:** Fully implemented across commits ff6ef96aa through 20208ea9e
+**Documentation:** This file serves as architecture reference for the implemented system
+
+---
 
 ## Problem Statement
 
@@ -19,7 +24,7 @@
 ### **New State Machine (4 states only):**
 ```go
 const (
-    podHealthy  podState = iota  // Ready to serve traffic
+    podReady    podState = iota  // Ready to serve traffic (QP confirmed readiness)
     podDraining                  // Gracefully shutting down
     podRemoved                   // Deleted from tracker
     podPending                   // Waiting for ready signal (NOT viable for routing)
@@ -44,14 +49,14 @@ const (
 
 ### **Priority Order:**
 1. **Queue-Proxy Push (HIGHEST)** - Pod knows its own state best
-   - "ready" → podHealthy (cannot be overridden by informer)
+   - "ready" → podReady (cannot be overridden by informer)
    - "not-ready" → podPending (cannot be overridden by informer saying healthy)
    - "draining" → podDraining (cannot be overridden)
 
 2. **K8s Informer (LOWER)** - Can promote, but respects QP freshness
-   - Can promote podPending → podHealthy (if QP hasn't recently said "not-ready")
+   - Can promote podPending → podReady (if QP hasn't recently said "not-ready")
    - Can initiate draining (if QP hasn't recently said "ready")
-   - **CANNOT** demote podHealthy if QP recently confirmed ready
+   - **CANNOT** demote podReady if QP recently confirmed ready
 
 ### **Time-Based Override Rules:**
 - **QP data < 30s old:** QP state is authoritative, ignore informer
@@ -91,7 +96,7 @@ tracker.lastQPState.Store("")
 
 **Current:**
 ```go
-if state != podHealthy && state != podPending && state != podRecovering {
+if state != podReady && state != podPending && state != podRecovering {
     p.releaseRef()
     return nil, false
 }
@@ -101,7 +106,7 @@ if state != podHealthy && state != podPending && state != podRecovering {
 ```go
 // ONLY healthy pods can accept new requests
 // This ensures podPending pods don't receive traffic prematurely
-if state != podHealthy {
+if state != podReady {
     p.releaseRef()
     return nil, false
 }
@@ -125,7 +130,7 @@ func (rt *revisionThrottler) filterAvailableTrackers(trackers []*podTracker) []*
     available := make([]*podTracker, 0, len(trackers))
 
     for _, tracker := range trackers {
-        if tracker != nil && podState(tracker.state.Load()) == podHealthy {
+        if tracker != nil && podState(tracker.state.Load()) == podReady {
             available = append(available, tracker)
         }
     }
@@ -151,7 +156,7 @@ func (rt *revisionThrottler) filterAvailableTrackers(trackers []*podTracker) []*
 
 **Replace with simple execution:**
 ```go
-// Trust that pods in podHealthy state are actually healthy
+// Trust that pods in podReady state are actually healthy
 // Backend manager validates health via probing
 ret = function(tracker.dest, isClusterIP)
 
@@ -192,7 +197,7 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
         case "ready":
             // QP says ready - promote to healthy immediately
             if currentState == podPending {
-                if existing.state.CompareAndSwap(uint32(podPending), uint32(podHealthy)) {
+                if existing.state.CompareAndSwap(uint32(podPending), uint32(podReady)) {
                     logger.Infow("QP promoted pod to healthy",
                         "pod-ip", podIP,
                         "revision", rt.revID.String())
@@ -206,8 +211,8 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
         case "not-ready":
             // QP says not-ready - demote to pending
             // CRITICAL: Preserves breaker and refCount - just stops new traffic
-            if currentState == podHealthy {
-                if existing.state.CompareAndSwap(uint32(podHealthy), uint32(podPending)) {
+            if currentState == podReady {
+                if existing.state.CompareAndSwap(uint32(podReady), uint32(podPending)) {
                     logger.Warnw("QP demoted pod to pending (readiness probe failed)",
                         "pod-ip", podIP,
                         "revision", rt.revID.String(),
@@ -287,11 +292,11 @@ for _, d := range healthyDests {
             }
 
             // Safe to promote (QP hasn't objected recently)
-            if tracker.state.CompareAndSwap(uint32(podPending), uint32(podHealthy)) {
+            if tracker.state.CompareAndSwap(uint32(podPending), uint32(podReady)) {
                 rt.logger.Infow("K8s informer promoted pending pod to healthy", "dest", d)
             }
 
-        case podHealthy:
+        case podReady:
             // Already healthy - nothing to do
             // Both K8s and current state agree
 
@@ -324,7 +329,7 @@ for _, d := range drainingDests {
 
     // CRITICAL: If QP recently said "ready", K8s might be stale
     // Don't drain a pod that QP confirms is healthy
-    if currentState == podHealthy && lastQPEvent == "ready" && qpAge < int64(QPFreshnessWindow.Seconds()) {
+    if currentState == podReady && lastQPEvent == "ready" && qpAge < int64(QPFreshnessWindow.Seconds()) {
         rt.logger.Warnw("Ignoring K8s draining signal - QP recently confirmed ready",
             "dest", d,
             "qp-age-sec", qpAge,
@@ -343,7 +348,7 @@ for _, d := range drainingDests {
 
     // Proceed with draining
     switch currentState {
-    case podHealthy:
+    case podReady:
         if tracker.tryDrain() {
             rt.logger.Debugw("K8s informer initiated draining", "dest", d, "refCount", tracker.refCount.Load())
         }
@@ -535,7 +540,7 @@ quarantineCount atomic.Uint32
 
 **Update state transition map to reflect 4-state model:**
 ```
-podHealthy → podDraining → podRemoved
+podReady → podDraining → podRemoved
           ↗             ↗
 podPending ---------------
 ```
@@ -558,12 +563,12 @@ podPending ---------------
 
 3. **Test all 4 QP events:**
    - startup → creates podPending
-   - ready → promotes to podHealthy
+   - ready → promotes to podReady
    - not-ready → demotes to podPending
    - draining → transitions to podDraining
 
 4. **Test state preservation:**
-   - podHealthy → podPending doesn't reset breaker
+   - podReady → podPending doesn't reset breaker
    - Active requests complete during demotion
 
 ### **Tests to Remove:**
