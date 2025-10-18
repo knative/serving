@@ -21,10 +21,13 @@ package systeminternaltls
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -252,4 +255,121 @@ func matchTLSLog(line string) bool {
 
 func matchCertReloadLog(line string) bool {
 	return strings.Contains(line, certificate.CertReloadMessage)
+}
+
+// TestGracefulShutdownWithTLS tests that PreStop hooks work correctly with system-internal-tls enabled.
+// This is a regression test for https://github.com/knative/serving/issues/16162
+// where PreStop hooks would fail with TLS handshake errors, causing HTTP 502 errors during scale-down.
+func TestGracefulShutdownWithTLS(t *testing.T) {
+	if !test.ServingFlags.EnableAlphaFeatures {
+		t.Skip("Alpha features not enabled")
+	}
+
+	if !strings.Contains(test.ServingFlags.IngressClass, "kourier") &&
+		!strings.Contains(test.ServingFlags.IngressClass, "contour") {
+		t.Skip("Skip this test for non-kourier/contour ingress.")
+	}
+
+	// Not running in parallel on purpose - we're testing pod deletion.
+	clients := test.Setup(t)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   test.Autoscale,
+	}
+	test.EnsureTearDown(t, clients, &names)
+
+	// Create a service with a reasonable timeout
+	const revisionTimeout = 5 * time.Minute
+	objects, err := v1test.CreateServiceReady(t, clients, &names,
+		rtesting.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
+	if err != nil {
+		t.Fatal("Failed to create a service:", err)
+	}
+	routeURL := objects.Route.Status.URL.URL()
+
+	// Verify the service is working
+	if _, err = pkgTest.CheckEndpointState(
+		context.Background(),
+		clients.KubeClient,
+		t.Logf,
+		routeURL,
+		spoof.IsStatusOK,
+		"RouteServes",
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+	); err != nil {
+		t.Fatalf("The endpoint for Route %s at %s didn't serve correctly: %v", names.Route, routeURL, err)
+	}
+
+	// Get the pod
+	pods, err := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).List(context.Background(), v1.ListOptions{
+		LabelSelector: "serving.knative.dev/revision=" + objects.Revision.Name,
+	})
+	if err != nil || len(pods.Items) == 0 {
+		t.Fatal("No pods or error:", err)
+	}
+	t.Logf("Saw %d pods", len(pods.Items))
+
+	// Prepare a long-running request (12+ seconds)
+	// NOTE: 12s + 6s must be less than drainSleepDuration and TERMINATION_DRAIN_DURATION_SECONDS.
+	u, _ := url.Parse(routeURL.String())
+	q := u.Query()
+	q.Set("sleep", "12001")
+	u.RawQuery = q.Encode()
+
+	httpClient, err := pkgTest.NewSpoofingClient(context.Background(), clients.KubeClient, t.Logf, u.Hostname(), test.ServingFlags.ResolvableDomain, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
+	if err != nil {
+		t.Fatal("Error creating spoofing client:", err)
+	}
+
+	// Start multiple long-running requests
+	ctx := context.Background()
+	numRequests := 6
+	requestErrors := make(chan error, numRequests)
+
+	for i := range numRequests {
+		// Request number starts at 1
+		reqNum := i + 1
+
+		t.Logf("Starting request %d", reqNum)
+		go func() {
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+			if err != nil {
+				requestErrors <- fmt.Errorf("request %d: failed to create HTTP request: %w", reqNum, err)
+				return
+			}
+
+			res, err := httpClient.Do(req)
+			t.Logf("Request %d completed", reqNum)
+			if err != nil {
+				requestErrors <- fmt.Errorf("request %d: request failed: %w", reqNum, err)
+				return
+			}
+			if res.StatusCode != http.StatusOK {
+				requestErrors <- fmt.Errorf("request %d: status = %v, want StatusOK (this could indicate PreStop hook failure)", reqNum, res.StatusCode)
+				return
+			}
+			requestErrors <- nil
+		}()
+		time.Sleep(time.Second)
+	}
+
+	// Immediately delete the pod while requests are in flight
+	// This triggers the PreStop hook which must use HTTP (not TLS) to drain connections
+	podToDelete := pods.Items[0].Name
+	t.Logf("Deleting pod %q while requests are in flight", podToDelete)
+	if err := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).Delete(context.Background(), podToDelete, v1.DeleteOptions{}); err != nil {
+		t.Fatal("Failed to delete pod:", err)
+	}
+
+	// Wait for all requests to complete and check for errors
+	t.Log("Waiting for all requests to complete...")
+	for i := range numRequests {
+		if err := <-requestErrors; err != nil {
+			t.Errorf("Request %d: %v", i+1, err)
+		}
+	}
+
+	t.Log("All requests completed successfully - PreStop hook worked correctly with TLS enabled")
 }
