@@ -144,8 +144,16 @@ func TestDestroyPodInflight(t *testing.T) {
 		// Give the request a bit of time to be established and reach the pod.
 		time.Sleep(timeoutRequestDuration / 2)
 
-		t.Log("Destroying the configuration (also destroys the pods)")
-		return clients.ServingClient.Configs.Delete(egCtx, names.Config, metav1.DeleteOptions{})
+		t.Log("Destroying the route and configuration (also destroys the pods)")
+		// Delete the Route first to prevent reconciliation errors during cleanup
+		if err := clients.ServingClient.Routes.Delete(egCtx, names.Route, metav1.DeleteOptions{}); err != nil {
+			return fmt.Errorf("failed to delete route: %w", err)
+		}
+		// Then delete the Configuration
+		if err := clients.ServingClient.Configs.Delete(egCtx, names.Config, metav1.DeleteOptions{}); err != nil {
+			return fmt.Errorf("failed to delete config: %w", err)
+		}
+		return nil
 	})
 
 	if err := g.Wait(); err != nil {
