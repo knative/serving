@@ -113,6 +113,7 @@ func defaultFeaturesConfig() *Features {
 		SecurePodDefaults:                Disabled,
 		TagHeaderBasedRouting:            Disabled,
 		AutoDetectHTTP2:                  Disabled,
+		TreatPodAsAlwaysSchedulable:      Disabled,
 	}
 }
 
@@ -129,6 +130,7 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag("queueproxy.resource-defaults", &nc.QueueProxyResourceDefaults),
 		asSecurePodDefaultsFlag("secure-pod-defaults", &nc.SecurePodDefaults),
 		asFlag("tag-header-based-routing", &nc.TagHeaderBasedRouting),
+		asFlag("treat-pod-as-always-schedulable", &nc.TreatPodAsAlwaysSchedulable),
 		asFlag(FeatureContainerSpecAddCapabilities, &nc.ContainerSpecAddCapabilities),
 		asFlag(FeaturePodSpecAffinity, &nc.PodSpecAffinity),
 		asFlag(FeaturePodSpecDNSConfig, &nc.PodSpecDNSConfig),
@@ -198,6 +200,7 @@ type Features struct {
 	SecurePodDefaults                Flag
 	TagHeaderBasedRouting            Flag
 	AutoDetectHTTP2                  Flag
+	TreatPodAsAlwaysSchedulable      Flag
 }
 
 // asFlag parses the value at key as a Flag into the target, if it exists.
