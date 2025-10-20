@@ -33,6 +33,12 @@ import (
 func TestMain(m *testing.M) {
 	// QP authority enabled, quarantine disabled
 	setFeatureGatesForTesting(true, false)
+
+	// Mock health check to always return true for tests (avoid real HTTP requests)
+	podReadyCheckFunc.Store(func(dest string, expectedRevision types.NamespacedName) bool {
+		return true // Always healthy in tests
+	})
+
 	code := m.Run()
 	resetFeatureGatesForTesting()
 	os.Exit(code)
@@ -40,7 +46,6 @@ func TestMain(m *testing.M) {
 
 // TestQPAuthorityOverridesInformer tests that QP events override K8s informer
 func TestQPAuthorityOverridesInformer(t *testing.T) {
-
 	logger := TestLogger(t)
 
 	t.Run("QP not-ready overrides K8s healthy (fresh QP data)", func(t *testing.T) {
@@ -198,7 +203,6 @@ func TestQPAuthorityOverridesInformer(t *testing.T) {
 
 // TestPodStateTransitionPreservesBreaker tests that state transitions don't break active requests
 func TestPodStateTransitionPreservesBreaker(t *testing.T) {
-
 	logger := TestLogger(t)
 
 	t.Run("ready to not-ready preserves refCount and breaker", func(t *testing.T) {
@@ -347,7 +351,6 @@ func TestPodStateTransitionPreservesBreaker(t *testing.T) {
 
 // TestQPEventSequences tests various QP event sequences
 func TestQPEventSequences(t *testing.T) {
-
 	logger := TestLogger(t)
 
 	t.Run("startup → ready → not-ready → ready cycle", func(t *testing.T) {
@@ -471,7 +474,6 @@ func TestQPEventSequences(t *testing.T) {
 
 // TestInformerWithQPCoexistence tests K8s informer and QP working together
 func TestInformerWithQPCoexistence(t *testing.T) {
-
 	logger := TestLogger(t)
 
 	t.Run("informer creates not-ready, QP promotes to ready", func(t *testing.T) {
@@ -587,7 +589,6 @@ func TestInformerWithQPCoexistence(t *testing.T) {
 
 // TestPodNotReadyNonViable tests that podNotReady pods don't receive traffic
 func TestPodNotReadyNonViable(t *testing.T) {
-
 	logger := TestLogger(t)
 
 	t.Run("not-ready pods excluded from filterAvailableTrackers", func(t *testing.T) {
@@ -652,7 +653,7 @@ func TestPodNotReadyNonViable(t *testing.T) {
 		)
 
 		// Create 3 pending pods, 2 ready pods
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			podIP := "10.0.0." + string(rune('1'+i)) + ":8080"
 			rt.addPodIncremental(podIP, "startup", logger) // Creates pending
 		}
@@ -683,7 +684,6 @@ func TestPodNotReadyNonViable(t *testing.T) {
 
 // TestDrainingWithActiveRequests tests draining behavior with in-flight requests
 func TestDrainingWithActiveRequests(t *testing.T) {
-
 	logger := TestLogger(t)
 
 	t.Run("draining pod not removed until refCount zero", func(t *testing.T) {
@@ -769,7 +769,6 @@ func TestDrainingWithActiveRequests(t *testing.T) {
 
 // TestQPvsInformerTimingScenarios tests timing-based authority
 func TestQPvsInformerTimingScenarios(t *testing.T) {
-
 	logger := TestLogger(t)
 
 	t.Run("fresh QP data blocks informer promotion", func(t *testing.T) {
@@ -854,7 +853,6 @@ func TestQPvsInformerTimingScenarios(t *testing.T) {
 
 // TestStateMachineValidation tests state machine validation and edge case handling
 func TestStateMachineValidation(t *testing.T) {
-
 	logger := TestLogger(t)
 
 	t.Run("draining on not-ready pod - crash before ready", func(t *testing.T) {

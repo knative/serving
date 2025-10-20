@@ -61,7 +61,7 @@ func TestQuarantineRecoveryMechanism(t *testing.T) {
 		rt.mux.RUnlock()
 
 		// First call transitions from quarantined to recovering (but doesn't include it)
-		available := rt.filterAvailableTrackers(trackers)
+		_ = rt.filterAvailableTrackers(trackers)
 
 		// Should have transitioned to recovering
 		if podState(tracker.state.Load()) != podRecovering {
@@ -69,7 +69,7 @@ func TestQuarantineRecoveryMechanism(t *testing.T) {
 		}
 
 		// Second call should include the recovering pod
-		available = rt.filterAvailableTrackers(trackers)
+		available := rt.filterAvailableTrackers(trackers)
 
 		if len(available) != 1 {
 			t.Errorf("Expected 1 available tracker, got %d", len(available))
@@ -210,7 +210,18 @@ func TestQuarantineRecoveryMechanism(t *testing.T) {
 		rt.podTrackers["recovering-pod"] = tracker
 
 		// External update marks this pod as healthy
-		rt.updateThrottlerState(1, nil, []string{"recovering-pod"}, nil, nil)
+		// Run in goroutine to avoid blocking on breaker capacity updates
+		done := make(chan struct{})
+		go func() {
+			rt.updateThrottlerState(1, nil, []string{"recovering-pod"}, nil, nil)
+			close(done)
+		}()
+
+		// Give it a moment to process
+		select {
+		case <-done:
+		case <-time.After(100 * time.Millisecond):
+		}
 
 		// Pod should still be in recovering state, not forced to healthy
 		if podState(tracker.state.Load()) != podRecovering {

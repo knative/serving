@@ -299,6 +299,10 @@ func makeTrackers(num, cc int) []*podTracker {
 }
 
 func TestThrottlerErrorNoRevision(t *testing.T) {
+	// Ensure quarantine is disabled for this test to avoid health check timeouts
+	setFeatureGatesForTesting(false, false)
+	defer resetFeatureGatesForTesting()
+
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	servfake := fakeservingclient.Get(ctx)
 	revisions := fakerevisioninformer.Get(ctx)
