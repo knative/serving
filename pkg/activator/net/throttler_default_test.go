@@ -26,14 +26,13 @@ import (
 	"knative.dev/serving/pkg/queue"
 )
 
-// NO TestMain - use system defaults
-// enableQPAuthority = false (default)
-// enableQuarantine = true (default)
+// TestDefaultModeVerification tests the legacy default mode behavior
+// This tests the mode where QP authority is OFF, quarantine is ON
+// (the previous production default before QP authority was enabled)
 
 func TestDefaultModeVerification(t *testing.T) {
-	// We need to temporarily reset to defaults for this test suite
-	// since other test files may have set different gates
-	resetFeatureGatesForTesting()
+	// Set feature gates for legacy default mode: QP authority OFF, quarantine ON
+	setFeatureGatesForTesting(false, true)
 	defer resetFeatureGatesForTesting()
 
 	logger := TestLogger(t)
@@ -78,8 +77,8 @@ func TestDefaultModeVerification(t *testing.T) {
 }
 
 func TestInformerCreatesReadyPods(t *testing.T) {
-	// Reset to defaults
-	resetFeatureGatesForTesting()
+	// Set feature gates for legacy default mode: QP authority OFF, quarantine ON
+	setFeatureGatesForTesting(false, true)
 	defer resetFeatureGatesForTesting()
 
 	logger := TestLogger(t)
@@ -163,8 +162,8 @@ func TestInformerCreatesReadyPods(t *testing.T) {
 }
 
 func TestHealthCheckFlowDefault(t *testing.T) {
-	// Reset to defaults
-	resetFeatureGatesForTesting()
+	// Set feature gates for legacy default mode: QP authority OFF, quarantine ON
+	setFeatureGatesForTesting(false, true)
 	defer resetFeatureGatesForTesting()
 
 	logger := TestLogger(t)
