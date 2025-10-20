@@ -241,35 +241,42 @@ func Main(opts ...Option) error {
 
 	// Wrap the prober to send state change events to activator
 	// Track probe state transitions to notify activator of ready ↔ not-ready changes
-	var lastProbeResult atomic.Bool
-	lastProbeResult.Store(false) // Start as not-ready
-	var readyRegistrationSent atomic.Bool
-	var notReadyRegistrationSent atomic.Bool
+	// Probe state machine using atomic uint32 to prevent races
+	// States: 0=unknown, 1=notReady, 2=ready
+	const (
+		probeStateUnknown  uint32 = 0
+		probeStateNotReady uint32 = 1
+		probeStateReady    uint32 = 2
+	)
+	var probeState atomic.Uint32
+	probeState.Store(probeStateNotReady) // Start as not-ready
 
 	originalProbe := probe
 	probe = func() bool {
 		result := originalProbe()
-		previous := lastProbeResult.Swap(result)
 
-		// Detect state transition: not-ready → ready
-		if result && !previous {
-			if readyRegistrationSent.CompareAndSwap(false, true) {
-				// Also reset the not-ready flag so we can send it again if we go not-ready later
-				notReadyRegistrationSent.Store(false)
+		// Determine target state based on probe result
+		var targetState uint32
+		if result {
+			targetState = probeStateReady
+		} else {
+			targetState = probeStateNotReady
+		}
+
+		// Attempt state transition using CAS (atomic, no race window)
+		previousState := probeState.Swap(targetState)
+
+		// Send registration event only on actual state transitions
+		if previousState != targetState {
+			if targetState == probeStateReady {
+				// Transition: not-ready → ready
 				logger.Infow("Readiness probe passed - notifying activator",
 					"pod", env.ServingPod,
 					"pod-ip", env.ServingPodIP)
 				queue.RegisterPodWithActivator(env.ActivatorServiceURL, queue.EventReady,
 					env.ServingPod, env.ServingPodIP, env.ServingNamespace, env.ServingRevision, logger)
-			}
-		}
-
-		// Detect state transition: ready → not-ready
-		// Use CAS to prevent duplicate not-ready events if probe flaps
-		if !result && previous {
-			if notReadyRegistrationSent.CompareAndSwap(false, true) {
-				// Also reset the ready flag so we can send it again when we become ready
-				readyRegistrationSent.Store(false)
+			} else if previousState == probeStateReady {
+				// Transition: ready → not-ready
 				logger.Warnw("Readiness probe failed - notifying activator",
 					"pod", env.ServingPod,
 					"pod-ip", env.ServingPodIP)
