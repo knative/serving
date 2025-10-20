@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: networking
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "0573e07d"
+    knative.dev/example-checksum: "e93fd63e"
 data:
   _example: |
     ################################
@@ -148,6 +148,19 @@ data:
     # NOTE: This flag is in an alpha state and is mostly here to enable internal testing
     #       for now. Use with caution.
     system-internal-tls: "Disabled"
+
+    # system-internal-tls-allow-serve-mode controls whether Serve mode is allowed
+    # when system-internal-tls is enabled. By default, enabling system-internal-tls
+    # forces all traffic to use Proxy mode because not all Knative ingress implementations
+    # support Serve mode with TLS enabled. Set this to "Enabled" only if your ingress
+    # implementation supports direct TLS connections to application containers in Serve mode.
+    #
+    # Possible values for this flag are:
+    # - Disabled (default): system-internal-tls forces Proxy mode for compatibility.
+    # - Enabled: Serve mode is allowed even with TLS enabled (requires ingress support).
+    # NOTE: This flag is in an alpha state and is mostly here to enable internal testing
+    #       for now. Use with caution.
+    system-internal-tls-allow-serve-mode: "Disabled"
 
     # Controls the behavior of the HTTP endpoint for the Knative ingress.
     # It requires auto-tls to be enabled.
