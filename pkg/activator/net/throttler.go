@@ -2264,6 +2264,10 @@ func NewThrottler(ctx context.Context, ipAddr string) *Throttler {
 // Run starts the throttler and blocks until the context is done.
 func (t *Throttler) Run(ctx context.Context, probeTransport http.RoundTripper, usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode) {
 	rbm := newRevisionBackendsManager(ctx, probeTransport, usePassthroughLb, meshMode)
+
+	// Start background cleanup goroutine for stale podNotReady trackers
+	go t.cleanupStalePodTrackers(ctx)
+
 	// Update channel is closed when ctx is done.
 	t.run(rbm.updates())
 }
@@ -2666,5 +2670,68 @@ func UpdateFeatureGatesFromConfigMap(logger *zap.SugaredLogger) func(configMap *
 				"previous", previousQuarantine,
 				"new", enableQuarantine)
 		}
+	}
+}
+
+// cleanupStalePodTrackers periodically removes stale podNotReady trackers with zero refCount
+// to prevent memory leaks when pods crash before sending ready/draining events.
+//
+// Cleanup criteria:
+// - Pod in podNotReady state
+// - Zero active requests (refCount == 0)
+// - No activity for 10+ minutes (prevents premature cleanup during slow startups)
+//
+// This prevents unbounded growth of the podTrackers map when:
+// - Pods crash after "startup" but before "ready" event
+// - QP never sends "draining" event due to crash
+// - K8s informer update is delayed or missed
+func (t *Throttler) cleanupStalePodTrackers(ctx context.Context) {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			t.logger.Info("Stopping pod tracker cleanup goroutine")
+			return
+		case <-ticker.C:
+			t.cleanupStaleTrackersOnce()
+		}
+	}
+}
+
+// cleanupStaleTrackersOnce performs one pass of stale tracker cleanup across all revisions
+func (t *Throttler) cleanupStaleTrackersOnce() {
+	t.revisionThrottlersMutex.RLock()
+	revisions := make([]*revisionThrottler, 0, len(t.revisionThrottlers))
+	for _, rt := range t.revisionThrottlers {
+		revisions = append(revisions, rt)
+	}
+	t.revisionThrottlersMutex.RUnlock()
+
+	now := time.Now().Unix()
+	const staleThreshold = 600 // 10 minutes in seconds
+
+	for _, rt := range revisions {
+		rt.mux.Lock()
+		for ip, tracker := range rt.podTrackers {
+			state := podState(tracker.state.Load())
+			refCount := tracker.refCount.Load()
+			createdAt := tracker.createdAt
+
+			// Cleanup podNotReady with zero refCount that are stale
+			if state == podNotReady && refCount == 0 {
+				age := now - createdAt/1e6 // createdAt is in microseconds
+				if age > staleThreshold {
+					delete(rt.podTrackers, ip)
+					rt.logger.Infow("Cleaned up stale podNotReady tracker",
+						"revision", rt.revID.String(),
+						"pod-ip", ip,
+						"age-seconds", age,
+						"ref-count", refCount)
+				}
+			}
+		}
+		rt.mux.Unlock()
 	}
 }
