@@ -107,7 +107,7 @@ func TestPodRegistrationHandler_ValidRequest(t *testing.T) {
 		PodIP:     "10.0.0.5",
 		Namespace: "default",
 		Revision:  "my-revision",
-		EventType: "startup",
+		EventType: "not-ready",
 		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 	}
 
@@ -145,7 +145,7 @@ func TestPodRegistrationHandler_ValidRequest(t *testing.T) {
 	if registrations[0].podIP != "10.0.0.5" {
 		t.Fatalf("incorrect pod IP: %s", registrations[0].podIP)
 	}
-	if registrations[0].eventType != "startup" {
+	if registrations[0].eventType != "not-ready" {
 		t.Fatalf("incorrect event type: %s", registrations[0].eventType)
 	}
 }
@@ -206,7 +206,7 @@ func TestPodRegistrationHandler_MissingField(t *testing.T) {
 				PodIP:     "10.0.0.5",
 				Namespace: "default",
 				Revision:  "my-revision",
-				EventType: "startup",
+				EventType: "not-ready",
 				Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 			},
 			field: "PodName",
@@ -217,7 +217,7 @@ func TestPodRegistrationHandler_MissingField(t *testing.T) {
 				PodName:   "test-pod",
 				Namespace: "default",
 				Revision:  "my-revision",
-				EventType: "startup",
+				EventType: "not-ready",
 				Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 			},
 			field: "PodIP",
@@ -228,7 +228,7 @@ func TestPodRegistrationHandler_MissingField(t *testing.T) {
 				PodName:   "test-pod",
 				PodIP:     "10.0.0.5",
 				Revision:  "my-revision",
-				EventType: "startup",
+				EventType: "not-ready",
 				Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 			},
 			field: "Namespace",
@@ -239,7 +239,7 @@ func TestPodRegistrationHandler_MissingField(t *testing.T) {
 				PodName:   "test-pod",
 				PodIP:     "10.0.0.5",
 				Namespace: "default",
-				EventType: "startup",
+				EventType: "not-ready",
 				Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 			},
 			field: "Revision",
@@ -364,7 +364,7 @@ func TestPodRegistrationHandler_MultipleRequests(t *testing.T) {
 			PodIP:     fmt.Sprintf("10.0.0.%d", 5+i),
 			Namespace: "default",
 			Revision:  "my-revision",
-			EventType: "startup",
+			EventType: "not-ready",
 			Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 		}
 
@@ -416,7 +416,7 @@ func TestPodRegistrationHandler_ResponseContentType(t *testing.T) {
 		PodIP:     "10.0.0.5",
 		Namespace: "default",
 		Revision:  "my-revision",
-		EventType: "startup",
+		EventType: "not-ready",
 		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 	}
 
@@ -453,7 +453,7 @@ func TestPodRegistrationHandler_ConcurrentRequests(t *testing.T) {
 				PodIP:     fmt.Sprintf("10.%d.%d.%d", (index/65536)%256, (index/256)%256, index%256),
 				Namespace: "default",
 				Revision:  "my-revision",
-				EventType: "startup",
+				EventType: "not-ready",
 				Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 			}
 
@@ -515,7 +515,7 @@ func TestThrottler_HandlePodRegistration(t *testing.T) {
 	throttler := NewThrottler(ctx, "10.10.10.10")
 
 	// Call HandlePodRegistration
-	throttler.HandlePodRegistration(revID, "10.0.0.5", "startup", logger)
+	throttler.HandlePodRegistration(revID, "10.0.0.5", "not-ready", logger)
 
 	// Give it a moment to process
 	time.Sleep(100 * time.Millisecond)
@@ -564,7 +564,7 @@ func TestThrottler_HandlePodRegistration_MultipleIPs(t *testing.T) {
 	// Register multiple pod IPs for the same revision
 	ips := []string{"10.0.0.5", "10.0.0.6", "10.0.0.7"}
 	for _, ip := range ips {
-		throttler.HandlePodRegistration(revID, ip, "startup", logger)
+		throttler.HandlePodRegistration(revID, ip, "not-ready", logger)
 	}
 
 	// Give it a moment to process
@@ -603,7 +603,7 @@ func TestThrottler_HandlePodRegistration_EmptyIP(t *testing.T) {
 	throttler := NewThrottler(ctx, "10.10.10.10")
 
 	// Call with empty IP - should be no-op
-	throttler.HandlePodRegistration(revID, "", "startup", logger)
+	throttler.HandlePodRegistration(revID, "", "not-ready", logger)
 
 	// Give it a moment to process
 	time.Sleep(100 * time.Millisecond)
@@ -649,7 +649,7 @@ func TestPodRegistrationHandlerIntegration(t *testing.T) {
 		PodIP:     "10.0.0.5",
 		Namespace: revID.Namespace,
 		Revision:  revID.Name,
-		EventType: "startup",
+		EventType: "not-ready",
 		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 	}
 
@@ -685,7 +685,7 @@ func BenchmarkPodRegistrationHandler(b *testing.B) {
 		PodIP:     "10.0.0.5",
 		Namespace: "default",
 		Revision:  "my-revision",
-		EventType: "startup",
+		EventType: "not-ready",
 		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 	}
 

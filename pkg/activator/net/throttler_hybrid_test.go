@@ -43,7 +43,7 @@ func TestQuarantineOverridesQPState(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// 1. Pod created via QP "ready" → podReady
-		rt.addPodIncremental(podIP, "startup", logger)
+		rt.addPodIncremental(podIP, "not-ready", logger)
 		rt.addPodIncremental(podIP, "ready", logger)
 
 		rt.mux.RLock()
@@ -85,7 +85,7 @@ func TestQuarantineOverridesQPState(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// 1. Create pod and put it in quarantine
-		rt.addPodIncremental(podIP, "startup", logger)
+		rt.addPodIncremental(podIP, "not-ready", logger)
 		rt.addPodIncremental(podIP, "ready", logger)
 
 		rt.mux.RLock()
@@ -153,7 +153,7 @@ func TestQPEventsWithQuarantine(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// 1. QP sends "not-ready" → podNotReady
-		rt.addPodIncremental(podIP, "startup", logger)
+		rt.addPodIncremental(podIP, "not-ready", logger)
 		rt.addPodIncremental(podIP, "not-ready", logger)
 
 		rt.mux.RLock()
@@ -199,7 +199,7 @@ func TestQPEventsWithQuarantine(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// Create pod and put in recovering state
-		rt.addPodIncremental(podIP, "startup", logger)
+		rt.addPodIncremental(podIP, "not-ready", logger)
 		rt.addPodIncremental(podIP, "ready", logger)
 
 		rt.mux.RLock()
@@ -236,7 +236,7 @@ func TestQPEventsWithQuarantine(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// Create ready pod
-		rt.addPodIncremental(podIP, "startup", logger)
+		rt.addPodIncremental(podIP, "not-ready", logger)
 		rt.addPodIncremental(podIP, "ready", logger)
 
 		rt.mux.RLock()
@@ -284,7 +284,7 @@ func TestHealthCheckWithQPAuthority(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// 1. Create pod via QP "ready"
-		rt.addPodIncremental(podIP, "startup", logger)
+		rt.addPodIncremental(podIP, "not-ready", logger)
 		rt.addPodIncremental(podIP, "ready", logger)
 
 		rt.mux.RLock()
@@ -331,7 +331,7 @@ func TestHealthCheckWithQPAuthority(t *testing.T) {
 
 		// Create pod in recovering state
 		podIP := "10.0.0.1:8080"
-		rt.addPodIncremental(podIP, "startup", logger)
+		rt.addPodIncremental(podIP, "not-ready", logger)
 		rt.addPodIncremental(podIP, "ready", logger)
 
 		rt.mux.RLock()

@@ -1939,15 +1939,6 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
 
 		// Perform state transitions - NO logging inside lock (only when enableQPAuthority=true)
 		switch eventType {
-		case "startup":
-			// Duplicate startup - capture for logging
-			shouldLog = true
-			logLevel = "debug"
-			logMessage = "Duplicate startup event (pod already tracked)"
-			logPodIP = podIP
-			logRevision = rt.revID.String()
-			logCurrentState = currentState
-
 		case "ready":
 			// QP says ready - promote to ready immediately
 			switch currentState {

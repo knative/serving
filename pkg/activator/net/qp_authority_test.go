@@ -58,8 +58,8 @@ func TestQPAuthorityOverridesInformer(t *testing.T) {
 
 		podIP := "10.0.0.1:8080"
 
-		// 1. Create pod via QP startup
-		rt.addPodIncremental(podIP, "startup", logger)
+		// 1. Create pod via QP not-ready event
+		rt.addPodIncremental(podIP, "not-ready", logger)
 
 		// 2. QP says ready
 		rt.addPodIncremental(podIP, "ready", logger)
@@ -101,7 +101,7 @@ func TestQPAuthorityOverridesInformer(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// 1. Create pod via QP and promote to ready
-		rt.addPodIncremental(podIP, "startup", logger)
+		rt.addPodIncremental(podIP, "not-ready", logger)
 		rt.addPodIncremental(podIP, "ready", logger)
 
 		rt.mux.RLock()
@@ -133,8 +133,8 @@ func TestQPAuthorityOverridesInformer(t *testing.T) {
 
 		podIP := "10.0.0.1:8080"
 
-		// 1. Create pod via QP startup
-		rt.addPodIncremental(podIP, "startup", logger)
+		// 1. Create pod via QP not-ready event
+		rt.addPodIncremental(podIP, "not-ready", logger)
 
 		rt.mux.RLock()
 		tracker := rt.podTrackers[podIP]
@@ -216,7 +216,7 @@ func TestPodStateTransitionPreservesBreaker(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// Create pod and promote to ready
-		rt.addPodIncremental(podIP, "startup", logger)
+		rt.addPodIncremental(podIP, "not-ready", logger)
 		rt.addPodIncremental(podIP, "ready", logger)
 
 		rt.mux.RLock()
@@ -282,7 +282,7 @@ func TestPodStateTransitionPreservesBreaker(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// Create ready pod with active requests
-		rt.addPodIncremental(podIP, "startup", logger)
+		rt.addPodIncremental(podIP, "not-ready", logger)
 		rt.addPodIncremental(podIP, "ready", logger)
 
 		rt.mux.RLock()
@@ -353,7 +353,7 @@ func TestPodStateTransitionPreservesBreaker(t *testing.T) {
 func TestQPEventSequences(t *testing.T) {
 	logger := TestLogger(t)
 
-	t.Run("startup → ready → not-ready → ready cycle", func(t *testing.T) {
+	t.Run("not-ready → ready → not-ready → ready cycle", func(t *testing.T) {
 		rt := newRevisionThrottler(
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
@@ -364,12 +364,12 @@ func TestQPEventSequences(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// Startup
-		rt.addPodIncremental(podIP, "startup", logger)
+		rt.addPodIncremental(podIP, "not-ready", logger)
 		rt.mux.RLock()
 		tracker := rt.podTrackers[podIP]
 		rt.mux.RUnlock()
 		if podState(tracker.state.Load()) != podNotReady {
-			t.Error("After startup, pod should be pending")
+			t.Error("After not-ready event, pod should be pending")
 		}
 
 		// Ready
@@ -402,7 +402,7 @@ func TestQPEventSequences(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// Get to ready state
-		rt.addPodIncremental(podIP, "startup", logger)
+		rt.addPodIncremental(podIP, "not-ready", logger)
 		rt.addPodIncremental(podIP, "ready", logger)
 
 		rt.mux.RLock()
@@ -434,8 +434,8 @@ func TestQPEventSequences(t *testing.T) {
 
 		beforeTime := time.Now().Unix()
 
-		// Send startup event
-		rt.addPodIncremental(podIP, "startup", logger)
+		// Send not-ready event
+		rt.addPodIncremental(podIP, "not-ready", logger)
 
 		rt.mux.RLock()
 		tracker := rt.podTrackers[podIP]
@@ -450,8 +450,8 @@ func TestQPEventSequences(t *testing.T) {
 		}
 
 		qpState := tracker.lastQPState.Load().(string)
-		if qpState != "startup" {
-			t.Errorf("QP last state should be 'startup', got %q", qpState)
+		if qpState != "not-ready" {
+			t.Errorf("QP last state should be 'not-ready', got %q", qpState)
 		}
 
 		// Send ready event
@@ -520,23 +520,23 @@ func TestInformerWithQPCoexistence(t *testing.T) {
 
 		podIP := "10.0.0.1:8080"
 
-		// QP sends startup (creates pending pod)
-		rt.addPodIncremental(podIP, "startup", logger)
+		// QP sends not-ready (creates pending pod)
+		rt.addPodIncremental(podIP, "not-ready", logger)
 
 		rt.mux.RLock()
 		tracker := rt.podTrackers[podIP]
 		rt.mux.RUnlock()
 
 		if podState(tracker.state.Load()) != podNotReady {
-			t.Fatal("QP startup should create pending pod")
+			t.Fatal("QP not-ready event should create pending pod")
 		}
 
-		// K8s informer says healthy
-		rt.updateThrottlerState(1, nil, []string{podIP}, nil, nil)
+		// QP sends ready event (promotes to ready)
+		rt.addPodIncremental(podIP, "ready", logger)
 
 		// Should be promoted to ready
 		if podState(tracker.state.Load()) != podReady {
-			t.Error("Informer should have promoted pending pod to ready")
+			t.Error("QP ready event should have promoted pending pod to ready")
 		}
 	})
 
@@ -571,7 +571,7 @@ func TestInformerWithQPCoexistence(t *testing.T) {
 		}
 
 		// QP re-creates pod (e.g., pod restart, informer hasn't caught up)
-		rt.addPodIncremental(podIP, "startup", logger)
+		rt.addPodIncremental(podIP, "not-ready", logger)
 
 		// Verify pod exists again
 		rt.mux.RLock()
@@ -655,12 +655,12 @@ func TestPodNotReadyNonViable(t *testing.T) {
 		// Create 3 pending pods, 2 ready pods
 		for i := range 3 {
 			podIP := "10.0.0." + string(rune('1'+i)) + ":8080"
-			rt.addPodIncremental(podIP, "startup", logger) // Creates pending
+			rt.addPodIncremental(podIP, "not-ready", logger) // Creates pending
 		}
 
 		for i := 3; i < 5; i++ {
 			podIP := "10.0.0." + string(rune('1'+i)) + ":8080"
-			rt.addPodIncremental(podIP, "startup", logger)
+			rt.addPodIncremental(podIP, "not-ready", logger)
 			rt.addPodIncremental(podIP, "ready", logger) // Promotes to ready
 		}
 
@@ -697,7 +697,7 @@ func TestDrainingWithActiveRequests(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// Create ready pod
-		rt.addPodIncremental(podIP, "startup", logger)
+		rt.addPodIncremental(podIP, "not-ready", logger)
 		rt.addPodIncremental(podIP, "ready", logger)
 
 		rt.mux.RLock()
@@ -782,7 +782,7 @@ func TestQPvsInformerTimingScenarios(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// QP creates pod and says not-ready
-		rt.addPodIncremental(podIP, "startup", logger)
+		rt.addPodIncremental(podIP, "not-ready", logger)
 		rt.addPodIncremental(podIP, "not-ready", logger)
 
 		rt.mux.RLock()
@@ -815,7 +815,7 @@ func TestQPvsInformerTimingScenarios(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// QP creates ready pod
-		rt.addPodIncremental(podIP, "startup", logger)
+		rt.addPodIncremental(podIP, "not-ready", logger)
 		rt.addPodIncremental(podIP, "ready", logger)
 
 		rt.mux.RLock()
@@ -866,17 +866,17 @@ func TestStateMachineValidation(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// Pod starts up but crashes before becoming ready
-		rt.addPodIncremental(podIP, "startup", logger)
+		rt.addPodIncremental(podIP, "not-ready", logger)
 
 		rt.mux.RLock()
 		tracker := rt.podTrackers[podIP]
 		rt.mux.RUnlock()
 
 		if podState(tracker.state.Load()) != podNotReady {
-			t.Fatal("Pod should be pending after startup")
+			t.Fatal("Pod should be pending after not-ready event")
 		}
 
-		// Pod sends draining event (crash during startup)
+		// Pod sends draining event (crash before becoming ready)
 		rt.addPodIncremental(podIP, "draining", logger)
 
 		// Should transition pending → draining
@@ -901,7 +901,7 @@ func TestStateMachineValidation(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// Get to draining state
-		rt.addPodIncremental(podIP, "startup", logger)
+		rt.addPodIncremental(podIP, "not-ready", logger)
 		rt.addPodIncremental(podIP, "ready", logger)
 		rt.addPodIncremental(podIP, "draining", logger)
 
@@ -933,7 +933,7 @@ func TestStateMachineValidation(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// Get to draining state
-		rt.addPodIncremental(podIP, "startup", logger)
+		rt.addPodIncremental(podIP, "not-ready", logger)
 		rt.addPodIncremental(podIP, "ready", logger)
 		rt.addPodIncremental(podIP, "draining", logger)
 
@@ -965,7 +965,7 @@ func TestStateMachineValidation(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// Pod starts but probe keeps failing (flapping)
-		rt.addPodIncremental(podIP, "startup", logger)
+		rt.addPodIncremental(podIP, "not-ready", logger)
 
 		rt.mux.RLock()
 		tracker := rt.podTrackers[podIP]
@@ -990,8 +990,8 @@ func TestStateMachineValidation(t *testing.T) {
 
 		podIP := "10.0.0.1:8080"
 
-		// Normal flow: startup → ready → not-ready → ready
-		rt.addPodIncremental(podIP, "startup", logger)
+		// Normal flow: not-ready → ready → not-ready → ready
+		rt.addPodIncremental(podIP, "not-ready", logger)
 		rt.addPodIncremental(podIP, "ready", logger)
 
 		rt.mux.RLock()

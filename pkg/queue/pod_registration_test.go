@@ -99,7 +99,7 @@ func TestRegisterPodWithActivator_EmptyURL(t *testing.T) {
 	sugaredLogger := logger.Sugar()
 
 	// Should be no-op with empty URL
-	RegisterPodWithActivator("", EventStartup, "test-pod", "10.0.0.5", "default", "my-revision", sugaredLogger)
+	RegisterPodWithActivator("", EventNotReady, "test-pod", "10.0.0.5", "default", "my-revision", sugaredLogger)
 
 	// Give it a moment - should not try to send anything
 	time.Sleep(100 * time.Millisecond)
@@ -119,7 +119,7 @@ func TestRegisterPodWithActivator_ValidStartupRequest(t *testing.T) {
 	defer server.Close()
 
 	// Register a pod
-	RegisterPodWithActivator(server.URL, EventStartup, "test-pod-123", "10.0.0.5", "default", "my-revision", sugaredLogger)
+	RegisterPodWithActivator(server.URL, EventNotReady, "test-pod-123", "10.0.0.5", "default", "my-revision", sugaredLogger)
 
 	// Wait for the request
 	var req *http.Request
@@ -144,8 +144,8 @@ func TestRegisterPodWithActivator_ValidStartupRequest(t *testing.T) {
 	if podReq.Revision != "my-revision" {
 		t.Errorf("expected revision 'my-revision', got %q", podReq.Revision)
 	}
-	if podReq.EventType != EventStartup {
-		t.Errorf("expected event type %q, got %q", EventStartup, podReq.EventType)
+	if podReq.EventType != EventNotReady {
+		t.Errorf("expected event type %q, got %q", EventNotReady, podReq.EventType)
 	}
 
 	// Verify timestamp is set and recent
@@ -201,7 +201,7 @@ func TestRegisterPodWithActivator_UserAgent(t *testing.T) {
 	server := mockActivatorServer(t, requests)
 	defer server.Close()
 
-	RegisterPodWithActivator(server.URL, EventStartup, "test-pod", "10.0.0.5", "default", "my-revision", sugaredLogger)
+	RegisterPodWithActivator(server.URL, EventNotReady, "test-pod", "10.0.0.5", "default", "my-revision", sugaredLogger)
 
 	var req *http.Request
 	select {
@@ -234,7 +234,7 @@ func TestRegisterPodWithActivator_Async(t *testing.T) {
 
 	// Record when RegisterPodWithActivator returns
 	start := time.Now()
-	RegisterPodWithActivator(server.URL, EventStartup, "test-pod", "10.0.0.5", "default", "my-revision", sugaredLogger)
+	RegisterPodWithActivator(server.URL, EventNotReady, "test-pod", "10.0.0.5", "default", "my-revision", sugaredLogger)
 	elapsed := time.Since(start)
 
 	// Should return almost immediately (no blocking)
@@ -266,7 +266,7 @@ func TestRegisterPodWithActivator_MultipleRequests(t *testing.T) {
 		podName := "test-pod-" + string(rune(i))
 		podIP := "10.0.0." + string(rune(5+i))
 
-		RegisterPodWithActivator(server.URL, EventStartup, podName, podIP, "default", "my-revision", sugaredLogger)
+		RegisterPodWithActivator(server.URL, EventNotReady, podName, podIP, "default", "my-revision", sugaredLogger)
 	}
 
 	// Wait for all requests
@@ -305,7 +305,7 @@ func TestRegisterPodWithActivator_ConcurrentRequests(t *testing.T) {
 			podName := "test-pod-" + string(rune(index))
 			podIP := "10.0.0." + string(rune((index%250)+5))
 
-			RegisterPodWithActivator(server.URL, EventStartup, podName, podIP, "default", "my-revision", sugaredLogger)
+			RegisterPodWithActivator(server.URL, EventNotReady, podName, podIP, "default", "my-revision", sugaredLogger)
 		}(i)
 	}
 
@@ -342,7 +342,7 @@ func TestRegisterPodWithActivator_Timeout(t *testing.T) {
 	defer server.Close()
 
 	// This should timeout gracefully and not panic
-	RegisterPodWithActivator(server.URL, EventStartup, "test-pod", "10.0.0.5", "default", "my-revision", sugaredLogger)
+	RegisterPodWithActivator(server.URL, EventNotReady, "test-pod", "10.0.0.5", "default", "my-revision", sugaredLogger)
 
 	// Wait a bit for async goroutine to complete and handle timeout
 	time.Sleep(RegistrationTimeout + 2*time.Second)
@@ -362,7 +362,7 @@ func TestRegisterPodWithActivator_ServerError(t *testing.T) {
 	defer server.Close()
 
 	// This should handle the error gracefully
-	RegisterPodWithActivator(server.URL, EventStartup, "test-pod", "10.0.0.5", "default", "my-revision", sugaredLogger)
+	RegisterPodWithActivator(server.URL, EventNotReady, "test-pod", "10.0.0.5", "default", "my-revision", sugaredLogger)
 
 	// Wait for async request to complete
 	time.Sleep(500 * time.Millisecond)
@@ -376,7 +376,7 @@ func TestRegisterPodWithActivator_InvalidURL(t *testing.T) {
 	sugaredLogger := logger.Sugar()
 
 	// This should handle the invalid URL gracefully
-	RegisterPodWithActivator("not-a-valid-url://bad[", EventStartup, "test-pod", "10.0.0.5", "default", "my-revision", sugaredLogger)
+	RegisterPodWithActivator("not-a-valid-url://bad[", EventNotReady, "test-pod", "10.0.0.5", "default", "my-revision", sugaredLogger)
 
 	// Wait for async request to fail gracefully
 	time.Sleep(500 * time.Millisecond)
@@ -394,8 +394,8 @@ func TestRegistrationConstants(t *testing.T) {
 		t.Errorf("expected timeout 2s, got %v", RegistrationTimeout)
 	}
 
-	if EventStartup != "startup" {
-		t.Errorf("expected event type 'startup', got %q", EventStartup)
+	if EventNotReady != "not-ready" {
+		t.Errorf("expected event type 'not-ready', got %q", EventNotReady)
 	}
 
 	if EventReady != "ready" {
@@ -424,7 +424,7 @@ func BenchmarkRegisterPodWithActivator(b *testing.B) {
 	b.ResetTimer()
 
 	for range b.N {
-		RegisterPodWithActivator(server.URL, EventStartup, "test-pod", "10.0.0.5", "default", "my-revision", sugaredLogger)
+		RegisterPodWithActivator(server.URL, EventNotReady, "test-pod", "10.0.0.5", "default", "my-revision", sugaredLogger)
 	}
 
 	b.StopTimer()
@@ -446,7 +446,7 @@ func BenchmarkRegisterPodWithActivator_Latency(b *testing.B) {
 	b.ResetTimer()
 
 	for range b.N {
-		RegisterPodWithActivator(server.URL, EventStartup, "test-pod", "10.0.0.5", "default", "my-revision", sugaredLogger)
+		RegisterPodWithActivator(server.URL, EventNotReady, "test-pod", "10.0.0.5", "default", "my-revision", sugaredLogger)
 	}
 
 	b.StopTimer()

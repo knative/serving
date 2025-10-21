@@ -38,9 +38,6 @@ const (
 	// RegistrationTimeout is the maximum time to wait for a registration request to complete
 	RegistrationTimeout = 2 * time.Second
 
-	// EventStartup indicates the pod is starting up
-	EventStartup = "startup"
-
 	// EventReady indicates the pod is ready to serve traffic
 	EventReady = "ready"
 

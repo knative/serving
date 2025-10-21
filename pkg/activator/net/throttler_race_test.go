@@ -1064,7 +1064,8 @@ func TestRace_AssignSlice_MapMutationDuringIteration(t *testing.T) {
 				"192.168.1."+strconv.Itoa(i%10)+":8080",
 				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 			)
-			rt.updateThrottlerState(1, []*podTracker{tracker}, nil, nil, nil)
+			// Provide tracker in healthyDests to promote it to ready state
+			rt.updateThrottlerState(1, []*podTracker{tracker}, []string{tracker.dest}, nil, nil)
 			i++
 			time.Sleep(time.Millisecond)
 		}
