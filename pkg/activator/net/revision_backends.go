@@ -463,7 +463,7 @@ func (rw *revisionWatcher) run(probeFrequency time.Duration) {
 		rw.checkDests(curDests, prevDests)
 		checkMs := float64(time.Since(checkStart).Milliseconds())
 		if checkMs > 500 { // Log if probing took >500ms
-			rw.logger.Warnw("Slow checkDests (probing)",
+			rw.logger.Debugw("Slow checkDests (probing)",
 				"check-ms", checkMs,
 				"ready", len(curDests.ready),
 				"not-ready", len(curDests.notReady))
