@@ -28,8 +28,7 @@ import (
 
 func TestQuarantineOverridesQPState(t *testing.T) {
 	// Set feature gates for hybrid mode (both enabled)
-	setFeatureGatesForTesting(true, true)
-	defer resetFeatureGatesForTesting()
+	setFeatureGatesForTesting(t, true, true)
 
 	logger := TestLogger(t)
 
@@ -139,8 +138,7 @@ func TestQuarantineOverridesQPState(t *testing.T) {
 
 func TestQPEventsWithQuarantine(t *testing.T) {
 	// Set feature gates for hybrid mode (both enabled)
-	setFeatureGatesForTesting(true, true)
-	defer resetFeatureGatesForTesting()
+	setFeatureGatesForTesting(t, true, true)
 
 	logger := TestLogger(t)
 
@@ -271,8 +269,7 @@ func TestQPEventsWithQuarantine(t *testing.T) {
 
 func TestHealthCheckWithQPAuthority(t *testing.T) {
 	// Set feature gates for hybrid mode (both enabled)
-	setFeatureGatesForTesting(true, true)
-	defer resetFeatureGatesForTesting()
+	setFeatureGatesForTesting(t, true, true)
 
 	logger := TestLogger(t)
 

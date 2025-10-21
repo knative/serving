@@ -32,8 +32,7 @@ import (
 
 func TestDefaultModeVerification(t *testing.T) {
 	// Set feature gates for legacy default mode: QP authority OFF, quarantine ON
-	setFeatureGatesForTesting(false, true)
-	defer resetFeatureGatesForTesting()
+	setFeatureGatesForTesting(t, false, true)
 
 	logger := TestLogger(t)
 
@@ -78,8 +77,7 @@ func TestDefaultModeVerification(t *testing.T) {
 
 func TestInformerCreatesReadyPods(t *testing.T) {
 	// Set feature gates for legacy default mode: QP authority OFF, quarantine ON
-	setFeatureGatesForTesting(false, true)
-	defer resetFeatureGatesForTesting()
+	setFeatureGatesForTesting(t, false, true)
 
 	logger := TestLogger(t)
 
@@ -163,8 +161,7 @@ func TestInformerCreatesReadyPods(t *testing.T) {
 
 func TestHealthCheckFlowDefault(t *testing.T) {
 	// Set feature gates for legacy default mode: QP authority OFF, quarantine ON
-	setFeatureGatesForTesting(false, true)
-	defer resetFeatureGatesForTesting()
+	setFeatureGatesForTesting(t, false, true)
 
 	logger := TestLogger(t)
 

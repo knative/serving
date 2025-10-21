@@ -27,8 +27,7 @@ import (
 
 func TestQuarantineRecoveryMechanism(t *testing.T) {
 	// Set feature gates for quarantine-only mode
-	setFeatureGatesForTesting(false, true)
-	defer resetFeatureGatesForTesting()
+	setFeatureGatesForTesting(t, false, true)
 
 	logger := TestLogger(t)
 
@@ -256,8 +255,7 @@ func TestQuarantineRecoveryMechanism(t *testing.T) {
 
 func TestQuarantineBackoffSchedule(t *testing.T) {
 	// Set feature gates for quarantine-only mode
-	setFeatureGatesForTesting(false, true)
-	defer resetFeatureGatesForTesting()
+	setFeatureGatesForTesting(t, false, true)
 
 	t.Run("pods use standard backoff schedule", func(t *testing.T) {
 		testCases := []struct {

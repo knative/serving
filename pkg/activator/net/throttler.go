@@ -105,16 +105,42 @@ var (
 	featureGateMutex sync.RWMutex
 )
 
-// setFeatureGatesForTesting allows tests to override feature gates
-// This is only for testing and should not be used in production code
-func setFeatureGatesForTesting(qpAuthority, quarantine bool) {
+// setFeatureGatesForTesting allows tests to override feature gates with automatic cleanup.
+// Uses t.Cleanup() to restore previous state after test completes, ensuring test independence
+// regardless of execution order (e.g., with -shuffle flag).
+// The *testing.T parameter prevents accidental use in production code.
+func setFeatureGatesForTesting(t interface{ Helper(); Cleanup(func()) }, qpAuthority, quarantine bool) {
+	t.Helper()
+
+	// Capture current state for cleanup
+	featureGateMutex.Lock()
+	previousQPAuthority := enableQPAuthority
+	previousQuarantine := enableQuarantine
+	enableQPAuthority = qpAuthority
+	enableQuarantine = quarantine
+	featureGateMutex.Unlock()
+
+	// Register cleanup to restore previous state
+	t.Cleanup(func() {
+		featureGateMutex.Lock()
+		defer featureGateMutex.Unlock()
+		enableQPAuthority = previousQPAuthority
+		enableQuarantine = previousQuarantine
+	})
+}
+
+// setFeatureGatesForTestMain sets feature gates for TestMain without automatic cleanup.
+// Use this only in TestMain where *testing.T is not available. Must manually call
+// resetFeatureGatesForTesting() before os.Exit().
+func setFeatureGatesForTestMain(qpAuthority, quarantine bool) {
 	featureGateMutex.Lock()
 	defer featureGateMutex.Unlock()
 	enableQPAuthority = qpAuthority
 	enableQuarantine = quarantine
 }
 
-// resetFeatureGatesForTesting resets feature gates to defaults
+// resetFeatureGatesForTesting resets feature gates to defaults.
+// Only use in TestMain after calling setFeatureGatesForTestMain.
 func resetFeatureGatesForTesting() {
 	featureGateMutex.Lock()
 	defer featureGateMutex.Unlock()

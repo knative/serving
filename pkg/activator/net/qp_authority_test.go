@@ -32,7 +32,7 @@ import (
 // TestMain sets feature gates for QP authority mode (QP events authoritative)
 func TestMain(m *testing.M) {
 	// QP authority enabled, quarantine disabled
-	setFeatureGatesForTesting(true, false)
+	setFeatureGatesForTestMain(true, false)
 
 	// Mock health check to always return true for tests (avoid real HTTP requests)
 	podReadyCheckFunc.Store(func(dest string, expectedRevision types.NamespacedName) bool {
