@@ -775,24 +775,6 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 				"activator-count", ac,
 				"container-concurrency", cc,
 				"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()))
-		} else if breakerCapacity < 10 && breakerPending > 0 {
-			// TODO: Remove this diagnostic log after capacity lag investigation is complete
-			// Log when capacity is low and requests are queued - helps diagnose why capacity
-			// isn't increasing proportionally with pod count
-			rt.logger.Warnw("Request entering breaker with low capacity and queued requests",
-				"x-request-id", xRequestId,
-				"capacity", breakerCapacity,
-				"pending", breakerPending,
-				"inflight", breakerInflight,
-				"total-pods", totalPods,
-				"assigned-trackers", assignedCount,
-				"backends", backends,
-				"activator-index", ai,
-				"activator-count", ac,
-				"container-concurrency", cc,
-				"expected-capacity", int(cc)*assignedCount,
-				"capacity-deficit", int(cc)*assignedCount-int(uint64(breakerCapacity)), //nolint:gosec // breakerCapacity fits in int
-				"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()))
 		}
 
 		if err := rt.breaker.Maybe(ctx, func() {
