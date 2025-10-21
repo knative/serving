@@ -442,9 +442,19 @@ function test_setup() {
   {
     ns=$1;
     pod=$2;
+
     gsub("/", "_", ns);
     gsub("/", "_", pod);
-    system("mkdir -p " logdir "/" ns);
+
+    dir = logdir "/" ns
+
+    if (!(dir in seen_dirs)) {
+        if (system("[ -d \"" dir "\" ] || mkdir -p \"" dir "\"") != 0) {
+            print "Failed to create dir:", dir > "/dev/stderr"
+        }
+        seen_dirs[dir] = 1
+    }
+
     print $0 >> (logdir "/" ns "/" pod ".log");
     fflush(logdir "/" ns "/" pod ".log");
   }' &
