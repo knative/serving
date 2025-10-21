@@ -2071,6 +2071,51 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
 	}
 
 	// Pod doesn't exist - create new tracker OUTSIDE lock to minimize contention
+	//
+	// RACE WINDOW DOCUMENTATION:
+	// ===========================
+	// We release the lock here (line 2076) while creating the new tracker, then re-acquire
+	// it to insert into the map (line 2108). This creates a race window where multiple
+	// concurrent registrations for the same pod IP could all create trackers.
+	//
+	// Race scenario:
+	//   T0: Goroutine A checks map, pod not found, releases lock
+	//   T1: Goroutine B checks map, pod not found, releases lock
+	//   T2: Goroutine A creates tracker, re-acquires lock, inserts pod
+	//   T3: Goroutine B creates tracker, re-acquires lock, finds existing pod
+	//
+	// Impact: Wasted allocations (breaker creation is expensive) under high pod churn
+	// Correctness: Race is handled correctly - second goroutine discards its tracker
+	//              and updates the existing one's QP data (lines 2111-2119)
+	//
+	// Trade-off analysis:
+	//   PRO: Minimizes lock hold time - critical for high-throughput registration
+	//   PRO: Race is rare in practice (requires simultaneous registration of same pod)
+	//   CON: Wasted allocations when race occurs (breaker + tracker creation)
+	//
+	// Alternative approaches considered:
+	//   1. Hold lock during tracker creation:
+	//      - Eliminates race but increases lock contention significantly
+	//      - Could block other pod registrations during breaker creation
+	//      - Not acceptable for production at scale
+	//
+	//   2. sync.Once per pod IP:
+	//      - Prevents duplicate allocations
+	//      - Requires maintaining a separate map[string]*sync.Once
+	//      - Memory overhead and cleanup complexity
+	//      - Potential optimization if profiling shows this is a bottleneck
+	//
+	//   3. Double-checked locking with atomic:
+	//      - Check map without lock, create if needed, check again with lock
+	//      - Reduces but doesn't eliminate race window
+	//      - Added complexity for minimal gain
+	//
+	// Verdict: Current implementation is acceptable as-is. The race is handled correctly
+	//          and only causes wasted allocations in rare cases. If profiling reveals this
+	//          as a bottleneck (>1% of pod registrations hitting the race), consider
+	//          sync.Once optimization. For now, correctness and lock minimization take
+	//          priority over avoiding rare allocation waste.
+	//
 	cc := int(rt.containerConcurrency.Load())
 
 	rt.mux.Unlock() // Release lock while creating tracker (expensive)
@@ -2107,10 +2152,11 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
 	// Re-acquire lock to add tracker to map
 	rt.mux.Lock()
 
-	// Check if another goroutine added this pod while we were creating tracker
+	// Check if another goroutine added this pod while we were creating tracker (race check)
 	if existing, exists := rt.podTrackers[podIP]; exists {
-		// Race: another registration beat us to it
-		// Update the existing tracker's QP data and discard our new tracker
+		// Race detected: another registration beat us to it during the unlock window
+		// Update the existing tracker's QP data and discard our newly created tracker
+		// This is correct behavior - the first tracker wins, we just update its QP state
 		existing.lastQPUpdate.Store(time.Now().Unix())
 		existing.lastQPState.Store(eventType)
 
