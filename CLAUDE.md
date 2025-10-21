@@ -140,6 +140,42 @@ The activator implements a flexible 6-state pod state machine with two independe
 - Simplest mode, least protection
 - States used: `podReady`, `podNotReady`, `podRemoved`
 
+#### ConfigMap Configuration
+
+Feature gates are configured via the `config-features` ConfigMap in the `knative-serving` namespace:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-features
+  namespace: knative-serving
+data:
+  # Queue-proxy pod authority (default: enabled)
+  # Controls whether queue-proxy push events are authoritative for pod state
+  # When enabled: Sub-second cold starts via push-based registration
+  # When disabled: Falls back to K8s informer (60-70s cold start delay)
+  queueproxy.pod-authority: "enabled"
+
+  # Activator pod quarantine (default: enabled)
+  # Controls whether activator performs health checks and quarantines failing pods
+  # When enabled: Pods failing health checks are temporarily quarantined
+  # When disabled: No health checks, relies solely on K8s readiness probes
+  activator.pod-quarantine: "enabled"
+```
+
+**Configuration options:**
+- `"enabled"`: Feature is active
+- `"disabled"`: Feature is inactive
+
+**Dynamic updates:** Changes to the ConfigMap are applied at runtime without requiring pod restarts. The activator watches the ConfigMap and updates feature gates dynamically.
+
+**Use cases:**
+- **Emergency rollback**: Disable `queueproxy.pod-authority` if push-based registration causes issues
+- **Gradual rollout**: Enable features progressively across environments
+- **Debugging**: Disable features to isolate issues
+- **Performance tuning**: Test different operating modes under load
+
 #### State Transition Map (Hybrid Mode - All Features Enabled)
 
 ```
@@ -221,11 +257,44 @@ NEW POD → podNotReady → podReady ←→ podQuarantined
 - Dynamic adjustment based on QP readiness signals (when `enableQPAuthority=true`)
 - Quarantine system can reduce capacity when pods fail health checks (when `enableQuarantine=true`)
 
+## Implementation Details
+
+### State Machine Documentation
+
+Comprehensive state machine documentation is available as inline comments in `pkg/activator/net/throttler.go` (lines 182-400). The documentation includes:
+
+- ASCII art state diagram showing all transitions
+- Detailed descriptions of each of the 6 pod states
+- Entry and exit conditions for every state
+- Routable vs non-routable state classifications
+- Queue-proxy authority model and trust hierarchy
+- Informer override rules with time windows
+- Critical invariants that must be maintained
+- Capacity calculation rules
+
+This documentation serves as the authoritative reference for understanding pod lifecycle management in the activator.
+
+### Performance Optimizations
+
+**Race Window in addPodIncremental:**
+The `addPodIncremental` function (throttler.go:2073-2117) contains an intentional race window where the lock is released during tracker creation. This is a deliberate performance trade-off:
+
+- **Trade-off**: Minimizes lock hold time at the cost of potential wasted allocations
+- **Correctness**: Race is detected and handled safely via double-check after re-acquiring lock
+- **Impact**: Rare (<1% expected) and only causes allocation waste, never incorrect state
+- **Alternative**: Considered sync.Once pattern but current approach prioritizes throughput
+
+See inline documentation at throttler.go:2075-2117 for detailed analysis.
+
 ## Known Issues & TODOs
 
 See `ACTIVATOR_FIXES.md` for detailed list of known issues.
 
 **Recent Changes:**
+- ✅ ConfigMap-based feature gate configuration (commit 21cc1f1)
+- ✅ Comprehensive state machine inline documentation (commit d37fd14)
+- ✅ Simplified probe state machine to 2 states (commit b7f6294)
+- ✅ Race window documentation with trade-off analysis (commit 998c021)
 - ✅ Dual feature gates implemented for backward compatibility (commit 2d290ffca)
 - ✅ Quarantine system re-added behind `enableQuarantine` gate (commit 2d290ffca)
 - ✅ QP authority behind `enableQPAuthority` gate (commit 2d290ffca)
