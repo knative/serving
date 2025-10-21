@@ -241,41 +241,28 @@ func Main(opts ...Option) error {
 
 	// Wrap the prober to send state change events to activator
 	// Track probe state transitions to notify activator of ready ↔ not-ready changes
-	// Probe state machine using atomic uint32 to prevent races
-	// States: 0=unknown, 1=notReady, 2=ready
-	const (
-		probeStateUnknown  uint32 = 0
-		probeStateNotReady uint32 = 1
-		probeStateReady    uint32 = 2
-	)
-	var probeState atomic.Uint32
-	probeState.Store(probeStateNotReady) // Start as not-ready
+	// Simple 2-state machine: false=notReady, true=ready
+	// Uses atomic boolean to prevent races during concurrent probe calls
+	var lastProbeResult atomic.Bool
+	lastProbeResult.Store(false) // Start as not-ready
 
 	originalProbe := probe
 	probe = func() bool {
 		result := originalProbe()
 
-		// Determine target state based on probe result
-		var targetState uint32
-		if result {
-			targetState = probeStateReady
-		} else {
-			targetState = probeStateNotReady
-		}
-
-		// Attempt state transition using CAS (atomic, no race window)
-		previousState := probeState.Swap(targetState)
+		// Attempt state transition using atomic swap
+		previousResult := lastProbeResult.Swap(result)
 
 		// Send registration event only on actual state transitions
-		if previousState != targetState {
-			if targetState == probeStateReady {
+		if previousResult != result {
+			if result {
 				// Transition: not-ready → ready
 				logger.Infow("Readiness probe passed - notifying activator",
 					"pod", env.ServingPod,
 					"pod-ip", env.ServingPodIP)
 				queue.RegisterPodWithActivator(env.ActivatorServiceURL, queue.EventReady,
 					env.ServingPod, env.ServingPodIP, env.ServingNamespace, env.ServingRevision, logger)
-			} else if previousState == probeStateReady {
+			} else {
 				// Transition: ready → not-ready
 				logger.Warnw("Readiness probe failed - notifying activator",
 					"pod", env.ServingPod,
