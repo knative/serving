@@ -428,7 +428,7 @@ function test_setup() {
 
   echo ">> Setting up logging..."
 
-  # Install kail if needed.
+  # Install stern if needed.
   if ! which stern > /dev/null; then
     go install github.com/stern/stern@v1.33.0
   fi
