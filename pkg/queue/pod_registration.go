@@ -77,14 +77,20 @@ var (
 
 // registrationClient is a shared HTTP client for pod registration requests.
 // Using a shared client is more efficient than creating a new client for each request.
-// The transport is configured for connection pooling and keep-alives to reduce overhead.
+// DisableKeepAlives is set to true to prevent the activator from holding thousands of idle connections.
+// In clusters with many pods, keeping connections alive would require the activator to maintain:
+// - ~5000+ idle TCP connections (one per queue-proxy)
+// - ~5000+ goroutines managing those connections
+// - ~5000+ kernel conntrack entries
+// Since pod status updates are infrequent (typically just 2 requests per pod lifecycle),
+// the cost of new TCP connections is acceptable vs. the resource burden on the activator.
 var registrationClient = &http.Client{
 	Timeout: RegistrationTimeout,
 	Transport: &http.Transport{
 		MaxIdleConns:        10,
 		MaxIdleConnsPerHost: 2,
 		IdleConnTimeout:     30 * time.Second,
-		DisableKeepAlives:   true, // Disable connection reuse, prevent goroutine build up on the activator
+		DisableKeepAlives:   true, // Disable connection reuse to prevent activator resource exhaustion
 		DialContext: (&net.Dialer{
 			Timeout:   5 * time.Second,
 			KeepAlive: 30 * time.Second,

@@ -252,3 +252,32 @@ data:
 
     # Default queue proxy resource requests and limits to good values for most cases if set.
     queueproxy.resource-defaults: "disabled"
+
+    # Controls whether queue-proxy push-based pod registration is authoritative for pod state
+    #
+    # When enabled (default), queue-proxy sends state change events (startup, ready, not-ready, draining)
+    # to the activator, and these events are authoritative within a 30-second freshness window.
+    # This enables sub-second cold start latency by bypassing the K8s endpoint informer delay (60-70s).
+    #
+    # When disabled, the activator receives but ignores QP events and relies solely on the K8s informer.
+    #
+    # WARNING: Disabling this feature will significantly increase cold start latency (60-70s).
+    # Only disable if experiencing issues with the push-based registration system.
+    #
+    # See: https://github.com/CerebriumAI/kserving/pull/30
+    queueproxy.pod-authority: "enabled"
+
+    # Controls whether activator health checks and quarantines failing pods
+    #
+    # When enabled (default), the activator performs HTTP health checks against queue-proxy
+    # endpoints and quarantines pods that fail health checks. Quarantined pods are removed
+    # from the routing pool until they recover.
+    #
+    # When disabled, no health checks are performed and pods are never quarantined.
+    # The activator relies solely on K8s readiness probes and endpoint informer state.
+    #
+    # WARNING: Disabling may route traffic to unhealthy pods during transient failures.
+    # Only disable if the quarantine system is causing issues.
+    #
+    # See: https://github.com/CerebriumAI/kserving/blob/main/CLAUDE.md#pod-state-management
+    activator.pod-quarantine: "enabled"

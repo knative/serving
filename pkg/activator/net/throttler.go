@@ -50,6 +50,7 @@ import (
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/activator/handler"
+	servingconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
@@ -88,7 +89,7 @@ const (
 )
 
 // Feature gates for activator behavior
-// TODO: Move these to ConfigMap-based configuration
+// These are loaded from the config-features ConfigMap at runtime
 var (
 	// enableQPAuthority controls whether queue-proxy events trigger state changes
 	// When true (default), QP events are authoritative and override K8s informer state
@@ -100,7 +101,7 @@ var (
 	// When false, no health checks or quarantine logic is used
 	enableQuarantine = true
 
-	// featureGateMutex protects feature gate access to prevent races in tests
+	// featureGateMutex protects feature gate access to prevent races
 	featureGateMutex sync.RWMutex
 )
 
@@ -2333,3 +2334,45 @@ func (ib *infiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
 }
 
 func (ib *infiniteBreaker) Reserve(context.Context) (func(), bool) { return noop, true }
+
+// UpdateFeatureGatesFromConfigMap returns a ConfigMap watcher function that updates
+// the activator feature gates (enableQPAuthority and enableQuarantine) based on the
+// config-features ConfigMap.
+func UpdateFeatureGatesFromConfigMap(logger *zap.SugaredLogger) func(configMap *corev1.ConfigMap) {
+	return func(configMap *corev1.ConfigMap) {
+		if configMap == nil {
+			logger.Warnw("Received nil ConfigMap for feature gates, using defaults")
+			return
+		}
+
+		// Parse the features config from the ConfigMap
+		features, err := servingconfig.NewFeaturesConfigFromConfigMap(configMap)
+		if err != nil {
+			logger.Errorw("Failed to parse features config, using existing feature gate values",
+				zap.Error(err))
+			return
+		}
+
+		// Update feature gates based on ConfigMap values
+		featureGateMutex.Lock()
+		defer featureGateMutex.Unlock()
+
+		// Update QP Authority feature gate
+		previousQPAuthority := enableQPAuthority
+		enableQPAuthority = features.QueueProxyPodAuthority == servingconfig.Enabled
+		if previousQPAuthority != enableQPAuthority {
+			logger.Infow("Queue-proxy pod authority feature gate changed",
+				"previous", previousQPAuthority,
+				"new", enableQPAuthority)
+		}
+
+		// Update Quarantine feature gate
+		previousQuarantine := enableQuarantine
+		enableQuarantine = features.ActivatorPodQuarantine == servingconfig.Enabled
+		if previousQuarantine != enableQuarantine {
+			logger.Infow("Activator pod quarantine feature gate changed",
+				"previous", previousQuarantine,
+				"new", enableQuarantine)
+		}
+	}
+}

@@ -269,6 +269,9 @@ func main() {
 		updateRequestLogFromConfigMap(logger, reqLogHandler),
 		profilingHandler.UpdateFromConfigMap)
 
+	// Watch the features config map for feature gate updates
+	configMapWatcher.Watch(apiconfig.FeaturesConfigName, activatornet.UpdateFeatureGatesFromConfigMap(logger))
+
 	if err = configMapWatcher.Start(ctx.Done()); err != nil {
 		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
 	}
