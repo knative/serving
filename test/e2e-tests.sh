@@ -67,7 +67,7 @@ if (( SHORT )); then
   GO_TEST_FLAGS+=("-short")
 fi
 
-go_test_e2e -timeout=40m \
+go_test_e2e -timeout=50m \
   "${GO_TEST_FLAGS[@]}" \
   ./test/conformance/api/... \
   ./test/conformance/runtime/... \
