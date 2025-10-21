@@ -21,9 +21,6 @@
 # Use the flags --build-tests, --unit-tests and --integration-tests
 # to run a specific set of tests.
 
-export GO111MODULE=on
-export GOFLAGS=-mod=vendor
-
 source $(dirname $0)/../vendor/knative.dev/hack/presubmit-tests.sh
 
 # We use the default build, unit and integration test runners.
