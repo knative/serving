@@ -215,7 +215,8 @@ func registerPodSync(
 	defer resp.Body.Close()
 
 	// Read response body for logging in case of errors
-	respBody, _ := io.ReadAll(resp.Body)
+	// Limit to 4KB to prevent memory exhaustion and indefinite blocking
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		// Record metrics

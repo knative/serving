@@ -79,9 +79,13 @@ const (
 	// Pod ready check timeout used to verify queue-proxy health
 	podReadyCheckTimeout = 5000 * time.Millisecond
 
-	// QPFreshnessWindow - Queue-proxy data fresher than this overrides K8s informer
-	// If QP spoke within this window, trust QP state over informer
-	QPFreshnessWindow = 30 * time.Second
+	// QPFreshnessReadyWindow - Queue-proxy "ready" events trusted for this duration
+	// Longer window prevents premature draining due to slow K8s updates in degraded clusters
+	QPFreshnessReadyWindow = 60 * time.Second
+
+	// QPFreshnessNotReadyWindow - Queue-proxy "not-ready" events trusted for this duration
+	// Shorter window allows faster failure detection when pod health degrades
+	QPFreshnessNotReadyWindow = 30 * time.Second
 
 	// QPStalenessThreshold - Queue-proxy older than this, trust K8s instead
 	// If QP has been silent this long, it's likely dead and informer is authoritative
@@ -109,7 +113,11 @@ var (
 // Uses t.Cleanup() to restore previous state after test completes, ensuring test independence
 // regardless of execution order (e.g., with -shuffle flag).
 // The *testing.T parameter prevents accidental use in production code.
-func setFeatureGatesForTesting(t interface{ Helper(); Cleanup(func()) }, qpAuthority, quarantine bool) {
+func setFeatureGatesForTesting(t interface {
+	Helper()
+	Cleanup(func())
+}, qpAuthority, quarantine bool,
+) {
 	t.Helper()
 
 	// Capture current state for cleanup
@@ -1566,7 +1574,7 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 					if enableQPAuthority {
 						// Only set to notReady if QP recently said "not-ready"
 						// Otherwise trust K8s (QP data stale or already confirmed ready)
-						if lastQPEvent == "not-ready" && qpAge < int64(QPFreshnessWindow.Seconds()) {
+						if lastQPEvent == "not-ready" && qpAge < int64(QPFreshnessNotReadyWindow.Seconds()) {
 							// QP recently said not-ready - wait for ready event
 							tracker.state.Store(uint32(podNotReady))
 							rt.logger.Infow("Pod returning from drain/removal, waiting for QP ready (QP recently not-ready)",
@@ -1590,7 +1598,7 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 					// K8s says healthy, pod is pending
 					if enableQPAuthority {
 						// Only promote if QP hasn't recently said "not-ready"
-						if lastQPEvent == "not-ready" && qpAge < int64(QPFreshnessWindow.Seconds()) {
+						if lastQPEvent == "not-ready" && qpAge < int64(QPFreshnessNotReadyWindow.Seconds()) {
 							qpAuthorityOverrides.WithLabelValues("ignored_promotion", "qp_recently_not_ready").Inc()
 							rt.logger.Debugw("Ignoring K8s healthy - QP recently said not-ready",
 								"dest", d,
@@ -1636,7 +1644,7 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 				}
 
 				// CRITICAL: If QP recently said "ready", don't drain (informer is stale)
-				if currentState == podReady && lastQPEvent == "ready" && qpAge < int64(QPFreshnessWindow.Seconds()) {
+				if currentState == podReady && lastQPEvent == "ready" && qpAge < int64(QPFreshnessReadyWindow.Seconds()) {
 					qpAuthorityOverrides.WithLabelValues("ignored_drain", "qp_recently_ready").Inc()
 					rt.logger.Warnw("Ignoring K8s draining signal - QP recently confirmed ready",
 						"dest", d,
