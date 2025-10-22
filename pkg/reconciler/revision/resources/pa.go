@@ -35,7 +35,7 @@ func MakePA(rev *v1.Revision, deployment *appsv1.Deployment) *autoscalingv1alpha
 			Name:            names.PA(rev),
 			Namespace:       rev.Namespace,
 			Labels:          makeLabels(rev),
-			Annotations:     makeAnnotations(rev),
+			Annotations:     podAutoscalerAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: autoscalingv1alpha1.PodAutoscalerSpec{

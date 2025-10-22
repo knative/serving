@@ -372,8 +372,6 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 	}
 
 	labels := makeLabels(rev)
-	anns := makeAnnotations(rev)
-	annsPod := makeAnnotationsForPod(rev, anns)
 
 	// Slowly but steadily roll the deployment out, to have the least possible impact.
 	maxUnavailable := intstr.FromInt(0)
@@ -382,7 +380,7 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 			Name:            names.Deployment(rev),
 			Namespace:       rev.Namespace,
 			Labels:          labels,
-			Annotations:     anns,
+			Annotations:     deploymentAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -399,7 +397,7 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      labels,
-					Annotations: annsPod,
+					Annotations: podAnnotations(rev),
 				},
 				Spec: *podSpec,
 			},
