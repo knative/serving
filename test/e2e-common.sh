@@ -49,6 +49,7 @@ export YTT_FILES=()
 export TMP_DIR="${TMP_DIR:-$(mktemp -d -t ci-$(date +%Y-%m-%d-%H-%M-%S)-XXXXXXXXXX)}"
 
 readonly E2E_YAML_DIR=${E2E_YAML_DIR:-"${TMP_DIR}/e2e-yaml"}
+readonly STERN_PID_FILE=${TMP_DIR}/stern.pid
 
 # This the namespace used to install Knative Serving. Use generated UUID as namespace.
 export SYSTEM_NAMESPACE="${SYSTEM_NAMESPACE:-$(uuidgen | tr 'A-Z' 'a-z')}"
@@ -422,21 +423,59 @@ function knative_teardown() {
 
 # Create test resources and images
 function test_setup() {
-  echo ">> Setting up logging..."
-
-  # Install kail if needed.
-  if ! which kail > /dev/null; then
-    go install github.com/boz/kail/cmd/kail@v0.17.4
-  fi
-
-  # Capture all logs.
-  kail > "${ARTIFACTS}/k8s.log-$(basename "${E2E_SCRIPT}").txt" &
-  local kail_pid=$!
-  # Clean up kail so it doesn't interfere with job shutting down
-  add_trap "kill $kail_pid || true" EXIT
-
   echo ">> Uploading test images..."
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
+
+  echo ">> Setting up logging..."
+
+  # Install stern if needed.
+  if ! which stern > /dev/null; then
+    go install github.com/stern/stern@v1.33.0
+  fi
+
+  mkdir -p $(log_dir)
+
+  # Capture all logs.
+  # We use stdbuf so that when we pipe logs to awk it flushes to the file
+  stdbuf -oL stern . --all-namespaces --timestamps --max-log-requests 2000 2> "$(log_dir)/stern.stderr.log" | \
+  stdbuf -oL awk -v logdir="$(log_dir)" '
+  {
+    ns=$1;
+    pod=$2;
+
+    gsub("/", "_", ns);
+    gsub("/", "_", pod);
+
+    dir = logdir "/" ns
+
+    if (!(dir in seen_dirs)) {
+        if (system("[ -d \"" dir "\" ] || mkdir -p \"" dir "\"") != 0) {
+            print "Failed to create dir:", dir > "/dev/stderr"
+        }
+        seen_dirs[dir] = 1
+    }
+
+    print $0 >> (logdir "/" ns "/" pod ".log");
+    fflush(logdir "/" ns "/" pod ".log");
+  }' &
+
+  echo $! > ${STERN_PID_FILE}
+
+  # Clean up stern so it doesn't interfere with job shutting down
+  add_trap "stop_logging" EXIT SIGTERM
+}
+
+function stop_logging() {
+  kill $(cat ${STERN_PID_FILE})
+
+  pushd "$(dirname $(log_dir))"
+    tar -czf "$(basename $(log_dir)).tar.gz" "$(basename $(log_dir))"
+    rm -rf "$(basename $(log_dir))"
+  popd
+}
+
+function log_dir() {
+  echo "${ARTIFACTS}/log-$(basename "${E2E_SCRIPT}" .sh)"
 }
 
 # Dump more information when test fails.
@@ -634,4 +673,8 @@ function run_ytt() {
 
 function run_kapp() {
   go_run github.com/vmware-tanzu/carvel-kapp/cmd/kapp@v0.60.0 "$@"
+}
+
+function on_success() {
+  rm "${ARTIFACTS}"/log-*
 }
