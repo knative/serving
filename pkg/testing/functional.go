@@ -155,7 +155,7 @@ func WithPAContainerConcurrency(cc int64) PodAutoscalerOption {
 	}
 }
 
-func withAnnotationValue(key, value string) PodAutoscalerOption {
+func WithAnnotationValue(key, value string) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		if pa.Annotations == nil {
 			pa.Annotations = make(map[string]string, 1)
@@ -168,21 +168,21 @@ func withAnnotationValue(key, value string) PodAutoscalerOption {
 // the PodAutoscaler autoscaling.knative.dev/target annotation to the
 // provided value.
 func WithTargetAnnotation(target string) PodAutoscalerOption {
-	return withAnnotationValue(autoscaling.TargetAnnotationKey, target)
+	return WithAnnotationValue(autoscaling.TargetAnnotationKey, target)
 }
 
 // WithTUAnnotation returns a PodAutoscalerOption which sets
 // the PodAutoscaler autoscaling.knative.dev/targetUtilizationPercentage
 // annotation to the provided value.
 func WithTUAnnotation(tu string) PodAutoscalerOption {
-	return withAnnotationValue(autoscaling.TargetUtilizationPercentageKey, tu)
+	return WithAnnotationValue(autoscaling.TargetUtilizationPercentageKey, tu)
 }
 
 // WithWindowAnnotation returns a PodAutoScalerOption which sets
 // the PodAutoscaler autoscaling.knative.dev/window annotation to the
 // provided value.
 func WithWindowAnnotation(window string) PodAutoscalerOption {
-	return withAnnotationValue(autoscaling.WindowAnnotationKey, window)
+	return WithAnnotationValue(autoscaling.WindowAnnotationKey, window)
 }
 
 // WithPanicThresholdPercentageAnnotation returns a PodAutoscalerOption
@@ -190,7 +190,7 @@ func WithWindowAnnotation(window string) PodAutoscalerOption {
 // autoscaling.knative.dev/panicThresholdPercentage annotation to the
 // provided value.
 func WithPanicThresholdPercentageAnnotation(percentage string) PodAutoscalerOption {
-	return withAnnotationValue(autoscaling.PanicThresholdPercentageAnnotationKey, percentage)
+	return WithAnnotationValue(autoscaling.PanicThresholdPercentageAnnotationKey, percentage)
 }
 
 // WithPanicWindowPercentageAnnotation retturn a PodAutoscalerOption
@@ -198,12 +198,12 @@ func WithPanicThresholdPercentageAnnotation(percentage string) PodAutoscalerOpti
 // autoscaling.knative.dev/panicWindowPercentage annotation to the
 // provided value.
 func WithPanicWindowPercentageAnnotation(percentage string) PodAutoscalerOption {
-	return withAnnotationValue(autoscaling.PanicWindowPercentageAnnotationKey, percentage)
+	return WithAnnotationValue(autoscaling.PanicWindowPercentageAnnotationKey, percentage)
 }
 
 // WithMetricAnnotation adds a metric annotation to the PA.
 func WithMetricAnnotation(metric string) PodAutoscalerOption {
-	return withAnnotationValue(autoscaling.MetricAnnotationKey, metric)
+	return WithAnnotationValue(autoscaling.MetricAnnotationKey, metric)
 }
 
 // WithObservedGeneration returns a PodAutoScalerOption which sets
@@ -221,12 +221,12 @@ func WithMetricOwnersRemoved(m *autoscalingv1alpha1.Metric) {
 
 // WithUpperScaleBound sets maxScale to the given number.
 func WithUpperScaleBound(i int) PodAutoscalerOption {
-	return withAnnotationValue(autoscaling.MaxScaleAnnotationKey, strconv.Itoa(i))
+	return WithAnnotationValue(autoscaling.MaxScaleAnnotationKey, strconv.Itoa(i))
 }
 
 // WithLowerScaleBound sets minScale to the given number.
 func WithLowerScaleBound(i int) PodAutoscalerOption {
-	return withAnnotationValue(autoscaling.MinScaleAnnotationKey, strconv.Itoa(i))
+	return WithAnnotationValue(autoscaling.MinScaleAnnotationKey, strconv.Itoa(i))
 }
 
 // K8sServiceOption enables further configuration of the Kubernetes Service.
