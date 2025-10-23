@@ -121,6 +121,10 @@ func (m *queueMetrics) updateUnfinishedWork() {
 	// doesn't seem to have non-hacky ways to reset the summary metrics.
 	var total float64
 	var oldest float64
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	for _, t := range m.processingStartTimes {
 		age := m.sinceInSeconds(t)
 		total += age
