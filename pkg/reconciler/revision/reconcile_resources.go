@@ -176,6 +176,9 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 		return fmt.Errorf("revision: %q does not own PodAutoscaler: %q", rev.Name, paName)
 	}
 
+	logger.Debugf("Observed PA Status=%#v", pa.Status)
+	rev.Status.PropagateAutoscalerStatus(&pa.Status)
+
 	// Perhaps tha PA spec changed underneath ourselves?
 	// We no longer require immutability, so need to reconcile PA each time.
 	tmpl := resources.MakePA(rev, deployment)
@@ -199,8 +202,6 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 		}
 	}
 
-	logger.Debugf("Observed PA Status=%#v", pa.Status)
-	rev.Status.PropagateAutoscalerStatus(&pa.Status)
 	return nil
 }
 
