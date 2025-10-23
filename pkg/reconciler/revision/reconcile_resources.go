@@ -19,6 +19,7 @@ package revision
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	"go.uber.org/zap"
 	"knative.dev/pkg/tracker"
@@ -183,7 +184,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 	// We no longer require immutability, so need to reconcile PA each time.
 	tmpl := resources.MakePA(rev, deployment)
 	logger.Debugf("Desired PASpec: %#v", tmpl.Spec)
-	if !equality.Semantic.DeepEqual(tmpl.Spec, pa.Spec) || !equality.Semantic.DeepEqual(tmpl.Annotations, pa.Annotations) {
+	if !equality.Semantic.DeepEqual(tmpl.Spec, pa.Spec) || !annotationsPresent(pa.Annotations, tmpl.Annotations) {
 		// Can't realistically fail on PASpec.
 		if diff, _ := kmp.SafeDiff(tmpl.Spec, pa.Spec); diff != "" {
 			logger.Infof("PA %q spec needs reconciliation, diff(-want,+got):\n%s", pa.Name, diff)
@@ -195,14 +196,29 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 
 		want := pa.DeepCopy()
 		want.Spec = tmpl.Spec
-		want.Annotations = tmpl.Annotations
 
-		if pa, err = c.client.AutoscalingV1alpha1().PodAutoscalers(ns).Update(ctx, want, metav1.UpdateOptions{}); err != nil {
-			return fmt.Errorf("failed to update PA %q: %w", paName, err)
-		}
+		// copy template annotations over while preserving existing ones
+		maps.Copy(want.Annotations, tmpl.Annotations)
+
+		_, err := c.client.AutoscalingV1alpha1().PodAutoscalers(ns).Update(ctx, want, metav1.UpdateOptions{})
+		return err
 	}
 
 	return nil
+}
+
+func annotationsPresent(dst, src map[string]string) bool {
+	for k, want := range src {
+		got, ok := dst[k]
+		if !ok {
+			return false
+		}
+
+		if got != want {
+			return false
+		}
+	}
+	return true
 }
 
 func hasDeploymentTimedOut(deployment *appsv1.Deployment) bool {
