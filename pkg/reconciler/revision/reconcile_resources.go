@@ -185,20 +185,19 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 	tmpl := resources.MakePA(rev, deployment)
 	logger.Debugf("Desired PASpec: %#v", tmpl.Spec)
 	if !equality.Semantic.DeepEqual(tmpl.Spec, pa.Spec) || !annotationsPresent(pa.Annotations, tmpl.Annotations) {
+		want := pa.DeepCopy()
+		want.Spec = tmpl.Spec
+		// copy template annotations over while preserving existing ones
+		maps.Copy(want.Annotations, tmpl.Annotations)
+
 		// Can't realistically fail on PASpec.
-		if diff, _ := kmp.SafeDiff(tmpl.Spec, pa.Spec); diff != "" {
+		if diff, _ := kmp.SafeDiff(want.Spec, pa.Spec); diff != "" {
 			logger.Infof("PA %q spec needs reconciliation, diff(-want,+got):\n%s", pa.Name, diff)
 		}
 
-		if diff, _ := kmp.SafeDiff(tmpl.Annotations, pa.Annotations); diff != "" {
+		if diff, _ := kmp.SafeDiff(want.Annotations, pa.Annotations); diff != "" {
 			logger.Infof("PA %q annotations needs reconciliation, diff(-want,+got):\n%s", pa.Name, diff)
 		}
-
-		want := pa.DeepCopy()
-		want.Spec = tmpl.Spec
-
-		// copy template annotations over while preserving existing ones
-		maps.Copy(want.Annotations, tmpl.Annotations)
 
 		_, err := c.client.AutoscalingV1alpha1().PodAutoscalers(ns).Update(ctx, want, metav1.UpdateOptions{})
 		return err
