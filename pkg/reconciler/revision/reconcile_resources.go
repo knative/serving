@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"strings"
 
 	"go.uber.org/zap"
 	"knative.dev/pkg/tracker"
@@ -37,6 +38,7 @@ import (
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/reconciler/revision/config"
@@ -183,12 +185,14 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 	// Perhaps tha PA spec changed underneath ourselves?
 	// We no longer require immutability, so need to reconcile PA each time.
 	tmpl := resources.MakePA(rev, deployment)
+	tmpl.SetDefaults(ctx)
+
 	logger.Debugf("Desired PASpec: %#v", tmpl.Spec)
 	if !equality.Semantic.DeepEqual(tmpl.Spec, pa.Spec) || !annotationsPresent(pa.Annotations, tmpl.Annotations) {
 		want := pa.DeepCopy()
 		want.Spec = tmpl.Spec
-		// copy template annotations over while preserving existing ones
-		maps.Copy(want.Annotations, tmpl.Annotations)
+
+		processAnnotations(want.Annotations, tmpl.Annotations)
 
 		// Can't realistically fail on PASpec.
 		if diff, _ := kmp.SafeDiff(want.Spec, pa.Spec); diff != "" {
@@ -206,7 +210,42 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 	return nil
 }
 
+func processAnnotations(dst, src map[string]string) {
+	// Delete autoscaling annotations from destination map
+	// This ensures that setting these annotation on the Revision is the source of truth
+	for k := range dst {
+		if k == autoscaling.ClassAnnotationKey || k == autoscaling.MetricAnnotationKey {
+			// Exclude defaulted annotation
+			continue
+		}
+		if strings.HasPrefix(k, autoscaling.GroupName) {
+			delete(dst, k)
+		}
+	}
+
+	// copy source annotations over while preserving existing ones
+	maps.Copy(dst, src)
+}
+
 func annotationsPresent(dst, src map[string]string) bool {
+	// Check for extra autoscaling annotations that don't exist
+	// in the desired src
+	for k := range dst {
+		if !strings.HasPrefix(k, autoscaling.GroupName) {
+			continue
+		}
+		if k == autoscaling.ClassAnnotationKey || k == autoscaling.MetricAnnotationKey {
+			// Exclude defaulted annotation
+			continue
+		}
+
+		if _, ok := src[k]; !ok {
+			// Scaling annotation is in dst but not src
+			// return false to trigger reconciliation
+			return false
+		}
+	}
+
 	for k, want := range src {
 		got, ok := dst[k]
 		if !ok {
