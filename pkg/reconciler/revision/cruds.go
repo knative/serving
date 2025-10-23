@@ -30,6 +30,7 @@ import (
 	"knative.dev/pkg/logging"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 )
@@ -104,5 +105,17 @@ func (c *Reconciler) createPA(
 	deployment *appsv1.Deployment,
 ) (*autoscalingv1alpha1.PodAutoscaler, error) {
 	pa := resources.MakePA(rev, deployment)
+
+	// Ensure autoscaling annotations are set before creating PA.
+	// This avoids a race condition where the informer cache sees the PA
+	// before the webhook defaulting completes.
+	cfg := config.FromContext(ctx)
+	if pa.Annotations == nil {
+		pa.Annotations = make(map[string]string)
+	}
+	if _, ok := pa.Annotations[podautoscaler.ClassAnnotationKey]; !ok && cfg.Autoscaler.PodAutoscalerClass != "" {
+		pa.Annotations[podautoscaler.ClassAnnotationKey] = cfg.Autoscaler.PodAutoscalerClass
+	}
+
 	return c.client.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Create(ctx, pa, metav1.CreateOptions{})
 }
