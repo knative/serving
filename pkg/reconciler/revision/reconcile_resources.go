@@ -185,8 +185,6 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 	// Perhaps tha PA spec changed underneath ourselves?
 	// We no longer require immutability, so need to reconcile PA each time.
 	tmpl := resources.MakePA(rev, deployment)
-	tmpl.SetDefaults(ctx)
-
 	logger.Debugf("Desired PASpec: %#v", tmpl.Spec)
 	if !equality.Semantic.DeepEqual(tmpl.Spec, pa.Spec) || !annotationsPresent(pa.Annotations, tmpl.Annotations) {
 		want := pa.DeepCopy()
@@ -204,7 +202,9 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 		}
 
 		_, err := c.client.AutoscalingV1alpha1().PodAutoscalers(ns).Update(ctx, want, metav1.UpdateOptions{})
-		return err
+		if err != nil {
+			return fmt.Errorf("failed to update PA %q: %w", want.Name, err)
+		}
 	}
 
 	return nil
@@ -228,14 +228,13 @@ func processAnnotations(dst, src map[string]string) {
 }
 
 func annotationsPresent(dst, src map[string]string) bool {
-	// Check for extra autoscaling annotations that don't exist
-	// in the desired src
+	// Check for extra autoscaling annotations that don't exist src
 	for k := range dst {
 		if !strings.HasPrefix(k, autoscaling.GroupName) {
 			continue
 		}
+		// Exclude defaulted annotation
 		if k == autoscaling.ClassAnnotationKey || k == autoscaling.MetricAnnotationKey {
-			// Exclude defaulted annotation
 			continue
 		}
 
@@ -248,7 +247,12 @@ func annotationsPresent(dst, src map[string]string) bool {
 
 	for k, want := range src {
 		got, ok := dst[k]
+
 		if !ok {
+			if k == autoscaling.ClassAnnotationKey || k == autoscaling.MetricAnnotationKey {
+				continue
+			}
+
 			return false
 		}
 

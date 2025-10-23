@@ -335,6 +335,7 @@ func TestReconcile(t *testing.T) {
 				WithLogURL,
 				WithRevisionObservedGeneration(1)),
 			pa("foo", "pa-inactive",
+				WithReachability(autoscalingv1alpha1.ReachabilityUnreachable),
 				WithNoTraffic("NoTraffic", "This thing is inactive."),
 				WithPAStatusService("pa-inactive")),
 			readyDeploy(deploy(t, "foo", "pa-inactive")),
@@ -345,9 +346,9 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, withDefaultContainerStatuses(), MarkDeploying(""),
 				// When we reconcile an "all ready" revision when the PA
 				// is inactive, we should see the following change.
-				MarkInactive("NoTraffic", "This thing is inactive."), WithRevisionObservedGeneration(1),
-				MarkResourcesUnavailable(v1.ReasonProgressDeadlineExceeded,
-					"Initial scale was never achieved")),
+				MarkInactive("NoTraffic", "This thing is inactive."),
+				WithRevisionObservedGeneration(1),
+				MarkResourcesUnavailable(v1.ReasonProgressDeadlineExceeded, "Initial scale was never achieved")),
 		}},
 		Key: "foo/pa-inactive",
 	}, {
