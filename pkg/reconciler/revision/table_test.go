@@ -210,6 +210,19 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/fix-containers",
 	}, {
+		Name: "preserve external deployment and template annotations and labels",
+		Objects: []runtime.Object{
+			Revision("foo", "preserve-annotations",
+				WithLogURL, allUnknownConditions, withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+			pa("foo", "preserve-annotations", WithReachabilityUnknown),
+			addDeploymentMetadata(deploy(t, "foo", "preserve-annotations"), true),
+			image("foo", "preserve-annotations"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: addDeploymentMetadata(deploy(t, "foo", "preserve-annotations"), false),
+		}},
+		Key: "foo/preserve-annotations",
+	}, {
 		Name: "failure updating deployment",
 		// Test that we handle an error updating the deployment properly.
 		WantErr: true,
@@ -875,6 +888,23 @@ func changeContainers(deploy *appsv1.Deployment) *appsv1.Deployment {
 	for i := range podSpec.Containers {
 		podSpec.Containers[i].Image = "asdf"
 	}
+	return deploy
+}
+
+func addDeploymentMetadata(deploy *appsv1.Deployment, includeInternalMetadata bool) *appsv1.Deployment {
+	setMetadata := func(m map[string]string, key, value string) {
+		m[key] = value
+		if includeInternalMetadata {
+			m[resources.AppLabelKey] = "app"
+			m["internal.knative.dev/foo"] = "bar"
+		}
+	}
+
+	setMetadata(deploy.Annotations, "external.io/annotation", "external-annotation")
+	setMetadata(deploy.Labels, "external.io/label", "external-label")
+	setMetadata(deploy.Spec.Template.Annotations, "external.io/template-annotation", "external-template-annotation")
+	setMetadata(deploy.Spec.Template.Labels, "external.io/template-label", "external-template-label")
+
 	return deploy
 }
 
