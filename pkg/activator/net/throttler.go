@@ -2122,13 +2122,6 @@ func assignSlice(trackers map[string]*podTracker, selfIndex, numActivators int) 
 		return result
 	}
 
-	// Bounds check: ensure selfIndex is valid
-	if numActivators > 0 && selfIndex >= numActivators {
-		// Invalid index - assign no pods to prevent undefined behavior
-		// This can happen during activator scale-down when indices haven't been rebalanced yet
-		return []*podTracker{}
-	}
-
 	// Get sorted list of pod addresses for consistent ordering
 	dests := maps.Keys(trackers)
 	sort.Strings(dests)
@@ -2141,6 +2134,13 @@ func assignSlice(trackers map[string]*podTracker, selfIndex, numActivators int) 
 			assigned[i] = trackers[dest]
 		}
 		return assigned
+	}
+
+	// Bounds check: ensure selfIndex is valid for multi-activator scenarios
+	if numActivators > 0 && selfIndex >= numActivators {
+		// Invalid index - assign no pods to prevent undefined behavior
+		// This can happen during activator scale-down when indices haven't been rebalanced yet
+		return []*podTracker{}
 	}
 
 	// Use consistent hashing: take all pods where podIdx % numActivators == selfIndex
