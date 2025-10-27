@@ -744,13 +744,13 @@ func quarantineBackoffSeconds(count uint32) uint32 {
 	case 1:
 		return 1
 	case 2:
-		return 2
+		return 1
 	case 3:
-		return 5
+		return 2
 	case 4:
-		return 10
+		return 3
 	default:
-		return 20
+		return 5
 	}
 }
 
@@ -773,13 +773,13 @@ func init() {
 }
 
 // podReadyCheck performs HTTP health check against queue-proxy
-func podReadyCheck(dest string, expectedRevision types.NamespacedName) bool {
+func podReadyCheck(dest string, expectedRevision types.NamespacedName) error {
 	ctx, cancel := context.WithTimeout(context.Background(), podReadyCheckTimeout)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+dest+"/", nil)
 	if err != nil {
-		return false
+		return err
 	}
 
 	req.Header.Set("User-Agent", "kube-probe/activator")
@@ -787,12 +787,12 @@ func podReadyCheck(dest string, expectedRevision types.NamespacedName) bool {
 
 	resp, err := podReadyCheckClient.Do(req)
 	if err != nil {
-		return false
+		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return false
+		return fmt.Errorf("non 200 status code, %v", resp.StatusCode)
 	}
 
 	respRevName := resp.Header.Get("X-Knative-Revision-Name")
@@ -800,7 +800,7 @@ func podReadyCheck(dest string, expectedRevision types.NamespacedName) bool {
 
 	// Backwards compatibility: If headers are not present (old queue-proxy), skip validation
 	if respRevName == "" && respRevNamespace == "" {
-		return true
+		return nil
 	}
 
 	// If headers ARE present, validate they match expected revision
@@ -811,22 +811,25 @@ func podReadyCheck(dest string, expectedRevision types.NamespacedName) bool {
 				"expected-revision", expectedRevision.String(),
 				"response-revision", types.NamespacedName{Name: respRevName, Namespace: respRevNamespace}.String())
 		}
-		return false
+		return fmt.Errorf("health check response from wrong revision - IP reuse detected! %q %q != %q",
+			dest,
+			expectedRevision.String(),
+			types.NamespacedName{Name: respRevName, Namespace: respRevNamespace}.String())
 	}
 
-	return true
+	return nil
 }
 
 // tcpPingCheck invokes the pod ready check function
-func tcpPingCheck(dest string, expectedRevision types.NamespacedName) bool {
+func tcpPingCheck(dest string, expectedRevision types.NamespacedName) error {
 	featureGateMutex.RLock()
 	quarantineEnabled := enableQuarantine
 	featureGateMutex.RUnlock()
 
 	if !quarantineEnabled {
-		return true // Skip health checks when quarantine is disabled
+		return nil // Skip health checks when quarantine is disabled
 	}
-	fn := podReadyCheckFunc.Load().(func(string, types.NamespacedName) bool)
+	fn := podReadyCheckFunc.Load().(func(string, types.NamespacedName) error)
 	return fn(dest, expectedRevision)
 }
 
@@ -1182,7 +1185,7 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 				if currentState != podNotReady {
 					// Track health check duration
 					healthCheckStart := time.Now()
-					healthCheckPassed := tcpPingCheck(tracker.dest, tracker.revisionID)
+					healthCheckError := tcpPingCheck(tracker.dest, tracker.revisionID)
 					healthCheckMs := float64(time.Since(healthCheckStart).Milliseconds())
 
 					if healthCheckMs > 1000 { // Log if health check took >1s
@@ -1191,17 +1194,18 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 							"dest", tracker.dest,
 							"state", currentState,
 							"health-check-ms", healthCheckMs,
-							"passed", healthCheckPassed)
+							"passed", healthCheckError == nil)
 					}
 
-					if !healthCheckPassed {
+					if healthCheckError != nil {
 						rt.logger.Errorw("pod ready check failed; quarantine",
 							"x-request-id", xRequestId,
 							"dest", tracker.dest,
 							"revision", rt.revID.String(),
 							"tracker-id", tracker.id,
 							"previous-state", currentState,
-							"reenqueue-count", reenqueueCount)
+							"reenqueue-count", reenqueueCount,
+							"error", healthCheckError.Error())
 
 						// Try to quarantine this tracker using CAS to avoid races
 						// We can transition from podReady or podRecovering to podQuarantined

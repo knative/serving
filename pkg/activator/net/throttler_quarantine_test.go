@@ -262,12 +262,12 @@ func TestQuarantineBackoffSchedule(t *testing.T) {
 			count    uint32
 			expected uint32
 		}{
-			{1, 1},   // 1 second
-			{2, 2},   // 2 seconds
-			{3, 5},   // 5 seconds
-			{4, 10},  // 10 seconds
-			{5, 20},  // 20 seconds (cap)
-			{10, 20}, // Still capped at 20s
+			{1, 1},  // 1 second
+			{2, 1},  // 2 seconds
+			{3, 2},  // 5 seconds
+			{4, 3},  // 10 seconds
+			{5, 5},  // 20 seconds (cap)
+			{10, 5}, // Still capped at 20s
 		}
 
 		for _, tc := range testCases {

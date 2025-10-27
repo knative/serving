@@ -35,8 +35,8 @@ func TestMain(m *testing.M) {
 	setFeatureGatesForTestMain(true, false)
 
 	// Mock health check to always return true for tests (avoid real HTTP requests)
-	podReadyCheckFunc.Store(func(dest string, expectedRevision types.NamespacedName) bool {
-		return true // Always healthy in tests
+	podReadyCheckFunc.Store(func(dest string, expectedRevision types.NamespacedName) error {
+		return nil // Always healthy in tests
 	})
 
 	code := m.Run()
