@@ -1522,216 +1522,216 @@ func (rt *revisionThrottler) updateThrottlerState(newTrackers []*podTracker, hea
 	lockHoldStart := time.Now()
 	// Note: Lock is manually unlocked before updateCapacity() call at the end
 	// to avoid deadlock, since updateCapacity also needs to acquire the lock.
-		for _, t := range newTrackers {
-			if t != nil {
-				// Check if this dest was already in the map for a different tracker
-				if existing, exists := rt.podTrackers[t.dest]; exists {
-					// Validate the existing tracker's revision matches
-					if existing.revisionID != rt.revID {
-						rt.logger.Errorw("CRITICAL: Replacing tracker from WRONG REVISION - IP reuse across revisions!",
-							"revision", rt.revID.String(),
-							"dest", t.dest,
-							"old-tracker-revision", existing.revisionID.String(),
-							"old-tracker-id", existing.id,
-							"old-created-at", existing.createdAt,
-							"old-state", podState(existing.state.Load()),
-							"new-tracker-id", t.id,
-							"new-created-at", t.createdAt)
-					} else {
-						rt.logger.Warnw("Replacing existing pod tracker - possible IP reuse",
-							"revision", rt.revID.String(),
-							"dest", t.dest,
-							"old-tracker-id", existing.id,
-							"old-created-at", existing.createdAt,
-							"old-state", podState(existing.state.Load()),
-							"new-tracker-id", t.id,
-							"new-created-at", t.createdAt)
-					}
+	for _, t := range newTrackers {
+		if t != nil {
+			// Check if this dest was already in the map for a different tracker
+			if existing, exists := rt.podTrackers[t.dest]; exists {
+				// Validate the existing tracker's revision matches
+				if existing.revisionID != rt.revID {
+					rt.logger.Errorw("CRITICAL: Replacing tracker from WRONG REVISION - IP reuse across revisions!",
+						"revision", rt.revID.String(),
+						"dest", t.dest,
+						"old-tracker-revision", existing.revisionID.String(),
+						"old-tracker-id", existing.id,
+						"old-created-at", existing.createdAt,
+						"old-state", podState(existing.state.Load()),
+						"new-tracker-id", t.id,
+						"new-created-at", t.createdAt)
+				} else {
+					rt.logger.Warnw("Replacing existing pod tracker - possible IP reuse",
+						"revision", rt.revID.String(),
+						"dest", t.dest,
+						"old-tracker-id", existing.id,
+						"old-created-at", existing.createdAt,
+						"old-state", podState(existing.state.Load()),
+						"new-tracker-id", t.id,
+						"new-created-at", t.createdAt)
 				}
-				rt.podTrackers[t.dest] = t
-				rt.logger.Debugw("Added pod tracker to revision map",
-					"revision", rt.revID.String(),
-					"dest", t.dest,
-					"tracker-id", t.id,
-					"total-trackers", len(rt.podTrackers))
 			}
+			rt.podTrackers[t.dest] = t
+			rt.logger.Debugw("Added pod tracker to revision map",
+				"revision", rt.revID.String(),
+				"dest", t.dest,
+				"tracker-id", t.id,
+				"total-trackers", len(rt.podTrackers))
 		}
-		for _, d := range healthyDests {
-			tracker := rt.podTrackers[d]
-			if tracker != nil {
-				currentState := podState(tracker.state.Load())
-
-				// Check QP freshness to determine if we should trust informer (only when QP authority enabled)
-				var lastQPSeen int64
-				var qpAge int64
-				var lastQPEvent string
-
-				if enableQPAuthority {
-					lastQPSeen = tracker.lastQPUpdate.Load()
-					qpAge = time.Now().Unix() - lastQPSeen
-					if val := tracker.lastQPState.Load(); val != nil {
-						if s, ok := val.(string); ok {
-							lastQPEvent = s
-						}
-					}
-				}
-
-				switch currentState {
-				case podDraining, podRemoved:
-					// Pod was being removed but is back in healthy endpoint list (e.g., rolling update rollback)
-					// Use QP freshness to decide state - if we missed QP events, trust K8s informer
-					if enableQPAuthority {
-						// Only set to notReady if QP recently said "not-ready"
-						// Otherwise trust K8s (QP data stale or already confirmed ready)
-						if lastQPEvent == "not-ready" && qpAge < int64(QPFreshnessNotReadyWindow.Seconds()) {
-							// QP recently said not-ready - wait for ready event
-							tracker.state.Store(uint32(podNotReady))
-							rt.logger.Infow("Pod returning from drain/removal, waiting for QP ready (QP recently not-ready)",
-								"dest", d, "qp-age-sec", qpAge)
-						} else {
-							// QP data stale/missing OR QP said ready - trust K8s informer
-							tracker.state.Store(uint32(podReady))
-							rt.logger.Infow("Pod returning from drain/removal, trusting K8s (QP stale or confirmed ready)",
-								"dest", d, "qp-age-sec", qpAge, "qp-last-event", lastQPEvent)
-						}
-					} else {
-						tracker.state.Store(uint32(podReady))
-					}
-					tracker.drainingStartTime.Store(0)
-				case podReady:
-					// Already healthy, nothing to do
-
-				case podRecovering, podQuarantined:
-					// Quarantine states, nothing to do
-				case podNotReady:
-					// K8s says healthy, pod is pending
-					if enableQPAuthority {
-						// Only promote if QP hasn't recently said "not-ready"
-						if lastQPEvent == "not-ready" && qpAge < int64(QPFreshnessNotReadyWindow.Seconds()) {
-							qpAuthorityOverrides.WithLabelValues("ignored_promotion", "qp_recently_not_ready").Inc()
-							rt.logger.Debugw("Ignoring K8s healthy - QP recently said not-ready",
-								"dest", d,
-								"qp-age-sec", qpAge,
-								"qp-last-event", lastQPEvent)
-							// Don't promote - trust fresh QP data
-						} else if tracker.state.CompareAndSwap(uint32(podNotReady), uint32(podReady)) {
-							// Safe to promote (QP hasn't objected recently, or QP data is stale)
-							podStateTransitions.WithLabelValues("not-ready", "ready", "k8s_informer").Inc()
-							rt.logger.Infow("K8s informer promoted not-ready pod to healthy",
-								"dest", d,
-								"qp-age-sec", qpAge)
-						}
-					} else {
-						// Promote immediately (no QP to check)
-						tracker.state.CompareAndSwap(uint32(podNotReady), uint32(podReady))
-					}
-				}
-			}
-		}
-		// Handle pod draining to prevent dropped requests during pod removal
-		now := time.Now().Unix()
-		for _, d := range drainingDests {
-			tracker := rt.podTrackers[d]
-			if tracker == nil {
-				continue
-			}
-
+	}
+	for _, d := range healthyDests {
+		tracker := rt.podTrackers[d]
+		if tracker != nil {
 			currentState := podState(tracker.state.Load())
 
-			// Check QP freshness - if QP recently said "ready", K8s might be stale (only when QP authority enabled)
+			// Check QP freshness to determine if we should trust informer (only when QP authority enabled)
 			var lastQPSeen int64
 			var qpAge int64
 			var lastQPEvent string
 
 			if enableQPAuthority {
 				lastQPSeen = tracker.lastQPUpdate.Load()
-				qpAge = now - lastQPSeen
+				qpAge = time.Now().Unix() - lastQPSeen
 				if val := tracker.lastQPState.Load(); val != nil {
 					if s, ok := val.(string); ok {
 						lastQPEvent = s
 					}
 				}
-
-				// CRITICAL: If QP recently said "ready", don't drain (informer is stale)
-				if currentState == podReady && lastQPEvent == "ready" && qpAge < int64(QPFreshnessReadyWindow.Seconds()) {
-					qpAuthorityOverrides.WithLabelValues("ignored_drain", "qp_recently_ready").Inc()
-					rt.logger.Warnw("Ignoring K8s draining signal - QP recently confirmed ready",
-						"dest", d,
-						"qp-age-sec", qpAge,
-						"qp-last-event", lastQPEvent)
-					continue
-				}
-
-				// If QP silent > 60s, trust informer (QP likely dead)
-				if qpAge > int64(QPStalenessThreshold.Seconds()) || lastQPSeen == 0 {
-					rt.logger.Debugw("QP silent - trusting K8s informer to drain pod",
-						"dest", d,
-						"qp-age-sec", qpAge)
-				}
 			}
 
 			switch currentState {
-			case podReady, podRecovering:
-				// When QP authority is enabled, use proper draining (graceful shutdown)
-				// When QP authority is disabled, just mark as not-ready (K8s informer says pod is going away)
+			case podDraining, podRemoved:
+				// Pod was being removed but is back in healthy endpoint list (e.g., rolling update rollback)
+				// Use QP freshness to decide state - if we missed QP events, trust K8s informer
 				if enableQPAuthority {
-					if tracker.tryDrain() {
-						fromState := "ready"
-						if currentState == podRecovering {
-							fromState = "recovering"
-						}
-						podStateTransitions.WithLabelValues(fromState, "draining", "k8s_informer").Inc()
-						rt.logger.Debugf("Pod %s transitioning to draining state, refCount=%d", d, tracker.getRefCount())
-						if tracker.getRefCount() == 0 {
-							tracker.state.Store(uint32(podRemoved))
-							delete(rt.podTrackers, d)
-							rt.logger.Debugf("Pod %s removed immediately (no active requests)", d)
-						}
+					// Only set to notReady if QP recently said "not-ready"
+					// Otherwise trust K8s (QP data stale or already confirmed ready)
+					if lastQPEvent == "not-ready" && qpAge < int64(QPFreshnessNotReadyWindow.Seconds()) {
+						// QP recently said not-ready - wait for ready event
+						tracker.state.Store(uint32(podNotReady))
+						rt.logger.Infow("Pod returning from drain/removal, waiting for QP ready (QP recently not-ready)",
+							"dest", d, "qp-age-sec", qpAge)
+					} else {
+						// QP data stale/missing OR QP said ready - trust K8s informer
+						tracker.state.Store(uint32(podReady))
+						rt.logger.Infow("Pod returning from drain/removal, trusting K8s (QP stale or confirmed ready)",
+							"dest", d, "qp-age-sec", qpAge, "qp-last-event", lastQPEvent)
 					}
 				} else {
-					// QP authority disabled - transition to not-ready instead of draining
-					if tracker.state.CompareAndSwap(uint32(currentState), uint32(podNotReady)) {
-						podStateTransitions.WithLabelValues("ready", "not-ready", "k8s_informer").Inc()
-						rt.logger.Debugf("Pod %s transitioning to not-ready (K8s removing)", d)
-					}
+					tracker.state.Store(uint32(podReady))
 				}
-			case podDraining:
-				refCount := tracker.getRefCount()
-				if refCount == 0 {
-					tracker.state.Store(uint32(podRemoved))
-					delete(rt.podTrackers, d)
-					rt.logger.Debugf("Pod %s removed after draining (no active requests)", d)
+				tracker.drainingStartTime.Store(0)
+			case podReady:
+				// Already healthy, nothing to do
+
+			case podRecovering, podQuarantined:
+				// Quarantine states, nothing to do
+			case podNotReady:
+				// K8s says healthy, pod is pending
+				if enableQPAuthority {
+					// Only promote if QP hasn't recently said "not-ready"
+					if lastQPEvent == "not-ready" && qpAge < int64(QPFreshnessNotReadyWindow.Seconds()) {
+						qpAuthorityOverrides.WithLabelValues("ignored_promotion", "qp_recently_not_ready").Inc()
+						rt.logger.Debugw("Ignoring K8s healthy - QP recently said not-ready",
+							"dest", d,
+							"qp-age-sec", qpAge,
+							"qp-last-event", lastQPEvent)
+						// Don't promote - trust fresh QP data
+					} else if tracker.state.CompareAndSwap(uint32(podNotReady), uint32(podReady)) {
+						// Safe to promote (QP hasn't objected recently, or QP data is stale)
+						podStateTransitions.WithLabelValues("not-ready", "ready", "k8s_informer").Inc()
+						rt.logger.Infow("K8s informer promoted not-ready pod to healthy",
+							"dest", d,
+							"qp-age-sec", qpAge)
+					}
 				} else {
-					drainingStart := tracker.drainingStartTime.Load()
-					if drainingStart > 0 && now-drainingStart > int64(maxDrainingDuration.Seconds()) {
-						rt.logger.Warnf("Force removing pod %s stuck in draining state for %d seconds, refCount=%d", d, now-drainingStart, refCount)
+					// Promote immediately (no QP to check)
+					tracker.state.CompareAndSwap(uint32(podNotReady), uint32(podReady))
+				}
+			}
+		}
+	}
+	// Handle pod draining to prevent dropped requests during pod removal
+	now := time.Now().Unix()
+	for _, d := range drainingDests {
+		tracker := rt.podTrackers[d]
+		if tracker == nil {
+			continue
+		}
+
+		currentState := podState(tracker.state.Load())
+
+		// Check QP freshness - if QP recently said "ready", K8s might be stale (only when QP authority enabled)
+		var lastQPSeen int64
+		var qpAge int64
+		var lastQPEvent string
+
+		if enableQPAuthority {
+			lastQPSeen = tracker.lastQPUpdate.Load()
+			qpAge = now - lastQPSeen
+			if val := tracker.lastQPState.Load(); val != nil {
+				if s, ok := val.(string); ok {
+					lastQPEvent = s
+				}
+			}
+
+			// CRITICAL: If QP recently said "ready", don't drain (informer is stale)
+			if currentState == podReady && lastQPEvent == "ready" && qpAge < int64(QPFreshnessReadyWindow.Seconds()) {
+				qpAuthorityOverrides.WithLabelValues("ignored_drain", "qp_recently_ready").Inc()
+				rt.logger.Warnw("Ignoring K8s draining signal - QP recently confirmed ready",
+					"dest", d,
+					"qp-age-sec", qpAge,
+					"qp-last-event", lastQPEvent)
+				continue
+			}
+
+			// If QP silent > 60s, trust informer (QP likely dead)
+			if qpAge > int64(QPStalenessThreshold.Seconds()) || lastQPSeen == 0 {
+				rt.logger.Debugw("QP silent - trusting K8s informer to drain pod",
+					"dest", d,
+					"qp-age-sec", qpAge)
+			}
+		}
+
+		switch currentState {
+		case podReady, podRecovering:
+			// When QP authority is enabled, use proper draining (graceful shutdown)
+			// When QP authority is disabled, just mark as not-ready (K8s informer says pod is going away)
+			if enableQPAuthority {
+				if tracker.tryDrain() {
+					fromState := "ready"
+					if currentState == podRecovering {
+						fromState = "recovering"
+					}
+					podStateTransitions.WithLabelValues(fromState, "draining", "k8s_informer").Inc()
+					rt.logger.Debugf("Pod %s transitioning to draining state, refCount=%d", d, tracker.getRefCount())
+					if tracker.getRefCount() == 0 {
 						tracker.state.Store(uint32(podRemoved))
 						delete(rt.podTrackers, d)
+						rt.logger.Debugf("Pod %s removed immediately (no active requests)", d)
 					}
 				}
-			case podQuarantined:
-				// When quarantine is enabled, remove quarantined pods cleanly
-				if enableQuarantine {
-					transitionOutOfQuarantine(context.Background(), tracker, podRemoved)
-					delete(rt.podTrackers, d)
-					rt.logger.Infow("Pod removed while in quarantine",
-						"dest", d,
-						"revision", rt.revID.String(),
-						"tracker-id", tracker.id)
-				} else {
-					// Quarantine not enabled - treat as normal removal
-					tracker.state.Store(uint32(podRemoved))
-					delete(rt.podTrackers, d)
-					rt.logger.Debugf("Pod %s removed while in unexpected quarantined state", d)
+			} else {
+				// QP authority disabled - transition to not-ready instead of draining
+				if tracker.state.CompareAndSwap(uint32(currentState), uint32(podNotReady)) {
+					podStateTransitions.WithLabelValues("ready", "not-ready", "k8s_informer").Inc()
+					rt.logger.Debugf("Pod %s transitioning to not-ready (K8s removing)", d)
 				}
-			case podNotReady:
-				// Pod being removed while not ready
+			}
+		case podDraining:
+			refCount := tracker.getRefCount()
+			if refCount == 0 {
 				tracker.state.Store(uint32(podRemoved))
 				delete(rt.podTrackers, d)
-				rt.logger.Debugf("Pod %s removed while not-ready", d)
-			default:
-				rt.logger.Errorf("Pod %s in unexpected state %d while processing draining destinations", d, tracker.state.Load())
+				rt.logger.Debugf("Pod %s removed after draining (no active requests)", d)
+			} else {
+				drainingStart := tracker.drainingStartTime.Load()
+				if drainingStart > 0 && now-drainingStart > int64(maxDrainingDuration.Seconds()) {
+					rt.logger.Warnf("Force removing pod %s stuck in draining state for %d seconds, refCount=%d", d, now-drainingStart, refCount)
+					tracker.state.Store(uint32(podRemoved))
+					delete(rt.podTrackers, d)
+				}
 			}
+		case podQuarantined:
+			// When quarantine is enabled, remove quarantined pods cleanly
+			if enableQuarantine {
+				transitionOutOfQuarantine(context.Background(), tracker, podRemoved)
+				delete(rt.podTrackers, d)
+				rt.logger.Infow("Pod removed while in quarantine",
+					"dest", d,
+					"revision", rt.revID.String(),
+					"tracker-id", tracker.id)
+			} else {
+				// Quarantine not enabled - treat as normal removal
+				tracker.state.Store(uint32(podRemoved))
+				delete(rt.podTrackers, d)
+				rt.logger.Debugf("Pod %s removed while in unexpected quarantined state", d)
+			}
+		case podNotReady:
+			// Pod being removed while not ready
+			tracker.state.Store(uint32(podRemoved))
+			delete(rt.podTrackers, d)
+			rt.logger.Debugf("Pod %s removed while not-ready", d)
+		default:
+			rt.logger.Errorf("Pod %s in unexpected state %d while processing draining destinations", d, tracker.state.Load())
+		}
 	}
 
 	rt.clusterIPTracker = clusterIPDest
