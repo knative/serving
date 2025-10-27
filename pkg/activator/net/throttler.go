@@ -598,21 +598,21 @@ type stateUpdateOp int
 
 const (
 	opAddPod              stateUpdateOp = iota // Adds pod AND updates capacity
-	opRemovePod                              // Removes pod AND updates capacity
-	opUpdatePodState                         // Changes state AND updates capacity if needed
-	opRecalculateAll                         // Full reconciliation from K8s endpoints
-	opRecalculateCapacity                    // Recalculate capacity only (activator assignment change)
-	opNoop                                   // No-op, used for testing to ensure queue is drained
+	opRemovePod                                // Removes pod AND updates capacity
+	opUpdatePodState                           // Changes state AND updates capacity if needed
+	opRecalculateAll                           // Full reconciliation from K8s endpoints
+	opRecalculateCapacity                      // Recalculate capacity only (activator assignment change)
+	opNoop                                     // No-op, used for testing to ensure queue is drained
 )
 
 // stateUpdateRequest represents a state mutation request to be processed serially
 type stateUpdateRequest struct {
 	op        stateUpdateOp
-	pod       string             // Pod IP for pod operations
-	newState  podState           // New state for pod state transitions
-	eventType string             // QP event type: "ready", "not-ready", "draining"
-	dests     sets.Set[string]   // K8s informer destinations for recalculation
-	done      chan struct{}      // Optional channel to signal completion
+	pod       string           // Pod IP for pod operations
+	newState  podState         // New state for pod state transitions
+	eventType string           // QP event type: "ready", "not-ready", "draining"
+	dests     sets.Set[string] // K8s informer destinations for recalculation
+	done      chan struct{}    // Optional channel to signal completion
 }
 
 type revisionThrottler struct {
