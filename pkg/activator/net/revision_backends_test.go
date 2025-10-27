@@ -1649,7 +1649,7 @@ func TestProbePodIPs(t *testing.T) {
 					"10.10.1.2": {{
 						Code:  http.StatusOK,
 						Body:  queue.Name,
-						Delay: 250 * time.Millisecond,
+						Delay: 100 * time.Millisecond,
 					}},
 				},
 				enableProbeOptimization: true,
