@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # This file is automagically synced here from github.com/knative-extensions/knobots
+# Modified to use depot runners for better performance
 
 name: Test
 
@@ -15,5 +16,7 @@ on:
 jobs:
   test:
     uses: knative/actions/.github/workflows/reusable-go-test.yaml@main
+    with:
+      runs-on-labels: '["depot-ubuntu-24.04-8"]'
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

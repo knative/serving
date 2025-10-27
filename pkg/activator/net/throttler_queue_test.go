@@ -1,10 +1,26 @@
+/*
+Copyright 2025 The Knative Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package net
 
 import (
+	"strconv"
+	"sync"
 	"testing"
 	"time"
-	"sync"
-	"strconv"
 
 	"k8s.io/apimachinery/pkg/types"
 	. "knative.dev/pkg/logging/testing"
@@ -33,11 +49,11 @@ func TestQueueBasedStateManagement(t *testing.T) {
 
 	// Start 10 goroutines that concurrently add pods
 	var wg sync.WaitGroup
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			for j := 0; j < 10; j++ {
+			for j := range 10 {
 				podIP := "10.0." + strconv.Itoa(id) + "." + strconv.Itoa(j) + ":8080"
 				// Use the new queue-based method
 				rt.addPodIncremental(podIP, "ready", logger)
@@ -54,8 +70,8 @@ func TestQueueBasedStateManagement(t *testing.T) {
 	// Wait for all goroutines to finish
 	wg.Wait()
 
-	// Give the worker goroutine time to process all requests
-	time.Sleep(100 * time.Millisecond)
+	// Ensure the worker has processed all requests
+	rt.FlushForTesting()
 
 	// Verify all pods were added
 	rt.mux.RLock()
@@ -92,17 +108,17 @@ func TestQueueConcurrentStateUpdates(t *testing.T) {
 	rt.activatorIndex.Store(0)
 
 	// Add some initial pods
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		podIP := "10.0.0." + strconv.Itoa(i) + ":8080"
 		rt.addPodIncremental(podIP, "ready", logger)
 	}
 
-	// Give worker time to process
-	time.Sleep(50 * time.Millisecond)
+	// Ensure the worker has processed all requests
+	rt.FlushForTesting()
 
 	// Now concurrently update their states
 	var wg sync.WaitGroup
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
@@ -119,8 +135,8 @@ func TestQueueConcurrentStateUpdates(t *testing.T) {
 
 	wg.Wait()
 
-	// Give worker time to process all state updates
-	time.Sleep(100 * time.Millisecond)
+	// Ensure the worker has processed all state updates
+	rt.FlushForTesting()
 
 	// Check that all pods are in draining state
 	rt.mux.RLock()

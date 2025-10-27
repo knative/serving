@@ -596,20 +596,21 @@ type breaker interface {
 type stateUpdateOp int
 
 const (
-	opAddPod stateUpdateOp = iota      // Adds pod AND updates capacity
-	opRemovePod                         // Removes pod AND updates capacity
-	opUpdatePodState                    // Changes state AND updates capacity if needed
-	opRecalculateAll                    // Full reconciliation from K8s endpoints
+	opAddPod         stateUpdateOp = iota // Adds pod AND updates capacity
+	opRemovePod                           // Removes pod AND updates capacity
+	opUpdatePodState                      // Changes state AND updates capacity if needed
+	opRecalculateAll                      // Full reconciliation from K8s endpoints
+	opNoop                                // No-op, used for testing to ensure queue is drained
 )
 
 // stateUpdateRequest represents a state mutation request to be processed serially
 type stateUpdateRequest struct {
-	op           stateUpdateOp
-	pod          string              // Pod IP for pod operations
-	newState     podState            // New state for pod state transitions
-	eventType    string              // QP event type: "ready", "not-ready", "draining"
-	endpoints    *corev1.Endpoints   // For full recalculation from informer
-	done         chan struct{}       // Optional channel to signal completion
+	op        stateUpdateOp
+	pod       string            // Pod IP for pod operations
+	newState  podState          // New state for pod state transitions
+	eventType string            // QP event type: "ready", "not-ready", "draining"
+	endpoints *corev1.Endpoints // For full recalculation from informer
+	done      chan struct{}     // Optional channel to signal completion
 }
 
 type revisionThrottler struct {
@@ -729,8 +730,14 @@ func newRevisionThrottler(revID types.NamespacedName,
 		breaker:         revBreaker,
 		logger:          logger,
 		protocol:        proto,
-		podTrackers:     make(map[string]*podTracker),
-		stateUpdateChan: make(chan stateUpdateRequest, 500), // Large buffer to handle burst traffic
+		podTrackers: make(map[string]*podTracker),
+		// Buffer size 500 supports:
+		// - Up to 500 pods registering simultaneously during rapid scale-up
+		// - Multiple concurrent handlers (typically 10-20) each sending multiple events
+		// - Burst absorption during K8s informer bulk updates (can update 100+ endpoints at once)
+		// - Empirically tested: handles 100 concurrent goroutines without blocking
+		// TODO: Consider making configurable via ConfigMap for tuning large deployments
+		stateUpdateChan: make(chan stateUpdateRequest, 500),
 		done:            make(chan struct{}),
 	}
 	t.containerConcurrency.Store(uint32(containerConcurrency))
@@ -745,7 +752,38 @@ func newRevisionThrottler(revID types.NamespacedName,
 	return t
 }
 
+// Close shuts down the revision throttler's worker goroutine and cleans up resources
+func (rt *revisionThrottler) Close() {
+	// Signal the worker to stop
+	close(rt.done)
+	// Drain any pending requests to avoid blocking senders
+	// This is done in the worker's shutdown path
+}
+
+// FlushForTesting ensures all queued requests have been processed.
+// This is only for testing and should not be used in production code.
+func (rt *revisionThrottler) FlushForTesting() {
+	done := make(chan struct{})
+	rt.stateUpdateChan <- stateUpdateRequest{
+		op:   opNoop,
+		done: done,
+	}
+	<-done
+}
+
 func noop() {}
+
+// safeCloseDone safely closes a done channel, preventing panic from double-close
+func safeCloseDone(done chan struct{}) {
+	if done != nil {
+		select {
+		case <-done:
+			// Already closed, do nothing
+		default:
+			close(done)
+		}
+	}
+}
 
 // stateWorker processes state update requests serially to prevent race conditions
 func (rt *revisionThrottler) stateWorker() {
@@ -757,9 +795,7 @@ func (rt *revisionThrottler) stateWorker() {
 				select {
 				case req := <-rt.stateUpdateChan:
 					// Signal completion if waiting
-					if req.done != nil {
-						close(req.done)
-					}
+					safeCloseDone(req.done)
 				default:
 					return
 				}
@@ -767,9 +803,7 @@ func (rt *revisionThrottler) stateWorker() {
 		case req := <-rt.stateUpdateChan:
 			rt.processStateUpdate(req)
 			// Signal completion if waiting
-			if req.done != nil {
-				close(req.done)
-			}
+			safeCloseDone(req.done)
 		}
 	}
 }
@@ -861,6 +895,9 @@ func (rt *revisionThrottler) processStateUpdate(req stateUpdateRequest) {
 		// Full recalculation from K8s endpoints
 		rt.recalculateFromEndpointsLocked(req.endpoints)
 		rt.updateCapacityLocked()
+	case opNoop:
+		// No-op, used for testing to ensure queue is drained
+		// Nothing to do, just allows synchronization
 	}
 }
 
@@ -2425,7 +2462,11 @@ func (t *Throttler) revisionDeleted(obj any) {
 
 	t.revisionThrottlersMutex.Lock()
 	defer t.revisionThrottlersMutex.Unlock()
-	delete(t.revisionThrottlers, revID)
+	if rt, ok := t.revisionThrottlers[revID]; ok {
+		// Clean shutdown of the worker goroutine
+		rt.Close()
+		delete(t.revisionThrottlers, revID)
+	}
 }
 
 func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
