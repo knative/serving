@@ -1847,7 +1847,7 @@ func TestResetTrackersRaceCondition(t *testing.T) {
 		}
 
 		// Add initial trackers
-		rt.updateThrottlerState(initialTrackers, nil, nil, nil)
+		rt.updateThrottlerState(initialTrackers, nil, nil)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
@@ -1878,10 +1878,10 @@ func TestResetTrackersRaceCondition(t *testing.T) {
 					// Add a tracker
 					newTracker := newTestTracker(trackerName,
 						queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
-					rt.updateThrottlerState([]*podTracker{newTracker}, nil, nil, nil)
+					rt.updateThrottlerState([]*podTracker{newTracker}, nil, nil)
 				} else {
 					// Remove a tracker by putting it in draining
-					rt.updateThrottlerState(nil, nil, []string{trackerName}, nil)
+					rt.updateThrottlerState(nil, nil, []string{trackerName})
 				}
 
 				// Small delay to let resetTrackers work
@@ -1948,7 +1948,7 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 				counter++
 				tracker := newTestTracker(fmt.Sprintf("add-pod-%d:8080", counter),
 					queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
-				rt.updateThrottlerState([]*podTracker{tracker}, nil, nil, nil)
+				rt.updateThrottlerState([]*podTracker{tracker}, nil, nil)
 				time.Sleep(time.Microsecond)
 			}
 		}()
@@ -1960,7 +1960,7 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 			counter := 0
 			for ctx.Err() == nil {
 				counter++
-				rt.updateThrottlerState(nil, nil, []string{fmt.Sprintf("add-pod-%d:8080", counter)}, nil)
+				rt.updateThrottlerState(nil, nil, []string{fmt.Sprintf("add-pod-%d:8080", counter)})
 				time.Sleep(time.Microsecond)
 			}
 		}()
@@ -1999,7 +1999,7 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 			initialTrackers[i].state.Store(uint32(podReady))
 		}
-		rt.updateThrottlerState(initialTrackers, nil, nil, nil)
+		rt.updateThrottlerState(initialTrackers, nil, nil)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
@@ -2034,10 +2034,10 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 					tracker := newTestTracker(fmt.Sprintf("dynamic-%d:8080", counter),
 						queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 					tracker.state.Store(uint32(podReady))
-					rt.updateThrottlerState([]*podTracker{tracker}, nil, nil, nil)
+					rt.updateThrottlerState([]*podTracker{tracker}, nil, nil)
 				} else {
 					// Remove a tracker
-					rt.updateThrottlerState(nil, nil, []string{fmt.Sprintf("pod-%d:8080", counter%5)}, nil)
+					rt.updateThrottlerState(nil, nil, []string{fmt.Sprintf("pod-%d:8080", counter%5)})
 				}
 				time.Sleep(time.Millisecond)
 			}

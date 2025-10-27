@@ -1987,7 +1987,7 @@ func (rt *revisionThrottler) updateCapacity() {
 	rt.breaker.UpdateConcurrency(capacity)
 }
 
-func (rt *revisionThrottler) updateThrottlerState(newTrackers []*podTracker, healthyDests []string, drainingDests []string, clusterIPDest *podTracker) {
+func (rt *revisionThrottler) updateThrottlerState(newTrackers []*podTracker, healthyDests []string, drainingDests []string) {
 	defer func() {
 		if r := recover(); r != nil {
 			rt.logger.Errorf("Panic in revisionThrottler.updateThrottlerState: %v", r)
@@ -2226,7 +2226,8 @@ func (rt *revisionThrottler) updateThrottlerState(newTrackers []*podTracker, hea
 		}
 	}
 
-	rt.clusterIPTracker = clusterIPDest
+	// Note: clusterIPTracker is no longer used as we always use pod routing
+	// rt.clusterIPTracker = nil (removed as it was always nil)
 
 	// Manually unlock before calling updateCapacity to avoid deadlock.
 	// The defer above won't run until function exit, but updateCapacity needs the lock.

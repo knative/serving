@@ -53,8 +53,8 @@ func TestRace_PodTrackers_ReadWrite_NoLock(t *testing.T) {
 			}
 			addr := "10.0.0." + strconv.Itoa(i%10)
 			tr := newTestTracker(addr+":8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
-			rt.updateThrottlerState([]*podTracker{tr}, []string{tr.dest}, nil, nil)
-			rt.updateThrottlerState(nil, nil, []string{tr.dest}, nil)
+			rt.updateThrottlerState([]*podTracker{tr}, []string{tr.dest}, nil)
+			rt.updateThrottlerState(nil, nil, []string{tr.dest})
 			i++
 		}
 	}()
@@ -95,7 +95,7 @@ func TestRace_UpdateCapacity_ReadsPodTrackersWhileWriterMutates(t *testing.T) {
 		tr := newTestTracker("10.0.0."+string(rune('a'+i))+":8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 		initial = append(initial, tr)
 	}
-	rt.updateThrottlerState(initial, nil, nil, nil)
+	rt.updateThrottlerState(initial, nil, nil)
 
 	stop := make(chan struct{})
 	wg := &sync.WaitGroup{}
@@ -112,9 +112,9 @@ func TestRace_UpdateCapacity_ReadsPodTrackersWhileWriterMutates(t *testing.T) {
 			}
 			addr := "192.168.1." + string(rune('a'+(i%3))) + ":8080"
 			if i%2 == 0 {
-				rt.updateThrottlerState([]*podTracker{newTestTracker(addr, queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))}, nil, nil, nil)
+				rt.updateThrottlerState([]*podTracker{newTestTracker(addr, queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))}, nil, nil)
 			} else {
-				rt.updateThrottlerState(nil, nil, []string{addr}, nil)
+				rt.updateThrottlerState(nil, nil, []string{addr})
 			}
 			i++
 		}
@@ -147,7 +147,7 @@ func TestRace_LBPolicy_UpdateVsUsage(t *testing.T) {
 	// Add some initial trackers
 	tr1 := newTestTracker("10.0.0.1:8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 	tr2 := newTestTracker("10.0.0.2:8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
-	rt.updateThrottlerState([]*podTracker{tr1, tr2}, []string{tr1.dest, tr2.dest}, nil, nil)
+	rt.updateThrottlerState([]*podTracker{tr1, tr2}, []string{tr1.dest, tr2.dest}, nil)
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -206,7 +206,7 @@ func TestRace_ResetTrackers_ReadsPodTrackersWhileWriterMutates(t *testing.T) {
 		tr := newTestTracker("10.0.0."+strconv.Itoa(i)+":8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 		initial = append(initial, tr)
 	}
-	rt.updateThrottlerState(initial, nil, nil, nil)
+	rt.updateThrottlerState(initial, nil, nil)
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -224,9 +224,9 @@ func TestRace_ResetTrackers_ReadsPodTrackersWhileWriterMutates(t *testing.T) {
 			}
 			addr := "192.168.2." + strconv.Itoa(i%5) + ":8080"
 			if i%2 == 0 {
-				rt.updateThrottlerState([]*podTracker{newTestTracker(addr, queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))}, nil, nil, nil)
+				rt.updateThrottlerState([]*podTracker{newTestTracker(addr, queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))}, nil, nil)
 			} else {
-				rt.updateThrottlerState(nil, nil, []string{addr}, nil)
+				rt.updateThrottlerState(nil, nil, []string{addr})
 			}
 			i++
 		}
@@ -406,7 +406,7 @@ func TestRace_HandlePubEpsUpdate_StaleBackendCountOverwritesCapacity(t *testing.
 		)
 		healthyDests[i] = initialTrackers[i].dest
 	}
-	rt.updateThrottlerState(initialTrackers, healthyDests, nil, nil)
+	rt.updateThrottlerState(initialTrackers, healthyDests, nil)
 	rt.numActivators.Store(1)
 	rt.activatorIndex.Store(0)
 
@@ -429,7 +429,7 @@ func TestRace_HandlePubEpsUpdate_StaleBackendCountOverwritesCapacity(t *testing.
 				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 			)
 			// This updates backendCount to i+1
-			rt.updateThrottlerState([]*podTracker{newTracker}, nil, nil, nil)
+			rt.updateThrottlerState([]*podTracker{newTracker}, nil, nil)
 			time.Sleep(5 * time.Millisecond)
 		}
 	}()
@@ -490,7 +490,7 @@ func TestRace_BreakerCapacityCapture_ConcurrentCapacityUpdates(t *testing.T) {
 		)
 		healthyDests[i] = initialTrackers[i].dest
 	}
-	rt.updateThrottlerState(initialTrackers, healthyDests, nil, nil)
+	rt.updateThrottlerState(initialTrackers, healthyDests, nil)
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -560,7 +560,7 @@ func TestRace_AssignedTrackers_ConcurrentReadDuringUpdate(t *testing.T) {
 		)
 		healthyDests[i] = initialTrackers[i].dest
 	}
-	rt.updateThrottlerState(initialTrackers, healthyDests, nil, nil)
+	rt.updateThrottlerState(initialTrackers, healthyDests, nil)
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -643,7 +643,7 @@ func TestRace_ContainerConcurrency_UpdateDuringCapacityCalc(t *testing.T) {
 		)
 		healthyDests[i] = initialTrackers[i].dest
 	}
-	rt.updateThrottlerState(initialTrackers, healthyDests, nil, nil)
+	rt.updateThrottlerState(initialTrackers, healthyDests, nil)
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -723,7 +723,7 @@ func TestRace_ActivatorIndex_ChangeDuringAssignSlice(t *testing.T) {
 			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 		)
 	}
-	rt.updateThrottlerState(initialTrackers, nil, nil, nil)
+	rt.updateThrottlerState(initialTrackers, nil, nil)
 	rt.numActivators.Store(2)
 	rt.activatorIndex.Store(0)
 
@@ -819,7 +819,7 @@ func TestRace_UpdateThrottlerState_ConcurrentUpdates(t *testing.T) {
 					"10.0."+strconv.Itoa(id)+"."+strconv.Itoa(j)+":8080",
 					queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 				)
-				rt.updateThrottlerState([]*podTracker{tracker}, nil, nil, nil)
+				rt.updateThrottlerState([]*podTracker{tracker}, nil, nil)
 				time.Sleep(time.Millisecond)
 			}
 		}(i)
@@ -869,7 +869,7 @@ func TestRace_BackendCount_ConcurrentReadWriteDuringCapacityUpdates(t *testing.T
 		)
 		healthyDests[i] = initialTrackers[i].dest
 	}
-	rt.updateThrottlerState(initialTrackers, healthyDests, nil, nil)
+	rt.updateThrottlerState(initialTrackers, healthyDests, nil)
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -888,7 +888,7 @@ func TestRace_BackendCount_ConcurrentReadWriteDuringCapacityUpdates(t *testing.T
 				"10.0.1."+strconv.Itoa(i)+":8080",
 				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 			)
-			rt.updateThrottlerState([]*podTracker{tracker}, nil, nil, nil)
+			rt.updateThrottlerState([]*podTracker{tracker}, nil, nil)
 			time.Sleep(2 * time.Millisecond)
 		}
 	}()
@@ -971,7 +971,7 @@ func TestRace_WaitingRequests_ConcurrentBreakerStateReads(t *testing.T) {
 		)
 		healthyDests[i] = initialTrackers[i].dest
 	}
-	rt.updateThrottlerState(initialTrackers, healthyDests, nil, nil)
+	rt.updateThrottlerState(initialTrackers, healthyDests, nil)
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -1040,7 +1040,7 @@ func TestRace_AssignSlice_MapMutationDuringIteration(t *testing.T) {
 		)
 		healthyDests[i] = initialTrackers[i].dest
 	}
-	rt.updateThrottlerState(initialTrackers, healthyDests, nil, nil)
+	rt.updateThrottlerState(initialTrackers, healthyDests, nil)
 	rt.numActivators.Store(1)
 	rt.activatorIndex.Store(0)
 
@@ -1063,7 +1063,7 @@ func TestRace_AssignSlice_MapMutationDuringIteration(t *testing.T) {
 				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
 			)
 			// Provide tracker in healthyDests to promote it to ready state
-			rt.updateThrottlerState([]*podTracker{tracker}, []string{tracker.dest}, nil, nil)
+			rt.updateThrottlerState([]*podTracker{tracker}, []string{tracker.dest}, nil)
 			i++
 			time.Sleep(time.Millisecond)
 		}
