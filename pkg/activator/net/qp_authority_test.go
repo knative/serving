@@ -55,6 +55,8 @@ func TestQPAuthorityOverridesInformer(t *testing.T) {
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
 			logger,
 		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
 
 		podIP := "10.0.0.1:8080"
 
@@ -97,6 +99,8 @@ func TestQPAuthorityOverridesInformer(t *testing.T) {
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
 			logger,
 		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
 
 		podIP := "10.0.0.1:8080"
 
@@ -130,6 +134,8 @@ func TestQPAuthorityOverridesInformer(t *testing.T) {
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
 			logger,
 		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
 
 		podIP := "10.0.0.1:8080"
 
@@ -166,6 +172,8 @@ func TestQPAuthorityOverridesInformer(t *testing.T) {
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
 			logger,
 		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
 
 		podIP := "10.0.0.1:8080"
 
@@ -212,6 +220,8 @@ func TestPodStateTransitionPreservesBreaker(t *testing.T) {
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
 			logger,
 		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
 
 		podIP := "10.0.0.1:8080"
 
@@ -278,6 +288,8 @@ func TestPodStateTransitionPreservesBreaker(t *testing.T) {
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
 			logger,
 		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
 
 		podIP := "10.0.0.1:8080"
 
@@ -360,6 +372,8 @@ func TestQPEventSequences(t *testing.T) {
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
 			logger,
 		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
 
 		podIP := "10.0.0.1:8080"
 
@@ -398,6 +412,8 @@ func TestQPEventSequences(t *testing.T) {
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
 			logger,
 		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
 
 		podIP := "10.0.0.1:8080"
 
@@ -429,6 +445,8 @@ func TestQPEventSequences(t *testing.T) {
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
 			logger,
 		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
 
 		podIP := "10.0.0.1:8080"
 
@@ -483,6 +501,8 @@ func TestInformerWithQPCoexistence(t *testing.T) {
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
 			logger,
 		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
 
 		podIP := "10.0.0.1:8080"
 
@@ -517,6 +537,8 @@ func TestInformerWithQPCoexistence(t *testing.T) {
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
 			logger,
 		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
 
 		podIP := "10.0.0.1:8080"
 
@@ -547,6 +569,8 @@ func TestInformerWithQPCoexistence(t *testing.T) {
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
 			logger,
 		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
 
 		podIP := "10.0.0.1:8080"
 
@@ -598,6 +622,8 @@ func TestPodNotReadyNonViable(t *testing.T) {
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
 			logger,
 		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
 
 		// Create mix of pending and ready pods
 		pod1 := newPodTracker("10.0.0.1:8080", rt.revID, nil)
@@ -651,6 +677,8 @@ func TestPodNotReadyNonViable(t *testing.T) {
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
 			logger,
 		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
 
 		// Create 3 pending pods, 2 ready pods
 		for i := range 3 {
@@ -693,6 +721,8 @@ func TestDrainingWithActiveRequests(t *testing.T) {
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
 			logger,
 		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
 
 		podIP := "10.0.0.1:8080"
 
@@ -778,6 +808,8 @@ func TestQPvsInformerTimingScenarios(t *testing.T) {
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
 			logger,
 		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
 
 		podIP := "10.0.0.1:8080"
 
@@ -811,6 +843,8 @@ func TestQPvsInformerTimingScenarios(t *testing.T) {
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
 			logger,
 		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
 
 		podIP := "10.0.0.1:8080"
 
@@ -862,6 +896,8 @@ func TestStateMachineValidation(t *testing.T) {
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
 			logger,
 		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
 
 		podIP := "10.0.0.1:8080"
 
@@ -897,6 +933,8 @@ func TestStateMachineValidation(t *testing.T) {
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
 			logger,
 		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
 
 		podIP := "10.0.0.1:8080"
 
@@ -929,6 +967,8 @@ func TestStateMachineValidation(t *testing.T) {
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
 			logger,
 		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
 
 		podIP := "10.0.0.1:8080"
 
@@ -961,6 +1001,8 @@ func TestStateMachineValidation(t *testing.T) {
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
 			logger,
 		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
 
 		podIP := "10.0.0.1:8080"
 
@@ -987,6 +1029,8 @@ func TestStateMachineValidation(t *testing.T) {
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
 			logger,
 		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
 
 		podIP := "10.0.0.1:8080"
 

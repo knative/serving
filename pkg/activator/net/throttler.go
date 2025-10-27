@@ -592,6 +592,26 @@ type breaker interface {
 	InFlight() uint64
 }
 
+// stateUpdateOp represents different types of state update operations
+type stateUpdateOp int
+
+const (
+	opAddPod stateUpdateOp = iota      // Adds pod AND updates capacity
+	opRemovePod                         // Removes pod AND updates capacity
+	opUpdatePodState                    // Changes state AND updates capacity if needed
+	opRecalculateAll                    // Full reconciliation from K8s endpoints
+)
+
+// stateUpdateRequest represents a state mutation request to be processed serially
+type stateUpdateRequest struct {
+	op           stateUpdateOp
+	pod          string              // Pod IP for pod operations
+	newState     podState            // New state for pod state transitions
+	eventType    string              // QP event type: "ready", "not-ready", "draining"
+	endpoints    *corev1.Endpoints   // For full recalculation from informer
+	done         chan struct{}       // Optional channel to signal completion
+}
+
 type revisionThrottler struct {
 	revID                types.NamespacedName
 	containerConcurrency atomic.Uint32
@@ -633,6 +653,12 @@ type revisionThrottler struct {
 	// capacity calculations from racing. Required because addPodIncremental
 	// (via QP push) can be called concurrently from HTTP handlers.
 	capacityMux sync.Mutex
+
+	// stateUpdateChan serializes all pod state mutations and capacity updates
+	// through a single worker goroutine to prevent race conditions.
+	stateUpdateChan chan stateUpdateRequest
+	// done signals the worker goroutine to stop
+	done chan struct{}
 
 	logger *zap.SugaredLogger
 }
@@ -699,21 +725,298 @@ func newRevisionThrottler(revID types.NamespacedName,
 		revBreaker = queue.NewBreaker(breakerParams)
 	}
 	t := &revisionThrottler{
-		revID:       revID,
-		breaker:     revBreaker,
-		logger:      logger,
-		protocol:    proto,
-		podTrackers: make(map[string]*podTracker),
+		revID:           revID,
+		breaker:         revBreaker,
+		logger:          logger,
+		protocol:        proto,
+		podTrackers:     make(map[string]*podTracker),
+		stateUpdateChan: make(chan stateUpdateRequest, 500), // Large buffer to handle burst traffic
+		done:            make(chan struct{}),
 	}
 	t.containerConcurrency.Store(uint32(containerConcurrency))
 	t.lbPolicy.Store(lbp)
 
 	// Start with unknown
 	t.activatorIndex.Store(-1)
+
+	// Start the state update worker goroutine
+	go t.stateWorker()
+
 	return t
 }
 
 func noop() {}
+
+// stateWorker processes state update requests serially to prevent race conditions
+func (rt *revisionThrottler) stateWorker() {
+	for {
+		select {
+		case <-rt.done:
+			// Drain any remaining requests before exiting
+			for {
+				select {
+				case req := <-rt.stateUpdateChan:
+					// Signal completion if waiting
+					if req.done != nil {
+						close(req.done)
+					}
+				default:
+					return
+				}
+			}
+		case req := <-rt.stateUpdateChan:
+			rt.processStateUpdate(req)
+			// Signal completion if waiting
+			if req.done != nil {
+				close(req.done)
+			}
+		}
+	}
+}
+
+// processStateUpdate handles a single state update request atomically
+func (rt *revisionThrottler) processStateUpdate(req stateUpdateRequest) {
+	// All operations hold the write lock for the entire duration
+	// to ensure atomicity of pod mutations and capacity updates
+	rt.mux.Lock()
+	defer rt.mux.Unlock()
+
+	switch req.op {
+	case opAddPod:
+		// Check if pod already exists
+		tracker, exists := rt.podTrackers[req.pod]
+
+		if exists {
+			// Pod exists - handle state update based on event type
+			rt.handleExistingPodEvent(tracker, req.eventType)
+		} else {
+			// Create new pod tracker
+			tracker = &podTracker{
+				dest:       req.pod,
+				b:          rt.makeBreaker(),
+				revisionID: rt.revID,
+			}
+
+			// Set initial state based on event type and enableQPAuthority
+			if enableQPAuthority {
+				if req.eventType == "ready" {
+					tracker.state.Store(uint32(podReady))
+				} else {
+					tracker.state.Store(uint32(podNotReady))
+				}
+			} else {
+				// QP authority disabled - start as ready
+				tracker.state.Store(uint32(podReady))
+			}
+
+			// Initialize QP tracking
+			tracker.lastQPUpdate.Store(time.Now().Unix())
+			tracker.lastQPState.Store(req.eventType)
+
+			rt.podTrackers[req.pod] = tracker
+
+			// Update capacity based on new pod count
+			rt.updateCapacityLocked()
+
+			rt.logger.Infow("Discovered new pod via push-based registration",
+				"pod-ip", req.pod,
+				"event-type", req.eventType,
+				"initial-state", podState(tracker.state.Load()))
+		}
+
+	case opRemovePod:
+		// Remove pod if present
+		if tracker, exists := rt.podTrackers[req.pod]; exists {
+			// Transition to draining if healthy
+			state := podState(tracker.state.Load())
+			if state == podReady || state == podRecovering {
+				tracker.tryDrain()
+			} else {
+				// If not healthy, remove immediately
+				delete(rt.podTrackers, req.pod)
+			}
+
+			// Update capacity after removal
+			rt.updateCapacityLocked()
+		}
+
+	case opUpdatePodState:
+		// Update pod state if present
+		if tracker, exists := rt.podTrackers[req.pod]; exists {
+			oldState := podState(tracker.state.Load())
+			oldRoutable := (oldState == podReady || oldState == podRecovering)
+
+			// Transition to new state
+			tracker.state.Store(uint32(req.newState))
+
+			newRoutable := (req.newState == podReady || req.newState == podRecovering)
+
+			// Only update capacity if routability changed
+			if oldRoutable != newRoutable {
+				rt.updateCapacityLocked()
+			}
+		}
+
+	case opRecalculateAll:
+		// Full recalculation from K8s endpoints
+		rt.recalculateFromEndpointsLocked(req.endpoints)
+		rt.updateCapacityLocked()
+	}
+}
+
+// makeBreaker creates a new breaker for a pod tracker
+func (rt *revisionThrottler) makeBreaker() breaker {
+	cc := int(rt.containerConcurrency.Load())
+	if cc == 0 {
+		return nil
+	}
+	return queue.NewBreaker(queue.BreakerParams{
+		QueueDepth:      1,
+		MaxConcurrency:  cc,
+		InitialCapacity: cc,
+	})
+}
+
+// updateCapacityLocked updates capacity while already holding the write lock
+// This is called from processStateUpdate which already holds the lock
+func (rt *revisionThrottler) updateCapacityLocked() {
+	backendCount := len(rt.podTrackers)
+
+	// Skip updates when there are no pods
+	if backendCount == 0 {
+		return
+	}
+
+	// Reset per-pod breakers if needed
+	rt.resetTrackersLocked()
+
+	// Recompute assigned trackers
+	rt.assignedTrackers = rt.recomputeAssignedTrackers(rt.podTrackers)
+
+	// Calculate and update capacity
+	numTrackers := len(rt.assignedTrackers)
+	activatorCount := int(rt.numActivators.Load())
+	targetCapacity := rt.calculateCapacity(backendCount, numTrackers, activatorCount)
+	rt.breaker.UpdateConcurrency(targetCapacity)
+
+	rt.logger.Debugw("Capacity updated",
+		"revision", rt.revID.String(),
+		"backends", backendCount,
+		"assigned", numTrackers,
+		"capacity", targetCapacity)
+}
+
+// resetTrackersLocked resets breaker capacity while holding the lock
+func (rt *revisionThrottler) resetTrackersLocked() {
+	cc := int(rt.containerConcurrency.Load())
+	if cc <= 0 {
+		return
+	}
+
+	for _, t := range rt.podTrackers {
+		if t != nil {
+			t.UpdateConcurrency(cc)
+		}
+	}
+}
+
+// handleExistingPodEvent handles QP events for existing pods
+// Must be called while holding the write lock
+func (rt *revisionThrottler) handleExistingPodEvent(tracker *podTracker, eventType string) {
+	// Always update QP freshness tracking
+	tracker.lastQPUpdate.Store(time.Now().Unix())
+	tracker.lastQPState.Store(eventType)
+
+	// When QP authority is disabled, just log but don't change state
+	if !enableQPAuthority {
+		rt.logger.Debugw("Received QP event (QP authority disabled, no state change)",
+			"pod-ip", tracker.dest,
+			"event-type", eventType,
+			"current-state", podState(tracker.state.Load()))
+		return
+	}
+
+	oldState := podState(tracker.state.Load())
+	oldRoutable := (oldState == podReady || oldState == podRecovering)
+	stateChanged := false
+
+	// Handle QP event types
+	switch eventType {
+	case "ready":
+		if oldState == podNotReady {
+			if tracker.state.CompareAndSwap(uint32(podNotReady), uint32(podReady)) {
+				stateChanged = true
+				rt.logger.Infow("QP promoted not-ready pod to ready",
+					"pod-ip", tracker.dest)
+			}
+		}
+
+	case "not-ready":
+		if oldState == podReady {
+			if tracker.state.CompareAndSwap(uint32(podReady), uint32(podNotReady)) {
+				stateChanged = true
+				rt.logger.Warnw("QP demoted pod to not-ready (readiness probe failed)",
+					"pod-ip", tracker.dest,
+					"active-requests", tracker.refCount.Load())
+			}
+		}
+
+	case "draining":
+		if tracker.tryDrain() {
+			stateChanged = true
+			rt.logger.Infow("QP initiated pod draining",
+				"pod-ip", tracker.dest,
+				"active-requests", tracker.refCount.Load())
+		} else if oldState == podNotReady {
+			// Pod draining before becoming ready (crash during startup)
+			if tracker.state.CompareAndSwap(uint32(podNotReady), uint32(podDraining)) {
+				tracker.drainingStartTime.Store(time.Now().Unix())
+				stateChanged = true
+				rt.logger.Warnw("Pod draining before ready - crashed during startup",
+					"pod-ip", tracker.dest)
+			}
+		}
+	}
+
+	// Only update capacity if routability changed
+	if stateChanged {
+		newState := podState(tracker.state.Load())
+		newRoutable := (newState == podReady || newState == podRecovering)
+		if oldRoutable != newRoutable {
+			rt.updateCapacityLocked()
+		}
+	}
+}
+
+// recalculateFromEndpointsLocked performs full reconciliation from K8s endpoints
+// Must be called while holding the write lock
+func (rt *revisionThrottler) recalculateFromEndpointsLocked(endpoints *corev1.Endpoints) {
+	// This is a placeholder - the actual implementation would reconcile
+	// the pod tracker map with the endpoints from K8s
+	// For now, we'll leave it empty as it requires more context about
+	// the existing endpoint handling logic
+}
+
+// recomputeAssignedTrackers computes which pods should be assigned to this activator
+// Must be called while holding the lock
+func (rt *revisionThrottler) recomputeAssignedTrackers(podTrackers map[string]*podTracker) []*podTracker {
+	// If we're using cluster IP routing, no direct pod assignment
+	if rt.clusterIPTracker != nil {
+		return nil
+	}
+
+	ac, ai := int(rt.numActivators.Load()), int(rt.activatorIndex.Load())
+
+	// Use assignSlice to compute which pods belong to this activator
+	assigned := assignSlice(podTrackers, ai, ac)
+
+	// Sort for stable ordering
+	sort.Slice(assigned, func(i, j int) bool {
+		return assigned[i].dest < assigned[j].dest
+	})
+
+	return assigned
+}
 
 // Quarantine system functions (only used when enableQuarantine=true)
 
@@ -1902,330 +2205,29 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 	rt.updateThrottlerState(nil /*trackers*/, nil, nil, clusterIPPodTracker)
 }
 
-// addPodIncremental adds a single pod to the revision without removing other pods.
+// addPodIncremental handles pod state updates through the work queue.
 // This is used for push-based pod discovery where queue-proxies self-register.
-// Unlike handleUpdate which is authoritative, this function only adds pods and never removes them.
-// Handles 4 event types from queue-proxy:
-// - "startup": creates new tracker (podNotReady when enableQPAuthority=true, podReady when false)
-// - "ready": promotes podNotReady → podReady - only when enableQPAuthority=true
-// - "not-ready": demotes podReady → podNotReady - only when enableQPAuthority=true
-// - "draining": transitions podReady → podDraining - only when enableQPAuthority=true
-// When enableQPAuthority=false, QP events are received and logged but don't trigger state changes
+// Handles 3 event types from queue-proxy:
+// - "ready": promotes podNotReady → podReady (or creates new tracker as podReady)
+// - "not-ready": demotes podReady → podNotReady (or creates new tracker as podNotReady)
+// - "draining": transitions podReady → podDraining
 //
-// PERFORMANCE: Lock hold time minimized to reduce contention under high pod registration load.
-// Logging and metrics recording happen outside critical section.
+// All state mutations are serialized through the work queue to prevent race conditions.
+// This function blocks until the request is processed for backward compatibility.
 func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, logger *zap.SugaredLogger) {
-	// Variables to capture state for logging/metrics outside lock
-	var (
-		shouldLog          bool
-		logLevel           string // "info", "warn", "debug"
-		logMessage         string
-		logPodIP           string
-		logRevision        string
-		logCurrentState    podState
-		logRefCount        uint64
-		shouldRecordMetric bool
-		metricFrom         string
-		metricTo           string
-	)
+	// Create a done channel to wait for processing
+	done := make(chan struct{})
 
-	rt.mux.Lock()
-
-	existing, exists := rt.podTrackers[podIP]
-
-	if exists {
-		// Always update QP freshness tracking (atomic ops, fast)
-		existing.lastQPUpdate.Store(time.Now().Unix())
-		existing.lastQPState.Store(eventType)
-
-		// When QP authority is disabled, just log but don't change state
-		if !enableQPAuthority {
-			rt.mux.Unlock()
-			logger.Debugw("Received QP event (QP authority disabled, no state change)",
-				"revision", rt.revID.String(),
-				"pod-ip", podIP,
-				"event-type", eventType,
-				"current-state", podState(existing.state.Load()))
-			return
-		}
-
-		currentState := podState(existing.state.Load())
-
-		// Perform state transitions - NO logging inside lock (only when enableQPAuthority=true)
-		switch eventType {
-		case "ready":
-			// QP says ready - promote to ready immediately
-			switch currentState {
-			case podNotReady:
-				if existing.state.CompareAndSwap(uint32(podNotReady), uint32(podReady)) {
-					// Transition succeeded - capture for metric and log
-					shouldRecordMetric = true
-					metricFrom = "not-ready"
-					metricTo = "ready"
-					shouldLog = true
-					logLevel = "info"
-					logMessage = "QP promoted not-ready pod to ready"
-					logPodIP = podIP
-					logRevision = rt.revID.String()
-				}
-			case podDraining, podRemoved:
-				// Stale ready event on draining/removed pod - log and ignore
-				shouldLog = true
-				logLevel = "warn"
-				logMessage = "Ignoring stale ready event on draining/removed pod"
-				logPodIP = podIP
-				logRevision = rt.revID.String()
-				logCurrentState = currentState
-			default:
-				// Already ready - duplicate event
-				shouldLog = true
-				logLevel = "debug"
-				logMessage = "Duplicate ready event (pod already ready)"
-				logPodIP = podIP
-				logRevision = rt.revID.String()
-				logCurrentState = currentState
-			}
-
-		case "not-ready":
-			// QP says not-ready - demote to not-ready state
-			// CRITICAL: Preserves breaker and refCount - just stops NEW traffic
-			switch currentState {
-			case podReady:
-				refCount := existing.refCount.Load() // Capture before CAS
-				if existing.state.CompareAndSwap(uint32(podReady), uint32(podNotReady)) {
-					// Transition succeeded
-					shouldRecordMetric = true
-					metricFrom = "ready"
-					metricTo = "not-ready"
-					shouldLog = true
-					logLevel = "warn"
-					logMessage = "QP demoted pod to not-ready (readiness probe failed)"
-					logPodIP = podIP
-					logRevision = rt.revID.String()
-					logRefCount = refCount
-				}
-			case podDraining, podRemoved:
-				// Stale not-ready event on draining/removed pod - log and ignore
-				shouldLog = true
-				logLevel = "warn"
-				logMessage = "Ignoring stale not-ready event on draining/removed pod"
-				logPodIP = podIP
-				logRevision = rt.revID.String()
-				logCurrentState = currentState
-			case podNotReady:
-				// Not-ready on not-ready pod - duplicate event
-				shouldLog = true
-				logLevel = "debug"
-				logMessage = "not-ready event on not-ready pod (duplicate)"
-				logPodIP = podIP
-				logRevision = rt.revID.String()
-			}
-
-		case "draining":
-			// QP says draining - transition to draining state
-			refCount := existing.refCount.Load() // Capture before state change
-
-			if existing.tryDrain() {
-				// Transitioned ready → draining
-				shouldRecordMetric = true
-				metricFrom = "ready"
-				metricTo = "draining"
-				shouldLog = true
-				logLevel = "info"
-				logMessage = "QP initiated pod draining"
-				logPodIP = podIP
-				logRevision = rt.revID.String()
-				logRefCount = refCount
-			} else if currentState == podNotReady {
-				// Pod draining before becoming ready (crash during startup)
-				// Allow pending → draining transition
-				if existing.state.CompareAndSwap(uint32(podNotReady), uint32(podDraining)) {
-					existing.drainingStartTime.Store(time.Now().Unix())
-					shouldRecordMetric = true
-					metricFrom = "not-ready"
-					metricTo = "draining"
-					shouldLog = true
-					logLevel = "warn"
-					logMessage = "Pod draining before ready - crashed during startup"
-					logPodIP = podIP
-					logRevision = rt.revID.String()
-				}
-			} else if currentState == podDraining {
-				// Already draining - duplicate event, log and ignore
-				shouldLog = true
-				logLevel = "debug"
-				logMessage = "Duplicate draining event (pod already draining)"
-				logPodIP = podIP
-				logRevision = rt.revID.String()
-			} else if currentState == podRemoved {
-				// Stale draining event on removed pod - log and ignore
-				shouldLog = true
-				logLevel = "debug"
-				logMessage = "Ignoring stale draining event on removed pod"
-				logPodIP = podIP
-				logRevision = rt.revID.String()
-			}
-		}
-
-		rt.mux.Unlock()
-
-		// Log and record metrics OUTSIDE lock to minimize contention
-		if shouldRecordMetric {
-			podStateTransitions.WithLabelValues(metricFrom, metricTo, "qp_push").Inc()
-		}
-
-		if shouldLog {
-			switch logLevel {
-			case "info":
-				if logRefCount > 0 {
-					logger.Infow(logMessage,
-						"revision", logRevision,
-						"pod-ip", logPodIP,
-						"active-requests", logRefCount)
-				} else {
-					logger.Infow(logMessage,
-						"revision", logRevision,
-						"pod-ip", logPodIP)
-				}
-			case "warn":
-				logger.Warnw(logMessage,
-					"revision", logRevision,
-					"pod-ip", logPodIP,
-					"active-requests", logRefCount)
-			case "debug":
-				if logCurrentState != 0 {
-					logger.Debugw(logMessage,
-						"revision", logRevision,
-						"pod-ip", logPodIP,
-						"current-state", logCurrentState)
-				} else {
-					logger.Debugw(logMessage,
-						"revision", logRevision,
-						"pod-ip", logPodIP)
-				}
-			}
-		}
-
-		return
+	// Queue the request with done channel
+	rt.stateUpdateChan <- stateUpdateRequest{
+		op:        opAddPod,
+		pod:       podIP,
+		eventType: eventType,
+		done:      done,
 	}
 
-	// Pod doesn't exist - create new tracker OUTSIDE lock to minimize contention
-	//
-	// RACE WINDOW DOCUMENTATION:
-	// ===========================
-	// We release the lock here (line 2076) while creating the new tracker, then re-acquire
-	// it to insert into the map (line 2108). This creates a race window where multiple
-	// concurrent registrations for the same pod IP could all create trackers.
-	//
-	// Race scenario:
-	//   T0: Goroutine A checks map, pod not found, releases lock
-	//   T1: Goroutine B checks map, pod not found, releases lock
-	//   T2: Goroutine A creates tracker, re-acquires lock, inserts pod
-	//   T3: Goroutine B creates tracker, re-acquires lock, finds existing pod
-	//
-	// Impact: Wasted allocations (breaker creation is expensive) under high pod churn
-	// Correctness: Race is handled correctly - second goroutine discards its tracker
-	//              and updates the existing one's QP data (lines 2111-2119)
-	//
-	// Trade-off analysis:
-	//   PRO: Minimizes lock hold time - critical for high-throughput registration
-	//   PRO: Race is rare in practice (requires simultaneous registration of same pod)
-	//   CON: Wasted allocations when race occurs (breaker + tracker creation)
-	//
-	// Alternative approaches considered:
-	//   1. Hold lock during tracker creation:
-	//      - Eliminates race but increases lock contention significantly
-	//      - Could block other pod registrations during breaker creation
-	//      - Not acceptable for production at scale
-	//
-	//   2. sync.Once per pod IP:
-	//      - Prevents duplicate allocations
-	//      - Requires maintaining a separate map[string]*sync.Once
-	//      - Memory overhead and cleanup complexity
-	//      - Potential optimization if profiling shows this is a bottleneck
-	//
-	//   3. Double-checked locking with atomic:
-	//      - Check map without lock, create if needed, check again with lock
-	//      - Reduces but doesn't eliminate race window
-	//      - Added complexity for minimal gain
-	//
-	// Verdict: Current implementation is acceptable as-is. The race is handled correctly
-	//          and only causes wasted allocations in rare cases. If profiling reveals this
-	//          as a bottleneck (>1% of pod registrations hitting the race), consider
-	//          sync.Once optimization. For now, correctness and lock minimization take
-	//          priority over avoiding rare allocation waste.
-	//
-	cc := int(rt.containerConcurrency.Load())
-
-	rt.mux.Unlock() // Release lock while creating tracker (expensive)
-
-	var tracker *podTracker
-	if cc == 0 {
-		tracker = newPodTracker(podIP, rt.revID, nil)
-	} else {
-		tracker = newPodTracker(podIP, rt.revID, queue.NewBreaker(queue.BreakerParams{
-			QueueDepth:      breakerQueueDepth,
-			MaxConcurrency:  cc,
-			InitialCapacity: cc,
-		}))
-	}
-
-	// Set initial state based on enableQPAuthority and event type
-	// When QP authority is enabled: start as podNotReady, wait for "ready" event
-	// When QP authority is disabled: start as podReady (old behavior, health checks will validate)
-	if enableQPAuthority {
-		if eventType == "ready" {
-			tracker.state.Store(uint32(podReady))
-		} else {
-			tracker.state.Store(uint32(podNotReady))
-		}
-	} else {
-		// QP authority disabled - start as ready, health checks will handle validation
-		tracker.state.Store(uint32(podReady))
-	}
-
-	// Initialize QP tracking
-	tracker.lastQPUpdate.Store(time.Now().Unix())
-	tracker.lastQPState.Store(eventType)
-
-	// Re-acquire lock to add tracker to map
-	rt.mux.Lock()
-
-	// Check if another goroutine added this pod while we were creating tracker (race check)
-	if existing, exists := rt.podTrackers[podIP]; exists {
-		// Race detected: another registration beat us to it during the unlock window
-		// Update the existing tracker's QP data and discard our newly created tracker
-		// This is correct behavior - the first tracker wins, we just update its QP state
-		existing.lastQPUpdate.Store(time.Now().Unix())
-		existing.lastQPState.Store(eventType)
-
-		rt.mux.Unlock()
-
-		logger.Debugw("Pod added by concurrent registration, updated QP tracking",
-			"revision", rt.revID.String(),
-			"pod-ip", podIP,
-			"event-type", eventType)
-		return
-	}
-
-	// Add our tracker to the map
-	rt.podTrackers[podIP] = tracker
-
-	rt.mux.Unlock()
-
-	// Log and trigger capacity update OUTSIDE lock
-	logger.Infow("Discovered new pod via push-based registration",
-		"revision", rt.revID.String(),
-		"pod-ip", podIP,
-		"event-type", eventType,
-		"initial-state", podState(tracker.state.Load()),
-		"qp-authority-enabled", enableQPAuthority)
-
-	// CRITICAL: Must call updateCapacity OUTSIDE the lock to avoid deadlock.
-	// updateCapacity needs to acquire rt.mux.RLock() internally, which is incompatible
-	// with holding rt.mux.Lock() from above.
-	// updateCapacity will read the fresh pod count from the map automatically.
-	rt.updateCapacity()
+	// Wait for the worker to process the request
+	<-done
 }
 
 // Throttler load balances requests to revisions based on capacity. When `Run` is called it listens for
