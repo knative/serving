@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"runtime/debug"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -650,11 +651,6 @@ type revisionThrottler struct {
 	// request path. This is: trackers, clusterIPDest.
 	mux sync.RWMutex
 
-	// capacityMux serializes all updateCapacity calls to prevent concurrent
-	// capacity calculations from racing. Required because addPodIncremental
-	// (via QP push) can be called concurrently from HTTP handlers.
-	capacityMux sync.Mutex
-
 	// stateUpdateChan serializes all pod state mutations and capacity updates
 	// through a single worker goroutine to prevent race conditions.
 	stateUpdateChan chan stateUpdateRequest
@@ -726,10 +722,10 @@ func newRevisionThrottler(revID types.NamespacedName,
 		revBreaker = queue.NewBreaker(breakerParams)
 	}
 	t := &revisionThrottler{
-		revID:           revID,
-		breaker:         revBreaker,
-		logger:          logger,
-		protocol:        proto,
+		revID:       revID,
+		breaker:     revBreaker,
+		logger:      logger,
+		protocol:    proto,
 		podTrackers: make(map[string]*podTracker),
 		// Buffer size 500 supports:
 		// - Up to 500 pods registering simultaneously during rapid scale-up
@@ -786,16 +782,36 @@ func safeCloseDone(done chan struct{}) {
 }
 
 // stateWorker processes state update requests serially to prevent race conditions
+// Buffer size: 500 requests can be queued before blocking senders
+// This provides burst absorption while preventing unbounded memory growth
 func (rt *revisionThrottler) stateWorker() {
+	// Panic recovery to prevent worker death from killing the system
+	defer func() {
+		if r := recover(); r != nil {
+			rt.logger.Errorw("State worker panicked, restarting",
+				"panic", r,
+				"stack", string(debug.Stack()))
+			// Restart the worker
+			go rt.stateWorker()
+		}
+	}()
+
 	for {
 		select {
 		case <-rt.done:
+			// Graceful shutdown with timeout
+			shutdownTimer := time.NewTimer(5 * time.Second)
+			defer shutdownTimer.Stop()
+
 			// Drain any remaining requests before exiting
 			for {
 				select {
 				case req := <-rt.stateUpdateChan:
 					// Signal completion if waiting
 					safeCloseDone(req.done)
+				case <-shutdownTimer.C:
+					rt.logger.Warn("State worker shutdown timed out, forcing exit")
+					return
 				default:
 					return
 				}
@@ -1681,16 +1697,12 @@ func (rt *revisionThrottler) resetTrackers() {
 
 // updateCapacity updates the capacity of the throttler and recomputes
 // the assigned trackers to the Activator instance.
-// This function is serialized by capacityMux because it can be called concurrently
-// from multiple sources: K8s informer updates, activator endpoint updates, and
-// QP push-based pod registrations (via HTTP handlers).
+// With the work queue pattern, this is now only called from:
+// 1. K8s informer updates (updateThrottlerState)
+// 2. Activator endpoint updates
+// The work queue ensures pod mutations and capacity updates are serialized.
 func (rt *revisionThrottler) updateCapacity() {
-	// Serialize all capacity updates to prevent races between concurrent callers
-	rt.capacityMux.Lock()
-	defer rt.capacityMux.Unlock()
-
-	// Read fresh backend count from the current pod tracker map
-	// This must be done inside capacityMux to ensure consistency
+	// Read backend count from the current pod tracker map
 	rt.mux.RLock()
 	backendCount := len(rt.podTrackers)
 	rt.mux.RUnlock()
@@ -2110,6 +2122,13 @@ func assignSlice(trackers map[string]*podTracker, selfIndex, numActivators int) 
 		return result
 	}
 
+	// Bounds check: ensure selfIndex is valid
+	if numActivators > 0 && selfIndex >= numActivators {
+		// Invalid index - assign no pods to prevent undefined behavior
+		// This can happen during activator scale-down when indices haven't been rebalanced yet
+		return []*podTracker{}
+	}
+
 	// Get sorted list of pod addresses for consistent ordering
 	dests := maps.Keys(trackers)
 	sort.Strings(dests)
@@ -2251,6 +2270,7 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 //
 // All state mutations are serialized through the work queue to prevent race conditions.
 // This function blocks until the request is processed for backward compatibility.
+// Includes timeout protection in case the worker goroutine dies.
 func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, logger *zap.SugaredLogger) {
 	// Create a done channel to wait for processing
 	done := make(chan struct{})
@@ -2263,8 +2283,18 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
 		done:      done,
 	}
 
-	// Wait for the worker to process the request
-	<-done
+	// Wait for the worker to process the request with timeout
+	select {
+	case <-done:
+		// Request processed successfully
+		return
+	case <-time.After(5 * time.Second):
+		// Timeout - worker may be stuck or dead
+		logger.Errorw("State update timed out - worker may be stuck",
+			"pod-ip", podIP,
+			"event-type", eventType)
+		return
+	}
 }
 
 // Throttler load balances requests to revisions based on capacity. When `Run` is called it listens for
