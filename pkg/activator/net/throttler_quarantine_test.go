@@ -212,7 +212,7 @@ func TestQuarantineRecoveryMechanism(t *testing.T) {
 		// Run in goroutine to avoid blocking on breaker capacity updates
 		done := make(chan struct{})
 		go func() {
-			rt.updateThrottlerState(1, nil, []string{"recovering-pod"}, nil, nil)
+			rt.updateThrottlerState(nil, []string{"recovering-pod"}, nil, nil)
 			close(done)
 		}()
 

@@ -81,30 +81,38 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	}{{
 		name:                 "capacity: 1, cc: 10",
 		capacity:             1,
+		numActivators:        1,
 		containerConcurrency: 10,
+		podTrackers:          makeTrackers(1, 10),
 		want:                 1 * 10,
 	}, {
 		name:                 "capacity: 10, cc: 10",
 		capacity:             10,
+		numActivators:        1,
 		containerConcurrency: 10,
+		podTrackers:          makeTrackers(10, 10),
 		want:                 10 * 10,
 	}, {
 		name:                 "capacity: 100, cc: 10",
 		capacity:             100,
+		numActivators:        1,
 		containerConcurrency: 10,
+		podTrackers:          makeTrackers(100, 10),
 		want:                 100 * 10,
 	}, {
 		name:                 "numActivators: 5, capacity: 10, cc: 10",
 		capacity:             10,
 		numActivators:        5,
 		containerConcurrency: 10,
+		podTrackers:          makeTrackers(10, 10),
 		want:                 10 * 10 / 5,
 	}, {
 		name:                 "numActivators: 200, capacity: 10, cc: 10",
 		capacity:             10,
 		numActivators:        200,
 		containerConcurrency: 10,
-		want:                 1,
+		podTrackers:          makeTrackers(10, 10),
+		want:                 10, // With pod routing: activator 0 gets 1 pod (via consistent hashing) * 10 cc = 10
 	}, {
 		name:                 "numActivators: 200, capacity: 0, cc: 10",
 		capacity:             0,
@@ -115,24 +123,26 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		// now test with CC=0.
 		// in the CC=0 cases we use the infinite breaker whose capacity can either be
 		// totally blocked (0) or totally open (1).
-		name:                 "newInfiniteBreaker, numActivators: 0, capacity: 0, cc: 0",
+		name:                 "newInfiniteBreaker, numActivators: 1, capacity: 0, cc: 0",
 		capacity:             0,
-		numActivators:        0,
+		numActivators:        1,
 		containerConcurrency: 0,
 		isNewInfiniteBreaker: true,
 		want:                 0,
 	}, {
-		name:                 "newInfiniteBreaker, numActivators: 0, capacity: 1, cc: 0",
+		name:                 "newInfiniteBreaker, numActivators: 1, capacity: 1, cc: 0",
 		capacity:             1,
-		numActivators:        0,
+		numActivators:        1,
 		containerConcurrency: 0,
+		podTrackers:          makeTrackers(1, 0),
 		isNewInfiniteBreaker: true,
 		want:                 1,
 	}, {
-		name:                 "newInfiniteBreaker, numActivators: 0, capacity: 10, cc: 0",
+		name:                 "newInfiniteBreaker, numActivators: 1, capacity: 10, cc: 0",
 		capacity:             10,
-		numActivators:        0,
+		numActivators:        1,
 		containerConcurrency: 0,
+		podTrackers:          makeTrackers(10, 0),
 		isNewInfiniteBreaker: true,
 		want:                 1,
 	}, {
@@ -147,6 +157,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		capacity:             1,
 		numActivators:        200,
 		containerConcurrency: 0,
+		podTrackers:          makeTrackers(1, 0),
 		isNewInfiniteBreaker: true,
 		want:                 1,
 	}, {
@@ -231,7 +242,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 			if tt.isNewInfiniteBreaker {
 				rt.breaker = newInfiniteBreaker(logger)
 			}
-			rt.updateCapacity(tt.capacity)
+			rt.updateCapacity()
 			if got := rt.breaker.Capacity(); got != tt.want {
 				t.Errorf("Capacity = %d, want: %d", got, tt.want)
 			}
@@ -1836,7 +1847,7 @@ func TestResetTrackersRaceCondition(t *testing.T) {
 		}
 
 		// Add initial trackers
-		rt.updateThrottlerState(3, initialTrackers, nil, nil, nil)
+		rt.updateThrottlerState(initialTrackers, nil, nil, nil)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
@@ -1867,10 +1878,10 @@ func TestResetTrackersRaceCondition(t *testing.T) {
 					// Add a tracker
 					newTracker := newTestTracker(trackerName,
 						queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
-					rt.updateThrottlerState(1, []*podTracker{newTracker}, nil, nil, nil)
+					rt.updateThrottlerState([]*podTracker{newTracker}, nil, nil, nil)
 				} else {
 					// Remove a tracker by putting it in draining
-					rt.updateThrottlerState(0, nil, nil, []string{trackerName}, nil)
+					rt.updateThrottlerState(nil, nil, []string{trackerName}, nil)
 				}
 
 				// Small delay to let resetTrackers work
@@ -1937,7 +1948,7 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 				counter++
 				tracker := newTestTracker(fmt.Sprintf("add-pod-%d:8080", counter),
 					queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
-				rt.updateThrottlerState(1, []*podTracker{tracker}, nil, nil, nil)
+				rt.updateThrottlerState([]*podTracker{tracker}, nil, nil, nil)
 				time.Sleep(time.Microsecond)
 			}
 		}()
@@ -1949,7 +1960,7 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 			counter := 0
 			for ctx.Err() == nil {
 				counter++
-				rt.updateThrottlerState(0, nil, nil, []string{fmt.Sprintf("add-pod-%d:8080", counter)}, nil)
+				rt.updateThrottlerState(nil, nil, []string{fmt.Sprintf("add-pod-%d:8080", counter)}, nil)
 				time.Sleep(time.Microsecond)
 			}
 		}()
@@ -1988,7 +1999,7 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 			initialTrackers[i].state.Store(uint32(podReady))
 		}
-		rt.updateThrottlerState(5, initialTrackers, nil, nil, nil)
+		rt.updateThrottlerState(initialTrackers, nil, nil, nil)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
@@ -2023,10 +2034,10 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 					tracker := newTestTracker(fmt.Sprintf("dynamic-%d:8080", counter),
 						queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
 					tracker.state.Store(uint32(podReady))
-					rt.updateThrottlerState(1, []*podTracker{tracker}, nil, nil, nil)
+					rt.updateThrottlerState([]*podTracker{tracker}, nil, nil, nil)
 				} else {
 					// Remove a tracker
-					rt.updateThrottlerState(0, nil, nil, []string{fmt.Sprintf("pod-%d:8080", counter%5)}, nil)
+					rt.updateThrottlerState(nil, nil, []string{fmt.Sprintf("pod-%d:8080", counter%5)}, nil)
 				}
 				time.Sleep(time.Millisecond)
 			}

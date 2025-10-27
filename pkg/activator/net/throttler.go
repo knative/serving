@@ -629,6 +629,11 @@ type revisionThrottler struct {
 	// request path. This is: trackers, clusterIPDest.
 	mux sync.RWMutex
 
+	// capacityMux serializes all updateCapacity calls to prevent concurrent
+	// capacity calculations from racing. Required because addPodIncremental
+	// (via QP push) can be called concurrently from HTTP handlers.
+	capacityMux sync.Mutex
+
 	logger *zap.SugaredLogger
 }
 
@@ -1336,15 +1341,25 @@ func (rt *revisionThrottler) resetTrackers() {
 
 // updateCapacity updates the capacity of the throttler and recomputes
 // the assigned trackers to the Activator instance.
-// Currently updateCapacity is ensured to be invoked from a single go routine
-// and this does not synchronize
-func (rt *revisionThrottler) updateCapacity(backendCount int) {
+// This function is serialized by capacityMux because it can be called concurrently
+// from multiple sources: K8s informer updates, activator endpoint updates, and
+// QP push-based pod registrations (via HTTP handlers).
+func (rt *revisionThrottler) updateCapacity() {
+	// Serialize all capacity updates to prevent races between concurrent callers
+	rt.capacityMux.Lock()
+	defer rt.capacityMux.Unlock()
+
+	// Read fresh backend count from the current pod tracker map
+	// This must be done inside capacityMux to ensure consistency
+	rt.mux.RLock()
+	backendCount := len(rt.podTrackers)
+	rt.mux.RUnlock()
+
 	// We have to make assignments on each updateCapacity, since if number
 	// of activators changes, then we need to rebalance the assignedTrackers.
 	ac, ai := int(rt.numActivators.Load()), int(rt.activatorIndex.Load())
 	numTrackers := func() int {
-		// We need to read podTrackers under lock for race safety, even though
-		// updateCapacity is guaranteed to be executed by a single goroutine.
+		// We need to read podTrackers under lock for race safety.
 		// Other goroutines like resetTrackers may also read podTrackers.
 
 		rt.mux.RLock()
@@ -1480,7 +1495,7 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 	rt.breaker.UpdateConcurrency(capacity)
 }
 
-func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers []*podTracker, healthyDests []string, drainingDests []string, clusterIPDest *podTracker) {
+func (rt *revisionThrottler) updateThrottlerState(newTrackers []*podTracker, healthyDests []string, drainingDests []string, clusterIPDest *podTracker) {
 	defer func() {
 		if r := recover(); r != nil {
 			rt.logger.Errorf("Panic in revisionThrottler.updateThrottlerState: %v", r)
@@ -1488,35 +1503,25 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 		}
 	}()
 
-	rt.logger.Debugf("Updating Throttler %s: trackers = %d, backends = %d",
-		rt.revID, len(newTrackers), backendCount)
+	rt.logger.Debugf("Updating Throttler %s: new trackers = %d",
+		rt.revID, len(newTrackers))
 	rt.logger.Debugf("Throttler %s DrainingDests: %s", rt.revID, drainingDests)
 	rt.logger.Debugf("Throttler %s healthyDests: %s", rt.revID, healthyDests)
 
 	// Update trackers / clusterIP before capacity. Otherwise we can race updating our breaker when
 	// we increase capacity, causing a request to fall through before a tracker is added, causing an
 	// incorrect LB decision.
-	if func() bool {
-		lockStart := time.Now()
-		rt.mux.Lock()
-		lockAcquireMs := float64(time.Since(lockStart).Milliseconds())
-		if lockAcquireMs > 100 { // Log if lock acquisition took >100ms
-			rt.logger.Warnw("Slow lock acquisition in updateThrottlerState",
-				"lock-acquire-ms", lockAcquireMs)
-		}
+	lockStart := time.Now()
+	rt.mux.Lock()
+	lockAcquireMs := float64(time.Since(lockStart).Milliseconds())
+	if lockAcquireMs > 100 { // Log if lock acquisition took >100ms
+		rt.logger.Warnw("Slow lock acquisition in updateThrottlerState",
+			"lock-acquire-ms", lockAcquireMs)
+	}
 
-		lockHoldStart := time.Now()
-		defer func() {
-			lockHoldMs := float64(time.Since(lockHoldStart).Milliseconds())
-			rt.mux.Unlock()
-			if lockHoldMs > 100 { // Log if lock held >100ms
-				rt.logger.Warnw("Lock held for long time in updateThrottlerState",
-					"lock-hold-ms", lockHoldMs,
-					"new-trackers", len(newTrackers),
-					"healthy-dests", len(healthyDests),
-					"draining-dests", len(drainingDests))
-			}
-		}()
+	lockHoldStart := time.Now()
+	// Note: Lock is manually unlocked before updateCapacity() call at the end
+	// to avoid deadlock, since updateCapacity also needs to acquire the lock.
 		for _, t := range newTrackers {
 			if t != nil {
 				// Check if this dest was already in the map for a different tracker
@@ -1727,19 +1732,25 @@ func (rt *revisionThrottler) updateThrottlerState(backendCount int, newTrackers 
 			default:
 				rt.logger.Errorf("Pod %s in unexpected state %d while processing draining destinations", d, tracker.state.Load())
 			}
-		}
-
-		rt.clusterIPTracker = clusterIPDest
-		return clusterIPDest != nil || len(rt.podTrackers) > 0
-	}() {
-		// If we have an address to target, then pass through an accurate
-		// accounting of the number of backends.
-		rt.updateCapacity(backendCount)
-	} else {
-		// If we do not have an address to target, then we should treat it
-		// as though we have zero backends.
-		rt.updateCapacity(0)
 	}
+
+	rt.clusterIPTracker = clusterIPDest
+
+	// Manually unlock before calling updateCapacity to avoid deadlock.
+	// The defer above won't run until function exit, but updateCapacity needs the lock.
+	lockHoldMs := float64(time.Since(lockHoldStart).Milliseconds())
+	rt.mux.Unlock()
+	if lockHoldMs > 100 { // Log if lock held >100ms
+		rt.logger.Warnw("Lock held for long time in updateThrottlerState",
+			"lock-hold-ms", lockHoldMs,
+			"new-trackers", len(newTrackers),
+			"healthy-dests", len(healthyDests),
+			"draining-dests", len(drainingDests))
+	}
+
+	// Update capacity after all state changes are complete and lock is released.
+	// updateCapacity will read the current pod count from the map.
+	rt.updateCapacity()
 }
 
 // assignSlice picks a subset of the individual pods to send requests to
@@ -1879,17 +1890,16 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 		// TODO: Remove this diagnostic log after capacity lag investigation is complete
 		// Log to trace the update flow and timing
 		rt.logger.Debugw("Calling updateThrottlerState from handleUpdate",
-			"backend-count-param", len(update.Dests),
 			"new-trackers-count", len(newTrackers),
 			"healthy-dests-count", len(healthyDests),
 			"draining-dests-count", len(drainingDests),
 			"current-capacity", rt.breaker.Capacity())
 
-		rt.updateThrottlerState(len(update.Dests), newTrackers, healthyDests, drainingDests, nil /*clusterIP*/)
+		rt.updateThrottlerState(newTrackers, healthyDests, drainingDests, nil /*clusterIP*/)
 		return
 	}
 	clusterIPPodTracker := newPodTracker(update.ClusterIPDest, rt.revID, nil)
-	rt.updateThrottlerState(len(update.Dests), nil /*trackers*/, nil, nil, clusterIPPodTracker)
+	rt.updateThrottlerState(nil /*trackers*/, nil, nil, clusterIPPodTracker)
 }
 
 // addPodIncremental adds a single pod to the revision without removing other pods.
@@ -2200,7 +2210,6 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
 
 	// Add our tracker to the map
 	rt.podTrackers[podIP] = tracker
-	podCount := len(rt.podTrackers)
 
 	rt.mux.Unlock()
 
@@ -2210,13 +2219,13 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
 		"pod-ip", podIP,
 		"event-type", eventType,
 		"initial-state", podState(tracker.state.Load()),
-		"qp-authority-enabled", enableQPAuthority,
-		"total-trackers-now", podCount)
+		"qp-authority-enabled", enableQPAuthority)
 
 	// CRITICAL: Must call updateCapacity OUTSIDE the lock to avoid deadlock.
 	// updateCapacity needs to acquire rt.mux.RLock() internally, which is incompatible
 	// with holding rt.mux.Lock() from above.
-	rt.updateCapacity(podCount)
+	// updateCapacity will read the fresh pod count from the map automatically.
+	rt.updateCapacity()
 }
 
 // Throttler load balances requests to revisions based on capacity. When `Run` is called it listens for
@@ -2478,23 +2487,9 @@ func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP st
 	rt.logger.Debugf("This activator index is %d/%d was %d/%d",
 		newAI, newNA, ai, na)
 
-	// TODO: Remove this diagnostic log after capacity lag investigation is complete
-	// Log activator-triggered capacity updates to see if they're overwriting pod updates
-	storedBackendCount := int(rt.backendCount.Load())
-	rt.mux.RLock()
-	actualPodCount := len(rt.podTrackers)
-	rt.mux.RUnlock()
-	if storedBackendCount != actualPodCount {
-		rt.logger.Warnw("Activator update triggering capacity recalc with stale backend count",
-			"stored-backend-count", storedBackendCount,
-			"actual-pods-in-map", actualPodCount,
-			"new-activator-index", newAI,
-			"new-activator-count", newNA,
-			"old-activator-index", ai,
-			"old-activator-count", na)
-	}
-
-	rt.updateCapacity(storedBackendCount)
+	// Recalculate capacity with new activator assignment.
+	// updateCapacity will read the current pod count from the map.
+	rt.updateCapacity()
 }
 
 // inferIndex returns the index of this activator slice.
