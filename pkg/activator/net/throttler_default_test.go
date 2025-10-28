@@ -37,7 +37,7 @@ func TestDefaultModeVerification(t *testing.T) {
 	logger := TestLogger(t)
 
 	t.Run("verify default behavior is quarantine mode", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -82,7 +82,7 @@ func TestInformerCreatesReadyPods(t *testing.T) {
 	logger := TestLogger(t)
 
 	t.Run("informer creates and promotes pods immediately", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -124,7 +124,7 @@ func TestInformerCreatesReadyPods(t *testing.T) {
 	})
 
 	t.Run("multiple pods created by informer", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -166,7 +166,7 @@ func TestHealthCheckFlowDefault(t *testing.T) {
 	logger := TestLogger(t)
 
 	t.Run("QP events received but do not trigger state changes", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -211,7 +211,7 @@ func TestHealthCheckFlowDefault(t *testing.T) {
 	})
 
 	t.Run("pods transition to not-ready when removed by informer", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 10, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},

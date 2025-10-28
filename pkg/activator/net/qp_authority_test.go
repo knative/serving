@@ -49,7 +49,7 @@ func TestQPAuthorityOverridesInformer(t *testing.T) {
 	logger := TestLogger(t)
 
 	t.Run("QP not-ready overrides K8s healthy (fresh QP data)", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -93,7 +93,7 @@ func TestQPAuthorityOverridesInformer(t *testing.T) {
 	})
 
 	t.Run("QP ready overrides K8s draining (fresh QP data)", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -128,7 +128,7 @@ func TestQPAuthorityOverridesInformer(t *testing.T) {
 	})
 
 	t.Run("Stale QP data allows K8s to promote", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -166,7 +166,7 @@ func TestQPAuthorityOverridesInformer(t *testing.T) {
 	})
 
 	t.Run("No QP data - K8s informer is authoritative", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -214,7 +214,7 @@ func TestPodStateTransitionPreservesBreaker(t *testing.T) {
 	logger := TestLogger(t)
 
 	t.Run("ready to not-ready preserves refCount and breaker", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 10, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -282,7 +282,7 @@ func TestPodStateTransitionPreservesBreaker(t *testing.T) {
 	})
 
 	t.Run("draining pod completes active requests", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 10, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -366,7 +366,7 @@ func TestQPEventSequences(t *testing.T) {
 	logger := TestLogger(t)
 
 	t.Run("not-ready → ready → not-ready → ready cycle", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -406,7 +406,7 @@ func TestQPEventSequences(t *testing.T) {
 	})
 
 	t.Run("draining from ready state", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -439,7 +439,7 @@ func TestQPEventSequences(t *testing.T) {
 	})
 
 	t.Run("QP events update freshness tracking", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -495,7 +495,7 @@ func TestInformerWithQPCoexistence(t *testing.T) {
 	logger := TestLogger(t)
 
 	t.Run("informer creates not-ready, QP promotes to ready", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -531,7 +531,7 @@ func TestInformerWithQPCoexistence(t *testing.T) {
 	})
 
 	t.Run("QP creates pending, informer promotes to ready", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -563,7 +563,7 @@ func TestInformerWithQPCoexistence(t *testing.T) {
 	})
 
 	t.Run("informer removes pod, QP re-creates it", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -616,7 +616,7 @@ func TestPodNotReadyNonViable(t *testing.T) {
 	logger := TestLogger(t)
 
 	t.Run("not-ready pods excluded from filterAvailableTrackers", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -671,7 +671,7 @@ func TestPodNotReadyNonViable(t *testing.T) {
 	})
 
 	t.Run("not-ready pods excluded from routing but counted in capacity", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -715,7 +715,7 @@ func TestDrainingWithActiveRequests(t *testing.T) {
 	logger := TestLogger(t)
 
 	t.Run("draining pod not removed until refCount zero", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 10, "http", // CC=10 to allow multiple concurrent requests
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -802,7 +802,7 @@ func TestQPvsInformerTimingScenarios(t *testing.T) {
 	logger := TestLogger(t)
 
 	t.Run("fresh QP data blocks informer promotion", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -837,7 +837,7 @@ func TestQPvsInformerTimingScenarios(t *testing.T) {
 	})
 
 	t.Run("stale QP data allows informer to drain", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 10, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -890,7 +890,7 @@ func TestStateMachineValidation(t *testing.T) {
 	logger := TestLogger(t)
 
 	t.Run("draining on not-ready pod - crash before ready", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -927,7 +927,7 @@ func TestStateMachineValidation(t *testing.T) {
 	})
 
 	t.Run("stale ready event on draining pod - ignored", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -961,7 +961,7 @@ func TestStateMachineValidation(t *testing.T) {
 	})
 
 	t.Run("stale not-ready event on draining pod - ignored", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -995,7 +995,7 @@ func TestStateMachineValidation(t *testing.T) {
 	})
 
 	t.Run("not-ready on pending pod - probe flapping", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -1023,7 +1023,7 @@ func TestStateMachineValidation(t *testing.T) {
 	})
 
 	t.Run("ready after not-ready - pod recovery", func(t *testing.T) {
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},

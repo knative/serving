@@ -19,7 +19,7 @@ var testRevID = types.NamespacedName{Namespace: "test", Name: "rev"}
 func newRaceTestRT(t *testing.T) *revisionThrottler {
 	t.Helper()
 	logger := zaptest.NewLogger(t, zaptest.WrapOptions(zap.AddCaller())).Sugar()
-	rt := newRevisionThrottler(
+	rt := mustCreateRevisionThrottler(t, 
 		testRevID,
 		nil,
 		1,
@@ -88,7 +88,7 @@ func TestRace_PodTrackers_ReadWrite_NoLock(t *testing.T) {
 func TestRace_UpdateCapacity_ReadsPodTrackersWhileWriterMutates(t *testing.T) {
 	t.Parallel()
 	logger := zaptest.NewLogger(t).Sugar()
-	rt := newRevisionThrottler(types.NamespacedName{Namespace: "default", Name: "rev"}, nil, 1, "http", queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 1}, logger)
+	rt := mustCreateRevisionThrottler(t, types.NamespacedName{Namespace: "default", Name: "rev"}, nil, 1, "http", queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 1}, logger)
 
 	initial := make([]*podTracker, 0, 5)
 	for i := 0; i < 5; i++ {
@@ -142,7 +142,7 @@ func TestRace_UpdateCapacity_ReadsPodTrackersWhileWriterMutates(t *testing.T) {
 func TestRace_LBPolicy_UpdateVsUsage(t *testing.T) {
 	t.Parallel()
 	logger := zaptest.NewLogger(t).Sugar()
-	rt := newRevisionThrottler(types.NamespacedName{Namespace: "default", Name: "rev"}, nil, 1, "http", queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 1}, logger)
+	rt := mustCreateRevisionThrottler(t, types.NamespacedName{Namespace: "default", Name: "rev"}, nil, 1, "http", queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 1}, logger)
 
 	// Add some initial trackers
 	tr1 := newTestTracker("10.0.0.1:8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
@@ -198,7 +198,7 @@ func TestRace_LBPolicy_UpdateVsUsage(t *testing.T) {
 func TestRace_ResetTrackers_ReadsPodTrackersWhileWriterMutates(t *testing.T) {
 	t.Parallel()
 	logger := zaptest.NewLogger(t).Sugar()
-	rt := newRevisionThrottler(types.NamespacedName{Namespace: "default", Name: "rev"}, nil, 2, "http", queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 1}, logger)
+	rt := mustCreateRevisionThrottler(t, types.NamespacedName{Namespace: "default", Name: "rev"}, nil, 2, "http", queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 1}, logger)
 
 	// Add initial trackers
 	initial := make([]*podTracker, 0, 3)
@@ -282,7 +282,7 @@ func TestRace_ThrottlerMap_DoubleCheckedLocking(t *testing.T) {
 				if !ok {
 					throttler.revisionThrottlersMutex.Lock()
 					if _, exists := throttler.revisionThrottlers[revID]; !exists {
-						rt := newRevisionThrottler(revID, nil, 1, "http", queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 1}, logger)
+						rt := mustCreateRevisionThrottler(t, revID, nil, 1, "http", queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 1}, logger)
 						throttler.revisionThrottlers[revID] = rt
 					}
 					throttler.revisionThrottlersMutex.Unlock()
@@ -387,7 +387,7 @@ func TestRace_InfiniteBreaker_BroadcastChannelRecreation(t *testing.T) {
 func TestRace_HandlePubEpsUpdate_StaleBackendCountOverwritesCapacity(t *testing.T) {
 	t.Parallel()
 	logger := zaptest.NewLogger(t).Sugar()
-	rt := newRevisionThrottler(
+	rt := mustCreateRevisionThrottler(t, 
 		types.NamespacedName{Namespace: "default", Name: "rev"},
 		nil,
 		1,
@@ -472,7 +472,7 @@ func TestRace_HandlePubEpsUpdate_StaleBackendCountOverwritesCapacity(t *testing.
 func TestRace_BreakerCapacityCapture_ConcurrentCapacityUpdates(t *testing.T) {
 	t.Parallel()
 	logger := zaptest.NewLogger(t).Sugar()
-	rt := newRevisionThrottler(
+	rt := mustCreateRevisionThrottler(t, 
 		types.NamespacedName{Namespace: "default", Name: "rev"},
 		nil,
 		1,
@@ -542,7 +542,7 @@ func TestRace_BreakerCapacityCapture_ConcurrentCapacityUpdates(t *testing.T) {
 func TestRace_AssignedTrackers_ConcurrentReadDuringUpdate(t *testing.T) {
 	t.Parallel()
 	logger := zaptest.NewLogger(t).Sugar()
-	rt := newRevisionThrottler(
+	rt := mustCreateRevisionThrottler(t, 
 		types.NamespacedName{Namespace: "default", Name: "rev"},
 		nil,
 		1,
@@ -625,7 +625,7 @@ func TestRace_AssignedTrackers_ConcurrentReadDuringUpdate(t *testing.T) {
 func TestRace_ContainerConcurrency_UpdateDuringCapacityCalc(t *testing.T) {
 	t.Parallel()
 	logger := zaptest.NewLogger(t).Sugar()
-	rt := newRevisionThrottler(
+	rt := mustCreateRevisionThrottler(t, 
 		types.NamespacedName{Namespace: "default", Name: "rev"},
 		nil,
 		1,
@@ -707,7 +707,7 @@ func TestRace_ContainerConcurrency_UpdateDuringCapacityCalc(t *testing.T) {
 func TestRace_ActivatorIndex_ChangeDuringAssignSlice(t *testing.T) {
 	t.Parallel()
 	logger := zaptest.NewLogger(t).Sugar()
-	rt := newRevisionThrottler(
+	rt := mustCreateRevisionThrottler(t, 
 		types.NamespacedName{Namespace: "default", Name: "rev"},
 		nil,
 		1,
@@ -791,7 +791,7 @@ func TestRace_ActivatorIndex_ChangeDuringAssignSlice(t *testing.T) {
 func TestRace_UpdateThrottlerState_ConcurrentUpdates(t *testing.T) {
 	t.Parallel()
 	logger := zaptest.NewLogger(t).Sugar()
-	rt := newRevisionThrottler(
+	rt := mustCreateRevisionThrottler(t, 
 		types.NamespacedName{Namespace: "default", Name: "rev"},
 		nil,
 		1,
@@ -851,7 +851,7 @@ func TestRace_UpdateThrottlerState_ConcurrentUpdates(t *testing.T) {
 func TestRace_BackendCount_ConcurrentReadWriteDuringCapacityUpdates(t *testing.T) {
 	t.Parallel()
 	logger := zaptest.NewLogger(t).Sugar()
-	rt := newRevisionThrottler(
+	rt := mustCreateRevisionThrottler(t, 
 		types.NamespacedName{Namespace: "default", Name: "rev"},
 		nil,
 		1,
@@ -953,7 +953,7 @@ func TestRace_WaitingRequests_ConcurrentBreakerStateReads(t *testing.T) {
 	t.Parallel()
 	logger := zaptest.NewLogger(t).Sugar()
 
-	rt := newRevisionThrottler(
+	rt := mustCreateRevisionThrottler(t, 
 		types.NamespacedName{Namespace: "default", Name: "rev"},
 		nil,
 		1,
@@ -1022,7 +1022,7 @@ func TestRace_WaitingRequests_ConcurrentBreakerStateReads(t *testing.T) {
 func TestRace_AssignSlice_MapMutationDuringIteration(t *testing.T) {
 	t.Parallel()
 	logger := zaptest.NewLogger(t).Sugar()
-	rt := newRevisionThrottler(
+	rt := mustCreateRevisionThrottler(t, 
 		types.NamespacedName{Namespace: "default", Name: "rev"},
 		nil,
 		1,

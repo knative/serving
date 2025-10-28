@@ -687,7 +687,7 @@ func TestPodAssignmentFinite(t *testing.T) {
 	defer cancel()
 
 	throttler := newTestThrottler(ctx)
-	rt := newRevisionThrottler(revName, nil, 42 /*cc*/, pkgnet.ServicePortNameHTTP1, testBreakerParams, logger)
+	rt := mustCreateRevisionThrottler(t, revName, nil, 42 /*cc*/, pkgnet.ServicePortNameHTTP1, testBreakerParams, logger)
 	rt.numActivators.Store(4)
 	rt.activatorIndex.Store(1) // Use 1-based indexing (1 = first activator)
 	throttler.revisionThrottlers[revName] = rt
@@ -740,7 +740,7 @@ func TestPodAssignmentInfinite(t *testing.T) {
 	defer cancel()
 
 	throttler := newTestThrottler(ctx)
-	rt := newRevisionThrottler(revName, nil, 0 /*cc*/, pkgnet.ServicePortNameHTTP1, testBreakerParams, logger)
+	rt := mustCreateRevisionThrottler(t, revName, nil, 0 /*cc*/, pkgnet.ServicePortNameHTTP1, testBreakerParams, logger)
 	throttler.revisionThrottlers[revName] = rt
 
 	update := revisionDestsUpdate{
@@ -971,7 +971,7 @@ func TestMultipleActivators(t *testing.T) {
 
 func TestInfiniteBreakerCreation(t *testing.T) {
 	// This test verifies that we use infiniteBreaker when CC==0.
-	tttl := newRevisionThrottler(types.NamespacedName{Namespace: "a", Name: "b"}, nil, 0, /*cc*/
+	tttl := mustCreateRevisionThrottler(t, types.NamespacedName{Namespace: "a", Name: "b"}, nil, 0, /*cc*/
 		pkgnet.ServicePortNameHTTP1, queue.BreakerParams{}, TestLogger(t))
 	if _, ok := tttl.breaker.(*infiniteBreaker); !ok {
 		t.Errorf("The type of revisionBreaker = %T, want %T", tttl, (*infiniteBreaker)(nil))
@@ -1039,7 +1039,7 @@ func TestLoadBalancingPolicySelection(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			rt := newRevisionThrottler(
+			rt := mustCreateRevisionThrottler(t, 
 				types.NamespacedName{Namespace: "test", Name: "revision"},
 				test.loadBalancingPolicy,
 				test.containerConcurrency,
@@ -1197,7 +1197,7 @@ func TestLoadBalancingAlgorithms(t *testing.T) {
 		servingClient.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 		revisions.Informer().GetIndexer().Add(rev)
 
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name},
 			rev.Spec.LoadBalancingPolicy,
 			10, // containerConcurrency
@@ -1243,7 +1243,7 @@ func TestLoadBalancingAlgorithms(t *testing.T) {
 		servingClient.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 		revisions.Informer().GetIndexer().Add(rev)
 
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name},
 			rev.Spec.LoadBalancingPolicy,
 			1, // containerConcurrency
@@ -1281,7 +1281,7 @@ func TestLoadBalancingAlgorithms(t *testing.T) {
 		servingClient.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 		revisions.Informer().GetIndexer().Add(rev)
 
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name},
 			rev.Spec.LoadBalancingPolicy,
 			10, // containerConcurrency
@@ -1322,7 +1322,7 @@ func TestLoadBalancingAlgorithms(t *testing.T) {
 		servingClient.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 		revisions.Informer().GetIndexer().Add(rev)
 
-		rt := newRevisionThrottler(
+		rt := mustCreateRevisionThrottler(t, 
 			types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name},
 			rev.Spec.LoadBalancingPolicy,
 			0, // containerConcurrency (infinite)

@@ -21,9 +21,12 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/networking/pkg/apis/networking"
+	"knative.dev/serving/pkg/queue"
 )
 
 func TestEndpointsToDests(t *testing.T) {
@@ -246,4 +249,17 @@ func addresses(prefix string, n int) []corev1.EndpointAddress {
 		})
 	}
 	return addrs
+}
+
+// mustCreateRevisionThrottler is a test helper that creates a revisionThrottler and panics on error.
+// Use this in tests where invalid parameters should never occur.
+func mustCreateRevisionThrottler(t *testing.T, revID types.NamespacedName,
+	loadBalancerPolicy *string, containerConcurrency int, proto string,
+	breakerParams queue.BreakerParams, logger *zap.SugaredLogger) *revisionThrottler {
+	t.Helper()
+	rt, err := newRevisionThrottler(revID, loadBalancerPolicy, containerConcurrency, proto, breakerParams, logger)
+	if err != nil {
+		t.Fatalf("Failed to create revision throttler: %v", err)
+	}
+	return rt
 }

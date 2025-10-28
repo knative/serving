@@ -716,13 +716,20 @@ func newRevisionThrottler(revID types.NamespacedName,
 	containerConcurrency int, proto string,
 	breakerParams queue.BreakerParams,
 	logger *zap.SugaredLogger,
-) *revisionThrottler {
+) (*revisionThrottler, error) {
 	logger = logger.With(zap.String(logkey.Key, revID.String()))
 	var (
 		revBreaker breaker
 		lbp        lbPolicy
 		lbpName    string
 	)
+
+	// Validate containerConcurrency before casting to uint64
+	// Negative values would wrap to very large positive numbers causing incorrect capacity calculations
+	// This should never happen due to K8s API validation, but we fail fast if it does
+	if containerConcurrency < 0 {
+		return nil, fmt.Errorf("invalid containerConcurrency: %d (must be non-negative)", containerConcurrency)
+	}
 
 	lbp, lbpName = pickLBPolicy(loadBalancerPolicy, nil, containerConcurrency, logger)
 	logger.Debugf("Creating revision throttler with load balancing policy: %s, container concurrency: %d", lbpName, containerConcurrency)
@@ -755,7 +762,7 @@ func newRevisionThrottler(revID types.NamespacedName,
 
 	// Start the state update worker goroutine
 	go t.stateWorker()
-	return t
+	return t, nil
 }
 
 // Close shuts down the revision throttler's worker goroutine and cleans up resources
@@ -1900,6 +1907,11 @@ func (rt *revisionThrottler) updateCapacity() {
 	<-done // Wait for completion
 }
 
+// updateThrottlerState is a legacy direct-mutation method that bypasses the work queue.
+// DEPRECATED: This method is only used in tests for simpler test setup. Production code
+// should use the queue-based approach (enqueueStateUpdate/processStateUpdate) to ensure
+// serialized state mutations and prevent race conditions.
+// TODO: Refactor tests to use the queue-based approach and remove this method.
 func (rt *revisionThrottler) updateThrottlerState(newTrackers []*podTracker, healthyDests []string, drainingDests []string) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -2441,7 +2453,7 @@ func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*r
 		if err != nil {
 			return nil, err
 		}
-		revThrottler = newRevisionThrottler(
+		revThrottler, err = newRevisionThrottler(
 			revID,
 			rev.Spec.LoadBalancingPolicy,
 			int(rev.Spec.GetContainerConcurrency()),
@@ -2449,6 +2461,9 @@ func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*r
 			queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: revisionMaxConcurrency},
 			t.logger,
 		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create revision throttler: %w", err)
+		}
 		t.revisionThrottlers[revID] = revThrottler
 	}
 	return revThrottler, nil

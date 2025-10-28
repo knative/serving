@@ -34,7 +34,7 @@ func TestQueueBasedStateManagement(t *testing.T) {
 	revID := types.NamespacedName{Namespace: "test", Name: "rev"}
 
 	// Create a revision throttler directly
-	rt := newRevisionThrottler(revID, nil, 1, "http",
+	rt := mustCreateRevisionThrottler(t, revID, nil, 1, "http",
 		queue.BreakerParams{
 			QueueDepth:      10,
 			MaxConcurrency:  1,
@@ -98,7 +98,7 @@ func TestQueueConcurrentStateUpdates(t *testing.T) {
 	revID := types.NamespacedName{Namespace: "test", Name: "rev"}
 
 	// Create a revision throttler directly
-	rt := newRevisionThrottler(revID, nil, 1, "http",
+	rt := mustCreateRevisionThrottler(t, revID, nil, 1, "http",
 		queue.BreakerParams{
 			QueueDepth:      10,
 			MaxConcurrency:  1,
