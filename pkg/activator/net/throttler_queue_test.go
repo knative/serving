@@ -17,6 +17,7 @@ limitations under the License.
 package net
 
 import (
+	"fmt"
 	"strconv"
 	"sync"
 	"testing"
@@ -181,12 +182,42 @@ func TestWorkerPanicRecovery(t *testing.T) {
 		t.Fatalf("Expected 1 pod, got %d", initialCount)
 	}
 
-	// Note: We cannot easily test panic recovery without modifying production code
-	// to inject a panic. The panic recovery path is tested indirectly through
-	// the stateWorkerPanics metric increment logic.
-	// Manual/integration tests should verify panic recovery behavior.
+	// Inject a panic on the next opAddPod operation
+	panicCount := 0
+	rt.testPanicInjector = func(req stateUpdateRequest) {
+		if req.op == opAddPod && req.pod == "10.0.0.2:8080" {
+			panicCount++
+			panic("injected test panic")
+		}
+	}
 
-	t.Log("Worker panic recovery requires integration testing - cannot easily unit test without code injection")
+	// Attempt to add a second pod - this should panic and recover
+	rt.addPodIncremental("10.0.0.2:8080", "ready", logger)
+
+	// Give the worker time to panic and restart
+	time.Sleep(100 * time.Millisecond)
+
+	// Clear the injector to prevent further panics
+	rt.testPanicInjector = nil
+
+	// Verify the worker recovered by adding a third pod
+	rt.addPodIncremental("10.0.0.3:8080", "ready", logger)
+	rt.FlushForTesting()
+
+	// Verify the third pod was added successfully (worker recovered)
+	rt.mux.RLock()
+	finalCount := len(rt.podTrackers)
+	rt.mux.RUnlock()
+
+	if finalCount != 2 {
+		t.Fatalf("Expected 2 pods after panic recovery (first + third), got %d", finalCount)
+	}
+
+	if panicCount != 1 {
+		t.Fatalf("Expected exactly 1 panic injection, got %d", panicCount)
+	}
+
+	t.Log("Worker successfully recovered from panic and processed subsequent requests")
 }
 
 // TestGracefulShutdown verifies that Close() properly drains the queue and stops the worker
@@ -229,4 +260,62 @@ func TestGracefulShutdown(t *testing.T) {
 	// The channel remains open during the 5-second shutdown window
 	// This is correct behavior - allows graceful completion of in-flight requests
 	t.Log("Close() called successfully - worker shutdown initiated")
+}
+
+// TestMemoryPressureProtection verifies that pod additions are rejected when exceeding maxTrackersPerRevision
+func TestMemoryPressureProtection(t *testing.T) {
+	logger := TestLogger(t)
+	revID := types.NamespacedName{Namespace: "test", Name: "rev"}
+
+	rt := mustCreateRevisionThrottler(t, revID, nil, 1, "http",
+		queue.BreakerParams{
+			QueueDepth:      10,
+			MaxConcurrency:  1,
+			InitialCapacity: 1,
+		}, logger)
+
+	// Add pods up to the limit (5000)
+	// For testing, we'll just add a reasonable number and verify the logic
+	// Adding 5000 pods would be too slow for unit tests
+	const testLimit = 100
+	originalLimit := maxTrackersPerRevision
+	defer func() {
+		// Restore original limit after test
+		maxTrackersPerRevision = originalLimit
+	}()
+
+	// Temporarily set a low limit for testing
+	maxTrackersPerRevision = testLimit
+
+	// Add pods up to the limit
+	for i := range testLimit {
+		podIP := fmt.Sprintf("10.0.0.%d:8080", i)
+		rt.addPodIncremental(podIP, "ready", logger)
+	}
+
+	rt.FlushForTesting()
+
+	// Verify we have exactly testLimit pods
+	rt.mux.RLock()
+	podCount := len(rt.podTrackers)
+	rt.mux.RUnlock()
+
+	if podCount != testLimit {
+		t.Fatalf("Expected %d pods, got %d", testLimit, podCount)
+	}
+
+	// Try to add one more pod - should be rejected
+	rt.addPodIncremental("10.0.0.255:8080", "ready", logger)
+	rt.FlushForTesting()
+
+	// Verify count didn't increase
+	rt.mux.RLock()
+	finalCount := len(rt.podTrackers)
+	rt.mux.RUnlock()
+
+	if finalCount != testLimit {
+		t.Fatalf("Expected pod count to remain at %d after rejection, got %d", testLimit, finalCount)
+	}
+
+	t.Logf("Memory pressure protection working - rejected pod addition at limit of %d", testLimit)
 }

@@ -447,9 +447,9 @@ func buildBreaker(logger *zap.SugaredLogger, env config) *queue.Breaker {
 	// allow the autoscaler time to react.
 	queueDepth := 10 * env.ContainerConcurrency
 	params := queue.BreakerParams{
-		QueueDepth:      queueDepth,
-		MaxConcurrency:  env.ContainerConcurrency,
-		InitialCapacity: env.ContainerConcurrency,
+		QueueDepth:      uint64(queueDepth),
+		MaxConcurrency:  uint64(env.ContainerConcurrency),
+		InitialCapacity: uint64(env.ContainerConcurrency),
 	}
 	logger.Infof("Queue container is starting with BreakerParams = %#v", params)
 	return queue.NewBreaker(params)

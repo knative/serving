@@ -112,6 +112,11 @@ const (
 // Feature gates for activator behavior
 // These are loaded from the config-features ConfigMap at runtime
 var (
+	// maxTrackersPerRevision - Maximum number of pod trackers allowed per revision
+	// Protects against memory exhaustion from excessive pod scaling
+	// Each tracker uses ~80KB (breaker with 10,000 queue depth)
+	// 5,000 trackers = ~400MB per revision, reasonable for production activators
+	maxTrackersPerRevision = 5000
 	// enableQPAuthority controls whether queue-proxy events trigger state changes
 	// When true (default), QP events are authoritative and override K8s informer state
 	// When false, activator receives but ignores QP state change events
@@ -231,6 +236,14 @@ var (
 		prometheus.CounterOpts{
 			Name: "activator_revision_throttler_worker_panics_total",
 			Help: "Total number of panics in state worker goroutine (indicates bugs)",
+		},
+		[]string{"namespace", "revision"},
+	)
+
+	revisionTrackerLimitExceeded = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "activator_revision_tracker_limit_exceeded_total",
+			Help: "Total number of pod additions rejected due to exceeding maxTrackersPerRevision",
 		},
 		[]string{"namespace", "revision"},
 	)
@@ -716,6 +729,10 @@ type revisionThrottler struct {
 	// done signals the worker goroutine to stop
 	done chan struct{}
 
+	// testPanicInjector is used ONLY for testing panic recovery behavior
+	// When non-nil, called before processing each request to allow panic injection
+	testPanicInjector func(stateUpdateRequest)
+
 	logger *zap.SugaredLogger
 }
 
@@ -847,6 +864,11 @@ func safeCloseDone(done chan struct{}) {
 // enqueueStateUpdate sends a state update request to the worker queue with timeout protection.
 // Returns error if the queue is full or the send times out (indicating worker issues).
 // This prevents indefinite blocking if the worker dies or gets stuck.
+//
+// Error handling: Callers log errors and skip the update. This is acceptable because:
+// - Errors indicate systemic issues (worker death/saturation) that need investigation
+// - State updates are eventually consistent via K8s informer reconciliation
+// - Dropped updates are tracked via stateUpdateQueueDropped metric for monitoring
 func (rt *revisionThrottler) enqueueStateUpdate(req stateUpdateRequest) error {
 	// Use a select with timeout to prevent blocking indefinitely
 	timer := time.NewTimer(stateUpdateTimeout)
@@ -956,6 +978,11 @@ func (rt *revisionThrottler) stateWorker() {
 
 // processStateUpdate handles a single state update request atomically
 func (rt *revisionThrottler) processStateUpdate(req stateUpdateRequest) {
+	// Test-only panic injection hook
+	if rt.testPanicInjector != nil {
+		rt.testPanicInjector(req)
+	}
+
 	// All operations hold the write lock for the entire duration
 	// to ensure atomicity of pod mutations and capacity updates
 	rt.mux.Lock()
@@ -970,6 +997,16 @@ func (rt *revisionThrottler) processStateUpdate(req stateUpdateRequest) {
 			// Pod exists - handle state update based on event type
 			rt.handleExistingPodEvent(tracker, req.eventType)
 		} else {
+			// Memory pressure protection: enforce max trackers per revision
+			if len(rt.podTrackers) >= maxTrackersPerRevision {
+				revisionTrackerLimitExceeded.WithLabelValues(rt.revID.Namespace, rt.revID.Name).Inc()
+				rt.logger.Errorw("Rejected pod addition - max trackers exceeded",
+					"pod", req.pod,
+					"current-count", len(rt.podTrackers),
+					"max-allowed", maxTrackersPerRevision)
+				return
+			}
+
 			// Create new pod tracker
 			tracker = &podTracker{
 				dest:       req.pod,
