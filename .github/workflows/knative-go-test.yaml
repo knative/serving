@@ -16,7 +16,5 @@ on:
 jobs:
   test:
     uses: knative/actions/.github/workflows/reusable-go-test.yaml@main
-    with:
-      runs-on-labels: '["depot-ubuntu-24.04-8"]'
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
