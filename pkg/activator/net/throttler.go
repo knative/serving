@@ -157,6 +157,14 @@ func resetFeatureGatesForTesting() {
 	enableQuarantine = true
 }
 
+// getFeatureGates safely reads the current feature gate values.
+// Returns (enableQPAuthority, enableQuarantine).
+func getFeatureGates() (bool, bool) {
+	featureGateMutex.RLock()
+	defer featureGateMutex.RUnlock()
+	return enableQPAuthority, enableQuarantine
+}
+
 // Prometheus metrics for monitoring QP authoritative state system
 var (
 	// podStateTransitions tracks pod state transitions
@@ -486,12 +494,14 @@ func (p *podTracker) getRefCount() uint64 {
 }
 
 func (p *podTracker) tryDrain() bool {
+	_, quarantineEnabled := getFeatureGates()
+
 	if p.state.CompareAndSwap(uint32(podReady), uint32(podDraining)) {
 		p.drainingStartTime.Store(time.Now().Unix())
 		return true
 	}
 	// When quarantine is enabled, also allow draining from podRecovering state
-	if enableQuarantine && p.state.CompareAndSwap(uint32(podRecovering), uint32(podDraining)) {
+	if quarantineEnabled && p.state.CompareAndSwap(uint32(podRecovering), uint32(podDraining)) {
 		p.drainingStartTime.Store(time.Now().Unix())
 		return true
 	}
@@ -846,6 +856,15 @@ func (rt *revisionThrottler) processStateUpdate(req stateUpdateRequest) {
 				dest:       req.pod,
 				b:          rt.makeBreaker(),
 				revisionID: rt.revID,
+				id:         string(uuid.NewUUID()),
+				createdAt:  time.Now().Unix(),
+			}
+
+			// Initialize the decreaseWeight function (required for load balancing)
+			tracker.decreaseWeight = func() {
+				if tracker.weight.Load() > 0 {
+					tracker.weight.Add(^uint32(0))
+				}
 			}
 
 			// Set initial state based on event type and enableQPAuthority
@@ -941,8 +960,12 @@ func (rt *revisionThrottler) makeBreaker() breaker {
 func (rt *revisionThrottler) updateCapacityLocked() {
 	backendCount := len(rt.podTrackers)
 
-	// Skip updates when there are no pods
+	// When there are no pods, clear everything and set capacity to 0
 	if backendCount == 0 {
+		rt.assignedTrackers = nil
+		rt.breaker.UpdateConcurrency(0)
+		rt.logger.Debugw("All pods removed, capacity set to 0",
+			"revision", rt.revID.String())
 		return
 	}
 
@@ -1050,6 +1073,8 @@ func (rt *revisionThrottler) handleExistingPodEvent(tracker *podTracker, eventTy
 // recalculateFromEndpointsLocked performs full reconciliation from K8s endpoints
 // Must be called while holding the write lock
 func (rt *revisionThrottler) recalculateFromEndpointsLocked(dests sets.Set[string]) {
+	qpAuthority, quarantineEnabled := getFeatureGates()
+
 	// This reconciles the pod tracker map with the destinations from K8s informer
 	// It replicates the logic from the original updateThrottlerState
 
@@ -1068,10 +1093,31 @@ func (rt *revisionThrottler) recalculateFromEndpointsLocked(dests sets.Set[strin
 				createdAt:  time.Now().Unix(),
 			}
 
+			// Initialize the decreaseWeight function (required for load balancing)
+			tracker.decreaseWeight = func() {
+				if tracker.weight.Load() > 0 {
+					tracker.weight.Add(^uint32(0))
+				}
+			}
+
 			// When QP authority is enabled, start as podNotReady (wait for QP ready event)
 			// When disabled, start as podReady (trust K8s immediately)
-			if enableQPAuthority {
+			if qpAuthority {
 				tracker.state.Store(uint32(podNotReady))
+
+				// Check if we should immediately promote to ready
+				// (QP has never been heard from, so it's considered stale)
+				lastQPSeen := tracker.lastQPUpdate.Load()
+				qpAge := time.Now().Unix() - lastQPSeen
+
+				if qpAge > int64(QPStalenessThreshold.Seconds()) {
+					// QP data is stale (or never received), trust K8s informer
+					tracker.state.Store(uint32(podReady))
+					rt.logger.Debugw("New pod tracker immediately promoted to ready (no QP data)",
+						"dest", dest,
+						"tracker-id", tracker.id,
+						"qp-age-sec", qpAge)
+				}
 			} else {
 				tracker.state.Store(uint32(podReady))
 			}
@@ -1087,7 +1133,7 @@ func (rt *revisionThrottler) recalculateFromEndpointsLocked(dests sets.Set[strin
 			currentState := podState(tracker.state.Load())
 
 			// Check QP freshness to determine if we should trust informer (only when QP authority enabled)
-			if enableQPAuthority {
+			if qpAuthority {
 				lastQPSeen := tracker.lastQPUpdate.Load()
 				qpAge := time.Now().Unix() - lastQPSeen
 
@@ -1127,7 +1173,7 @@ func (rt *revisionThrottler) recalculateFromEndpointsLocked(dests sets.Set[strin
 				case podReady, podRecovering:
 					// When QP authority enabled: use proper draining
 					// When disabled: transition to not-ready
-					if enableQPAuthority {
+					if qpAuthority {
 						if tracker.tryDrain() {
 							fromState := "ready"
 							if currentState == podRecovering {
@@ -1169,7 +1215,7 @@ func (rt *revisionThrottler) recalculateFromEndpointsLocked(dests sets.Set[strin
 				case podQuarantined:
 					// When quarantine enabled: clean transition
 					// When disabled: immediate removal
-					if enableQuarantine {
+					if quarantineEnabled {
 						transitionOutOfQuarantine(context.Background(), tracker, podRemoved)
 					} else {
 						tracker.state.Store(uint32(podRemoved))
@@ -1216,7 +1262,9 @@ func (rt *revisionThrottler) recomputeAssignedTrackers(podTrackers map[string]*p
 // transitionOutOfQuarantine ensures we decrement quarantine gauge exactly once
 // and optionally set a new state. Returns true if a decrement happened.
 func transitionOutOfQuarantine(ctx context.Context, p *podTracker, newState podState) bool {
-	if !enableQuarantine || p == nil {
+	_, quarantineEnabled := getFeatureGates()
+
+	if !quarantineEnabled || p == nil {
 		return false
 	}
 	// Use CAS to atomically transition from quarantined to new state
@@ -1338,6 +1386,8 @@ func tcpPingCheck(dest string, expectedRevision types.NamespacedName) error {
 // podNotReady pods are excluded until explicitly promoted to healthy
 // When enableQuarantine=true, also filters out quarantined/recovering pods
 func (rt *revisionThrottler) filterAvailableTrackers(trackers []*podTracker) []*podTracker {
+	_, quarantineEnabled := getFeatureGates()
+
 	available := make([]*podTracker, 0, len(trackers))
 
 	now := time.Now().Unix()
@@ -1348,7 +1398,7 @@ func (rt *revisionThrottler) filterAvailableTrackers(trackers []*podTracker) []*
 		state := podState(tracker.state.Load())
 
 		// When quarantine is enabled, handle quarantine/recovering states
-		if enableQuarantine {
+		if quarantineEnabled {
 			switch state {
 			case podQuarantined:
 				// Check if quarantine period has expired
@@ -1842,149 +1892,13 @@ func (rt *revisionThrottler) resetTrackers() {
 // 2. Activator endpoint updates
 // The work queue ensures pod mutations and capacity updates are serialized.
 func (rt *revisionThrottler) updateCapacity() {
-	// Read backend count from the current pod tracker map
-	rt.mux.RLock()
-	backendCount := len(rt.podTrackers)
-	rt.mux.RUnlock()
-
-	// We have to make assignments on each updateCapacity, since if number
-	// of activators changes, then we need to rebalance the assignedTrackers.
-	ac, ai := int(rt.numActivators.Load()), int(rt.activatorIndex.Load())
-	numTrackers := func() int {
-		// We need to read podTrackers under lock for race safety.
-		// Other goroutines like resetTrackers may also read podTrackers.
-
-		rt.mux.RLock()
-		// We're using cluster IP.
-		if rt.clusterIPTracker != nil {
-			rt.mux.RUnlock()
-			return 0
-		}
-
-		var assigned []*podTracker
-		if rt.containerConcurrency.Load() > 0 {
-			rt.mux.RUnlock() // Release lock before calling resetTrackers
-			rt.resetTrackers()
-			rt.mux.RLock() // Re-acquire for assignSlice
-			assigned = assignSlice(rt.podTrackers, ai, ac)
-		} else {
-			assigned = maps.Values(rt.podTrackers)
-		}
-		// TODO: Remove this diagnostic log after capacity lag investigation is complete
-		// Capture total pods while still holding lock to avoid race
-		totalPodsSnapshot := len(rt.podTrackers)
-		rt.mux.RUnlock()
-
-		rt.logger.Debugf("Trackers %d/%d: assignment: %v", ai, ac, assigned)
-
-		// Log assignment details to diagnose why assigned count differs from total pods
-		if len(assigned) != totalPodsSnapshot {
-			rt.logger.Debugw("Pod assignment mismatch detected",
-				"total-pods-in-map", totalPodsSnapshot,
-				"assigned-to-this-activator", len(assigned),
-				"activator-index", ai,
-				"activator-count", ac)
-		}
-
-		// Sort, so we get more or less stable results.
-		sort.Slice(assigned, func(i, j int) bool {
-			return assigned[i].dest < assigned[j].dest
-		})
-
-		// The actual write out of the assigned trackers has to be under lock.
-		rt.mux.Lock()
-		rt.assignedTrackers = assigned
-		rt.mux.Unlock()
-		return len(assigned)
-	}()
-
-	capacity := rt.calculateCapacity(backendCount, numTrackers, ac)
-
-	// Log capacity changes, especially when going to/from zero
-	oldCapacity := rt.breaker.Capacity()
-
-	// TODO: Remove this diagnostic log after capacity lag investigation is complete
-	// Log all capacity updates to diagnose why capacity doesn't match pod count
-	if capacity != int(oldCapacity) {
-		rt.logger.Debugw("Revision capacity changing",
-			"old-capacity", oldCapacity,
-			"new-capacity", capacity,
-			"backends", backendCount,
-			"assigned-trackers", numTrackers,
-			"total-pods-in-map", func() int {
-				rt.mux.RLock()
-				defer rt.mux.RUnlock()
-				return len(rt.podTrackers)
-			}(),
-			"activator-index", ai,
-			"activator-count", ac,
-			"container-concurrency", rt.containerConcurrency.Load())
+	// Send a capacity recalculation request through the work queue to avoid races
+	done := make(chan struct{})
+	rt.stateUpdateChan <- stateUpdateRequest{
+		op:   opRecalculateCapacity,
+		done: done,
 	}
-
-	if capacity == 0 && oldCapacity > 0 {
-		// Capacity dropped to zero - explain why
-		rt.mux.RLock()
-		totalPods := len(rt.podTrackers)
-		rt.mux.RUnlock()
-
-		rt.logger.Warnw("Revision capacity dropped to zero",
-			"old-capacity", oldCapacity,
-			"backends", backendCount,
-			"assigned-trackers", numTrackers,
-			"total-pods", totalPods,
-			"activator-index", ai,
-			"activator-count", ac)
-	} else if capacity > 0 && oldCapacity == 0 {
-		// Capacity increased from zero - waiting requests will now be unblocked
-		rt.logger.Infow("Revision capacity restored (unblocking waiting requests)",
-			"new-capacity", capacity,
-			"backends", backendCount,
-			"assigned-trackers", numTrackers,
-			"activator-index", ai,
-			"activator-count", ac)
-	} else if capacity == 0 {
-		// Starting with zero capacity - log reason
-		rt.mux.RLock()
-		totalPods := len(rt.podTrackers)
-		rt.mux.RUnlock()
-
-		if totalPods > 0 && numTrackers == 0 {
-			rt.logger.Infow("Revision has zero capacity: no pods assigned to this activator",
-				"total-pods", totalPods,
-				"activator-index", ai,
-				"activator-count", ac)
-		} else if backendCount == 0 {
-			rt.logger.Infow("Revision has zero capacity: no backends available",
-				"backends", backendCount)
-		}
-	}
-
-	rt.logger.Debugf("Set capacity to %d (backends: %d, index: %d/%d)",
-		capacity, backendCount, ai, ac)
-
-	// TODO: Remove this diagnostic log after capacity lag investigation is complete
-	// When there's a significant gap between expected and actual capacity, log pod states
-	expectedCapacity := int(rt.containerConcurrency.Load()) * numTrackers
-	if expectedCapacity > 0 && capacity < expectedCapacity {
-		rt.mux.RLock()
-		podStates := make(map[string]podState)
-		for dest, tracker := range rt.podTrackers {
-			if tracker != nil {
-				podStates[dest] = podState(tracker.state.Load())
-			}
-		}
-		rt.mux.RUnlock()
-		rt.logger.Warnw("Capacity gap detected",
-			"expected-capacity", expectedCapacity,
-			"actual-capacity", capacity,
-			"capacity-gap", expectedCapacity-capacity,
-			"backends-param", backendCount,
-			"num-trackers", numTrackers,
-			"pod-states", podStates)
-	}
-
-	rt.backendCount.Store(uint32(backendCount))
-	rt.breaker.UpdateConcurrency(capacity)
+	<-done // Wait for completion
 }
 
 func (rt *revisionThrottler) updateThrottlerState(newTrackers []*podTracker, healthyDests []string, drainingDests []string) {
@@ -2058,7 +1972,8 @@ func (rt *revisionThrottler) updateThrottlerState(newTrackers []*podTracker, hea
 			var qpAge int64
 			var lastQPEvent string
 
-			if enableQPAuthority {
+			qpAuthority, _ := getFeatureGates()
+			if qpAuthority {
 				lastQPSeen = tracker.lastQPUpdate.Load()
 				qpAge = time.Now().Unix() - lastQPSeen
 				if val := tracker.lastQPState.Load(); val != nil {
@@ -2072,7 +1987,7 @@ func (rt *revisionThrottler) updateThrottlerState(newTrackers []*podTracker, hea
 			case podDraining, podRemoved:
 				// Pod was being removed but is back in healthy endpoint list (e.g., rolling update rollback)
 				// Use QP freshness to decide state - if we missed QP events, trust K8s informer
-				if enableQPAuthority {
+				if qpAuthority {
 					// Only set to notReady if QP recently said "not-ready"
 					// Otherwise trust K8s (QP data stale or already confirmed ready)
 					if lastQPEvent == "not-ready" && qpAge < int64(QPFreshnessNotReadyWindow.Seconds()) {
@@ -2097,7 +2012,7 @@ func (rt *revisionThrottler) updateThrottlerState(newTrackers []*podTracker, hea
 				// Quarantine states, nothing to do
 			case podNotReady:
 				// K8s says healthy, pod is pending
-				if enableQPAuthority {
+				if qpAuthority {
 					// Only promote if QP hasn't recently said "not-ready"
 					if lastQPEvent == "not-ready" && qpAge < int64(QPFreshnessNotReadyWindow.Seconds()) {
 						qpAuthorityOverrides.WithLabelValues("ignored_promotion", "qp_recently_not_ready").Inc()
@@ -2122,6 +2037,7 @@ func (rt *revisionThrottler) updateThrottlerState(newTrackers []*podTracker, hea
 	}
 	// Handle pod draining to prevent dropped requests during pod removal
 	now := time.Now().Unix()
+	qpAuthEnabled, quarantineEnabled := getFeatureGates()
 	for _, d := range drainingDests {
 		tracker := rt.podTrackers[d]
 		if tracker == nil {
@@ -2135,7 +2051,7 @@ func (rt *revisionThrottler) updateThrottlerState(newTrackers []*podTracker, hea
 		var qpAge int64
 		var lastQPEvent string
 
-		if enableQPAuthority {
+		if qpAuthEnabled {
 			lastQPSeen = tracker.lastQPUpdate.Load()
 			qpAge = now - lastQPSeen
 			if val := tracker.lastQPState.Load(); val != nil {
@@ -2166,7 +2082,7 @@ func (rt *revisionThrottler) updateThrottlerState(newTrackers []*podTracker, hea
 		case podReady, podRecovering:
 			// When QP authority is enabled, use proper draining (graceful shutdown)
 			// When QP authority is disabled, just mark as not-ready (K8s informer says pod is going away)
-			if enableQPAuthority {
+			if qpAuthEnabled {
 				if tracker.tryDrain() {
 					fromState := "ready"
 					if currentState == podRecovering {
@@ -2203,7 +2119,7 @@ func (rt *revisionThrottler) updateThrottlerState(newTrackers []*podTracker, hea
 			}
 		case podQuarantined:
 			// When quarantine is enabled, remove quarantined pods cleanly
-			if enableQuarantine {
+			if quarantineEnabled {
 				transitionOutOfQuarantine(context.Background(), tracker, podRemoved)
 				delete(rt.podTrackers, d)
 				rt.logger.Infow("Pod removed while in quarantine",
