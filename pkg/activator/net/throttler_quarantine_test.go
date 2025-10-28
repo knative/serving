@@ -33,7 +33,7 @@ func TestQuarantineRecoveryMechanism(t *testing.T) {
 
 	t.Run("quarantined pods transition to recovering state", func(t *testing.T) {
 		revID := types.NamespacedName{Namespace: "test", Name: "revision"}
-		rt := mustCreateRevisionThrottler(t, 
+		rt := mustCreateRevisionThrottler(t,
 			revID,
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10},

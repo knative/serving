@@ -33,7 +33,7 @@ func TestQuarantineOverridesQPState(t *testing.T) {
 	logger := TestLogger(t)
 
 	t.Run("health check failure quarantines despite QP ready", func(t *testing.T) {
-		rt := mustCreateRevisionThrottler(t, 
+		rt := mustCreateRevisionThrottler(t,
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -75,7 +75,7 @@ func TestQuarantineOverridesQPState(t *testing.T) {
 	})
 
 	t.Run("quarantine prevents QP ready promotion", func(t *testing.T) {
-		rt := mustCreateRevisionThrottler(t, 
+		rt := mustCreateRevisionThrottler(t,
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -143,7 +143,7 @@ func TestQPEventsWithQuarantine(t *testing.T) {
 	logger := TestLogger(t)
 
 	t.Run("QP not-ready still allows transition via quarantine flow", func(t *testing.T) {
-		rt := mustCreateRevisionThrottler(t, 
+		rt := mustCreateRevisionThrottler(t,
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -189,7 +189,7 @@ func TestQPEventsWithQuarantine(t *testing.T) {
 	})
 
 	t.Run("podRecovering can receive QP events", func(t *testing.T) {
-		rt := mustCreateRevisionThrottler(t, 
+		rt := mustCreateRevisionThrottler(t,
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -226,7 +226,7 @@ func TestQPEventsWithQuarantine(t *testing.T) {
 	})
 
 	t.Run("QP draining works with quarantine system", func(t *testing.T) {
-		rt := mustCreateRevisionThrottler(t, 
+		rt := mustCreateRevisionThrottler(t,
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 10, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -274,7 +274,7 @@ func TestHealthCheckWithQPAuthority(t *testing.T) {
 	logger := TestLogger(t)
 
 	t.Run("health checks still happen when quarantine enabled", func(t *testing.T) {
-		rt := mustCreateRevisionThrottler(t, 
+		rt := mustCreateRevisionThrottler(t,
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
@@ -322,7 +322,7 @@ func TestHealthCheckWithQPAuthority(t *testing.T) {
 	})
 
 	t.Run("recovering pods counted as available with QP authority", func(t *testing.T) {
-		rt := mustCreateRevisionThrottler(t, 
+		rt := mustCreateRevisionThrottler(t,
 			types.NamespacedName{Namespace: "test", Name: "revision"},
 			nil, 1, "http",
 			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},

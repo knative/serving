@@ -1039,7 +1039,7 @@ func TestLoadBalancingPolicySelection(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			rt := mustCreateRevisionThrottler(t, 
+			rt := mustCreateRevisionThrottler(t,
 				types.NamespacedName{Namespace: "test", Name: "revision"},
 				test.loadBalancingPolicy,
 				test.containerConcurrency,
@@ -1197,7 +1197,7 @@ func TestLoadBalancingAlgorithms(t *testing.T) {
 		servingClient.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 		revisions.Informer().GetIndexer().Add(rev)
 
-		rt := mustCreateRevisionThrottler(t, 
+		rt := mustCreateRevisionThrottler(t,
 			types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name},
 			rev.Spec.LoadBalancingPolicy,
 			10, // containerConcurrency
@@ -1243,7 +1243,7 @@ func TestLoadBalancingAlgorithms(t *testing.T) {
 		servingClient.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 		revisions.Informer().GetIndexer().Add(rev)
 
-		rt := mustCreateRevisionThrottler(t, 
+		rt := mustCreateRevisionThrottler(t,
 			types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name},
 			rev.Spec.LoadBalancingPolicy,
 			1, // containerConcurrency
@@ -1281,7 +1281,7 @@ func TestLoadBalancingAlgorithms(t *testing.T) {
 		servingClient.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 		revisions.Informer().GetIndexer().Add(rev)
 
-		rt := mustCreateRevisionThrottler(t, 
+		rt := mustCreateRevisionThrottler(t,
 			types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name},
 			rev.Spec.LoadBalancingPolicy,
 			10, // containerConcurrency
@@ -1322,7 +1322,7 @@ func TestLoadBalancingAlgorithms(t *testing.T) {
 		servingClient.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
 		revisions.Informer().GetIndexer().Add(rev)
 
-		rt := mustCreateRevisionThrottler(t, 
+		rt := mustCreateRevisionThrottler(t,
 			types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name},
 			rev.Spec.LoadBalancingPolicy,
 			0, // containerConcurrency (infinite)
