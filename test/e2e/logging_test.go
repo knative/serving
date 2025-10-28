@@ -49,8 +49,6 @@ import (
 const template = `{"httpRequest": {"requestMethod": "{{.Request.Method}}", "requestUrl": "{{js .Request.RequestURI}}", "requestSize": "{{.Request.ContentLength}}", "status": {{.Response.Code}}, "responseSize": "{{.Response.Size}}", "userAgent": "{{js .Request.UserAgent}}", "remoteIp": "{{js .Request.RemoteAddr}}", "serverIp": "{{.Revision.PodIP}}", "referer": "{{js .Request.Referer}}", "latency": "{{.Response.Latency}}s", "protocol": "{{.Request.Proto}}"}, "traceId": "{{.TraceID}}"}`
 
 func TestRequestLogs(t *testing.T) {
-	t.Skip("skipping test while we implement OTel into the queue-proxy")
-
 	t.Parallel()
 	clients := Setup(t)
 
