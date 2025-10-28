@@ -2008,11 +2008,24 @@ func (rt *revisionThrottler) updateCapacity() {
 	<-done // Wait for completion
 }
 
-// updateThrottlerState is a legacy direct-mutation method that bypasses the work queue.
-// DEPRECATED: This method is only used in tests for simpler test setup. Production code
-// should use the queue-based approach (enqueueStateUpdate/processStateUpdate) to ensure
-// serialized state mutations and prevent race conditions.
-// TODO: Refactor tests to use the queue-based approach and remove this method.
+// updateThrottlerState is a test-only helper for fine-grained state control in unit tests.
+//
+// **FOR TESTING ONLY** - This method directly mutates state without using the work queue.
+// Production code MUST use the queue-based approach (enqueueStateUpdate/processStateUpdate).
+//
+// Why this exists:
+//   - Unit tests need synchronous, fine-grained control over pod state transitions
+//   - Tests specifically verify QP freshness logic, state machine transitions, and edge cases
+//   - The queue-based API is asynchronous and operates at a higher abstraction level
+//   - Both implementations contain QP freshness checks, but this method has more granular control
+//
+// Production code path testing:
+//   - The queue-based mechanism (processStateUpdate/recalculateFromEndpointsLocked) IS tested
+//   - Integration tests exercise the full production path including queue serialization
+//   - This method allows unit tests to focus on state machine logic without queue complexity
+//
+// Trade-off accepted: Having a test-only synchronous API improves test clarity and maintainability
+// while the production queue-based path is validated through integration tests.
 func (rt *revisionThrottler) updateThrottlerState(newTrackers []*podTracker, healthyDests []string, drainingDests []string) {
 	defer func() {
 		if r := recover(); r != nil {
