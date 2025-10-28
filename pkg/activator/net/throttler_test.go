@@ -1881,7 +1881,7 @@ func TestResetTrackersRaceCondition(t *testing.T) {
 			breaker:         queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
 			podTrackers:     make(map[string]*podTracker),
 			stateUpdateChan: make(chan stateUpdateRequest, 500), // Fix: Add channel
-			done:            make(chan struct{}),                 // Fix: Add done channel
+			done:            make(chan struct{}),                // Fix: Add done channel
 		}
 		rt.containerConcurrency.Store(2) // Enable resetTrackers to actually do work
 		rt.lbPolicy.Store(lbPolicy(firstAvailableLBPolicy))
@@ -1958,7 +1958,7 @@ func TestResetTrackersRaceCondition(t *testing.T) {
 			breaker:         queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
 			podTrackers:     make(map[string]*podTracker),
 			stateUpdateChan: make(chan stateUpdateRequest, 500), // Fix: Add channel
-			done:            make(chan struct{}),                 // Fix: Add done channel
+			done:            make(chan struct{}),                // Fix: Add done channel
 		}
 		rt.containerConcurrency.Store(2)
 
@@ -1989,7 +1989,7 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 			breaker:         queue.NewBreaker(queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 100}),
 			podTrackers:     make(map[string]*podTracker),
 			stateUpdateChan: make(chan stateUpdateRequest, 500), // Fix: Add channel
-			done:            make(chan struct{}),                 // Fix: Add done channel
+			done:            make(chan struct{}),                // Fix: Add done channel
 		}
 		rt.containerConcurrency.Store(10)
 		rt.lbPolicy.Store(lbPolicy(randomLBPolicy))
@@ -2053,7 +2053,7 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 			breaker:         queue.NewBreaker(queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 100}),
 			podTrackers:     make(map[string]*podTracker),
 			stateUpdateChan: make(chan stateUpdateRequest, 500), // Fix: Add channel
-			done:            make(chan struct{}),                 // Fix: Add done channel
+			done:            make(chan struct{}),                // Fix: Add done channel
 		}
 		rt.containerConcurrency.Store(10)
 		rt.lbPolicy.Store(lbPolicy(randomLBPolicy))

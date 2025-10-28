@@ -1897,7 +1897,8 @@ func (rt *revisionThrottler) updateCapacity() {
 		op:   opRecalculateCapacity,
 		done: done,
 	}
-	<-done // Wait for completion}
+	<-done // Wait for completion
+}
 
 func (rt *revisionThrottler) updateThrottlerState(newTrackers []*podTracker, healthyDests []string, drainingDests []string) {
 	defer func() {
