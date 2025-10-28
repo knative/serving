@@ -207,6 +207,17 @@ var (
 		},
 		[]string{"namespace", "revision", "reason"},
 	)
+
+	// stateWorkerPanics tracks panics in the state worker goroutine
+	// Labels: namespace, revision
+	// High values indicate a bug that needs investigation
+	stateWorkerPanics = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "activator_revision_throttler_worker_panics_total",
+			Help: "Total number of panics in state worker goroutine (indicates bugs)",
+		},
+		[]string{"namespace", "revision"},
+	)
 )
 
 func newPodTracker(dest string, revisionID types.NamespacedName, b breaker) *podTracker {
@@ -864,13 +875,32 @@ func (rt *revisionThrottler) dequeueStateUpdate() {
 // stateWorker processes state update requests serially to prevent race conditions
 // Buffer size: 500 requests can be queued before blocking senders
 // This provides burst absorption while preventing unbounded memory growth
+//
+// Panic Recovery Behavior:
+// - If a panic occurs during request processing, the worker restarts automatically
+// - The in-flight request's done channel is closed to unblock the caller
+// - This causes state loss for that single request (acceptable trade-off)
+// - Panics are tracked via stateWorkerPanics metric and indicate bugs
 func (rt *revisionThrottler) stateWorker() {
+	var currentReq *stateUpdateRequest // Track in-flight request for panic recovery
+
 	// Panic recovery to prevent worker death from killing the system
 	defer func() {
 		if r := recover(); r != nil {
+			// Increment panic counter for monitoring
+			stateWorkerPanics.WithLabelValues(rt.revID.Namespace, rt.revID.Name).Inc()
+
 			rt.logger.Errorw("State worker panicked, restarting",
 				"panic", r,
 				"stack", string(debug.Stack()))
+
+			// Signal the in-flight request if any, so caller doesn't hang
+			if currentReq != nil && currentReq.done != nil {
+				safeCloseDone(currentReq.done)
+				rt.logger.Warnw("In-flight request aborted due to panic - state loss occurred",
+					"op", currentReq.op)
+			}
+
 			// Restart the worker
 			go rt.stateWorker()
 		}
@@ -897,7 +927,10 @@ func (rt *revisionThrottler) stateWorker() {
 				}
 			}
 		case req := <-rt.stateUpdateChan:
+			currentReq = &req // Track for panic recovery
 			rt.processStateUpdate(req)
+			currentReq = nil // Clear after successful processing
+
 			// Update queue depth metric after processing
 			rt.dequeueStateUpdate()
 			// Signal completion if waiting
