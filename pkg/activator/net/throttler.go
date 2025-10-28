@@ -865,11 +865,7 @@ func (rt *revisionThrottler) IsWorkerHealthy() bool {
 	// Check queue saturation (> 50% full indicates pressure)
 	queueDepth := len(rt.stateUpdateChan)
 	queueCapacity := cap(rt.stateUpdateChan)
-	if queueDepth > queueCapacity/2 {
-		return false
-	}
-
-	return true
+	return queueDepth <= queueCapacity/2
 }
 
 // safeCloseDone safely closes a done channel, preventing panic from double-close
@@ -2038,7 +2034,7 @@ func (rt *revisionThrottler) calculateCapacity(backendCount uint64, numTrackers 
 		// when we are using clusterIP routing.
 		targetCapacity = cc * backendCount
 		if targetCapacity > 0 {
-			targetCapacity = targetCapacity / max(1, activatorCount)
+			targetCapacity /= max(1, activatorCount)
 		}
 	}
 
@@ -2420,6 +2416,7 @@ func assignSlice(trackers map[string]*podTracker, selfIndex, numActivators uint6
 	// take all pods where podIdx % numActivators == (selfIndex-1)
 	assigned := make([]*podTracker, 0)
 	for i, dest := range dests {
+		//nolint:gosec // G115: Safe conversion - i is array index, always small and positive
 		if uint64(i)%numActivators == (selfIndex - 1) { // Subtract 1 for modulo with 1-based index
 			assigned = append(assigned, trackers[dest])
 		}
