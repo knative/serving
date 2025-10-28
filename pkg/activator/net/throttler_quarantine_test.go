@@ -216,11 +216,8 @@ func TestQuarantineRecoveryMechanism(t *testing.T) {
 			close(done)
 		}()
 
-		// Give it a moment to process
-		select {
-		case <-done:
-		case <-time.After(100 * time.Millisecond):
-		}
+		// Wait for the goroutine to complete to prevent test cleanup race
+		<-done
 
 		// Pod should still be in recovering state, not forced to healthy
 		if podState(tracker.state.Load()) != podRecovering {
