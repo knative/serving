@@ -733,6 +733,10 @@ type revisionThrottler struct {
 	// When non-nil, called before processing each request to allow panic injection
 	testPanicInjector func(stateUpdateRequest)
 
+	// lastPanicTime tracks when the worker last panicked (Unix timestamp)
+	// Used for health monitoring to detect repeated panic loops
+	lastPanicTime atomic.Int64
+
 	logger *zap.SugaredLogger
 }
 
@@ -849,6 +853,25 @@ func (rt *revisionThrottler) FlushForTesting() {
 
 func noop() {}
 
+// IsWorkerHealthy returns true if the worker is operating normally
+// Returns false if the worker has panicked recently or queue is saturated
+func (rt *revisionThrottler) IsWorkerHealthy() bool {
+	// Check if panicked in the last minute
+	lastPanic := rt.lastPanicTime.Load()
+	if lastPanic > 0 && time.Since(time.Unix(lastPanic, 0)) < time.Minute {
+		return false
+	}
+
+	// Check queue saturation (> 50% full indicates pressure)
+	queueDepth := len(rt.stateUpdateChan)
+	queueCapacity := cap(rt.stateUpdateChan)
+	if queueDepth > queueCapacity/2 {
+		return false
+	}
+
+	return true
+}
+
 // safeCloseDone safely closes a done channel, preventing panic from double-close
 func safeCloseDone(done chan struct{}) {
 	if done != nil {
@@ -918,6 +941,9 @@ func (rt *revisionThrottler) stateWorker() {
 	// Panic recovery to prevent worker death from killing the system
 	defer func() {
 		if r := recover(); r != nil {
+			// Track panic time for health monitoring
+			rt.lastPanicTime.Store(time.Now().Unix())
+
 			// Increment panic counter for monitoring
 			stateWorkerPanics.WithLabelValues(rt.revID.Namespace, rt.revID.Name).Inc()
 
@@ -983,6 +1009,10 @@ func (rt *revisionThrottler) processStateUpdate(req stateUpdateRequest) {
 		rt.testPanicInjector(req)
 	}
 
+	// Snapshot feature gates at operation start for consistency
+	// This prevents mid-operation gate changes from causing inconsistent behavior
+	qpAuthority, _ := getFeatureGates()
+
 	// All operations hold the write lock for the entire duration
 	// to ensure atomicity of pod mutations and capacity updates
 	rt.mux.Lock()
@@ -995,7 +1025,7 @@ func (rt *revisionThrottler) processStateUpdate(req stateUpdateRequest) {
 
 		if exists {
 			// Pod exists - handle state update based on event type
-			rt.handleExistingPodEvent(tracker, req.eventType)
+			rt.handleExistingPodEvent(tracker, req.eventType, qpAuthority)
 		} else {
 			// Memory pressure protection: enforce max trackers per revision
 			if len(rt.podTrackers) >= maxTrackersPerRevision {
@@ -1023,8 +1053,8 @@ func (rt *revisionThrottler) processStateUpdate(req stateUpdateRequest) {
 				}
 			}
 
-			// Set initial state based on event type and enableQPAuthority
-			if enableQPAuthority {
+			// Set initial state based on event type and qpAuthority
+			if qpAuthority {
 				if req.eventType == "ready" {
 					tracker.state.Store(uint32(podReady))
 				} else {
@@ -1132,10 +1162,9 @@ func (rt *revisionThrottler) updateCapacityLocked() {
 	rt.assignedTrackers = rt.recomputeAssignedTrackers(rt.podTrackers)
 
 	// Calculate and update capacity
-	numTrackers := len(rt.assignedTrackers)
-	//nolint:gosec // G115: Safe conversion - numActivators is bounded by cluster size (typically < 100)
-	activatorCount := int(rt.numActivators.Load())
-	targetCapacity := rt.calculateCapacity(backendCount, numTrackers, activatorCount)
+	numTrackers := uint64(len(rt.assignedTrackers))
+	activatorCount := rt.numActivators.Load()
+	targetCapacity := rt.calculateCapacity(uint64(backendCount), numTrackers, activatorCount)
 	rt.breaker.UpdateConcurrency(targetCapacity)
 
 	rt.logger.Debugw("Capacity updated",
@@ -1161,13 +1190,13 @@ func (rt *revisionThrottler) resetTrackersLocked() {
 
 // handleExistingPodEvent handles QP events for existing pods
 // Must be called while holding the write lock
-func (rt *revisionThrottler) handleExistingPodEvent(tracker *podTracker, eventType string) {
+func (rt *revisionThrottler) handleExistingPodEvent(tracker *podTracker, eventType string, qpAuthority bool) {
 	// Always update QP freshness tracking
 	tracker.lastQPUpdate.Store(time.Now().Unix())
 	tracker.lastQPState.Store(eventType)
 
 	// When QP authority is disabled, just log but don't change state
-	if !enableQPAuthority {
+	if !qpAuthority {
 		rt.logger.Debugw("Received QP event (QP authority disabled, no state change)",
 			"pod-ip", tracker.dest,
 			"event-type", eventType,
@@ -1401,8 +1430,7 @@ func (rt *revisionThrottler) recomputeAssignedTrackers(podTrackers map[string]*p
 		return nil
 	}
 
-	//nolint:gosec // G115: Safe conversion - numActivators/activatorIndex bounded by cluster size (typically < 100)
-	ac, ai := int(rt.numActivators.Load()), int(rt.activatorIndex.Load())
+	ac, ai := rt.numActivators.Load(), rt.activatorIndex.Load()
 
 	// Use assignSlice to compute which pods belong to this activator
 	assigned := assignSlice(podTrackers, ai, ac)
@@ -1995,7 +2023,7 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 	return ret
 }
 
-func (rt *revisionThrottler) calculateCapacity(backendCount, numTrackers, activatorCount int) uint64 {
+func (rt *revisionThrottler) calculateCapacity(backendCount uint64, numTrackers uint64, activatorCount uint64) uint64 {
 	var targetCapacity uint64
 	cc := rt.containerConcurrency.Load()
 
@@ -2004,13 +2032,13 @@ func (rt *revisionThrottler) calculateCapacity(backendCount, numTrackers, activa
 		// when using pod direct routing.
 		// We use number of assignedTrackers (numTrackers) for calculation
 		// since assignedTrackers means activator's capacity
-		targetCapacity = cc * uint64(numTrackers)
+		targetCapacity = cc * numTrackers
 	} else {
 		// Capacity is computed off of number of ready backends,
 		// when we are using clusterIP routing.
-		targetCapacity = cc * uint64(backendCount)
+		targetCapacity = cc * backendCount
 		if targetCapacity > 0 {
-			targetCapacity = targetCapacity / max(1, uint64(activatorCount))
+			targetCapacity = targetCapacity / max(1, activatorCount)
 		}
 	}
 
@@ -2353,7 +2381,7 @@ func (rt *revisionThrottler) updateThrottlerState(newTrackers []*podTracker, hea
 // for this Activator instance. This only matters in case of direct
 // to pod IP routing, and is irrelevant, when ClusterIP is used.
 // Uses consistent hashing to ensure all activators independently assign the correct endpoints.
-func assignSlice(trackers map[string]*podTracker, selfIndex, numActivators int) []*podTracker {
+func assignSlice(trackers map[string]*podTracker, selfIndex, numActivators uint64) []*podTracker {
 	// Handle edge cases
 	if selfIndex == 0 { // Changed from -1 to 0 (not ready/not in endpoints)
 		// Sort for consistent ordering
@@ -2392,7 +2420,7 @@ func assignSlice(trackers map[string]*podTracker, selfIndex, numActivators int) 
 	// take all pods where podIdx % numActivators == (selfIndex-1)
 	assigned := make([]*podTracker, 0)
 	for i, dest := range dests {
-		if i%numActivators == (selfIndex - 1) { // Subtract 1 for modulo with 1-based index
+		if uint64(i)%numActivators == (selfIndex - 1) { // Subtract 1 for modulo with 1-based index
 			assigned = append(assigned, trackers[dest])
 		}
 	}

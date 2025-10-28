@@ -303,11 +303,11 @@ func TestThrottlerCalculateCapacity(t *testing.T) {
 	logger := TestLogger(t)
 	tests := []struct {
 		name                 string
-		numActivators        int32
-		containerConcurrency int
-		numTrackers          int
-		activatorCount       int
-		backendCount         int
+		numActivators        uint64
+		containerConcurrency uint64
+		numTrackers          uint64
+		activatorCount       uint64
+		backendCount         uint64
 	}{{
 		name:                 "over revisionMaxConcurrency",
 		numActivators:        200,
@@ -322,8 +322,8 @@ func TestThrottlerCalculateCapacity(t *testing.T) {
 				logger:  logger,
 				breaker: newInfiniteBreaker(logger),
 			}
-			rt.containerConcurrency.Store(uint64(tt.containerConcurrency))
-			rt.numActivators.Store(uint64(tt.numActivators))
+			rt.containerConcurrency.Store(tt.containerConcurrency)
+			rt.numActivators.Store(tt.numActivators)
 			// Default to first activator (index 1) in 1-based indexing when not specified
 			rt.activatorIndex.Store(1)
 			// shouldn't really happen since revisionMaxConcurrency is very, very large,

@@ -328,7 +328,7 @@ func TestRace_BackendCount_UnsynchronizedWrite(t *testing.T) {
 				return
 			default:
 			}
-			_ = rt.calculateCapacity(int(rt.backendCount.Load()), 5, 1) // Reads backendCount
+			_ = rt.calculateCapacity(rt.backendCount.Load(), 5, 1) // Reads backendCount
 		}
 	}()
 
