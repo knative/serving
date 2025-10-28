@@ -186,6 +186,17 @@ var (
 		},
 		[]string{"action", "reason"},
 	)
+
+	// stateUpdateQueueDepth tracks the current depth of the state update queue
+	// This helps detect queue saturation and potential deadlock conditions
+	// Labels: namespace, revision
+	stateUpdateQueueDepth = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "activator_revision_throttler_queue_depth",
+			Help: "Current depth of state update queue per revision",
+		},
+		[]string{"namespace", "revision"},
+	)
 )
 
 func newPodTracker(dest string, revisionID types.NamespacedName, b breaker) *podTracker {
@@ -777,10 +788,10 @@ func (rt *revisionThrottler) Close() {
 // This is only for testing and should not be used in production code.
 func (rt *revisionThrottler) FlushForTesting() {
 	done := make(chan struct{})
-	rt.stateUpdateChan <- stateUpdateRequest{
+	rt.enqueueStateUpdate(stateUpdateRequest{
 		op:   opNoop,
 		done: done,
-	}
+	})
 	<-done
 }
 
@@ -796,6 +807,18 @@ func safeCloseDone(done chan struct{}) {
 			close(done)
 		}
 	}
+}
+
+// enqueueStateUpdate sends a state update request to the worker queue and updates metrics
+func (rt *revisionThrottler) enqueueStateUpdate(req stateUpdateRequest) {
+	rt.stateUpdateChan <- req
+	// Update queue depth metric after enqueue
+	stateUpdateQueueDepth.WithLabelValues(rt.revID.Namespace, rt.revID.Name).Set(float64(len(rt.stateUpdateChan)))
+}
+
+// dequeueStateUpdate is called after processing a request to update metrics
+func (rt *revisionThrottler) dequeueStateUpdate() {
+	stateUpdateQueueDepth.WithLabelValues(rt.revID.Namespace, rt.revID.Name).Set(float64(len(rt.stateUpdateChan)))
 }
 
 // stateWorker processes state update requests serially to prevent race conditions
@@ -835,6 +858,8 @@ func (rt *revisionThrottler) stateWorker() {
 			}
 		case req := <-rt.stateUpdateChan:
 			rt.processStateUpdate(req)
+			// Update queue depth metric after processing
+			rt.dequeueStateUpdate()
 			// Signal completion if waiting
 			safeCloseDone(req.done)
 		}
@@ -1900,10 +1925,10 @@ func (rt *revisionThrottler) resetTrackers() {
 func (rt *revisionThrottler) updateCapacity() {
 	// Send a capacity recalculation request through the work queue to avoid races
 	done := make(chan struct{})
-	rt.stateUpdateChan <- stateUpdateRequest{
+	rt.enqueueStateUpdate(stateUpdateRequest{
 		op:   opRecalculateCapacity,
 		done: done,
-	}
+	})
 	<-done // Wait for completion
 }
 
@@ -2248,11 +2273,11 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 	// Route through work queue to avoid TOCTOU race
 	// This ensures all state mutations and capacity updates are serialized
 	done := make(chan struct{})
-	rt.stateUpdateChan <- stateUpdateRequest{
+	rt.enqueueStateUpdate(stateUpdateRequest{
 		op:    opRecalculateAll,
 		dests: update.Dests, // Pass the destinations set for recalculation
 		done:  done,
-	}
+	})
 
 	// Wait for the worker to process the request with timeout
 	select {
@@ -2286,12 +2311,12 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
 	done := make(chan struct{})
 
 	// Queue the request with done channel
-	rt.stateUpdateChan <- stateUpdateRequest{
+	rt.enqueueStateUpdate(stateUpdateRequest{
 		op:        opAddPod,
 		pod:       podIP,
 		eventType: eventType,
 		done:      done,
-	}
+	})
 
 	// Wait for the worker to process the request with timeout
 	select {
@@ -2576,10 +2601,10 @@ func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP st
 	// Route capacity update through work queue to avoid TOCTOU race
 	// The work queue will handle the capacity update atomically with other state changes
 	done := make(chan struct{})
-	rt.stateUpdateChan <- stateUpdateRequest{
+	rt.enqueueStateUpdate(stateUpdateRequest{
 		op:   opRecalculateCapacity,
 		done: done,
-	}
+	})
 
 	// Wait for the worker to process the request with timeout
 	select {
