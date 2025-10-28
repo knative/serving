@@ -751,7 +751,7 @@ func validateLoadBalancingPolicy(policy string) bool {
 	return validPolicies[policy]
 }
 
-func pickLBPolicy(loadBalancerPolicy *string, _ map[string]string, containerConcurrency int, logger *zap.SugaredLogger) (lbPolicy, string) {
+func pickLBPolicy(loadBalancerPolicy *string, _ map[string]string, containerConcurrency uint64, logger *zap.SugaredLogger) (lbPolicy, string) {
 	// Honor explicit spec field first
 	if loadBalancerPolicy != nil && *loadBalancerPolicy != "" {
 		if !validateLoadBalancingPolicy(*loadBalancerPolicy) {
@@ -782,7 +782,7 @@ func pickLBPolicy(loadBalancerPolicy *string, _ map[string]string, containerConc
 
 func newRevisionThrottler(revID types.NamespacedName,
 	loadBalancerPolicy *string,
-	containerConcurrency int, proto string,
+	containerConcurrency uint64, proto string,
 	breakerParams queue.BreakerParams,
 	logger *zap.SugaredLogger,
 ) (*revisionThrottler, error) {
@@ -792,13 +792,6 @@ func newRevisionThrottler(revID types.NamespacedName,
 		lbp        lbPolicy
 		lbpName    string
 	)
-
-	// Validate containerConcurrency before casting to uint64
-	// Negative values would wrap to very large positive numbers causing incorrect capacity calculations
-	// This should never happen due to K8s API validation, but we fail fast if it does
-	if containerConcurrency < 0 {
-		return nil, fmt.Errorf("invalid containerConcurrency: %d (must be non-negative)", containerConcurrency)
-	}
 
 	lbp, lbpName = pickLBPolicy(loadBalancerPolicy, nil, containerConcurrency, logger)
 	logger.Debugf("Creating revision throttler with load balancing policy: %s, container concurrency: %d", lbpName, containerConcurrency)
@@ -818,7 +811,7 @@ func newRevisionThrottler(revID types.NamespacedName,
 		stateUpdateChan: make(chan stateUpdateRequest, stateUpdateQueueSize),
 		done:            make(chan struct{}),
 	}
-	t.containerConcurrency.Store(uint64(containerConcurrency))
+	t.containerConcurrency.Store(containerConcurrency)
 	t.lbPolicy.Store(lbp)
 
 	// Start with unknown (0 means not ready/not in endpoints with 1-based indexing)
@@ -1053,7 +1046,7 @@ func (rt *revisionThrottler) processStateUpdate(req stateUpdateRequest) {
 			if qpAuthority {
 				if req.eventType == "ready" {
 					tracker.state.Store(uint32(podReady))
-				} else if reg.eventType == "draining" {
+				} else if req.eventType == "draining" {
 					// Invalid State; you cannot add a draining pod
 					rt.logger.Errorw("Rejected pod addition - cannot add draining tracker",
 						"pod", req.pod)
@@ -2660,7 +2653,7 @@ func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*r
 		revThrottler, err = newRevisionThrottler(
 			revID,
 			rev.Spec.LoadBalancingPolicy,
-			int(rev.Spec.GetContainerConcurrency()),
+			rev.Spec.GetContainerConcurrency(), // Now returns uint64 directly
 			pkgnet.ServicePortName(rev.GetProtocol()),
 			queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: revisionMaxConcurrency},
 			t.logger,
@@ -2686,11 +2679,11 @@ func (t *Throttler) revisionUpdated(obj any) {
 			zap.Error(err), zap.String(logkey.Key, revID.String()))
 	} else if rt != nil {
 		// Update the lbPolicy dynamically if the revision's spec policy changed
-		newPolicy, name := pickLBPolicy(rev.Spec.LoadBalancingPolicy, nil, int(rev.Spec.GetContainerConcurrency()), t.logger)
+		cc := rev.Spec.GetContainerConcurrency() // Now returns uint64 with validation
+		newPolicy, name := pickLBPolicy(rev.Spec.LoadBalancingPolicy, nil, cc, t.logger)
 		// Use atomic store for lock-free access in the hot request path
 		rt.lbPolicy.Store(newPolicy)
-		//nolint:gosec // G115: Safe conversion - GetContainerConcurrency returns validated int64, stored as uint64 (K8s max 10000)
-		rt.containerConcurrency.Store(uint64(rev.Spec.GetContainerConcurrency()))
+		rt.containerConcurrency.Store(cc)
 		t.logger.Debugf("Updated revision throttler LB policy to: %s", name)
 	}
 }

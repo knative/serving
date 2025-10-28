@@ -90,11 +90,18 @@ func (r *Revision) IsFailed() bool {
 // changing the value used by Revisions with unspecified values when a different
 // default is configured, we use the original default instead of the configured
 // default to remain safe across upgrades.
-func (rs *RevisionSpec) GetContainerConcurrency() int64 {
+// Returns uint64 to match internal capacity calculations and prevent overflow issues.
+func (rs *RevisionSpec) GetContainerConcurrency() uint64 {
 	if rs.ContainerConcurrency == nil {
-		return config.DefaultContainerConcurrency
+		return uint64(config.DefaultContainerConcurrency)
 	}
-	return *rs.ContainerConcurrency
+	// ContainerConcurrency is *int64 from K8s API
+	// Validate it's non-negative before converting to uint64
+	if *rs.ContainerConcurrency < 0 {
+		// Should never happen due to K8s validation, but be defensive
+		return 0
+	}
+	return uint64(*rs.ContainerConcurrency)
 }
 
 // InitializeConditions sets the initial values to the conditions.

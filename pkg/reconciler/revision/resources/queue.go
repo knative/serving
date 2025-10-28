@@ -389,7 +389,7 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			Value: strconv.Itoa(int(queueHTTPSPort.ContainerPort)),
 		}, {
 			Name:  "CONTAINER_CONCURRENCY",
-			Value: strconv.Itoa(int(rev.Spec.GetContainerConcurrency())),
+			Value: strconv.FormatUint(rev.Spec.GetContainerConcurrency(), 10),
 		}, {
 			Name:  "REVISION_TIMEOUT_SECONDS",
 			Value: strconv.Itoa(int(ts)),

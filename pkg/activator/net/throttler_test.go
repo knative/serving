@@ -89,7 +89,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		capacity             int
 		numActivators        int32
 		activatorIndex       int32
-		containerConcurrency int
+		containerConcurrency uint64
 		isNewInfiniteBreaker bool
 		podTrackers          []*podTracker
 		want                 uint64
@@ -983,7 +983,7 @@ func TestLoadBalancingPolicySelection(t *testing.T) {
 	tests := []struct {
 		name                 string
 		loadBalancingPolicy  *string
-		containerConcurrency int
+		containerConcurrency uint64
 		wantPolicy           string
 	}{{
 		name:                 "explicit random-choice-2",

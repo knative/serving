@@ -79,15 +79,19 @@ func TestGetContainerConcurrency(t *testing.T) {
 	tests := []struct {
 		name     string
 		rs       *RevisionSpec
-		expected int64
+		expected uint64
 	}{{
 		name:     "nil concurrency",
 		rs:       &RevisionSpec{},
-		expected: config.DefaultContainerConcurrency,
+		expected: uint64(config.DefaultContainerConcurrency),
 	}, {
 		name:     "concurrency 42",
 		rs:       &RevisionSpec{ContainerConcurrency: ptr.Int64(42)},
 		expected: 42,
+	}, {
+		name:     "negative concurrency returns 0",
+		rs:       &RevisionSpec{ContainerConcurrency: ptr.Int64(-5)},
+		expected: 0, // Validation converts negative to 0
 	}}
 
 	for _, test := range tests {

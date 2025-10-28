@@ -254,7 +254,7 @@ func addresses(prefix string, n int) []corev1.EndpointAddress {
 // mustCreateRevisionThrottler is a test helper that creates a revisionThrottler and panics on error.
 // Use this in tests where invalid parameters should never occur.
 func mustCreateRevisionThrottler(t *testing.T, revID types.NamespacedName,
-	loadBalancerPolicy *string, containerConcurrency int, proto string,
+	loadBalancerPolicy *string, containerConcurrency uint64, proto string,
 	breakerParams queue.BreakerParams, logger *zap.SugaredLogger,
 ) *revisionThrottler {
 	t.Helper()
