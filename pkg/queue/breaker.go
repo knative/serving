@@ -33,9 +33,9 @@ const MaxBreakerCapacity = math.MaxInt32
 
 // BreakerParams defines the parameters of the breaker.
 type BreakerParams struct {
-	QueueDepth      int
-	MaxConcurrency  int
-	InitialCapacity int
+	QueueDepth      uint64
+	MaxConcurrency  uint64
+	InitialCapacity uint64
 }
 
 // Breaker is a component that enforces a concurrency limit on the
@@ -55,13 +55,10 @@ type Breaker struct {
 // NewBreaker creates a Breaker with the desired queue depth,
 // concurrency limit and initial capacity.
 func NewBreaker(params BreakerParams) *Breaker {
-	if params.QueueDepth <= 0 {
+	if params.QueueDepth == 0 {
 		panic(fmt.Sprintf("Queue depth must be greater than 0. Got %v.", params.QueueDepth))
 	}
-	if params.MaxConcurrency < 0 {
-		panic(fmt.Sprintf("Max concurrency must be 0 or greater. Got %v.", params.MaxConcurrency))
-	}
-	if params.InitialCapacity < 0 || params.InitialCapacity > params.MaxConcurrency {
+	if params.InitialCapacity > params.MaxConcurrency {
 		panic(fmt.Sprintf("Initial capacity must be between 0 and max concurrency. Got %v.", params.InitialCapacity))
 	}
 
@@ -161,7 +158,7 @@ func (b *Breaker) Pending() int {
 }
 
 // UpdateConcurrency updates the maximum number of in-flight requests.
-func (b *Breaker) UpdateConcurrency(size int) {
+func (b *Breaker) UpdateConcurrency(size uint64) {
 	b.sem.updateCapacity(size)
 }
 
@@ -175,7 +172,7 @@ func (b *Breaker) InFlight() uint64 {
 }
 
 // newSemaphore creates a semaphore with the desired initial capacity.
-func newSemaphore(maxCapacity, initialCapacity int) *semaphore {
+func newSemaphore(maxCapacity, initialCapacity uint64) *semaphore {
 	queue := make(chan struct{}, maxCapacity)
 	sem := &semaphore{queue: queue}
 	sem.updateCapacity(initialCapacity)
@@ -266,20 +263,19 @@ func (s *semaphore) release() {
 }
 
 // updateCapacity updates the capacity of the semaphore to the desired size.
-func (s *semaphore) updateCapacity(size int) {
-	s64 := uint64(size) //nolint:gosec // TODO(dprotaso) capacity should be uint
+func (s *semaphore) updateCapacity(size uint64) {
 	for {
 		old := s.state.Load()
 		capacity, in := unpack(old)
 
-		if capacity == s64 {
+		if capacity == size {
 			// Nothing to do, exit early.
 			return
 		}
 
-		if s.state.CompareAndSwap(old, pack(s64, in)) {
-			if s64 > capacity {
-				for range s64 - capacity {
+		if s.state.CompareAndSwap(old, pack(size, in)) {
+			if size > capacity {
+				for range size - capacity {
 					select {
 					case s.queue <- struct{}{}:
 					default:

@@ -329,17 +329,17 @@ func TestThrottlerCalculateCapacity(t *testing.T) {
 			// shouldn't really happen since revisionMaxConcurrency is very, very large,
 			// but check that we behave reasonably if it's exceeded.
 			capacity := rt.calculateCapacity(tt.backendCount, tt.numTrackers, tt.activatorCount)
-			if got, want := capacity, queue.MaxBreakerCapacity; got != want {
+			if got, want := capacity, uint64(queue.MaxBreakerCapacity); got != want {
 				t.Errorf("calculateCapacity = %d, want: %d", got, want)
 			}
 		})
 	}
 }
 
-func makeTrackers(num, cc int) []*podTracker {
+func makeTrackers(num uint64, cc uint64) []*podTracker {
 	trackers := make([]*podTracker, num)
 	for i := range num {
-		pt := newTestTracker(strconv.Itoa(i), nil)
+		pt := newTestTracker(strconv.FormatUint(i, 10), nil)
 		if cc > 0 {
 			pt.b = queue.NewBreaker(queue.BreakerParams{
 				QueueDepth:      1,
@@ -1166,7 +1166,7 @@ func TestLoadBalancingAlgorithms(t *testing.T) {
 	revisions := fakerevisioninformer.Get(ctx)
 
 	// Helper to create pod trackers with specific capacities
-	createTrackers := func(count int, capacity int) []*podTracker {
+	createTrackers := func(count uint64, capacity uint64) []*podTracker {
 		trackers := make([]*podTracker, count)
 		for i := range count {
 			dest := fmt.Sprintf("10.0.0.%d:8080", i+1)

@@ -59,6 +59,9 @@ const (
 	probeFreq     = 50 * time.Millisecond
 	updateTimeout = 16 * probeFreq
 
+	// testCleanupDelay provides time for goroutines to finish logging after context cancellation
+	testCleanupDelay = 20 * time.Millisecond
+
 	meshErrorStatusCode = http.StatusServiceUnavailable
 )
 
@@ -997,7 +1000,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			defer func() {
 				cancel()
 				// Give goroutines a moment to finish logging after context cancellation
-				time.Sleep(20 * time.Millisecond)
+				time.Sleep(testCleanupDelay)
 				waitInformers()
 				waitForRevisionBackendManager(t, rbm)
 			}()

@@ -91,6 +91,22 @@ const (
 	// QPStalenessThreshold - Queue-proxy older than this, trust K8s instead
 	// If QP has been silent this long, it's likely dead and informer is authoritative
 	QPStalenessThreshold = 60 * time.Second
+
+	// stateUpdateQueueSize - Buffer size for the state update channel
+	// Supports up to 500 pods registering simultaneously during rapid scale-up
+	// Multiple concurrent handlers (typically 10-20) each sending multiple events
+	// Burst absorption during K8s informer bulk updates (can update 100+ endpoints at once)
+	// Empirically tested: handles 100 concurrent goroutines without blocking
+	stateUpdateQueueSize = 500
+
+	// stateUpdateTimeout - Maximum time to wait when enqueuing a state update
+	// Prevents indefinite blocking if the worker dies or gets stuck
+	// 5 seconds gives the worker time to process if temporarily slow
+	stateUpdateTimeout = 5 * time.Second
+
+	// workerShutdownTimeout - Maximum time to wait for worker shutdown
+	// Allows graceful draining of pending requests before forcing exit
+	workerShutdownTimeout = 5 * time.Second
 )
 
 // Feature gates for activator behavior
@@ -576,7 +592,7 @@ func (p *podTracker) InFlight() uint64 {
 	return p.b.InFlight()
 }
 
-func (p *podTracker) UpdateConcurrency(c int) {
+func (p *podTracker) UpdateConcurrency(c uint64) {
 	if p.b == nil {
 		return
 	}
@@ -629,7 +645,7 @@ func (p *podTracker) Reserve(ctx context.Context) (func(), bool) {
 type breaker interface {
 	Capacity() uint64
 	Maybe(ctx context.Context, thunk func()) error
-	UpdateConcurrency(int)
+	UpdateConcurrency(uint64)
 	Reserve(ctx context.Context) (func(), bool)
 	Pending() int
 	InFlight() uint64
@@ -777,13 +793,8 @@ func newRevisionThrottler(revID types.NamespacedName,
 		logger:      logger,
 		protocol:    proto,
 		podTrackers: make(map[string]*podTracker),
-		// Buffer size 500 supports:
-		// - Up to 500 pods registering simultaneously during rapid scale-up
-		// - Multiple concurrent handlers (typically 10-20) each sending multiple events
-		// - Burst absorption during K8s informer bulk updates (can update 100+ endpoints at once)
-		// - Empirically tested: handles 100 concurrent goroutines without blocking
-		// TODO: Consider making configurable via ConfigMap for tuning large deployments
-		stateUpdateChan: make(chan stateUpdateRequest, 500),
+		// TODO: Consider making stateUpdateQueueSize configurable via ConfigMap for tuning large deployments
+		stateUpdateChan: make(chan stateUpdateRequest, stateUpdateQueueSize),
 		done:            make(chan struct{}),
 	}
 	t.containerConcurrency.Store(uint64(containerConcurrency))
@@ -838,9 +849,7 @@ func safeCloseDone(done chan struct{}) {
 // This prevents indefinite blocking if the worker dies or gets stuck.
 func (rt *revisionThrottler) enqueueStateUpdate(req stateUpdateRequest) error {
 	// Use a select with timeout to prevent blocking indefinitely
-	// 5 second timeout gives the worker time to process if temporarily slow,
-	// but prevents indefinite hangs if worker is dead
-	timer := time.NewTimer(5 * time.Second)
+	timer := time.NewTimer(stateUpdateTimeout)
 	defer timer.Stop()
 
 	select {
@@ -910,13 +919,19 @@ func (rt *revisionThrottler) stateWorker() {
 		select {
 		case <-rt.done:
 			// Graceful shutdown with timeout
-			shutdownTimer := time.NewTimer(5 * time.Second)
+			shutdownTimer := time.NewTimer(workerShutdownTimeout)
 			defer shutdownTimer.Stop()
 
-			// Drain any remaining requests before exiting
+			// Drain and process any remaining requests before exiting
+			// This ensures state consistency during revision deletion
 			for {
 				select {
 				case req := <-rt.stateUpdateChan:
+					// Process the request to maintain state consistency
+					currentReq = &req
+					rt.processStateUpdate(req)
+					currentReq = nil
+					rt.dequeueStateUpdate()
 					// Signal completion if waiting
 					safeCloseDone(req.done)
 				case <-shutdownTimer.C:
@@ -1048,8 +1063,7 @@ func (rt *revisionThrottler) processStateUpdate(req stateUpdateRequest) {
 
 // makeBreaker creates a new breaker for a pod tracker
 func (rt *revisionThrottler) makeBreaker() breaker {
-	//nolint:gosec // G115: Safe conversion - containerConcurrency is bounded by K8s validation (max 10000)
-	cc := int(rt.containerConcurrency.Load())
+	cc := rt.containerConcurrency.Load()
 	if cc == 0 {
 		return nil
 	}
@@ -1096,9 +1110,8 @@ func (rt *revisionThrottler) updateCapacityLocked() {
 
 // resetTrackersLocked resets breaker capacity while holding the lock
 func (rt *revisionThrottler) resetTrackersLocked() {
-	//nolint:gosec // G115: Safe conversion - containerConcurrency is bounded by K8s validation (max 10000)
-	cc := int(rt.containerConcurrency.Load())
-	if cc <= 0 {
+	cc := rt.containerConcurrency.Load()
+	if cc == 0 {
 		return
 	}
 
@@ -1945,24 +1958,26 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 	return ret
 }
 
-func (rt *revisionThrottler) calculateCapacity(backendCount, numTrackers, activatorCount int) int {
-	var targetCapacity int
+func (rt *revisionThrottler) calculateCapacity(backendCount, numTrackers, activatorCount int) uint64 {
+	var targetCapacity uint64
+	cc := rt.containerConcurrency.Load()
+
 	if numTrackers > 0 {
 		// Capacity is computed based off of number of trackers,
 		// when using pod direct routing.
 		// We use number of assignedTrackers (numTrackers) for calculation
 		// since assignedTrackers means activator's capacity
-		targetCapacity = int(rt.containerConcurrency.Load()) * numTrackers
+		targetCapacity = cc * uint64(numTrackers)
 	} else {
 		// Capacity is computed off of number of ready backends,
 		// when we are using clusterIP routing.
-		targetCapacity = int(rt.containerConcurrency.Load()) * backendCount
+		targetCapacity = cc * uint64(backendCount)
 		if targetCapacity > 0 {
-			targetCapacity = minOneOrValue(targetCapacity / minOneOrValue(activatorCount))
+			targetCapacity = targetCapacity / max(1, uint64(activatorCount))
 		}
 	}
 
-	if (backendCount > 0) && (rt.containerConcurrency.Load() == 0 || targetCapacity > revisionMaxConcurrency) {
+	if (backendCount > 0) && (cc == 0 || targetCapacity > revisionMaxConcurrency) {
 		// If cc==0, we need to pick a number, but it does not matter, since
 		// infinite breaker will dole out as many tokens as it can.
 		// For cc>0 we clamp targetCapacity to maxConcurrency because the backing
@@ -1977,8 +1992,8 @@ func (rt *revisionThrottler) calculateCapacity(backendCount, numTrackers, activa
 // This makes sure we reset the capacity to the CC, since the pod
 // might be reassigned to be exclusively used.
 func (rt *revisionThrottler) resetTrackers() {
-	cc := int(rt.containerConcurrency.Load())
-	if cc <= 0 {
+	cc := rt.containerConcurrency.Load()
+	if cc == 0 {
 		return
 	}
 
@@ -2600,7 +2615,7 @@ func (t *Throttler) revisionUpdated(obj any) {
 			zap.Error(err), zap.String(logkey.Key, revID.String()))
 	} else if rt != nil {
 		// Update the lbPolicy dynamically if the revision's spec policy changed
-		newPolicy, name := pickLBPolicy(rev.Spec.LoadBalancingPolicy, nil, int(rev.Spec.GetContainerConcurrency()), t.logger) //nolint:gosec // G115: Safe - K8s validates max 10000
+		newPolicy, name := pickLBPolicy(rev.Spec.LoadBalancingPolicy, nil, int(rev.Spec.GetContainerConcurrency()), t.logger)
 		// Use atomic store for lock-free access in the hot request path
 		rt.lbPolicy.Store(newPolicy)
 		//nolint:gosec // G115: Safe conversion - GetContainerConcurrency returns validated int64, stored as uint64 (K8s max 10000)
@@ -2793,7 +2808,7 @@ func (ib *infiniteBreaker) InFlight() uint64 {
 	return uint64(ib.concurrency.Load()) //nolint:gosec // concurrency is always 0 or 1
 }
 
-func zeroOrOne(x int) uint32 {
+func zeroOrOne(x uint64) uint32 {
 	if x == 0 {
 		return 0
 	}
@@ -2801,7 +2816,7 @@ func zeroOrOne(x int) uint32 {
 }
 
 // UpdateConcurrency sets the concurrency of the breaker
-func (ib *infiniteBreaker) UpdateConcurrency(cc int) {
+func (ib *infiniteBreaker) UpdateConcurrency(cc uint64) {
 	rcc := zeroOrOne(cc)
 	// We lock here to make sure two scale up events don't
 	// stomp on each other's feet.

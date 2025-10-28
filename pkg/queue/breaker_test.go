@@ -41,12 +41,6 @@ func TestBreakerInvalidConstructor(t *testing.T) {
 		name:    "QueueDepth = 0",
 		options: BreakerParams{QueueDepth: 0, MaxConcurrency: 1, InitialCapacity: 1},
 	}, {
-		name:    "MaxConcurrency negative",
-		options: BreakerParams{QueueDepth: 1, MaxConcurrency: -1, InitialCapacity: 1},
-	}, {
-		name:    "InitialCapacity negative",
-		options: BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: -1},
-	}, {
 		name:    "InitialCapacity out-of-bounds",
 		options: BreakerParams{QueueDepth: 1, MaxConcurrency: 5, InitialCapacity: 6},
 	}}
@@ -376,7 +370,7 @@ func (r *requestor) processSuccessfully(t *testing.T) {
 func BenchmarkBreakerMaybe(b *testing.B) {
 	op := func() {}
 
-	for _, c := range []int{1, 10, 100, 1000} {
+	for _, c := range []uint64{1, 10, 100, 1000} {
 		breaker := NewBreaker(BreakerParams{QueueDepth: 10000000, MaxConcurrency: c, InitialCapacity: c})
 
 		b.Run(fmt.Sprintf("%d-sequential", c), func(b *testing.B) {

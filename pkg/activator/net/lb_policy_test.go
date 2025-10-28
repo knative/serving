@@ -277,7 +277,7 @@ func BenchmarkPolicy(b *testing.B) {
 		name:   "round-robin",
 		policy: newRoundRobinPolicy(),
 	}} {
-		for _, n := range []int{1, 2, 3, 10, 100} {
+		for _, n := range []uint64{1, 2, 3, 10, 100} {
 			b.Run(fmt.Sprintf("%s-%d-trackers-sequential", test.name, n), func(b *testing.B) {
 				targets := makeTrackers(n, 0)
 				for range b.N {
