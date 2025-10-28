@@ -207,26 +207,26 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		podTrackers:          makeTrackers(3, 10),
 		want:                 20,
 	}, {
-		name:                 "numActivators: 2, index: 1, pods: 3, cc: 1. Capacity is expected to 10 (1 * 10)",
+		name:                 "numActivators: 2, index: 2, pods: 3, cc: 1. Capacity is expected to 10 (1 * 10)",
 		capacity:             -1,
 		numActivators:        2,
-		activatorIndex:       1,
+		activatorIndex:       2, // Changed from 1 to 2 (1-based indexing)
 		containerConcurrency: 10,
 		podTrackers:          makeTrackers(3, 10),
 		want:                 10,
 	}, {
-		name:                 "numActivators: 2, index: 0, pods: 5, cc: 1. Capacity is expected to 3 (2 + 1)",
+		name:                 "numActivators: 2, index: 1, pods: 5, cc: 1. Capacity is expected to 3 (2 + 1)",
 		capacity:             5,
 		numActivators:        2,
-		activatorIndex:       0,
+		activatorIndex:       1, // Changed from 0 to 1 (1-based indexing)
 		containerConcurrency: 1,
 		podTrackers:          makeTrackers(5, 1),
 		want:                 3,
 	}, {
-		name:                 "numActivators: 2, index: 1, pods: 5, cc: 1. Capacity is expected to 2",
+		name:                 "numActivators: 2, index: 2, pods: 5, cc: 1. Capacity is expected to 2",
 		capacity:             5,
 		numActivators:        2,
-		activatorIndex:       1,
+		activatorIndex:       2, // Changed from 1 to 2 (1-based indexing)
 		containerConcurrency: 1,
 		podTrackers:          makeTrackers(5, 1),
 		want:                 2,
@@ -234,7 +234,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		name:                 "Infinite capacity with podIP trackers.",
 		capacity:             1,
 		numActivators:        2,
-		activatorIndex:       1,
+		activatorIndex:       2, // Changed from 1 to 2 (1-based indexing)
 		containerConcurrency: 0,
 		podTrackers:          makeTrackers(3, 0),
 		isNewInfiniteBreaker: true,
@@ -249,15 +249,20 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 			} else {
 				breaker = queue.NewBreaker(testBreakerParams)
 			}
-
 			rt := newTestRevisionThrottler(t, breaker)
 			defer func() {
 				close(rt.done) // Clean up the worker goroutine
 			}()
 
-			rt.containerConcurrency.Store(uint32(tt.containerConcurrency))
-			rt.numActivators.Store(uint32(tt.numActivators))
-			rt.activatorIndex.Store(tt.activatorIndex)
+			rt.containerConcurrency.Store(uint64(tt.containerConcurrency))
+			rt.numActivators.Store(uint64(tt.numActivators))
+			// Convert 0-based test index to 1-based: 0->1, 1->2, 2->3, etc.
+			// If test specifies 0 (unset), use 1 as default active index
+			activatorIdx := uint64(tt.activatorIndex)
+			if activatorIdx == 0 && tt.numActivators > 0 {
+				activatorIdx = 1 // Default to first activator in 1-based indexing
+			}
+			rt.activatorIndex.Store(activatorIdx)
 			rtPodTrackers := make(map[string]*podTracker)
 			for _, pt := range tt.podTrackers {
 				rtPodTrackers[pt.dest] = pt
@@ -317,8 +322,10 @@ func TestThrottlerCalculateCapacity(t *testing.T) {
 				logger:  logger,
 				breaker: newInfiniteBreaker(logger),
 			}
-			rt.containerConcurrency.Store(uint32(tt.containerConcurrency))
-			rt.numActivators.Store(uint32(tt.numActivators))
+			rt.containerConcurrency.Store(uint64(tt.containerConcurrency))
+			rt.numActivators.Store(uint64(tt.numActivators))
+			// Default to first activator (index 1) in 1-based indexing when not specified
+			rt.activatorIndex.Store(1)
 			// shouldn't really happen since revisionMaxConcurrency is very, very large,
 			// but check that we behave reasonably if it's exceeded.
 			capacity := rt.calculateCapacity(tt.backendCount, tt.numTrackers, tt.activatorCount)
@@ -622,11 +629,11 @@ func TestThrottlerSuccesses(t *testing.T) {
 				rt.mux.RLock()
 				defer rt.mux.RUnlock()
 				if *cc != 0 {
-					return rt.activatorIndex.Load() != -1 && rt.breaker.Capacity() == wantCapacity &&
+					return rt.activatorIndex.Load() != 0 && rt.breaker.Capacity() == wantCapacity &&
 						sortedTrackers(rt.assignedTrackers), nil
 				}
 				// If CC=0 then verify number of backends, rather the capacity of breaker.
-				return rt.activatorIndex.Load() != -1 && dests == len(rt.assignedTrackers) &&
+				return rt.activatorIndex.Load() != 0 && dests == len(rt.assignedTrackers) &&
 					sortedTrackers(rt.assignedTrackers), nil
 			}); err != nil {
 				t.Fatal("Timed out waiting for the capacity to be updated")
@@ -682,7 +689,7 @@ func TestPodAssignmentFinite(t *testing.T) {
 	throttler := newTestThrottler(ctx)
 	rt := newRevisionThrottler(revName, nil, 42 /*cc*/, pkgnet.ServicePortNameHTTP1, testBreakerParams, logger)
 	rt.numActivators.Store(4)
-	rt.activatorIndex.Store(0)
+	rt.activatorIndex.Store(1) // Changed from 0 to 1 (1-based indexing)
 	throttler.revisionThrottlers[revName] = rt
 
 	update := revisionDestsUpdate{
@@ -696,7 +703,7 @@ func TestPodAssignmentFinite(t *testing.T) {
 	if got, want := len(rt.podTrackers), len(update.Dests); got != want {
 		t.Errorf("NumTrackers = %d, want: %d", got, want)
 	}
-	// 6 = 4 * 1 + 2; index 0 and index 1 have 2 pods and others have 1 pod.
+	// With 1-based indexing: activator index 1 gets pods at positions 0, 4 in the sorted list (ip0, ip4)
 	if got, want := trackerDestSet(rt.assignedTrackers), sets.New("ip0", "ip4"); !got.Equal(want) {
 		t.Errorf("Assigned trackers = %v, want: %v, diff: %s", got, want, cmp.Diff(want, got))
 	}
@@ -840,10 +847,10 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 		t.Fatal("Timed out waiting for the capacity to be updated")
 	}
 
-	if got, want := rt.numActivators.Load(), uint32(2); got != want {
+	if got, want := rt.numActivators.Load(), uint64(2); got != want {
 		t.Fatalf("numActivators = %d, want %d", got, want)
 	}
-	if got, want := rt.activatorIndex.Load(), int32(1); got != want {
+	if got, want := rt.activatorIndex.Load(), uint64(2); got != want { // Changed from 1 to 2 for 1-based indexing
 		t.Fatalf("activatorIndex = %d, want %d", got, want)
 	}
 	if got, want := len(rt.assignedTrackers), 1; got != want {
@@ -857,10 +864,10 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 	fake.CoreV1().Endpoints(testNamespace).Update(ctx, publicEp, metav1.UpdateOptions{})
 	endpoints.Informer().GetIndexer().Update(publicEp)
 
-	// Verify the index was computed.
+	// Verify the index was computed (1-based indexing, so single activator has index 1).
 	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, time.Second, true, func(context.Context) (bool, error) {
 		return rt.numActivators.Load() == 1 &&
-			rt.activatorIndex.Load() == 0, nil
+			rt.activatorIndex.Load() == 1, nil
 	}); err != nil {
 		t.Fatal("Timed out waiting for the Activator Endpoints to be computed")
 	}
@@ -1685,23 +1692,23 @@ func TestInferIndex(t *testing.T) {
 	}{{
 		"empty",
 		[]string{},
-		-1,
+		0, // Changed from -1 to 0 (sentinel for not in endpoints)
 	}, {
 		"missing",
 		[]string{"11.11.11.11", "11.11.11.12"},
-		-1,
+		0, // Changed from -1 to 0 (sentinel for not in endpoints)
 	}, {
 		"first",
 		[]string{"10.10.10.3", "11.11.11.11"},
-		0,
+		1, // Changed from 0 to 1 (1-based indexing)
 	}, {
 		"middle",
 		[]string{"10.10.10.1", "10.10.10.2", "10.10.10.3", "11.11.11.11"},
-		2,
+		3, // Changed from 2 to 3 (1-based indexing)
 	}, {
 		"last",
 		[]string{"10.10.10.1", "10.10.10.2", "10.10.10.3"},
-		2,
+		3, // Changed from 2 to 3 (1-based indexing)
 	}}
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
@@ -1749,8 +1756,8 @@ func TestAssignSlice(t *testing.T) {
 				cmp.Diff(assignedTrackers, got, opt))
 		}
 	})
-	t.Run("idx=-1", func(t *testing.T) {
-		got := assignSlice(trackers, -1, 1)
+	t.Run("idx=0 (sentinel)", func(t *testing.T) {
+		got := assignSlice(trackers, 0, 1) // 0 is sentinel in 1-based indexing
 		if !cmp.Equal(got, assignedTrackers, opt) {
 			t.Errorf("Got=%v, want: %v, diff: %s", got, assignedTrackers,
 				cmp.Diff(assignedTrackers, got, opt))
@@ -1760,10 +1767,12 @@ func TestAssignSlice(t *testing.T) {
 		cp := make(map[string]*podTracker)
 		maps.Copy(cp, trackers)
 		got := assignSlice(cp, 1, 3)
-		// With consistent hashing: idx=1 gets pod at index 1 (dest2)
-		if !cmp.Equal(got, assignedTrackers[1:2], opt) {
-			t.Errorf("Got=%v, want: %v; diff: %s", got, assignedTrackers[1:2],
-				cmp.Diff(assignedTrackers[1:2], got, opt))
+		// With 1-based indexing: idx=1 (first activator) gets pods where (pos % 3 == 0)
+		// Sorted keys: ["dest1", "dest2", "dest3"] at positions [0, 1, 2]
+		// Position 0 % 3 == 0, so activator 1 gets tracker at position 0 (dest1)
+		if !cmp.Equal(got, assignedTrackers[0:1], opt) { // Changed to expect first tracker
+			t.Errorf("Got=%v, want: %v; diff: %s", got, assignedTrackers[0:1],
+				cmp.Diff(assignedTrackers[0:1], got, opt))
 		}
 	})
 	t.Run("len=1", func(t *testing.T) {
@@ -1772,11 +1781,12 @@ func TestAssignSlice(t *testing.T) {
 		delete(cp, "dest2")
 		delete(cp, "dest3")
 		got := assignSlice(cp, 1, 3)
-		// With consistent hashing: 1 pod, 3 activators, selfIndex=1
-		// Pod at index 0: 0%3=0 goes to activator 0, so activator 1 gets nothing
-		if !cmp.Equal(got, []*podTracker{}, opt) {
-			t.Errorf("Got=%v, want: %v; diff: %s", got, []*podTracker{},
-				cmp.Diff([]*podTracker{}, got, opt))
+		// With 1-based indexing: 1 pod, 3 activators, selfIndex=1 (first activator)
+		// Single pod at position 0: 0%3=0 matches (selfIndex-1)=0, so activator 1 gets it
+		want := []*podTracker{assignedTrackers[0]} // Gets the single pod
+		if !cmp.Equal(got, want, opt) {
+			t.Errorf("Got=%v, want: %v; diff: %s", got, want,
+				cmp.Diff(want, got, opt))
 		}
 	})
 
@@ -1807,9 +1817,9 @@ func TestAssignSlice(t *testing.T) {
 		}}
 		cp := maps.Clone(trackers)
 		got := assignSlice(cp, 1, 2)
-		// With consistent hashing: idx=1, na=2 gets pods at indices where i%2==1, so dest2 and dest3 don't match
-		// Actually, with sorted keys ["dest1", "dest2", "dest3"], idx=1 gets index 1 (dest2)
-		want := []*podTracker{assignedTrackers[1]} // Just dest2
+		// With 1-based indexing: idx=1 (first activator), na=2
+		// Gets pods where (pos % 2 == 0): positions 0, 2 → dest1, dest3
+		want := []*podTracker{assignedTrackers[0], assignedTrackers[2]} // dest1 and dest3
 		if !cmp.Equal(got, want, opt) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, want,
 				cmp.Diff(want, got, opt))
@@ -1828,27 +1838,27 @@ func TestAssignSlice(t *testing.T) {
 			"dest4": {dest: "4"},
 			"dest5": {dest: "5"},
 		}
-		// Sorted: ["dest1", "dest2", "dest3", "dest4", "dest5"]
-		// Activator 0: indices 0, 3 -> dest1, dest4
-		// Activator 1: indices 1, 4 -> dest2, dest5
-		// Activator 2: index 2 -> dest3
+		// With 1-based indexing and sorted keys: ["dest1", "dest2", "dest3", "dest4", "dest5"]
+		// Activator index 1: positions where i%3==0 -> 0, 3 -> dest1, dest4
+		// Activator index 2: positions where i%3==1 -> 1, 4 -> dest2, dest5
+		// Activator index 3: positions where i%3==2 -> 2 -> dest3
 
-		got0 := assignSlice(fivePodTrackers, 0, 3)
-		want0 := []*podTracker{{dest: "1"}, {dest: "4"}}
-		if !cmp.Equal(got0, want0, opt) {
-			t.Errorf("Activator 0: Got=%v, want: %v; diff: %s", got0, want0, cmp.Diff(want0, got0, opt))
-		}
-
-		got1 := assignSlice(fivePodTrackers, 1, 3)
-		want1 := []*podTracker{{dest: "2"}, {dest: "5"}}
+		got1 := assignSlice(fivePodTrackers, 1, 3) // Changed from index 0 to 1
+		want1 := []*podTracker{{dest: "1"}, {dest: "4"}}
 		if !cmp.Equal(got1, want1, opt) {
 			t.Errorf("Activator 1: Got=%v, want: %v; diff: %s", got1, want1, cmp.Diff(want1, got1, opt))
 		}
 
-		got2 := assignSlice(fivePodTrackers, 2, 3)
-		want2 := []*podTracker{{dest: "3"}}
+		got2 := assignSlice(fivePodTrackers, 2, 3) // Changed from index 1 to 2
+		want2 := []*podTracker{{dest: "2"}, {dest: "5"}}
 		if !cmp.Equal(got2, want2, opt) {
 			t.Errorf("Activator 2: Got=%v, want: %v; diff: %s", got2, want2, cmp.Diff(want2, got2, opt))
+		}
+
+		got3 := assignSlice(fivePodTrackers, 3, 3) // Changed from index 2 to 3
+		want3 := []*podTracker{{dest: "3"}}
+		if !cmp.Equal(got3, want3, opt) {
+			t.Errorf("Activator 3: Got=%v, want: %v; diff: %s", got3, want3, cmp.Diff(want3, got3, opt))
 		}
 	})
 }
@@ -1876,7 +1886,7 @@ func TestResetTrackersRaceCondition(t *testing.T) {
 		rt.containerConcurrency.Store(2) // Enable resetTrackers to actually do work
 		rt.lbPolicy.Store(lbPolicy(firstAvailableLBPolicy))
 		rt.numActivators.Store(1)
-		rt.activatorIndex.Store(0)
+		rt.activatorIndex.Store(1) // 1-based indexing: 1 means first activator
 
 		// Fix: Start the state worker goroutine
 		go rt.stateWorker()
@@ -1984,7 +1994,7 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 		rt.containerConcurrency.Store(10)
 		rt.lbPolicy.Store(lbPolicy(randomLBPolicy))
 		rt.numActivators.Store(1)
-		rt.activatorIndex.Store(0)
+		rt.activatorIndex.Store(1) // 1-based indexing: 1 means first activator
 
 		// Fix: Start the state worker goroutine
 		go rt.stateWorker()
@@ -2048,7 +2058,7 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 		rt.containerConcurrency.Store(10)
 		rt.lbPolicy.Store(lbPolicy(randomLBPolicy))
 		rt.numActivators.Store(1)
-		rt.activatorIndex.Store(0)
+		rt.activatorIndex.Store(1) // 1-based indexing: 1 means first activator
 
 		// Fix: Start the state worker goroutine
 		go rt.stateWorker()

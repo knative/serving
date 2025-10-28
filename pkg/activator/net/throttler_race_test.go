@@ -408,7 +408,7 @@ func TestRace_HandlePubEpsUpdate_StaleBackendCountOverwritesCapacity(t *testing.
 	}
 	rt.updateThrottlerState(initialTrackers, healthyDests, nil)
 	rt.numActivators.Store(1)
-	rt.activatorIndex.Store(0)
+	rt.activatorIndex.Store(1) // 1-based indexing: 1 means first activator
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -725,7 +725,7 @@ func TestRace_ActivatorIndex_ChangeDuringAssignSlice(t *testing.T) {
 	}
 	rt.updateThrottlerState(initialTrackers, nil, nil)
 	rt.numActivators.Store(2)
-	rt.activatorIndex.Store(0)
+	rt.activatorIndex.Store(1) // 1-based indexing: 1 means first activator
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -741,7 +741,7 @@ func TestRace_ActivatorIndex_ChangeDuringAssignSlice(t *testing.T) {
 			default:
 			}
 			rt.numActivators.Store(1)
-			rt.activatorIndex.Store(0)
+			rt.activatorIndex.Store(1) // 1-based indexing: 1 means first activator
 			rt.numActivators.Store(2)
 			rt.activatorIndex.Store(1)
 			rt.numActivators.Store(3)
@@ -1042,7 +1042,7 @@ func TestRace_AssignSlice_MapMutationDuringIteration(t *testing.T) {
 	}
 	rt.updateThrottlerState(initialTrackers, healthyDests, nil)
 	rt.numActivators.Store(1)
-	rt.activatorIndex.Store(0)
+	rt.activatorIndex.Store(1) // 1-based indexing: 1 means first activator
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup

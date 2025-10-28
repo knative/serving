@@ -627,22 +627,22 @@ type stateUpdateRequest struct {
 
 type revisionThrottler struct {
 	revID                types.NamespacedName
-	containerConcurrency atomic.Uint32
+	containerConcurrency atomic.Uint64
 	lbPolicy             atomic.Value // Store lbPolicy function atomically
 
 	// These are used in slicing to infer which pods to assign
 	// to this activator.
-	numActivators atomic.Uint32
-	// If -1, it is presumed that this activator should not receive requests
+	numActivators atomic.Uint64
+	// If 0, it is presumed that this activator should not receive requests
 	// for the revision. But due to the system being distributed it might take
-	// time for everything to propagate. Thus when this is -1 we assign all the
-	// pod trackers.
-	activatorIndex atomic.Int32
+	// time for everything to propagate. Thus when this is 0 we assign all the
+	// pod trackers. Uses 1-based indexing (1, 2, 3...) for actual positions.
+	activatorIndex atomic.Uint64
 	protocol       string
 
 	// Holds the current number of backends. This is used for when we get an activatorCount update and
 	// therefore need to recalculate capacity
-	backendCount atomic.Uint32 // Make atomic to prevent races
+	backendCount atomic.Uint64 // Make atomic to prevent races
 
 	// This is a breaker for the revision as a whole.
 	breaker breaker
@@ -747,15 +747,14 @@ func newRevisionThrottler(revID types.NamespacedName,
 		stateUpdateChan: make(chan stateUpdateRequest, 500),
 		done:            make(chan struct{}),
 	}
-	t.containerConcurrency.Store(uint32(containerConcurrency))
+	t.containerConcurrency.Store(uint64(containerConcurrency))
 	t.lbPolicy.Store(lbp)
 
-	// Start with unknown
-	t.activatorIndex.Store(-1)
+	// Start with unknown (0 means not ready/not in endpoints with 1-based indexing)
+	t.activatorIndex.Store(0)
 
 	// Start the state update worker goroutine
 	go t.stateWorker()
-
 	return t
 }
 
@@ -1898,8 +1897,7 @@ func (rt *revisionThrottler) updateCapacity() {
 		op:   opRecalculateCapacity,
 		done: done,
 	}
-	<-done // Wait for completion
-}
+	<-done // Wait for completion}
 
 func (rt *revisionThrottler) updateThrottlerState(newTrackers []*podTracker, healthyDests []string, drainingDests []string) {
 	defer func() {
@@ -2168,7 +2166,7 @@ func (rt *revisionThrottler) updateThrottlerState(newTrackers []*podTracker, hea
 // Uses consistent hashing to ensure all activators independently assign the correct endpoints.
 func assignSlice(trackers map[string]*podTracker, selfIndex, numActivators int) []*podTracker {
 	// Handle edge cases
-	if selfIndex == -1 {
+	if selfIndex == 0 { // Changed from -1 to 0 (not ready/not in endpoints)
 		// Sort for consistent ordering
 		dests := maps.Keys(trackers)
 		sort.Strings(dests)
@@ -2194,16 +2192,18 @@ func assignSlice(trackers map[string]*podTracker, selfIndex, numActivators int) 
 	}
 
 	// Bounds check: ensure selfIndex is valid for multi-activator scenarios
-	if numActivators > 0 && selfIndex >= numActivators {
+	// With 1-based indexing, valid indices are 1 through numActivators
+	if numActivators > 0 && selfIndex > numActivators {
 		// Invalid index - assign no pods to prevent undefined behavior
 		// This can happen during activator scale-down when indices haven't been rebalanced yet
 		return []*podTracker{}
 	}
 
-	// Use consistent hashing: take all pods where podIdx % numActivators == selfIndex
+	// Use consistent hashing with 1-based adjustment:
+	// take all pods where podIdx % numActivators == (selfIndex-1)
 	assigned := make([]*podTracker, 0)
 	for i, dest := range dests {
-		if i%numActivators == selfIndex {
+		if i%numActivators == (selfIndex - 1) { // Subtract 1 for modulo with 1-based index
 			assigned = append(assigned, trackers[dest])
 		}
 	}
@@ -2469,7 +2469,7 @@ func (t *Throttler) revisionUpdated(obj any) {
 		newPolicy, name := pickLBPolicy(rev.Spec.LoadBalancingPolicy, nil, int(rev.Spec.GetContainerConcurrency()), t.logger)
 		// Use atomic store for lock-free access in the hot request path
 		rt.lbPolicy.Store(newPolicy)
-		rt.containerConcurrency.Store(uint32(rev.Spec.GetContainerConcurrency()))
+		rt.containerConcurrency.Store(uint64(rev.Spec.GetContainerConcurrency()))
 		t.logger.Debugf("Updated revision throttler LB policy to: %s", name)
 	}
 }
@@ -2539,20 +2539,20 @@ func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP st
 
 	// We are using List to have the IP addresses sorted for consistent results.
 	epsL := sets.List(epSet)
-	//nolint:gosec // number of k8s replicas is bounded by int32
-	newNA, newAI := int32(len(epsL)), int32(inferIndex(epsL, selfIP))
-	if newAI == -1 {
+	// Using uint64 for all capacity-related values
+	newNA, newAI := uint64(len(epsL)), uint64(inferIndex(epsL, selfIP))
+	if newAI == 0 { // Changed from -1 to 0 (not in endpoints)
 		// No need to do anything, this activator is not in path.
 		return
 	}
 
 	na, ai := rt.numActivators.Load(), rt.activatorIndex.Load()
-	if na == uint32(newNA) && ai == newAI {
+	if na == newNA && ai == newAI {
 		// The state didn't change, do nothing
 		return
 	}
 
-	rt.numActivators.Store(uint32(newNA))
+	rt.numActivators.Store(newNA)
 	rt.activatorIndex.Store(newAI)
 	rt.logger.Debugf("This activator index is %d/%d was %d/%d",
 		newAI, newNA, ai, na)
@@ -2577,7 +2577,7 @@ func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP st
 }
 
 // inferIndex returns the index of this activator slice.
-// If inferIndex returns -1, it means that this activator will not receive
+// If inferIndex returns 0, it means that this activator will not receive
 // any traffic just yet so, do not participate in slicing, this happens after
 // startup, but before this activator is threaded into the endpoints
 // (which is up to 10s after reporting healthy).
@@ -2588,9 +2588,9 @@ func inferIndex(eps []string, ipAddress string) int {
 
 	// Check if this activator is part of the endpoints slice?
 	if idx == len(eps) || eps[idx] != ipAddress {
-		return -1
+		return 0 // Return 0 as sentinel (not in endpoints)
 	}
-	return idx
+	return idx + 1 // Return 1-based index (1, 2, 3...)
 }
 
 func (t *Throttler) publicEndpointsUpdated(newObj any) {
