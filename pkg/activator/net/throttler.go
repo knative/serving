@@ -785,7 +785,7 @@ func newRevisionThrottler(revID types.NamespacedName,
 	containerConcurrency uint64, proto string,
 	breakerParams queue.BreakerParams,
 	logger *zap.SugaredLogger,
-) (*revisionThrottler, error) {
+) (*revisionThrottler, error) { //nolint:unparam // Keep error return for future validation extensibility
 	logger = logger.With(zap.String(logkey.Key, revID.String()))
 	var (
 		revBreaker breaker
@@ -1044,14 +1044,15 @@ func (rt *revisionThrottler) processStateUpdate(req stateUpdateRequest) {
 
 			// Set initial state based on event type and qpAuthority
 			if qpAuthority {
-				if req.eventType == "ready" {
+				switch req.eventType {
+				case "ready":
 					tracker.state.Store(uint32(podReady))
-				} else if req.eventType == "draining" {
+				case "draining":
 					// Invalid State; you cannot add a draining pod
 					rt.logger.Errorw("Rejected pod addition - cannot add draining tracker",
 						"pod", req.pod)
 					return
-				} else {
+				default:
 					tracker.state.Store(uint32(podNotReady))
 				}
 				// Initialize QP tracking

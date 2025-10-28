@@ -254,7 +254,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 				close(rt.done) // Clean up the worker goroutine
 			}()
 
-			rt.containerConcurrency.Store(uint64(tt.containerConcurrency))
+			rt.containerConcurrency.Store(tt.containerConcurrency)
 			rt.numActivators.Store(uint64(tt.numActivators))
 			// Convert 0-based test index to 1-based: 0->1, 1->2, 2->3, etc.
 			// If test specifies 0 (unset), use 1 as default active index
