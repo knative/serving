@@ -255,7 +255,8 @@ func addresses(prefix string, n int) []corev1.EndpointAddress {
 // Use this in tests where invalid parameters should never occur.
 func mustCreateRevisionThrottler(t *testing.T, revID types.NamespacedName,
 	loadBalancerPolicy *string, containerConcurrency int, proto string,
-	breakerParams queue.BreakerParams, logger *zap.SugaredLogger) *revisionThrottler {
+	breakerParams queue.BreakerParams, logger *zap.SugaredLogger,
+) *revisionThrottler {
 	t.Helper()
 	rt, err := newRevisionThrottler(revID, loadBalancerPolicy, containerConcurrency, proto, breakerParams, logger)
 	if err != nil {

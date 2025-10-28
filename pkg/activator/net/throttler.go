@@ -1048,6 +1048,7 @@ func (rt *revisionThrottler) processStateUpdate(req stateUpdateRequest) {
 
 // makeBreaker creates a new breaker for a pod tracker
 func (rt *revisionThrottler) makeBreaker() breaker {
+	//nolint:gosec // G115: Safe conversion - containerConcurrency is bounded by K8s validation (max 10000)
 	cc := int(rt.containerConcurrency.Load())
 	if cc == 0 {
 		return nil
@@ -1081,6 +1082,7 @@ func (rt *revisionThrottler) updateCapacityLocked() {
 
 	// Calculate and update capacity
 	numTrackers := len(rt.assignedTrackers)
+	//nolint:gosec // G115: Safe conversion - numActivators is bounded by cluster size (typically < 100)
 	activatorCount := int(rt.numActivators.Load())
 	targetCapacity := rt.calculateCapacity(backendCount, numTrackers, activatorCount)
 	rt.breaker.UpdateConcurrency(targetCapacity)
@@ -1094,6 +1096,7 @@ func (rt *revisionThrottler) updateCapacityLocked() {
 
 // resetTrackersLocked resets breaker capacity while holding the lock
 func (rt *revisionThrottler) resetTrackersLocked() {
+	//nolint:gosec // G115: Safe conversion - containerConcurrency is bounded by K8s validation (max 10000)
 	cc := int(rt.containerConcurrency.Load())
 	if cc <= 0 {
 		return
@@ -1348,6 +1351,7 @@ func (rt *revisionThrottler) recomputeAssignedTrackers(podTrackers map[string]*p
 		return nil
 	}
 
+	//nolint:gosec // G115: Safe conversion - numActivators/activatorIndex bounded by cluster size (typically < 100)
 	ac, ai := int(rt.numActivators.Load()), int(rt.activatorIndex.Load())
 
 	// Use assignSlice to compute which pods belong to this activator
@@ -2590,9 +2594,11 @@ func (t *Throttler) revisionUpdated(obj any) {
 			zap.Error(err), zap.String(logkey.Key, revID.String()))
 	} else if rt != nil {
 		// Update the lbPolicy dynamically if the revision's spec policy changed
+		//nolint:gosec // G115: Safe conversion - containerConcurrency validated on input (newRevisionThrottler) and bounded by K8s (max 10000)
 		newPolicy, name := pickLBPolicy(rev.Spec.LoadBalancingPolicy, nil, int(rev.Spec.GetContainerConcurrency()), t.logger)
 		// Use atomic store for lock-free access in the hot request path
 		rt.lbPolicy.Store(newPolicy)
+		//nolint:gosec // G115: Safe conversion - GetContainerConcurrency returns validated int64, stored as uint64 (K8s max 10000)
 		rt.containerConcurrency.Store(uint64(rev.Spec.GetContainerConcurrency()))
 		t.logger.Debugf("Updated revision throttler LB policy to: %s", name)
 	}
@@ -2664,6 +2670,7 @@ func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP st
 	// We are using List to have the IP addresses sorted for consistent results.
 	epsL := sets.List(epSet)
 	// Using uint64 for all capacity-related values
+	//nolint:gosec // G115: Safe conversion - inferIndex returns activator position, bounded by cluster size (typically < 100)
 	newNA, newAI := uint64(len(epsL)), uint64(inferIndex(epsL, selfIP))
 	if newAI == 0 { // Changed from -1 to 0 (not in endpoints)
 		// No need to do anything, this activator is not in path.
