@@ -689,7 +689,7 @@ func TestPodAssignmentFinite(t *testing.T) {
 	throttler := newTestThrottler(ctx)
 	rt := newRevisionThrottler(revName, nil, 42 /*cc*/, pkgnet.ServicePortNameHTTP1, testBreakerParams, logger)
 	rt.numActivators.Store(4)
-	rt.activatorIndex.Store(1) // Changed from 0 to 1 (1-based indexing)
+	rt.activatorIndex.Store(1) // Use 1-based indexing (1 = first activator)
 	throttler.revisionThrottlers[revName] = rt
 
 	update := revisionDestsUpdate{
@@ -703,7 +703,8 @@ func TestPodAssignmentFinite(t *testing.T) {
 	if got, want := len(rt.podTrackers), len(update.Dests); got != want {
 		t.Errorf("NumTrackers = %d, want: %d", got, want)
 	}
-	// With 1-based indexing: activator index 1 gets pods at positions 0, 4 in the sorted list (ip0, ip4)
+	// With 1-based indexing: activatorIndex=1 gets pods where i%4 == 0 (pods at indices 0 and 4)
+	// Sorted pods are [ip0, ip1, ip2, ip3, ip4, ip5], so indices 0 and 4 give us [ip0, ip4]
 	if got, want := trackerDestSet(rt.assignedTrackers), sets.New("ip0", "ip4"); !got.Equal(want) {
 		t.Errorf("Assigned trackers = %v, want: %v, diff: %s", got, want, cmp.Diff(want, got))
 	}

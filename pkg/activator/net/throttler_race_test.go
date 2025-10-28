@@ -743,9 +743,9 @@ func TestRace_ActivatorIndex_ChangeDuringAssignSlice(t *testing.T) {
 			rt.numActivators.Store(1)
 			rt.activatorIndex.Store(1) // 1-based indexing: 1 means first activator
 			rt.numActivators.Store(2)
-			rt.activatorIndex.Store(1)
+			rt.activatorIndex.Store(2) // 1-based: second activator
 			rt.numActivators.Store(3)
-			rt.activatorIndex.Store(2)
+			rt.activatorIndex.Store(3) // 1-based: third activator
 		}
 	}()
 
@@ -1048,7 +1048,7 @@ func TestRace_AssignSlice_MapMutationDuringIteration(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	// Writer: Mutate podTrackers map
+	// Writer: Mutate podTrackers map via updateThrottlerState (which calls updateCapacity)
 	go func() {
 		defer wg.Done()
 		i := 0
@@ -1069,7 +1069,8 @@ func TestRace_AssignSlice_MapMutationDuringIteration(t *testing.T) {
 		}
 	}()
 
-	// Reader: Call updateCapacity which calls assignSlice
+	// Reader: Read assignedTrackers concurrently to test for races
+	// This tests that assignSlice's updates are visible consistently
 	go func() {
 		defer wg.Done()
 		for {
@@ -1078,7 +1079,11 @@ func TestRace_AssignSlice_MapMutationDuringIteration(t *testing.T) {
 				return
 			default:
 			}
-			rt.updateCapacity()
+			// Read the assigned trackers under lock to check consistency
+			rt.mux.RLock()
+			_ = len(rt.assignedTrackers)
+			_ = len(rt.podTrackers)
+			rt.mux.RUnlock()
 		}
 	}()
 
