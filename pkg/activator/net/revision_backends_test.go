@@ -996,6 +996,8 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, rt, false /*usePassthroughLb*/, netcfg.MeshCompatibilityModeAuto, probeFreq)
 			defer func() {
 				cancel()
+				// Give goroutines a moment to finish logging after context cancellation
+				time.Sleep(20 * time.Millisecond)
 				waitInformers()
 				waitForRevisionBackendManager(t, rbm)
 			}()
