@@ -202,7 +202,7 @@ func TestGracefulShutdown(t *testing.T) {
 		}, logger)
 
 	// Add some pods
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		podIP := "10.0.0." + strconv.Itoa(i) + ":8080"
 		rt.addPodIncremental(podIP, "ready", logger)
 	}

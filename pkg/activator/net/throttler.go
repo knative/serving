@@ -1995,9 +1995,15 @@ func (rt *revisionThrottler) resetTrackers() {
 
 // updateCapacity updates the capacity of the throttler and recomputes
 // the assigned trackers to the Activator instance.
-// With the work queue pattern, this is now only called from:
-// 1. K8s informer updates (updateThrottlerState)
-// 2. Activator endpoint updates
+//
+// **CRITICAL**: This method blocks waiting for the worker to process the request.
+// The worker acquires rt.mux in processStateUpdate(). Therefore, callers MUST NOT
+// hold rt.mux when calling this method, or deadlock will occur.
+//
+// Current callers:
+// 1. K8s informer updates (updateThrottlerState) - releases lock before calling (line 2280)
+// 2. Activator endpoint updates (updatePublicEndpoints) - never holds lock
+//
 // The work queue ensures pod mutations and capacity updates are serialized.
 func (rt *revisionThrottler) updateCapacity() {
 	// Send a capacity recalculation request through the work queue to avoid races
@@ -2594,8 +2600,7 @@ func (t *Throttler) revisionUpdated(obj any) {
 			zap.Error(err), zap.String(logkey.Key, revID.String()))
 	} else if rt != nil {
 		// Update the lbPolicy dynamically if the revision's spec policy changed
-		//nolint:gosec // G115: Safe conversion - containerConcurrency validated on input (newRevisionThrottler) and bounded by K8s (max 10000)
-		newPolicy, name := pickLBPolicy(rev.Spec.LoadBalancingPolicy, nil, int(rev.Spec.GetContainerConcurrency()), t.logger)
+		newPolicy, name := pickLBPolicy(rev.Spec.LoadBalancingPolicy, nil, int(rev.Spec.GetContainerConcurrency()), t.logger) //nolint:gosec // G115: Safe - K8s validates max 10000
 		// Use atomic store for lock-free access in the hot request path
 		rt.lbPolicy.Store(newPolicy)
 		//nolint:gosec // G115: Safe conversion - GetContainerConcurrency returns validated int64, stored as uint64 (K8s max 10000)
