@@ -668,12 +668,12 @@ type breaker interface {
 type stateUpdateOp int
 
 const (
-	opAddPod              stateUpdateOp = iota // Adds pod AND updates capacity
+	opNoop                stateUpdateOp = iota // No-op, used for testing to ensure queue is drained
+	opAddPod                                   // Adds pod AND updates capacity
 	opRemovePod                                // Removes pod AND updates capacity
 	opUpdatePodState                           // Changes state AND updates capacity if needed
 	opRecalculateAll                           // Full reconciliation from K8s endpoints
 	opRecalculateCapacity                      // Recalculate capacity only (activator assignment change)
-	opNoop                                     // No-op, used for testing to ensure queue is drained
 )
 
 // stateUpdateRequest represents a state mutation request to be processed serially
@@ -1053,18 +1053,21 @@ func (rt *revisionThrottler) processStateUpdate(req stateUpdateRequest) {
 			if qpAuthority {
 				if req.eventType == "ready" {
 					tracker.state.Store(uint32(podReady))
+				} else if reg.eventType == "draining" {
+					// Invalid State; you cannot add a draining pod
+					rt.logger.Errorw("Rejected pod addition - cannot add draining tracker",
+						"pod", req.pod)
+					return
 				} else {
 					tracker.state.Store(uint32(podNotReady))
 				}
+				// Initialize QP tracking
+				tracker.lastQPUpdate.Store(time.Now().Unix())
+				tracker.lastQPState.Store(req.eventType)
 			} else {
 				// QP authority disabled - start as ready
 				tracker.state.Store(uint32(podReady))
 			}
-
-			// Initialize QP tracking
-			tracker.lastQPUpdate.Store(time.Now().Unix())
-			tracker.lastQPState.Store(req.eventType)
-
 			rt.podTrackers[req.pod] = tracker
 
 			// Update capacity based on new pod count
@@ -1240,6 +1243,12 @@ func (rt *revisionThrottler) handleExistingPodEvent(tracker *podTracker, eventTy
 					"pod-ip", tracker.dest)
 			}
 		}
+	default:
+		// MUST be one of the above states; this branch is undefined behaviour
+		rt.logger.Errorw("Invalid state received",
+			"pod-ip", tracker.dest,
+			"qp-event", eventType)
+		return
 	}
 
 	// Only update capacity if routability changed
