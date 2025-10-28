@@ -197,6 +197,16 @@ var (
 		},
 		[]string{"namespace", "revision"},
 	)
+
+	// stateUpdateQueueDropped tracks requests dropped due to queue saturation
+	// Labels: namespace, revision, reason (full, worker_dead)
+	stateUpdateQueueDropped = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "activator_revision_throttler_queue_dropped_total",
+			Help: "Total number of state update requests dropped due to queue saturation",
+		},
+		[]string{"namespace", "revision", "reason"},
+	)
 )
 
 func newPodTracker(dest string, revisionID types.NamespacedName, b breaker) *podTracker {
@@ -788,10 +798,13 @@ func (rt *revisionThrottler) Close() {
 // This is only for testing and should not be used in production code.
 func (rt *revisionThrottler) FlushForTesting() {
 	done := make(chan struct{})
-	rt.enqueueStateUpdate(stateUpdateRequest{
+	if err := rt.enqueueStateUpdate(stateUpdateRequest{
 		op:   opNoop,
 		done: done,
-	})
+	}); err != nil {
+		rt.logger.Errorw("FlushForTesting failed to enqueue", "error", err)
+		return
+	}
 	<-done
 }
 
@@ -809,11 +822,38 @@ func safeCloseDone(done chan struct{}) {
 	}
 }
 
-// enqueueStateUpdate sends a state update request to the worker queue and updates metrics
-func (rt *revisionThrottler) enqueueStateUpdate(req stateUpdateRequest) {
-	rt.stateUpdateChan <- req
-	// Update queue depth metric after enqueue
-	stateUpdateQueueDepth.WithLabelValues(rt.revID.Namespace, rt.revID.Name).Set(float64(len(rt.stateUpdateChan)))
+// enqueueStateUpdate sends a state update request to the worker queue with timeout protection.
+// Returns error if the queue is full or the send times out (indicating worker issues).
+// This prevents indefinite blocking if the worker dies or gets stuck.
+func (rt *revisionThrottler) enqueueStateUpdate(req stateUpdateRequest) error {
+	// Use a select with timeout to prevent blocking indefinitely
+	// 5 second timeout gives the worker time to process if temporarily slow,
+	// but prevents indefinite hangs if worker is dead
+	timer := time.NewTimer(5 * time.Second)
+	defer timer.Stop()
+
+	select {
+	case rt.stateUpdateChan <- req:
+		// Successfully enqueued
+		stateUpdateQueueDepth.WithLabelValues(rt.revID.Namespace, rt.revID.Name).Set(float64(len(rt.stateUpdateChan)))
+		return nil
+
+	case <-timer.C:
+		// Timeout - queue is likely saturated or worker is dead
+		queueLen := len(rt.stateUpdateChan)
+		reason := "timeout"
+		if queueLen >= cap(rt.stateUpdateChan) {
+			reason = "full"
+		}
+
+		stateUpdateQueueDropped.WithLabelValues(rt.revID.Namespace, rt.revID.Name, reason).Inc()
+		rt.logger.Errorw("State update queue timeout - worker may be dead or saturated",
+			"queue-depth", queueLen,
+			"queue-capacity", cap(rt.stateUpdateChan),
+			"reason", reason)
+
+		return fmt.Errorf("state update queue %s: depth=%d capacity=%d", reason, queueLen, cap(rt.stateUpdateChan))
+	}
 }
 
 // dequeueStateUpdate is called after processing a request to update metrics
@@ -1925,10 +1965,13 @@ func (rt *revisionThrottler) resetTrackers() {
 func (rt *revisionThrottler) updateCapacity() {
 	// Send a capacity recalculation request through the work queue to avoid races
 	done := make(chan struct{})
-	rt.enqueueStateUpdate(stateUpdateRequest{
+	if err := rt.enqueueStateUpdate(stateUpdateRequest{
 		op:   opRecalculateCapacity,
 		done: done,
-	})
+	}); err != nil {
+		rt.logger.Errorw("Failed to enqueue capacity update", "error", err)
+		return
+	}
 	<-done // Wait for completion
 }
 
@@ -2273,24 +2316,21 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 	// Route through work queue to avoid TOCTOU race
 	// This ensures all state mutations and capacity updates are serialized
 	done := make(chan struct{})
-	rt.enqueueStateUpdate(stateUpdateRequest{
+	if err := rt.enqueueStateUpdate(stateUpdateRequest{
 		op:    opRecalculateAll,
 		dests: update.Dests, // Pass the destinations set for recalculation
 		done:  done,
-	})
-
-	// Wait for the worker to process the request with timeout
-	select {
-	case <-done:
-		// Request processed successfully
-		return
-	case <-time.After(5 * time.Second):
-		// Timeout - worker may be stuck or dead
-		rt.logger.Errorw("K8s informer update timed out - worker may be stuck",
+	}); err != nil {
+		rt.logger.Errorw("Failed to enqueue K8s informer update",
+			"error", err,
 			"revision", rt.revID.String(),
 			"dests-count", len(update.Dests))
 		return
 	}
+
+	// Wait for the worker to process the request
+	// Note: enqueueStateUpdate already has timeout protection, so we don't need another timeout here
+	<-done
 
 	// All K8s informer updates are now handled through the work queue
 	// The old inline implementation has been removed to ensure proper serialization
@@ -2311,25 +2351,22 @@ func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, l
 	done := make(chan struct{})
 
 	// Queue the request with done channel
-	rt.enqueueStateUpdate(stateUpdateRequest{
+	if err := rt.enqueueStateUpdate(stateUpdateRequest{
 		op:        opAddPod,
 		pod:       podIP,
 		eventType: eventType,
 		done:      done,
-	})
-
-	// Wait for the worker to process the request with timeout
-	select {
-	case <-done:
-		// Request processed successfully
-		return
-	case <-time.After(5 * time.Second):
-		// Timeout - worker may be stuck or dead
-		logger.Errorw("State update timed out - worker may be stuck",
+	}); err != nil {
+		logger.Errorw("Failed to enqueue pod state update",
+			"error", err,
 			"pod-ip", podIP,
 			"event-type", eventType)
 		return
 	}
+
+	// Wait for the worker to process the request
+	// Note: enqueueStateUpdate already has timeout protection
+	<-done
 }
 
 // Throttler load balances requests to revisions based on capacity. When `Run` is called it listens for
@@ -2601,20 +2638,19 @@ func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP st
 	// Route capacity update through work queue to avoid TOCTOU race
 	// The work queue will handle the capacity update atomically with other state changes
 	done := make(chan struct{})
-	rt.enqueueStateUpdate(stateUpdateRequest{
+	if err := rt.enqueueStateUpdate(stateUpdateRequest{
 		op:   opRecalculateCapacity,
 		done: done,
-	})
-
-	// Wait for the worker to process the request with timeout
-	select {
-	case <-done:
-		// Request processed successfully
-	case <-time.After(5 * time.Second):
-		// Timeout - worker may be stuck or dead
-		rt.logger.Errorw("Public endpoint capacity update timed out - worker may be stuck",
+	}); err != nil {
+		rt.logger.Errorw("Failed to enqueue public endpoint capacity update",
+			"error", err,
 			"revision", rt.revID.String())
+		return
 	}
+
+	// Wait for the worker to process the request
+	// Note: enqueueStateUpdate already has timeout protection
+	<-done
 }
 
 // inferIndex returns the index of this activator slice.
