@@ -488,6 +488,31 @@ func TestMakeQueueContainer(t *testing.T) {
 				"QUEUE_SERVING_PORT":            "8013",
 			})
 		}),
+	}, {
+		name: "queue sidecar image from annotation",
+		rev: revision("bar", "foo",
+			withContainers(containers),
+			WithRevisionAnnotations(map[string]string{
+				serving.QueueSidecarImageAnnotationKey: "custom-queue:v1.2.3",
+			})),
+		dc: deployment.Config{
+			QueueSidecarImage: "default-queue:latest",
+		},
+		want: queueContainer(func(c *corev1.Container) {
+			c.Image = "custom-queue:v1.2.3"
+			c.Env = env(map[string]string{})
+		}),
+	}, {
+		name: "queue sidecar image from config when annotation not present",
+		rev: revision("bar", "foo",
+			withContainers(containers)),
+		dc: deployment.Config{
+			QueueSidecarImage: "default-queue:latest",
+		},
+		want: queueContainer(func(c *corev1.Container) {
+			c.Image = "default-queue:latest"
+			c.Env = env(map[string]string{})
+		}),
 	}}
 
 	for _, test := range tests {
