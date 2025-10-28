@@ -10,5 +10,12 @@
 bazel-*
 *.out
 
+# Compiled binaries (should not be committed)
+/activator
+/autoscaler
+/queue
+/controller
+/webhook
+
 # Repomix outputs
 repomix*.xml
