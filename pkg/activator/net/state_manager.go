@@ -290,6 +290,10 @@ func (rt *revisionThrottler) processAddPod(req stateUpdateRequest, qpAuthority b
 		}
 
 		// Initialize the decreaseWeight function (required for load balancing)
+		// Note: This closure captures 'tracker' pointer, which is safe because:
+		// 1. The closure is stored in tracker.decreaseWeight (same struct)
+		// 2. Both the closure and tracker have the same lifecycle
+		// 3. No external references prevent garbage collection
 		tracker.decreaseWeight = func() {
 			if tracker.weight.Load() > 0 {
 				tracker.weight.Add(^uint32(0))
@@ -487,6 +491,10 @@ func (rt *revisionThrottler) recalculateFromEndpointsLocked(dests sets.Set[strin
 			}
 
 			// Initialize the decreaseWeight function (required for load balancing)
+			// Note: This closure captures 'tracker' pointer, which is safe because:
+			// 1. The closure is stored in tracker.decreaseWeight (same struct)
+			// 2. Both the closure and tracker have the same lifecycle
+			// 3. No external references prevent garbage collection
 			tracker.decreaseWeight = func() {
 				if tracker.weight.Load() > 0 {
 					tracker.weight.Add(^uint32(0))

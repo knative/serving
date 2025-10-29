@@ -280,6 +280,12 @@ func (p *podTracker) releaseRef() {
 	p.refCount.Add(^uint64(0))
 }
 
+// getRefCount returns the current reference count.
+// WARNING: This value can become stale immediately after reading (TOCTOU).
+// Callers must either:
+// 1. Hold an external lock that prevents concurrent modifications, OR
+// 2. Handle race conditions where refCount changes between check and use
+// Current usage is safe as all callers hold revisionThrottler.mux lock.
 func (p *podTracker) getRefCount() uint64 {
 	return p.refCount.Load()
 }
@@ -588,6 +594,10 @@ func newPodTracker(dest string, revisionID types.NamespacedName, b breaker, logg
 	tracker.weight.Store(0)
 	tracker.lastQPUpdate.Store(0)
 	tracker.lastQPState.Store("")
+	// Note: This closure captures 'tracker' pointer, which is safe because:
+	// 1. The closure is stored in tracker.decreaseWeight (same struct)
+	// 2. Both the closure and tracker have the same lifecycle
+	// 3. No external references prevent garbage collection
 	tracker.decreaseWeight = func() {
 		if tracker.weight.Load() > 0 {
 			tracker.weight.Add(^uint32(0))
