@@ -2193,12 +2193,12 @@ func TestPodTrackerRefCountRaces(t *testing.T) {
 			}
 		}()
 
-		// Goroutine trying to drain
+		// Goroutine trying to drain (transition to not-ready)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for ctx.Err() == nil {
-				tracker.tryDrain()
+				tracker.state.CompareAndSwap(uint32(podReady), uint32(podNotReady))
 				time.Sleep(time.Millisecond)
 				tracker.state.Store(uint32(podReady))
 				time.Sleep(time.Millisecond)

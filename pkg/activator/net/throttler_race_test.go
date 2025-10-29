@@ -31,7 +31,7 @@ func newRaceTestRT(t *testing.T) *revisionThrottler {
 }
 
 func newTestTracker(dest string, breaker *queue.Breaker) *podTracker {
-	return newPodTracker(dest, testRevID, breaker)
+	return newPodTracker(dest, testRevID, breaker, zap.NewNop().Sugar())
 }
 
 // 1) Concurrent access to podTrackers and assignedTrackers without consistent locking

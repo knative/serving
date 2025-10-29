@@ -44,6 +44,7 @@ func TestQuarantineRecoveryMechanism(t *testing.T) {
 		tracker := &podTracker{
 			dest:       "quarantined-pod",
 			revisionID: revID, // Must match throttler's revisionID
+			logger:     logger,
 		}
 		tracker.state.Store(uint32(podQuarantined))
 		tracker.quarantineEndTime.Store(time.Now().Unix() - 1) // Expired
@@ -87,32 +88,36 @@ func TestQuarantineRecoveryMechanism(t *testing.T) {
 		healthyTracker := &podTracker{
 			dest:       "healthy-pod",
 			revisionID: revID,
+			logger:     logger,
 		}
 		healthyTracker.state.Store(uint32(podReady))
 
 		recoveringTracker := &podTracker{
 			dest:       "recovering-pod",
 			revisionID: revID,
+			logger:     logger,
 		}
 		recoveringTracker.state.Store(uint32(podRecovering))
 
 		quarantinedTracker := &podTracker{
 			dest:       "quarantined-pod",
 			revisionID: revID,
+			logger:     logger,
 		}
 		quarantinedTracker.state.Store(uint32(podQuarantined))
 		quarantinedTracker.quarantineEndTime.Store(time.Now().Unix() + 10) // Not expired
 
-		drainingTracker := &podTracker{
-			dest:       "draining-pod",
+		notReadyTracker := &podTracker{
+			dest:       "not-ready-pod",
 			revisionID: revID,
+			logger:     logger,
 		}
-		drainingTracker.state.Store(uint32(podDraining))
+		notReadyTracker.state.Store(uint32(podNotReady))
 
-		trackers := []*podTracker{healthyTracker, recoveringTracker, quarantinedTracker, drainingTracker}
+		trackers := []*podTracker{healthyTracker, recoveringTracker, quarantinedTracker, notReadyTracker}
 		available := rt.filterAvailableTrackers(trackers)
 
-		// Should include healthy and recovering, but not quarantined or draining
+		// Should include healthy and recovering, but not quarantined or not-ready
 		if len(available) != 2 {
 			t.Errorf("Expected 2 available trackers, got %d", len(available))
 		}
@@ -146,6 +151,7 @@ func TestQuarantineRecoveryMechanism(t *testing.T) {
 			dest:       "recovering-pod",
 			revisionID: revID,
 			b:          queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
+			logger:     logger,
 		}
 		tracker.state.Store(uint32(podRecovering))
 		tracker.quarantineCount.Store(3) // Had previous quarantines
@@ -180,33 +186,41 @@ func TestQuarantineRecoveryMechanism(t *testing.T) {
 
 		rt.podTrackers["recovering-pod"] = tracker
 
-		// Verify the tracker can drain (tryDrain should succeed since refCount is 0)
-		if !tracker.tryDrain() {
-			t.Error("Tracker should be able to drain when refCount is 0")
+		// Verify the tracker can transition to not-ready (for draining)
+		if !tracker.state.CompareAndSwap(uint32(podRecovering), uint32(podNotReady)) {
+			t.Error("Tracker should be able to transition from recovering to not-ready")
 		}
 
-		// Check that the state changed to draining and the tracker was removed
-		if podState(tracker.state.Load()) != podDraining {
-			t.Errorf("Expected podDraining state, got %v", podState(tracker.state.Load()))
+		// Check that the state changed to not-ready
+		if podState(tracker.state.Load()) != podNotReady {
+			t.Errorf("Expected podNotReady state, got %v", podState(tracker.state.Load()))
 		}
 	})
 
 	t.Run("external state updates preserve recovering pods", func(t *testing.T) {
-		rt := &revisionThrottler{
-			logger:      logger,
-			revID:       types.NamespacedName{Namespace: "test", Name: "revision"},
-			breaker:     queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
-			podTrackers: make(map[string]*podTracker),
-		}
+		revID := types.NamespacedName{Namespace: "test", Name: "revision"}
+		rt := mustCreateRevisionThrottler(t,
+			revID,
+			nil, 1, "http",
+			queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10},
+			logger,
+		)
+		t.Cleanup(func() {
+			close(rt.done)
+		})
 
 		// Create a recovering tracker
 		tracker := &podTracker{
-			dest: "recovering-pod",
-			b:    queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
+			dest:       "recovering-pod",
+			revisionID: rt.revID,
+			b:          queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
+			logger:     logger,
 		}
 		tracker.state.Store(uint32(podRecovering))
 
+		rt.mux.Lock()
 		rt.podTrackers["recovering-pod"] = tracker
+		rt.mux.Unlock()
 
 		// External update marks this pod as healthy
 		// Run in goroutine to avoid blocking on breaker capacity updates
@@ -233,7 +247,11 @@ func TestQuarantineRecoveryMechanism(t *testing.T) {
 		}
 
 		// Create a quarantined tracker with future quarantine end time
-		tracker := &podTracker{dest: "quarantined-pod"}
+		tracker := &podTracker{
+			dest:       "quarantined-pod",
+			revisionID: rt.revID,
+			logger:     logger,
+		}
 		tracker.state.Store(uint32(podQuarantined))
 		tracker.quarantineEndTime.Store(time.Now().Unix() + 10) // Future time
 

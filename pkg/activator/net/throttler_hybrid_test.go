@@ -252,9 +252,9 @@ func TestQPEventsWithQuarantine(t *testing.T) {
 		// QP sends draining event
 		rt.addPodIncremental(podIP, "draining", logger)
 
-		// Pod should be draining (even with quarantine enabled)
-		if podState(tracker.state.Load()) != podDraining {
-			t.Error("Pod should be draining after QP draining event")
+		// Pod should be not-ready (draining, even with quarantine enabled)
+		if podState(tracker.state.Load()) != podNotReady {
+			t.Error("Pod should be not-ready after QP draining event")
 		}
 
 		// Release request

@@ -245,18 +245,13 @@ func TestHealthCheckFlowDefault(t *testing.T) {
 			Dests: sets.New[string](),
 		})
 
-		// Pod should transition to not-ready (informer removal)
-		// Pod stays in tracker until refCount reaches 0
+		// Pod should be removed immediately since refCount=0
 		rt.mux.RLock()
 		_, exists := rt.podTrackers[podIP]
 		rt.mux.RUnlock()
 
-		if !exists {
-			t.Error("Pod should still be in tracker (will be removed when inactive)")
-		}
-
-		if podState(tracker.state.Load()) != podNotReady {
-			t.Errorf("Pod should be not-ready after informer removal, got %v", podState(tracker.state.Load()))
+		if exists {
+			t.Error("Pod should be removed from tracker map (no active requests)")
 		}
 	})
 }

@@ -21,7 +21,6 @@ import (
 	"strconv"
 	"sync"
 	"testing"
-	"time"
 
 	"k8s.io/apimachinery/pkg/types"
 	. "knative.dev/pkg/logging/testing"
@@ -62,8 +61,6 @@ func TestQueueBasedStateManagement(t *testing.T) {
 				mu.Lock()
 				addedCount++
 				mu.Unlock()
-
-				time.Sleep(time.Millisecond)
 			}
 		}(i)
 	}
@@ -127,9 +124,7 @@ func TestQueueConcurrentStateUpdates(t *testing.T) {
 
 			// Cycle through states
 			rt.addPodIncremental(podIP, "not-ready", logger)
-			time.Sleep(5 * time.Millisecond)
 			rt.addPodIncremental(podIP, "ready", logger)
-			time.Sleep(5 * time.Millisecond)
 			rt.addPodIncremental(podIP, "draining", logger)
 		}(i)
 	}
@@ -139,21 +134,21 @@ func TestQueueConcurrentStateUpdates(t *testing.T) {
 	// Ensure the worker has processed all state updates
 	rt.FlushForTesting()
 
-	// Check that all pods are in draining state
+	// Check that all pods are in not-ready state (draining)
 	rt.mux.RLock()
-	drainingCount := 0
+	notReadyCount := 0
 	for _, tracker := range rt.podTrackers {
 		state := podState(tracker.state.Load())
-		if state == podDraining {
-			drainingCount++
+		if state == podNotReady {
+			notReadyCount++
 		}
 	}
 	rt.mux.RUnlock()
 
-	t.Logf("Found %d pods in draining state", drainingCount)
+	t.Logf("Found %d pods in not-ready state", notReadyCount)
 
-	if drainingCount != 10 {
-		t.Errorf("Expected 10 pods in draining state, got %d", drainingCount)
+	if notReadyCount != 10 {
+		t.Errorf("Expected 10 pods in not-ready state, got %d", notReadyCount)
 	}
 }
 
@@ -193,9 +188,6 @@ func TestWorkerPanicRecovery(t *testing.T) {
 
 	// Attempt to add a second pod - this should panic and recover
 	rt.addPodIncremental("10.0.0.2:8080", "ready", logger)
-
-	// Give the worker time to panic and restart
-	time.Sleep(100 * time.Millisecond)
 
 	// Clear the injector to prevent further panics
 	rt.testPanicInjector = nil
@@ -253,9 +245,6 @@ func TestGracefulShutdown(t *testing.T) {
 	// Now close the throttler
 	rt.Close()
 
-	// Give the worker time to shut down
-	time.Sleep(100 * time.Millisecond)
-
 	// After Close(), the worker stops but drains pending requests during shutdown
 	// The channel remains open during the 5-second shutdown window
 	// This is correct behavior - allows graceful completion of in-flight requests
@@ -311,10 +300,16 @@ func TestMemoryPressureProtection(t *testing.T) {
 	// Verify count didn't increase
 	rt.mux.RLock()
 	finalCount := len(rt.podTrackers)
+	_, rejectedPodExists := rt.podTrackers["10.0.0.255:8080"]
 	rt.mux.RUnlock()
 
 	if finalCount != testLimit {
 		t.Fatalf("Expected pod count to remain at %d after rejection, got %d", testLimit, finalCount)
+	}
+
+	// Verify the rejected pod (255) is NOT in the tracker map
+	if rejectedPodExists {
+		t.Error("Rejected pod 10.0.0.255:8080 should NOT be in tracker map")
 	}
 
 	t.Logf("Memory pressure protection working - rejected pod addition at limit of %d", testLimit)
