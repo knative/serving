@@ -66,6 +66,7 @@ type RequestLogTemplateInput struct {
 	Request  *http.Request
 	Response *RequestLogResponse
 	Revision *RequestLogRevision
+	TraceID  string // Extracted from W3C Trace Context (traceparent) or B3 (X-B3-TraceId) headers
 }
 
 // RequestLogTemplateInputGetter defines a function returning the input to pass to a request log writer.
@@ -79,6 +80,7 @@ func RequestLogTemplateInputGetterFromRevision(rev *RequestLogRevision) RequestL
 			Request:  req,
 			Response: resp,
 			Revision: rev,
+			TraceID:  ExtractTraceID(req.Header),
 		}
 	}
 }
