@@ -234,109 +234,10 @@ func (rt *revisionThrottler) processStateUpdate(req stateUpdateRequest) {
 
 	switch req.op {
 	case opAddPod:
-		// Check if pod already exists
-		tracker, exists := rt.podTrackers[req.pod]
-
-		if exists {
-			// Pod exists - handle state update based on event type
-			rt.handleExistingPodEvent(tracker, req.eventType, qpAuthority)
-		} else {
-			// Memory pressure protection: enforce max trackers per revision
-			if len(rt.podTrackers) >= maxTrackersPerRevision {
-				revisionTrackerLimitExceeded.WithLabelValues(rt.revID.Namespace, rt.revID.Name).Inc()
-				rt.logger.Errorw("Rejected pod addition - max trackers exceeded",
-					"pod", req.pod,
-					"current-count", len(rt.podTrackers),
-					"max-allowed", maxTrackersPerRevision)
-				return
-			}
-
-			// Create new pod tracker
-			tracker = &podTracker{
-				dest:       req.pod,
-				b:          rt.makeBreaker(),
-				revisionID: rt.revID,
-				id:         string(uuid.NewUUID()),
-				createdAt:  time.Now().Unix(),
-			}
-
-			// Initialize the decreaseWeight function (required for load balancing)
-			tracker.decreaseWeight = func() {
-				if tracker.weight.Load() > 0 {
-					tracker.weight.Add(^uint32(0))
-				}
-			}
-
-			// Set initial state based on event type and qpAuthority
-			if qpAuthority {
-				switch req.eventType {
-				case "ready":
-					tracker.state.Store(uint32(podReady))
-				case "draining":
-					// Pod is draining before ever being added - ignore it
-					// This can happen if pod crashes during startup before QP sends ready event
-					rt.logger.Warnw("Ignoring draining event for unknown pod - will never be ready",
-						"pod", req.pod)
-					return
-				default:
-					tracker.state.Store(uint32(podNotReady))
-				}
-				// Initialize QP tracking
-				tracker.lastQPUpdate.Store(time.Now().Unix())
-				tracker.lastQPState.Store(req.eventType)
-			} else {
-				// QP authority disabled - start as ready
-				tracker.state.Store(uint32(podReady))
-			}
-			rt.podTrackers[req.pod] = tracker
-
-			// Update capacity based on new pod count
-			rt.updateCapacityLocked()
-
-			rt.logger.Infow("Discovered new pod via push-based registration",
-				"pod-ip", req.pod,
-				"event-type", req.eventType,
-				"initial-state", podState(tracker.state.Load()))
-		}
+		rt.processAddPod(req, qpAuthority)
 
 	case opRemovePod:
-		// Remove pod if present
-		if tracker, exists := rt.podTrackers[req.pod]; exists {
-			// Transition to not-ready if healthy (stop routing, preserve active requests)
-			state := podState(tracker.state.Load())
-			if state == podReady || state == podRecovering {
-				tracker.state.Store(uint32(podNotReady))
-				rt.logger.Debugw("Pod removal - transitioned to not-ready",
-					"pod", req.pod,
-					"previous-state", state,
-					"ref-count", tracker.getRefCount())
-
-				// If no active requests, remove immediately
-				if tracker.getRefCount() == 0 {
-					delete(rt.podTrackers, req.pod)
-					rt.logger.Debugw("Pod removed immediately (no active requests)",
-						"pod", req.pod)
-				}
-			} else if state == podNotReady {
-				// Already not-ready, only remove if no active requests
-				if tracker.getRefCount() == 0 {
-					delete(rt.podTrackers, req.pod)
-					rt.logger.Debugw("Pod removed (no active requests)",
-						"pod", req.pod)
-				}
-			} else {
-				// Other states (podQuarantined) - only remove if no active requests
-				if tracker.getRefCount() == 0 {
-					delete(rt.podTrackers, req.pod)
-					rt.logger.Debugw("Pod in special state removed (no active requests)",
-						"pod", req.pod,
-						"state", state)
-				}
-			}
-
-			// Update capacity after state change
-			rt.updateCapacityLocked()
-		}
+		rt.processRemovePod(req)
 
 	case opRecalculateAll:
 		// Full recalculation from K8s endpoints
@@ -356,6 +257,117 @@ func (rt *revisionThrottler) processStateUpdate(req stateUpdateRequest) {
 			"pod-ip", req.pod,
 			"event-type", req.eventType,
 			"op-type", req.op)
+	}
+}
+
+// processAddPod handles adding a pod or updating its state based on QP events
+// Must be called while holding the write lock
+func (rt *revisionThrottler) processAddPod(req stateUpdateRequest, qpAuthority bool) {
+	// Check if pod already exists
+	tracker, exists := rt.podTrackers[req.pod]
+
+	if exists {
+		// Pod exists - handle state update based on event type
+		rt.handleExistingPodEvent(tracker, req.eventType, qpAuthority)
+	} else {
+		// Memory pressure protection: enforce max trackers per revision
+		if len(rt.podTrackers) >= maxTrackersPerRevision {
+			revisionTrackerLimitExceeded.WithLabelValues(rt.revID.Namespace, rt.revID.Name).Inc()
+			rt.logger.Errorw("Rejected pod addition - max trackers exceeded",
+				"pod", req.pod,
+				"current-count", len(rt.podTrackers),
+				"max-allowed", maxTrackersPerRevision)
+			return
+		}
+
+		// Create new pod tracker
+		tracker = &podTracker{
+			dest:       req.pod,
+			b:          rt.makeBreaker(),
+			revisionID: rt.revID,
+			id:         string(uuid.NewUUID()),
+			createdAt:  time.Now().Unix(),
+		}
+
+		// Initialize the decreaseWeight function (required for load balancing)
+		tracker.decreaseWeight = func() {
+			if tracker.weight.Load() > 0 {
+				tracker.weight.Add(^uint32(0))
+			}
+		}
+
+		// Set initial state based on event type and qpAuthority
+		if qpAuthority {
+			switch req.eventType {
+			case "ready":
+				tracker.state.Store(uint32(podReady))
+			case "draining":
+				// Pod is draining before ever being added - ignore it
+				// This can happen if pod crashes during startup before QP sends ready event
+				rt.logger.Warnw("Ignoring draining event for unknown pod - will never be ready",
+					"pod", req.pod)
+				return
+			default:
+				tracker.state.Store(uint32(podNotReady))
+			}
+			// Initialize QP tracking
+			tracker.lastQPUpdate.Store(time.Now().Unix())
+			tracker.lastQPState.Store(req.eventType)
+		} else {
+			// QP authority disabled - start as ready
+			tracker.state.Store(uint32(podReady))
+		}
+		rt.podTrackers[req.pod] = tracker
+
+		// Update capacity based on new pod count
+		rt.updateCapacityLocked()
+
+		rt.logger.Infow("Discovered new pod via push-based registration",
+			"pod-ip", req.pod,
+			"event-type", req.eventType,
+			"initial-state", podState(tracker.state.Load()))
+	}
+}
+
+// processRemovePod handles removing a pod from the tracker map
+// Must be called while holding the write lock
+func (rt *revisionThrottler) processRemovePod(req stateUpdateRequest) {
+	// Remove pod if present
+	if tracker, exists := rt.podTrackers[req.pod]; exists {
+		// Transition to not-ready if healthy (stop routing, preserve active requests)
+		state := podState(tracker.state.Load())
+		if state == podReady || state == podRecovering {
+			tracker.state.Store(uint32(podNotReady))
+			rt.logger.Debugw("Pod removal - transitioned to not-ready",
+				"pod", req.pod,
+				"previous-state", state,
+				"ref-count", tracker.getRefCount())
+
+			// If no active requests, remove immediately
+			if tracker.getRefCount() == 0 {
+				delete(rt.podTrackers, req.pod)
+				rt.logger.Debugw("Pod removed immediately (no active requests)",
+					"pod", req.pod)
+			}
+		} else if state == podNotReady {
+			// Already not-ready, only remove if no active requests
+			if tracker.getRefCount() == 0 {
+				delete(rt.podTrackers, req.pod)
+				rt.logger.Debugw("Pod removed (no active requests)",
+					"pod", req.pod)
+			}
+		} else {
+			// Other states (podQuarantined) - only remove if no active requests
+			if tracker.getRefCount() == 0 {
+				delete(rt.podTrackers, req.pod)
+				rt.logger.Debugw("Pod in special state removed (no active requests)",
+					"pod", req.pod,
+					"state", state)
+			}
+		}
+
+		// Update capacity after state change
+		rt.updateCapacityLocked()
 	}
 }
 
