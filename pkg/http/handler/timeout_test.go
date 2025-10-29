@@ -17,8 +17,10 @@ limitations under the License.
 package handler
 
 import (
+	"bufio"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -396,6 +398,127 @@ func TestResponseStartTimeoutAfterResponseStarted(t *testing.T) {
 		t.Errorf("Handler returned unexpected body: got %q want %q", body, expectedBody)
 	}
 }
+
+func TestResponseStartTimeoutWithWebsocketHijack(t *testing.T) {
+	// This test verifies that when a connection is Hijacked (as would happen
+	// with a WebSocket upgrade), the responseStartTimeout does not close
+	// the connection with an error.
+	clearTimerPool()
+	// Set the clock nonzero so that a nonzero value of Now is saved to last byte time.
+	fakeClock.SetTime(time.Time{}.Add(time.Millisecond))
+
+	// Mock connection and ReadWriter for hijacking
+	mockConn := &mockHijackableConn{}
+	mockRW := &bufio.ReadWriter{
+		Reader: bufio.NewReader(nil),
+		Writer: bufio.NewWriter(nil),
+	}
+
+	// Create a mock ResponseWriter that implements http.Hijacker
+	mockResponseWriter := &mockHijackableWriter{
+		recorder: httptest.NewRecorder(),
+		conn:     mockConn,
+		rw:       mockRW,
+	}
+
+	// Define a very short responseStartTimeout
+	shortResponseTimeout := 10 * time.Millisecond
+
+	connDoneSignal := make(chan any)
+
+	// Create our handler that will hijack the connection
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Cast to Hijacker and hijack the connection
+		hijacker, ok := w.(http.Hijacker)
+		if !ok {
+			t.Fatal("ResponseWriter does not implement http.Hijacker")
+		}
+		conn, rw, err := hijacker.Hijack()
+		if err != nil {
+			t.Fatalf("Failed to hijack connection: %v", err)
+		}
+		// At this point in a real application, the handler would
+		// send WebSocket handshake response and use the hijacked connection.
+		// For the test, we just verify that conn and rw are not nil.
+		if conn == nil || rw == nil {
+			t.Fatal("Expected non-nil connection and ReadWriter from Hijack")
+		}
+
+		// Cause first byte response timeout to elapse.
+		fakeClock.SetTime(fakeClock.Now().Add(2 * shortResponseTimeout))
+
+		close(connDoneSignal)
+	})
+
+	// Create a timeout handler with a very short responseStartTimeout
+	timedOutBody := "timeout error"
+	timeoutHandler := &timeoutHandler{
+		handler:     handler,
+		body:        timedOutBody,
+		timeoutFunc: StaticTimeoutFunc(1*time.Minute, shortResponseTimeout, 0),
+		clock:       fakeClock,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+
+	// Execute the handler with our mock writer
+	handlerComplete := make(chan struct{})
+	go func() {
+		timeoutHandler.ServeHTTP(mockResponseWriter, req)
+		close(handlerComplete)
+	}()
+
+	<-connDoneSignal
+	<-handlerComplete
+
+	// Verify the connection was not closed with an error
+	readBody := mockResponseWriter.recorder.Body.String()
+	if mockResponseWriter.recorder.Code == http.StatusGatewayTimeout || readBody == timedOutBody {
+		t.Error("Connection was closed with a timeout error despite being hijacked")
+	}
+
+	// Verify that the hijacking happened
+	if !mockResponseWriter.hijacked {
+		t.Error("Connection was not hijacked")
+	}
+}
+
+// Mock types to test hijacking
+
+type mockHijackableWriter struct {
+	recorder *httptest.ResponseRecorder
+	conn     net.Conn
+	rw       *bufio.ReadWriter
+	hijacked bool
+}
+
+func (m *mockHijackableWriter) Header() http.Header {
+	return m.recorder.Header()
+}
+
+func (m *mockHijackableWriter) Write(b []byte) (int, error) {
+	return m.recorder.Write(b)
+}
+
+func (m *mockHijackableWriter) WriteHeader(statusCode int) {
+	m.recorder.WriteHeader(statusCode)
+}
+
+func (m *mockHijackableWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	m.hijacked = true
+	return m.conn, m.rw, nil
+}
+
+type mockHijackableConn struct{}
+
+func (m *mockHijackableConn) Read(b []byte) (n int, err error)   { return 0, nil }
+func (m *mockHijackableConn) Write(b []byte) (n int, err error)  { return len(b), nil }
+func (m *mockHijackableConn) Close() error                       { return nil }
+func (m *mockHijackableConn) LocalAddr() net.Addr                { return nil }
+func (m *mockHijackableConn) RemoteAddr() net.Addr               { return nil }
+func (m *mockHijackableConn) SetDeadline(t time.Time) error      { return nil }
+func (m *mockHijackableConn) SetReadDeadline(t time.Time) error  { return nil }
+func (m *mockHijackableConn) SetWriteDeadline(t time.Time) error { return nil }
 
 func TestIdleTimeoutHandler(t *testing.T) {
 	const (
