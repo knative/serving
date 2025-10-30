@@ -87,8 +87,15 @@ var (
 // Panic Recovery Behavior:
 // - If a panic occurs during request processing, the worker restarts automatically
 // - The in-flight request's done channel is closed to unblock the caller
-// - This causes state loss for that single request (acceptable trade-off)
-// - Panics are tracked via stateWorkerPanics metric and indicate bugs
+// - This causes state loss for that single request
+//
+// State Loss Trade-off Rationale:
+// - Alternative: Block system-wide until panic resolved → unacceptable (complete outage)
+// - Lost state is recoverable: K8s informer will reconcile within seconds via opRecalculateAll
+// - Single request loss is acceptable vs. blocking all revisions indefinitely
+// - Panics are bugs that need fixing - tracked via stateWorkerPanics metric
+// - Supervisor with exponential backoff prevents panic loops from cascading
+//
 func (rt *revisionThrottler) stateWorker() {
 	var currentReq *stateUpdateRequest // Track in-flight request for panic recovery
 

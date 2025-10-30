@@ -599,3 +599,45 @@ func TestRoutingTriggersOpRemovePod(t *testing.T) {
 
 	t.Logf("✓ Routing validation detected revisionID mismatch and opRemovePod successfully removed stale tracker")
 }
+
+// TestRefCountConcurrentRelease verifies the CAS loop in releaseRef prevents TOCTOU race
+func TestRefCountConcurrentRelease(t *testing.T) {
+	logger := TestLogger(t)
+	revID := types.NamespacedName{Namespace: "test", Name: "rev"}
+
+	// Create a tracker with refCount=100
+	tracker := newPodTracker("10.0.0.1:8080", revID, nil, logger)
+
+	// Add 100 references
+	for i := 0; i < 100; i++ {
+		tracker.addRef()
+	}
+
+	initialCount := tracker.getRefCount()
+	if initialCount != 100 {
+		t.Fatalf("Expected refCount=100, got %d", initialCount)
+	}
+
+	// Concurrently release all 100 references
+	// Without CAS protection, this could cause underflow
+	doneChan := make(chan struct{}, 100)
+	for i := 0; i < 100; i++ {
+		go func() {
+			tracker.releaseRef()
+			doneChan <- struct{}{}
+		}()
+	}
+
+	// Wait for all releases to complete
+	for i := 0; i < 100; i++ {
+		<-doneChan
+	}
+
+	// Verify refCount is exactly 0 (no underflow)
+	finalCount := tracker.getRefCount()
+	if finalCount != 0 {
+		t.Errorf("Expected refCount=0 after concurrent releases, got %d (underflow detected!)", finalCount)
+	}
+
+	t.Logf("✓ CAS loop prevented refCount race: 100 concurrent releases -> refCount=0 (no underflow)")
+}

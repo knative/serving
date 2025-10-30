@@ -120,7 +120,8 @@ func newRevisionThrottler(revID types.NamespacedName,
 		logger:      logger,
 		protocol:    proto,
 		podTrackers: make(map[string]*podTracker),
-		// TODO: Consider making stateUpdateQueueSize configurable via ConfigMap for tuning large deployments
+		// stateUpdateQueueSize=500 is sufficient for production workloads (see throttler.go:88 for sizing rationale)
+		// Making this configurable would add complexity without clear benefit - monitor stateUpdateQueueDepth metric instead
 		stateUpdateChan: make(chan stateUpdateRequest, stateUpdateQueueSize),
 		done:            make(chan struct{}),
 		workerDone:      make(chan struct{}),

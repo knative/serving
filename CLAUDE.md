@@ -411,13 +411,14 @@ This documentation serves as the authoritative reference for understanding pod l
 
 ### Performance Optimizations & Type Safety
 
-**Race Window in mutatePodIncremental:**
-The `mutatePodIncremental` function (revision_throttler.go) contains an intentional race window where the lock is released during tracker creation. This is a deliberate performance trade-off:
+**Work Queue Serialization:**
+The work queue pattern (commit cea5c3e487) **eliminated race windows** in pod tracker creation:
 
-- **Trade-off**: Minimizes lock hold time at the cost of potential wasted allocations
-- **Correctness**: Race is detected and handled safely via double-check after re-acquiring lock
-- **Impact**: Rare (<1% expected) and only causes allocation waste, never incorrect state
-- **Alternative**: Considered sync.Once pattern but current approach prioritizes throughput
+- All state mutations serialized through `stateUpdateChan` worker
+- `processMutatePod` holds write lock for entire tracker creation and insertion
+- No TOCTOU races - lock held from existence check through map insertion
+- **Trade-off**: Slightly increased lock hold time vs. zero race windows
+- Previous implementation had intentional race window with double-check - no longer needed
 
 **uint64 Migration** (commit 6f3f7cad9c): Complete type migration to eliminate integer overflow risks:
 - `GetContainerConcurrency()`: Changed return type from int64 → uint64

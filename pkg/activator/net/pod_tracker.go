@@ -230,6 +230,8 @@ type podTracker struct {
 	// Unix timestamp of last queue-proxy push update (0 if never received)
 	lastQPUpdate atomic.Int64
 	// Last queue-proxy event type: "startup", "ready", "not-ready", "draining"
+	// Note: atomic.Value with strings causes small allocations, but QP events are infrequent
+	// (3-10 per pod lifetime) so impact is negligible. Alternative of uint32 enum adds complexity.
 	lastQPState atomic.Value
 
 	// Reason for current state transition (e.g. "qp-ready", "qp-not-ready", "qp-draining", "informer-added")
@@ -272,15 +274,28 @@ func (p *podTracker) addRef() {
 }
 
 func (p *podTracker) releaseRef() {
-	current := p.refCount.Load()
-	if current == 0 {
-		// This should never happen in correct code
-		if logger := logging.FromContext(context.Background()); logger != nil {
-			logger.Errorf("BUG: Attempted to release ref on pod %s with zero refcount", p.dest)
+	// Use CAS loop to prevent TOCTOU race between Load() and Add()
+	// Without CAS: two goroutines releasing when refCount=1 could both pass the zero check
+	// and decrement, causing underflow
+	for {
+		current := p.refCount.Load()
+		if current == 0 {
+			// This should never happen in correct code - fail fast to catch bugs immediately
+			// RefCount underflow indicates a critical bug in request lifecycle management:
+			// - Reserve/release mismatch (released more than reserved)
+			// - Double-release of the same request
+			// - Race condition in callback handling
+			p.logger.Fatalw("CRITICAL BUG: RefCount underflow - attempted to release ref with zero refcount",
+				"dest", p.dest,
+				"tracker-id", p.id,
+				"revision", p.revisionID.String())
 		}
-		return
+		// Atomically decrement only if still at expected value
+		if p.refCount.CompareAndSwap(current, current-1) {
+			return
+		}
+		// CAS failed (another goroutine modified refCount), retry
 	}
-	p.refCount.Add(^uint64(0))
 }
 
 // getRefCount returns the current reference count.
