@@ -167,6 +167,7 @@ type stateUpdateOp int
 const (
 	opNoop                stateUpdateOp = iota // No-op, used for testing to ensure queue is drained
 	opMutatePod                                // Adds, updates state, or transitions pod (based on event) AND updates capacity
+	opRemovePod                                // Removes stale pod immediately (for IP reuse detection) AND updates capacity
 	opRecalculateAll                           // Full reconciliation from K8s endpoints
 	opRecalculateCapacity                      // Recalculate capacity only (activator assignment change)
 	opCleanupStalePods                         // Cleanup stale podNotReady trackers (periodic background task)
@@ -179,6 +180,8 @@ func opTypeToString(op stateUpdateOp) string {
 		return "noop"
 	case opMutatePod:
 		return "mutate_pod"
+	case opRemovePod:
+		return "remove_pod"
 	case opRecalculateAll:
 		return "recalculate_all"
 	case opRecalculateCapacity:
@@ -238,6 +241,11 @@ func (rt *revisionThrottler) processStateUpdate(req stateUpdateRequest) {
 	switch req.op {
 	case opMutatePod:
 		rt.processMutatePod(req, qpAuthority)
+
+	case opRemovePod:
+		// Strict removal of stale tracker (IP reuse detected)
+		// Remove immediately regardless of state or refCount
+		rt.processRemovePod(req)
 
 	case opRecalculateAll:
 		// Full recalculation from K8s endpoints
@@ -360,6 +368,46 @@ func (rt *revisionThrottler) processCleanupStalePods() {
 	// - These pods were already podNotReady (not routable)
 	// - They were already excluded from capacity calculations
 	// - No capacity change from removing them
+}
+
+// processRemovePod immediately removes a stale tracker from the map
+// Must be called while holding the write lock
+// This is used when IP reuse is detected - the tracker belongs to a different revision
+// and must be removed immediately regardless of state or refCount
+func (rt *revisionThrottler) processRemovePod(req stateUpdateRequest) {
+	tracker, exists := rt.podTrackers[req.pod]
+	if !exists {
+		// Pod doesn't exist - this is a no-op (idempotent)
+		rt.logger.Debugw("opRemovePod called for non-existent pod (no-op)",
+			"pod-ip", req.pod)
+		return
+	}
+
+	// Log removal with details for debugging
+	state := podState(tracker.state.Load())
+	refCount := tracker.refCount.Load()
+	trackerRevision := tracker.revisionID.String()
+
+	rt.logger.Warnw("Force removing stale tracker (IP reuse detected)",
+		"pod-ip", req.pod,
+		"tracker-revision", trackerRevision,
+		"throttler-revision", rt.revID.String(),
+		"tracker-id", tracker.id,
+		"state", stateToString(state),
+		"ref-count", refCount,
+		"created-at", tracker.createdAt)
+
+	// Handle quarantine metrics if pod is quarantined
+	_, quarantineEnabled := getFeatureGates()
+	if quarantineEnabled && state == podQuarantined {
+		decrementQuarantineGauge(context.Background(), tracker)
+	}
+
+	// Remove from map immediately (regardless of refCount or state)
+	delete(rt.podTrackers, req.pod)
+
+	// Update capacity (pod is no longer counted)
+	rt.updateCapacityLocked()
 }
 
 // onDequeueStateUpdate is called after processing a request to update metrics

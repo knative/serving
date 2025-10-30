@@ -348,11 +348,10 @@ This documentation serves as the authoritative reference for understanding pod l
 
 **Operations** (refactored in commit e7d0573074):
 - `opMutatePod`: Handle QP events (ready, not-ready, draining) - renamed from opAddPod
+- `opRemovePod`: Immediate removal of stale trackers (IP reuse detection) - reintroduced for IP reuse scenarios
 - `opRecalculateAll`: Full reconciliation from K8s endpoints
 - `opUpdateCapacity`: Recalculate capacity after activator count changes
 - `opCleanupStalePods`: Periodic cleanup of stale not-ready pods (10 min threshold)
-
-Note: `opRemovePod` was removed - K8s informer handles pod removal via `opRecalculateAll`
 
 ### State Reason Tracking (Observability)
 
@@ -370,6 +369,45 @@ Note: `opRemovePod` was removed - K8s informer handles pod removal via `opRecalc
 - Clear audit trail of state transitions
 - Easier debugging of pod lifecycle issues
 - Distinguishes between QP-driven vs informer-driven transitions
+
+### IP Reuse Detection & Stale Tracker Removal
+
+**Problem**: In Cerebrium's infrastructure, pod IPs can be reused across different revisions. This creates stale trackers where a revisionThrottler holds a reference to a podTracker with an IP that now belongs to a different revision.
+
+**Solution**: Multi-layer IP reuse detection with immediate removal via `opRemovePod`:
+
+**Detection Points:**
+
+1. **RevisionManager Probes** (`revision_backends.go:164-211`)
+   - Earliest detection point - validates revision headers during initial pod probing
+   - Prevents stale IPs from ever being added to `healthyPods` set
+   - Checks `X-Knative-Revision-Name` and `X-Knative-Revision-Namespace` headers
+   - Probe fails if headers don't match expected revision
+   - **Benefit**: Most efficient - stale IPs never reach the throttler
+
+2. **Quarantine Health Checks** (`quarantine.go:143-207`)
+   - Validates revision headers during health check probes
+   - Returns `isStaleTracker=true` when IP reuse detected
+   - Caller enqueues `opRemovePod` via background goroutine (fire-and-forget)
+   - **Benefit**: Catches IP reuse during ongoing health monitoring
+
+3. **Routing Validation** (`revision_throttler.go:598-621`)
+   - Validates `tracker.revisionID != rt.revID` during tracker acquisition
+   - Enqueues `opRemovePod` via background goroutine when mismatch detected
+   - **Benefit**: Last-line defense - catches any stale trackers that slipped through
+
+**`opRemovePod` Operation** (`state_manager.go:373-411`):
+- **Strict removal**: Deletes tracker immediately regardless of state or refCount
+- **Force removal**: No graceful draining - requests routed to wrong revision are discarded
+- **Metrics cleanup**: Properly decrements quarantine gauges if needed
+- **Idempotent**: Safe to call multiple times on same pod
+- **Capacity update**: Recalculates capacity after removal
+
+**Benefits:**
+- Prevents routing requests to wrong revisions
+- Automatic cleanup without operator intervention
+- Multi-layer defense (probe, health check, routing)
+- No performance impact on hot path (fire-and-forget goroutines)
 
 ### Performance Optimizations & Type Safety
 
@@ -408,10 +446,12 @@ See `ACTIVATOR_FIXES.md` for detailed list of known issues.
 
 **Operations & Cleanup:**
 - ✅ Renamed `opAddPod` → `opMutatePod` (commit e7d0573074)
-- ✅ Removed `opRemovePod` (K8s informer handles removal, commit e7d0573074)
+- ✅ Reintroduced `opRemovePod` for stale tracker detection (IP reuse scenarios)
 - ✅ Fixed aggressive pod removal in mutate operations (commit 847383defd)
 - ✅ Informer-driven immediate removal for zero refCount pods (commit 847383defd)
 - ✅ Periodic cleanup for stale not-ready pods (10 min threshold, commit e7d0573074)
+- ✅ IP reuse detection in health checks and routing paths
+- ✅ Early IP reuse detection in revisionManager probes (prevents stale IPs from reaching throttler)
 
 **Metrics & Observability:**
 - ✅ `stateUpdateQueueTime` metric - reveals queue saturation (commit cea5c3e487)
@@ -455,6 +495,8 @@ When making changes:
 13. **Panic Recovery**: Verify supervisor restarts worker with exponential backoff
 14. **Time Precision**: Verify UnixMicro() used consistently for timestamps
 15. **WebSocket Compatibility**: Check if modifying proxy code
+16. **IP Reuse Detection**: Test stale tracker detection via revision header validation
+17. **opRemovePod**: Verify immediate removal regardless of state or refCount
 
 **Key Test Files:**
 - `pkg/activator/net/throttler_default_test.go` - Default mode (QP authority OFF, Quarantine ON)
@@ -464,6 +506,7 @@ When making changes:
 - `pkg/activator/net/throttler_queue_test.go` - Work queue, panic recovery, and supervisor tests
 - `pkg/activator/net/throttler_race_test.go` - Concurrent operation and race condition tests
 - `pkg/activator/net/state_machine_test.go` - State transition validation and self-transition tests
+- `pkg/activator/net/stale_tracker_test.go` - IP reuse detection and opRemovePod tests
 - `pkg/activator/net/pod_registration_handler_test.go` - Handler validation
 - `pkg/queue/pod_registration_test.go` - Client-side registration
 

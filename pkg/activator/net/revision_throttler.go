@@ -604,6 +604,16 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 					"dest", tracker.dest,
 					"tracker-id", trackerId,
 					"tracker-created-at", tracker.createdAt)
+
+				// Enqueue opRemovePod to remove stale tracker immediately
+				// Don't wait for completion - just fire and forget
+				go func(podIP string) {
+					rt.enqueueStateUpdate(stateUpdateRequest{
+						op:  opRemovePod,
+						pod: podIP,
+					})
+				}(tracker.dest)
+
 				// Re-enqueue to try a different tracker
 				reenqueue = true
 				reenqueueCount++
@@ -649,14 +659,39 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 			// Health check logic (only when enableQuarantine=true)
 			// CRITICAL: Only health check routable pods (podReady, podRecovering)
 			if !isClusterIP {
-				wasQuarantined, healthCheckMs := performHealthCheckAndQuarantine(ctx, tracker, xRequestId)
+				wasQuarantined, isStaleTracker, healthCheckMs := performHealthCheckAndQuarantine(ctx, tracker, xRequestId)
 
 				if healthCheckMs > 1000 { // Log if health check took >1s
 					rt.logger.Warnw("Slow health check",
 						"x-request-id", xRequestId,
 						"dest", tracker.dest,
 						"health-check-ms", healthCheckMs,
-						"quarantined", wasQuarantined)
+						"quarantined", wasQuarantined,
+						"stale-tracker", isStaleTracker)
+				}
+
+				// Check for stale tracker (IP reuse detected)
+				if isStaleTracker {
+					rt.logger.Errorw("Health check detected IP reuse - enqueuing stale tracker removal",
+						"x-request-id", xRequestId,
+						"dest", tracker.dest,
+						"tracker-revision", tracker.revisionID.String(),
+						"throttler-revision", rt.revID.String(),
+						"tracker-id", tracker.id,
+						"reenqueue-count", reenqueueCount)
+
+					// Enqueue opRemovePod to remove stale tracker immediately
+					// Don't wait for completion - just fire and forget
+					go func(podIP string) {
+						rt.enqueueStateUpdate(stateUpdateRequest{
+							op:  opRemovePod,
+							pod: podIP,
+						})
+					}(tracker.dest)
+
+					// Re-queue the request to try another backend
+					reenqueue = true
+					return
 				}
 
 				if wasQuarantined {

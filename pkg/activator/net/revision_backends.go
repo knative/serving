@@ -168,6 +168,30 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (pass bool, n
 		Path:   nethttp.HealthCheckPath,
 	}
 
+	// Validate revision headers to detect IP reuse (stale trackers)
+	// This prevents IPs belonging to other revisions from being added to healthyPods
+	var checkRevision netprober.Verifier = func(resp *http.Response, _ []byte) (bool, error) {
+		respRevName := resp.Header.Get("X-Knative-Revision-Name")
+		respRevNamespace := resp.Header.Get("X-Knative-Revision-Namespace")
+
+		// Backwards compatibility: if headers missing (old queue-proxy), allow
+		if respRevName == "" && respRevNamespace == "" {
+			return true, nil
+		}
+
+		// If headers present, they must match this revision
+		if respRevName != rw.rev.Name || respRevNamespace != rw.rev.Namespace {
+			rw.logger.Warnw("Probe detected IP reuse - pod belongs to different revision",
+				"dest", dest,
+				"expected-revision", rw.rev.String(),
+				"actual-revision", respRevNamespace+"/"+respRevName)
+			return false, fmt.Errorf("probe detected IP reuse: expected %s, got %s/%s",
+				rw.rev.String(), respRevNamespace, respRevName)
+		}
+
+		return true, nil
+	}
+
 	// We don't want to unnecessarily fall back to ClusterIP if we see a failure
 	// that could not have been caused by the mesh being enabled.
 	var checkMesh netprober.Verifier = func(resp *http.Response, _ []byte) (bool, error) {
@@ -179,8 +203,9 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (pass bool, n
 	options := []interface{}{
 		netprober.WithHeader(netheader.ProbeKey, queue.Name),
 		netprober.WithHeader(netheader.UserAgentKey, netheader.ActivatorUserAgent),
-		// Order is important since first failing verification short-circuits the rest: checkMesh must be first.
-		checkMesh,
+		// Order is important since first failing verification short-circuits the rest
+		checkRevision, // Check revision headers first to detect IP reuse early
+		checkMesh,     // Then check for mesh-related errors
 		netprober.ExpectsStatusCodes([]int{http.StatusOK}),
 		netprober.ExpectsBody(queue.Name),
 	}

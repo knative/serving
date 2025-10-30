@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -140,19 +141,22 @@ func tcpPingCheck(dest string, expectedRevision types.NamespacedName) error {
 }
 
 // performHealthCheckAndQuarantine runs health check on a routable pod and quarantines it if check fails.
-// Returns true if pod was quarantined (caller should re-enqueue request).
+// Returns:
+// - wasQuarantined: true if pod was quarantined (caller should re-enqueue request)
+// - isStaleTracker: true if IP reuse was detected (caller should enqueue opRemovePod)
+// - healthCheckMs: health check duration in milliseconds
 // Only performs health check on podReady and podRecovering states (not podNotReady).
-func performHealthCheckAndQuarantine(ctx context.Context, tracker *podTracker, xRequestId string) (wasQuarantined bool, healthCheckMs float64) {
+func performHealthCheckAndQuarantine(ctx context.Context, tracker *podTracker, xRequestId string) (wasQuarantined bool, isStaleTracker bool, healthCheckMs float64) {
 	_, quarantineEnabled := getFeatureGates()
 	if !quarantineEnabled {
-		return false, 0
+		return false, false, 0
 	}
 
 	currentState := podState(tracker.state.Load())
 
 	// Skip health checks for podNotReady (not routable)
 	if currentState != podReady && currentState != podRecovering {
-		return false, 0
+		return false, false, 0
 	}
 
 	// Track health check duration
@@ -161,10 +165,18 @@ func performHealthCheckAndQuarantine(ctx context.Context, tracker *podTracker, x
 	healthCheckMs = float64(time.Since(healthCheckStart).Milliseconds())
 
 	if healthCheckError == nil {
-		return false, healthCheckMs
+		return false, false, healthCheckMs
 	}
 
-	// Health check failed - try to quarantine
+	// Check if error indicates IP reuse (stale tracker)
+	// IP reuse means this pod IP now belongs to a different revision
+	if strings.Contains(healthCheckError.Error(), "IP reuse detected") {
+		// This tracker belongs to a different revision - signal for immediate removal
+		// Don't quarantine, just return flag so caller can enqueue opRemovePod
+		return false, true, healthCheckMs
+	}
+
+	// Health check failed (not IP reuse) - try to quarantine
 	// Use CAS loop to handle concurrent state changes
 	wasQuarantined = false
 	for !wasQuarantined {
@@ -191,5 +203,5 @@ func performHealthCheckAndQuarantine(ctx context.Context, tracker *podTracker, x
 		}
 	}
 
-	return wasQuarantined, healthCheckMs
+	return wasQuarantined, false, healthCheckMs
 }
