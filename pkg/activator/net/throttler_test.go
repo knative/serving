@@ -1897,7 +1897,7 @@ func TestResetTrackersRaceCondition(t *testing.T) {
 			podIP := fmt.Sprintf("pod-%d:8080", i)
 			done := make(chan struct{})
 			rt.enqueueStateUpdate(stateUpdateRequest{
-				op:        opAddPod,
+				op:        opMutatePod,
 				pod:       podIP,
 				eventType: "ready",
 				done:      done,
@@ -1936,7 +1936,7 @@ func TestResetTrackersRaceCondition(t *testing.T) {
 				if counter%2 == 0 {
 					done := make(chan struct{})
 					rt.enqueueStateUpdate(stateUpdateRequest{
-						op:        opAddPod,
+						op:        opMutatePod,
 						pod:       trackerName,
 						eventType: "ready",
 						done:      done,
@@ -1945,7 +1945,8 @@ func TestResetTrackersRaceCondition(t *testing.T) {
 				} else {
 					done := make(chan struct{})
 					rt.enqueueStateUpdate(stateUpdateRequest{
-						op:   opRemovePod,
+						op:        opMutatePod,
+						eventType: "draining",
 						pod:  trackerName,
 						done: done,
 					})
@@ -2026,7 +2027,7 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 				podIP := fmt.Sprintf("add-pod-%d:8080", counter)
 				done := make(chan struct{})
 				rt.enqueueStateUpdate(stateUpdateRequest{
-					op:        opAddPod,
+					op:        opMutatePod,
 					pod:       podIP,
 					eventType: "ready",
 					done:      done,
@@ -2045,7 +2046,8 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 				podIP := fmt.Sprintf("add-pod-%d:8080", counter)
 				done := make(chan struct{})
 				rt.enqueueStateUpdate(stateUpdateRequest{
-					op:   opRemovePod,
+					op:        opMutatePod,
+						eventType: "draining",
 					pod:  podIP,
 					done: done,
 				})
@@ -2091,7 +2093,7 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 			podIP := fmt.Sprintf("pod-%d:8080", i)
 			done := make(chan struct{})
 			rt.enqueueStateUpdate(stateUpdateRequest{
-				op:        opAddPod,
+				op:        opMutatePod,
 				pod:       podIP,
 				eventType: "ready",
 				done:      done,
@@ -2132,7 +2134,7 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 					podIP := fmt.Sprintf("dynamic-%d:8080", counter)
 					done := make(chan struct{})
 					rt.enqueueStateUpdate(stateUpdateRequest{
-						op:        opAddPod,
+						op:        opMutatePod,
 						pod:       podIP,
 						eventType: "ready",
 						done:      done,
@@ -2143,7 +2145,8 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 					podIP := fmt.Sprintf("pod-%d:8080", counter%5)
 					done := make(chan struct{})
 					rt.enqueueStateUpdate(stateUpdateRequest{
-						op:   opRemovePod,
+						op:        opMutatePod,
+						eventType: "draining",
 						pod:  podIP,
 						done: done,
 					})

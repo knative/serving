@@ -54,7 +54,7 @@ func TestRace_PodTrackers_ReadWrite_NoLock(t *testing.T) {
 			addr := "10.0.0." + strconv.Itoa(i%10) + ":8080"
 			done := make(chan struct{})
 			rt.enqueueStateUpdate(stateUpdateRequest{
-				op:        opAddPod,
+				op:        opMutatePod,
 				pod:       addr,
 				eventType: "ready",
 				done:      done,
@@ -63,9 +63,10 @@ func TestRace_PodTrackers_ReadWrite_NoLock(t *testing.T) {
 
 			done2 := make(chan struct{})
 			rt.enqueueStateUpdate(stateUpdateRequest{
-				op:   opRemovePod,
-				pod:  addr,
-				done: done2,
+				op:        opMutatePod,
+				pod:       addr,
+				eventType: "draining",
+				done:      done2,
 			})
 			<-done2
 			i++
@@ -107,7 +108,7 @@ func TestRace_UpdateCapacity_ReadsPodTrackersWhileWriterMutates(t *testing.T) {
 		addr := "10.0.0." + string(rune('a'+i)) + ":8080"
 		done := make(chan struct{})
 		rt.enqueueStateUpdate(stateUpdateRequest{
-			op:        opAddPod,
+			op:        opMutatePod,
 			pod:       addr,
 			eventType: "ready",
 			done:      done,
@@ -132,14 +133,15 @@ func TestRace_UpdateCapacity_ReadsPodTrackersWhileWriterMutates(t *testing.T) {
 			done := make(chan struct{})
 			if i%2 == 0 {
 				rt.enqueueStateUpdate(stateUpdateRequest{
-					op:        opAddPod,
+					op:        opMutatePod,
 					pod:       addr,
 					eventType: "ready",
 					done:      done,
 				})
 			} else {
 				rt.enqueueStateUpdate(stateUpdateRequest{
-					op:   opRemovePod,
+					op:        opMutatePod,
+				eventType: "draining",
 					pod:  addr,
 					done: done,
 				})
@@ -177,7 +179,7 @@ func TestRace_LBPolicy_UpdateVsUsage(t *testing.T) {
 	for _, addr := range []string{"10.0.0.1:8080", "10.0.0.2:8080"} {
 		done := make(chan struct{})
 		rt.enqueueStateUpdate(stateUpdateRequest{
-			op:        opAddPod,
+			op:        opMutatePod,
 			pod:       addr,
 			eventType: "ready",
 			done:      done,
@@ -241,7 +243,7 @@ func TestRace_CapacityUpdates_ConcurrentWithPodMutations(t *testing.T) {
 		addr := "10.0.0." + strconv.Itoa(i) + ":8080"
 		done := make(chan struct{})
 		rt.enqueueStateUpdate(stateUpdateRequest{
-			op:        opAddPod,
+			op:        opMutatePod,
 			pod:       addr,
 			eventType: "ready",
 			done:      done,
@@ -285,14 +287,15 @@ func TestRace_CapacityUpdates_ConcurrentWithPodMutations(t *testing.T) {
 			done := make(chan struct{})
 			if i%2 == 0 {
 				rt.enqueueStateUpdate(stateUpdateRequest{
-					op:        opAddPod,
+					op:        opMutatePod,
 					pod:       addr,
 					eventType: "ready",
 					done:      done,
 				})
 			} else {
 				rt.enqueueStateUpdate(stateUpdateRequest{
-					op:   opRemovePod,
+					op:        opMutatePod,
+				eventType: "draining",
 					pod:  addr,
 					done: done,
 				})
@@ -458,7 +461,7 @@ func TestRace_HandlePubEpsUpdate_StaleBackendCountOverwritesCapacity(t *testing.
 		addr := "10.0.0." + strconv.Itoa(i) + ":8080"
 		done := make(chan struct{})
 		rt.enqueueStateUpdate(stateUpdateRequest{
-			op:        opAddPod,
+			op:        opMutatePod,
 			pod:       addr,
 			eventType: "ready",
 			done:      done,
@@ -486,7 +489,7 @@ func TestRace_HandlePubEpsUpdate_StaleBackendCountOverwritesCapacity(t *testing.
 			done := make(chan struct{})
 			// This updates backendCount to i+1
 			rt.enqueueStateUpdate(stateUpdateRequest{
-				op:        opAddPod,
+				op:        opMutatePod,
 				pod:       addr,
 				eventType: "ready",
 				done:      done,
@@ -546,7 +549,7 @@ func TestRace_BreakerCapacityCapture_ConcurrentCapacityUpdates(t *testing.T) {
 		addr := "10.0.0." + strconv.Itoa(i) + ":8080"
 		done := make(chan struct{})
 		rt.enqueueStateUpdate(stateUpdateRequest{
-			op:        opAddPod,
+			op:        opMutatePod,
 			pod:       addr,
 			eventType: "ready",
 			done:      done,
@@ -617,7 +620,7 @@ func TestRace_AssignedTrackers_ConcurrentReadDuringUpdate(t *testing.T) {
 		addr := "10.0.0." + strconv.Itoa(i) + ":8080"
 		done := make(chan struct{})
 		rt.enqueueStateUpdate(stateUpdateRequest{
-			op:        opAddPod,
+			op:        opMutatePod,
 			pod:       addr,
 			eventType: "ready",
 			done:      done,
@@ -701,7 +704,7 @@ func TestRace_ContainerConcurrency_UpdateDuringCapacityCalc(t *testing.T) {
 		addr := "10.0.0." + strconv.Itoa(i) + ":8080"
 		done := make(chan struct{})
 		rt.enqueueStateUpdate(stateUpdateRequest{
-			op:        opAddPod,
+			op:        opMutatePod,
 			pod:       addr,
 			eventType: "ready",
 			done:      done,
@@ -784,7 +787,7 @@ func TestRace_ActivatorIndex_ChangeDuringAssignSlice(t *testing.T) {
 		addr := "10.0.0." + strconv.Itoa(i) + ":8080"
 		done := make(chan struct{})
 		rt.enqueueStateUpdate(stateUpdateRequest{
-			op:        opAddPod,
+			op:        opMutatePod,
 			pod:       addr,
 			eventType: "ready",
 			done:      done,
@@ -885,7 +888,7 @@ func TestRace_UpdateThrottlerState_ConcurrentUpdates(t *testing.T) {
 				addr := "10.0." + strconv.Itoa(id) + "." + strconv.Itoa(j) + ":8080"
 				done := make(chan struct{})
 				rt.enqueueStateUpdate(stateUpdateRequest{
-					op:        opAddPod,
+					op:        opMutatePod,
 					pod:       addr,
 					eventType: "ready",
 					done:      done,
@@ -934,7 +937,7 @@ func TestRace_BackendCount_ConcurrentReadWriteDuringCapacityUpdates(t *testing.T
 		addr := "10.0.0." + strconv.Itoa(i) + ":8080"
 		done := make(chan struct{})
 		rt.enqueueStateUpdate(stateUpdateRequest{
-			op:        opAddPod,
+			op:        opMutatePod,
 			pod:       addr,
 			eventType: "ready",
 			done:      done,
@@ -958,7 +961,7 @@ func TestRace_BackendCount_ConcurrentReadWriteDuringCapacityUpdates(t *testing.T
 			addr := "10.0.1." + strconv.Itoa(i) + ":8080"
 			done := make(chan struct{})
 			rt.enqueueStateUpdate(stateUpdateRequest{
-				op:        opAddPod,
+				op:        opMutatePod,
 				pod:       addr,
 				eventType: "ready",
 				done:      done,
@@ -1040,7 +1043,7 @@ func TestRace_WaitingRequests_ConcurrentBreakerStateReads(t *testing.T) {
 		addr := "10.0.0." + strconv.Itoa(i) + ":8080"
 		done := make(chan struct{})
 		rt.enqueueStateUpdate(stateUpdateRequest{
-			op:        opAddPod,
+			op:        opMutatePod,
 			pod:       addr,
 			eventType: "ready",
 			done:      done,
@@ -1110,7 +1113,7 @@ func TestRace_AssignSlice_MapMutationDuringIteration(t *testing.T) {
 		addr := "10.0.0." + strconv.Itoa(i) + ":8080"
 		done := make(chan struct{})
 		rt.enqueueStateUpdate(stateUpdateRequest{
-			op:        opAddPod,
+			op:        opMutatePod,
 			pod:       addr,
 			eventType: "ready",
 			done:      done,
@@ -1138,7 +1141,7 @@ func TestRace_AssignSlice_MapMutationDuringIteration(t *testing.T) {
 			done := make(chan struct{})
 			// Add pod in ready state
 			rt.enqueueStateUpdate(stateUpdateRequest{
-				op:        opAddPod,
+				op:        opMutatePod,
 				pod:       addr,
 				eventType: "ready",
 				done:      done,

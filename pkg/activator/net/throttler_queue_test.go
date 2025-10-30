@@ -56,7 +56,7 @@ func TestQueueBasedStateManagement(t *testing.T) {
 			for j := range 10 {
 				podIP := "10.0." + strconv.Itoa(id) + "." + strconv.Itoa(j) + ":8080"
 				// Use the new queue-based method
-				rt.addPodIncremental(podIP, "ready", logger)
+				rt.mutatePodIncremental(podIP, "ready", logger)
 
 				mu.Lock()
 				addedCount++
@@ -108,7 +108,7 @@ func TestQueueConcurrentStateUpdates(t *testing.T) {
 	// Add some initial pods
 	for i := range 10 {
 		podIP := "10.0.0." + strconv.Itoa(i) + ":8080"
-		rt.addPodIncremental(podIP, "ready", logger)
+		rt.mutatePodIncremental(podIP, "ready", logger)
 	}
 
 	// Ensure the worker has processed all requests
@@ -123,9 +123,9 @@ func TestQueueConcurrentStateUpdates(t *testing.T) {
 			podIP := "10.0.0." + strconv.Itoa(id) + ":8080"
 
 			// Cycle through states
-			rt.addPodIncremental(podIP, "not-ready", logger)
-			rt.addPodIncremental(podIP, "ready", logger)
-			rt.addPodIncremental(podIP, "draining", logger)
+			rt.mutatePodIncremental(podIP, "not-ready", logger)
+			rt.mutatePodIncremental(podIP, "ready", logger)
+			rt.mutatePodIncremental(podIP, "draining", logger)
 		}(i)
 	}
 
@@ -165,7 +165,7 @@ func TestWorkerPanicRecovery(t *testing.T) {
 		}, logger)
 
 	// First, add a pod normally to verify worker is functioning
-	rt.addPodIncremental("10.0.0.1:8080", "ready", logger)
+	rt.mutatePodIncremental("10.0.0.1:8080", "ready", logger)
 	rt.FlushForTesting()
 
 	// Verify pod was added
@@ -177,23 +177,23 @@ func TestWorkerPanicRecovery(t *testing.T) {
 		t.Fatalf("Expected 1 pod, got %d", initialCount)
 	}
 
-	// Inject a panic on the next opAddPod operation
+	// Inject a panic on the next opMutatePod operation
 	panicCount := 0
 	rt.testPanicInjector = func(req stateUpdateRequest) {
-		if req.op == opAddPod && req.pod == "10.0.0.2:8080" {
+		if req.op == opMutatePod && req.pod == "10.0.0.2:8080" {
 			panicCount++
 			panic("injected test panic")
 		}
 	}
 
 	// Attempt to add a second pod - this should panic and recover
-	rt.addPodIncremental("10.0.0.2:8080", "ready", logger)
+	rt.mutatePodIncremental("10.0.0.2:8080", "ready", logger)
 
 	// Clear the injector to prevent further panics
 	rt.testPanicInjector = nil
 
 	// Verify the worker recovered by adding a third pod
-	rt.addPodIncremental("10.0.0.3:8080", "ready", logger)
+	rt.mutatePodIncremental("10.0.0.3:8080", "ready", logger)
 	rt.FlushForTesting()
 
 	// Verify the third pod was added successfully (worker recovered)
@@ -227,7 +227,7 @@ func TestGracefulShutdown(t *testing.T) {
 	// Add some pods
 	for i := range 10 {
 		podIP := "10.0.0." + strconv.Itoa(i) + ":8080"
-		rt.addPodIncremental(podIP, "ready", logger)
+		rt.mutatePodIncremental(podIP, "ready", logger)
 	}
 
 	// Flush to ensure all processed
@@ -279,7 +279,7 @@ func TestMemoryPressureProtection(t *testing.T) {
 	// Add pods up to the limit
 	for i := range testLimit {
 		podIP := fmt.Sprintf("10.0.0.%d:8080", i)
-		rt.addPodIncremental(podIP, "ready", logger)
+		rt.mutatePodIncremental(podIP, "ready", logger)
 	}
 
 	rt.FlushForTesting()
@@ -294,7 +294,7 @@ func TestMemoryPressureProtection(t *testing.T) {
 	}
 
 	// Try to add one more pod - should be rejected
-	rt.addPodIncremental("10.0.0.255:8080", "ready", logger)
+	rt.mutatePodIncremental("10.0.0.255:8080", "ready", logger)
 	rt.FlushForTesting()
 
 	// Verify count didn't increase

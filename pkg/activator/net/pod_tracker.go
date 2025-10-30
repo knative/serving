@@ -232,6 +232,11 @@ type podTracker struct {
 	// Last queue-proxy event type: "startup", "ready", "not-ready", "draining"
 	lastQPState atomic.Value
 
+	// Reason for current state transition (e.g. "qp-ready", "qp-not-ready", "qp-draining", "informer-added")
+	// Used for logging/debugging to understand state changes
+	// Only modified under write lock, so no atomic needed
+	stateReason string
+
 	// weight is used for LB policy implementations.
 	weight atomic.Uint32
 }

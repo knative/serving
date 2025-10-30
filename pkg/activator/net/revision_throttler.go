@@ -849,13 +849,13 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 // All state mutations are serialized through the work queue to prevent race conditions.
 // This function blocks until the request is processed for backward compatibility.
 // Includes timeout protection in case the worker goroutine dies.
-func (rt *revisionThrottler) addPodIncremental(podIP string, eventType string, logger *zap.SugaredLogger) {
+func (rt *revisionThrottler) mutatePodIncremental(podIP string, eventType string, logger *zap.SugaredLogger) {
 	// Create a done channel to wait for processing
 	done := make(chan struct{})
 
 	// Queue the request with done channel
 	rt.enqueueStateUpdate(stateUpdateRequest{
-		op:        opAddPod,
+		op:        opMutatePod,
 		pod:       podIP,
 		eventType: eventType,
 		done:      done,

@@ -166,8 +166,7 @@ type stateUpdateOp int
 
 const (
 	opNoop                stateUpdateOp = iota // No-op, used for testing to ensure queue is drained
-	opAddPod                                   // Adds pod AND updates capacity
-	opRemovePod                                // Removes pod AND updates capacity
+	opMutatePod                                // Adds, updates state, or transitions pod (based on event) AND updates capacity
 	opRecalculateAll                           // Full reconciliation from K8s endpoints
 	opRecalculateCapacity                      // Recalculate capacity only (activator assignment change)
 	opCleanupStalePods                         // Cleanup stale podNotReady trackers (periodic background task)
@@ -178,10 +177,8 @@ func opTypeToString(op stateUpdateOp) string {
 	switch op {
 	case opNoop:
 		return "noop"
-	case opAddPod:
-		return "add_pod"
-	case opRemovePod:
-		return "remove_pod"
+	case opMutatePod:
+		return "mutate_pod"
 	case opRecalculateAll:
 		return "recalculate_all"
 	case opRecalculateCapacity:
@@ -222,6 +219,9 @@ func (rt *revisionThrottler) processStateUpdate(req stateUpdateRequest) {
 	}()
 
 	// Test-only panic injection hook
+	// NOTE: This is intentionally placed BEFORE lock acquisition to ensure
+	// panics during testing don't leave locks held. This is safe because
+	// no state mutations have occurred yet at this point.
 	if rt.testPanicInjector != nil {
 		rt.testPanicInjector(req)
 	}
@@ -236,11 +236,8 @@ func (rt *revisionThrottler) processStateUpdate(req stateUpdateRequest) {
 	defer rt.mux.Unlock()
 
 	switch req.op {
-	case opAddPod:
-		rt.processAddPod(req, qpAuthority)
-
-	case opRemovePod:
-		rt.processRemovePod(req)
+	case opMutatePod:
+		rt.processMutatePod(req, qpAuthority)
 
 	case opRecalculateAll:
 		// Full recalculation from K8s endpoints
@@ -267,9 +264,9 @@ func (rt *revisionThrottler) processStateUpdate(req stateUpdateRequest) {
 	}
 }
 
-// processAddPod handles adding a pod or updating its state based on QP events
+// processMutatePod handles adding a pod or updating its state based on QP events
 // Must be called while holding the write lock
-func (rt *revisionThrottler) processAddPod(req stateUpdateRequest, qpAuthority bool) {
+func (rt *revisionThrottler) processMutatePod(req stateUpdateRequest, qpAuthority bool) {
 	// Check if pod already exists
 	tracker, exists := rt.podTrackers[req.pod]
 
@@ -293,7 +290,8 @@ func (rt *revisionThrottler) processAddPod(req stateUpdateRequest, qpAuthority b
 			b:          rt.makeBreaker(),
 			revisionID: rt.revID,
 			id:         string(uuid.NewUUID()),
-			createdAt:  time.Now().Unix(),
+			createdAt:  time.Now().UnixMicro(),
+			logger:     rt.logger,
 		}
 
 		// Set initial state based on event type and qpAuthority
@@ -301,6 +299,7 @@ func (rt *revisionThrottler) processAddPod(req stateUpdateRequest, qpAuthority b
 			switch req.eventType {
 			case "ready":
 				tracker.state.Store(uint32(podReady))
+				tracker.stateReason = "qp-ready"
 			case "draining":
 				// Pod is draining before ever being added - ignore it
 				// This can happen if pod crashes during startup before QP sends ready event
@@ -309,15 +308,18 @@ func (rt *revisionThrottler) processAddPod(req stateUpdateRequest, qpAuthority b
 				return
 			default:
 				tracker.state.Store(uint32(podNotReady))
+				tracker.stateReason = "qp-" + req.eventType // e.g. "qp-startup", "qp-not-ready"
 			}
-			// Initialize QP tracking
-			tracker.lastQPUpdate.Store(time.Now().Unix())
-			tracker.lastQPState.Store(req.eventType)
 		} else {
 			// QP authority disabled - start as ready
 			tracker.state.Store(uint32(podReady))
+			tracker.stateReason = "informer-added"
 		}
 		rt.podTrackers[req.pod] = tracker
+
+		// Initialize QP tracking, done in all modes for logging and shadow deployments
+		tracker.lastQPUpdate.Store(time.Now().Unix())
+		tracker.lastQPState.Store(req.eventType)
 
 		// Update capacity based on new pod count
 		rt.updateCapacityLocked()
@@ -325,57 +327,16 @@ func (rt *revisionThrottler) processAddPod(req stateUpdateRequest, qpAuthority b
 		rt.logger.Infow("Discovered new pod via push-based registration",
 			"pod-ip", req.pod,
 			"event-type", req.eventType,
-			"initial-state", podState(tracker.state.Load()))
-	}
-}
-
-// processRemovePod handles removing a pod from the tracker map
-// Must be called while holding the write lock
-func (rt *revisionThrottler) processRemovePod(req stateUpdateRequest) {
-	// Remove pod if present
-	if tracker, exists := rt.podTrackers[req.pod]; exists {
-		// Transition to not-ready if healthy (stop routing, preserve active requests)
-		state := podState(tracker.state.Load())
-		if state == podReady || state == podRecovering {
-			tracker.state.Store(uint32(podNotReady))
-			rt.logger.Debugw("Pod removal - transitioned to not-ready",
-				"pod", req.pod,
-				"previous-state", state,
-				"ref-count", tracker.getRefCount())
-
-			// If no active requests, remove immediately
-			if tracker.getRefCount() == 0 {
-				delete(rt.podTrackers, req.pod)
-				rt.logger.Debugw("Pod removed immediately (no active requests)",
-					"pod", req.pod)
-			}
-		} else if state == podNotReady {
-			// Already not-ready, only remove if no active requests
-			if tracker.getRefCount() == 0 {
-				delete(rt.podTrackers, req.pod)
-				rt.logger.Debugw("Pod removed (no active requests)",
-					"pod", req.pod)
-			}
-		} else {
-			// Other states (podQuarantined) - only remove if no active requests
-			if tracker.getRefCount() == 0 {
-				delete(rt.podTrackers, req.pod)
-				rt.logger.Debugw("Pod in special state removed (no active requests)",
-					"pod", req.pod,
-					"state", state)
-			}
-		}
-
-		// Update capacity after state change
-		rt.updateCapacityLocked()
+			"initial-state", podState(tracker.state.Load()),
+			"state-reason", tracker.stateReason)
 	}
 }
 
 // processCleanupStalePods removes stale podNotReady trackers with zero refCount
 // Must be called while holding the write lock
 func (rt *revisionThrottler) processCleanupStalePods() {
-	const staleThreshold = 600 // 10 minutes in seconds
-	now := time.Now().Unix()
+	staleThresholdMicros := PodNotReadyStaleThreshold.Microseconds()
+	now := time.Now().UnixMicro()
 
 	for ip, tracker := range rt.podTrackers {
 		state := podState(tracker.state.Load())
@@ -384,13 +345,13 @@ func (rt *revisionThrottler) processCleanupStalePods() {
 
 		// Cleanup podNotReady with zero refCount that are stale
 		if state == podNotReady && refCount == 0 {
-			age := now - createdAt
-			if age > staleThreshold {
+			ageMicros := now - createdAt
+			if ageMicros > staleThresholdMicros {
 				delete(rt.podTrackers, ip)
 				rt.logger.Infow("Cleaned up stale podNotReady tracker",
 					"revision", rt.revID.String(),
 					"pod-ip", ip,
-					"age-seconds", age,
+					"age-seconds", ageMicros/1000000, // Convert to seconds for logging
 					"ref-count", refCount)
 			}
 		}
@@ -446,8 +407,10 @@ func (rt *revisionThrottler) handleExistingPodEvent(tracker *podTracker, eventTy
 		if oldState == podNotReady {
 			if tracker.state.CompareAndSwap(uint32(podNotReady), uint32(podReady)) {
 				stateChanged = true
+				tracker.stateReason = "qp-ready"
 				rt.logger.Infow("QP promoted not-ready pod to ready",
-					"pod-ip", tracker.dest)
+					"pod-ip", tracker.dest,
+					"state-reason", tracker.stateReason)
 			}
 		}
 
@@ -455,9 +418,11 @@ func (rt *revisionThrottler) handleExistingPodEvent(tracker *podTracker, eventTy
 		if oldState == podReady {
 			if tracker.state.CompareAndSwap(uint32(podReady), uint32(podNotReady)) {
 				stateChanged = true
+				tracker.stateReason = "qp-not-ready"
 				rt.logger.Warnw("QP demoted pod to not-ready (readiness probe failed)",
 					"pod-ip", tracker.dest,
-					"active-requests", tracker.refCount.Load())
+					"active-requests", tracker.refCount.Load(),
+					"state-reason", tracker.stateReason)
 			}
 		}
 
@@ -466,15 +431,21 @@ func (rt *revisionThrottler) handleExistingPodEvent(tracker *podTracker, eventTy
 		if oldState == podReady || oldState == podRecovering {
 			if tracker.state.CompareAndSwap(uint32(oldState), uint32(podNotReady)) {
 				stateChanged = true
+				tracker.stateReason = "qp-draining"
 				rt.logger.Infow("QP initiated pod draining - transitioned to not-ready",
 					"pod-ip", tracker.dest,
 					"previous-state", oldState,
-					"active-requests", tracker.refCount.Load())
+					"active-requests", tracker.refCount.Load(),
+					"state-reason", tracker.stateReason)
 			}
 		} else if oldState == podNotReady {
-			// Already not-ready (crash during startup) - no state change needed
+			// Already not-ready (crash during startup) - update reason if needed
+			if tracker.stateReason != "qp-draining" {
+				tracker.stateReason = "qp-draining"
+			}
 			rt.logger.Debugw("QP draining event for already not-ready pod",
-				"pod-ip", tracker.dest)
+				"pod-ip", tracker.dest,
+				"state-reason", tracker.stateReason)
 		}
 	default:
 		// MUST be one of the above states; this branch is undefined behaviour
@@ -489,6 +460,15 @@ func (rt *revisionThrottler) handleExistingPodEvent(tracker *podTracker, eventTy
 		newRoutable := (newState == podReady || newState == podRecovering)
 		if oldRoutable != newRoutable {
 			rt.updateCapacityLocked()
+		}
+
+		// Clean up podNotReady trackers with zero refCount immediately
+		// instead of waiting for the cleanup goroutine
+		if newState == podNotReady && tracker.getRefCount() == 0 {
+			delete(rt.podTrackers, tracker.dest)
+			rt.logger.Debugw("Removed podNotReady tracker with zero refCount",
+				"pod-ip", tracker.dest,
+				"state-reason", tracker.stateReason)
 		}
 	}
 }
@@ -513,13 +493,15 @@ func (rt *revisionThrottler) recalculateFromEndpointsLocked(dests sets.Set[strin
 				b:          rt.makeBreaker(),
 				revisionID: rt.revID,
 				id:         string(uuid.NewUUID()),
-				createdAt:  time.Now().Unix(),
+				createdAt:  time.Now().UnixMicro(),
+				logger:     rt.logger,
 			}
 
 			// When QP authority is enabled, start as podNotReady (wait for QP ready event)
 			// When disabled, start as podReady (trust K8s immediately)
 			if qpAuthority {
 				tracker.state.Store(uint32(podNotReady))
+				tracker.stateReason = "informer-pending"
 
 				// Check if we should immediately promote to ready
 				// (QP has never been heard from, so it's considered stale)
@@ -529,20 +511,24 @@ func (rt *revisionThrottler) recalculateFromEndpointsLocked(dests sets.Set[strin
 				if qpAge > int64(QPStalenessThreshold.Seconds()) {
 					// QP data is stale (or never received), trust K8s informer
 					tracker.state.Store(uint32(podReady))
+					tracker.stateReason = "informer-ready"
 					rt.logger.Debugw("New pod tracker immediately promoted to ready (no QP data)",
 						"dest", dest,
 						"tracker-id", tracker.id,
-						"qp-age-sec", qpAge)
+						"qp-age-sec", qpAge,
+						"state-reason", tracker.stateReason)
 				}
 			} else {
 				tracker.state.Store(uint32(podReady))
+				tracker.stateReason = "informer-ready"
 			}
 
 			rt.podTrackers[dest] = tracker
 			rt.logger.Debugw("Created new pod tracker from K8s informer",
 				"dest", dest,
 				"tracker-id", tracker.id,
-				"initial-state", podState(tracker.state.Load()))
+				"initial-state", podState(tracker.state.Load()),
+				"state-reason", tracker.stateReason)
 		} else {
 			// Pod exists - handle state based on QP authority mode
 			tracker := rt.podTrackers[dest]
@@ -565,11 +551,13 @@ func (rt *revisionThrottler) recalculateFromEndpointsLocked(dests sets.Set[strin
 					// Only promote to ready if QP data is stale or QP confirmed ready
 					if qpAge > int64(QPStalenessThreshold.Seconds()) || lastQPEvent == "ready" {
 						tracker.state.Store(uint32(podReady))
+						tracker.stateReason = "informer-promoted"
 						podStateTransitions.WithLabelValues("not-ready", "ready", "k8s_informer").Inc()
 						rt.logger.Infow("K8s promoting pod from not-ready to ready (QP data stale or confirmed)",
 							"dest", dest,
 							"qp-age-sec", qpAge,
-							"last-qp-event", lastQPEvent)
+							"last-qp-event", lastQPEvent,
+							"state-reason", tracker.stateReason)
 					}
 				}
 			}
@@ -603,12 +591,14 @@ func (rt *revisionThrottler) recalculateFromEndpointsLocked(dests sets.Set[strin
 
 					// Transition to not-ready (stop routing, preserve active requests)
 					if tracker.state.CompareAndSwap(uint32(currentState), uint32(podNotReady)) {
+						tracker.stateReason = "informer-removed"
 						fromState := "ready"
 						if currentState == podRecovering {
 							fromState = "recovering"
 						}
 						podStateTransitions.WithLabelValues(fromState, "not-ready", "k8s_informer").Inc()
-						rt.logger.Debugf("Pod %s transitioning to not-ready (K8s removing), refCount=%d", dest, tracker.getRefCount())
+						rt.logger.Debugf("Pod %s transitioning to not-ready (K8s removing), refCount=%d, reason=%s",
+							dest, tracker.getRefCount(), tracker.stateReason)
 
 						// If no active requests, remove immediately
 						if tracker.getRefCount() == 0 {

@@ -76,6 +76,10 @@ const (
 	// If QP has been silent this long, it's likely dead and informer is authoritative
 	QPStalenessThreshold = 60 * time.Second
 
+	// PodNotReadyStaleThreshold - Duration after which podNotReady trackers with zero refCount are cleaned up
+	// This prevents memory leaks from pods that never became ready or got stuck during startup
+	PodNotReadyStaleThreshold = 10 * time.Minute
+
 	// stateUpdateQueueSize - Buffer size for the state update channel
 	// Supports up to 500 pods registering simultaneously during rapid scale-up
 	// Multiple concurrent handlers (typically 10-20) each sending multiple events
@@ -355,7 +359,7 @@ func (t *Throttler) HandlePodRegistration(revID types.NamespacedName, podIP stri
 
 	// Call the dedicated incremental add function instead of handleUpdate
 	// This ensures push-based registrations only add pods, never remove them
-	rt.addPodIncremental(podIP, eventType, logger)
+	rt.mutatePodIncremental(podIP, eventType, logger)
 }
 
 func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*revisionThrottler, error) {

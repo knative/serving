@@ -43,8 +43,8 @@ func TestQuarantineOverridesQPState(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// 1. Pod created via QP "ready" → podReady
-		rt.addPodIncremental(podIP, "not-ready", logger)
-		rt.addPodIncremental(podIP, "ready", logger)
+		rt.mutatePodIncremental(podIP, "not-ready", logger)
+		rt.mutatePodIncremental(podIP, "ready", logger)
 
 		rt.mux.RLock()
 		tracker := rt.podTrackers[podIP]
@@ -65,7 +65,7 @@ func TestQuarantineOverridesQPState(t *testing.T) {
 		}
 
 		// 4. QP sends another "ready" event
-		rt.addPodIncremental(podIP, "ready", logger)
+		rt.mutatePodIncremental(podIP, "ready", logger)
 
 		// 5. Pod stays podQuarantined (quarantine wins over QP state)
 		// QP ready events should not override quarantine
@@ -85,8 +85,8 @@ func TestQuarantineOverridesQPState(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// 1. Create pod and put it in quarantine
-		rt.addPodIncremental(podIP, "not-ready", logger)
-		rt.addPodIncremental(podIP, "ready", logger)
+		rt.mutatePodIncremental(podIP, "not-ready", logger)
+		rt.mutatePodIncremental(podIP, "ready", logger)
 
 		rt.mux.RLock()
 		tracker := rt.podTrackers[podIP]
@@ -98,7 +98,7 @@ func TestQuarantineOverridesQPState(t *testing.T) {
 		tracker.quarantineCount.Store(1)
 
 		// 2. QP sends "ready" event while pod is quarantined
-		rt.addPodIncremental(podIP, "ready", logger)
+		rt.mutatePodIncremental(podIP, "ready", logger)
 
 		// 3. Pod stays podQuarantined (cannot be pulled out by QP)
 		if podState(tracker.state.Load()) != podQuarantined {
@@ -153,8 +153,8 @@ func TestQPEventsWithQuarantine(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// 1. QP sends "not-ready" → podNotReady
-		rt.addPodIncremental(podIP, "not-ready", logger)
-		rt.addPodIncremental(podIP, "not-ready", logger)
+		rt.mutatePodIncremental(podIP, "not-ready", logger)
+		rt.mutatePodIncremental(podIP, "not-ready", logger)
 
 		rt.mux.RLock()
 		tracker := rt.podTrackers[podIP]
@@ -167,7 +167,7 @@ func TestQPEventsWithQuarantine(t *testing.T) {
 		// 2. If pod were to become ready and then fail health check,
 		// it would be quarantined (both systems operate)
 		// Promote to ready first
-		rt.addPodIncremental(podIP, "ready", logger)
+		rt.mutatePodIncremental(podIP, "ready", logger)
 
 		if podState(tracker.state.Load()) != podReady {
 			t.Error("Pod should be ready after QP ready event")
@@ -199,8 +199,8 @@ func TestQPEventsWithQuarantine(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// Create pod and put in recovering state
-		rt.addPodIncremental(podIP, "not-ready", logger)
-		rt.addPodIncremental(podIP, "ready", logger)
+		rt.mutatePodIncremental(podIP, "not-ready", logger)
+		rt.mutatePodIncremental(podIP, "ready", logger)
 
 		rt.mux.RLock()
 		tracker := rt.podTrackers[podIP]
@@ -210,7 +210,7 @@ func TestQPEventsWithQuarantine(t *testing.T) {
 		tracker.state.Store(uint32(podRecovering))
 
 		// QP sends "not-ready" while pod is recovering
-		rt.addPodIncremental(podIP, "not-ready", logger)
+		rt.mutatePodIncremental(podIP, "not-ready", logger)
 
 		// Recovering state should be preserved
 		// (external QP events don't override quarantine states)
@@ -236,8 +236,8 @@ func TestQPEventsWithQuarantine(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// Create ready pod
-		rt.addPodIncremental(podIP, "not-ready", logger)
-		rt.addPodIncremental(podIP, "ready", logger)
+		rt.mutatePodIncremental(podIP, "not-ready", logger)
+		rt.mutatePodIncremental(podIP, "ready", logger)
 
 		rt.mux.RLock()
 		tracker := rt.podTrackers[podIP]
@@ -250,7 +250,7 @@ func TestQPEventsWithQuarantine(t *testing.T) {
 		release, _ := tracker.Reserve(ctx)
 
 		// QP sends draining event
-		rt.addPodIncremental(podIP, "draining", logger)
+		rt.mutatePodIncremental(podIP, "draining", logger)
 
 		// Pod should be not-ready (draining, even with quarantine enabled)
 		if podState(tracker.state.Load()) != podNotReady {
@@ -284,8 +284,8 @@ func TestHealthCheckWithQPAuthority(t *testing.T) {
 		podIP := "10.0.0.1:8080"
 
 		// 1. Create pod via QP "ready"
-		rt.addPodIncremental(podIP, "not-ready", logger)
-		rt.addPodIncremental(podIP, "ready", logger)
+		rt.mutatePodIncremental(podIP, "not-ready", logger)
+		rt.mutatePodIncremental(podIP, "ready", logger)
 
 		rt.mux.RLock()
 		tracker := rt.podTrackers[podIP]
@@ -314,7 +314,7 @@ func TestHealthCheckWithQPAuthority(t *testing.T) {
 		}
 
 		// 4. QP ready event should not override quarantine
-		rt.addPodIncremental(podIP, "ready", logger)
+		rt.mutatePodIncremental(podIP, "ready", logger)
 
 		if podState(tracker.state.Load()) != podQuarantined {
 			t.Error("Quarantine should not be overridden by QP ready")
@@ -331,8 +331,8 @@ func TestHealthCheckWithQPAuthority(t *testing.T) {
 
 		// Create pod in recovering state
 		podIP := "10.0.0.1:8080"
-		rt.addPodIncremental(podIP, "not-ready", logger)
-		rt.addPodIncremental(podIP, "ready", logger)
+		rt.mutatePodIncremental(podIP, "not-ready", logger)
+		rt.mutatePodIncremental(podIP, "ready", logger)
 
 		rt.mux.RLock()
 		tracker := rt.podTrackers[podIP]

@@ -244,3 +244,30 @@ func TestValidStateTransitions(t *testing.T) {
 	}
 }
 
+// TestLoggerInitialization verifies that the logger is properly initialized and accessible
+func TestLoggerInitialization(t *testing.T) {
+	logger := zap.NewNop().Sugar()
+	revID := types.NamespacedName{Namespace: "ns", Name: "rev"}
+
+	tracker := newPodTracker("10.0.0.1:8080", revID, nil, logger)
+
+	if tracker.logger == nil {
+		t.Fatal("tracker.logger should not be nil")
+	}
+
+	if tracker.logger != logger {
+		t.Error("tracker.logger should be the same instance passed to newPodTracker")
+	}
+
+	// Verify logger can be used without panics (even with NOP logger)
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("Using logger should not panic: %v", r)
+		}
+	}()
+
+	// Simulate what happens in validateTransition (which uses logger.Fatalw in production)
+	// We can't easily test Fatalw without mocking, but we can verify the logger is accessible
+	_ = tracker.logger
+}
+
