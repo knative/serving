@@ -296,17 +296,6 @@ func (rt *revisionThrottler) processAddPod(req stateUpdateRequest, qpAuthority b
 			createdAt:  time.Now().Unix(),
 		}
 
-		// Initialize the decreaseWeight function (required for load balancing)
-		// Note: This closure captures 'tracker' pointer, which is safe because:
-		// 1. The closure is stored in tracker.decreaseWeight (same struct)
-		// 2. Both the closure and tracker have the same lifecycle
-		// 3. No external references prevent garbage collection
-		tracker.decreaseWeight = func() {
-			if tracker.weight.Load() > 0 {
-				tracker.weight.Add(^uint32(0))
-			}
-		}
-
 		// Set initial state based on event type and qpAuthority
 		if qpAuthority {
 			switch req.eventType {
@@ -525,17 +514,6 @@ func (rt *revisionThrottler) recalculateFromEndpointsLocked(dests sets.Set[strin
 				revisionID: rt.revID,
 				id:         string(uuid.NewUUID()),
 				createdAt:  time.Now().Unix(),
-			}
-
-			// Initialize the decreaseWeight function (required for load balancing)
-			// Note: This closure captures 'tracker' pointer, which is safe because:
-			// 1. The closure is stored in tracker.decreaseWeight (same struct)
-			// 2. Both the closure and tracker have the same lifecycle
-			// 3. No external references prevent garbage collection
-			tracker.decreaseWeight = func() {
-				if tracker.weight.Load() > 0 {
-					tracker.weight.Add(^uint32(0))
-				}
 			}
 
 			// When QP authority is enabled, start as podNotReady (wait for QP ready event)

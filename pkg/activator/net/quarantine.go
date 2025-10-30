@@ -43,10 +43,9 @@ func decrementQuarantineGauge(ctx context.Context, p *podTracker) uint64 {
 }
 
 // quarantineBackoffSeconds returns backoff seconds for a given consecutive quarantine count.
-// For pending pods (never been healthy): 0s, 1s, 1s, 2s, 5s (be aggressive in retrying new pods)
-// For established pods (was healthy): 1s, 2s, 5s, 10s, 20s (more conservative for known-good pods)
+// Implements a single backoff schedule: 1s, 1s, 2s, 3s, 5s+ (caps at 5s for subsequent attempts).
+// This schedule balances quick retry for transient failures with backpressure for persistent issues.
 func quarantineBackoffSeconds(count uint32) uint32 {
-	// Standard backoff for established pods that were previously healthy
 	switch count {
 	case 1:
 		return 1

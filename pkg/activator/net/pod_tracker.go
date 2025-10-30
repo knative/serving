@@ -234,8 +234,6 @@ type podTracker struct {
 
 	// weight is used for LB policy implementations.
 	weight atomic.Uint32
-	// decreaseWeight is an allocation optimization for the randomChoice2 policy.
-	decreaseWeight func()
 }
 
 type podState uint32
@@ -282,16 +280,21 @@ func (p *podTracker) releaseRef() {
 
 // getRefCount returns the current reference count.
 // WARNING: This value can become stale immediately after reading (TOCTOU).
-// Callers must either:
-// 1. Hold an external lock that prevents concurrent modifications, OR
-// 2. Handle race conditions where refCount changes between check and use
-// Current usage is safe as all callers hold revisionThrottler.mux lock.
+// For observability/logging: atomic loads are safe for concurrent reads.
+// For decision-making: callers must hold revisionThrottler.mux write lock.
+// The atomic load guarantees we never see a torn/invalid refCount value.
 func (p *podTracker) getRefCount() uint64 {
 	return p.refCount.Load()
 }
 
 func (p *podTracker) increaseWeight() {
 	p.weight.Add(1)
+}
+
+func (p *podTracker) decreaseWeight() {
+	if p.weight.Load() > 0 {
+		p.weight.Add(^uint32(0))
+	}
 }
 
 func (p *podTracker) getWeight() uint32 {
@@ -411,13 +414,14 @@ func (p *podTracker) getQPFreshness() qpFreshnessInfo {
 
 // validateTransition checks if a state transition is valid and log.Fatal if not.
 // This enforces the state machine rules and catches bugs immediately.
+// Self-transitions are allowed to handle duplicate informer notifications and QP events gracefully.
 func (p *podTracker) validateTransition(from, to podState, context string) {
-	// Define valid transitions
+	// Define valid transitions (including self-loops for duplicate events)
 	validTransitions := map[podState][]podState{
-		podNotReady:    {podReady},
-		podReady:       {podNotReady, podQuarantined},
-		podQuarantined: {podRecovering},
-		podRecovering:  {podReady, podQuarantined, podNotReady},
+		podNotReady:    {podNotReady, podReady},
+		podReady:       {podReady, podNotReady, podQuarantined},
+		podQuarantined: {podQuarantined, podRecovering},
+		podRecovering:  {podRecovering, podReady, podQuarantined, podNotReady},
 	}
 
 	// Check if transition is valid
@@ -594,15 +598,6 @@ func newPodTracker(dest string, revisionID types.NamespacedName, b breaker, logg
 	tracker.weight.Store(0)
 	tracker.lastQPUpdate.Store(0)
 	tracker.lastQPState.Store("")
-	// Note: This closure captures 'tracker' pointer, which is safe because:
-	// 1. The closure is stored in tracker.decreaseWeight (same struct)
-	// 2. Both the closure and tracker have the same lifecycle
-	// 3. No external references prevent garbage collection
-	tracker.decreaseWeight = func() {
-		if tracker.weight.Load() > 0 {
-			tracker.weight.Add(^uint32(0))
-		}
-	}
 
 	return tracker
 }

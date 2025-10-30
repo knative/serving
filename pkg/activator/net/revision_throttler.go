@@ -364,9 +364,9 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 	proxyStartTime := time.Now()
 
 	// Timers to track threshold breaches
-	warningTimer := time.NewTimer(4 * time.Second)
-	errorTimer := time.NewTimer(60 * time.Second)
-	criticalTimer := time.NewTimer(180 * time.Second)
+	warningTimer := time.NewTimer(proxyQueueTimeWarningThreshold)
+	errorTimer := time.NewTimer(proxyQueueTimeErrorThreshold)
+	criticalTimer := time.NewTimer(proxyQueueTimeCriticalThreshold)
 	defer warningTimer.Stop()
 	defer errorTimer.Stop()
 	defer criticalTimer.Stop()
@@ -436,9 +436,14 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 				"elapsed-ms", float64(time.Since(proxyStartTime).Milliseconds()))
 		}
 
+		// Get diagnostic info about pod/tracker state before entering breaker
+		// Consolidate lock acquisition to reduce contention
 		rt.mux.RLock()
 		assignedTrackers := rt.assignedTrackers
+		totalPods := len(rt.podTrackers)
+		assignedCount := len(rt.assignedTrackers)
 		rt.mux.RUnlock()
+
 		if len(assignedTrackers) == 0 {
 			rt.logger.Debugf("%s -> No Assigned trackers\n", xRequestId)
 		}
@@ -448,12 +453,6 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 		breakerCapacity := rt.breaker.Capacity()
 		breakerPending := rt.breaker.Pending()
 		breakerInflight := rt.breaker.InFlight()
-
-		// Get diagnostic info about pod/tracker state before entering breaker
-		rt.mux.RLock()
-		totalPods := len(rt.podTrackers)
-		assignedCount := len(rt.assignedTrackers)
-		rt.mux.RUnlock()
 
 		ai := rt.activatorIndex.Load()
 		ac := rt.numActivators.Load()

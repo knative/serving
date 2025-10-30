@@ -86,6 +86,12 @@ const (
 	// workerShutdownTimeout - Maximum time to wait for worker shutdown
 	// Allows graceful draining of pending requests before forcing exit
 	workerShutdownTimeout = 5 * time.Second
+
+	// Proxy queue time thresholds for latency monitoring
+	// These thresholds track routing/queuing time before requests are proxied to pods
+	proxyQueueTimeWarningThreshold  = 4 * time.Second   // Warning threshold (unusually slow routing)
+	proxyQueueTimeErrorThreshold    = 60 * time.Second  // Error threshold (severe routing delay)
+	proxyQueueTimeCriticalThreshold = 180 * time.Second // Critical threshold (extreme routing delay)
 )
 
 // Feature gates for activator behavior
