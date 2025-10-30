@@ -191,7 +191,7 @@ func TestHealthCheckFlowDefault(t *testing.T) {
 		}
 
 		// Send QP "not-ready" event (should be ignored in default mode)
-		rt.mutatePodIncremental(podIP, "not-ready", logger)
+		rt.mutatePodIncremental(podIP, "not-ready")
 
 		// In default mode, QP events don't trigger state changes
 		// Pod should stay ready

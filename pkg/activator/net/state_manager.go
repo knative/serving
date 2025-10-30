@@ -1,3 +1,19 @@
+/*
+Copyright 2025 The Knative Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package net
 
 import (
@@ -21,16 +37,6 @@ var (
 			Help: "Total number of pod state transitions in activator",
 		},
 		[]string{"from_state", "to_state", "source"},
-	)
-
-	// qpAuthorityOverrides tracks when QP data overrides K8s informer
-	// Labels: action (ignored_promotion or ignored_demotion), reason
-	qpAuthorityOverrides = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "pod_qp_authority_overrides_total",
-			Help: "Number of times QP state overrode K8s informer state",
-		},
-		[]string{"action", "reason"},
 	)
 
 	// stateUpdateQueueDepth tracks the current depth of the state update queue
@@ -203,7 +209,6 @@ func opTypeToString(op stateUpdateOp) string {
 type stateUpdateRequest struct {
 	op         stateUpdateOp
 	pod        string           // Pod IP for pod operations
-	newState   podState         // New state for pod state transitions
 	eventType  string           // QP event type: "ready", "not-ready", "draining"
 	dests      sets.Set[string] // K8s informer destinations for recalculation
 	done       chan struct{}    // Optional channel to signal completion
@@ -482,7 +487,8 @@ func (rt *revisionThrottler) handleExistingPodEvent(tracker *podTracker, eventTy
 
 	case "draining":
 		// Transition to not-ready (stop routing, preserve active requests)
-		if oldState == podReady || oldState == podRecovering {
+		switch oldState {
+		case podReady, podRecovering:
 			if tracker.state.CompareAndSwap(uint32(oldState), uint32(podNotReady)) {
 				stateChanged = true
 				tracker.stateReason = "qp-draining"
@@ -492,7 +498,7 @@ func (rt *revisionThrottler) handleExistingPodEvent(tracker *podTracker, eventTy
 					"active-requests", tracker.refCount.Load(),
 					"state-reason", tracker.stateReason)
 			}
-		} else if oldState == podNotReady {
+		case podNotReady:
 			// Already not-ready (crash during startup) - update reason if needed
 			if tracker.stateReason != "qp-draining" {
 				tracker.stateReason = "qp-draining"

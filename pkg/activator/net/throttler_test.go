@@ -1893,7 +1893,7 @@ func TestResetTrackersRaceCondition(t *testing.T) {
 		defer close(rt.done)
 
 		// Add initial trackers
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			podIP := fmt.Sprintf("pod-%d:8080", i)
 			done := make(chan struct{})
 			rt.enqueueStateUpdate(stateUpdateRequest{

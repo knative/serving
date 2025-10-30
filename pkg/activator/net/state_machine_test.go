@@ -128,7 +128,7 @@ func TestQueueSaturationDetection(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(fillCount)
 
-	for i := 0; i < fillCount; i++ {
+	for range fillCount {
 		go func() {
 			defer wg.Done()
 			rt.enqueueStateUpdate(stateUpdateRequest{op: opNoop})

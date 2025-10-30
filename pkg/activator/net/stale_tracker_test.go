@@ -81,7 +81,7 @@ func TestOpRemovePod(t *testing.T) {
 
 			// Add pod via state manager
 			podIP := "10.0.0.1:8080"
-			rt.mutatePodIncremental(podIP, tc.setupEvent, logger)
+			rt.mutatePodIncremental(podIP, tc.setupEvent)
 
 			// Flush queue to ensure pod is added
 			rt.FlushForTesting()
@@ -93,7 +93,7 @@ func TestOpRemovePod(t *testing.T) {
 				rt.mux.RUnlock()
 
 				if tracker != nil {
-					for i := uint64(0); i < tc.refCount; i++ {
+					for range tc.refCount {
 						tracker.addRef()
 					}
 					t.Logf("Added %d active requests to tracker", tc.refCount)
@@ -161,7 +161,7 @@ func TestOpRemovePodIdempotent(t *testing.T) {
 
 	// Add a pod
 	podIP := "10.0.0.1:8080"
-	rt.mutatePodIncremental(podIP, "ready", logger)
+	rt.mutatePodIncremental(podIP, "ready")
 	rt.FlushForTesting()
 
 	// Remove the pod once
@@ -211,9 +211,9 @@ func TestOpRemovePodConcurrent(t *testing.T) {
 
 	// Add 50 pods via state manager
 	numPods := 50
-	for i := 0; i < numPods; i++ {
+	for i := range numPods {
 		podIP := fmt.Sprintf("10.0.0.%d:8080", i)
-		rt.mutatePodIncremental(podIP, "ready", logger)
+		rt.mutatePodIncremental(podIP, "ready")
 	}
 
 	rt.FlushForTesting()
@@ -233,7 +233,7 @@ func TestOpRemovePodConcurrent(t *testing.T) {
 
 	// Concurrently remove all pods
 	doneChan := make(chan struct{}, numPods)
-	for i := 0; i < numPods; i++ {
+	for i := range numPods {
 		go func(id int) {
 			podIP := fmt.Sprintf("10.0.0.%d:8080", id)
 			localDone := make(chan struct{})
@@ -248,7 +248,7 @@ func TestOpRemovePodConcurrent(t *testing.T) {
 	}
 
 	// Wait for all removals to complete
-	for i := 0; i < numPods; i++ {
+	for range numPods {
 		<-doneChan
 	}
 
@@ -389,7 +389,7 @@ func TestOpRemovePodWithQuarantinedPod(t *testing.T) {
 
 	// Add a pod
 	podIP := "10.0.0.1:8080"
-	rt.mutatePodIncremental(podIP, "ready", logger)
+	rt.mutatePodIncremental(podIP, "ready")
 	rt.FlushForTesting()
 
 	// Manually transition to quarantined state to simulate health check failure
@@ -473,7 +473,7 @@ func TestHealthCheckTriggersOpRemovePod(t *testing.T) {
 	rt.activatorIndex.Store(1)
 
 	// Add the pod via state manager
-	rt.mutatePodIncremental(wrongRevIP, "ready", logger)
+	rt.mutatePodIncremental(wrongRevIP, "ready")
 	rt.FlushForTesting()
 
 	// Verify pod exists initially
@@ -499,7 +499,7 @@ func TestHealthCheckTriggersOpRemovePod(t *testing.T) {
 
 	// Perform health check - should detect IP reuse
 	ctx := context.Background()
-	wasQuarantined, isStaleTracker, healthCheckMs := performHealthCheckAndQuarantine(ctx, tracker, "test-request-id")
+	wasQuarantined, isStaleTracker, healthCheckMs := performHealthCheckAndQuarantine(ctx, tracker)
 
 	t.Logf("Health check result: quarantined=%v, stale=%v, duration=%vms", wasQuarantined, isStaleTracker, healthCheckMs)
 
@@ -551,7 +551,7 @@ func TestRoutingTriggersOpRemovePod(t *testing.T) {
 
 	// Add a pod with the WRONG revisionID to simulate IP reuse
 	stalePodIP := "10.0.0.1:8080"
-	rt.mutatePodIncremental(stalePodIP, "ready", logger)
+	rt.mutatePodIncremental(stalePodIP, "ready")
 	rt.FlushForTesting()
 
 	// Manually corrupt the tracker's revisionID to simulate IP reuse
@@ -609,7 +609,7 @@ func TestRefCountConcurrentRelease(t *testing.T) {
 	tracker := newPodTracker("10.0.0.1:8080", revID, nil, logger)
 
 	// Add 100 references
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		tracker.addRef()
 	}
 
@@ -621,7 +621,7 @@ func TestRefCountConcurrentRelease(t *testing.T) {
 	// Concurrently release all 100 references
 	// Without CAS protection, this could cause underflow
 	doneChan := make(chan struct{}, 100)
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		go func() {
 			tracker.releaseRef()
 			doneChan <- struct{}{}
@@ -629,7 +629,7 @@ func TestRefCountConcurrentRelease(t *testing.T) {
 	}
 
 	// Wait for all releases to complete
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		<-doneChan
 	}
 

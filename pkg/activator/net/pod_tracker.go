@@ -1,3 +1,19 @@
+/*
+Copyright 2025 The Knative Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package net
 
 import (
@@ -499,89 +515,6 @@ func (p *podTracker) checkQuarantineExpiration(now int64) bool {
 		}
 	}
 	return false
-}
-
-// shouldPromoteFromNotReady determines if this podNotReady should be promoted to podReady
-// based on QP freshness and K8s informer state.
-func (p *podTracker) shouldPromoteFromNotReady(qpAuthority bool) (shouldPromote bool, reason string) {
-	currentState := podState(p.state.Load())
-	if currentState != podNotReady {
-		return false, "not_in_notready_state"
-	}
-
-	if !qpAuthority {
-		// QP authority disabled - trust K8s immediately
-		return true, "qp_authority_disabled"
-	}
-
-	qpInfo := p.getQPFreshness()
-
-	// Only promote if QP hasn't recently said "not-ready"
-	if qpInfo.lastEvent == "not-ready" && qpInfo.age < int64(QPFreshnessNotReadyWindow.Seconds()) {
-		return false, "qp_recently_not_ready"
-	}
-
-	// QP data stale or QP confirmed ready
-	if qpInfo.age > int64(QPStalenessThreshold.Seconds()) {
-		return true, "qp_stale"
-	}
-
-	if qpInfo.lastEvent == "ready" {
-		return true, "qp_confirmed_ready"
-	}
-
-	return true, "qp_aged"
-}
-
-// shouldIgnoreDrainSignal determines if a drain signal from K8s should be ignored
-// based on recent QP "ready" events (K8s might be stale).
-// Only applicable when pod is in podReady state.
-func (p *podTracker) shouldIgnoreDrainSignal(qpAuthority bool) (shouldIgnore bool, reason string) {
-	if !qpAuthority {
-		return false, "qp_authority_disabled"
-	}
-
-	state := podState(p.state.Load())
-	if state != podReady && state != podRecovering {
-		return false, "not_in_routable_state"
-	}
-
-	qpInfo := p.getQPFreshness()
-
-	// If QP recently said "ready", K8s drain signal is likely stale
-	if qpInfo.lastEvent == "ready" && qpInfo.age < int64(QPFreshnessReadyWindow.Seconds()) {
-		return true, "qp_recently_ready"
-	}
-
-	return false, "qp_not_fresh"
-}
-
-// decideStateForHealthyInformer decides the target state when K8s says this pod is healthy.
-func (p *podTracker) decideStateForHealthyInformer(qpAuthority bool) (targetState podState, reason string) {
-	currentState := podState(p.state.Load())
-
-	switch currentState {
-	case podReady, podRecovering, podQuarantined:
-		// Already in a routable or special state, no change needed
-		return currentState, "already_healthy_or_special"
-
-	case podNotReady:
-		if shouldPromote, reason := p.shouldPromoteFromNotReady(qpAuthority); shouldPromote {
-			// Validate transition
-			p.validateTransition(podNotReady, podReady, "k8s_informer_healthy")
-			return podReady, reason
-		}
-		return podNotReady, "qp_blocking_promotion"
-
-	default:
-		p.logger.Fatalw("Unknown pod state",
-			"dest", p.dest,
-			"tracker-id", p.id,
-			"state", currentState)
-	}
-
-	// Unreachable
-	return currentState, "unreachable"
 }
 
 // tryPromoteRecovering attempts to promote recovering pod to ready after successful request.

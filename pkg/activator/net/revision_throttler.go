@@ -660,7 +660,7 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 			// Health check logic (only when enableQuarantine=true)
 			// CRITICAL: Only health check routable pods (podReady, podRecovering)
 			if !isClusterIP {
-				wasQuarantined, isStaleTracker, healthCheckMs := performHealthCheckAndQuarantine(ctx, tracker, xRequestId)
+				wasQuarantined, isStaleTracker, healthCheckMs := performHealthCheckAndQuarantine(ctx, tracker)
 
 				if healthCheckMs > 1000 { // Log if health check took >1s
 					rt.logger.Warnw("Slow health check",
@@ -922,7 +922,7 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 // All state mutations are serialized through the work queue to prevent race conditions.
 // This function blocks until the request is processed for backward compatibility.
 // Includes timeout protection in case the worker goroutine dies.
-func (rt *revisionThrottler) mutatePodIncremental(podIP string, eventType string, logger *zap.SugaredLogger) {
+func (rt *revisionThrottler) mutatePodIncremental(podIP string, eventType string) {
 	// Create a done channel to wait for processing
 	done := make(chan struct{})
 
@@ -1016,7 +1016,7 @@ func newInfiniteBreaker(logger *zap.SugaredLogger) *infiniteBreaker {
 
 // Capacity returns the current capacity of the breaker
 func (ib *infiniteBreaker) Capacity() uint64 {
-	return uint64(ib.concurrency.Load()) //nolint:gosec // concurrency is always 0 or 1
+	return uint64(ib.concurrency.Load())
 }
 
 // Pending returns the current pending requests the breaker
@@ -1026,7 +1026,7 @@ func (ib *infiniteBreaker) Pending() int {
 
 // Pending returns the current inflight requests the breaker
 func (ib *infiniteBreaker) InFlight() uint64 {
-	return uint64(ib.concurrency.Load()) //nolint:gosec // concurrency is always 0 or 1
+	return uint64(ib.concurrency.Load())
 }
 
 func zeroOrOne(x uint64) uint32 {

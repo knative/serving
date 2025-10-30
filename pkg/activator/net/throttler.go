@@ -359,7 +359,7 @@ func (t *Throttler) HandlePodRegistration(revID types.NamespacedName, podIP stri
 
 	// Call the dedicated incremental add function instead of handleUpdate
 	// This ensures push-based registrations only add pods, never remove them
-	rt.mutatePodIncremental(podIP, eventType, logger)
+	rt.mutatePodIncremental(podIP, eventType)
 }
 
 func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*revisionThrottler, error) {
