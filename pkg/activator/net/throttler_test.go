@@ -1875,48 +1875,52 @@ func TestAssignSlice(t *testing.T) {
 func TestResetTrackersRaceCondition(t *testing.T) {
 	logger := TestLogger(t)
 
-	t.Run("resetTrackers concurrent with tracker modifications", func(t *testing.T) {
+	t.Run("concurrent capacity updates with tracker modifications", func(t *testing.T) {
 		rt := &revisionThrottler{
 			logger:          logger,
 			revID:           types.NamespacedName{Namespace: "test", Name: "revision"},
 			breaker:         queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
 			podTrackers:     make(map[string]*podTracker),
-			stateUpdateChan: make(chan stateUpdateRequest, 500), // Fix: Add channel
-			done:            make(chan struct{}),                // Fix: Add done channel
+			stateUpdateChan: make(chan stateUpdateRequest, 500),
+			done:            make(chan struct{}),
 		}
-		rt.containerConcurrency.Store(2) // Enable resetTrackers to actually do work
+		rt.containerConcurrency.Store(2)
 		rt.lbPolicy.Store(lbPolicy(firstAvailableLBPolicy))
 		rt.numActivators.Store(1)
-		rt.activatorIndex.Store(1) // 1-based indexing: 1 means first activator
+		rt.activatorIndex.Store(1)
 
-		// Fix: Start the state worker goroutine
 		go rt.stateWorker()
-		defer close(rt.done) // Cleanup when test ends
-
-		// Create initial trackers
-		initialTrackers := make([]*podTracker, 3)
-		for i := 0; i < 3; i++ {
-			tracker := newTestTracker(fmt.Sprintf("pod-%d:8080", i),
-				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
-			initialTrackers[i] = tracker
-		}
+		defer close(rt.done)
 
 		// Add initial trackers
-		rt.updateThrottlerState(initialTrackers, nil, nil)
+		for i := 0; i < 3; i++ {
+			podIP := fmt.Sprintf("pod-%d:8080", i)
+			done := make(chan struct{})
+			rt.enqueueStateUpdate(stateUpdateRequest{
+				op:        opAddPod,
+				pod:       podIP,
+				eventType: "ready",
+				done:      done,
+			})
+			<-done
+		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
 
 		var wg sync.WaitGroup
 
-		// Goroutine 1: Continuously call resetTrackers
+		// Goroutine 1: Continuously trigger capacity recalculation (includes resetTrackersLocked)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for ctx.Err() == nil {
-				rt.resetTrackers()
-				// Small delay to let other goroutine work
-				time.Sleep(time.Microsecond)
+				done := make(chan struct{})
+				rt.enqueueStateUpdate(stateUpdateRequest{
+					op:   opRecalculateCapacity,
+					done: done,
+				})
+				<-done
 			}
 		}()
 
@@ -1930,50 +1934,56 @@ func TestResetTrackersRaceCondition(t *testing.T) {
 				trackerName := fmt.Sprintf("dynamic-pod-%d:8080", counter%5)
 
 				if counter%2 == 0 {
-					// Add a tracker
-					newTracker := newTestTracker(trackerName,
-						queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
-					rt.updateThrottlerState([]*podTracker{newTracker}, nil, nil)
+					done := make(chan struct{})
+					rt.enqueueStateUpdate(stateUpdateRequest{
+						op:        opAddPod,
+						pod:       trackerName,
+						eventType: "ready",
+						done:      done,
+					})
+					<-done
 				} else {
-					// Remove a tracker by putting it in draining
-					rt.updateThrottlerState(nil, nil, []string{trackerName})
+					done := make(chan struct{})
+					rt.enqueueStateUpdate(stateUpdateRequest{
+						op:   opRemovePod,
+						pod:  trackerName,
+						done: done,
+					})
+					<-done
 				}
-
-				// Small delay to let resetTrackers work
-				time.Sleep(time.Microsecond)
 			}
 		}()
 
-		// Wait for goroutines to finish
 		wg.Wait()
-
-		// Test should complete without race conditions or panics
-		// The actual race detection happens when run with -race flag
 	})
 
-	t.Run("resetTrackers with nil tracker in map", func(t *testing.T) {
-		// This tests a specific edge case where a tracker might be nil
+	t.Run("resetTrackersLocked with nil tracker in map", func(t *testing.T) {
+		// This tests that resetTrackersLocked handles nil trackers gracefully
 		rt := &revisionThrottler{
 			logger:          logger,
 			revID:           types.NamespacedName{Namespace: "test", Name: "revision"},
 			breaker:         queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
 			podTrackers:     make(map[string]*podTracker),
-			stateUpdateChan: make(chan stateUpdateRequest, 500), // Fix: Add channel
-			done:            make(chan struct{}),                // Fix: Add done channel
+			stateUpdateChan: make(chan stateUpdateRequest, 500),
+			done:            make(chan struct{}),
 		}
 		rt.containerConcurrency.Store(2)
 
-		// Fix: Start the state worker goroutine
 		go rt.stateWorker()
-		defer close(rt.done) // Cleanup when test ends
+		defer close(rt.done)
 
 		// Manually add a nil tracker (simulating corruption)
 		rt.mux.Lock()
 		rt.podTrackers["nil-tracker"] = nil
 		rt.mux.Unlock()
 
-		// This should not panic
-		rt.resetTrackers()
+		// This should not panic - trigger via capacity update which calls resetTrackersLocked
+		done := make(chan struct{})
+		rt.enqueueStateUpdate(stateUpdateRequest{
+			op:   opRecalculateCapacity,
+			done: done,
+		})
+		<-done
 	})
 }
 
@@ -1983,7 +1993,7 @@ func TestResetTrackersRaceCondition(t *testing.T) {
 func TestRevisionThrottlerRaces(t *testing.T) {
 	logger := TestLogger(t)
 
-	t.Run("concurrent updateThrottlerState calls", func(t *testing.T) {
+	t.Run("concurrent state update operations", func(t *testing.T) {
 		rt := &revisionThrottler{
 			logger:          logger,
 			revID:           types.NamespacedName{Namespace: "test", Name: "revision"},
@@ -2013,10 +2023,15 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 			counter := 0
 			for ctx.Err() == nil {
 				counter++
-				tracker := newTestTracker(fmt.Sprintf("add-pod-%d:8080", counter),
-					queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
-				rt.updateThrottlerState([]*podTracker{tracker}, nil, nil)
-				time.Sleep(time.Microsecond)
+				podIP := fmt.Sprintf("add-pod-%d:8080", counter)
+				done := make(chan struct{})
+				rt.enqueueStateUpdate(stateUpdateRequest{
+					op:        opAddPod,
+					pod:       podIP,
+					eventType: "ready",
+					done:      done,
+				})
+				<-done
 			}
 		}()
 
@@ -2027,8 +2042,14 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 			counter := 0
 			for ctx.Err() == nil {
 				counter++
-				rt.updateThrottlerState(nil, nil, []string{fmt.Sprintf("add-pod-%d:8080", counter)})
-				time.Sleep(time.Microsecond)
+				podIP := fmt.Sprintf("add-pod-%d:8080", counter)
+				done := make(chan struct{})
+				rt.enqueueStateUpdate(stateUpdateRequest{
+					op:   opRemovePod,
+					pod:  podIP,
+					done: done,
+				})
+				<-done
 			}
 		}()
 
@@ -2066,13 +2087,17 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 		defer close(rt.done) // Cleanup when test ends
 
 		// Add some initial trackers
-		initialTrackers := make([]*podTracker, 5)
 		for i := range 5 {
-			initialTrackers[i] = newTestTracker(fmt.Sprintf("pod-%d:8080", i),
-				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
-			initialTrackers[i].state.Store(uint32(podReady))
+			podIP := fmt.Sprintf("pod-%d:8080", i)
+			done := make(chan struct{})
+			rt.enqueueStateUpdate(stateUpdateRequest{
+				op:        opAddPod,
+				pod:       podIP,
+				eventType: "ready",
+				done:      done,
+			})
+			<-done
 		}
-		rt.updateThrottlerState(initialTrackers, nil, nil)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
@@ -2104,15 +2129,26 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 				counter++
 				if counter%2 == 0 {
 					// Add a tracker
-					tracker := newTestTracker(fmt.Sprintf("dynamic-%d:8080", counter),
-						queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
-					tracker.state.Store(uint32(podReady))
-					rt.updateThrottlerState([]*podTracker{tracker}, nil, nil)
+					podIP := fmt.Sprintf("dynamic-%d:8080", counter)
+					done := make(chan struct{})
+					rt.enqueueStateUpdate(stateUpdateRequest{
+						op:        opAddPod,
+						pod:       podIP,
+						eventType: "ready",
+						done:      done,
+					})
+					<-done
 				} else {
 					// Remove a tracker
-					rt.updateThrottlerState(nil, nil, []string{fmt.Sprintf("pod-%d:8080", counter%5)})
+					podIP := fmt.Sprintf("pod-%d:8080", counter%5)
+					done := make(chan struct{})
+					rt.enqueueStateUpdate(stateUpdateRequest{
+						op:   opRemovePod,
+						pod:  podIP,
+						done: done,
+					})
+					<-done
 				}
-				time.Sleep(time.Millisecond)
 			}
 		}()
 

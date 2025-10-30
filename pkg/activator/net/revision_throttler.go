@@ -373,18 +373,12 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 
 	// Channel to ensure shutdown - will be closed when routing completes (not proxy)
 	thresholdChan := make(chan struct{})
-	var thresholdChanClosed bool
-	var thresholdMu sync.Mutex
+	var closeOnce sync.Once
 
 	// Ensure we always close the channel on function exit
-	defer func() {
-		thresholdMu.Lock()
-		if !thresholdChanClosed {
-			close(thresholdChan)
-			thresholdChanClosed = true
-		}
-		thresholdMu.Unlock()
-	}()
+	defer closeOnce.Do(func() {
+		close(thresholdChan)
+	})
 
 	// Goroutine to track threshold breaches for routing/queuing time only
 	go func() {
@@ -600,12 +594,9 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 
 			// Stop threshold monitoring now that we've acquired a tracker and are starting to proxy
 			// This should only monitor routing/queuing time, not the actual proxy duration
-			thresholdMu.Lock()
-			if !thresholdChanClosed {
+			closeOnce.Do(func() {
 				close(thresholdChan)
-				thresholdChanClosed = true
-			}
-			thresholdMu.Unlock()
+			})
 
 			// Log if routing took too long
 			if proxyStartLatencyMs > 1000 { // More than 1 second
@@ -717,24 +708,6 @@ func (rt *revisionThrottler) calculateCapacity(backendCount uint64, numTrackers 
 	return targetCapacity
 }
 
-// This makes sure we reset the capacity to the CC, since the pod
-// might be reassigned to be exclusively used.
-func (rt *revisionThrottler) resetTrackers() {
-	cc := rt.containerConcurrency.Load()
-	if cc == 0 {
-		return
-	}
-
-	// Update trackers directly under lock to avoid race condition
-	rt.mux.RLock()
-	defer rt.mux.RUnlock()
-
-	for _, t := range rt.podTrackers {
-		if t != nil {
-			t.UpdateConcurrency(cc)
-		}
-	}
-}
 
 // updateCapacity updates the capacity of the throttler and recomputes
 // the assigned trackers to the Activator instance.
@@ -744,8 +717,8 @@ func (rt *revisionThrottler) resetTrackers() {
 // hold rt.mux when calling this method, or deadlock will occur.
 //
 // Current callers:
-// 1. K8s informer updates (updateThrottlerState) - releases lock before calling (line 2280)
-// 2. Activator endpoint updates (updatePublicEndpoints) - never holds lock
+// 1. K8s informer updates (handleUpdate) - releases lock before calling
+// 2. Activator endpoint updates (handlePubEpsUpdate) - never holds lock
 //
 // The work queue ensures pod mutations and capacity updates are serialized.
 func (rt *revisionThrottler) updateCapacity() {
@@ -758,199 +731,6 @@ func (rt *revisionThrottler) updateCapacity() {
 	<-done // Wait for completion
 }
 
-// updateThrottlerState is a test-only helper for fine-grained state control in unit tests.
-//
-// **FOR TESTING ONLY** - This method directly mutates state without using the work queue.
-// Production code MUST use the queue-based approach (enqueueStateUpdate/processStateUpdate).
-//
-// Why this exists:
-//   - Unit tests need synchronous, fine-grained control over pod state transitions
-//   - Tests specifically verify QP freshness logic, state machine transitions, and edge cases
-//   - The queue-based API is asynchronous and operates at a higher abstraction level
-//   - Both implementations contain QP freshness checks, but this method has more granular control
-//
-// Production code path testing:
-//   - The queue-based mechanism (processStateUpdate/recalculateFromEndpointsLocked) IS tested
-//   - Integration tests exercise the full production path including queue serialization
-//   - This method allows unit tests to focus on state machine logic without queue complexity
-//
-// Trade-off accepted: Having a test-only synchronous API improves test clarity and maintainability
-// while the production queue-based path is validated through integration tests.
-func (rt *revisionThrottler) updateThrottlerState(newTrackers []*podTracker, healthyDests []string, drainingDests []string) {
-	defer func() {
-		if r := recover(); r != nil {
-			rt.logger.Errorf("Panic in revisionThrottler.updateThrottlerState: %v", r)
-			panic(r)
-		}
-	}()
-
-	rt.logger.Debugf("Updating Throttler %s: new trackers = %d",
-		rt.revID, len(newTrackers))
-	rt.logger.Debugf("Throttler %s DrainingDests: %s", rt.revID, drainingDests)
-	rt.logger.Debugf("Throttler %s healthyDests: %s", rt.revID, healthyDests)
-
-	// Update trackers / clusterIP before capacity. Otherwise we can race updating our breaker when
-	// we increase capacity, causing a request to fall through before a tracker is added, causing an
-	// incorrect LB decision.
-	lockStart := time.Now()
-	rt.mux.Lock()
-	lockAcquireMs := float64(time.Since(lockStart).Milliseconds())
-	if lockAcquireMs > 100 { // Log if lock acquisition took >100ms
-		rt.logger.Warnw("Slow lock acquisition in updateThrottlerState",
-			"lock-acquire-ms", lockAcquireMs)
-	}
-
-	lockHoldStart := time.Now()
-	// Note: Lock is manually unlocked before updateCapacity() call at the end
-	// to avoid deadlock, since updateCapacity also needs to acquire the lock.
-	for _, t := range newTrackers {
-		if t != nil {
-			// Check if this dest was already in the map for a different tracker
-			if existing, exists := rt.podTrackers[t.dest]; exists {
-				// Validate the existing tracker's revision matches
-				if existing.revisionID != rt.revID {
-					rt.logger.Errorw("CRITICAL: Replacing tracker from WRONG REVISION - IP reuse across revisions!",
-						"revision", rt.revID.String(),
-						"dest", t.dest,
-						"old-tracker-revision", existing.revisionID.String(),
-						"old-tracker-id", existing.id,
-						"old-created-at", existing.createdAt,
-						"old-state", podState(existing.state.Load()),
-						"new-tracker-id", t.id,
-						"new-created-at", t.createdAt)
-				} else {
-					rt.logger.Warnw("Replacing existing pod tracker - possible IP reuse",
-						"revision", rt.revID.String(),
-						"dest", t.dest,
-						"old-tracker-id", existing.id,
-						"old-created-at", existing.createdAt,
-						"old-state", podState(existing.state.Load()),
-						"new-tracker-id", t.id,
-						"new-created-at", t.createdAt)
-				}
-			}
-			rt.podTrackers[t.dest] = t
-			rt.logger.Debugw("Added pod tracker to revision map",
-				"revision", rt.revID.String(),
-				"dest", t.dest,
-				"tracker-id", t.id,
-				"total-trackers", len(rt.podTrackers))
-		}
-	}
-	qpAuthority, _ := getFeatureGates()
-	for _, d := range healthyDests {
-		tracker := rt.podTrackers[d]
-		if tracker == nil {
-			continue
-		}
-
-		// Use state machine helper to decide target state
-		targetState, reason := tracker.decideStateForHealthyInformer(qpAuthority)
-		currentState := podState(tracker.state.Load())
-
-		if targetState != currentState {
-			// Attempt transition
-			if tracker.state.CompareAndSwap(uint32(currentState), uint32(targetState)) {
-				podStateTransitions.WithLabelValues(
-					stateToString(currentState),
-					stateToString(targetState),
-					"k8s_informer").Inc()
-				rt.logger.Infow("K8s informer state transition",
-					"dest", d,
-					"from", currentState,
-					"to", targetState,
-					"reason", reason)
-			}
-		} else if reason == "qp_blocking_promotion" {
-			// Log when QP blocks K8s promotion
-			qpInfo := tracker.getQPFreshness()
-			qpAuthorityOverrides.WithLabelValues("ignored_promotion", "qp_recently_not_ready").Inc()
-			rt.logger.Debugw("Ignoring K8s healthy - QP recently said not-ready",
-				"dest", d,
-				"qp-age-sec", qpInfo.age,
-				"qp-last-event", qpInfo.lastEvent)
-		}
-	}
-	// Handle pod draining to prevent dropped requests during pod removal
-	_, quarantineEnabled := getFeatureGates()
-	for _, d := range drainingDests {
-		tracker := rt.podTrackers[d]
-		if tracker == nil {
-			continue
-		}
-
-		currentState := podState(tracker.state.Load())
-
-		// Check if we should ignore this drain signal (QP recently said ready)
-		if shouldIgnore, reason := tracker.shouldIgnoreDrainSignal(qpAuthority); shouldIgnore {
-			qpInfo := tracker.getQPFreshness()
-			qpAuthorityOverrides.WithLabelValues("ignored_drain", reason).Inc()
-			rt.logger.Warnw("Ignoring K8s draining signal - QP recently confirmed ready",
-				"dest", d,
-				"qp-age-sec", qpInfo.age,
-				"qp-last-event", qpInfo.lastEvent)
-			continue
-		}
-
-		switch currentState {
-		case podReady, podRecovering:
-			// Transition to not-ready (stop routing, preserve active requests)
-			if tracker.state.CompareAndSwap(uint32(currentState), uint32(podNotReady)) {
-				podStateTransitions.WithLabelValues(
-					stateToString(currentState),
-					stateToString(podNotReady),
-					"k8s_informer").Inc()
-				rt.logger.Debugf("Pod %s transitioning to not-ready (K8s removing), refCount=%d", d, tracker.getRefCount())
-
-				// If no active requests, remove immediately
-				if tracker.getRefCount() == 0 {
-					delete(rt.podTrackers, d)
-					rt.logger.Debugf("Pod %s removed immediately (no active requests)", d)
-				}
-			}
-		case podNotReady:
-			// Already not-ready, check if can be removed
-			if tracker.getRefCount() == 0 {
-				delete(rt.podTrackers, d)
-				rt.logger.Debugf("Pod %s removed (no active requests)", d)
-			}
-		case podQuarantined:
-			// Decrement quarantine gauge if enabled
-			if quarantineEnabled {
-				count := decrementQuarantineGauge(context.Background(), tracker)
-				rt.logger.Infow("Removing quarantined pod",
-					"dest", d,
-					"revision", rt.revID.String(),
-					"tracker-id", tracker.id,
-					"quarantine-count", count)
-			}
-			delete(rt.podTrackers, d)
-		default:
-			rt.logger.Fatalw("Pod in unexpected state while processing draining destinations",
-				"dest", d,
-				"state", tracker.state.Load())
-		}
-	}
-
-	// Note: clusterIPTracker is no longer used as we always use pod routing
-	// rt.clusterIPTracker = nil (removed as it was always nil)
-
-	// Manually unlock before calling updateCapacity to avoid deadlock.
-	// The defer above won't run until function exit, but updateCapacity needs the lock.
-	lockHoldMs := float64(time.Since(lockHoldStart).Milliseconds())
-	rt.mux.Unlock()
-	if lockHoldMs > 100 { // Log if lock held >100ms
-		rt.logger.Warnw("Lock held for long time in updateThrottlerState",
-			"lock-hold-ms", lockHoldMs,
-			"new-trackers", len(newTrackers),
-			"healthy-dests", len(healthyDests),
-			"draining-dests", len(drainingDests))
-	}
-
-	// Update capacity after all state changes are complete and lock is released.
-	// updateCapacity will read the current pod count from the map.
-	rt.updateCapacity()
-}
 
 // assignSlice picks a subset of the individual pods to send requests to
 // for this Activator instance. This only matters in case of direct

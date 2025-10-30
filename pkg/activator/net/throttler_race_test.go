@@ -51,10 +51,23 @@ func TestRace_PodTrackers_ReadWrite_NoLock(t *testing.T) {
 				return
 			default:
 			}
-			addr := "10.0.0." + strconv.Itoa(i%10)
-			tr := newTestTracker(addr+":8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
-			rt.updateThrottlerState([]*podTracker{tr}, []string{tr.dest}, nil)
-			rt.updateThrottlerState(nil, nil, []string{tr.dest})
+			addr := "10.0.0." + strconv.Itoa(i%10) + ":8080"
+			done := make(chan struct{})
+			rt.enqueueStateUpdate(stateUpdateRequest{
+				op:        opAddPod,
+				pod:       addr,
+				eventType: "ready",
+				done:      done,
+			})
+			<-done
+
+			done2 := make(chan struct{})
+			rt.enqueueStateUpdate(stateUpdateRequest{
+				op:   opRemovePod,
+				pod:  addr,
+				done: done2,
+			})
+			<-done2
 			i++
 		}
 	}()
@@ -90,12 +103,17 @@ func TestRace_UpdateCapacity_ReadsPodTrackersWhileWriterMutates(t *testing.T) {
 	logger := zaptest.NewLogger(t).Sugar()
 	rt := mustCreateRevisionThrottler(t, types.NamespacedName{Namespace: "default", Name: "rev"}, nil, 1, "http", queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 1}, logger)
 
-	initial := make([]*podTracker, 0, 5)
 	for i := 0; i < 5; i++ {
-		tr := newTestTracker("10.0.0."+string(rune('a'+i))+":8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
-		initial = append(initial, tr)
+		addr := "10.0.0." + string(rune('a'+i)) + ":8080"
+		done := make(chan struct{})
+		rt.enqueueStateUpdate(stateUpdateRequest{
+			op:        opAddPod,
+			pod:       addr,
+			eventType: "ready",
+			done:      done,
+		})
+		<-done
 	}
-	rt.updateThrottlerState(initial, nil, nil)
 
 	stop := make(chan struct{})
 	wg := &sync.WaitGroup{}
@@ -111,11 +129,22 @@ func TestRace_UpdateCapacity_ReadsPodTrackersWhileWriterMutates(t *testing.T) {
 			default:
 			}
 			addr := "192.168.1." + string(rune('a'+(i%3))) + ":8080"
+			done := make(chan struct{})
 			if i%2 == 0 {
-				rt.updateThrottlerState([]*podTracker{newTestTracker(addr, queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))}, nil, nil)
+				rt.enqueueStateUpdate(stateUpdateRequest{
+					op:        opAddPod,
+					pod:       addr,
+					eventType: "ready",
+					done:      done,
+				})
 			} else {
-				rt.updateThrottlerState(nil, nil, []string{addr})
+				rt.enqueueStateUpdate(stateUpdateRequest{
+					op:   opRemovePod,
+					pod:  addr,
+					done: done,
+				})
 			}
+			<-done
 			i++
 		}
 	}()
@@ -145,9 +174,16 @@ func TestRace_LBPolicy_UpdateVsUsage(t *testing.T) {
 	rt := mustCreateRevisionThrottler(t, types.NamespacedName{Namespace: "default", Name: "rev"}, nil, 1, "http", queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 1}, logger)
 
 	// Add some initial trackers
-	tr1 := newTestTracker("10.0.0.1:8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
-	tr2 := newTestTracker("10.0.0.2:8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
-	rt.updateThrottlerState([]*podTracker{tr1, tr2}, []string{tr1.dest, tr2.dest}, nil)
+	for _, addr := range []string{"10.0.0.1:8080", "10.0.0.2:8080"} {
+		done := make(chan struct{})
+		rt.enqueueStateUpdate(stateUpdateRequest{
+			op:        opAddPod,
+			pod:       addr,
+			eventType: "ready",
+			done:      done,
+		})
+		<-done
+	}
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -194,25 +230,48 @@ func TestRace_LBPolicy_UpdateVsUsage(t *testing.T) {
 	wg.Wait()
 }
 
-// 6) resetTrackers reading podTrackers without lock while updateThrottlerState modifies
-func TestRace_ResetTrackers_ReadsPodTrackersWhileWriterMutates(t *testing.T) {
+// 6) Concurrent capacity updates with pod mutations
+func TestRace_CapacityUpdates_ConcurrentWithPodMutations(t *testing.T) {
 	t.Parallel()
 	logger := zaptest.NewLogger(t).Sugar()
 	rt := mustCreateRevisionThrottler(t, types.NamespacedName{Namespace: "default", Name: "rev"}, nil, 2, "http", queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 1}, logger)
 
 	// Add initial trackers
-	initial := make([]*podTracker, 0, 3)
 	for i := 0; i < 3; i++ {
-		tr := newTestTracker("10.0.0."+strconv.Itoa(i)+":8080", queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))
-		initial = append(initial, tr)
+		addr := "10.0.0." + strconv.Itoa(i) + ":8080"
+		done := make(chan struct{})
+		rt.enqueueStateUpdate(stateUpdateRequest{
+			op:        opAddPod,
+			pod:       addr,
+			eventType: "ready",
+			done:      done,
+		})
+		<-done
 	}
-	rt.updateThrottlerState(initial, nil, nil)
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	// Writer: continuously mutate podTrackers
+	// Goroutine 1: Continuously trigger capacity recalculation (includes resetTrackersLocked)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			done := make(chan struct{})
+			rt.enqueueStateUpdate(stateUpdateRequest{
+				op:   opRecalculateCapacity,
+				done: done,
+			})
+			<-done
+		}
+	}()
+
+	// Goroutine 2: Continuously mutate podTrackers
 	go func() {
 		defer wg.Done()
 		i := 0
@@ -223,25 +282,23 @@ func TestRace_ResetTrackers_ReadsPodTrackersWhileWriterMutates(t *testing.T) {
 			default:
 			}
 			addr := "192.168.2." + strconv.Itoa(i%5) + ":8080"
+			done := make(chan struct{})
 			if i%2 == 0 {
-				rt.updateThrottlerState([]*podTracker{newTestTracker(addr, queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}))}, nil, nil)
+				rt.enqueueStateUpdate(stateUpdateRequest{
+					op:        opAddPod,
+					pod:       addr,
+					eventType: "ready",
+					done:      done,
+				})
 			} else {
-				rt.updateThrottlerState(nil, nil, []string{addr})
+				rt.enqueueStateUpdate(stateUpdateRequest{
+					op:   opRemovePod,
+					pod:  addr,
+					done: done,
+				})
 			}
+			<-done
 			i++
-		}
-	}()
-
-	// Reader: resetTrackers iterates podTrackers without lock
-	go func() {
-		defer wg.Done()
-		for {
-			select {
-			case <-stop:
-				return
-			default:
-			}
-			rt.resetTrackers() // Reads rt.podTrackers without lock
 		}
 	}()
 
@@ -397,16 +454,17 @@ func TestRace_HandlePubEpsUpdate_StaleBackendCountOverwritesCapacity(t *testing.
 	)
 
 	// Initial state: 5 pods
-	initialTrackers := make([]*podTracker, 5)
-	healthyDests := make([]string, 5)
 	for i := range 5 {
-		initialTrackers[i] = newTestTracker(
-			"10.0.0."+strconv.Itoa(i)+":8080",
-			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
-		)
-		healthyDests[i] = initialTrackers[i].dest
+		addr := "10.0.0." + strconv.Itoa(i) + ":8080"
+		done := make(chan struct{})
+		rt.enqueueStateUpdate(stateUpdateRequest{
+			op:        opAddPod,
+			pod:       addr,
+			eventType: "ready",
+			done:      done,
+		})
+		<-done
 	}
-	rt.updateThrottlerState(initialTrackers, healthyDests, nil)
 	rt.numActivators.Store(1)
 	rt.activatorIndex.Store(1) // 1-based indexing: 1 means first activator
 
@@ -424,13 +482,16 @@ func TestRace_HandlePubEpsUpdate_StaleBackendCountOverwritesCapacity(t *testing.
 			default:
 			}
 
-			newTracker := newTestTracker(
-				"10.0.0."+strconv.Itoa(i)+":8080",
-				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
-			)
+			addr := "10.0.0." + strconv.Itoa(i) + ":8080"
+			done := make(chan struct{})
 			// This updates backendCount to i+1
-			rt.updateThrottlerState([]*podTracker{newTracker}, nil, nil)
-			time.Sleep(5 * time.Millisecond)
+			rt.enqueueStateUpdate(stateUpdateRequest{
+				op:        opAddPod,
+				pod:       addr,
+				eventType: "ready",
+				done:      done,
+			})
+			<-done
 		}
 	}()
 
@@ -481,16 +542,17 @@ func TestRace_BreakerCapacityCapture_ConcurrentCapacityUpdates(t *testing.T) {
 		logger,
 	)
 
-	initialTrackers := make([]*podTracker, 5)
-	healthyDests := make([]string, 5)
 	for i := range 5 {
-		initialTrackers[i] = newTestTracker(
-			"10.0.0."+strconv.Itoa(i)+":8080",
-			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
-		)
-		healthyDests[i] = initialTrackers[i].dest
+		addr := "10.0.0." + strconv.Itoa(i) + ":8080"
+		done := make(chan struct{})
+		rt.enqueueStateUpdate(stateUpdateRequest{
+			op:        opAddPod,
+			pod:       addr,
+			eventType: "ready",
+			done:      done,
+		})
+		<-done
 	}
-	rt.updateThrottlerState(initialTrackers, healthyDests, nil)
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -551,16 +613,17 @@ func TestRace_AssignedTrackers_ConcurrentReadDuringUpdate(t *testing.T) {
 		logger,
 	)
 
-	initialTrackers := make([]*podTracker, 5)
-	healthyDests := make([]string, 5)
 	for i := range 5 {
-		initialTrackers[i] = newTestTracker(
-			"10.0.0."+strconv.Itoa(i)+":8080",
-			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
-		)
-		healthyDests[i] = initialTrackers[i].dest
+		addr := "10.0.0." + strconv.Itoa(i) + ":8080"
+		done := make(chan struct{})
+		rt.enqueueStateUpdate(stateUpdateRequest{
+			op:        opAddPod,
+			pod:       addr,
+			eventType: "ready",
+			done:      done,
+		})
+		<-done
 	}
-	rt.updateThrottlerState(initialTrackers, healthyDests, nil)
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -634,16 +697,17 @@ func TestRace_ContainerConcurrency_UpdateDuringCapacityCalc(t *testing.T) {
 		logger,
 	)
 
-	initialTrackers := make([]*podTracker, 5)
-	healthyDests := make([]string, 5)
 	for i := range 5 {
-		initialTrackers[i] = newTestTracker(
-			"10.0.0."+strconv.Itoa(i)+":8080",
-			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
-		)
-		healthyDests[i] = initialTrackers[i].dest
+		addr := "10.0.0." + strconv.Itoa(i) + ":8080"
+		done := make(chan struct{})
+		rt.enqueueStateUpdate(stateUpdateRequest{
+			op:        opAddPod,
+			pod:       addr,
+			eventType: "ready",
+			done:      done,
+		})
+		<-done
 	}
-	rt.updateThrottlerState(initialTrackers, healthyDests, nil)
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -716,14 +780,17 @@ func TestRace_ActivatorIndex_ChangeDuringAssignSlice(t *testing.T) {
 		logger,
 	)
 
-	initialTrackers := make([]*podTracker, 10)
 	for i := range 10 {
-		initialTrackers[i] = newTestTracker(
-			"10.0.0."+strconv.Itoa(i)+":8080",
-			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
-		)
+		addr := "10.0.0." + strconv.Itoa(i) + ":8080"
+		done := make(chan struct{})
+		rt.enqueueStateUpdate(stateUpdateRequest{
+			op:        opAddPod,
+			pod:       addr,
+			eventType: "ready",
+			done:      done,
+		})
+		<-done
 	}
-	rt.updateThrottlerState(initialTrackers, nil, nil)
 	rt.numActivators.Store(2)
 	rt.activatorIndex.Store(1) // 1-based indexing: 1 means first activator
 
@@ -815,12 +882,15 @@ func TestRace_UpdateThrottlerState_ConcurrentUpdates(t *testing.T) {
 					return
 				default:
 				}
-				tracker := newTestTracker(
-					"10.0."+strconv.Itoa(id)+"."+strconv.Itoa(j)+":8080",
-					queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
-				)
-				rt.updateThrottlerState([]*podTracker{tracker}, nil, nil)
-				time.Sleep(time.Millisecond)
+				addr := "10.0." + strconv.Itoa(id) + "." + strconv.Itoa(j) + ":8080"
+				done := make(chan struct{})
+				rt.enqueueStateUpdate(stateUpdateRequest{
+					op:        opAddPod,
+					pod:       addr,
+					eventType: "ready",
+					done:      done,
+				})
+				<-done
 			}
 		}(i)
 	}
@@ -860,16 +930,17 @@ func TestRace_BackendCount_ConcurrentReadWriteDuringCapacityUpdates(t *testing.T
 		logger,
 	)
 
-	initialTrackers := make([]*podTracker, 5)
-	healthyDests := make([]string, 5)
 	for i := range 5 {
-		initialTrackers[i] = newTestTracker(
-			"10.0.0."+strconv.Itoa(i)+":8080",
-			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
-		)
-		healthyDests[i] = initialTrackers[i].dest
+		addr := "10.0.0." + strconv.Itoa(i) + ":8080"
+		done := make(chan struct{})
+		rt.enqueueStateUpdate(stateUpdateRequest{
+			op:        opAddPod,
+			pod:       addr,
+			eventType: "ready",
+			done:      done,
+		})
+		<-done
 	}
-	rt.updateThrottlerState(initialTrackers, healthyDests, nil)
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -884,12 +955,15 @@ func TestRace_BackendCount_ConcurrentReadWriteDuringCapacityUpdates(t *testing.T
 				return
 			default:
 			}
-			tracker := newTestTracker(
-				"10.0.1."+strconv.Itoa(i)+":8080",
-				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
-			)
-			rt.updateThrottlerState([]*podTracker{tracker}, nil, nil)
-			time.Sleep(2 * time.Millisecond)
+			addr := "10.0.1." + strconv.Itoa(i) + ":8080"
+			done := make(chan struct{})
+			rt.enqueueStateUpdate(stateUpdateRequest{
+				op:        opAddPod,
+				pod:       addr,
+				eventType: "ready",
+				done:      done,
+			})
+			<-done
 		}
 	}()
 
@@ -962,16 +1036,17 @@ func TestRace_WaitingRequests_ConcurrentBreakerStateReads(t *testing.T) {
 		logger,
 	)
 
-	initialTrackers := make([]*podTracker, 5)
-	healthyDests := make([]string, 5)
 	for i := range 5 {
-		initialTrackers[i] = newTestTracker(
-			"10.0.0."+strconv.Itoa(i)+":8080",
-			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
-		)
-		healthyDests[i] = initialTrackers[i].dest
+		addr := "10.0.0." + strconv.Itoa(i) + ":8080"
+		done := make(chan struct{})
+		rt.enqueueStateUpdate(stateUpdateRequest{
+			op:        opAddPod,
+			pod:       addr,
+			eventType: "ready",
+			done:      done,
+		})
+		<-done
 	}
-	rt.updateThrottlerState(initialTrackers, healthyDests, nil)
 
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -1031,16 +1106,17 @@ func TestRace_AssignSlice_MapMutationDuringIteration(t *testing.T) {
 		logger,
 	)
 
-	initialTrackers := make([]*podTracker, 5)
-	healthyDests := make([]string, 5)
 	for i := range 5 {
-		initialTrackers[i] = newTestTracker(
-			"10.0.0."+strconv.Itoa(i)+":8080",
-			queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
-		)
-		healthyDests[i] = initialTrackers[i].dest
+		addr := "10.0.0." + strconv.Itoa(i) + ":8080"
+		done := make(chan struct{})
+		rt.enqueueStateUpdate(stateUpdateRequest{
+			op:        opAddPod,
+			pod:       addr,
+			eventType: "ready",
+			done:      done,
+		})
+		<-done
 	}
-	rt.updateThrottlerState(initialTrackers, healthyDests, nil)
 	rt.numActivators.Store(1)
 	rt.activatorIndex.Store(1) // 1-based indexing: 1 means first activator
 
@@ -1058,14 +1134,17 @@ func TestRace_AssignSlice_MapMutationDuringIteration(t *testing.T) {
 				return
 			default:
 			}
-			tracker := newTestTracker(
-				"192.168.1."+strconv.Itoa(i%10)+":8080",
-				queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 1, InitialCapacity: 1}),
-			)
-			// Provide tracker in healthyDests to promote it to ready state
-			rt.updateThrottlerState([]*podTracker{tracker}, []string{tracker.dest}, nil)
+			addr := "192.168.1." + strconv.Itoa(i%10) + ":8080"
+			done := make(chan struct{})
+			// Add pod in ready state
+			rt.enqueueStateUpdate(stateUpdateRequest{
+				op:        opAddPod,
+				pod:       addr,
+				eventType: "ready",
+				done:      done,
+			})
+			<-done
 			i++
-			time.Sleep(time.Millisecond)
 		}
 	}()
 

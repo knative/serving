@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	. "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/queue"
 )
@@ -222,11 +223,14 @@ func TestQuarantineRecoveryMechanism(t *testing.T) {
 		rt.podTrackers["recovering-pod"] = tracker
 		rt.mux.Unlock()
 
-		// External update marks this pod as healthy
+		// External update marks this pod as healthy via K8s informer
 		// Run in goroutine to avoid blocking on breaker capacity updates
 		done := make(chan struct{})
 		go func() {
-			rt.updateThrottlerState(nil, []string{"recovering-pod"}, nil)
+			rt.handleUpdate(revisionDestsUpdate{
+				Rev:   rt.revID,
+				Dests: sets.New("recovering-pod"),
+			})
 			close(done)
 		}()
 

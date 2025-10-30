@@ -84,7 +84,10 @@ func TestQPAuthorityOverridesInformer(t *testing.T) {
 
 		// 4. K8s informer says healthy (within 30s of QP not-ready)
 		// This should be IGNORED because QP recently said not-ready
-		rt.updateThrottlerState(nil, []string{podIP}, nil)
+		rt.handleUpdate(revisionDestsUpdate{
+			Rev:   rt.revID,
+			Dests: sets.New(podIP),
+		})
 
 		// Verify pod is STILL pending (QP authority wins)
 		if podState(tracker.state.Load()) != podNotReady {
@@ -119,7 +122,10 @@ func TestQPAuthorityOverridesInformer(t *testing.T) {
 
 		// 2. K8s informer says draining (within 30s of QP ready)
 		// This should be IGNORED because QP recently confirmed ready
-		rt.updateThrottlerState(nil, nil, []string{podIP})
+		rt.handleUpdate(revisionDestsUpdate{
+			Rev:   rt.revID,
+			Dests: sets.New[string](), // Empty set = all pods draining
+		})
 
 		// Verify pod is STILL ready (QP authority wins)
 		if podState(tracker.state.Load()) != podReady {
@@ -157,7 +163,10 @@ func TestQPAuthorityOverridesInformer(t *testing.T) {
 
 		// 3. K8s informer says healthy (but QP data is stale >60s)
 		// This should SUCCEED because QP data is old (QP likely dead)
-		rt.updateThrottlerState(nil, []string{podIP}, nil)
+		rt.handleUpdate(revisionDestsUpdate{
+			Rev:   rt.revID,
+			Dests: sets.New(podIP),
+		})
 
 		// Verify pod was promoted to ready (informer wins with stale QP)
 		if podState(tracker.state.Load()) != podReady {
@@ -200,7 +209,10 @@ func TestQPAuthorityOverridesInformer(t *testing.T) {
 
 		// 2. K8s informer says healthy (no QP objection)
 		// This should SUCCEED because we never heard from QP
-		rt.updateThrottlerState(nil, []string{podIP}, nil)
+		rt.handleUpdate(revisionDestsUpdate{
+			Rev:   rt.revID,
+			Dests: sets.New(podIP),
+		})
 
 		// Verify pod was promoted to ready
 		if podState(tracker.state.Load()) != podReady {
@@ -766,7 +778,10 @@ func TestDrainingWithActiveRequests(t *testing.T) {
 		}
 
 		// Simulate K8s informer trying to remove draining pod (refCount > 0)
-		rt.updateThrottlerState(nil, nil, []string{podIP})
+		rt.handleUpdate(revisionDestsUpdate{
+			Rev:   rt.revID,
+			Dests: sets.New[string](), // Empty set = all pods draining
+		})
 
 		// Pod should STILL exist (refCount > 0)
 		rt.mux.RLock()
@@ -787,7 +802,10 @@ func TestDrainingWithActiveRequests(t *testing.T) {
 		}
 
 		// Now informer can remove it
-		rt.updateThrottlerState(nil, nil, []string{podIP})
+		rt.handleUpdate(revisionDestsUpdate{
+			Rev:   rt.revID,
+			Dests: sets.New[string](), // Empty set = all pods draining
+		})
 
 		// Pod should be removed
 		rt.mux.RLock()
@@ -830,7 +848,10 @@ func TestQPvsInformerTimingScenarios(t *testing.T) {
 		}
 
 		// K8s informer says healthy (QP data is fresh <30s)
-		rt.updateThrottlerState(nil, []string{podIP}, nil)
+		rt.handleUpdate(revisionDestsUpdate{
+			Rev:   rt.revID,
+			Dests: sets.New(podIP),
+		})
 
 		// Pod should STAY pending (QP authority)
 		if podState(tracker.state.Load()) != podNotReady {
@@ -869,7 +890,10 @@ func TestQPvsInformerTimingScenarios(t *testing.T) {
 		tracker.lastQPState.Store("ready")
 
 		// K8s informer says draining (QP data is stale >60s)
-		rt.updateThrottlerState(nil, nil, []string{podIP})
+		rt.handleUpdate(revisionDestsUpdate{
+			Rev:   rt.revID,
+			Dests: sets.New[string](), // Empty set = all pods draining
+		})
 
 		// Pod should be draining (informer wins with stale QP)
 		// Pod not removed because refCount > 0

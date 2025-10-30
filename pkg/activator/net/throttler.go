@@ -566,6 +566,7 @@ func (t *Throttler) cleanupStalePodTrackers(ctx context.Context) {
 }
 
 // cleanupStaleTrackersOnce performs one pass of stale tracker cleanup across all revisions
+// Routes cleanup through the work queue to avoid holding locks
 func (t *Throttler) cleanupStaleTrackersOnce() {
 	t.revisionThrottlersMutex.RLock()
 	revisions := make([]*revisionThrottler, 0, len(t.revisionThrottlers))
@@ -574,29 +575,23 @@ func (t *Throttler) cleanupStaleTrackersOnce() {
 	}
 	t.revisionThrottlersMutex.RUnlock()
 
-	now := time.Now().Unix()
-	const staleThreshold = 600 // 10 minutes in seconds
-
+	// Queue cleanup request for each revision through their work queues
+	// This avoids holding locks and ensures cleanup is serialized with other state updates
 	for _, rt := range revisions {
-		rt.mux.Lock()
-		for ip, tracker := range rt.podTrackers {
-			state := podState(tracker.state.Load())
-			refCount := tracker.refCount.Load()
-			createdAt := tracker.createdAt
-
-			// Cleanup podNotReady with zero refCount that are stale
-			if state == podNotReady && refCount == 0 {
-				age := now - createdAt/1e6 // createdAt is in microseconds
-				if age > staleThreshold {
-					delete(rt.podTrackers, ip)
-					rt.logger.Infow("Cleaned up stale podNotReady tracker",
-						"revision", rt.revID.String(),
-						"pod-ip", ip,
-						"age-seconds", age,
-						"ref-count", refCount)
-				}
-			}
+		// Non-blocking enqueue - if queue is full, skip this revision
+		// (cleanup will happen on next periodic run)
+		select {
+		case rt.stateUpdateChan <- stateUpdateRequest{
+			op:         opCleanupStalePods,
+			enqueuedAt: time.Now().UnixNano(),
+		}:
+			// Successfully enqueued
+			stateUpdateQueueDepth.WithLabelValues(rt.revID.Namespace, rt.revID.Name).Set(float64(len(rt.stateUpdateChan)))
+		default:
+			// Queue is full, skip this revision for now
+			rt.logger.Warnw("Skipped stale tracker cleanup - queue full",
+				"revision", rt.revID.String(),
+				"queue-depth", len(rt.stateUpdateChan))
 		}
-		rt.mux.Unlock()
 	}
 }

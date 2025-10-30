@@ -170,6 +170,7 @@ const (
 	opRemovePod                                // Removes pod AND updates capacity
 	opRecalculateAll                           // Full reconciliation from K8s endpoints
 	opRecalculateCapacity                      // Recalculate capacity only (activator assignment change)
+	opCleanupStalePods                         // Cleanup stale podNotReady trackers (periodic background task)
 )
 
 // opTypeToString converts stateUpdateOp to string for metrics
@@ -185,6 +186,8 @@ func opTypeToString(op stateUpdateOp) string {
 		return "recalculate_all"
 	case opRecalculateCapacity:
 		return "recalculate_capacity"
+	case opCleanupStalePods:
+		return "cleanup_stale_pods"
 	default:
 		return "unknown"
 	}
@@ -247,6 +250,10 @@ func (rt *revisionThrottler) processStateUpdate(req stateUpdateRequest) {
 	case opRecalculateCapacity:
 		// Just recalculate capacity (activator assignment change)
 		rt.updateCapacityLocked()
+
+	case opCleanupStalePods:
+		// Cleanup stale podNotReady trackers
+		rt.processCleanupStalePods()
 
 	case opNoop:
 		// No-op, used for testing to ensure queue is drained
@@ -373,6 +380,36 @@ func (rt *revisionThrottler) processRemovePod(req stateUpdateRequest) {
 		// Update capacity after state change
 		rt.updateCapacityLocked()
 	}
+}
+
+// processCleanupStalePods removes stale podNotReady trackers with zero refCount
+// Must be called while holding the write lock
+func (rt *revisionThrottler) processCleanupStalePods() {
+	const staleThreshold = 600 // 10 minutes in seconds
+	now := time.Now().Unix()
+
+	for ip, tracker := range rt.podTrackers {
+		state := podState(tracker.state.Load())
+		refCount := tracker.refCount.Load()
+		createdAt := tracker.createdAt
+
+		// Cleanup podNotReady with zero refCount that are stale
+		if state == podNotReady && refCount == 0 {
+			age := now - createdAt
+			if age > staleThreshold {
+				delete(rt.podTrackers, ip)
+				rt.logger.Infow("Cleaned up stale podNotReady tracker",
+					"revision", rt.revID.String(),
+					"pod-ip", ip,
+					"age-seconds", age,
+					"ref-count", refCount)
+			}
+		}
+	}
+	// Note: We don't call updateCapacityLocked() here because:
+	// - These pods were already podNotReady (not routable)
+	// - They were already excluded from capacity calculations
+	// - No capacity change from removing them
 }
 
 // onDequeueStateUpdate is called after processing a request to update metrics
@@ -572,6 +609,20 @@ func (rt *revisionThrottler) recalculateFromEndpointsLocked(dests sets.Set[strin
 
 				switch currentState {
 				case podReady, podRecovering:
+					// When QP authority is enabled, check if we should ignore K8s removal
+					// based on fresh QP data
+					if qpAuthority && currentState == podReady {
+						qpInfo := tracker.getQPFreshness()
+						// If QP recently confirmed "ready", ignore K8s removal signal
+						if qpInfo.lastEvent == "ready" && qpInfo.age < int64(QPFreshnessReadyWindow.Seconds()) {
+							rt.logger.Debugw("Ignoring K8s removal - QP authority overrides (fresh ready signal)",
+								"dest", dest,
+								"qp-age-sec", qpInfo.age,
+								"freshness-window-sec", int64(QPFreshnessReadyWindow.Seconds()))
+							continue // Keep the pod, don't remove it
+						}
+					}
+
 					// Transition to not-ready (stop routing, preserve active requests)
 					if tracker.state.CompareAndSwap(uint32(currentState), uint32(podNotReady)) {
 						fromState := "ready"
