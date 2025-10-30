@@ -82,13 +82,13 @@ type revisionThrottler struct {
 	// supervisorDone signals when the supervisor has fully exited
 	supervisorDone chan struct{}
 
+	// lastPanicTime tracks when the worker last exited (for exponential backoff)
+	// Stored as Unix microseconds. Used to detect panic loops and apply backoff.
+	lastPanicTime atomic.Int64
+
 	// testPanicInjector is used ONLY for testing panic recovery behavior
 	// When non-nil, called before processing each request to allow panic injection
 	testPanicInjector func(stateUpdateRequest)
-
-	// lastPanicTime tracks when the worker last panicked (Unix timestamp)
-	// Used for health monitoring to detect repeated panic loops
-	lastPanicTime atomic.Int64
 
 	logger *zap.SugaredLogger
 }
@@ -137,9 +137,15 @@ func newRevisionThrottler(revID types.NamespacedName,
 	return t, nil
 }
 
-// supervisor manages the worker lifecycle, restarting it on panic
+// supervisor manages the worker lifecycle, restarting it on panic with exponential backoff
+// to prevent tight panic loops from consuming CPU.
 func (rt *revisionThrottler) supervisor() {
 	defer close(rt.supervisorDone)
+
+	// Initial backoff duration
+	backoff := 100 * time.Millisecond
+	const maxBackoff = 5 * time.Second
+	const resetWindow = time.Minute
 
 	for {
 		// Start a new worker
@@ -158,9 +164,40 @@ func (rt *revisionThrottler) supervisor() {
 				// Shutdown was requested, don't restart
 				return
 			default:
-				// Worker panicked - restart it
-				rt.logger.Info("Worker exited unexpectedly, restarting")
-				rt.workerDone = make(chan struct{}) // Create new channel for next worker
+				// Worker panicked - apply exponential backoff if panicking frequently
+				now := time.Now()
+				lastPanic := rt.lastPanicTime.Load()
+
+				if lastPanic > 0 {
+					timeSinceLastPanic := now.Sub(time.UnixMicro(lastPanic))
+
+					if timeSinceLastPanic < resetWindow {
+						// Panic happened recently - apply and increase backoff
+						rt.logger.Infow("Worker exited unexpectedly, applying backoff before restart",
+							"backoff", backoff,
+							"time-since-last-panic", timeSinceLastPanic)
+						time.Sleep(backoff)
+
+						// Exponential backoff with cap
+						backoff *= 2
+						if backoff > maxBackoff {
+							backoff = maxBackoff
+						}
+					} else {
+						// Long time since last panic - reset backoff
+						rt.logger.Info("Worker exited unexpectedly, restarting (backoff reset)")
+						backoff = 100 * time.Millisecond
+					}
+				} else {
+					// First panic - no backoff needed yet
+					rt.logger.Info("Worker exited unexpectedly, restarting")
+				}
+
+				// Record this panic time
+				rt.lastPanicTime.Store(now.UnixMicro())
+
+				// Create new channel for next worker
+				rt.workerDone = make(chan struct{})
 			}
 		}
 	}

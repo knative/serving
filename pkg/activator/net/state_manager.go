@@ -461,15 +461,10 @@ func (rt *revisionThrottler) handleExistingPodEvent(tracker *podTracker, eventTy
 		if oldRoutable != newRoutable {
 			rt.updateCapacityLocked()
 		}
-
-		// Clean up podNotReady trackers with zero refCount immediately
-		// instead of waiting for the cleanup goroutine
-		if newState == podNotReady && tracker.getRefCount() == 0 {
-			delete(rt.podTrackers, tracker.dest)
-			rt.logger.Debugw("Removed podNotReady tracker with zero refCount",
-				"pod-ip", tracker.dest,
-				"state-reason", tracker.stateReason)
-		}
+		// Note: We don't remove pods here even with zero refCount during mutations
+		// because mutate operations indicate state changes (ready/not-ready/draining)
+		// and the pod might recover. The informer handles immediate removal when
+		// K8s actually removes the pod from endpoints (see processRecalculateAll).
 	}
 }
 
