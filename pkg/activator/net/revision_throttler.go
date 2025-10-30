@@ -663,7 +663,7 @@ func (rt *revisionThrottler) try(ctx context.Context, xRequestId string, functio
 	// Log final routing summary if it took significant time or had retries
 	totalMs := float64(time.Since(proxyStartTime).Milliseconds())
 	if totalMs > 500 || reenqueueCount > 0 { // Log if >500ms or had retries
-		rt.logger.Infow("Request routing completed",
+		rt.logger.Debugw("Request routing completed",
 			"x-request-id", xRequestId,
 			"dest", finalTracker,
 			"total-ms", totalMs,
@@ -707,7 +707,6 @@ func (rt *revisionThrottler) calculateCapacity(backendCount uint64, numTrackers 
 	return targetCapacity
 }
 
-
 // updateCapacity updates the capacity of the throttler and recomputes
 // the assigned trackers to the Activator instance.
 //
@@ -729,7 +728,6 @@ func (rt *revisionThrottler) updateCapacity() {
 	})
 	<-done // Wait for completion
 }
-
 
 // assignSlice picks a subset of the individual pods to send requests to
 // for this Activator instance. This only matters in case of direct
