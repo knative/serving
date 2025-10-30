@@ -45,10 +45,18 @@ This is a fork of [Knative Serving](https://github.com/knative/serving) based on
 
 ### Core Modified Components
 
-- **Activator** (`pkg/activator/`): Load balancing, health tracking, quarantine system
-- **Queue Proxy** (`pkg/queue/`): WebSocket support, enhanced metrics
-- **Autoscaler** (`pkg/autoscaler/`): Scale buffer, effective capacity calculations
-- **Throttler** (`pkg/activator/throttler.go`): Enhanced error handling, pod state management
+**Activator** (`pkg/activator/net/`): Load balancing, health tracking, quarantine system
+- `pod_tracker.go`: Pod state machine and lifecycle management
+- `quarantine.go`: Health check and quarantine system
+- `state_manager.go`: State update queue, worker, and supervisor
+- `revision_throttler.go`: Per-revision routing and capacity management
+- `throttler.go`: Global multi-revision orchestration
+
+**Queue Proxy** (`pkg/queue/`): WebSocket support, enhanced metrics, pod registration client
+
+**Autoscaler** (`pkg/autoscaler/`): Scale buffer, effective capacity calculations
+
+**Revision Lifecycle** (`pkg/activator/net/revision_lifecycle.go`): uint64 containerConcurrency API
 
 ### Documentation
 
@@ -100,17 +108,19 @@ git diff upstream/release-1.18..HEAD
 
 ### Pod State Management (Feature Gate-Based Operation)
 
-The activator implements a flexible 6-state pod state machine with two independent feature gates:
+The activator implements a simplified 4-state pod state machine with two independent feature gates:
 - **`enableQPAuthority`** (default: `true`): Controls whether queue-proxy events trigger state changes
 - **`enableQuarantine`** (default: `true`): Controls health-check and quarantine system
 
-**Pod States:**
+**Pod States** (simplified from 6 to 4 states):
 - `podReady (0)`: Pod is ready to serve traffic
-- `podDraining (1)`: Pod is being removed from service, draining active requests (requires `enableQPAuthority=true`)
-- `podQuarantined (2)`: Pod failed health check (only used when `enableQuarantine=true`)
-- `podRecovering (3)`: Pod recovering from quarantine (only used when `enableQuarantine=true`)
-- `podRemoved (4)`: Pod completely removed from tracker (terminal state)
-- `podNotReady (5)`: Pod not ready to receive traffic (NOT routable)
+- `podQuarantined (1)`: Pod failed health check (only used when `enableQuarantine=true`)
+- `podRecovering (2)`: Pod recovering from quarantine (only used when `enableQuarantine=true`)
+- `podNotReady (3)`: Pod not ready to receive traffic (NOT routable)
+
+**Removed States** (simplified in commit cea5c3e487):
+- `podDraining`: Merged into `podNotReady` (draining pods transition to not-ready)
+- `podRemoved`: Pods are simply deleted from the tracker map (no terminal state needed)
 
 #### Operating Modes
 
@@ -120,25 +130,25 @@ The activator implements a flexible 6-state pod state machine with two independe
 - Most comprehensive protection mode
 - Pods start in `podNotReady`, promoted by QP "ready" event
 - Health checks run and can quarantine failing pods
-- States used: All 6 states
+- States used: All 4 states
 
 **Mode 2: QP Authority ON, Quarantine OFF**
 - Queue-proxy events are authoritative for state changes
 - No health checks or quarantine logic
 - Pods start in `podNotReady`, promoted by QP "ready" event
-- States used: `podReady`, `podDraining`, `podNotReady`, `podRemoved`
+- States used: `podReady`, `podNotReady`
 
 **Mode 3: QP Authority OFF, Quarantine ON**
 - Queue-proxy sends events but activator logs and ignores them
 - K8s informer is sole authority for pod state
 - Pods start in `podReady` state immediately
 - Health checks run and can quarantine failing pods
-- States used: `podReady`, `podQuarantined`, `podRecovering`, `podNotReady`, `podRemoved`
+- States used: `podReady`, `podQuarantined`, `podRecovering`, `podNotReady`
 
 **Mode 4: Minimal (Both OFF)**
 - K8s informer only, no health checks, no QP authority
 - Simplest mode, least protection
-- States used: `podReady`, `podNotReady`, `podRemoved`
+- States used: `podReady`, `podNotReady`
 
 #### ConfigMap Configuration
 
@@ -179,43 +189,36 @@ data:
 #### State Transition Map (Hybrid Mode - All Features Enabled)
 
 ```
-NEW POD → podNotReady → podReady ←→ podQuarantined
-            ↓              ↓              ↓
-            └──────────→ podDraining ←────┘
-                           ↓
-                        podRemoved
-                           ↓
-                  (Re-add: podRecovering)
+NEW POD → podNotReady ⇄ podReady ⇄ podQuarantined
+                                    ⇅
+                                podRecovering
 ```
 
 **From podNotReady (new pods waiting for ready signal):**
 - ✅ QP "ready" event → `podReady` (requires `enableQPAuthority=true`)
 - ✅ K8s informer "healthy" → `podReady` (if QP hasn't said "not-ready" recently, or `enableQPAuthority=false`)
-- 🗑️ K8s informer removed → `podRemoved` (cleanup)
-- 🗑️ QP "draining" event → `podDraining` (crash before ready, requires `enableQPAuthority=true`)
+- 🗑️ K8s informer removed → deleted from map (if refCount == 0)
+- 🗑️ QP "draining" event → stays `podNotReady` (crash before ready, requires `enableQPAuthority=true`)
 
 **From podReady (established ready pods):**
 - ⚠️ QP "not-ready" event → `podNotReady` (preserves refCount/breaker, requires `enableQPAuthority=true`)
 - ❌ Health check failure → `podQuarantined` (requires `enableQuarantine=true`)
-- 🗑️ QP "draining" event → `podDraining` (requires `enableQPAuthority=true`)
-- 🗑️ K8s informer removed → `podDraining` or `podNotReady` (depends on feature gates)
+- 🗑️ QP "draining" event → `podNotReady` (graceful shutdown, requires `enableQPAuthority=true`)
+- 🗑️ K8s informer removed → `podNotReady`, then deleted from map (if refCount == 0)
 
 **From podQuarantined (health check failures):**
 - ⏱️ After backoff → `podRecovering` (requires `enableQuarantine=true`)
-- 🗑️ K8s informer removed → `podRemoved`
+- 🗑️ K8s informer removed → deleted from map
 
 **From podRecovering (recovering from quarantine):**
 - ✅ Health check success → `podReady` (requires `enableQuarantine=true`)
 - ❌ Health check failure → `podQuarantined` (requires `enableQuarantine=true`)
-- 🗑️ K8s informer removed → `podDraining`
+- 🗑️ K8s informer removed → `podNotReady`, then deleted from map
 
-**From podDraining (graceful shutdown):**
-- ⏱️ RefCount reaches 0 → `podRemoved` (all requests complete)
-- ⏱️ Stuck for maxDrainingDuration → `podRemoved` (force remove)
-- 🔄 Re-added to endpoints → `podNotReady` (treat as new pod)
-
-**From podRemoved (terminal state):**
-- 🔄 Re-added to endpoints → `podNotReady` (treat as new pod)
+**Pod Removal:**
+- Pods are deleted from the tracker map (not transitioned to a removed state)
+- Deletion happens immediately when refCount == 0 and K8s removes the pod
+- Active requests prevent deletion until they complete (refCount > 0)
 
 #### Queue-Proxy Authority Model (when `enableQPAuthority=true`)
 
@@ -233,7 +236,7 @@ NEW POD → podNotReady → podReady ←→ podQuarantined
 - `startup`: Creates podNotReady tracker (not viable for traffic)
 - `ready`: Promotes podNotReady → podReady (now viable)
 - `not-ready`: Demotes podReady → podNotReady (stops new traffic, preserves active requests)
-- `draining`: Transitions podReady → podDraining (graceful shutdown)
+- `draining`: Transitions podReady → podNotReady (graceful shutdown, preserves refCount)
 
 **Informer Override Rules (when `enableQPAuthority=true`):**
 - ✅ QP "not-ready" < 30s ago → Informer "healthy" IGNORED
@@ -252,19 +255,61 @@ NEW POD → podNotReady → podReady ←→ podQuarantined
 ### Capacity Calculation
 
 - Capacity based on ALL routable trackers (podReady + podRecovering when `enableQuarantine=true`)
-- Filtering at routing time excludes non-routable pods (podNotReady, podQuarantined, podDraining, podRemoved)
+- Filtering at routing time excludes non-routable pods (podNotReady, podQuarantined)
 - Prevents capacity starvation while pods are starting up
 - Dynamic adjustment based on QP readiness signals (when `enableQPAuthority=true`)
 - Quarantine system can reduce capacity when pods fail health checks (when `enableQuarantine=true`)
 
 ## Implementation Details
 
+### Code Organization (Modular Architecture)
+
+**Major refactoring in commit cea5c3e487** - Reorganized activator code into focused modules with clear separation of concerns:
+
+**File Structure** (`pkg/activator/net/`, ~3,178 lines total):
+
+1. **`pod_tracker.go` (598 lines)**: Pod data structure + state machine logic
+   - Pod state definitions and validation
+   - State transition helpers and decision logic
+   - Reference counting and capacity management
+   - QP freshness tracking
+
+2. **`quarantine.go` (196 lines)**: Health check & quarantine system
+   - Health check infrastructure (TCP ping, HTTP readiness)
+   - Quarantine/recovery logic
+   - Exponential backoff for recovery attempts
+
+3. **`state_manager.go` (605 lines)**: State update queue & worker infrastructure
+   - Serialized state update processing via work queue
+   - Operation handlers (mutatePod, recalculateAll, updateCapacity, cleanup)
+   - Supervisor pattern for worker lifecycle management
+   - Panic recovery with exponential backoff
+
+4. **`revision_throttler.go` (1,217 lines)**: Per-revision request routing & capacity
+   - Load balancing policy selection (random, round-robin, first-available)
+   - Request routing and tracker assignment
+   - Capacity calculations and breaker integration
+   - Pod registration handlers
+
+5. **`throttler.go` (607 lines, reduced from ~1,800)**: Global Throttler orchestration
+   - Multi-revision coordination
+   - Feature gate management
+   - Metrics collection
+   - Endpoint watching
+
+**Benefits:**
+- Clear separation of concerns - each file has single responsibility
+- State machine rules encapsulated in pod_tracker.go
+- Better maintainability and testability
+- Reduced lock contention through modular design
+- Easier to understand control flow
+
 ### State Machine Documentation
 
 Comprehensive state machine documentation is available as inline comments in `pkg/activator/net/throttler.go` (lines 182-400). The documentation includes:
 
 - ASCII art state diagram showing all transitions
-- Detailed descriptions of each of the 6 pod states
+- Detailed descriptions of each of the 4 pod states
 - Entry and exit conditions for every state
 - Routable vs non-routable state classifications
 - Queue-proxy authority model and trust hierarchy
@@ -274,55 +319,151 @@ Comprehensive state machine documentation is available as inline comments in `pk
 
 This documentation serves as the authoritative reference for understanding pod lifecycle management in the activator.
 
-### Performance Optimizations
+### Worker Lifecycle Management
 
-**Race Window in addPodIncremental:**
-The `addPodIncremental` function (throttler.go:2073-2117) contains an intentional race window where the lock is released during tracker creation. This is a deliberate performance trade-off:
+**Supervisor Pattern** (commit cea5c3e487): The state worker is managed by a supervisor goroutine that handles panics and restarts:
+
+- **Worker**: Processes state updates from the queue, panics are recovered
+- **Supervisor**: Detects worker exit and restarts with clean channels
+- **Exponential Backoff** (commit 847383defd): Prevents tight panic loops
+  - Initial backoff: 100ms
+  - Max backoff: 5s
+  - Reset window: 1 minute (successful operation resets backoff)
+  - Tracks last panic time for intelligent restart decisions
+
+**Benefits:**
+- Prevents panic death loops
+- No double-close issues on channels
+- Graceful degradation under persistent bugs
+- Clean shutdown coordination via `supervisorDone` channel
+
+### State Update Queue & Metrics
+
+**Work Queue Pattern**: All state mutations serialized through `stateUpdateChan` to prevent race conditions.
+
+**Queue Metrics** (commit cea5c3e487):
+- `stateUpdateQueueTime`: Time requests spend waiting in queue (reveals saturation)
+- `stateUpdateProcessingTime`: Time to process each request (reveals slow operations)
+- No dropped updates - queue blocks until processed (reliability over throughput)
+
+**Operations** (refactored in commit e7d0573074):
+- `opMutatePod`: Handle QP events (ready, not-ready, draining) - renamed from opAddPod
+- `opRecalculateAll`: Full reconciliation from K8s endpoints
+- `opUpdateCapacity`: Recalculate capacity after activator count changes
+- `opCleanupStalePods`: Periodic cleanup of stale not-ready pods (10 min threshold)
+
+Note: `opRemovePod` was removed - K8s informer handles pod removal via `opRecalculateAll`
+
+### State Reason Tracking (Observability)
+
+**Added in commit e7d0573074**: Each state transition tracks the reason for the change:
+
+- `qp-ready`: QP promoted pod to ready
+- `qp-not-ready`: QP demoted pod to not-ready (readiness probe failed)
+- `qp-draining`: QP initiated graceful shutdown
+- `informer-added`: K8s informer created new pod
+- `informer-ready`: K8s informer promoted pod to ready
+- `informer-promoted`: K8s promoted not-ready to ready (stale QP data)
+- `informer-removed`: K8s informer removed pod
+
+**Benefits:**
+- Clear audit trail of state transitions
+- Easier debugging of pod lifecycle issues
+- Distinguishes between QP-driven vs informer-driven transitions
+
+### Performance Optimizations & Type Safety
+
+**Race Window in mutatePodIncremental:**
+The `mutatePodIncremental` function (revision_throttler.go) contains an intentional race window where the lock is released during tracker creation. This is a deliberate performance trade-off:
 
 - **Trade-off**: Minimizes lock hold time at the cost of potential wasted allocations
 - **Correctness**: Race is detected and handled safely via double-check after re-acquiring lock
 - **Impact**: Rare (<1% expected) and only causes allocation waste, never incorrect state
 - **Alternative**: Considered sync.Once pattern but current approach prioritizes throughput
 
-See inline documentation at throttler.go:2075-2117 for detailed analysis.
+**uint64 Migration** (commit 6f3f7cad9c): Complete type migration to eliminate integer overflow risks:
+- `GetContainerConcurrency()`: Changed return type from int64 → uint64
+- Validates at API boundary where K8s data enters the system
+- All capacity calculations now use uint64 throughout the pipeline
+- Eliminates need for unsafe conversions and prevents overflow in high-concurrency scenarios
+
+**Time Unit Consistency** (commit e7d0573074): Standardized on microsecond precision:
+- All timestamp fields use `UnixMicro()` consistently
+- Fixed incorrect age calculations due to mixed `Unix()`/`UnixMicro()` usage
+- `PodNotReadyStaleThreshold` extracted as package constant (10 minutes)
+- Better precision for time-sensitive operations (QP freshness, cleanup, backoff)
 
 ## Known Issues & TODOs
 
 See `ACTIVATOR_FIXES.md` for detailed list of known issues.
 
-**Recent Changes:**
-- ✅ ConfigMap-based feature gate configuration (commit 21cc1f1)
-- ✅ Comprehensive state machine inline documentation (commit d37fd14)
-- ✅ Simplified probe state machine to 2 states (commit b7f6294)
-- ✅ Race window documentation with trade-off analysis (commit 998c021)
-- ✅ Dual feature gates implemented for backward compatibility (commit 2d290ffca)
-- ✅ Quarantine system re-added behind `enableQuarantine` gate (commit 2d290ffca)
-- ✅ QP authority behind `enableQPAuthority` gate (commit 2d290ffca)
-- ✅ Multi-mode test coverage for all operating modes (commit bdd99b969)
-- ✅ State machine validation and comprehensive metrics (commits 64ab3090b, bbf7c5279)
+**Recent Changes** (last 30 commits):
+
+**Architecture & State Machine:**
+- ✅ Simplified state machine from 6 → 4 states (commit cea5c3e487)
+- ✅ Modular code organization into 5 focused files (commit cea5c3e487)
+- ✅ Supervisor pattern for worker lifecycle management (commit cea5c3e487)
+- ✅ Exponential backoff for worker restarts (commit 847383defd)
+- ✅ State reason tracking for observability (commit e7d0573074)
+
+**Operations & Cleanup:**
+- ✅ Renamed `opAddPod` → `opMutatePod` (commit e7d0573074)
+- ✅ Removed `opRemovePod` (K8s informer handles removal, commit e7d0573074)
+- ✅ Fixed aggressive pod removal in mutate operations (commit 847383defd)
+- ✅ Informer-driven immediate removal for zero refCount pods (commit 847383defd)
+- ✅ Periodic cleanup for stale not-ready pods (10 min threshold, commit e7d0573074)
+
+**Metrics & Observability:**
+- ✅ `stateUpdateQueueTime` metric - reveals queue saturation (commit cea5c3e487)
+- ✅ `stateUpdateProcessingTime` metric - reveals slow operations (commit cea5c3e487)
+- ✅ State reason tracking (qp-ready, qp-draining, informer-removed, etc., commit e7d0573074)
+- ✅ Removed state update timeouts - no dropped updates (commit cea5c3e487)
+
+**Type Safety & Consistency:**
+- ✅ uint64 migration for containerConcurrency (commit 6f3f7cad9c)
+- ✅ Time unit consistency - standardized on UnixMicro (commit e7d0573074)
+- ✅ Magic numbers extracted to package constants (commit 31c23428b5, e7d0573074)
+
+**Bug Fixes & Correctness:**
+- ✅ Fixed nil pointer bug - missing logger initialization (commit e7d0573074)
+- ✅ Self-transitions allowed in state validation (commit 31c23428b5)
+- ✅ Optimized lock usage - consolidated RLock acquisitions (commit 31c23428b5)
+- ✅ Refactored decreaseWeight closure to method receiver (commit 31c23428b5)
+
+**Testing & Quality:**
+- ✅ Removed all time.Sleep() calls from tests (commit 6af4298306)
+- ✅ Removed blocking test helpers (updateThrottlerState, commit 6af4298306)
+- ✅ Comprehensive test coverage for all operating modes (commit 31c23428b5)
+- ✅ All tests pass with race detection enabled (ongoing)
 
 ## Testing Considerations
 
 When making changes:
 
-1. Run unit tests with race detection: `go test -race ./pkg/activator/net`
-2. Test all operating modes using feature gate combinations
-3. Test QP event sequences (startup, ready, not-ready, draining) with `enableQPAuthority=true`
-4. Test quarantine/recovery cycles with `enableQuarantine=true`
-5. Test hybrid mode with both gates enabled
-6. Verify QP authority overrides K8s informer correctly (when enabled)
-7. Test time-based trust transitions (30s freshness, 60s staleness)
-8. Verify state transitions preserve breaker capacity and refCount
-9. Ensure podNotReady pods are excluded from routing
-10. Test draining with active requests
-11. Verify metrics are correctly reported for all modes
-12. Check WebSocket compatibility if modifying proxy code
+1. **Race Detection**: Always run tests with `-race` flag: `go test -race ./pkg/activator/net`
+2. **Operating Modes**: Test all feature gate combinations (QP authority ON/OFF, Quarantine ON/OFF)
+3. **QP Event Sequences**: Test (startup, ready, not-ready, draining) with `enableQPAuthority=true`
+4. **Quarantine Cycles**: Test quarantine → recovering → ready with `enableQuarantine=true`
+5. **Hybrid Mode**: Verify both systems work together correctly
+6. **QP Authority**: Verify QP overrides K8s informer when fresh (< 30s)
+7. **Trust Transitions**: Test QP staleness (60s) triggers informer authority
+8. **State Invariants**: Verify state transitions preserve breaker capacity and refCount
+9. **Routing Exclusion**: Ensure podNotReady and podQuarantined excluded from routing
+10. **Graceful Shutdown**: Test not-ready transitions preserve active requests (refCount > 0)
+11. **State Reasons**: Verify state reason tracking for all transitions
+12. **Queue Saturation**: Monitor stateUpdateQueueTime metric under load
+13. **Panic Recovery**: Verify supervisor restarts worker with exponential backoff
+14. **Time Precision**: Verify UnixMicro() used consistently for timestamps
+15. **WebSocket Compatibility**: Check if modifying proxy code
 
 **Key Test Files:**
 - `pkg/activator/net/throttler_default_test.go` - Default mode (QP authority OFF, Quarantine ON)
-- `pkg/activator/net/qp_authority_test.go` - QP authority mode tests
-- `pkg/activator/net/throttler_quarantine_test.go` - Quarantine-only mode tests
+- `pkg/activator/net/qp_authority_test.go` - QP authority mode tests and event sequences
 - `pkg/activator/net/throttler_hybrid_test.go` - Hybrid mode (both features enabled)
+- `pkg/activator/net/throttler_test.go` - Core throttler functionality and breaker tests
+- `pkg/activator/net/throttler_queue_test.go` - Work queue, panic recovery, and supervisor tests
+- `pkg/activator/net/throttler_race_test.go` - Concurrent operation and race condition tests
+- `pkg/activator/net/state_machine_test.go` - State transition validation and self-transition tests
 - `pkg/activator/net/pod_registration_handler_test.go` - Handler validation
 - `pkg/queue/pod_registration_test.go` - Client-side registration
 
