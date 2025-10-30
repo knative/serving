@@ -78,114 +78,102 @@ func TCPProbe(config TCPProbeConfigOptions) error {
 	return nil
 }
 
-// Returns a transport that uses HTTP/2 if it's known to be supported, and otherwise
-// spoofs the request & response versions to HTTP/1.1.
-func autoDowngradingTransport(opt HTTPProbeConfigOptions) http.RoundTripper {
-	t := pkgnet.NewProberTransport()
+// proberTransport is a reusable transport optimized for health check probes.
+// The transport auto-selects between HTTP/1.1 and H2C based on the request's ProtoMajor field.
+var proberTransport = pkgnet.NewProberTransport()
+
+// cleartextProbeTransport returns a RoundTripper that wraps the prober transport
+// and sets the appropriate protocol hint for the given protocol version.
+// protoMajor should be 1 for HTTP/1.1 or 2 for H2C.
+func cleartextProbeTransport(protoMajor int) http.RoundTripper {
 	return pkgnet.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
-		// If the user-container can handle HTTP2, we pass through the request as-is.
-		// We have to set r.ProtoMajor to 2, since auto transport relies solely on it
-		// to decide whether to use h2c or http1.1.
-		if opt.MaxProtoMajor == 2 {
-			r.ProtoMajor = 2
-			return t.RoundTrip(r)
-		}
-
-		// Otherwise, save the request HTTP version and downgrade it
-		// to HTTP1 before sending.
-		version := r.ProtoMajor
-		r.ProtoMajor = 1
-		resp, err := t.RoundTrip(r)
-
-		// Restore the request & response HTTP version before sending back.
-		r.ProtoMajor = version
-		if resp != nil {
-			resp.ProtoMajor = version
-		}
-		return resp, err
+		// Set the protocol hint for the auto-selecting prober transport
+		r.ProtoMajor = protoMajor
+		return proberTransport.RoundTrip(r)
 	})
 }
-
-var transport = func() *http.Transport {
-	t := http.DefaultTransport.(*http.Transport).Clone()
-	t.TLSClientConfig.InsecureSkipVerify = true
-	return t
-}()
 
 func getURL(config HTTPProbeConfigOptions) (*url.URL, error) {
 	return url.Parse(string(config.Scheme) + "://" + net.JoinHostPort(config.Host, config.Port.String()) + "/" + strings.TrimPrefix(config.Path, "/"))
 }
 
-// http2UpgradeProbe checks that an HTTP with HTTP2 upgrade request
-// connection can be understood by the address.
-// Returns: the highest known proto version supported (0 if not ready or error)
-func http2UpgradeProbe(config HTTPProbeConfigOptions) (int, error) {
+// detectHTTPProtocolVersion detects the highest HTTP protocol version supported by the server.
+// Attempts H2C first, falls back to HTTP/1 if that fails or returns non-ready status.
+// Returns 2 (H2C ready), 1 (HTTP/1 ready), or 0 (not ready/error).
+func detectHTTPProtocolVersion(config HTTPProbeConfigOptions) (int, error) {
+	// http.Client does not fallback to from h2c to http1, we need to make two requests ourselves
 	httpClient := &http.Client{
-		Transport: transport,
 		Timeout:   config.Timeout,
+		Transport: cleartextProbeTransport(2),
 	}
+
 	url, err := getURL(config)
 	if err != nil {
 		return 0, fmt.Errorf("error constructing probe url %w", err)
 	}
+
+	// do a simple GET request as Kubernetes does, avoid non-standard methods like HEAD
 	//nolint:noctx // timeout is specified on the http.Client above
-	req, err := http.NewRequest(http.MethodOptions, url.String(), nil)
+	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 	if err != nil {
 		return 0, fmt.Errorf("error constructing probe request %w", err)
 	}
-
-	// An upgrade will need to have at least these 3 headers.
-	// This is documented at https://tools.ietf.org/html/rfc7540#section-3.2
-	req.Header.Add("Connection", "Upgrade, HTTP2-Settings")
-	req.Header.Add("Upgrade", "h2c")
-	req.Header.Add("HTTP2-Settings", "")
-
 	req.Header.Add(netheader.UserAgentKey, netheader.KubeProbeUAPrefix+config.KubeMajor+"/"+config.KubeMinor)
 
+	if res, err := httpClient.Do(req); err == nil {
+		defer res.Body.Close()
+
+		// ignore non-ready http2 responses and continue with http1, http2 might not be properly supported
+		if isHTTPProbeReady(res) {
+			return 2, nil
+		}
+	}
+
+	// fallback to check http1
+	httpClient.Transport = cleartextProbeTransport(1)
 	res, err := httpClient.Do(req)
 	if err != nil {
 		return 0, err
 	}
+
 	defer res.Body.Close()
 
-	maxProto := 0
-
-	if isHTTPProbeUpgradingToH2C(res) {
-		maxProto = 2
-	} else if isHTTPProbeReady(res) {
-		maxProto = 1
-	} else {
-		return maxProto, fmt.Errorf("HTTP probe did not respond Ready, got status code: %d", res.StatusCode)
+	if isHTTPProbeReady(res) {
+		return 1, nil
 	}
 
-	return maxProto, nil
+	return 0, fmt.Errorf("HTTP probe did not respond Ready, got status code: %d", res.StatusCode)
 }
 
 // HTTPProbe checks that HTTP connection can be established to the address.
 func HTTPProbe(config HTTPProbeConfigOptions) error {
 	if config.MaxProtoMajor == 0 {
 		// If we don't know if the connection supports HTTP2, we will try it.
-		// Once we get a non-error response, we won't try again.
+		// NOTE: the result is not cached right now, every probe attempts http2 detection again
+
 		// If maxProto is 0, container is not ready, so we don't know whether http2 is supported.
 		// If maxProto is 1, we know we're ready, but we also can't upgrade, so just return.
 		// If maxProto is 2, we know we can upgrade to http2
-		maxProto, err := http2UpgradeProbe(config)
+		maxProto, err := detectHTTPProtocolVersion(config)
 		if err != nil {
-			return fmt.Errorf("failed to run HTTP2 upgrade probe with error: %w", err)
+			return fmt.Errorf("failed to run HTTP protocol probe with error: %w", err)
 		}
 		config.MaxProtoMajor = maxProto
 		if config.MaxProtoMajor == 1 {
+			// probe already passed for HTTP/1.1 during auto detection, return early
 			return nil
 		}
 	}
+
 	httpClient := &http.Client{
-		Transport: autoDowngradingTransport(config),
+		Transport: cleartextProbeTransport(config.MaxProtoMajor),
 		Timeout:   config.Timeout,
 	}
 	url, err := getURL(config)
 	if err != nil {
 		return fmt.Errorf("error constructing probe url %w", err)
 	}
+
 	//nolint:noctx // timeout is specified on the http.Client above
 	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 	if err != nil {
@@ -215,11 +203,6 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 	}
 
 	return nil
-}
-
-// isHTTPProbeUpgradingToH2C checks whether the server indicates it's switching to h2c protocol.
-func isHTTPProbeUpgradingToH2C(res *http.Response) bool {
-	return res.StatusCode == http.StatusSwitchingProtocols && res.Header.Get("Upgrade") == "h2c"
 }
 
 // isHTTPProbeReady checks whether we received a successful Response
