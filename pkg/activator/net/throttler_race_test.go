@@ -141,9 +141,9 @@ func TestRace_UpdateCapacity_ReadsPodTrackersWhileWriterMutates(t *testing.T) {
 			} else {
 				rt.enqueueStateUpdate(stateUpdateRequest{
 					op:        opMutatePod,
-				eventType: "draining",
-					pod:  addr,
-					done: done,
+					eventType: "draining",
+					pod:       addr,
+					done:      done,
 				})
 			}
 			<-done
@@ -295,9 +295,9 @@ func TestRace_CapacityUpdates_ConcurrentWithPodMutations(t *testing.T) {
 			} else {
 				rt.enqueueStateUpdate(stateUpdateRequest{
 					op:        opMutatePod,
-				eventType: "draining",
-					pod:  addr,
-					done: done,
+					eventType: "draining",
+					pod:       addr,
+					done:      done,
 				})
 			}
 			<-done

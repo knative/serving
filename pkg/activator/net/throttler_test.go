@@ -1947,8 +1947,8 @@ func TestResetTrackersRaceCondition(t *testing.T) {
 					rt.enqueueStateUpdate(stateUpdateRequest{
 						op:        opMutatePod,
 						eventType: "draining",
-						pod:  trackerName,
-						done: done,
+						pod:       trackerName,
+						done:      done,
 					})
 					<-done
 				}
@@ -2047,9 +2047,9 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 				done := make(chan struct{})
 				rt.enqueueStateUpdate(stateUpdateRequest{
 					op:        opMutatePod,
-						eventType: "draining",
-					pod:  podIP,
-					done: done,
+					eventType: "draining",
+					pod:       podIP,
+					done:      done,
 				})
 				<-done
 			}
@@ -2147,8 +2147,8 @@ func TestRevisionThrottlerRaces(t *testing.T) {
 					rt.enqueueStateUpdate(stateUpdateRequest{
 						op:        opMutatePod,
 						eventType: "draining",
-						pod:  podIP,
-						done: done,
+						pod:       podIP,
+						done:      done,
 					})
 					<-done
 				}

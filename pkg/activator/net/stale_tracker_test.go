@@ -24,8 +24,8 @@ import (
 	"testing"
 
 	"k8s.io/apimachinery/pkg/types"
-	. "knative.dev/pkg/logging/testing"
 	netheader "knative.dev/networking/pkg/http/header"
+	. "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/queue"
 )
 

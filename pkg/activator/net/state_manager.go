@@ -95,7 +95,6 @@ var (
 // - Single request loss is acceptable vs. blocking all revisions indefinitely
 // - Panics are bugs that need fixing - tracked via stateWorkerPanics metric
 // - Supervisor with exponential backoff prevents panic loops from cascading
-//
 func (rt *revisionThrottler) stateWorker() {
 	var currentReq *stateUpdateRequest // Track in-flight request for panic recovery
 

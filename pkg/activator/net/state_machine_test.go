@@ -32,7 +32,7 @@ func TestSelfTransitions(t *testing.T) {
 	revID := types.NamespacedName{Namespace: "ns", Name: "rev"}
 
 	tests := []struct {
-		name        string
+		name         string
 		initialState podState
 		targetState  podState
 		shouldPanic  bool
@@ -178,11 +178,11 @@ func TestInvalidStateTransitions(t *testing.T) {
 		from podState
 		to   podState
 	}{
-		{podReady, podRecovering},        // Can't go directly from ready to recovering
-		{podNotReady, podQuarantined},    // Can't go directly from not-ready to quarantined
-		{podNotReady, podRecovering},     // Can't go directly from not-ready to recovering
-		{podQuarantined, podReady},       // Must go through recovering first
-		{podQuarantined, podNotReady},    // Can't demote quarantined pods
+		{podReady, podRecovering},     // Can't go directly from ready to recovering
+		{podNotReady, podQuarantined}, // Can't go directly from not-ready to quarantined
+		{podNotReady, podRecovering},  // Can't go directly from not-ready to recovering
+		{podQuarantined, podReady},    // Must go through recovering first
+		{podQuarantined, podNotReady}, // Can't demote quarantined pods
 	}
 
 	for _, tt := range invalidTransitions {
@@ -213,7 +213,7 @@ func TestValidStateTransitions(t *testing.T) {
 		{podNotReady, podReady},
 
 		// From podReady
-		{podReady, podReady},        // Self-transition
+		{podReady, podReady}, // Self-transition
 		{podReady, podNotReady},
 		{podReady, podQuarantined},
 
@@ -222,7 +222,7 @@ func TestValidStateTransitions(t *testing.T) {
 		{podQuarantined, podRecovering},
 
 		// From podRecovering
-		{podRecovering, podRecovering},   // Self-transition
+		{podRecovering, podRecovering}, // Self-transition
 		{podRecovering, podReady},
 		{podRecovering, podQuarantined},
 		{podRecovering, podNotReady},
@@ -270,4 +270,3 @@ func TestLoggerInitialization(t *testing.T) {
 	// We can't easily test Fatalw without mocking, but we can verify the logger is accessible
 	_ = tracker.logger
 }
-
