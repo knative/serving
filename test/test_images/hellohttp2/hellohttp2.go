@@ -17,29 +17,43 @@ limitations under the License.
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-
-	"knative.dev/pkg/network"
 )
 
+func main() {
+	log.Print("hellohttp2 app started.")
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", handler)
+	mux.HandleFunc("/healthz", healthzHandler)
+
+	protocols := &http.Protocols{}
+	protocols.SetHTTP1(true)
+	protocols.SetUnencryptedHTTP2(true)
+
+	s := &http.Server{
+		Addr:      ":" + os.Getenv("PORT"),
+		Handler:   mux,
+		Protocols: protocols,
+	}
+	log.Fatal(s.ListenAndServe())
+}
+
 func handler(w http.ResponseWriter, r *http.Request) {
-	if r.ProtoMajor == 2 {
-		log.Print("hellohttp2 received an http2 request.")
-		fmt.Fprintln(w, "Hello, New World! How about donuts and coffee?")
+	log.Printf("Request: proto=%s method=%s path=%s", r.Proto, r.Method, r.URL.Path)
+
+	if res, ok := os.LookupEnv("RESPONSE"); ok {
+		fmt.Fprint(w, res)
 	} else {
-		log.Print("hellohttp2 received an HTTP 1.1 request.")
-		w.WriteHeader(http.StatusUpgradeRequired)
+		fmt.Fprintf(w, "proto=%s method=%s path=%s\n", r.Proto, r.Method, r.URL.Path)
 	}
 }
 
-func main() {
-	flag.Parse()
-	log.Print("hellohttp2 app started.")
-
-	s := network.NewServer(":"+os.Getenv("PORT"), http.HandlerFunc(handler))
-	log.Fatal(s.ListenAndServe())
+func healthzHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Health check: proto=%s method=%s path=%s", r.Proto, r.Method, r.URL.Path)
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintln(w, "OK")
 }
