@@ -975,4 +975,31 @@ func TestStateMachineValidation(t *testing.T) {
 			t.Error("Pod should be ready again after recovery")
 		}
 	})
+
+	// Regression test for bug where "draining" events created new pods as ready
+	t.Run("draining event for new pod is rejected (QP authority ON)", func(t *testing.T) {
+		rt := mustCreateRevisionThrottler(t,
+			types.NamespacedName{Namespace: "test", Name: "revision"},
+			nil, 1, "http",
+			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
+			logger,
+		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
+
+		podIP := "10.0.0.1:8080"
+
+		// Pod sends draining event before ever being ready
+		// This should be rejected (pod is shutting down before startup completed)
+		rt.mutatePodIncremental(podIP, "draining")
+
+		// Verify pod was NOT added to the tracker
+		rt.mux.RLock()
+		tracker, exists := rt.podTrackers[podIP]
+		rt.mux.RUnlock()
+
+		if exists {
+			t.Errorf("Pod should NOT be added when draining event is first event, but got state=%v", podState(tracker.state.Load()))
+		}
+	})
 }

@@ -303,6 +303,16 @@ func (rt *revisionThrottler) processMutatePod(req stateUpdateRequest, qpAuthorit
 			return
 		}
 
+		// Reject draining events for new pods regardless of QP authority setting
+		// A "draining" event means the pod is shutting down - it should never be added
+		// to the routing pool. This can happen if a pod crashes during startup.
+		if req.eventType == "draining" {
+			rt.logger.Warnw("Ignoring draining event for unknown pod - will never be ready",
+				"pod-ip", req.pod,
+				"qp-authority", qpAuthority)
+			return
+		}
+
 		// Create new pod tracker
 		tracker = &podTracker{
 			dest:       req.pod,
@@ -319,13 +329,8 @@ func (rt *revisionThrottler) processMutatePod(req stateUpdateRequest, qpAuthorit
 			case "ready":
 				tracker.state.Store(uint32(podReady))
 				tracker.stateReason = "qp-ready"
-			case "draining":
-				// Pod is draining before ever being added - ignore it
-				// This can happen if pod crashes during startup before QP sends ready event
-				rt.logger.Warnw("Ignoring draining event for unknown pod - will never be ready",
-					"pod", req.pod)
-				return
 			default:
+				// "startup", "not-ready", or any other non-ready event
 				tracker.state.Store(uint32(podNotReady))
 				tracker.stateReason = "qp-" + req.eventType // e.g. "qp-startup", "qp-not-ready"
 			}
@@ -343,11 +348,17 @@ func (rt *revisionThrottler) processMutatePod(req stateUpdateRequest, qpAuthorit
 		// Update capacity based on new pod count
 		rt.updateCapacityLocked()
 
-		rt.logger.Infow("Discovered new pod via push-based registration",
+		// Log message varies based on QP authority setting
+		logMsg := "Discovered new pod via queue-proxy event"
+		if !qpAuthority {
+			logMsg = "Discovered new pod via queue-proxy event (QP authority disabled)"
+		}
+		rt.logger.Infow(logMsg,
 			"pod-ip", req.pod,
 			"event-type", req.eventType,
 			"initial-state", podState(tracker.state.Load()),
-			"state-reason", tracker.stateReason)
+			"state-reason", tracker.stateReason,
+			"qp-authority", qpAuthority)
 	}
 }
 

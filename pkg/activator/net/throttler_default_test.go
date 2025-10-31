@@ -254,4 +254,32 @@ func TestHealthCheckFlowDefault(t *testing.T) {
 			t.Error("Pod should be removed from tracker map (no active requests)")
 		}
 	})
+
+	// Regression test for bug where "draining" events created new pods as ready
+	// when QP authority was disabled
+	t.Run("draining event for new pod is rejected (QP authority OFF)", func(t *testing.T) {
+		rt := mustCreateRevisionThrottler(t,
+			types.NamespacedName{Namespace: "test", Name: "revision"},
+			nil, 1, "http",
+			queue.BreakerParams{QueueDepth: 100, MaxConcurrency: 100, InitialCapacity: 10},
+			logger,
+		)
+		rt.numActivators.Store(1)
+		rt.activatorIndex.Store(0)
+
+		podIP := "10.0.0.1:8080"
+
+		// Pod sends draining event (QP authority OFF, so shouldn't affect state)
+		// But previously this incorrectly created pod as ready!
+		rt.mutatePodIncremental(podIP, "draining")
+
+		// Verify pod was NOT added to the tracker
+		rt.mux.RLock()
+		tracker, exists := rt.podTrackers[podIP]
+		rt.mux.RUnlock()
+
+		if exists {
+			t.Errorf("Pod should NOT be added when draining event is first event (even with QP authority OFF), but got state=%v", podState(tracker.state.Load()))
+		}
+	})
 }
