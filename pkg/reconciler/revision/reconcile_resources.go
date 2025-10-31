@@ -186,11 +186,11 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 	// We no longer require immutability, so need to reconcile PA each time.
 	tmpl := resources.MakePA(rev, deployment)
 	logger.Debugf("Desired PASpec: %#v", tmpl.Spec)
-	if !equality.Semantic.DeepEqual(tmpl.Spec, pa.Spec) || !annotationsPresent(pa.Annotations, tmpl.Annotations) {
+	if !equality.Semantic.DeepEqual(tmpl.Spec, pa.Spec) || !kpaAnnotationsPresent(pa.Annotations, tmpl.Annotations) {
 		want := pa.DeepCopy()
 		want.Spec = tmpl.Spec
 
-		processAnnotations(want.Annotations, tmpl.Annotations)
+		kpaProcessAnnotations(want.Annotations, tmpl.Annotations)
 
 		// Can't realistically fail on PASpec.
 		if diff, _ := kmp.SafeDiff(want.Spec, pa.Spec); diff != "" {
@@ -210,11 +210,20 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 	return nil
 }
 
-func processAnnotations(dst, src map[string]string) {
+func isDefaultedKPAAnnotation(k string) bool {
+	switch k {
+	case autoscaling.ClassAnnotationKey, autoscaling.MetricAnnotationKey:
+		return true
+	default:
+		return false
+	}
+}
+
+func kpaProcessAnnotations(dst, src map[string]string) {
 	// Delete autoscaling annotations from destination map
 	// This ensures that setting these annotation on the Revision is the source of truth
 	for k := range dst {
-		if k == autoscaling.ClassAnnotationKey || k == autoscaling.MetricAnnotationKey {
+		if isDefaultedKPAAnnotation(k) {
 			// Exclude defaulted annotation
 			continue
 		}
@@ -227,14 +236,14 @@ func processAnnotations(dst, src map[string]string) {
 	maps.Copy(dst, src)
 }
 
-func annotationsPresent(dst, src map[string]string) bool {
+func kpaAnnotationsPresent(dst, src map[string]string) bool {
 	// Check for extra autoscaling annotations that don't exist src
 	for k := range dst {
 		if !strings.HasPrefix(k, autoscaling.GroupName) {
 			continue
 		}
 		// Exclude defaulted annotation
-		if k == autoscaling.ClassAnnotationKey || k == autoscaling.MetricAnnotationKey {
+		if isDefaultedKPAAnnotation(k) {
 			continue
 		}
 
@@ -249,7 +258,7 @@ func annotationsPresent(dst, src map[string]string) bool {
 		got, ok := dst[k]
 
 		if !ok {
-			if k == autoscaling.ClassAnnotationKey || k == autoscaling.MetricAnnotationKey {
+			if isDefaultedKPAAnnotation(k) {
 				continue
 			}
 
