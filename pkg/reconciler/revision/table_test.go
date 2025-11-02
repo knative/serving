@@ -835,6 +835,38 @@ func TestReconcile(t *testing.T) {
 		}},
 		// No changes are made to any objects.
 		Key: "foo/update-pa-annotations",
+	}, {
+		Name: "revision min scale annotation deletion",
+		Objects: []runtime.Object{
+			Revision("foo", "update-pa-annotations",
+				WithLogURL,
+				MarkRevisionReady,
+				withDefaultContainerStatuses(),
+				WithRevisionLabel(serving.RoutingStateLabelKey, "active"),
+				MarkContainerHealthyTrue(),
+			),
+			pa("foo", "update-pa-annotations",
+				WithPASKSReady,
+				WithScaleTargetInitialized,
+				WithTraffic,
+				WithReachabilityReachable,
+				WithAnnotationValue(autoscaling.MinScaleAnnotationKey, "1"),
+				WithPAStatusService("something"),
+			),
+			readyDeploy(deploy(t, "foo", "update-pa-annotations", withReplicas(1))),
+			image("foo", "update-pa-annotations"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: pa("foo", "update-pa-annotations",
+				WithPASKSReady,
+				WithScaleTargetInitialized,
+				WithTraffic,
+				WithReachabilityReachable,
+				WithPAStatusService("something"),
+			),
+		}},
+		// No changes are made to any objects.
+		Key: "foo/update-pa-annotations",
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, _ configmap.Watcher) controller.Reconciler {
