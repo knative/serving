@@ -348,9 +348,16 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 	fullDuplexFeature, fullDuplexExists := rev.Annotations[apicfg.AllowHTTPFullDuplexFeatureKey]
 
 	useQPResourceDefaults := cfg.Features.QueueProxyResourceDefaults == apicfg.Enabled
+
+	// Determine the queue sidecar image: use annotation if present, otherwise use config default
+	queueImage := cfg.Deployment.QueueSidecarImage
+	if image, ok := rev.GetAnnotations()[serving.QueueSidecarImageAnnotationKey]; ok && image != "" {
+		queueImage = image
+	}
+
 	c := &corev1.Container{
 		Name:            QueueContainerName,
-		Image:           cfg.Deployment.QueueSidecarImage,
+		Image:           queueImage,
 		Resources:       createQueueResources(cfg.Deployment, rev.GetAnnotations(), userContainer, useQPResourceDefaults),
 		Ports:           ports,
 		StartupProbe:    nil,

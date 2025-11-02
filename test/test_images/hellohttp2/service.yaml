@@ -5,9 +5,17 @@ metadata:
   namespace: default
 spec:
   template:
+    metadata:
+      annotations:
+        # Example: Override the queue sidecar image with a custom image
+        # queue.sidecar.serving.knative.dev/image: ko://knative.dev/serving/cmd/queue
     spec:
       containers:
-      - image: ko://knative.dev/serving/test/test_images/hellohttp2
-        ports:
-        - name: h2c
-          containerPort: 8080
+        - image: ko://knative.dev/serving/test/test_images/hellohttp2
+          ports:
+            - name: h2c
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
