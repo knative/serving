@@ -838,14 +838,14 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "revision min scale annotation deletion",
 		Objects: []runtime.Object{
-			Revision("foo", "update-pa-annotations",
+			Revision("foo", "delete-pa-annotations",
 				WithLogURL,
 				MarkRevisionReady,
 				withDefaultContainerStatuses(),
 				WithRevisionLabel(serving.RoutingStateLabelKey, "active"),
 				MarkContainerHealthyTrue(),
 			),
-			pa("foo", "update-pa-annotations",
+			pa("foo", "delete-pa-annotations",
 				WithPASKSReady,
 				WithScaleTargetInitialized,
 				WithTraffic,
@@ -853,11 +853,11 @@ func TestReconcile(t *testing.T) {
 				WithAnnotationValue(autoscaling.MinScaleAnnotationKey, "1"),
 				WithPAStatusService("something"),
 			),
-			readyDeploy(deploy(t, "foo", "update-pa-annotations", withReplicas(1))),
-			image("foo", "update-pa-annotations"),
+			readyDeploy(deploy(t, "foo", "delete-pa-annotations", withReplicas(1))),
+			image("foo", "delete-pa-annotations"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: pa("foo", "update-pa-annotations",
+			Object: pa("foo", "delete-pa-annotations",
 				WithPASKSReady,
 				WithScaleTargetInitialized,
 				WithTraffic,
@@ -865,8 +865,7 @@ func TestReconcile(t *testing.T) {
 				WithPAStatusService("something"),
 			),
 		}},
-		// No changes are made to any objects.
-		Key: "foo/update-pa-annotations",
+		Key: "foo/delete-pa-annotations",
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, _ configmap.Watcher) controller.Reconciler {
