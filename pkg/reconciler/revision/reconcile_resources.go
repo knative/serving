@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 
 	"go.uber.org/zap"
@@ -31,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	networkingApi "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/certificates"
@@ -44,6 +46,13 @@ import (
 	"knative.dev/serving/pkg/reconciler/revision/config"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
+)
+
+var defaultKPAAnnotations = sets.NewString(
+	slices.Concat[[]string](
+		autoscaling.ClassAnnotation,
+		autoscaling.MetricAnnotation,
+	)...,
 )
 
 func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) error {
@@ -186,19 +195,19 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 	// We no longer require immutability, so need to reconcile PA each time.
 	tmpl := resources.MakePA(rev, deployment)
 	logger.Debugf("Desired PASpec: %#v", tmpl.Spec)
-	if !equality.Semantic.DeepEqual(tmpl.Spec, pa.Spec) || !kpaAnnotationsPresent(pa.Annotations, tmpl.Annotations) {
+	if !equality.Semantic.DeepEqual(tmpl.Spec, pa.Spec) || !annotationsNeedReconcilingForKPA(pa.Annotations, tmpl.Annotations) {
 		want := pa.DeepCopy()
 		want.Spec = tmpl.Spec
 
-		kpaProcessAnnotations(want.Annotations, tmpl.Annotations)
+		syncAnnotationsForKPA(want.Annotations, tmpl.Annotations)
 
 		// Can't realistically fail on PASpec.
 		if diff, _ := kmp.SafeDiff(want.Spec, pa.Spec); diff != "" {
-			logger.Infof("PA %q spec needs reconciliation, diff(-want,+got):\n%s", pa.Name, diff)
+			logger.Infof("PA %q spec need reconciliation, diff(-want,+got):\n%s", pa.Name, diff)
 		}
 
 		if diff, _ := kmp.SafeDiff(want.Annotations, pa.Annotations); diff != "" {
-			logger.Infof("PA %q annotations needs reconciliation, diff(-want,+got):\n%s", pa.Name, diff)
+			logger.Infof("PA %q annotations need reconciliation, diff(-want,+got):\n%s", pa.Name, diff)
 		}
 
 		_, err := c.client.AutoscalingV1alpha1().PodAutoscalers(ns).Update(ctx, want, metav1.UpdateOptions{})
@@ -210,20 +219,15 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 	return nil
 }
 
-func isDefaultedKPAAnnotation(k string) bool {
-	switch k {
-	case autoscaling.ClassAnnotationKey, autoscaling.MetricAnnotationKey:
-		return true
-	default:
-		return false
-	}
-}
-
-func kpaProcessAnnotations(dst, src map[string]string) {
+// syncAnnotationsForKPA will properly handle
+// autoscaling annotations semantics
+//
+// dst should be non-nil
+func syncAnnotationsForKPA(dst, src map[string]string) {
 	// Delete autoscaling annotations from destination map
 	// This ensures that setting these annotation on the Revision is the source of truth
 	for k := range dst {
-		if isDefaultedKPAAnnotation(k) {
+		if defaultKPAAnnotations.Has(k) {
 			// Exclude defaulted annotation
 			continue
 		}
@@ -236,14 +240,18 @@ func kpaProcessAnnotations(dst, src map[string]string) {
 	maps.Copy(dst, src)
 }
 
-func kpaAnnotationsPresent(dst, src map[string]string) bool {
+// this function changes to ensure all annotations in
+// src are present in dst.
+//
+// It will detect deletions for kpa annotations
+func annotationsNeedReconcilingForKPA(dst, src map[string]string) bool {
 	// Check for extra autoscaling annotations that don't exist src
 	for k := range dst {
 		if !strings.HasPrefix(k, autoscaling.GroupName) {
 			continue
 		}
 		// Exclude defaulted annotation
-		if isDefaultedKPAAnnotation(k) {
+		if defaultKPAAnnotations.Has(k) {
 			continue
 		}
 
@@ -258,7 +266,7 @@ func kpaAnnotationsPresent(dst, src map[string]string) bool {
 		got, ok := dst[k]
 
 		if !ok {
-			if isDefaultedKPAAnnotation(k) {
+			if defaultKPAAnnotations.Has(k) {
 				continue
 			}
 
