@@ -32,7 +32,7 @@ func MakeImageCache(rev *v1.Revision, containerName, image string) *caching.Imag
 			Name:            kmeta.ChildName(names.ImageCache(rev), "-"+containerName),
 			Namespace:       rev.Namespace,
 			Labels:          makeLabels(rev),
-			Annotations:     makeAnnotations(rev),
+			Annotations:     imageCacheAnnotations(rev),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: caching.ImageSpec{

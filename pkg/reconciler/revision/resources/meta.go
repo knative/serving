@@ -17,11 +17,12 @@ limitations under the License.
 package resources
 
 import (
-	"maps"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/kmap"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -46,8 +47,8 @@ const (
 
 // makeLabels constructs the labels we will apply to K8s resources.
 func makeLabels(revision *v1.Revision) map[string]string {
-	labels := kmeta.FilterMap(revision.GetLabels(), excludeLabels.Has)
-	labels = kmeta.UnionMaps(labels, map[string]string{
+	labels := kmap.Filter(revision.GetLabels(), excludeLabels.Has)
+	labels = kmap.Union(labels, map[string]string{
 		serving.RevisionLabelKey: revision.Name,
 		serving.RevisionUID:      string(revision.UID),
 	})
@@ -61,19 +62,30 @@ func makeLabels(revision *v1.Revision) map[string]string {
 	return labels
 }
 
-func makeAnnotations(revision *v1.Revision) map[string]string {
-	return kmeta.FilterMap(revision.GetAnnotations(), excludeAnnotations.Has)
+func filterExcludedAndAutoscalingAnnotations(val string) bool {
+	return excludeAnnotations.Has(val) || strings.HasPrefix(val, autoscaling.GroupName)
 }
 
-func makeAnnotationsForPod(revision *v1.Revision, baseAnnotations map[string]string) map[string]string {
-	podAnnotations := maps.Clone(baseAnnotations)
+func deploymentAnnotations(r *v1.Revision) map[string]string {
+	return kmap.Filter(r.GetAnnotations(), filterExcludedAndAutoscalingAnnotations)
+}
 
-	// Add default container annotation to the pod meta
-	if userContainer := revision.Spec.GetContainer(); userContainer.Name != "" {
-		podAnnotations[DefaultContainerAnnotationName] = userContainer.Name
+func imageCacheAnnotations(r *v1.Revision) map[string]string {
+	return kmap.Filter(r.GetAnnotations(), filterExcludedAndAutoscalingAnnotations)
+}
+
+func podAutoscalerAnnotations(r *v1.Revision) map[string]string {
+	return kmap.Filter(r.GetAnnotations(), excludeAnnotations.Has)
+}
+
+func podAnnotations(r *v1.Revision) map[string]string {
+	ann := kmap.Filter(r.GetAnnotations(), filterExcludedAndAutoscalingAnnotations)
+
+	if userContainer := r.Spec.GetContainer(); userContainer.Name != "" {
+		ann[DefaultContainerAnnotationName] = userContainer.Name
 	}
 
-	return podAnnotations
+	return ann
 }
 
 // makeSelector constructs the Selector we will apply to K8s resources.

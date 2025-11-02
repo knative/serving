@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -363,6 +364,86 @@ func TestMinScale(t *testing.T) {
 	t.Log("Waiting for new revision to scale below minScale when there is no route")
 	if lr, err := waitForDesiredScale(clients, newServiceName, lt(minScale)); err != nil {
 		t.Fatalf("The revision %q scaled to %d > %d after not being routable anymore: %v", newRevName, lr, minScale, err)
+	}
+}
+
+func TestMinScaleAnnotationChange(t *testing.T) {
+	t.Parallel()
+
+	minScale := []int{1, 2, 3, 0}
+
+	clients := Setup(t)
+
+	names := test.ResourceNames{
+		// Config and Route have different names to avoid false positives
+		Config: test.ObjectNameForTest(t),
+		Route:  test.ObjectNameForTest(t),
+		Image:  test.HelloWorld,
+	}
+
+	test.EnsureTearDown(t, clients, &names)
+
+	t.Log("Creating route")
+	if _, err := v1test.CreateRoute(t, clients, names); err != nil {
+		t.Fatal("Failed to create Route:", err)
+	}
+
+	t.Log("Creating configuration")
+	_, err := v1test.CreateConfiguration(t, clients, names, withMinScale(minScale[0]),
+		// Make sure we scale down quickly after panic, before the autoscaler get killed by chaosduck.
+		withWindow(autoscaling.WindowMin),
+		// Pass low resource requirements to avoid Pod scheduling problems
+		// on busy clusters.  This is adapted from ./test/e2e/scale.go
+		func(cfg *v1.Configuration) {
+			cfg.Spec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("50m"),
+					corev1.ResourceMemory: resource.MustParse("50Mi"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("30m"),
+					corev1.ResourceMemory: resource.MustParse("20Mi"),
+				},
+			}
+		})
+	if err != nil {
+		t.Fatal("Failed to create Configuration:", err)
+	}
+
+	err = v1test.WaitForConfigurationState(clients.ServingClient, names.Config, v1test.IsConfigurationReady, "wait for configuration ready")
+	if err != nil {
+		t.Fatal("Configuration failed to become ready:", err)
+	}
+
+	revName := latestRevisionName(t, clients, names.Config, "")
+	serviceName := PrivateServiceName(t, clients, revName)
+	revClient := clients.ServingClient.Revisions
+
+	t.Log("Holding revision at minScale after becoming ready")
+	if lr, ok := ensureDesiredScale(clients, t, serviceName, eq(minScale[0])); !ok {
+		t.Fatalf("The revision %q observed scale %d < %d after becoming ready", revName, lr, minScale)
+	}
+
+	for i := 1; i < len(minScale); i++ {
+		var data []byte
+
+		// ~1 is how you escape a / in JSONPath
+		annotationPath := "/metadata/annotations/" + strings.ReplaceAll(autoscaling.MinScaleAnnotationKey, "/", "~1")
+		if minScale[i] > 0 {
+			data = fmt.Appendf(data, `[{"op":"replace","path":"%s", "value":"%d"}]`, annotationPath, minScale[i])
+		} else {
+			data = fmt.Appendf(data, `[{"op":"remove","path":"%s"}]`, annotationPath)
+		}
+
+		t.Log("Setting min-scale annotation to", minScale[i])
+		_, err = revClient.Patch(context.Background(), revName, types.JSONPatchType, data, metav1.PatchOptions{})
+		if err != nil {
+			t.Fatalf("An error occurred updating revision %v, %v", revName, err)
+		}
+
+		if lr, err := waitForDesiredScale(clients, serviceName, eq(minScale[i])); err != nil {
+			t.Fatalf("The revision %q observed scale %d < %d after becoming ready", revName, lr, minScale[i])
+		}
 	}
 }
 
