@@ -59,7 +59,11 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 		})
 		configStore := config.NewStore(logging.WithLogger(ctx, logger.Named("config-store")), resync)
 		configStore.WatchConfigs(cmw)
-		return controller.Options{ConfigStore: configStore}
+		return controller.Options{
+			ConfigStore:                     configStore,
+			UseServerSideApplyForFinalizers: true,
+			FinalizerFieldManager:           "domain-mapping",
+		}
 	})
 
 	domainmappingInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))

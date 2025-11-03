@@ -54,7 +54,9 @@ func NewController(
 		return controller.Options{
 			ConfigStore: configStore,
 			// The labeler shouldn't mutate the route's status.
-			SkipStatusUpdates: true,
+			SkipStatusUpdates:               true,
+			UseServerSideApplyForFinalizers: true,
+			FinalizerFieldManager:           "labeler",
 		}
 	})
 
