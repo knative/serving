@@ -178,6 +178,11 @@ func (g *reconcilerReconcilerGenerator) GenerateType(c *generator.Context, t *ty
 		"equalitySemantic":    c.Universe.Package("k8s.io/apimachinery/pkg/api/equality").Variable("Semantic"),
 		"jsonMarshal":         c.Universe.Package("encoding/json").Function("Marshal"),
 		"typesMergePatchType": c.Universe.Package("k8s.io/apimachinery/pkg/types").Constant("MergePatchType"),
+		"typesApplyPatchType": c.Universe.Package("k8s.io/apimachinery/pkg/types").Constant("ApplyPatchType"),
+		"schemeScheme": c.Universe.Function(types.Name{
+			Package: "k8s.io/client-go/kubernetes/scheme",
+			Name:    "Scheme",
+		}),
 		"syncRWMutex": c.Universe.Type(types.Name{
 			Package: "sync",
 			Name:    "RWMutex",
@@ -309,6 +314,15 @@ type reconcilerImpl struct {
 	// finalizerName is the name of the finalizer to reconcile.
 	finalizerName string
 
+	// useServerSideApplyForFinalizers configures whether to use server-side apply for finalizer management
+	useServerSideApplyForFinalizers bool
+
+	// finalizerFieldManager is the field manager name for server-side apply of finalizers
+	finalizerFieldManager string
+
+	// forceApplyFinalizers configures whether to force server-side apply for finalizers
+	forceApplyFinalizers bool
+
 	{{if .hasStatus}}
 	// skipStatusUpdates configures whether or not this reconciler automatically updates
 	// the status of the reconciled resource.
@@ -387,6 +401,14 @@ func NewReconciler(ctx {{.contextContext|raw}}, logger *{{.zapSugaredLogger|raw}
 		{{- end}}
 		if opts.DemoteFunc != nil {
 			rec.DemoteFunc = opts.DemoteFunc
+		}
+		if opts.UseServerSideApplyForFinalizers {
+			if opts.FinalizerFieldManager == "" {
+				logger.Fatal("FinalizerFieldManager must be provided when UseServerSideApplyForFinalizers is enabled")
+			}
+			rec.useServerSideApplyForFinalizers = true
+			rec.finalizerFieldManager = opts.FinalizerFieldManager
+			rec.forceApplyFinalizers = opts.ForceApplyFinalizers
 		}
 	}
 
@@ -608,6 +630,123 @@ var reconcilerFinalizerFactory = `
 // TODO: this method could be generic and sync all finalizers. For now it only
 // updates defaultFinalizerName or its override.
 func (r *reconcilerImpl) updateFinalizersFiltered(ctx {{.contextContext|raw}}, resource *{{.type|raw}}, desiredFinalizers {{.setsString|raw}}) (*{{.type|raw}}, error) {
+	if r.useServerSideApplyForFinalizers {
+		return r.updateFinalizersFilteredServerSideApply(ctx, resource, desiredFinalizers)
+	}
+	return r.updateFinalizersFilteredMergePatch(ctx, resource, desiredFinalizers)
+}
+
+// updateFinalizersFilteredServerSideApply uses server-side apply to manage only this controller's finalizer.
+func (r *reconcilerImpl) updateFinalizersFilteredServerSideApply(ctx {{.contextContext|raw}}, resource *{{.type|raw}}, desiredFinalizers {{.setsString|raw}}) (*{{.type|raw}}, error) {
+	// Check if we need to do anything
+	existingFinalizers := {{.setsNewString|raw}}(resource.Finalizers...)
+
+	if desiredFinalizers.Has(r.finalizerName) {
+		if existingFinalizers.Has(r.finalizerName) {
+			// Nothing to do.
+			return resource, nil
+		}
+		// Apply configuration with only our finalizer to add it.
+		gvks, _, err := {{.schemeScheme|raw}}.ObjectKinds(resource)
+		if err != nil || len(gvks) == 0 {
+			return resource, {{.fmtErrorf|raw}}("failed to determine GVK for resource: %v", err)
+		}
+		gvk := gvks[0]
+
+		applyConfig := map[string]interface{}{
+			"apiVersion": gvk.GroupVersion().String(),
+			"kind":       gvk.Kind,
+			"metadata": map[string]interface{}{
+				"name":       resource.Name,
+				"uid":        resource.UID,
+				"finalizers": []string{r.finalizerName},
+			},
+		}
+		{{if not .nonNamespaced}}
+		applyConfig["metadata"].(map[string]interface{})["namespace"] = resource.Namespace
+		{{end}}
+
+		patch, err := {{.jsonMarshal|raw}}(applyConfig)
+		if err != nil {
+			return resource, err
+		}
+
+		{{if .nonNamespaced}}
+		patcher := r.Client.{{.group}}{{.version}}().{{.type|apiGroup}}()
+		{{else}}
+		patcher := r.Client.{{.group}}{{.version}}().{{.type|apiGroup}}(resource.Namespace)
+		{{end}}
+
+		patchOpts := {{.metav1PatchOptions|raw}}{
+			FieldManager:    r.finalizerFieldManager,
+			Force:           &r.forceApplyFinalizers,
+		}
+
+		updated, err := patcher.Patch(ctx, resource.Name, {{.typesApplyPatchType|raw}}, patch, patchOpts)
+		if err != nil {
+			r.Recorder.Eventf(resource, {{.corev1EventTypeWarning|raw}}, "FinalizerUpdateFailed",
+				"Failed to add finalizer for %q via server-side apply: %v", resource.Name, err)
+		} else {
+			r.Recorder.Eventf(updated, {{.corev1EventTypeNormal|raw}}, "FinalizerUpdate",
+				"Added finalizer for %q via server-side apply", resource.GetName())
+		}
+		return updated, err
+	} else {
+		if !existingFinalizers.Has(r.finalizerName) {
+			// Nothing to do.
+			return resource, nil
+		}
+		// For removal, we apply an empty configuration for our finalizer field manager.
+		// This effectively removes our finalizer while preserving others.
+		gvks, _, err := {{.schemeScheme|raw}}.ObjectKinds(resource)
+		if err != nil || len(gvks) == 0 {
+			return resource, {{.fmtErrorf|raw}}("failed to determine GVK for resource: %v", err)
+		}
+		gvk := gvks[0]
+
+		applyConfig := map[string]interface{}{
+			"apiVersion": gvk.GroupVersion().String(),
+			"kind":       gvk.Kind,
+			"metadata": map[string]interface{}{
+				"name":       resource.Name,
+				"uid":        resource.UID,
+				"finalizers": []string{}, // Empty array removes our managed finalizers
+			},
+		}
+		{{if not .nonNamespaced}}
+		applyConfig["metadata"].(map[string]interface{})["namespace"] = resource.Namespace
+		{{end}}
+
+		patch, err := {{.jsonMarshal|raw}}(applyConfig)
+		if err != nil {
+			return resource, err
+		}
+
+		{{if .nonNamespaced}}
+		patcher := r.Client.{{.group}}{{.version}}().{{.type|apiGroup}}()
+		{{else}}
+		patcher := r.Client.{{.group}}{{.version}}().{{.type|apiGroup}}(resource.Namespace)
+		{{end}}
+
+		patchOpts := {{.metav1PatchOptions|raw}}{
+			FieldManager:    r.finalizerFieldManager,
+			Force:           &r.forceApplyFinalizers,
+		}
+
+		updated, err := patcher.Patch(ctx, resource.Name, {{.typesApplyPatchType|raw}}, patch, patchOpts)
+		if err != nil {
+			r.Recorder.Eventf(resource, {{.corev1EventTypeWarning|raw}}, "FinalizerUpdateFailed",
+				"Failed to remove finalizer for %q via server-side apply: %v", resource.Name, err)
+		} else {
+			r.Recorder.Eventf(updated, {{.corev1EventTypeNormal|raw}}, "FinalizerUpdate",
+				"Removed finalizer for %q via server-side apply", resource.GetName())
+		}
+		return updated, err
+	}
+}
+
+// updateFinalizersFilteredMergePatch uses merge patch to manage finalizers (legacy behavior).
+func (r *reconcilerImpl) updateFinalizersFilteredMergePatch(ctx {{.contextContext|raw}}, resource *{{.type|raw}}, desiredFinalizers {{.setsString|raw}}) (*{{.type|raw}}, error) {
 	// Don't modify the informers copy.
 	existing := resource.DeepCopy()
 
@@ -700,7 +839,34 @@ func (r *reconcilerImpl) clearFinalizer(ctx {{.contextContext|raw}}, resource *{
 	}
 
 	// Synchronize the finalizers filtered by r.finalizerName.
-	return r.updateFinalizersFiltered(ctx, resource, finalizers)
+	updated, err := r.updateFinalizersFiltered(ctx, resource, finalizers)
+	if err != nil {
+		// Check if the resource still exists by querying the API server to avoid logging errors
+		// when reconciling stale object from cache while the object is actually deleted.
+		logger := {{.loggingFromContext|raw}}(ctx)
+
+		{{if .nonNamespaced}}
+		getter := r.Client.{{.group}}{{.version}}().{{.type|apiGroup}}()
+		{{else}}
+		getter := r.Client.{{.group}}{{.version}}().{{.type|apiGroup}}(resource.Namespace)
+		{{end}}
+
+		_, getErr := getter.Get(ctx, resource.Name, {{.metav1GetOptions|raw}}{})
+		if {{.apierrsIsNotFound|raw}}(getErr) {
+			// Resource no longer exists, which could happen during deletion
+			logger.Debugw("Resource no longer exists while clearing finalizers",
+				"resource", resource.GetName(),
+				"namespace", resource.GetNamespace(),
+				"originalError", err)
+			// Return the original resource since the finalizer clearing is effectively complete
+			return resource, nil
+		}
+
+		// For other errors, return the original error
+		return updated, err
+	}
+
+	return updated, nil
 }
 
 `

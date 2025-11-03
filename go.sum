@@ -113,6 +113,8 @@ github.com/docker/docker-credential-helpers v0.8.2 h1:bX3YxiGzFP5sOXWc3bTPEXdEaZ
 github.com/docker/docker-credential-helpers v0.8.2/go.mod h1:P3ci7E3lwkZg6XiHdRKft1KckHiO9a2rNtyFbZ/ry9M=
 github.com/emicklei/go-restful/v3 v3.12.1 h1:PJMDIM/ak7btuL8Ex0iYET9hxM3CI2sjZtzpL63nKAU=
 github.com/emicklei/go-restful/v3 v3.12.1/go.mod h1:6n3XBCmQQb25CM2LCACGz8ukIrRry+4bhvbpWn3mrbc=
+github.com/enarha/knative-pkg v0.0.0-20251021085811-363a01daebe3 h1:thmo9O5nk01o0ftphnB+ElVscRpf6g8O9/RsGDUO/Uk=
+github.com/enarha/knative-pkg v0.0.0-20251021085811-363a01daebe3/go.mod h1:TNEqAnhRXuC9a+mUz10UEn7VqOsA2YMlqnZMfyBuoP8=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
@@ -592,8 +594,6 @@ knative.dev/hack v0.0.0-20251021013703-4fae78067103 h1:j96YY5CLCTytWZsGVzixVvNas
 knative.dev/hack v0.0.0-20251021013703-4fae78067103/go.mod h1:L5RzHgbvam0u8QFHfzCX6MKxu/a/gIGEdaRBqNiVbl0=
 knative.dev/networking v0.0.0-20251021092443-0bde19154dce h1:INRJxej8DPwRUfXzuBQ6Ldg2/QaHF1tZrBUA8LVTaso=
 knative.dev/networking v0.0.0-20251021092443-0bde19154dce/go.mod h1:CMOeNLRWFxcMQALbhhwr6XmsyMX7EuSHNi+Gzfq0HE0=
-knative.dev/pkg v0.0.0-20251022152246-7bf6febca0b3 h1:472SARbX5rEir4g3QC/UsKnHNXqdRNbWOe2a4DcJRwk=
-knative.dev/pkg v0.0.0-20251022152246-7bf6febca0b3/go.mod h1:8L1vgh3WoZ4OH9gspPSt3QFcMJsrOUBwOs0FuM5Jne8=
 pgregory.net/rapid v1.1.0 h1:CMa0sjHSru3puNx+J0MIAuiiEV4N0qj8/cMWGBBCsjw=
 pgregory.net/rapid v1.1.0/go.mod h1:PY5XlDGj0+V1FCq0o192FdRhpKHGTRIWBgqjDBTrq04=
 sigs.k8s.io/gateway-api v1.1.0 h1:DsLDXCi6jR+Xz8/xd0Z1PYl2Pn0TyaFMOPPZIj4inDM=

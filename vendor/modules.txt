@@ -1514,7 +1514,7 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20251022152246-7bf6febca0b3
+# knative.dev/pkg v0.0.0-20251022152246-7bf6febca0b3 => github.com/enarha/knative-pkg v0.0.0-20251021085811-363a01daebe3
 ## explicit; go 1.24.0
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1662,3 +1662,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 ## explicit; go 1.22
 sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v2
+# knative.dev/pkg => github.com/enarha/knative-pkg v0.0.0-20251021085811-363a01daebe3
