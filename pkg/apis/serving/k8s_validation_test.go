@@ -108,6 +108,20 @@ func withPodSpecSecurityContextEnabled() configOption {
 	}
 }
 
+func withSecurePodDefaultsEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.SecurePodDefaults = config.Enabled
+		return cfg
+	}
+}
+
+func withSecurePodDefaultsAllowRootBounded() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.SecurePodDefaults = config.AllowRootBounded
+		return cfg
+	}
+}
+
 func withContainerSpecAddCapabilitiesEnabled() configOption {
 	return func(cfg *config.Config) *config.Config {
 		cfg.Features.ContainerSpecAddCapabilities = config.Enabled
@@ -846,6 +860,42 @@ func TestPodSpecValidation(t *testing.T) {
 			},
 		},
 		want:     apis.ErrInvalidValue("all", "containers[0].securityContext.capabilities.drop", "Must be spelled as 'ALL'").At(apis.WarningLevel),
+		errLevel: apis.WarningLevel,
+	}, {
+		name: "no warnings when SecurePodDefaults is enabled",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+			}},
+		},
+		cfgOpts:  []configOption{withSecurePodDefaultsEnabled()},
+		want:     nil,
+		errLevel: apis.WarningLevel,
+	}, {
+		name: "no warnings when SecurePodDefaults is AllowRootBounded",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+			}},
+		},
+		cfgOpts:  []configOption{withSecurePodDefaultsAllowRootBounded()},
+		want:     nil,
+		errLevel: apis.WarningLevel,
+	}, {
+		name: "no warnings when SecurePodDefaults enabled with incomplete security context",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				SecurityContext: &corev1.SecurityContext{
+					Capabilities: &corev1.Capabilities{},
+				},
+			}},
+			SecurityContext: &corev1.PodSecurityContext{
+				SeccompProfile: &corev1.SeccompProfile{},
+			},
+		},
+		cfgOpts:  []configOption{withSecurePodDefaultsEnabled()},
+		want:     nil,
 		errLevel: apis.WarningLevel,
 	}}
 
