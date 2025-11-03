@@ -995,7 +995,7 @@ func warnDefaultContainerSecurityContext(ctx context.Context, psc *corev1.PodSec
 	}
 
 	// if the user has explicitly enabled the feature, we don't need to warn
-	if slices.Contains([]config.Flag{config.Enabled, config.AllowRootBounded}, config.FromContextOrDefaults(ctx).Features.PodSpecSecurityContext) {
+	if slices.Contains([]config.Flag{config.Enabled, config.AllowRootBounded}, config.FromContextOrDefaults(ctx).Features.SecurePodDefaults) {
 		return nil
 	}
 
