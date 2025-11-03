@@ -195,7 +195,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 	// We no longer require immutability, so need to reconcile PA each time.
 	tmpl := resources.MakePA(rev, deployment)
 	logger.Debugf("Desired PASpec: %#v", tmpl.Spec)
-	if !equality.Semantic.DeepEqual(tmpl.Spec, pa.Spec) || !annotationsNeedReconcilingForKPA(pa.Annotations, tmpl.Annotations) {
+	if !equality.Semantic.DeepEqual(tmpl.Spec, pa.Spec) || annotationsNeedReconcilingForKPA(pa.Annotations, tmpl.Annotations) {
 		want := pa.DeepCopy()
 		want.Spec = tmpl.Spec
 
@@ -236,7 +236,7 @@ func syncAnnotationsForKPA(dst, src map[string]string) {
 		}
 	}
 
-	// copy source annotations over while preserving existing ones
+	// copy src annotationst to dst
 	maps.Copy(dst, src)
 }
 
@@ -245,7 +245,7 @@ func syncAnnotationsForKPA(dst, src map[string]string) {
 //
 // It will detect deletions for kpa annotations
 func annotationsNeedReconcilingForKPA(dst, src map[string]string) bool {
-	// Check for extra autoscaling annotations that don't exist src
+	// Check for extra autoscaling annotations that don't exist in src
 	for k := range dst {
 		if !strings.HasPrefix(k, autoscaling.GroupName) {
 			continue
@@ -258,7 +258,7 @@ func annotationsNeedReconcilingForKPA(dst, src map[string]string) bool {
 		if _, ok := src[k]; !ok {
 			// Scaling annotation is in dst but not src
 			// return false to trigger reconciliation
-			return false
+			return true
 		}
 	}
 
@@ -270,14 +270,14 @@ func annotationsNeedReconcilingForKPA(dst, src map[string]string) bool {
 				continue
 			}
 
-			return false
+			return true
 		}
 
 		if got != want {
-			return false
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 func hasDeploymentTimedOut(deployment *appsv1.Deployment) bool {
