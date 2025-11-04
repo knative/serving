@@ -37,6 +37,7 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	defaultconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
@@ -334,6 +335,7 @@ func TestReconcile(t *testing.T) {
 				WithLogURL,
 				WithRevisionObservedGeneration(1)),
 			pa("foo", "pa-inactive",
+				WithReachability(autoscalingv1alpha1.ReachabilityUnreachable),
 				WithNoTraffic("NoTraffic", "This thing is inactive."),
 				WithPAStatusService("pa-inactive")),
 			readyDeploy(deploy(t, "foo", "pa-inactive")),
@@ -344,9 +346,9 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, withDefaultContainerStatuses(), MarkDeploying(""),
 				// When we reconcile an "all ready" revision when the PA
 				// is inactive, we should see the following change.
-				MarkInactive("NoTraffic", "This thing is inactive."), WithRevisionObservedGeneration(1),
-				MarkResourcesUnavailable(v1.ReasonProgressDeadlineExceeded,
-					"Initial scale was never achieved")),
+				MarkInactive("NoTraffic", "This thing is inactive."),
+				WithRevisionObservedGeneration(1),
+				MarkResourcesUnavailable(v1.ReasonProgressDeadlineExceeded, "Initial scale was never achieved")),
 		}},
 		Key: "foo/pa-inactive",
 	}, {
@@ -799,6 +801,71 @@ func TestReconcile(t *testing.T) {
 			image("foo", "container-healthy"),
 		},
 		Key: "foo/container-healthy",
+	}, {
+		Name: "update pa annotations when they change",
+		Objects: []runtime.Object{
+			Revision("foo", "update-pa-annotations",
+				WithLogURL,
+				MarkRevisionReady,
+				withDefaultContainerStatuses(),
+				WithRevisionLabel(serving.RoutingStateLabelKey, "active"),
+				MarkContainerHealthyTrue(),
+				// New Annotation
+				WithRevisionAnn(autoscaling.MinScaleAnnotationKey, "1"),
+			),
+			pa("foo", "update-pa-annotations",
+				WithPASKSReady,
+				WithScaleTargetInitialized,
+				WithTraffic,
+				WithReachabilityReachable,
+				WithPAStatusService("something"),
+			),
+			readyDeploy(deploy(t, "foo", "update-pa-annotations", withReplicas(1))),
+			image("foo", "update-pa-annotations"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: pa("foo", "update-pa-annotations",
+				WithPASKSReady,
+				WithScaleTargetInitialized,
+				WithTraffic,
+				WithReachabilityReachable,
+				WithPAStatusService("something"),
+				WithAnnotationValue(autoscaling.MinScaleAnnotationKey, "1"),
+			),
+		}},
+		// No changes are made to any objects.
+		Key: "foo/update-pa-annotations",
+	}, {
+		Name: "revision min scale annotation deletion",
+		Objects: []runtime.Object{
+			Revision("foo", "delete-pa-annotations",
+				WithLogURL,
+				MarkRevisionReady,
+				withDefaultContainerStatuses(),
+				WithRevisionLabel(serving.RoutingStateLabelKey, "active"),
+				MarkContainerHealthyTrue(),
+			),
+			pa("foo", "delete-pa-annotations",
+				WithPASKSReady,
+				WithScaleTargetInitialized,
+				WithTraffic,
+				WithReachabilityReachable,
+				WithAnnotationValue(autoscaling.MinScaleAnnotationKey, "1"),
+				WithPAStatusService("something"),
+			),
+			readyDeploy(deploy(t, "foo", "delete-pa-annotations", withReplicas(1))),
+			image("foo", "delete-pa-annotations"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: pa("foo", "delete-pa-annotations",
+				WithPASKSReady,
+				WithScaleTargetInitialized,
+				WithTraffic,
+				WithReachabilityReachable,
+				WithPAStatusService("something"),
+			),
+		}},
+		Key: "foo/delete-pa-annotations",
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, _ configmap.Watcher) controller.Reconciler {

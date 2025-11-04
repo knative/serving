@@ -1916,12 +1916,8 @@ func TestMakeDeployment(t *testing.T) {
 		),
 		want: appsv1deployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.Replicas = ptr.Int32(int32(20))
-			deploy.Annotations = map[string]string{
-				autoscaling.InitialScaleAnnotationKey: "20",
-			}
 			deploy.Spec.Template.Annotations = map[string]string{
-				autoscaling.InitialScaleAnnotationKey: "20",
-				DefaultContainerAnnotationName:        servingContainerName,
+				DefaultContainerAnnotationName: servingContainerName,
 			}
 		}),
 	}}

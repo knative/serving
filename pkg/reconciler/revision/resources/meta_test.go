@@ -17,12 +17,17 @@ limitations under the License.
 package resources
 
 import (
+	"fmt"
+	"reflect"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -104,41 +109,87 @@ func TestMakeLabels(t *testing.T) {
 }
 
 func TestMakeAnnotations(t *testing.T) {
+	type buildFuncs []func(*v1.Revision) map[string]string
+
 	tests := []struct {
-		name string
-		rev  *v1.Revision
-		want map[string]string
+		name       string
+		buildFuncs buildFuncs
+		revAnn     map[string]string
+		want       map[string]string
 	}{{
 		name: "no user annotations",
-		rev: &v1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "foo",
-				Name:      "bar",
-			},
+		buildFuncs: buildFuncs{
+			deploymentAnnotations,
+			imageCacheAnnotations,
+			podAutoscalerAnnotations,
+			podAnnotations,
 		},
-		want: map[string]string{},
+		revAnn: map[string]string{},
+		want:   map[string]string{},
 	}, {
-		name: "exclude annotation",
-		rev: &v1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "foo",
-				Name:      "bar",
-				Annotations: map[string]string{
-					serving.RoutingStateModifiedAnnotationKey: "exclude me",
-					"keep": "keep me",
-				},
-			},
+		name: "excluded annotations",
+		buildFuncs: buildFuncs{
+			deploymentAnnotations,
+			imageCacheAnnotations,
+			podAutoscalerAnnotations,
+			podAnnotations,
+		},
+		revAnn: map[string]string{
+			serving.RoutingStateModifiedAnnotationKey: "exclude me",
+			"keep": "keep me",
 		},
 		want: map[string]string{"keep": "keep me"},
+	}, {
+		name: "exclude autoscaling annotations",
+		buildFuncs: buildFuncs{
+			deploymentAnnotations,
+			imageCacheAnnotations,
+			podAnnotations,
+		},
+		revAnn: map[string]string{
+			autoscaling.MinScaleAnnotationKey: "1",
+			"keep":                            "keep me",
+		},
+		want: map[string]string{"keep": "keep me"},
+	}, {
+		name: "include autoscaling annotations",
+		buildFuncs: buildFuncs{
+			podAutoscalerAnnotations,
+		},
+		revAnn: map[string]string{
+			autoscaling.MinScaleAnnotationKey: "1",
+			"keep":                            "keep me",
+		},
+		want: map[string]string{
+			autoscaling.MinScaleAnnotationKey: "1",
+			"keep":                            "keep me",
+		},
 	}}
 
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got := makeAnnotations(test.rev)
-			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Error("makeLabels (-want, +got) =", diff)
-			}
-		})
+		for _, buildFunc := range test.buildFuncs {
+			funcName := runtime.FuncForPC(reflect.ValueOf(buildFunc).Pointer()).Name()
+			i := strings.LastIndex(funcName, ".")
+			funcName = funcName[i+1:]
+
+			testName := fmt.Sprint(test.name, " ", funcName)
+
+			t.Run(testName, func(t *testing.T) {
+				rev := &v1.Revision{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace:   "foo",
+						Name:        "bar",
+						Annotations: test.revAnn,
+					},
+				}
+
+				got := buildFunc(rev)
+
+				if diff := cmp.Diff(test.want, got); diff != "" {
+					t.Errorf("%s(-want, +got) = %s", funcName, diff)
+				}
+			})
+		}
 	}
 }
 
@@ -151,6 +202,11 @@ func TestMakeAnnotationsForPod(t *testing.T) {
 	}{{
 		name: "multiple containers single port with base annotation",
 		rev: &v1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					"asdf": "fdsa",
+				},
+			},
 			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
@@ -164,7 +220,6 @@ func TestMakeAnnotationsForPod(t *testing.T) {
 				},
 			},
 		},
-		baseAnnotations: map[string]string{"asdf": "fdsa"},
 		want: map[string]string{
 			"asdf":                         "fdsa",
 			DefaultContainerAnnotationName: "bar",
@@ -173,7 +228,7 @@ func TestMakeAnnotationsForPod(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := makeAnnotationsForPod(test.rev, test.baseAnnotations)
+			got := podAnnotations(test.rev)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Error("getUserContainerName (-want, +got) =", diff)
 			}
