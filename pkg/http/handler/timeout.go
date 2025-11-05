@@ -22,6 +22,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"slices"
 	"sync"
 	"time"
 
@@ -169,6 +170,9 @@ type timeoutWriter struct {
 	mu            sync.Mutex
 	timedOut      bool
 	lastWriteTime time.Time
+	// headers is a snapshot of headers taken when timeout occurs
+	// to prevent concurrent map access
+	headers http.Header
 }
 
 var (
@@ -201,7 +205,23 @@ func (tw *timeoutWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return websocket.HijackIfPossible(tw.w)
 }
 
-func (tw *timeoutWriter) Header() http.Header { return tw.w.Header() }
+func (tw *timeoutWriter) Header() http.Header {
+	tw.mu.Lock()
+	timedOut := tw.timedOut
+	headers := tw.headers
+	tw.mu.Unlock()
+
+	if timedOut {
+		// Return the snapshot of headers taken at timeout to prevent
+		// concurrent modification of the header map
+		if headers == nil {
+			// If no headers were captured, return an empty map
+			return make(http.Header)
+		}
+		return headers
+	}
+	return tw.w.Header()
+}
 
 func (tw *timeoutWriter) Write(p []byte) (int, error) {
 	tw.mu.Lock()
@@ -279,6 +299,13 @@ func (tw *timeoutWriter) tryIdleTimeoutAndWriteError(curTime time.Time, idleTime
 }
 
 func (tw *timeoutWriter) timeoutAndWriteError(msg string) {
+	// Capture a snapshot of headers before marking as timed out
+	// to prevent concurrent access to the underlying header map
+	tw.headers = make(http.Header)
+	for k, v := range tw.w.Header() {
+		tw.headers[k] = slices.Clone(v)
+	}
+
 	tw.w.WriteHeader(http.StatusGatewayTimeout)
 	io.WriteString(tw.w, msg)
 
