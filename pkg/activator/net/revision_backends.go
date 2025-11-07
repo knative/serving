@@ -18,6 +18,7 @@ package net
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -524,6 +525,17 @@ func (rbm *revisionBackendsManager) updates() <-chan revisionDestsUpdate {
 func (rbm *revisionBackendsManager) getOrCreateRevisionWatcher(revID types.NamespacedName) (*revisionWatcher, error) {
 	rbm.revisionWatchersMux.Lock()
 	defer rbm.revisionWatchersMux.Unlock()
+
+	// Check context after acquiring the mutex to prevent a TOCTOU race.
+	// If endpointsUpdated passes its context check but then blocks waiting for this mutex
+	// while the cleanup goroutine holds it, we could create a new watcher after cleanup
+	// has already completed and released the mutex. This check ensures we detect shutdown
+	// even if we were blocked waiting for the mutex.
+	select {
+	case <-rbm.ctx.Done():
+		return nil, errors.New("revision backends manager is shutting down")
+	default:
+	}
 
 	rwCh, ok := rbm.revisionWatchers[revID]
 	if !ok {
