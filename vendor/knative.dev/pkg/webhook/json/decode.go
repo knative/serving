@@ -100,7 +100,7 @@ func findMetadataOffsets(bites []byte) (start, end int64, err error) {
 			break
 		}
 		if err != nil {
-			return
+			return start, end, err
 		}
 
 		switch v := t.(type) {
@@ -121,7 +121,7 @@ func findMetadataOffsets(bites []byte) (start, end int64, err error) {
 				end = dec.InputOffset()
 
 				// we exit early to stop processing the rest of the object
-				return
+				return start, end, err
 			}
 		}
 	}
