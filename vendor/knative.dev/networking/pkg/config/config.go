@@ -140,6 +140,12 @@ const (
 	// SystemInternalTLSKey is the name of the configuration whether
 	// traffic between Knative system components is encrypted or not.
 	SystemInternalTLSKey = "system-internal-tls"
+
+	// SystemInternalTLSAllowServeModeKey is the name of the configuration that
+	// specifies whether Serve mode is allowed when system-internal-tls is enabled.
+	// When false (default), system-internal-tls forces Proxy mode.
+	// When true, Serve mode is allowed even with TLS enabled.
+	SystemInternalTLSAllowServeModeKey = "system-internal-tls-allow-serve-mode"
 )
 
 // CertificateType indicates the type of Knative Certificate.
@@ -303,26 +309,32 @@ type Config struct {
 	// SystemInternalTLS specifies whether knative internal traffic is encrypted or not.
 	SystemInternalTLS EncryptionConfig
 
+	// SystemInternalTLSAllowServeMode specifies whether Serve mode is allowed
+	// when SystemInternalTLS is enabled. When false (default), enabling TLS
+	// forces Proxy mode. When true, Serve mode is permitted even with TLS enabled.
+	SystemInternalTLSAllowServeMode bool
+
 	// ClusterLocalDomainTLS specifies whether cluster-local traffic is encrypted or not.
 	ClusterLocalDomainTLS EncryptionConfig
 }
 
 func defaultConfig() *Config {
 	return &Config{
-		DefaultIngressClass:           IstioIngressClassName,
-		DefaultCertificateClass:       CertManagerCertificateClassName,
-		DomainTemplate:                DefaultDomainTemplate,
-		TagTemplate:                   DefaultTagTemplate,
-		AutoTLS:                       false,
-		ExternalDomainTLS:             false,
-		NamespaceWildcardCertSelector: nil,
-		HTTPProtocol:                  HTTPEnabled,
-		AutocreateClusterDomainClaims: false,
-		DefaultExternalScheme:         "http",
-		MeshCompatibilityMode:         MeshCompatibilityModeAuto,
-		InternalEncryption:            false,
-		SystemInternalTLS:             EncryptionDisabled,
-		ClusterLocalDomainTLS:         EncryptionDisabled,
+		DefaultIngressClass:             IstioIngressClassName,
+		DefaultCertificateClass:         CertManagerCertificateClassName,
+		DomainTemplate:                  DefaultDomainTemplate,
+		TagTemplate:                     DefaultTagTemplate,
+		AutoTLS:                         false,
+		ExternalDomainTLS:               false,
+		NamespaceWildcardCertSelector:   nil,
+		HTTPProtocol:                    HTTPEnabled,
+		AutocreateClusterDomainClaims:   false,
+		DefaultExternalScheme:           "http",
+		MeshCompatibilityMode:           MeshCompatibilityModeAuto,
+		InternalEncryption:              false,
+		SystemInternalTLS:               EncryptionDisabled,
+		SystemInternalTLSAllowServeMode: false,
+		ClusterLocalDomainTLS:           EncryptionDisabled,
 	}
 }
 
@@ -453,6 +465,10 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	default:
 		return nil, fmt.Errorf("%s with value: %q in config-network ConfigMap is not supported",
 			ClusterLocalDomainTLSKey, data[ClusterLocalDomainTLSKey])
+	}
+
+	if val, ok := data[SystemInternalTLSAllowServeModeKey]; ok {
+		nc.SystemInternalTLSAllowServeMode = strings.EqualFold(val, "enabled")
 	}
 
 	return nc, nil

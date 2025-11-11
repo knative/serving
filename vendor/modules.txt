@@ -1475,7 +1475,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 # knative.dev/hack v0.0.0-20251021013703-4fae78067103
 ## explicit; go 1.24
 knative.dev/hack
-# knative.dev/networking v0.0.0-20251021092443-0bde19154dce
+# knative.dev/networking v0.0.0-20251021092443-0bde19154dce => ../networking
 ## explicit; go 1.24.0
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1662,3 +1662,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 ## explicit; go 1.22
 sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v2
+# knative.dev/networking => ../networking

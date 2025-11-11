@@ -135,6 +135,14 @@ func activatorCertsNetConfig() *netcfg.Config {
 	return nc
 }
 
+func activatorCertsWithServeModeNetConfig() *netcfg.Config {
+	nc, _ := netcfg.NewConfigFromMap(map[string]string{
+		netcfg.SystemInternalTLSKey:               "enabled",
+		netcfg.SystemInternalTLSAllowServeModeKey: "enabled",
+	})
+	return nc
+}
+
 func defaultConfig() *config.Config {
 	ac, _ := asconfig.NewConfigFromMap(defaultConfigMapData())
 	deploymentConfig, _ := deployment.NewConfigFromMap(map[string]string{
@@ -1192,6 +1200,40 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: defaultProxySKS,
 		}},
+	}, {
+		Name: "TLS enabled with allows-serve-mode true, switch to Serve mode",
+		Key:  key,
+		Ctx: context.WithValue(context.WithValue(context.Background(), netConfigKey{}, activatorCertsWithServeModeNetConfig()), deciderKey{},
+			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
+				1 /* ebc */)),
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic, markScaleTargetInitialized,
+				WithPAMetricsService(privateSvc), withScales(1, defaultScale),
+				WithPAStatusService(testRevision), WithObservedGeneration(1)),
+			defaultProxySKS,
+			metric(testNamespace, testRevision),
+			defaultDeployment,
+			defaultReady,
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: defaultSKS,
+		}},
+	}, {
+		Name: "TLS enabled with allows-serve-mode true, already in Serve mode",
+		Key:  key,
+		Ctx: context.WithValue(context.WithValue(context.Background(), netConfigKey{}, activatorCertsWithServeModeNetConfig()), deciderKey{},
+			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
+				1 /* ebc */)),
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic, markScaleTargetInitialized,
+				WithPAMetricsService(privateSvc), withScales(1, defaultScale),
+				WithPAStatusService(testRevision), WithObservedGeneration(1)),
+			defaultSKS,
+			metric(testNamespace, testRevision),
+			defaultDeployment,
+			defaultReady,
+		},
+		// No update - already in Serve mode
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
