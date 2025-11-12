@@ -110,14 +110,30 @@ func CreateServiceReady(t testing.TB, clients *test.Clients, names *test.Resourc
 	if names.Image == "" {
 		return nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
 	}
+
 	svc, err := CreateService(t, clients, *names, fopt...)
 	if err != nil {
 		return nil, err
 	}
-	return getResourceObjects(t, clients, names, svc)
+
+	// When HTTPS is enabled, wait for Service to be Ready with HTTPS URL set to avoid
+	// connection resets during load testing (see #14435).
+	readinessCheck := IsServiceReady
+	if test.ServingFlags.HTTPS {
+		t.Log("HTTPS mode: waiting for Service Ready with HTTPS URL")
+		readinessCheck = IsServiceReadyWithHTTPS
+	}
+
+	return getResourceObjects(t, clients, names, svc, readinessCheck)
 }
 
-func getResourceObjects(t testing.TB, clients *test.Clients, names *test.ResourceNames, svc *v1.Service) (*ResourceObjects, error) {
+func getResourceObjects(
+	t testing.TB,
+	clients *test.Clients,
+	names *test.ResourceNames,
+	svc *v1.Service,
+	readinessCheck func(s *v1.Service) (bool, error),
+) (*ResourceObjects, error) {
 	// Populate Route and Configuration Objects with name
 	names.Route = serviceresourcenames.Route(svc)
 	names.Config = serviceresourcenames.Configuration(svc)
@@ -126,7 +142,7 @@ func getResourceObjects(t testing.TB, clients *test.Clients, names *test.Resourc
 	names.Service = svc.Name
 
 	t.Log("Waiting for Service to transition to Ready.", "service", names.Service)
-	if err := WaitForServiceState(clients.ServingClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
+	if err := WaitForServiceState(clients.ServingClient, names.Service, readinessCheck, "ServiceIsReady"); err != nil {
 		return nil, err
 	}
 
@@ -299,6 +315,26 @@ func CheckServiceState(client *test.ServingClients, name string, inState func(s 
 // ready. This means that its configurations and routes have all reported ready.
 func IsServiceReady(s *v1.Service) (bool, error) {
 	return s.IsReady(), nil
+}
+
+// IsServiceReadyWithHTTPS checks if the service is Ready and has an HTTPS URL in status.
+func IsServiceReadyWithHTTPS(s *v1.Service) (bool, error) {
+	ready, err := IsServiceReady(s)
+	if err != nil {
+		return false, err
+	}
+
+	if !ready {
+		return false, nil
+	}
+
+	// Service is Ready, now check if HTTPS URL is set
+	if s.Status.URL == nil {
+		return false, nil
+	}
+
+	// Only return true when scheme is HTTPS
+	return s.Status.URL.Scheme == "https", nil
 }
 
 // IsServiceFailed will check the status conditions of the service and return true if the service is
