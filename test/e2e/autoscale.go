@@ -217,27 +217,39 @@ func SetupSvc(t *testing.T, aopts *AutoscalerOptions, topts test.Options, fopts 
 		Service: test.ObjectNameForTest(t),
 		Image:   autoscaleTestImageName,
 	}
-	resources, err := v1test.CreateServiceReady(t, clients, names,
-		append([]rtesting.ServiceOption{
-			rtesting.WithConfigAnnotations(map[string]string{
-				autoscaling.ClassAnnotationKey:             aopts.Class,
-				autoscaling.MetricAnnotationKey:            aopts.Metric,
-				autoscaling.TargetAnnotationKey:            strconv.Itoa(aopts.Target),
-				autoscaling.TargetUtilizationPercentageKey: toPercentageString(aopts.TargetUtilization),
-				// Reduce the amount of historical data we need before scaling down to account for
-				// the fact that the chaosduck will only let a bucket leader live for ~30s.  This
-				// value still allows the chaosduck to make us failover, but is low enough that we
-				// should not need to survive multiple rounds of chaos in order to scale a
-				// revision down.
-				autoscaling.WindowAnnotationKey: "30s",
-			}),
-			rtesting.WithResourceRequirements(corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("30m"),
-					corev1.ResourceMemory: resource.MustParse("20Mi"),
-				},
-			}),
-		}, fopts...)...)
+
+	var resources *v1test.ResourceObjects
+	var err error
+	serviceOptions := append([]rtesting.ServiceOption{
+		rtesting.WithConfigAnnotations(map[string]string{
+			autoscaling.ClassAnnotationKey:             aopts.Class,
+			autoscaling.MetricAnnotationKey:            aopts.Metric,
+			autoscaling.TargetAnnotationKey:            strconv.Itoa(aopts.Target),
+			autoscaling.TargetUtilizationPercentageKey: toPercentageString(aopts.TargetUtilization),
+			// Reduce the amount of historical data we need before scaling down to account for
+			// the fact that the chaosduck will only let a bucket leader live for ~30s.  This
+			// value still allows the chaosduck to make us failover, but is low enough that we
+			// should not need to survive multiple rounds of chaos in order to scale a
+			// revision down.
+			autoscaling.WindowAnnotationKey: "30s",
+		}),
+		rtesting.WithResourceRequirements(corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("30m"),
+				corev1.ResourceMemory: resource.MustParse("20Mi"),
+			},
+		}),
+	}, fopts...)
+
+	// When HTTPS is enabled, wait for Service to be Ready with HTTPS URL set to avoid
+	// connection resets during load testing (see #14435).
+	if test.ServingFlags.HTTPS {
+		t.Log("HTTPS mode: waiting for Service Ready with HTTPS URL")
+		resources, err = v1test.CreateServiceReadyForHTTPS(t, clients, names, serviceOptions...)
+	} else {
+		resources, err = v1test.CreateServiceReady(t, clients, names, serviceOptions...)
+	}
+
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
