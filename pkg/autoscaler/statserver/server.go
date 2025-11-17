@@ -96,6 +96,7 @@ func (s *Server) ListenAndServe() error {
 
 func (s *Server) listen() (net.Listener, error) {
 	s.logger.Info("Starting")
+	//nolint: noctx
 	return net.Listen("tcp", s.addr)
 }
 

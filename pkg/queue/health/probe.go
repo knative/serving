@@ -69,6 +69,7 @@ type GRPCProbeConfigOptions struct {
 // Did not reuse k8s.io/kubernetes/pkg/probe/tcp to not create a dependency
 // on klog.
 func TCPProbe(config TCPProbeConfigOptions) error {
+	//nolint: noctx
 	conn, err := net.DialTimeout("tcp", config.Address, config.SocketTimeout)
 	if err != nil {
 		return err
