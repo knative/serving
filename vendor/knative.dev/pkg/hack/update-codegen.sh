@@ -39,6 +39,7 @@ K8S_TYPES=$(find ./vendor/k8s.io/api -type d -path '*/*/*/*/*/*' | cut -d'/' -f 
   grep -v "imagepolicy:" | \
   grep -v "resource:" | \
   grep -v "storagemigration:" \
+  grep -v "alpha" \
 )
 
 OUTPUT_PKG="knative.dev/pkg/client/injection/kube" \
