@@ -124,12 +124,13 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	}
 
 	mode := nv1alpha1.SKSOperationModeProxy
+	netCfg := config.FromContext(ctx).Network
 
 	switch {
-	// When activator CA is enabled, force activator always in path.
+	// When activator CA is enabled, force activator always in path unless explicitly allowed.
 	// TODO: This is a temporary state and to be fixed.
 	// See also issues/11906 and issues/12797.
-	case config.FromContext(ctx).Network.SystemInternalTLSEnabled():
+	case netCfg.SystemInternalTLSEnabled() && !netCfg.SystemInternalTLSAllowServeMode:
 		mode = nv1alpha1.SKSOperationModeProxy
 
 	// If the want == -1 and PA is inactive that implies the autoscaler

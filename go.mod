@@ -2,6 +2,8 @@ module knative.dev/serving
 
 go 1.24.0
 
+replace knative.dev/networking => ../networking
+
 require (
 	github.com/ahmetb/gen-crd-api-reference-docs v0.3.1-0.20210609063737-0067dc6dcea2
 	github.com/cert-manager/cert-manager v1.16.3
