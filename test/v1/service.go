@@ -27,10 +27,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	netapi "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/reconciler"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -118,9 +120,11 @@ func CreateServiceReady(t testing.TB, clients *test.Clients, names *test.Resourc
 
 	// When HTTPS is enabled, wait for Service to be Ready with HTTPS URL set to avoid
 	// connection resets during load testing (see #14435).
+	// Exclude cluster-local services as they do not have public HTTPS URLs and use HTTP
+	// by default even in HTTPS mode, causing related tests to wait forever for HTTPS.
 	readinessCheck := IsServiceReady
-	if test.ServingFlags.HTTPS {
-		t.Log("HTTPS mode: waiting for Service Ready with HTTPS URL")
+	if test.ServingFlags.HTTPS && svc.GetLabels()[netapi.VisibilityLabelKey] != serving.VisibilityClusterLocal {
+		t.Log("HTTPS mode: waiting for Service Ready with public HTTPS URL")
 		readinessCheck = IsServiceReadyWithHTTPS
 	}
 
