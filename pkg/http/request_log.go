@@ -180,6 +180,7 @@ func (h *RequestLogHandler) write(t *template.Template, in *RequestLogTemplateIn
 		// Template execution failed. Write an error message with some basic information about the request.
 		fmt.Fprintf(h.writer, "Invalid request log template: method: %v, response code: %v, latency: %v, url: %v\n",
 			in.Request.Method, in.Response.Code, in.Response.Latency, in.Request.URL)
+		return
 	}
 	h.writer.Write(w.Bytes())
 }
