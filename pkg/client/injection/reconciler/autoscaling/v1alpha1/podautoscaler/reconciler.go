@@ -328,6 +328,8 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 			// This is a wrapped error, don't emit an event.
 		} else if ok, _ := controller.IsRequeueKey(reconcileEvent); ok {
 			// This is a wrapped error, don't emit an event.
+		} else if errors.IsConflict(reconcileEvent) {
+			// Conflict errors are expected, don't emit an event.
 		} else {
 			logger.Errorw("Returned an error", zap.Error(reconcileEvent))
 			r.Recorder.Event(resource, v1.EventTypeWarning, "InternalError", reconcileEvent.Error())
@@ -439,8 +441,10 @@ func (r *reconcilerImpl) updateFinalizersFilteredServerSideApply(ctx context.Con
 
 	updated, err := patcher.Patch(ctx, resource.Name, types.ApplyPatchType, patch, patchOpts)
 	if err != nil {
-		r.Recorder.Eventf(resource, v1.EventTypeWarning, "FinalizerUpdateFailed",
-			"Failed to update finalizers for %q via server-side apply: %v", resource.Name, err)
+		if !errors.IsConflict(err) {
+			r.Recorder.Eventf(resource, v1.EventTypeWarning, "FinalizerUpdateFailed",
+				"Failed to update finalizers for %q via server-side apply: %v", resource.Name, err)
+		}
 	} else {
 		r.Recorder.Eventf(updated, v1.EventTypeNormal, "FinalizerUpdate",
 			"Updated finalizers for %q via server-side apply", resource.GetName())
@@ -492,8 +496,10 @@ func (r *reconcilerImpl) updateFinalizersFilteredMergePatch(ctx context.Context,
 	resourceName := resource.Name
 	updated, err := patcher.Patch(ctx, resourceName, types.MergePatchType, patch, metav1.PatchOptions{})
 	if err != nil {
-		r.Recorder.Eventf(existing, v1.EventTypeWarning, "FinalizerUpdateFailed",
-			"Failed to update finalizers for %q: %v", resourceName, err)
+		if !errors.IsConflict(err) {
+			r.Recorder.Eventf(existing, v1.EventTypeWarning, "FinalizerUpdateFailed",
+				"Failed to update finalizers for %q: %v", resourceName, err)
+		}
 	} else {
 		r.Recorder.Eventf(updated, v1.EventTypeNormal, "FinalizerUpdate",
 			"Updated %q finalizers", resource.GetName())

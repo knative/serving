@@ -28,6 +28,7 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -532,23 +533,31 @@ func (c *Impl) processNextWorkItem() bool {
 }
 
 func (c *Impl) handleErr(logger *zap.SugaredLogger, err error, key types.NamespacedName, startTime time.Time) {
-	if IsSkipKey(err) {
+	// Check if we should skip this key or if the queue is shutting down.
+	// We check shutdown here since controller Run might have exited by now
+	// (since while this item was being processed, queue.Len==0).
+	if IsSkipKey(err) || c.workQueue.ShuttingDown() {
 		c.workQueue.Forget(key)
 		return
 	}
+
 	if ok, delay := IsRequeueKey(err); ok {
 		c.workQueue.AddAfter(key, delay)
 		logger.Debugf("Requeuing key %s (by request) after %v (depth: %d)", safeKey(key), delay, c.workQueue.Len())
 		return
 	}
 
+	// Conflict errors are expected, requeue to retry
+	if apierrors.IsConflict(err) {
+		logger.Debugw("Reconcile conflict", zap.Duration("duration", time.Since(startTime)))
+		c.workQueue.AddRateLimited(key)
+		return
+	}
+
 	logger.Errorw("Reconcile error", zap.Duration("duration", time.Since(startTime)), zap.Error(err))
 
 	// Re-queue the key if it's a transient error.
-	// We want to check that the queue is shutting down here
-	// since controller Run might have exited by now (since while this item was
-	// being processed, queue.Len==0).
-	if !IsPermanentError(err) && !c.workQueue.ShuttingDown() {
+	if !IsPermanentError(err) {
 		c.workQueue.AddRateLimited(key)
 		logger.Debugf("Requeuing key %s due to non-permanent error (depth: %d)", safeKey(key), c.workQueue.Len())
 		return
