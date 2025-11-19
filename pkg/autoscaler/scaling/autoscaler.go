@@ -291,6 +291,14 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 		excessBCF = math.Floor(totCap - spec.TargetBurstCapacity - observedPanicValue)
 	}
 
+	// if burst capacity is less than 0 and not -1 (handled elsewhere), send signal to stay paused
+	if excessBCF < 0 && spec.TargetBurstCapacity != -1 {
+		a.metricClient.Pause(metricKey)
+	} else {
+		// send resume signal if greater than 0
+		a.metricClient.Resume(metricKey)
+	}
+
 	if debugEnabled {
 		desugared.Debug(fmt.Sprintf("PodCount=%d Total1PodCapacity=%0.3f ObsStableValue=%0.3f ObsPanicValue=%0.3f TargetBC=%0.3f ExcessBC=%0.3f",
 			originalReadyPodsCount, spec.TotalValue, observedStableValue,

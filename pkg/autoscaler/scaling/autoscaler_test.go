@@ -913,6 +913,12 @@ func (mc *metricClient) StableAndPanicRPS(key types.NamespacedName, now time.Tim
 	return mc.StableRPS, mc.PanicRPS, err
 }
 
+// Pauses metric collection
+func (mc *metricClient) Pause(key types.NamespacedName) {}
+
+// Resumes metric collection
+func (mc *metricClient) Resume(key types.NamespacedName) {}
+
 func BenchmarkAutoscaler(b *testing.B) {
 	metrics := &metricClient{StableConcurrency: 50.0, PanicConcurrency: 10}
 	a := newTestAutoscalerNoPC(10, 101, metrics)

@@ -82,6 +82,12 @@ type MetricClient interface {
 	// StableAndPanicRPS returns both the stable and the panic RPS
 	// for the given replica as of the given time.
 	StableAndPanicRPS(key types.NamespacedName, now time.Time) (float64, float64, error)
+
+	// Pause metric collection
+	Pause(key types.NamespacedName)
+
+	// Resume metric collection
+	Resume(key types.NamespacedName)
 }
 
 // MetricCollector manages collection of metrics for many entities.
@@ -163,6 +169,24 @@ func (c *MetricCollector) Record(key types.NamespacedName, now time.Time, stat S
 
 	if collection, exists := c.collections[key]; exists {
 		collection.record(now, stat)
+	}
+}
+
+func (c *MetricCollector) Pause(key types.NamespacedName) {
+	c.collectionsMutex.RLock()
+	defer c.collectionsMutex.RUnlock()
+
+	if collection, exists := c.collections[key]; exists {
+		collection.pauseOrResume(true)
+	}
+}
+
+func (c *MetricCollector) Resume(key types.NamespacedName) {
+	c.collectionsMutex.RLock()
+	defer c.collectionsMutex.RUnlock()
+
+	if collection, exists := c.collections[key]; exists {
+		collection.pauseOrResume(false)
 	}
 }
 
@@ -252,6 +276,7 @@ type (
 		lastErr error
 		grp     sync.WaitGroup
 		stopCh  chan struct{}
+		pauseCh chan bool
 	}
 )
 
@@ -296,7 +321,8 @@ func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clo
 			metric.Spec.PanicWindow, config.BucketSize),
 		scraper: scraper,
 
-		stopCh: make(chan struct{}),
+		stopCh:  make(chan struct{}),
+		pauseCh: make(chan bool),
 	}
 
 	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
@@ -306,13 +332,19 @@ func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clo
 	go func() {
 		defer c.grp.Done()
 
+		scrapingPaused := false
 		scrapeTicker := clock.NewTicker(scrapeTickInterval)
 		defer scrapeTicker.Stop()
 		for {
 			select {
 			case <-c.stopCh:
 				return
+			case scrapingPaused = <-c.pauseCh:
 			case <-scrapeTicker.C():
+				if scrapingPaused {
+					logger.Info("metric scraping is paused")
+					continue
+				}
 				scraper := c.getScraper()
 				if scraper == nil {
 					// Don't scrape empty target service.
@@ -343,6 +375,11 @@ func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clo
 func (c *collection) close() {
 	close(c.stopCh)
 	c.grp.Wait()
+}
+
+// pause the scraper, happens when activator in path
+func (c *collection) pauseOrResume(pause bool) {
+	c.pauseCh <- pause
 }
 
 // updateMetric safely updates the metric stored in the collection.
