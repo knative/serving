@@ -340,7 +340,7 @@ func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clo
 				return
 			case <-scrapeTicker.C():
 				if c.getPaused() {
-					logger.Info("metric scraping is paused")
+					logger.Debug("direct pod metric scraping is paused")
 					continue
 				}
 				scraper := c.getScraper()
