@@ -291,11 +291,10 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 		excessBCF = math.Floor(totCap - spec.TargetBurstCapacity - observedPanicValue)
 	}
 
-	// if burst capacity is less than 0 and not -1 (handled elsewhere), send signal to stay paused
-	if excessBCF < 0 && spec.TargetBurstCapacity != -1 {
+	switch {
+	case excessBCF < 0 && spec.TargetBurstCapacity != -1:
 		a.metricClient.Pause(metricKey)
-	} else {
-		// send resume signal if greater than 0
+	case excessBCF >= 0:
 		a.metricClient.Resume(metricKey)
 	}
 
