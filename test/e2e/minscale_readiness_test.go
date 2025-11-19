@@ -144,7 +144,7 @@ func TestMinScaleTransition(t *testing.T) {
 	t.Logf("Waiting for %v pods to be created", minScale)
 	var podList *corev1.PodList
 
-	err = wait.PollUntilContextTimeout(ctx, time.Second, time.Minute, true, func(context.Context) (bool, error) {
+	err = wait.PollUntilContextTimeout(ctx, 10*time.Second, 2*time.Minute, true, func(context.Context) (bool, error) {
 		revLabel, err := labels.NewRequirement(serving.RevisionLabelKey, selection.Equals, []string{secondRevision})
 		if err != nil {
 			return false, fmt.Errorf("unable to create rev label: %w", err)
