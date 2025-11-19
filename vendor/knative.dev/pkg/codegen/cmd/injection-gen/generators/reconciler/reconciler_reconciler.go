@@ -134,6 +134,10 @@ func (g *reconcilerReconcilerGenerator) GenerateType(c *generator.Context, t *ty
 			Package: "k8s.io/apimachinery/pkg/api/errors",
 			Name:    "IsNotFound",
 		}),
+		"apierrsIsConflict": c.Universe.Function(types.Name{
+			Package: "k8s.io/apimachinery/pkg/api/errors",
+			Name:    "IsConflict",
+		}),
 		"metav1GetOptions": c.Universe.Function(types.Name{
 			Package: "k8s.io/apimachinery/pkg/apis/meta/v1",
 			Name:    "GetOptions",
@@ -573,6 +577,8 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 			// This is a wrapped error, don't emit an event.
 		} else if ok, _ := {{ .controllerIsRequeueKey|raw }}(reconcileEvent); ok {
 			// This is a wrapped error, don't emit an event.
+		} else if {{ .apierrsIsConflict|raw }}(reconcileEvent) {
+			// Conflict errors are expected, don't emit an event.
 		} else {
 			logger.Errorw("Returned an error", zap.Error(reconcileEvent))
 			r.Recorder.Event(resource, {{.corev1EventTypeWarning|raw}}, "InternalError", reconcileEvent.Error())
@@ -698,8 +704,10 @@ func (r *reconcilerImpl) updateFinalizersFilteredServerSideApply(ctx {{.contextC
 
 	updated, err := patcher.Patch(ctx, resource.Name, {{.typesApplyPatchType|raw}}, patch, patchOpts)
 	if err != nil {
-		r.Recorder.Eventf(resource, {{.corev1EventTypeWarning|raw}}, "FinalizerUpdateFailed",
-			"Failed to update finalizers for %q via server-side apply: %v", resource.Name, err)
+		if !{{ .apierrsIsConflict|raw }}(err) {
+			r.Recorder.Eventf(resource, {{.corev1EventTypeWarning|raw}}, "FinalizerUpdateFailed",
+				"Failed to update finalizers for %q via server-side apply: %v", resource.Name, err)
+		}
 	} else {
 		r.Recorder.Eventf(updated, {{.corev1EventTypeNormal|raw}}, "FinalizerUpdate",
 			"Updated finalizers for %q via server-side apply", resource.GetName())
@@ -754,8 +762,10 @@ func (r *reconcilerImpl) updateFinalizersFilteredMergePatch(ctx {{.contextContex
 	resourceName := resource.Name
 	updated, err := patcher.Patch(ctx, resourceName, {{.typesMergePatchType|raw}}, patch, {{.metav1PatchOptions|raw}}{})
 	if err != nil {
-		r.Recorder.Eventf(existing, {{.corev1EventTypeWarning|raw}}, "FinalizerUpdateFailed",
-			"Failed to update finalizers for %q: %v", resourceName, err)
+		if !{{ .apierrsIsConflict|raw }}(err) {
+			r.Recorder.Eventf(existing, {{.corev1EventTypeWarning|raw}}, "FinalizerUpdateFailed",
+				"Failed to update finalizers for %q: %v", resourceName, err)
+		}
 	} else {
 		r.Recorder.Eventf(updated, {{.corev1EventTypeNormal|raw}}, "FinalizerUpdate",
 			"Updated %q finalizers", resource.GetName())
