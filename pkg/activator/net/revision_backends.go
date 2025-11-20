@@ -87,11 +87,6 @@ func (d dests) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-const (
-	probeTimeout          time.Duration = 300 * time.Millisecond
-	defaultProbeFrequency time.Duration = 200 * time.Millisecond
-)
-
 // revisionWatcher watches the podIPs and ClusterIP of the service for a revision. It implements the logic
 // to supply revisionDestsUpdate events on updateCh
 type revisionWatcher struct {
@@ -131,13 +126,15 @@ type revisionWatcher struct {
 	// cover the revision's ready conditions, for example when an exec probe is
 	// being used.
 	enableProbeOptimisation bool
+
+	probeTimeout time.Duration
 }
 
 func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol pkgnet.ProtocolType,
 	updateCh chan<- revisionDestsUpdate, destsCh chan dests,
 	transport http.RoundTripper, serviceLister corev1listers.ServiceLister,
 	usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode,
-	enableProbeOptimisation bool,
+	enableProbeOptimisation bool, probeTimeout time.Duration,
 	logger *zap.SugaredLogger,
 ) *revisionWatcher {
 	ctx, cancel := context.WithCancel(ctx)
@@ -155,6 +152,7 @@ func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol 
 		usePassthroughLb:        usePassthroughLb,
 		meshMode:                meshMode,
 		enableProbeOptimisation: enableProbeOptimisation,
+		probeTimeout:            probeTimeout,
 		logger:                  logger.With(zap.String(logkey.Key, rev.String())),
 	}
 }
@@ -219,7 +217,7 @@ func (rw *revisionWatcher) getDest() (string, error) {
 }
 
 func (rw *revisionWatcher) probeClusterIP(dest string) (bool, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), rw.probeTimeout)
 	defer cancel()
 	match, _, err := rw.probe(ctx, dest)
 	return match, err
@@ -248,7 +246,7 @@ func (rw *revisionWatcher) probePodIPs(ready, notReady sets.Set[string]) (succee
 	}
 
 	// Context used for our probe requests.
-	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), rw.probeTimeout)
 	defer cancel()
 
 	// Empty errgroup is used as cancellation on first error is not desired, all probes should be
@@ -459,19 +457,12 @@ type revisionBackendsManager struct {
 	usePassthroughLb bool
 	meshMode         netcfg.MeshCompatibilityMode
 	logger           *zap.SugaredLogger
+	probeTimeout     time.Duration
 	probeFrequency   time.Duration
 }
 
-// NewRevisionBackendsManager returns a new RevisionBackendsManager with default
-// probe time out.
-func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper, usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode) *revisionBackendsManager {
-	return newRevisionBackendsManagerWithProbeFrequency(ctx, tr, usePassthroughLb, meshMode, defaultProbeFrequency)
-}
-
-// newRevisionBackendsManagerWithProbeFrequency creates a fully spec'd RevisionBackendsManager.
-func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.RoundTripper,
-	usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode, probeFreq time.Duration,
-) *revisionBackendsManager {
+// newRevisionBackendsManager returns a new RevisionBackendsManager with configurable probe settings.
+func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper, usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode, probeTimeout, probeFreq time.Duration) *revisionBackendsManager {
 	rbm := &revisionBackendsManager{
 		ctx:              ctx,
 		revisionLister:   revisioninformer.Get(ctx).Lister(),
@@ -482,6 +473,7 @@ func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.R
 		usePassthroughLb: usePassthroughLb,
 		meshMode:         meshMode,
 		logger:           logging.FromContext(ctx),
+		probeTimeout:     probeTimeout,
 		probeFrequency:   probeFreq,
 	}
 	endpointsInformer := endpointsinformer.Get(ctx)
@@ -565,7 +557,7 @@ func (rbm *revisionBackendsManager) getOrCreateRevisionWatcher(revID types.Names
 		}
 
 		destsCh := make(chan dests)
-		rw := newRevisionWatcher(rbm.ctx, revID, rev.GetProtocol(), rbm.updateCh, destsCh, rbm.transport, rbm.serviceLister, rbm.usePassthroughLb, rbm.meshMode, enableProbeOptimisation, rbm.logger)
+		rw := newRevisionWatcher(rbm.ctx, revID, rev.GetProtocol(), rbm.updateCh, destsCh, rbm.transport, rbm.serviceLister, rbm.usePassthroughLb, rbm.meshMode, enableProbeOptimisation, rbm.probeTimeout, rbm.logger)
 		rbm.revisionWatchers[revID] = rw
 		go rw.run(rbm.probeFrequency)
 		return rw, nil
