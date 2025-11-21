@@ -1189,6 +1189,51 @@ func TestValidateQueueSidecarAnnotation(t *testing.T) {
 	}
 }
 
+func TestValidateQueueSidecarImageAnnotation(t *testing.T) {
+	cases := []struct {
+		name       string
+		annotation map[string]string
+		expectErr  *apis.FieldError
+	}{{
+		name: "valid queue sidecar image",
+		annotation: map[string]string{
+			serving.QueueSidecarImageAnnotationKey: "gcr.io/my-project/queue:v1.2.3",
+		},
+		expectErr: nil,
+	}, {
+		name: "empty queue sidecar image",
+		annotation: map[string]string{
+			serving.QueueSidecarImageAnnotationKey: "",
+		},
+		expectErr: &apis.FieldError{
+			Message: "invalid value: ",
+			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSidecarImageAnnotationKey)},
+		},
+	}, {
+		name: "queue sidecar image with spaces",
+		annotation: map[string]string{
+			serving.QueueSidecarImageAnnotationKey: "invalid image:tag",
+		},
+		expectErr: &apis.FieldError{
+			Message: "invalid value: invalid image:tag",
+			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSidecarImageAnnotationKey)},
+		},
+	}, {
+		name:       "no annotation",
+		annotation: map[string]string{},
+		expectErr:  nil,
+	}}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := validateQueueSidecarImageAnnotation(c.annotation)
+			if got, want := err.Error(), c.expectErr.Error(); got != want {
+				t.Errorf("Got: %q want: %q", got, want)
+			}
+		})
+	}
+}
+
 func TestValidateTimeoutSecond(t *testing.T) {
 	cases := []struct {
 		name      string
