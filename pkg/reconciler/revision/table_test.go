@@ -211,6 +211,19 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/fix-containers",
 	}, {
+		Name: "preserve external deployment and template annotations and labels",
+		Objects: []runtime.Object{
+			Revision("foo", "preserve-annotations",
+				WithLogURL, allUnknownConditions, withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+			pa("foo", "preserve-annotations", WithReachabilityUnknown),
+			addExternalMetadata(deploy(t, "foo", "preserve-annotations")),
+			image("foo", "preserve-annotations"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: addExternalMetadata(deploy(t, "foo", "preserve-annotations")),
+		}},
+		Key: "foo/preserve-annotations",
+	}, {
 		Name: "failure updating deployment",
 		// Test that we handle an error updating the deployment properly.
 		WantErr: true,
@@ -942,6 +955,32 @@ func changeContainers(deploy *appsv1.Deployment) *appsv1.Deployment {
 	for i := range podSpec.Containers {
 		podSpec.Containers[i].Image = "asdf"
 	}
+	return deploy
+}
+
+func addExternalMetadata(deploy *appsv1.Deployment) *appsv1.Deployment {
+	// Deployment-level metadata
+	if deploy.Annotations == nil {
+		deploy.Annotations = make(map[string]string)
+	}
+	deploy.Annotations["external.io/annotation"] = "external-annotation"
+
+	if deploy.Labels == nil {
+		deploy.Labels = make(map[string]string)
+	}
+	deploy.Labels["external.io/label"] = "external-label"
+
+	// Template-level metadata (e.g. from kubectl restart)
+	if deploy.Spec.Template.ObjectMeta.Annotations == nil {
+		deploy.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
+	}
+	deploy.Spec.Template.ObjectMeta.Annotations["external.io/template-annotation"] = "external-annotation"
+
+	if deploy.Spec.Template.ObjectMeta.Labels == nil {
+		deploy.Spec.Template.ObjectMeta.Labels = make(map[string]string)
+	}
+	deploy.Spec.Template.ObjectMeta.Labels["external.io/template-label"] = "external-label"
+
 	return deploy
 }
 

@@ -71,8 +71,13 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 	desiredDeployment := have.DeepCopy()
 	desiredDeployment.Spec = deployment.Spec
 
-	// Carry over new labels.
+	// Carry over new labels and annotations at deployment level.
 	desiredDeployment.Labels = kmeta.UnionMaps(deployment.Labels, desiredDeployment.Labels)
+	desiredDeployment.Annotations = kmeta.UnionMaps(deployment.Annotations, desiredDeployment.Annotations)
+
+	// Carry over template-level labels and annotations (e.g., kubectl.kubernetes.io/restartedAt from rollout restart).
+	desiredDeployment.Spec.Template.Labels = kmeta.UnionMaps(deployment.Spec.Template.Labels, have.Spec.Template.Labels)
+	desiredDeployment.Spec.Template.Annotations = kmeta.UnionMaps(deployment.Spec.Template.Annotations, have.Spec.Template.Annotations)
 
 	d, err := c.kubeclient.AppsV1().Deployments(deployment.Namespace).Update(ctx, desiredDeployment, metav1.UpdateOptions{})
 	if err != nil {
