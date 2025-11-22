@@ -1857,6 +1857,7 @@ func TestProbePodIPs(t *testing.T) {
 			enableProbeOptimisation: input.enableProbeOptimization,
 			meshMode:                input.meshMode,
 			healthyPods:             input.healthy,
+			probeTimeout:            defaultProbeTimeout,
 		}
 
 		healthy, noop, notMesh, err := rw.probePodIPs(input.current.ready, input.current.notReady)
