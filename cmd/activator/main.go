@@ -83,6 +83,9 @@ type config struct {
 	// TODO: run loadtests using these flags to determine optimal default values.
 	MaxIdleProxyConns        int `split_words:"true" default:"1000"`
 	MaxIdleProxyConnsPerHost int `split_words:"true" default:"100"`
+
+	ProbeTimeout   int `split_words:"true" default:"300"`
+	ProbeFrequency int `split_words:"true" default:"200"`
 }
 
 func main() {
@@ -158,7 +161,8 @@ func main() {
 	// transport so that throttler probe connections can be reused after probing
 	// (via keep-alive) to send real requests, avoiding needing an extra
 	// reconnect for the first request after the probe succeeds.
-	logger.Debugf("MaxIdleProxyConns: %d, MaxIdleProxyConnsPerHost: %d", env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
+	logger.Debugf("MaxIdleProxyConns: %d, MaxIdleProxyConnsPerHost: %d, ProbeTimeout: %dms, ProbeFrequency: %dms",
+		env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, env.ProbeTimeout, env.ProbeFrequency)
 	transport := pkgnet.NewProxyAutoTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
 
 	// Fetch networking configuration to determine whether EnableMeshPodAddressability
@@ -191,7 +195,9 @@ func main() {
 
 	// Start throttler.
 	throttler := activatornet.NewThrottler(ctx, env.PodIP)
-	go throttler.Run(ctx, transport, networkConfig.EnableMeshPodAddressability, networkConfig.MeshCompatibilityMode)
+	probeTimeout := time.Duration(env.ProbeTimeout) * time.Millisecond
+	probeFrequency := time.Duration(env.ProbeFrequency) * time.Millisecond
+	go throttler.Run(ctx, transport, networkConfig.EnableMeshPodAddressability, networkConfig.MeshCompatibilityMode, probeTimeout, probeFrequency)
 
 	// Set up our config store
 	configMapWatcher := configmapinformer.NewInformedWatcher(kubeClient, system.Namespace())
