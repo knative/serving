@@ -37,7 +37,6 @@ import (
 	// Injection related imports.
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
-	network "knative.dev/networking/pkg"
 	netcfg "knative.dev/networking/pkg/config"
 	netprobe "knative.dev/networking/pkg/http/probe"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
@@ -167,7 +166,7 @@ func main() {
 	if err != nil {
 		logger.Fatalw("Failed to fetch network config", zap.Error(err))
 	}
-	networkConfig, err := network.NewConfigFromConfigMap(networkCM)
+	networkConfig, err := netcfg.NewConfigFromConfigMap(networkCM)
 	if err != nil {
 		logger.Fatalw("Failed to construct network config", zap.Error(err))
 	}

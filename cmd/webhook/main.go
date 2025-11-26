@@ -43,7 +43,6 @@ import (
 	extravalidation "knative.dev/serving/pkg/webhook"
 
 	// config validation constructors
-	network "knative.dev/networking/pkg"
 	netcfg "knative.dev/networking/pkg/config"
 	apisconfig "knative.dev/serving/pkg/apis/config"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
@@ -145,7 +144,7 @@ func newConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 		configmap.Constructors{
 			autoscalerconfig.ConfigName:      autoscalerconfig.NewConfigFromConfigMap,
 			gc.ConfigName:                    gc.NewConfigFromConfigMapFunc(ctx),
-			netcfg.ConfigMapName:             network.NewConfigFromConfigMap,
+			netcfg.ConfigMapName:             netcfg.NewConfigFromConfigMap,
 			deployment.ConfigName:            deployment.NewConfigFromConfigMap,
 			apisconfig.FeaturesConfigName:    apisconfig.NewFeaturesConfigFromConfigMap,
 			o11yconfigmap.Name():             o11yconfigmap.Parse,

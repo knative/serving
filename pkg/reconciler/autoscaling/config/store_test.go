@@ -24,7 +24,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	logtesting "knative.dev/pkg/logging/testing"
 
-	network "knative.dev/networking/pkg"
 	netcfg "knative.dev/networking/pkg/config"
 	. "knative.dev/pkg/configmap/testing"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
@@ -50,7 +49,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 	if !cmp.Equal(wantD, config.Deployment) {
 		t.Error("Deployment ConfigMap mismatch (-want, +got):", cmp.Diff(wantD, config.Deployment))
 	}
-	wantNet, _ := network.NewConfigFromConfigMap(netConfig)
+	wantNet, _ := netcfg.NewConfigFromConfigMap(netConfig)
 	if !cmp.Equal(wantNet, config.Network) {
 		t.Error("Network ConfigMap mismatch (-want, +got):", cmp.Diff(wantNet, config.Network))
 	}

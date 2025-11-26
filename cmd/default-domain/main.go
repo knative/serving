@@ -35,7 +35,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	corev1 "k8s.io/api/core/v1"
-	network "knative.dev/networking/pkg"
 	netapi "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	netclient "knative.dev/networking/pkg/client/clientset/versioned"
@@ -86,7 +85,7 @@ func findGatewayAddress(ctx context.Context, kubeclient kubernetes.Interface, cl
 	if err != nil {
 		return nil, err
 	}
-	netCfg, err := network.NewConfigFromConfigMap(netCM)
+	netCfg, err := netcfg.NewConfigFromConfigMap(netCM)
 	if err != nil {
 		return nil, err
 	}
