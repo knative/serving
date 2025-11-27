@@ -19,7 +19,6 @@ package config
 import (
 	"context"
 
-	network "knative.dev/networking/pkg"
 	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/configmap"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
@@ -68,7 +67,7 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 			configmap.Constructors{
 				asconfig.ConfigName:   asconfig.NewConfigFromConfigMap,
 				deployment.ConfigName: deployment.NewConfigFromConfigMap,
-				netcfg.ConfigMapName:  network.NewConfigFromConfigMap,
+				netcfg.ConfigMapName:  netcfg.NewConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),

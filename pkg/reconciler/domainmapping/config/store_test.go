@@ -22,7 +22,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	network "knative.dev/networking/pkg"
 	netcfg "knative.dev/networking/pkg/config"
 	logtesting "knative.dev/pkg/logging/testing"
 
@@ -39,7 +38,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 	config := FromContext(store.ToContext(context.Background()))
 
 	t.Run("network", func(t *testing.T) {
-		expected, _ := network.NewConfigFromConfigMap(networkConfig)
+		expected, _ := netcfg.NewConfigFromConfigMap(networkConfig)
 		if diff := cmp.Diff(expected, config.Network); diff != "" {
 			t.Errorf("Unexpected network config (-want, +got):\n%v", diff)
 		}

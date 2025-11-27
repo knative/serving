@@ -24,7 +24,6 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
 
-	network "knative.dev/networking/pkg"
 	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
@@ -70,7 +69,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 	})
 
 	t.Run("network", func(t *testing.T) {
-		expected, _ := network.NewConfigFromConfigMap(networkConfig)
+		expected, _ := netcfg.NewConfigFromConfigMap(networkConfig)
 		if diff := cmp.Diff(expected, config.Network); diff != "" {
 			t.Error("Unexpected controller config (-want, +got):", diff)
 		}
