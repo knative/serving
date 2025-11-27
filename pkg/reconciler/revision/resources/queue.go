@@ -65,10 +65,6 @@ var (
 		ContainerPort: networking.BackendHTTPSPort,
 	}
 	queueNonServingPorts = []corev1.ContainerPort{{
-		// Provides health checks and lifecycle hooks.
-		Name:          v1.QueueAdminPortName,
-		ContainerPort: networking.QueueAdminPort,
-	}, {
 		Name:          v1.AutoscalingQueueMetricsPortName,
 		ContainerPort: networking.AutoscalingQueueMetricsPort,
 	}, {
