@@ -1485,7 +1485,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 # knative.dev/hack v0.0.0-20251126013634-1484a9e9b641
 ## explicit; go 1.24
 knative.dev/hack
-# knative.dev/networking v0.0.0-20251126014605-137d136bdf97
+# knative.dev/networking v0.0.0-20251126213812-ebe48fd53262
 ## explicit; go 1.24.0
 knative.dev/networking/config
 knative.dev/networking/pkg
