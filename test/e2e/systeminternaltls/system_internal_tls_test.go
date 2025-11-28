@@ -32,7 +32,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/networking/pkg/apis/networking"
+	nv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/networking/pkg/certificates"
 	"knative.dev/networking/pkg/config"
 	"knative.dev/pkg/system"
@@ -372,4 +374,110 @@ func TestGracefulShutdownWithTLS(t *testing.T) {
 	}
 
 	t.Log("All requests completed successfully - PreStop hook worked correctly with TLS enabled")
+}
+
+// TestSystemInternalTLSWithServeMode tests that when system-internal-tls-allow-serve-mode is enabled,
+// the SKS transitions to Serve mode and traffic works correctly with TLS.
+func TestSystemInternalTLSWithServeMode(t *testing.T) {
+	if !test.ServingFlags.EnableAlphaFeatures {
+		t.Skip("Alpha features not enabled")
+	}
+
+	if !strings.Contains(test.ServingFlags.IngressClass, "kourier") {
+		t.Skip("Skip this test for non-kourier ingress as we only need to check one ingress with TLS support.")
+	}
+
+	clients := test.Setup(t)
+
+	// Enable system-internal-tls-allow-serve-mode
+	t.Log("Enabling system-internal-tls-allow-serve-mode")
+	systemNS := os.Getenv(system.NamespaceEnvKey)
+	cm, err := clients.KubeClient.CoreV1().ConfigMaps(systemNS).Get(
+		context.Background(), "config-network", v1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get config-network ConfigMap: %v", err)
+	}
+
+	originalData := cm.Data["system-internal-tls-allow-serve-mode"]
+	if cm.Data == nil {
+		cm.Data = make(map[string]string)
+	}
+	cm.Data["system-internal-tls-allow-serve-mode"] = "enabled"
+	_, err = clients.KubeClient.CoreV1().ConfigMaps(systemNS).Update(
+		context.Background(), cm, v1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to update config-network ConfigMap: %v", err)
+	}
+
+	// Restore original config on cleanup
+	test.EnsureCleanup(t, func() {
+		cm, err := clients.KubeClient.CoreV1().ConfigMaps(systemNS).Get(
+			context.Background(), "config-network", v1.GetOptions{})
+		if err != nil {
+			t.Logf("Warning: Failed to get config-network ConfigMap during cleanup: %v", err)
+			return
+		}
+		if originalData == "" {
+			delete(cm.Data, "system-internal-tls-allow-serve-mode")
+		} else {
+			cm.Data["system-internal-tls-allow-serve-mode"] = originalData
+		}
+		if _, err := clients.KubeClient.CoreV1().ConfigMaps(systemNS).Update(
+			context.Background(), cm, v1.UpdateOptions{}); err != nil {
+			t.Logf("Warning: Failed to restore config-network ConfigMap: %v", err)
+		}
+	})
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   test.HelloWorld,
+	}
+
+	test.EnsureTearDown(t, clients, &names)
+
+	t.Log("Creating a new Service with min-scale=1 and target-burst-capacity=0")
+	resources, err := v1test.CreateServiceReady(t, clients, &names,
+		rtesting.WithConfigAnnotations(map[string]string{
+			// These annotations ensure the service will be in Serve mode:
+			// - min-scale=1 ensures want > 0
+			// - target-burst-capacity=0 ensures excess burst capacity >= 0
+			autoscaling.MinScaleAnnotationKey:  "1",
+			autoscaling.TargetBurstCapacityKey: "0",
+		}))
+	if err != nil {
+		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
+	}
+
+	// Wait for SKS to be in Serve mode
+	t.Log("Waiting for SKS to transition to Serve mode")
+	var sksMode nv1alpha1.ServerlessServiceOperationMode
+	if err := wait.PollUntilContextTimeout(context.Background(), time.Second, time.Minute, true, func(context.Context) (bool, error) {
+		sks, err := clients.NetworkingClient.ServerlessServices.Get(
+			context.Background(), resources.Revision.Name, v1.GetOptions{})
+		if err != nil {
+			return false, nil //nolint:nilerr
+		}
+		sksMode = sks.Spec.Mode
+		t.Logf("Current SKS mode: %s", sksMode)
+		return sksMode == nv1alpha1.SKSOperationModeServe, nil
+	}); err != nil {
+		t.Fatalf("SKS did not transition to Serve mode (current mode: %s): %v", sksMode, err)
+	}
+
+	t.Log("SKS is in Serve mode, verifying service works correctly")
+	url := resources.Route.Status.URL.URL()
+	if _, err := pkgTest.CheckEndpointState(
+		context.Background(),
+		clients.KubeClient,
+		t.Logf,
+		url,
+		spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.HelloWorldText)),
+		"HelloWorldText",
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
+	); err != nil {
+		t.Fatalf("The endpoint %s didn't serve the expected text %q: %v", url, test.HelloWorldText, err)
+	}
+
+	t.Log("Service works correctly in Serve mode with system-internal-tls enabled")
 }
