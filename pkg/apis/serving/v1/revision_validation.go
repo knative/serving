@@ -71,6 +71,7 @@ func (rts *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError 
 	// it follows the requirements on the name.
 	errs = errs.Also(validateRevisionName(ctx, rts.Name, rts.GenerateName))
 	errs = errs.Also(validateQueueSidecarResourceAnnotations(rts.Annotations).ViaField("metadata.annotations"))
+	errs = errs.Also(validateQueueSidecarImageAnnotation(rts.Annotations).ViaField("metadata.annotations"))
 	errs = errs.Also(validateProgressDeadlineAnnotation(rts.Annotations).ViaField("metadata.annotations"))
 	return errs
 }
@@ -215,6 +216,21 @@ func validateQueueSidecarResourceAnnotations(m map[string]string) *apis.FieldErr
 		}
 	}
 	return errs
+}
+
+// validateQueueSidecarImageAnnotation validates the queue sidecar image annotation.
+func validateQueueSidecarImageAnnotation(m map[string]string) *apis.FieldError {
+	if k, v, ok := serving.QueueSidecarImageAnnotation.Get(m); ok {
+		// Basic validation: image should not be empty
+		if v == "" {
+			return apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(k)
+		}
+		// Additional validation: image should not contain spaces (basic check)
+		if strings.Contains(v, " ") {
+			return apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(k)
+		}
+	}
+	return nil
 }
 
 // ValidateProgressDeadlineAnnotation validates the revision progress deadline annotation.

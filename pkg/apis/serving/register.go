@@ -137,6 +137,9 @@ const (
 	// QueueSidecarEphemeralStorageResourceLimitAnnotationKey is the explicit value of the ephemeral storage limit for queue-proxy's limit resources
 	QueueSidecarEphemeralStorageResourceLimitAnnotationKey = "queue.sidecar." + GroupName + "/ephemeral-storage-resource-limit"
 
+	// QueueSidecarImageAnnotationKey is the annotation key for specifying a custom queue-proxy sidecar image
+	QueueSidecarImageAnnotationKey = "queue.sidecar." + GroupName + "/image"
+
 	// VisibilityClusterLocal is the label value for VisibilityLabelKey
 	// that will result to the Route/KService getting a cluster local
 	// domain suffix.
@@ -198,6 +201,9 @@ var (
 	}
 	QueueSidecarEphemeralStorageResourceLimitAnnotation = kmap.KeyPriority{
 		QueueSidecarEphemeralStorageResourceLimitAnnotationKey,
+	}
+	QueueSidecarImageAnnotation = kmap.KeyPriority{
+		QueueSidecarImageAnnotationKey,
 	}
 	ProgressDeadlineAnnotation = kmap.KeyPriority{
 		ProgressDeadlineAnnotationKey,
