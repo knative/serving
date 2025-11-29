@@ -19,13 +19,14 @@ package revision
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
-	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/kmap"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
@@ -71,8 +72,13 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 	desiredDeployment := have.DeepCopy()
 	desiredDeployment.Spec = deployment.Spec
 
-	// Carry over new labels.
-	desiredDeployment.Labels = kmeta.UnionMaps(deployment.Labels, desiredDeployment.Labels)
+	// Carry over new labels and annotations at deployment level.
+	desiredDeployment.Labels = mergeMetadata(deployment.Labels, have.Labels)
+	desiredDeployment.Annotations = mergeMetadata(deployment.Annotations, have.Annotations)
+
+	// Carry over template-level labels and annotations (e.g., kubectl.kubernetes.io/restartedAt from rollout restart).
+	desiredDeployment.Spec.Template.Labels = mergeMetadata(deployment.Spec.Template.Labels, have.Spec.Template.Labels)
+	desiredDeployment.Spec.Template.Annotations = mergeMetadata(deployment.Spec.Template.Annotations, have.Spec.Template.Annotations)
 
 	d, err := c.kubeclient.AppsV1().Deployments(deployment.Namespace).Update(ctx, desiredDeployment, metav1.UpdateOptions{})
 	if err != nil {
@@ -92,6 +98,16 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 	// If what comes back has a different spec, then signal the change.
 	logger.Info("Reconciled deployment diff (-desired, +observed): ", diff)
 	return d, nil
+}
+
+// mergeMetadata merges Knative-managed metadata with external metadata.
+// Knative controls knative.dev keys and the app label; other keys are preserved from current.
+func mergeMetadata(desired, current map[string]string) map[string]string {
+	isKnativeKey := func(key string) bool {
+		return key == resources.AppLabelKey || strings.Contains(key, "knative.dev/")
+	}
+	external := kmap.Filter(current, isKnativeKey)
+	return kmap.Union(desired, external)
 }
 
 func (c *Reconciler) createImageCache(ctx context.Context, rev *v1.Revision, containerName, imageDigest string) (*caching.Image, error) {
