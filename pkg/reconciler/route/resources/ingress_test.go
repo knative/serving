@@ -1303,16 +1303,6 @@ func TestMakeIngressACMEChallenges(t *testing.T) {
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{{
-				Path: "/.well-known/acme-challenge/challenge-token",
-				Splits: []netv1alpha1.IngressBackendSplit{{
-					IngressBackend: netv1alpha1.IngressBackend{
-						ServiceNamespace: "test-ns",
-						ServiceName:      "cm-solver",
-						ServicePort:      intstr.FromInt(8090),
-					},
-					Percent: 100,
-				}},
-			}, {
 				Splits: []netv1alpha1.IngressBackendSplit{{
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: "test-ns",
@@ -1324,6 +1314,24 @@ func TestMakeIngressACMEChallenges(t *testing.T) {
 						"Knative-Serving-Revision":  "v2",
 						"Knative-Serving-Namespace": "test-ns",
 					},
+				}},
+			}},
+		},
+	}, {
+		Hosts: []string{
+			"test-route.test-ns.example.com",
+		},
+		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				Path: "/.well-known/acme-challenge/challenge-token",
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: "test-ns",
+						ServiceName:      "cm-solver",
+						ServicePort:      intstr.FromInt(8090),
+					},
+					Percent: 100,
 				}},
 			}},
 		},
@@ -1341,6 +1349,117 @@ func TestMakeIngressACMEChallenges(t *testing.T) {
 
 	if !cmp.Equal(expected, ci.Rules) {
 		t.Error("Unexpected rules (-want, +got):", cmp.Diff(expected, ci.Rules))
+	}
+}
+
+func TestMakeIngressACMEChallengesWithTrafficTags(t *testing.T) {
+	// Test that ACME challenges don't create duplicate domains across traffic tag rules
+	targets := map[string]traffic.RevisionTargets{
+		traffic.DefaultTarget: {{
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: "config",
+				RevisionName:      "v1",
+				Percent:           ptr.Int64(100),
+			},
+		}},
+		"blue": {{
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: "config",
+				RevisionName:      "v1",
+				Percent:           ptr.Int64(100),
+			},
+		}},
+		"green": {{
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: "config",
+				RevisionName:      "v1",
+				Percent:           ptr.Int64(100),
+			},
+		}},
+	}
+
+	r := &v1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-route",
+			Namespace: "test-ns",
+		},
+		Status: v1.RouteStatus{
+			RouteStatusFields: v1.RouteStatusFields{
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   "test-route.test-ns.example.com",
+				},
+			},
+		},
+	}
+
+	// Three ACME challenges: one for default and one for each tag
+	acmeChallenges := []netv1alpha1.HTTP01Challenge{
+		{
+			ServiceNamespace: "test-ns",
+			ServiceName:      "cm-solver",
+			ServicePort:      intstr.FromInt(8090),
+			URL: &apis.URL{
+				Scheme: "http",
+				Path:   "/.well-known/acme-challenge/token-default",
+				Host:   "test-route.test-ns.example.com",
+			},
+		},
+		{
+			ServiceNamespace: "test-ns",
+			ServiceName:      "cm-solver-blue",
+			ServicePort:      intstr.FromInt(8090),
+			URL: &apis.URL{
+				Scheme: "http",
+				Path:   "/.well-known/acme-challenge/token-blue",
+				Host:   "blue-test-route.test-ns.example.com",
+			},
+		},
+		{
+			ServiceNamespace: "test-ns",
+			ServiceName:      "cm-solver-green",
+			ServicePort:      intstr.FromInt(8090),
+			URL: &apis.URL{
+				Scheme: "http",
+				Path:   "/.well-known/acme-challenge/token-green",
+				Host:   "green-test-route.test-ns.example.com",
+			},
+		},
+	}
+
+	tc := &traffic.Config{
+		Targets: targets,
+	}
+	ro := tc.BuildRollout()
+
+	ci, err := makeIngressSpec(testContext(), r, nil /*tls*/, tc, ro, acmeChallenges...)
+	if err != nil {
+		t.Fatal("Unexpected error", err)
+	}
+
+	// Verify each ACME challenge path appears in exactly one rule
+	acmePathsSeen := make(map[string]int) // path -> count across all rules
+	for _, rule := range ci.Rules {
+		if rule.Visibility != netv1alpha1.IngressVisibilityExternalIP || rule.HTTP == nil {
+			continue
+		}
+		for _, path := range rule.HTTP.Paths {
+			if path.Path != "" && len(path.Path) > 0 {
+				acmePathsSeen[path.Path]++
+			}
+		}
+	}
+
+	// Each ACME challenge path should appear exactly once
+	expectedPaths := []string{
+		"/.well-known/acme-challenge/token-default",
+		"/.well-known/acme-challenge/token-blue",
+		"/.well-known/acme-challenge/token-green",
+	}
+	for _, path := range expectedPaths {
+		if count := acmePathsSeen[path]; count != 1 {
+			t.Errorf("ACME challenge path %q appears in %d rules (expected 1)", path, count)
+		}
 	}
 }
 
