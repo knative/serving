@@ -111,8 +111,8 @@ github.com/docker/distribution v2.8.3+incompatible h1:AtKxIZ36LoNK51+Z6RpzLpddBi
 github.com/docker/distribution v2.8.3+incompatible/go.mod h1:J2gT2udsDAN96Uj4KfcMRqY0/ypR+oyYUYmja8H+y+w=
 github.com/docker/docker-credential-helpers v0.8.2 h1:bX3YxiGzFP5sOXWc3bTPEXdEaZSeVMrFgOr3T+zrFAo=
 github.com/docker/docker-credential-helpers v0.8.2/go.mod h1:P3ci7E3lwkZg6XiHdRKft1KckHiO9a2rNtyFbZ/ry9M=
-github.com/dprotaso/pkg v0.0.0-20251130181829-779b85906b73 h1:jMvzA7UOksGYqUOS67I4Wka/apQr9MbpmHyvulzuwDs=
-github.com/dprotaso/pkg v0.0.0-20251130181829-779b85906b73/go.mod h1:Eh9hwzqriXEfHiXcCuOYExUj7WH8prk57V6qSeO6m94=
+github.com/dprotaso/pkg v0.0.0-20251130213149-b24adc693a81 h1:7YeAKV/I+qI9cTjspBgyq2b9Weu2xiyBYXwqiIpy/Fc=
+github.com/dprotaso/pkg v0.0.0-20251130213149-b24adc693a81/go.mod h1:Eh9hwzqriXEfHiXcCuOYExUj7WH8prk57V6qSeO6m94=
 github.com/emicklei/go-restful/v3 v3.12.2 h1:DhwDP0vY3k8ZzE0RunuJy8GhNpPL6zqLkDf9B/a0/xU=
 github.com/emicklei/go-restful/v3 v3.12.2/go.mod h1:6n3XBCmQQb25CM2LCACGz8ukIrRry+4bhvbpWn3mrbc=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
