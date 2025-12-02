@@ -70,7 +70,6 @@ func TestMustHaveHeadersSet(t *testing.T) {
 // TestShouldHaveHeadersSet verified that all headers declared as "SHOULD" in the runtime
 // contract are present from the point of view of the user container.
 func TestShouldHaveHeadersSet(t *testing.T) {
-	t.Skip("Skipping due to https://github.com/knative/serving/issues/15949")
 	t.Parallel()
 	clients := test.Setup(t)
 
@@ -86,19 +85,13 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 		"x-forwarded-for": &checkIPList{expected: "comma separated IPv4 or IPv6 addresses"},
 
 		// Trace Headers
-		// See https://github.com/openzipkin/b3-propagation#overall-process
-		// We use the multiple header variant for tracing. We do not validate the single header variant.
-		// We expect the value to be a 64-bit hex string
-		"x-b3-spanid": regexp.MustCompile("[0-9a-f]{16}"),
-		// We expect the value to be a 64-bit or 128-bit hex string
-		"x-b3-traceid": regexp.MustCompile("[0-9a-f]{16}|[0-9a-f]{32}"),
-
 		// Support W3C Trace Context (OpenTelemetry standard)
 		// Format: version-trace-id-span-id-trace-flags (00-<32-hex>-<16-hex>-<2-hex>)
+		//
+		// Note: this header is coming from the spoof client - when making the request
+		// to the backend. The spoof client is instrumented with OTel and the necessary
+		// OTel setup is being done in TestMain in main_test.go file in this package
 		"traceparent": regexp.MustCompile("[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}"),
-
-		// "x-b3-parentspanid" and "x-b3-sampled" are often present for tracing, but are not
-		// required for tracing so we do not validate them.
 	}
 
 	_, ri, err := fetchRuntimeInfo(t, clients, spoof.WithHeader(userHeaders))
@@ -107,6 +100,7 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 	}
 
 	headers := ri.Request.Headers
+	t.Log(headers)
 
 	matchHeaders(t, headers, expectedHeaders)
 }
