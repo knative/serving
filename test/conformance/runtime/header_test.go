@@ -100,7 +100,7 @@ func TestShouldHaveHeadersSet(t *testing.T) {
 	}
 
 	headers := ri.Request.Headers
-	t.Log(headers)
+	t.Log("Headers received:", headers)
 
 	matchHeaders(t, headers, expectedHeaders)
 }
