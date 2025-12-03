@@ -115,7 +115,7 @@ func assertMetrics(t *testing.T, reader *metric.ManualReader, status int) {
 		metricstest.MetricsEqual(
 			scopeName,
 			metricdata.Metrics{
-				Name:        "kn.queueproxy.depth",
+				Name:        "kn.serving.queue.depth",
 				Unit:        "{request}",
 				Description: "Number of current requests in the queue",
 				Data: metricdata.Gauge[int64]{
@@ -125,7 +125,7 @@ func assertMetrics(t *testing.T, reader *metric.ManualReader, status int) {
 				},
 			},
 			metricdata.Metrics{
-				Name:        "kn.queueproxy.app.duration",
+				Name:        "kn.serving.invocation.duration",
 				Unit:        "s",
 				Description: "The duration of task execution",
 				Data: metricdata.Histogram[float64]{
