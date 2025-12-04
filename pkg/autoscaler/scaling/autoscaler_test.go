@@ -871,6 +871,52 @@ func TestNewFail(t *testing.T) {
 	}
 }
 
+func TestPausingCollection(t *testing.T) {
+	reader := metric.NewManualReader()
+	key := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
+	mp := metric.NewMeterProvider(metric.WithReader(reader))
+	attrs := attribute.NewSet(attribute.String("foo", "bar"))
+	testColl := &testCollection{
+		paused: false,
+	}
+	metrics := &metricClient{
+		StableConcurrency: 9.0,
+		PanicConcurrency:  9.0,
+		StableRPS:         9.0,
+		PanicRPS:          9.0,
+		collections: map[types.NamespacedName]*testCollection{
+			key: testColl,
+		},
+	}
+	deciderSpec := &DeciderSpec{
+		TargetValue:         3,
+		TotalValue:          4,
+		TargetBurstCapacity: 1,
+		PanicThreshold:      2,
+		MaxScaleUpRate:      10,
+		MaxScaleDownRate:    10,
+		StableWindow:        stableWindow,
+	}
+
+	pc := fakePodCounter{
+		readyCount: 1,
+	}
+	a := newAutoscaler(attrs, mp, testNamespace, testRevision, metrics, pc, deciderSpec, nil)
+	now := time.Now()
+	_ = a.Scale(logtesting.TestLogger(t), now)
+	if metrics.collections[key].getPaused() != true {
+		t.Errorf("metric collection should be paused but is not")
+	}
+	metrics.SetStableAndPanicConcurrency(3, 3)
+	a.Update(deciderSpec)
+	now = time.Now()
+	_ = a.Scale(logtesting.TestLogger(t), now)
+	if metrics.collections[key].getPaused() != false {
+		t.Errorf("metric collection should be resumed but was paused")
+	}
+
+}
+
 // staticMetricClient returns stable/panic concurrency and RPS with static value, i.e. 10.
 var staticMetricClient = metricClient{
 	StableConcurrency: 10.0,
@@ -879,13 +925,27 @@ var staticMetricClient = metricClient{
 	PanicRPS:          10.0,
 }
 
+// test collection type
+type testCollection struct {
+	paused bool
+}
+
 // metricClient is a fake implementation of autoscaler.metricClient for testing.
 type metricClient struct {
 	StableConcurrency float64
 	PanicConcurrency  float64
 	StableRPS         float64
 	PanicRPS          float64
+	collections       map[types.NamespacedName]*testCollection
 	ErrF              func(key types.NamespacedName, now time.Time) error
+}
+
+func (c *testCollection) setPause(paused bool) {
+	c.paused = paused
+}
+
+func (c *testCollection) getPaused() bool {
+	return c.paused
 }
 
 // SetStableAndPanicConcurrency sets the stable and panic concurrencies.
@@ -914,10 +974,18 @@ func (mc *metricClient) StableAndPanicRPS(key types.NamespacedName, now time.Tim
 }
 
 // Pauses metric collection
-func (mc *metricClient) Pause(key types.NamespacedName) {}
+func (mc *metricClient) Pause(key types.NamespacedName) {
+	if collection, exists := mc.collections[key]; exists {
+		collection.setPause(true)
+	}
+}
 
 // Resumes metric collection
-func (mc *metricClient) Resume(key types.NamespacedName) {}
+func (mc *metricClient) Resume(key types.NamespacedName) {
+	if collection, exists := mc.collections[key]; exists {
+		collection.setPause(false)
+	}
+}
 
 func BenchmarkAutoscaler(b *testing.B) {
 	metrics := &metricClient{StableConcurrency: 50.0, PanicConcurrency: 10}
