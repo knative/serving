@@ -24,7 +24,6 @@ import (
 // ExtractTraceID extracts the trace ID from the request headers.
 // It supports both W3C Trace Context (traceparent) and B3 (X-B3-TraceId) formats.
 func ExtractTraceID(h http.Header) string {
-	//nolint:canonicalheader
 	if traceparent := h.Get("traceparent"); traceparent != "" {
 		parts := strings.SplitN(traceparent, "-", 3)
 		if len(parts) >= 2 {
@@ -32,7 +31,6 @@ func ExtractTraceID(h http.Header) string {
 		}
 	}
 
-	//nolint:canonicalheader
 	if b3TraceID := h.Get("X-B3-TraceId"); b3TraceID != "" {
 		return b3TraceID
 	}

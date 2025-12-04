@@ -198,16 +198,6 @@ func TestMakeIngress(t *testing.T) {
 					Visibility: netv1alpha1.IngressVisibilityExternalIP,
 					HTTP: &netv1alpha1.HTTPIngressRuleValue{
 						Paths: []netv1alpha1.HTTPIngressPath{{
-							Path: "/.well-known/acme-challenge/challenge-token",
-							Splits: []netv1alpha1.IngressBackendSplit{{
-								IngressBackend: netv1alpha1.IngressBackend{
-									ServiceNamespace: "test-ns",
-									ServiceName:      "cm-solver",
-									ServicePort:      intstr.FromInt(8090),
-								},
-								Percent: 100,
-							}},
-						}, {
 							RewriteHost: "the-rewrite-host",
 							Splits: []netv1alpha1.IngressBackendSplit{{
 								Percent: 100,
@@ -219,6 +209,95 @@ func TestMakeIngress(t *testing.T) {
 									ServiceNamespace: "the-namespace",
 									ServicePort:      intstr.FromInt(80),
 								},
+							}},
+						}},
+					},
+				}, {
+					Hosts:      []string{"mapping.com"},
+					Visibility: netv1alpha1.IngressVisibilityExternalIP,
+					HTTP: &netv1alpha1.HTTPIngressRuleValue{
+						Paths: []netv1alpha1.HTTPIngressPath{{
+							Path: "/.well-known/acme-challenge/challenge-token",
+							Splits: []netv1alpha1.IngressBackendSplit{{
+								IngressBackend: netv1alpha1.IngressBackend{
+									ServiceNamespace: "test-ns",
+									ServiceName:      "cm-solver",
+									ServicePort:      intstr.FromInt(8090),
+								},
+								Percent: 100,
+							}},
+						}},
+					},
+				}},
+			},
+		},
+	}, {
+		name: "challenge with non-matching host",
+		dm: v1beta1.DomainMapping{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "mapping.com",
+				Namespace: "the-namespace",
+				UID:       types.UID("the-uid"),
+			},
+			Spec: v1beta1.DomainMappingSpec{
+				Ref: duckv1.KReference{
+					Namespace: "the-namespace",
+					Name:      "the-name",
+				},
+			},
+		},
+		acmeChallenges: []netv1alpha1.HTTP01Challenge{{
+			ServiceNamespace: "test-ns",
+			ServiceName:      "cm-solver",
+			ServicePort:      intstr.FromInt(8090),
+			URL: &apis.URL{
+				Scheme: "http",
+				Path:   "/.well-known/acme-challenge/token",
+				Host:   "truncated.example.com", // Different from mapping.com
+			},
+		}},
+		want: netv1alpha1.Ingress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "mapping.com",
+				Namespace: "the-namespace",
+				Annotations: map[string]string{
+					netapi.IngressClassAnnotationKey: "the-ingress-class",
+				},
+			},
+			Spec: netv1alpha1.IngressSpec{
+				HTTPOption: netv1alpha1.HTTPOptionEnabled,
+				Rules: []netv1alpha1.IngressRule{{
+					Hosts:      []string{"mapping.com"},
+					Visibility: netv1alpha1.IngressVisibilityExternalIP,
+					HTTP: &netv1alpha1.HTTPIngressRuleValue{
+						Paths: []netv1alpha1.HTTPIngressPath{{
+							RewriteHost: "the-rewrite-host",
+							Splits: []netv1alpha1.IngressBackendSplit{{
+								Percent: 100,
+								AppendHeaders: map[string]string{
+									netheader.OriginalHostKey: "mapping.com",
+								},
+								IngressBackend: netv1alpha1.IngressBackend{
+									ServiceName:      "the-target-svc",
+									ServiceNamespace: "the-namespace",
+									ServicePort:      intstr.FromInt(80),
+								},
+							}},
+						}},
+					},
+				}, {
+					Hosts:      []string{"truncated.example.com"},
+					Visibility: netv1alpha1.IngressVisibilityExternalIP,
+					HTTP: &netv1alpha1.HTTPIngressRuleValue{
+						Paths: []netv1alpha1.HTTPIngressPath{{
+							Path: "/.well-known/acme-challenge/token",
+							Splits: []netv1alpha1.IngressBackendSplit{{
+								IngressBackend: netv1alpha1.IngressBackend{
+									ServiceNamespace: "test-ns",
+									ServiceName:      "cm-solver",
+									ServicePort:      intstr.FromInt(8090),
+								},
+								Percent: 100,
 							}},
 						}},
 					},
