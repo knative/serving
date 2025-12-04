@@ -914,7 +914,6 @@ func TestPausingCollection(t *testing.T) {
 	if metrics.collections[key].getPaused() != false {
 		t.Errorf("metric collection should be resumed but was paused")
 	}
-
 }
 
 // staticMetricClient returns stable/panic concurrency and RPS with static value, i.e. 10.
