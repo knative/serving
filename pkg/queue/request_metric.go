@@ -59,7 +59,7 @@ func NewAppRequestMetricsHandler(
 	)
 
 	handler.duration, err = meter.Float64Histogram(
-		"kn.queueproxy.app.duration",
+		"kn.serving.invocation.duration",
 		metric.WithDescription("The duration of task execution"),
 		metric.WithUnit("s"),
 		metric.WithExplicitBucketBoundaries(latencyBounds...),
@@ -69,7 +69,7 @@ func NewAppRequestMetricsHandler(
 	}
 
 	handler.queueLen, err = meter.Int64Gauge(
-		"kn.queueproxy.depth",
+		"kn.serving.queue.depth",
 		metric.WithDescription("Number of current requests in the queue"),
 		metric.WithUnit("{request}"),
 	)
