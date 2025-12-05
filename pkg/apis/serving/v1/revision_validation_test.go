@@ -1092,6 +1092,57 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			Message: "progress-deadline=-1m3s must be positive",
 			Paths:   []string{serving.ProgressDeadlineAnnotationKey},
 		}).ViaField("metadata.annotations"),
+	}, {
+		name: "invalid networking.knative.dev/visibility annotation",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					"networking.knative.dev/visibility": "cluster-local",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: apis.ErrInvalidKeyName("networking.knative.dev/visibility", "metadata.annotations"),
+	}, {
+		name: "invalid unknown networking.knative.dev annotation",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					"networking.knative.dev/foo": "bar",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: apis.ErrInvalidKeyName("networking.knative.dev/foo", "metadata.annotations"),
+	}, {
+		name: "valid networking.knative.dev/ingress.class annotation",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					"networking.knative.dev/ingress.class": "istio.ingress.networking.knative.dev",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: nil,
 	}}
 
 	for _, test := range tests {
