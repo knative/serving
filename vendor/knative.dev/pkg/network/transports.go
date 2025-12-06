@@ -117,7 +117,15 @@ func dialBackOffHelper(ctx context.Context, network, address string, bo wait.Bac
 	return nil, fmt.Errorf("%w %s after %.2fs", ErrTimeoutDialing, address, elapsed.Seconds())
 }
 
-func newHTTPTransport(disableKeepAlives, disableCompression bool, maxIdle, maxIdlePerHost int) http.RoundTripper {
+func newHTTPTransport(
+	disableKeepAlives,
+	disableCompression bool,
+	maxIdle,
+	maxIdlePerHost int,
+) *http.Transport {
+	var protocols http.Protocols
+	protocols.SetHTTP1(true)
+
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.DialContext = DialWithBackOff
 	transport.DisableKeepAlives = disableKeepAlives
@@ -125,12 +133,23 @@ func newHTTPTransport(disableKeepAlives, disableCompression bool, maxIdle, maxId
 	transport.MaxIdleConnsPerHost = maxIdlePerHost
 	transport.ForceAttemptHTTP2 = false
 	transport.DisableCompression = disableCompression
+	transport.Protocols = &protocols
+
 	return transport
 }
 
 type DialTLSContextFunc func(ctx context.Context, network, addr string) (net.Conn, error)
 
-func newHTTPSTransport(disableKeepAlives, disableCompression bool, maxIdle, maxIdlePerHost int, tlsContext DialTLSContextFunc) http.RoundTripper {
+func newHTTPSTransport(
+	disableKeepAlives,
+	disableCompression bool,
+	maxIdle,
+	maxIdlePerHost int,
+	tlsContext DialTLSContextFunc,
+) *http.Transport {
+	var protocols http.Protocols
+	protocols.SetHTTP1(true)
+
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.DisableKeepAlives = disableKeepAlives
 	transport.MaxIdleConns = maxIdle
@@ -138,6 +157,7 @@ func newHTTPSTransport(disableKeepAlives, disableCompression bool, maxIdle, maxI
 	transport.ForceAttemptHTTP2 = false
 	transport.DisableCompression = disableCompression
 	transport.DialTLSContext = tlsContext
+	transport.Protocols = &protocols
 
 	return transport
 }
@@ -145,33 +165,72 @@ func newHTTPSTransport(disableKeepAlives, disableCompression bool, maxIdle, maxI
 // NewProberTransport creates a RoundTripper that is useful for probing,
 // since it will not cache connections.
 func NewProberTransport() http.RoundTripper {
-	return newAutoTransport(
-		newHTTPTransport(true /*disable keep-alives*/, false /*disable auto-compression*/, 0, 0 /*no caching*/),
-		NewH2CTransport())
+	http := newHTTPTransport(
+		true,  /*disable keep-alives*/
+		false, /*disable auto-compression*/
+		0,     /*max idle*/
+		0,     /*no caching*/
+	)
+
+	// h2 prior knowledge
+	h2 := http.Clone()
+	h2.Protocols.SetHTTP1(false)
+	h2.Protocols.SetUnencryptedHTTP2(true)
+
+	return newAutoTransport(http, h2)
 }
 
 // NewProxyAutoTLSTransport is same with NewProxyAutoTransport but it has DialTLSContextFunc to create HTTPS request.
 func NewProxyAutoTLSTransport(maxIdle, maxIdlePerHost int, tlsContext DialTLSContextFunc) http.RoundTripper {
-	return newAutoTransport(
-		newHTTPSTransport(false /*disable keep-alives*/, true /*disable auto-compression*/, maxIdle, maxIdlePerHost, tlsContext),
-		newH2Transport(true /*disable auto-compression*/, tlsContext))
+	https := newHTTPSTransport(
+		false, /*disable keep-alives*/
+		true,  /*disable auto-compression*/
+		maxIdle,
+		maxIdlePerHost,
+		tlsContext,
+	)
+
+	h2 := https.Clone()
+	h2.Protocols.SetHTTP1(false)
+	h2.Protocols.SetHTTP2(true)
+	h2.Protocols.SetUnencryptedHTTP2(true)
+
+	return newAutoTransport(https, h2)
 }
 
 // NewAutoTransport creates a RoundTripper that can use appropriate transport
 // based on the request's HTTP version.
 func NewAutoTransport(maxIdle, maxIdlePerHost int) http.RoundTripper {
-	return newAutoTransport(
-		newHTTPTransport(false /*disable keep-alives*/, false /*disable auto-compression*/, maxIdle, maxIdlePerHost),
-		newH2CTransport(false /*disable auto-compression*/))
+	http := newHTTPTransport(
+		false, /*disable keep-alives*/
+		false, /*disable auto-compression*/
+		maxIdle,
+		maxIdlePerHost,
+	)
+
+	h2 := http.Clone()
+	h2.Protocols.SetHTTP1(false)
+	h2.Protocols.SetUnencryptedHTTP2(true)
+
+	return newAutoTransport(http, h2)
 }
 
 // NewProxyAutoTransport creates a RoundTripper suitable for use by a reverse
 // proxy.  The returned transport uses HTTP or H2C based on the request's HTTP
 // version. The transport has DisableCompression set to true.
 func NewProxyAutoTransport(maxIdle, maxIdlePerHost int) http.RoundTripper {
-	return newAutoTransport(
-		newHTTPTransport(false /*disable keep-alives*/, true /*disable auto-compression*/, maxIdle, maxIdlePerHost),
-		newH2CTransport(true /*disable auto-compression*/))
+	http := newHTTPTransport(
+		false, /*disable keep-alives*/
+		true,  /*disable auto-compression*/
+		maxIdle,
+		maxIdlePerHost,
+	)
+
+	h2 := http.Clone()
+	h2.Protocols.SetHTTP1(false)
+	h2.Protocols.SetUnencryptedHTTP2(true)
+
+	return newAutoTransport(http, h2)
 }
 
 // AutoTransport uses h2c for HTTP2 requests and falls back to `http.DefaultTransport` for all others
