@@ -155,6 +155,23 @@ func (rs *RouteStatus) MarkRevisionFailed(name string) {
 		"Revision %q failed to become ready.", name)
 }
 
+// MarkRevisionNotOwned marks the RouteConditionAllTrafficAssigned condition
+// to indicate the Revision does not belong to the expected Service.
+func (rs *RouteStatus) MarkRevisionNotOwned(revisionName, expectedService, actualService string) {
+	if actualService == "" {
+		// Revision was created from a standalone Configuration (no known service)
+		routeCondSet.Manage(rs).MarkFalse(RouteConditionAllTrafficAssigned,
+			"RevisionNotOwned",
+			"Revision %q does not belong to Service %q.", revisionName, expectedService)
+	} else {
+		// Revision belongs to a different Service
+		routeCondSet.Manage(rs).MarkFalse(RouteConditionAllTrafficAssigned,
+			"RevisionNotOwned",
+			"Revision %q belongs to Service %q, not Service %q.",
+			revisionName, actualService, expectedService)
+	}
+}
+
 // MarkMissingTrafficTarget marks the RouteConditionAllTrafficAssigned
 // condition to indicate a reference traffic target was not found.
 func (rs *RouteStatus) MarkMissingTrafficTarget(kind, name string) {

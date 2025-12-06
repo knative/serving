@@ -177,3 +177,51 @@ func TestMarkBadTrafficTarget_RevisionNotYetReady(t *testing.T) {
 		}
 	}
 }
+
+func TestMarkBadTrafficTarget_RevisionNotOwned(t *testing.T) {
+	err := errRevisionNotOwned("other-rev", "my-service", "other-service")
+	r := testRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{}))
+
+	err.MarkBadTrafficTarget(&r.Status)
+	for _, condType := range []apis.ConditionType{
+		v1.RouteConditionAllTrafficAssigned,
+		v1.RouteConditionReady,
+	} {
+		got := r.Status.GetCondition(condType)
+		want := &apis.Condition{
+			Type:               condType,
+			Status:             corev1.ConditionFalse,
+			Reason:             "RevisionNotOwned",
+			Message:            `Revision "other-rev" belongs to Service "other-service", not Service "my-service".`,
+			LastTransitionTime: got.LastTransitionTime,
+			Severity:           apis.ConditionSeverityError,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Error("Unexpected condition diff (-want +got):", diff)
+		}
+	}
+}
+
+func TestMarkBadTrafficTarget_RevisionNotOwnedByAnyService(t *testing.T) {
+	err := errRevisionNotOwned("standalone-rev", "my-service", "")
+	r := testRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{}))
+
+	err.MarkBadTrafficTarget(&r.Status)
+	for _, condType := range []apis.ConditionType{
+		v1.RouteConditionAllTrafficAssigned,
+		v1.RouteConditionReady,
+	} {
+		got := r.Status.GetCondition(condType)
+		want := &apis.Condition{
+			Type:               condType,
+			Status:             corev1.ConditionFalse,
+			Reason:             "RevisionNotOwned",
+			Message:            `Revision "standalone-rev" does not belong to Service "my-service".`,
+			LastTransitionTime: got.LastTransitionTime,
+			Severity:           apis.ConditionSeverityError,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Error("Unexpected condition diff (-want +got):", diff)
+		}
+	}
+}

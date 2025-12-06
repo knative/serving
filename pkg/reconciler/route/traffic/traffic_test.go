@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
@@ -1707,6 +1708,96 @@ func TestBuildTrafficConfigurationTag0Percent(t *testing.T) {
 	}
 	if !cmp.Equal(gotR, wantR) {
 		t.Errorf("Rollout mismatch, diff(-want,+got):\n%s", cmp.Diff(wantR, gotR))
+	}
+}
+
+func TestBuildTrafficConfiguration_RevisionOwnership(t *testing.T) {
+	tests := []struct {
+		name             string
+		routeService     string // empty = standalone route
+		revisionService  string
+		wantErr          bool
+		wantErrSubstring string
+	}{{
+		name:             "service-owned route cannot reference revision from different service",
+		routeService:     "my-service",
+		revisionService:  "other-service",
+		wantErr:          true,
+		wantErrSubstring: "my-service",
+	}, {
+		name:            "service-owned route can reference its own revision",
+		routeService:    "my-service",
+		revisionService: "my-service",
+		wantErr:         false,
+	}, {
+		name:            "standalone route can reference revision from any service",
+		routeService:    "", // standalone
+		revisionService: "some-service",
+		wantErr:         false,
+	}, {
+		name:             "service-owned route cannot reference revision without service label",
+		routeService:     "my-service",
+		revisionService:  "",
+		wantErr:          true,
+		wantErrSubstring: "does not belong to Service",
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := testConfig("test-config")
+			rev := &v1.Revision{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-rev",
+					Namespace: testNamespace,
+					Labels: map[string]string{
+						serving.ConfigurationLabelKey: cfg.Name,
+						serving.ServiceLabelKey:       tt.revisionService,
+					},
+				},
+				Spec: *goodConfig.Spec.GetTemplate().Spec.DeepCopy(),
+			}
+			rev.Status.MarkResourcesAvailableTrue()
+			rev.Status.MarkContainerHealthyTrue()
+			rev.Status.MarkActiveTrue()
+			cfg.Status.SetLatestReadyRevisionName(rev.Name)
+			cfg.Status.SetLatestCreatedRevisionName(rev.Name)
+
+			servingClient := fakeclientset.NewSimpleClientset()
+			servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
+			configInformer := servingInformer.Serving().V1().Configurations()
+			revInformer := servingInformer.Serving().V1().Revisions()
+			revInformer.Informer().GetIndexer().Add(rev)
+			configInformer.Informer().GetIndexer().Add(cfg)
+
+			routeLabels := map[string]string{}
+			if tt.routeService != "" {
+				routeLabels[serving.ServiceLabelKey] = tt.routeService
+			}
+			route := Route(testNamespace, "test-route",
+				WithRouteLabel(routeLabels),
+				WithSpecTraffic(v1.TrafficTarget{
+					RevisionName: rev.Name,
+					Percent:      ptr.Int64(100),
+				}))
+
+			tc, err := BuildTrafficConfiguration(configInformer.Lister(), revInformer.Lister(), route)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("Expected error, got nil")
+				}
+				if tt.wantErrSubstring != "" && !strings.Contains(err.Error(), tt.wantErrSubstring) {
+					t.Errorf("Expected error containing %q, got: %v", tt.wantErrSubstring, err)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("Unexpected error: %v", err)
+				}
+				if tc == nil {
+					t.Fatal("Expected non-nil traffic config")
+				}
+			}
+		})
 	}
 }
 
