@@ -82,6 +82,12 @@ type MetricClient interface {
 	// StableAndPanicRPS returns both the stable and the panic RPS
 	// for the given replica as of the given time.
 	StableAndPanicRPS(key types.NamespacedName, now time.Time) (float64, float64, error)
+
+	// Pause metric collection
+	Pause(key types.NamespacedName)
+
+	// Resume metric collection
+	Resume(key types.NamespacedName)
 }
 
 // MetricCollector manages collection of metrics for many entities.
@@ -163,6 +169,24 @@ func (c *MetricCollector) Record(key types.NamespacedName, now time.Time, stat S
 
 	if collection, exists := c.collections[key]; exists {
 		collection.record(now, stat)
+	}
+}
+
+func (c *MetricCollector) Pause(key types.NamespacedName) {
+	c.collectionsMutex.RLock()
+	defer c.collectionsMutex.RUnlock()
+
+	if collection, exists := c.collections[key]; exists {
+		collection.setPause(true)
+	}
+}
+
+func (c *MetricCollector) Resume(key types.NamespacedName) {
+	c.collectionsMutex.RLock()
+	defer c.collectionsMutex.RUnlock()
+
+	if collection, exists := c.collections[key]; exists {
+		collection.setPause(false)
 	}
 }
 
@@ -251,6 +275,7 @@ type (
 		scraper StatsScraper
 		lastErr error
 		grp     sync.WaitGroup
+		paused  bool
 		stopCh  chan struct{}
 	}
 )
@@ -297,6 +322,7 @@ func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clo
 		scraper: scraper,
 
 		stopCh: make(chan struct{}),
+		paused: false,
 	}
 
 	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
@@ -313,6 +339,9 @@ func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clo
 			case <-c.stopCh:
 				return
 			case <-scrapeTicker.C():
+				if c.getPaused() {
+					continue
+				}
 				scraper := c.getScraper()
 				if scraper == nil {
 					// Don't scrape empty target service.
@@ -343,6 +372,24 @@ func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clo
 func (c *collection) close() {
 	close(c.stopCh)
 	c.grp.Wait()
+}
+
+// pause the scraper, happens when activator in path
+func (c *collection) setPause(pause bool) {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+
+	if c.paused != pause {
+		c.paused = pause
+	}
+}
+
+// pause the scraper, happens when activator in path
+func (c *collection) getPaused() bool {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+
+	return c.paused
 }
 
 // updateMetric safely updates the metric stored in the collection.
