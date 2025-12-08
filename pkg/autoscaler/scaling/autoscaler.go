@@ -293,6 +293,11 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 			observedPanicValue, spec.TargetBurstCapacity, excessBCF))
 	}
 
+	// Resume pod scraping if excess burst capacity >= 0
+	if excessBCF >= 0 {
+		a.metricClient.Resume(metricKey)
+	}
+
 	switch spec.ScalingMetric {
 	case autoscaling.RPS:
 		a.metrics.RecordRPS(
@@ -310,6 +315,11 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 			observedPanicValue,
 			spec.TargetValue,
 		)
+	}
+
+	// pause after recording concurrency if excess burst capacity is < 0
+	if excessBCF < 0 {
+		a.metricClient.Pause(metricKey)
 	}
 
 	return ScaleResult{
