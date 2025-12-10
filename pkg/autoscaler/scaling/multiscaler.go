@@ -121,6 +121,9 @@ type UniScaler interface {
 
 	// Update reconfigures the UniScaler according to the DeciderSpec.
 	Update(*DeciderSpec)
+
+	// OnDelete signals when the scaler resources should be cleaned up
+	OnDelete()
 }
 
 // UniScalerFactory creates a UniScaler for a given PA using the given dynamic configuration.
@@ -257,6 +260,7 @@ func (m *MultiScaler) Delete(_ context.Context, namespace, name string) {
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
 	if scaler, exists := m.scalers[key]; exists {
+		scaler.scaler.OnDelete()
 		close(scaler.stopCh)
 		delete(m.scalers, key)
 	}
