@@ -203,7 +203,8 @@ func newServiceScraperWithClient(
 			semconv.K8SNamespaceName(m.ObjectMeta.Namespace),
 			metrics.ServiceNameKey.With(svcName),
 			metrics.ConfigurationNameKey.With(cfgName),
-			metrics.RevisionNameKey.With(revisionName),
+			// TODO: Re-enable when OTel has the ability to remove attributes
+			// metrics.RevisionNameKey.With(revisionName),
 		),
 	}
 }
