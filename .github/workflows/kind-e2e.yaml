@@ -94,6 +94,7 @@ jobs:
         # Disabled due to flakiness: https://github.com/knative/serving/issues/14637
         # - istio-ambient
         - contour
+        - contour-tls
         - gateway_istio
         - gateway_contour
 
@@ -133,6 +134,10 @@ jobs:
 
         - ingress: kourier-tls
           ingress-class: kourier
+          enable-tls: 1
+
+        - ingress: contour-tls
+          ingress-class: contour
           enable-tls: 1
 
         - test-suite: runtime

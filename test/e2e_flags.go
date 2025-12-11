@@ -85,7 +85,7 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 	flag.BoolVar(&f.DisableOptionalAPI, "disable-optional-api", false,
 		"Set this flag to skip conformance tests against optional API.")
 
-	flag.BoolVar(&f.SkipCleanupOnFail, "skip-cleanup-on-fail", false, "Set this flag to skip cleanup if test fails.")
+	flag.BoolVar(&f.SkipCleanupOnFail, "skip-cleanup-on-fail", true, "Set this flag to skip cleanup if test fails.")
 
 	flag.StringVar(&f.TestNamespace, "test-namespace", "serving-tests",
 		"Set this flag to change the default namespace for running tests.")
