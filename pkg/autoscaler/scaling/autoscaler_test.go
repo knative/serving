@@ -217,6 +217,7 @@ func expectedEBC(totCap, targetBC, recordedConcurrency, numPods float64) int32 {
 }
 
 func TestAutoscalerStartMetrics(t *testing.T) {
+	expectedAttrs := attribute.NewSet(attribute.String("foo", "bar"))
 	metrics := &metricClient{StableConcurrency: 50.0, PanicConcurrency: 50.0}
 
 	_, _, reader := newTestAutoscalerWithScalingMetric(
@@ -227,31 +228,8 @@ func TestAutoscalerStartMetrics(t *testing.T) {
 
 	metricstest.AssertMetrics(
 		t, reader,
-		metricstest.MetricsEqual(scopeName, panicMetric(true)),
-	)
-}
-
-func TestAutoscalerMetrics(t *testing.T) {
-	metrics := &metricClient{StableConcurrency: 50.0, PanicConcurrency: 50.0}
-	a, _, reader := newTestAutoscaler(10, 100, metrics)
-	expectedAttrs := attribute.NewSet(attribute.String("foo", "bar"))
-
-	// Non-panic created autoscaler.
-	metricstest.AssertMetrics(
-		t, reader,
-		metricstest.MetricsEqual(scopeName, panicMetric(false)),
-	)
-
-	ebc := expectedEBC(10, 100, 50, 1)
-	expectScale(t, a, time.Now(), ScaleResult{5, ebc, true})
-	spec := a.currentSpec()
-
-	metricstest.AssertMetrics(
-		t, reader,
-		metricstest.MetricsEqual(
-			scopeName,
+		metricstest.MetricsEqual(scopeName,
 			panicMetric(true),
-
 			metricdata.Metrics{
 				Name:        "kn.revision.pods.desired",
 				Description: "Number of pods the autoscaler wants to allocate",
@@ -259,7 +237,7 @@ func TestAutoscalerMetrics(t *testing.T) {
 				Data: metricdata.Gauge[int64]{
 					DataPoints: []metricdata.DataPoint[int64]{{
 						Attributes: expectedAttrs,
-						Value:      5,
+						Value:      0,
 					}},
 				},
 			},
@@ -271,7 +249,7 @@ func TestAutoscalerMetrics(t *testing.T) {
 				Data: metricdata.Gauge[float64]{
 					DataPoints: []metricdata.DataPoint[float64]{{
 						Attributes: expectedAttrs,
-						Value:      float64(ebc),
+						Value:      float64(0),
 					}},
 				},
 			},
@@ -283,7 +261,7 @@ func TestAutoscalerMetrics(t *testing.T) {
 				Data: metricdata.Gauge[float64]{
 					DataPoints: []metricdata.DataPoint[float64]{{
 						Attributes: expectedAttrs,
-						Value:      50,
+						Value:      0,
 					}},
 				},
 			},
@@ -295,7 +273,7 @@ func TestAutoscalerMetrics(t *testing.T) {
 				Data: metricdata.Gauge[float64]{
 					DataPoints: []metricdata.DataPoint[float64]{{
 						Attributes: expectedAttrs,
-						Value:      50,
+						Value:      0,
 					}},
 				},
 			},
@@ -307,11 +285,36 @@ func TestAutoscalerMetrics(t *testing.T) {
 				Data: metricdata.Gauge[float64]{
 					DataPoints: []metricdata.DataPoint[float64]{{
 						Attributes: expectedAttrs,
-						Value:      float64(spec.TargetValue),
+						Value:      float64(0),
 					}},
 				},
 			},
 		),
+	)
+}
+
+func TestAutoscalerMetrics(t *testing.T) {
+	metrics := &metricClient{StableConcurrency: 50.0, PanicConcurrency: 50.0}
+	a, _, reader := newTestAutoscaler(10, 100, metrics)
+	expectedAttrs := attribute.NewSet(attribute.String("foo", "bar"))
+
+	expectedMetrics := concurrencyDataPoints(expectedAttrs, false, 0, 0, 0, 0, 0)
+
+	// Non-panic created autoscaler.
+	metricstest.AssertMetrics(
+		t, reader,
+		metricstest.MetricsEqual(scopeName, expectedMetrics...),
+	)
+
+	ebc := expectedEBC(10, 100, 50, 1)
+	expectScale(t, a, time.Now(), ScaleResult{5, ebc, true})
+	spec := a.currentSpec()
+
+	expectedMetrics = concurrencyDataPoints(expectedAttrs, true, 5, float64(ebc), 50, 50, spec.TargetValue)
+
+	metricstest.AssertMetrics(
+		t, reader,
+		metricstest.MetricsEqual(scopeName, expectedMetrics...),
 	)
 }
 
@@ -933,6 +936,71 @@ func panicMetric(panic bool) metricdata.Metrics {
 				Value:      int64(val),
 				Attributes: attribute.NewSet(attribute.String("foo", "bar")),
 			}},
+		},
+	}
+}
+
+func concurrencyDataPoints(attrs attribute.Set, isPanic bool, pods int64, ebc, stable, panic, target float64) []metricdata.Metrics {
+	return []metricdata.Metrics{
+		panicMetric(isPanic),
+		{
+			Name:        "kn.revision.pods.desired",
+			Description: "Number of pods the autoscaler wants to allocate",
+			Unit:        "{item}",
+			Data: metricdata.Gauge[int64]{
+				DataPoints: []metricdata.DataPoint[int64]{{
+					Attributes: attrs,
+					Value:      pods,
+				}},
+			},
+		},
+
+		{
+			Name:        "kn.revision.capacity.excess",
+			Description: "Excess burst capacity observed over the stable window",
+			Unit:        "{concurrency}",
+			Data: metricdata.Gauge[float64]{
+				DataPoints: []metricdata.DataPoint[float64]{{
+					Attributes: attrs,
+					Value:      ebc,
+				}},
+			},
+		},
+
+		{
+			Name:        "kn.revision.concurrency.stable",
+			Description: "Average of request count per observed pod over the stable window",
+			Unit:        "{concurrency}",
+			Data: metricdata.Gauge[float64]{
+				DataPoints: []metricdata.DataPoint[float64]{{
+					Attributes: attrs,
+					Value:      stable,
+				}},
+			},
+		},
+
+		{
+			Name:        "kn.revision.concurrency.panic",
+			Description: "Average of request count per observed pod over the panic window",
+			Unit:        "{concurrency}",
+			Data: metricdata.Gauge[float64]{
+				DataPoints: []metricdata.DataPoint[float64]{{
+					Attributes: attrs,
+					Value:      panic,
+				}},
+			},
+		},
+
+		{
+			Name:        "kn.revision.concurrency.target",
+			Description: "The desired concurrent requests for each pod",
+			Unit:        "{concurrency}",
+			Data: metricdata.Gauge[float64]{
+				DataPoints: []metricdata.DataPoint[float64]{{
+					Attributes: attrs,
+					Value:      target,
+				}},
+			},
 		},
 	}
 }

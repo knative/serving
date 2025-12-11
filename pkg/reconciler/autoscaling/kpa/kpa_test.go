@@ -37,6 +37,7 @@ import (
 	fakemetricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
+	"knative.dev/serving/pkg/metrics"
 
 	networkingclient "knative.dev/networking/pkg/client/injection/client"
 	filteredinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
@@ -54,6 +55,7 @@ import (
 	clientgotesting "k8s.io/client-go/testing"
 
 	"github.com/google/go-cmp/cmp"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
@@ -78,7 +80,6 @@ import (
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	"knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/metrics"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
@@ -1869,9 +1870,12 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 var _ reconciler.ConfigStore = (*testConfigStore)(nil)
 
 func TestMetricsReporter(t *testing.T) {
+	r := Reconciler{}
+
 	reader := otelmetric.NewManualReader()
 	mp := otelmetric.NewMeterProvider(otelmetric.WithReader(reader))
-	m := newMetrics(mp)
+
+	otel.SetMeterProvider(mp)
 
 	pa := kpa(testNamespace, testRevision)
 
@@ -1889,7 +1893,8 @@ func TestMetricsReporter(t *testing.T) {
 		pending:     1996,
 		terminating: 1983,
 	}
-	reportMetrics(m, pa, pc)
+
+	r.reportMetrics(pa, pc)
 
 	metricstest.AssertMetrics(t, reader,
 		metricstest.MetricsEqual(
@@ -1955,7 +1960,7 @@ func TestMetricsReporter(t *testing.T) {
 	// Verify `want` is ignored, when it is equal to -1.
 	pc.want = -1
 	pc.terminating = 1955
-	reportMetrics(m, pa, pc)
+	r.reportMetrics(pa, pc)
 
 	metricstest.AssertMetrics(t, reader,
 		metricstest.MetricsEqual(
@@ -2196,7 +2201,9 @@ func TestComputeStatus(t *testing.T) {
 				want:  c.pcWant,
 			}
 
-			computeStatus(ctx, pa, pc, logging.FromContext(ctx), nil)
+			r := Reconciler{}
+
+			r.computeStatus(ctx, pa, pc, logging.FromContext(ctx))
 
 			if c.wantActualScale == nil && pa.Status.ActualScale != nil || c.wantActualScale != nil && pa.Status.ActualScale == nil {
 				t.Errorf("Unexpected ActualScale. Want: %v, Got: %v", c.wantActualScale, pa.Status.ActualScale)
