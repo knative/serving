@@ -381,9 +381,21 @@ func (cb *configBuilder) addRevisionTarget(tt *v1.TrafficTarget) error {
 	if err != nil {
 		return err
 	}
+
+	// Service-owned Routes can only reference Revisions belonging to the same Service.
+	// Standalone Routes (no serving.knative.dev/service label) can reference any Revision.
+	routeServiceName := cb.route.Labels[serving.ServiceLabelKey]
+	if routeServiceName != "" {
+		revisionServiceName := rev.Labels[serving.ServiceLabelKey]
+		if routeServiceName != revisionServiceName {
+			return errRevisionNotOwned(tt.RevisionName, routeServiceName, revisionServiceName)
+		}
+	}
+
 	if !rev.IsReady() {
 		return errUnreadyRevision(rev)
 	}
+
 	ntt := tt.DeepCopy()
 	target := RevisionTarget{
 		TrafficTarget: *ntt,
