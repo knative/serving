@@ -22,29 +22,57 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	"knative.dev/serving/pkg/apis/autoscaling"
 )
 
 const scopeName = "knative.dev/serving/pkg/autoscaler"
 
 type scalingMetrics struct {
-	attrs               attribute.Set
-	desiredPod          metric.Int64Gauge
-	excessBurstCapacity metric.Float64Gauge
+	attrs        attribute.Set
+	registration metric.Registration
 
-	stableConcurrency metric.Float64Gauge
-	panicConcurrency  metric.Float64Gauge
-	targetConcurrency metric.Float64Gauge
+	desiredPods         metric.Int64ObservableGauge
+	excessBurstCapacity metric.Float64ObservableGauge
+	panicMode           metric.Int64ObservableGauge
 
-	stableRPS metric.Float64Gauge
-	panicRPS  metric.Float64Gauge
-	targetRPS metric.Float64Gauge
+	panicMetric  metric.Float64ObservableGauge
+	stableMetric metric.Float64ObservableGauge
+	targetMetric metric.Float64ObservableGauge
 
-	panicMode metric.Int64Gauge
+	panicValue  float64
+	stableValue float64
+	targetValue float64
+
+	desiredPodsValue         int64
+	excessBurstCapacityValue float64
+	panicModeValue           int64
 }
 
-func newMetrics(mp metric.MeterProvider, attrs attribute.Set) *scalingMetrics {
+func (m *scalingMetrics) OnDelete() {
+	if m == nil {
+		return
+	}
+
+	m.registration.Unregister()
+}
+
+func (m *scalingMetrics) callback(ctx context.Context, o metric.Observer) error {
+	opt := metric.WithAttributeSet(m.attrs)
+
+	o.ObserveInt64(m.desiredPods, m.desiredPodsValue, opt)
+	o.ObserveFloat64(m.excessBurstCapacity, m.excessBurstCapacityValue, opt)
+	o.ObserveInt64(m.panicMode, m.panicModeValue, opt)
+
+	o.ObserveFloat64(m.panicMetric, m.panicValue, opt)
+	o.ObserveFloat64(m.stableMetric, m.stableValue, opt)
+	o.ObserveFloat64(m.targetMetric, m.targetValue, opt)
+
+	return nil
+}
+
+func newMetrics(mp metric.MeterProvider, scalingMetric string, attrs attribute.Set) *scalingMetrics {
 	var (
-		m = scalingMetrics{attrs: attrs}
+		m = &scalingMetrics{attrs: attrs}
 		p = mp
 	)
 
@@ -54,60 +82,68 @@ func newMetrics(mp metric.MeterProvider, attrs attribute.Set) *scalingMetrics {
 
 	meter := p.Meter(scopeName)
 
-	m.desiredPod = must(meter.Int64Gauge(
+	m.desiredPods = must(meter.Int64ObservableGauge(
 		"kn.revision.pods.desired",
 		metric.WithDescription("Number of pods the autoscaler wants to allocate"),
 		metric.WithUnit("{item}"),
 	))
 
-	m.excessBurstCapacity = must(meter.Float64Gauge(
+	m.excessBurstCapacity = must(meter.Float64ObservableGauge(
 		"kn.revision.capacity.excess",
 		metric.WithDescription("Excess burst capacity observed over the stable window"),
 		metric.WithUnit("{concurrency}"),
 	))
 
-	m.stableConcurrency = must(meter.Float64Gauge(
-		"kn.revision.concurrency.stable",
-		metric.WithDescription("Average of request count per observed pod over the stable window"),
-		metric.WithUnit("{concurrency}"),
-	))
-
-	m.panicConcurrency = must(meter.Float64Gauge(
-		"kn.revision.concurrency.panic",
-		metric.WithDescription("Average of request count per observed pod over the panic window"),
-		metric.WithUnit("{concurrency}"),
-	))
-
-	m.targetConcurrency = must(meter.Float64Gauge(
-		"kn.revision.concurrency.target",
-		metric.WithDescription("The desired concurrent requests for each pod"),
-		metric.WithUnit("{concurrency}"),
-	))
-
-	m.stableRPS = must(meter.Float64Gauge(
-		"kn.revision.rps.stable",
-		metric.WithDescription("Average of requests-per-second per observed pod over the stable window"),
-		metric.WithUnit("{request}/s"),
-	))
-
-	m.panicRPS = must(meter.Float64Gauge(
-		"kn.revision.rps.panic",
-		metric.WithDescription("Average of requests-per-second per observed pod over the panic window"),
-		metric.WithUnit("{request}/s"),
-	))
-
-	m.targetRPS = must(meter.Float64Gauge(
-		"kn.revision.rps.target",
-		metric.WithDescription("The desired concurrent requests for each pod"),
-		metric.WithUnit("{request}/s"),
-	))
-
-	m.panicMode = must(meter.Int64Gauge(
+	m.panicMode = must(meter.Int64ObservableGauge(
 		"kn.revision.panic.mode",
 		metric.WithDescription("If greater tha 0 the autoscaler is in panic mode"),
 	))
 
-	return &m
+	switch scalingMetric {
+	case autoscaling.RPS:
+		m.stableMetric = must(meter.Float64ObservableGauge(
+			"kn.revision.rps.stable",
+			metric.WithDescription("Average of requests-per-second per observed pod over the stable window"),
+			metric.WithUnit("{request}/s"),
+		))
+		m.panicMetric = must(meter.Float64ObservableGauge(
+			"kn.revision.rps.panic",
+			metric.WithDescription("Average of requests-per-second per observed pod over the panic window"),
+			metric.WithUnit("{request}/s"),
+		))
+		m.targetMetric = must(meter.Float64ObservableGauge(
+			"kn.revision.rps.target",
+			metric.WithDescription("The desired concurrent requests for each pod"),
+			metric.WithUnit("{request}/s"),
+		))
+	default:
+		m.stableMetric = must(meter.Float64ObservableGauge(
+			"kn.revision.concurrency.stable",
+			metric.WithDescription("Average of request count per observed pod over the stable window"),
+			metric.WithUnit("{concurrency}"),
+		))
+		m.panicMetric = must(meter.Float64ObservableGauge(
+			"kn.revision.concurrency.panic",
+			metric.WithDescription("Average of request count per observed pod over the panic window"),
+			metric.WithUnit("{concurrency}"),
+		))
+		m.targetMetric = must(meter.Float64ObservableGauge(
+			"kn.revision.concurrency.target",
+			metric.WithDescription("The desired concurrent requests for each pod"),
+			metric.WithUnit("{concurrency}"),
+		))
+	}
+
+	m.registration = must(meter.RegisterCallback(m.callback,
+		m.desiredPods,
+		m.excessBurstCapacity,
+		m.panicMode,
+		m.stableMetric,
+		m.panicMetric,
+		m.targetMetric,
+	))
+
+	return m
 }
 
 func (m *scalingMetrics) SetPanic(panic bool) {
@@ -115,16 +151,15 @@ func (m *scalingMetrics) SetPanic(panic bool) {
 		return
 	}
 
-	ctx := context.Background()
 	val := int64(0)
 	if panic {
 		val = 1
 	}
 
-	m.panicMode.Record(ctx, val, metric.WithAttributeSet(m.attrs))
+	m.panicModeValue = val
 }
 
-func (m *scalingMetrics) RecordRPS(
+func (m *scalingMetrics) Record(
 	excessBurstCapacity float64,
 	desiredPods int64,
 	stableRPS float64,
@@ -135,34 +170,11 @@ func (m *scalingMetrics) RecordRPS(
 		return
 	}
 
-	opt := metric.WithAttributeSet(m.attrs)
-	ctx := context.Background()
-
-	m.excessBurstCapacity.Record(ctx, excessBurstCapacity, opt)
-	m.desiredPod.Record(ctx, desiredPods, opt)
-	m.stableRPS.Record(ctx, stableRPS, opt)
-	m.panicRPS.Record(ctx, panicRPS, opt)
-	m.targetRPS.Record(ctx, targetRPS, opt)
-}
-
-func (m *scalingMetrics) RecordConcurrency(
-	excessBurstCapacity float64,
-	desiredPods int64,
-	stableConcurrency float64,
-	panicConcurrency float64,
-	targetConcurrency float64,
-) {
-	if m == nil {
-		return
-	}
-
-	opt := metric.WithAttributeSet(m.attrs)
-	ctx := context.Background()
-	m.excessBurstCapacity.Record(ctx, excessBurstCapacity, opt)
-	m.desiredPod.Record(ctx, desiredPods, opt)
-	m.stableConcurrency.Record(ctx, stableConcurrency, opt)
-	m.panicConcurrency.Record(ctx, panicConcurrency, opt)
-	m.targetConcurrency.Record(ctx, targetConcurrency, opt)
+	m.desiredPodsValue = desiredPods
+	m.excessBurstCapacityValue = excessBurstCapacity
+	m.stableValue = stableRPS
+	m.panicValue = panicRPS
+	m.targetValue = targetRPS
 }
 
 func must[T any](t T, err error) T {

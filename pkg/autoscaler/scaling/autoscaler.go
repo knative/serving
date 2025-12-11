@@ -91,7 +91,7 @@ func newAutoscaler(
 	deciderSpec *DeciderSpec,
 	delayWindow *max.TimeWindow,
 ) *autoscaler {
-	metrics := newMetrics(mp, attrs)
+	metrics := newMetrics(mp, deciderSpec.ScalingMetric, attrs)
 	// We always start in the panic mode, if the deployment is scaled up over 1 pod.
 	// If the scale is 0 or 1, normal Autoscaler behavior is fine.
 	// When Autoscaler restarts we lose metric history, which causes us to
@@ -135,6 +135,10 @@ func (a *autoscaler) Update(deciderSpec *DeciderSpec) {
 	defer a.specMux.Unlock()
 
 	a.deciderSpec = deciderSpec
+}
+
+func (a *autoscaler) OnDelete() {
+	a.metrics.OnDelete()
 }
 
 // Scale calculates the desired scale based on current statistics given the current time.
@@ -293,24 +297,13 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 			observedPanicValue, spec.TargetBurstCapacity, excessBCF))
 	}
 
-	switch spec.ScalingMetric {
-	case autoscaling.RPS:
-		a.metrics.RecordRPS(
-			excessBCF,
-			int64(desiredPodCount),
-			observedStableValue,
-			observedPanicValue,
-			spec.TargetValue,
-		)
-	default:
-		a.metrics.RecordConcurrency(
-			excessBCF,
-			int64(desiredPodCount),
-			observedStableValue,
-			observedPanicValue,
-			spec.TargetValue,
-		)
-	}
+	a.metrics.Record(
+		excessBCF,
+		int64(desiredPodCount),
+		observedStableValue,
+		observedPanicValue,
+		spec.TargetValue,
+	)
 
 	return ScaleResult{
 		DesiredPodCount:     desiredPodCount,

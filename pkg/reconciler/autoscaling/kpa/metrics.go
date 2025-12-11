@@ -27,16 +27,41 @@ import (
 const scopeName = "knative.dev/serving/pkg/autoscaler"
 
 type kpaMetrics struct {
-	requestedPods   otelmetric.Int64Gauge
-	actualPods      otelmetric.Int64Gauge
-	notReadyPods    otelmetric.Int64Gauge
-	pendingPods     otelmetric.Int64Gauge
-	terminatingPods otelmetric.Int64Gauge
+	opt          otelmetric.MeasurementOption
+	registration otelmetric.Registration
+
+	requestedPods   otelmetric.Int64ObservableGauge
+	actualPods      otelmetric.Int64ObservableGauge
+	notReadyPods    otelmetric.Int64ObservableGauge
+	pendingPods     otelmetric.Int64ObservableGauge
+	terminatingPods otelmetric.Int64ObservableGauge
+
+	pc podCounts
 }
 
-func newMetrics(mp otelmetric.MeterProvider) *kpaMetrics {
+func (m *kpaMetrics) callback(ctx context.Context, o otelmetric.Observer) error {
+	o.ObserveInt64(m.requestedPods, int64(m.pc.want), m.opt)
+	o.ObserveInt64(m.actualPods, int64(m.pc.ready), m.opt)
+	o.ObserveInt64(m.notReadyPods, int64(m.pc.notReady), m.opt)
+	o.ObserveInt64(m.pendingPods, int64(m.pc.pending), m.opt)
+	o.ObserveInt64(m.terminatingPods, int64(m.pc.terminating), m.opt)
+
+	return nil
+}
+
+func (m *kpaMetrics) OnDelete() {
+	if m == nil {
+		return
+	}
+
+	m.registration.Unregister()
+}
+
+func newMetrics(mp otelmetric.MeterProvider, attrs attribute.Set) *kpaMetrics {
 	var (
-		m = kpaMetrics{}
+		m = kpaMetrics{
+			opt: otelmetric.WithAttributeSet(attrs),
+		}
 		p = mp
 	)
 
@@ -46,55 +71,58 @@ func newMetrics(mp otelmetric.MeterProvider) *kpaMetrics {
 
 	meter := p.Meter(scopeName)
 
-	m.requestedPods = must(meter.Int64Gauge(
+	m.requestedPods = must(meter.Int64ObservableGauge(
 		"kn.revision.pods.requested",
 		otelmetric.WithDescription("Number of pods autoscaler requested from Kubernetes"),
 		otelmetric.WithUnit("{pod}"),
 	))
 
-	m.actualPods = must(meter.Int64Gauge(
+	m.actualPods = must(meter.Int64ObservableGauge(
 		"kn.revision.pods.count",
 		otelmetric.WithDescription("Number of pods that are allocated currently"),
 		otelmetric.WithUnit("{pod}"),
 	))
 
-	m.notReadyPods = must(meter.Int64Gauge(
+	m.notReadyPods = must(meter.Int64ObservableGauge(
 		"kn.revision.pods.not_ready.count",
 		otelmetric.WithDescription("Number of pods that are not ready currently"),
 		otelmetric.WithUnit("{pod}"),
 	))
 
-	m.pendingPods = must(meter.Int64Gauge(
+	m.pendingPods = must(meter.Int64ObservableGauge(
 		"kn.revision.pods.pending.count",
 		otelmetric.WithDescription("Number of pods that are pending currently"),
 		otelmetric.WithUnit("{pod}"),
 	))
 
-	m.terminatingPods = must(meter.Int64Gauge(
+	m.terminatingPods = must(meter.Int64ObservableGauge(
 		"kn.revision.pods.terminating.count",
 		otelmetric.WithDescription("Number of pods that are terminating currently"),
 		otelmetric.WithUnit("{pod}"),
 	))
 
+	m.registration = must(meter.RegisterCallback(m.callback,
+		m.requestedPods,
+		m.actualPods,
+		m.notReadyPods,
+		m.pendingPods,
+		m.terminatingPods,
+	))
+
 	return &m
 }
 
-func (m *kpaMetrics) Record(attrs attribute.Set, pc podCounts) {
+func (m *kpaMetrics) Record(pc podCounts) {
 	if m == nil {
 		return
 	}
 
-	ctx := context.Background()
-	opt := otelmetric.WithAttributeSet(attrs)
-
-	if pc.want >= 0 {
-		m.requestedPods.Record(ctx, int64(pc.want), opt)
+	// Preserve the prior value if we don't know the scale
+	if pc.want == scaleUnknown {
+		pc.want = m.pc.want
 	}
 
-	m.actualPods.Record(ctx, int64(pc.ready), opt)
-	m.notReadyPods.Record(ctx, int64(pc.notReady), opt)
-	m.pendingPods.Record(ctx, int64(pc.pending), opt)
-	m.terminatingPods.Record(ctx, int64(pc.terminating), opt)
+	m.pc = pc
 }
 
 func must[T any](t T, err error) T {
