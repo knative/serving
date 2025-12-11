@@ -1822,6 +1822,7 @@ func TestUserContainerValidation(t *testing.T) {
 				ProbeHandler: corev1.ProbeHandler{
 					Exec: &corev1.ExecAction{},
 				},
+				TerminationGracePeriodSeconds: ptr.Int64(10),
 			},
 		},
 		want: nil,
@@ -1859,6 +1860,7 @@ func TestUserContainerValidation(t *testing.T) {
 						Path: "/",
 					},
 				},
+				TerminationGracePeriodSeconds: ptr.Int64(10),
 			},
 		},
 		want: nil,
@@ -1913,6 +1915,7 @@ func TestUserContainerValidation(t *testing.T) {
 						Port: intstr.FromInt(5000),
 					},
 				},
+				TerminationGracePeriodSeconds: ptr.Int64(10),
 			},
 		},
 		want: nil,
@@ -2173,6 +2176,18 @@ func TestSidecarContainerValidation(t *testing.T) {
 					TCPSocket: &corev1.TCPSocketAction{},
 				},
 			},
+			StartupProbe: &corev1.Probe{
+				PeriodSeconds:    1,
+				TimeoutSeconds:   1,
+				SuccessThreshold: 1,
+				FailureThreshold: 3,
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/",
+					},
+				},
+				TerminationGracePeriodSeconds: ptr.Int64(10),
+			},
 		},
 		want: apis.ErrDisallowedFields("livenessProbe", "readinessProbe", "readinessProbe.failureThreshold", "readinessProbe.periodSeconds", "readinessProbe.successThreshold", "readinessProbe.timeoutSeconds"),
 	}, {
@@ -2219,6 +2234,43 @@ func TestSidecarContainerValidation(t *testing.T) {
 				ProbeHandler: corev1.ProbeHandler{
 					Exec: &corev1.ExecAction{},
 				},
+			},
+		},
+		cfgOpts: []configOption{withMultiContainerProbesEnabled()},
+		want:    nil,
+	}, {
+		name: "invalid with startup probe",
+		c: corev1.Container{
+			Image: "foo",
+			StartupProbe: &corev1.Probe{
+				PeriodSeconds:    1,
+				TimeoutSeconds:   1,
+				SuccessThreshold: 1,
+				FailureThreshold: 3,
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/",
+					},
+				},
+				TerminationGracePeriodSeconds: ptr.Int64(10),
+			},
+		},
+		want: nil,
+	}, {
+		name: "valid with startup probe and multi container probing",
+		c: corev1.Container{
+			Image: "foo",
+			StartupProbe: &corev1.Probe{
+				PeriodSeconds:    1,
+				TimeoutSeconds:   1,
+				SuccessThreshold: 1,
+				FailureThreshold: 3,
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/",
+					},
+				},
+				TerminationGracePeriodSeconds: ptr.Int64(10),
 			},
 		},
 		cfgOpts: []configOption{withMultiContainerProbesEnabled()},
@@ -2283,6 +2335,7 @@ func TestSidecarContainerValidation(t *testing.T) {
 						Port: intstr.FromInt(5000),
 					},
 				},
+				TerminationGracePeriodSeconds: ptr.Int64(10),
 			},
 		},
 		cfgOpts: []configOption{withMultiContainerProbesEnabled()},
