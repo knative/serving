@@ -76,30 +76,45 @@ func (r *reconciler) reconcileCertificate(ctx context.Context) error {
 		return err
 	}
 
-	if _, haskey := secret.Data[certresources.ServerKey]; !haskey {
-		logger.Infof("Certificate secret %q is missing key %q", r.key.Name, certresources.ServerKey)
-	} else if _, haskey := secret.Data[certresources.ServerCert]; !haskey {
-		logger.Infof("Certificate secret %q is missing key %q", r.key.Name, certresources.ServerCert)
-	} else if _, haskey := secret.Data[certresources.CACert]; !haskey {
-		logger.Infof("Certificate secret %q is missing key %q", r.key.Name, certresources.CACert)
+	// Check if secret.Data is nil or empty, which can happen when the secret
+	// exists but was never populated (e.g., after uninstall/reinstall).
+	if secret.Data == nil {
+		logger.Infof("Certificate secret %q has nil Data, regenerating certificates", r.key.Name)
+	} else if len(secret.Data) == 0 {
+		logger.Infof("Certificate secret %q has empty Data, regenerating certificates", r.key.Name)
 	} else {
-		// Check the expiration date of the certificate to see if it needs to be updated
-		cert, err := tls.X509KeyPair(secret.Data[certresources.ServerCert], secret.Data[certresources.ServerKey])
-		if err != nil {
-			logger.Warnw("Error creating pem from certificate and key", zap.Error(err))
+		// Check if all required keys exist and have non-empty values
+		serverKey, hasServerKey := secret.Data[certresources.ServerKey]
+		serverCert, hasServerCert := secret.Data[certresources.ServerCert]
+		caCert, hasCACert := secret.Data[certresources.CACert]
+
+		if !hasServerKey || len(serverKey) == 0 {
+			logger.Infof("Certificate secret %q is missing or empty key %q", r.key.Name, certresources.ServerKey)
+		} else if !hasServerCert || len(serverCert) == 0 {
+			logger.Infof("Certificate secret %q is missing or empty key %q", r.key.Name, certresources.ServerCert)
+		} else if !hasCACert || len(caCert) == 0 {
+			logger.Infof("Certificate secret %q is missing or empty key %q", r.key.Name, certresources.CACert)
 		} else {
-			certData, err := x509.ParseCertificate(cert.Certificate[0])
+			// All keys exist and have values, check the expiration date of the certificate
+			cert, err := tls.X509KeyPair(serverCert, serverKey)
 			if err != nil {
-				logger.Errorw("Error parsing certificate", zap.Error(err))
-			} else if time.Now().Add(oneDay).Before(certData.NotAfter) {
-				return nil
+				logger.Warnw("Error creating pem from certificate and key", zap.Error(err))
+			} else {
+				certData, err := x509.ParseCertificate(cert.Certificate[0])
+				if err != nil {
+					logger.Errorw("Error parsing certificate", zap.Error(err))
+				} else if time.Now().Add(oneDay).Before(certData.NotAfter) {
+					// Certificate is valid and not expiring soon, no need to regenerate
+					return nil
+				}
 			}
 		}
 	}
 	// Don't modify the informer copy.
 	secret = secret.DeepCopy()
 
-	// One of the secret's keys is missing, so synthesize a new one and update the secret.
+	// One of the secret's keys is missing or empty, or the certificate is invalid/expiring,
+	// so synthesize a new one and update the secret.
 	newSecret, err := certresources.MakeSecret(ctx, r.key.Name, r.key.Namespace, r.serviceName)
 	if err != nil {
 		return err
