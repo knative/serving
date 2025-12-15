@@ -74,7 +74,7 @@ func (r *reconciler) ReconcileKind(ctx context.Context, metric *autoscalingv1alp
 		}
 	} else {
 		// unpause metrics to be safe
-		r.collector.Pause(metric)
+		r.collector.Resume(metric)
 	}
 
 	metric.Status.MarkMetricReady()
