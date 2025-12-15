@@ -71,6 +71,10 @@ type Collector interface {
 	// Watch registers a singleton function to call when a specific collector's status changes.
 	// The passed name is the namespace/name of the metric owned by the respective collector.
 	Watch(func(types.NamespacedName))
+	// Pause metric collection
+	Pause(metric *autoscalingv1alpha1.Metric)
+	// Resume metric collection
+	Resume(metric *autoscalingv1alpha1.Metric)
 }
 
 // MetricClient surfaces the metrics that can be obtained via the collector.
@@ -82,12 +86,6 @@ type MetricClient interface {
 	// StableAndPanicRPS returns both the stable and the panic RPS
 	// for the given replica as of the given time.
 	StableAndPanicRPS(key types.NamespacedName, now time.Time) (float64, float64, error)
-
-	// Pause metric collection
-	Pause(key types.NamespacedName)
-
-	// Resume metric collection
-	Resume(key types.NamespacedName)
 }
 
 // MetricCollector manages collection of metrics for many entities.
@@ -172,7 +170,9 @@ func (c *MetricCollector) Record(key types.NamespacedName, now time.Time, stat S
 	}
 }
 
-func (c *MetricCollector) Pause(key types.NamespacedName) {
+func (c *MetricCollector) Pause(metric *autoscalingv1alpha1.Metric) {
+	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
+
 	c.collectionsMutex.RLock()
 	defer c.collectionsMutex.RUnlock()
 
@@ -181,7 +181,9 @@ func (c *MetricCollector) Pause(key types.NamespacedName) {
 	}
 }
 
-func (c *MetricCollector) Resume(key types.NamespacedName) {
+func (c *MetricCollector) Resume(metric *autoscalingv1alpha1.Metric) {
+	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
+
 	c.collectionsMutex.RLock()
 	defer c.collectionsMutex.RUnlock()
 
@@ -272,11 +274,12 @@ type (
 		rpsPanicBuckets         windowAverager
 
 		// Fields relevant for metric scraping specifically.
-		scraper StatsScraper
-		lastErr error
-		grp     sync.WaitGroup
-		paused  bool
-		stopCh  chan struct{}
+		creationTime time.Time
+		scraper      StatsScraper
+		lastErr      error
+		grp          sync.WaitGroup
+		paused       bool
+		stopCh       chan struct{}
 	}
 )
 
@@ -309,6 +312,7 @@ func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clo
 		}
 	}
 
+	creationTime := time.Now()
 	c := &collection{
 		metric: metric,
 		concurrencyBuckets: bucketCtor(
@@ -321,8 +325,9 @@ func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clo
 			metric.Spec.PanicWindow, config.BucketSize),
 		scraper: scraper,
 
-		stopCh: make(chan struct{}),
-		paused: false,
+		stopCh:       make(chan struct{}),
+		creationTime: creationTime,
+		paused:       false,
 	}
 
 	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
@@ -339,7 +344,11 @@ func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clo
 			case <-c.stopCh:
 				return
 			case <-scrapeTicker.C():
-				if c.getPaused() {
+				now := time.Now()
+				timeSinceCreation := now.Sub(c.creationTime)
+				stableWindow := 2 * c.metric.Spec.StableWindow
+				// initially wait two stable windows to allow initial scale to zero due to activator behavior
+				if timeSinceCreation > 2*stableWindow && c.getPaused() {
 					continue
 				}
 				scraper := c.getScraper()

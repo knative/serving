@@ -37,20 +37,34 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	metricreconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/metric"
 
-	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
-
+	filteredinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
+	_ "knative.dev/pkg/client/injection/kube/informers/factory/filtered/fake"
 	. "knative.dev/pkg/reconciler/testing"
+
+	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
 )
 
 type collectorKey struct{}
 
 func TestNewController(t *testing.T) {
-	ctx, _ := SetupFakeContext(t)
+	ctx, cancel, infs := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
+		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+	})
+	waitInformers, err := RunAndSyncInformers(ctx, infs...)
+	if err != nil {
+		t.Fatal("Error starting up informers:", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
 	c := NewController(ctx, configmap.NewStaticWatcher(), &testCollector{})
 	if c == nil {
 		t.Fatal("Expected NewController to return a non-nil value")
@@ -183,7 +197,9 @@ func TestReconcile(t *testing.T) {
 }
 
 func TestReconcileWithCollector(t *testing.T) {
-	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	ctx, cancel, informers := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
+		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+	})
 
 	collector := &testCollector{}
 
@@ -278,3 +294,7 @@ func (c *testCollector) Delete(namespace, name string) {
 }
 
 func (c *testCollector) Watch(func(types.NamespacedName)) {}
+
+func (c *testCollector) Pause(metric *autoscalingv1alpha1.Metric) {}
+
+func (c *testCollector) Resume(metric *autoscalingv1alpha1.Metric) {}
