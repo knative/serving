@@ -1,25 +1,27 @@
 # Experimental Features
 
-The Trace SDK contains features that have not yet stabilized in the OpenTelemetry specification.
-These features are added to the OpenTelemetry Go Trace SDK prior to stabilization in the specification so that users can start experimenting with them and provide feedback.
+The `prometheus` exporter contains features that have not yet stabilized in the OpenTelemetry specification.
+These features are added to the `prometheus` exporter prior to stabilization in the specification so that users can start experimenting with them and provide feedback.
 
 These features may change in backwards incompatible ways as feedback is applied.
 See the [Compatibility and Stability](#compatibility-and-stability) section for more information.
 
 ## Features
 
-- [Self-Observability](#self-observability)
+- [Observability](#observability)
 
-### Self-Observability
+### Observability
 
-The SDK provides a self-observability feature that allows you to monitor the SDK itself.
+The `prometheus` exporter can be configured to provide observability about itself using OpenTelemetry metrics.
 
-To opt-in, set the environment variable `OTEL_GO_X_SELF_OBSERVABILITY` to `true`.
+To opt-in, set the environment variable `OTEL_GO_X_OBSERVABILITY` to `true`.
 
 When enabled, the SDK will create the following metrics using the global `MeterProvider`:
 
-- `otel.sdk.span.live`
-- `otel.sdk.span.started`
+- `otel.sdk.exporter.metric_data_point.inflight`
+- `otel.sdk.exporter.metric_data_point.exported`
+- `otel.sdk.metric_reader.collection.duration`
+- `otel.sdk.exporter.operation.duration`
 
 Please see the [Semantic conventions for OpenTelemetry SDK metrics] documentation for more details on these metrics.
 
