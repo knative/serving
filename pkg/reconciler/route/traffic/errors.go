@@ -147,3 +147,40 @@ func errMissingRevision(name string) TargetError {
 		name: name,
 	}
 }
+
+// revisionNotOwnedError is returned when a Service-owned Route references
+// a Revision that belongs to a different Service (or no Service at all).
+type revisionNotOwnedError struct {
+	revisionName    string
+	expectedService string
+	actualService   string
+}
+
+var _ TargetError = (*revisionNotOwnedError)(nil)
+
+func (e *revisionNotOwnedError) Error() string {
+	if e.actualService == "" {
+		// Revision was created from a standalone Configuration (no known service)
+		return fmt.Sprintf("Revision %q does not belong to Service %q", e.revisionName, e.expectedService)
+	}
+
+	// Revision belongs to a different Service
+	return fmt.Sprintf("Revision %q belongs to Service %q, not Service %q", e.revisionName, e.actualService, e.expectedService)
+}
+
+func (e *revisionNotOwnedError) MarkBadTrafficTarget(rs *v1.RouteStatus) {
+	rs.MarkRevisionNotOwned(e.revisionName, e.expectedService, e.actualService)
+}
+
+func (e *revisionNotOwnedError) IsFailure() bool {
+	return true
+}
+
+// errRevisionNotOwned returns a TargetError for a Revision that does not belong to the expected Service.
+func errRevisionNotOwned(revisionName, expectedService, actualService string) TargetError {
+	return &revisionNotOwnedError{
+		revisionName:    revisionName,
+		expectedService: expectedService,
+		actualService:   actualService,
+	}
+}

@@ -344,6 +344,34 @@ func TestTargetRevisionFailedToBeReadyFlow(t *testing.T) {
 	apistest.CheckConditionFailed(r, RouteConditionReady, t)
 }
 
+func TestRevisionNotOwnedFlow(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	apistest.CheckConditionOngoing(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
+
+	// Revision belongs to a different Service
+	r.MarkRevisionNotOwned("other-rev", "my-service", "other-service")
+	apistest.CheckConditionFailed(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
+	apistest.CheckConditionFailed(r, RouteConditionReady, t)
+}
+
+func TestRevisionNotOwnedByStandaloneConfigFlow(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	apistest.CheckConditionOngoing(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
+
+	// Revision has no service label (standalone Configuration)
+	r.MarkRevisionNotOwned("standalone-rev", "my-service", "")
+	apistest.CheckConditionFailed(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
+	apistest.CheckConditionFailed(r, RouteConditionReady, t)
+}
+
 func TestIngressFailureRecovery(t *testing.T) {
 	r := &RouteStatus{}
 	r.InitializeConditions()
