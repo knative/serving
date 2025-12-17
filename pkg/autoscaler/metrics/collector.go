@@ -390,7 +390,7 @@ func (c *collection) setPause(pause bool) {
 	}
 }
 
-// pause the scraper, happens when activator in path
+// function to get if scraper is paused or not
 func (c *collection) getPaused() bool {
 	c.mux.RLock()
 	defer c.mux.RUnlock()

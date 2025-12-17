@@ -43,6 +43,21 @@ var (
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (r *reconciler) ReconcileKind(ctx context.Context, metric *autoscalingv1alpha1.Metric) pkgreconciler.Event {
+	// Check if autoscaler in proxy or serving mode, if so pause or resume if needed
+	revisionName := metric.Labels[serving.RevisionLabelKey]
+	if revisionName != "" {
+		paName := revisionName
+		pa, err := r.paLister.PodAutoscalers(metric.Namespace).Get(paName)
+		if err == nil && pa.Status.MetricsPaused {
+			r.collector.Pause(metric)
+		} else {
+			r.collector.Resume(metric)
+		}
+	} else {
+		// unpause metrics to be safe
+		r.collector.Resume(metric)
+	}
+
 	if err := r.collector.CreateOrUpdate(metric); err != nil {
 		switch {
 		case errors.Is(err, metrics.ErrFailedGetEndpoints):
@@ -56,25 +71,6 @@ func (r *reconciler) ReconcileKind(ctx context.Context, metric *autoscalingv1alp
 
 		// We don't return an error because retrying is of no use. We'll be poked by collector on a change.
 		return nil
-	}
-
-	// Check if autoscaler in proxy or serving mode, if so pause or resume if needed
-	revisionName := metric.Labels[serving.RevisionLabelKey]
-	if revisionName != "" {
-		paName := revisionName
-		pa, err := r.paLister.PodAutoscalers(metric.Namespace).Get(paName)
-		switch {
-		case err != nil:
-			// unpause in error case to be safe
-			r.collector.Resume(metric)
-		case pa.Status.MetricsPaused:
-			r.collector.Pause(metric)
-		default:
-			r.collector.Resume(metric)
-		}
-	} else {
-		// unpause metrics to be safe
-		r.collector.Resume(metric)
 	}
 
 	metric.Status.MarkMetricReady()

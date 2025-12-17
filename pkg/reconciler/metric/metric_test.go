@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientgotesting "k8s.io/client-go/testing"
-	rcl "knative.dev/pkg/reconciler"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -285,27 +284,30 @@ func TestReconcilePaused(t *testing.T) {
 	scs.AutoscalingV1alpha1().PodAutoscalers(a.Namespace).Create(ctx, a, metav1.CreateOptions{})
 	autoscalerinformer.Get(ctx).Informer().GetIndexer().Add(a)
 
-	if la, ok := ctl.Reconciler.(rcl.LeaderAware); ok {
-		la.Promote(rcl.UniversalBucket(), func(rcl.Bucket, types.NamespacedName) {})
-	}
-
-	err = ctl.Reconciler.Reconcile(ctx, m.Namespace+"/"+m.Name)
-
-	if err != nil {
-		t.Fatal("Error reconciling metric %w", err)
-	} else if collector.paused.Load() {
-		t.Fatal("collector should not be paused")
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 1*time.Second, false, func(context.Context) (bool, error) {
+		return !collector.paused.Load(), nil
+	}); err != nil {
+		t.Fatal("collector is paused, should not be paused")
 	}
 
 	// pause metrics
 	a.Status.MetricsPaused = true
 	updatePodAutoscaler(t, ctx, a)
 
-	err = ctl.Reconciler.Reconcile(ctx, m.Namespace+"/"+m.Name)
-	if err != nil {
-		t.Fatal("Error reconciling metric")
-	} else if !collector.paused.Load() {
-		t.Fatal("collector should be paused")
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 1*time.Second, false, func(context.Context) (bool, error) {
+		return collector.paused.Load(), nil
+	}); err != nil {
+		t.Fatal("collector is not paused, should be paused")
+	}
+
+	// test when empty revision label found
+	m.Labels[serving.RevisionLabelKey] = ""
+	updateMetric(t, ctx, m)
+
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 1*time.Second, false, func(context.Context) (bool, error) {
+		return !collector.paused.Load(), nil
+	}); err != nil {
+		t.Fatal("collector is paused, should not be paused")
 	}
 }
 
@@ -325,6 +327,16 @@ func unknown(r, m string) metricOption {
 
 func ready(m *autoscalingv1alpha1.Metric) {
 	m.Status.MarkMetricReady()
+}
+
+func updateMetric(
+	t *testing.T,
+	ctx context.Context,
+	m *autoscalingv1alpha1.Metric,
+) {
+	t.Helper()
+	servingclient.Get(ctx).AutoscalingV1alpha1().Metrics(m.Namespace).Update(ctx, m, metav1.UpdateOptions{})
+	metricinformer.Get(ctx).Informer().GetIndexer().Update(m)
 }
 
 func metric(namespace, name string, opts ...metricOption) *autoscalingv1alpha1.Metric {
