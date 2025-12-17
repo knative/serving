@@ -400,6 +400,7 @@ func (u *fakeUniScaler) setScaleResult(replicas, surplus int32, scaled bool) {
 }
 
 func (u *fakeUniScaler) Update(*DeciderSpec) {}
+func (u *fakeUniScaler) OnDelete()           {}
 
 func newDecider() *Decider {
 	return &Decider{
