@@ -20,7 +20,9 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sync"
 
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
 
@@ -70,7 +72,7 @@ type Reconciler struct {
 	deciders   resources.Deciders
 	scaler     *scaler
 
-	metrics *kpaMetrics
+	metricsMap sync.Map
 }
 
 // Check that our Reconciler implements the necessary interfaces.
@@ -102,7 +104,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 			return fmt.Errorf("error reconciling SKS: %w", err)
 		}
 		pa.Status.MarkSKSNotReady(noPrivateServiceName) // In both cases this is true.
-		computeStatus(ctx, pa, podCounts{want: scaleUnknown}, logger, c.metrics)
+		c.computeStatus(ctx, pa, podCounts{want: scaleUnknown}, logger)
 		return nil
 	}
 
@@ -186,13 +188,19 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 		terminating: terminating,
 	}
 	logger.Infof("Observed pod counts=%#v", pc)
-	computeStatus(ctx, pa, pc, logger, c.metrics)
+	c.computeStatus(ctx, pa, pc, logger)
 	return nil
 }
 
 // ObserveDeletion implements OnDeletionInterface.ObserveDeletion.
 func (c *Reconciler) ObserveDeletion(ctx context.Context, key types.NamespacedName) error {
 	c.deciders.Delete(ctx, key.Namespace, key.Name)
+
+	m, ok := cast[*kpaMetrics](c.metricsMap.LoadAndDelete(key))
+	if ok {
+		m.OnDelete()
+	}
+
 	return nil
 }
 
@@ -219,7 +227,7 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *autoscalingv1alph
 	return decider, nil
 }
 
-func computeStatus(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, pc podCounts, logger *zap.SugaredLogger, m *kpaMetrics) {
+func (c *Reconciler) computeStatus(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, pc podCounts, logger *zap.SugaredLogger) {
 	//nolint:gosec // bound by 0 < x < max(int32)
 	pa.Status.ActualScale = ptr.Int32(int32(pc.ready))
 
@@ -232,23 +240,38 @@ func computeStatus(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, p
 		pa.Status.DesiredScale = ptr.Int32(int32(pc.want))
 	}
 
-	reportMetrics(m, pa, pc)
+	c.reportMetrics(pa, pc)
 	computeActiveCondition(ctx, pa, pc)
 	logger.Debugf("PA Status after reconcile: %#v", pa.Status.Status)
 }
 
-func reportMetrics(m *kpaMetrics, pa *autoscalingv1alpha1.PodAutoscaler, pc podCounts) {
-	serviceLabel := pa.Labels[serving.ServiceLabelKey] // This might be empty.
-	configLabel := pa.Labels[serving.ConfigurationLabelKey]
+func (c *Reconciler) reportMetrics(pa *autoscalingv1alpha1.PodAutoscaler, pc podCounts) {
+	key := types.NamespacedName{Name: pa.Name, Namespace: pa.Namespace}
 
-	attrs := attribute.NewSet(
-		metrics.K8sNamespaceKey.With(pa.Namespace),
-		metrics.RevisionNameKey.With(pa.Name),
-		metrics.ServiceNameKey.With(serviceLabel),
-		metrics.ConfigurationNameKey.With(configLabel),
-	)
+	m, ok := cast[*kpaMetrics](c.metricsMap.Load(key))
+	if !ok {
+		serviceLabel := pa.Labels[serving.ServiceLabelKey] // This might be empty.
+		configLabel := pa.Labels[serving.ConfigurationLabelKey]
 
-	m.Record(attrs, pc)
+		attrs := attribute.NewSet(
+			metrics.K8sNamespaceKey.With(pa.Namespace),
+			metrics.RevisionNameKey.With(pa.Name),
+			metrics.ServiceNameKey.With(serviceLabel),
+			metrics.ConfigurationNameKey.With(configLabel),
+		)
+		m = newMetrics(otel.GetMeterProvider(), attrs)
+		c.metricsMap.Store(key, m)
+	}
+
+	m.Record(pc)
+}
+
+func cast[T any](x any, ok bool) (T, bool) {
+	var val T
+	if ok {
+		return x.(T), true
+	}
+	return val, false
 }
 
 // computeActiveCondition updates the status of a PA given the current scale (got), desired scale (want)
