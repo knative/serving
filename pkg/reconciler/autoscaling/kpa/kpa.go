@@ -174,7 +174,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 		pa.Status.MarkSKSNotReady(sks.Status.GetCondition(nv1alpha1.ServerlessServiceConditionReady).GetMessage())
 	}
 
-	shouldPause := false
+	var shouldPause bool
 	isSKSReady := pa.Status.GetCondition(autoscalingv1alpha1.PodAutoscalerConditionSKSReady).IsTrue()
 	// only try probe if sks should be in proxy mode and SKS is ready, otherwise always unpause
 	if sks.Spec.Mode == nv1alpha1.SKSOperationModeProxy && isSKSReady {

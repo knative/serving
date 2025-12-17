@@ -640,3 +640,123 @@ func TestMetricCollectorAggregate(t *testing.T) {
 		t.Errorf("Stable Concurrency = %f, want: %f", got, want)
 	}
 }
+
+func TestMetricCollectorPausing(t *testing.T) {
+	logger := TestLogger(t)
+
+	mtp := &fake.ManualTickProvider{
+		Channel: make(chan time.Time),
+	}
+	now := time.Now()
+	fc := fake.Clock{
+		FakeClock: clocktest.NewFakeClock(now),
+		TP:        mtp,
+	}
+	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
+	const (
+		reportConcurrency = 10
+		reportRPS         = 20
+
+		wantPausedConcurrency  = 0
+		wantPausedRPS          = 0
+		wantPausedPConcurrency = 0
+		wantPausedPRPS         = 0
+
+		wantResumeRPS          = 10
+		wantResumeConcurrency  = 5
+		wantResumePConcurrency = 5
+		wantResumePRPS         = 10
+	)
+	stat := Stat{
+		PodName:                   "testPod",
+		AverageConcurrentRequests: reportConcurrency,
+		RequestCount:              reportRPS,
+	}
+	scraper := &testScraper{
+		s: func() (Stat, error) {
+			return stat, nil
+		},
+	}
+	factory := scraperFactory(scraper, nil)
+
+	coll := NewMetricCollector(factory, logger)
+	coll.clock = fc
+	coll.CreateOrUpdate(&defaultMetric)
+
+	// pause the collection, then check that metrics are not collected
+	coll.Pause(&defaultMetric)
+	// tick
+	for range 2 {
+		mtp.Channel <- now
+	}
+	// increment by two since 0 is included [0-1]
+	now = now.Add(time.Second)
+	fc.SetTime(now)
+	var gotRPS, gotConcurrency, panicRPS, panicConcurrency float64
+	// Poll to see that the async loop completed.
+	wait.PollUntilContextTimeout(context.Background(), 10*time.Millisecond, 2*time.Second, true, func(context.Context) (bool, error) {
+		gotConcurrency, panicConcurrency, _ = coll.StableAndPanicConcurrency(metricKey, now)
+		gotRPS, panicRPS, _ = coll.StableAndPanicRPS(metricKey, now)
+		return gotConcurrency == wantPausedConcurrency &&
+			panicConcurrency == wantPausedPConcurrency &&
+			gotRPS == wantPausedRPS &&
+			panicRPS == wantPausedPRPS, nil
+	})
+
+	if _, _, err := coll.StableAndPanicConcurrency(metricKey, now); err != nil {
+		t.Error("Paused: StableAndPanicConcurrency() =", err)
+	}
+	if _, _, err := coll.StableAndPanicRPS(metricKey, now); err != nil {
+		t.Error("Paused: StableAndPanicRPS() =", err)
+	}
+	if panicConcurrency != wantPausedPConcurrency {
+		t.Errorf("Paused: PanicConcurrency() = %v, want %v", panicConcurrency, wantPausedPConcurrency)
+	}
+	if panicRPS != wantPausedPRPS {
+		t.Errorf("Paused: PanicRPS() = %v, want %v", panicRPS, wantPausedPRPS)
+	}
+	if gotConcurrency != wantPausedConcurrency {
+		t.Errorf("Paused: StableConcurrency() = %v, want %v", gotConcurrency, wantPausedConcurrency)
+	}
+	if gotRPS != wantPausedRPS {
+		t.Errorf("Paused: StableRPS() = %v, want %v", gotRPS, wantPausedRPS)
+	}
+
+	// resume metric collection and go for half stable window
+	coll.Resume(&defaultMetric)
+	// increment by two to cover [2-3] (4 seconds total)
+	now = now.Add(2 * time.Second)
+	fc.SetTime(now)
+	for range 2 {
+		mtp.Channel <- now
+	}
+
+	// Poll to see that the async loop completed.
+	wait.PollUntilContextTimeout(context.Background(), 10*time.Millisecond, 2*time.Second, true, func(context.Context) (bool, error) {
+		gotConcurrency, panicConcurrency, _ = coll.StableAndPanicConcurrency(metricKey, now)
+		gotRPS, panicRPS, _ = coll.StableAndPanicRPS(metricKey, now)
+		return gotConcurrency == wantResumeConcurrency &&
+			panicConcurrency == wantResumePConcurrency &&
+			gotRPS == wantResumeRPS &&
+			panicRPS == wantResumePRPS, nil
+	})
+
+	if _, _, err := coll.StableAndPanicConcurrency(metricKey, now); err != nil {
+		t.Error("Resumed: StableAndPanicConcurrency() =", err)
+	}
+	if _, _, err := coll.StableAndPanicRPS(metricKey, now); err != nil {
+		t.Error("Resumed: StableAndPanicRPS() =", err)
+	}
+	if panicConcurrency != wantResumePConcurrency {
+		t.Errorf("Resumed: PanicConcurrency() = %v, want %v", panicConcurrency, wantResumePConcurrency)
+	}
+	if panicRPS != wantResumePRPS {
+		t.Errorf("Resumed: PanicRPS() = %v, want %v", panicRPS, wantResumePRPS)
+	}
+	if gotConcurrency != wantResumeConcurrency {
+		t.Errorf("Resumed: StableConcurrency() = %v, want %v", gotConcurrency, wantResumeConcurrency)
+	}
+	if gotRPS != wantResumeRPS {
+		t.Errorf("Resumed: StableRPS() = %v, want %v", gotRPS, wantResumeRPS)
+	}
+}
