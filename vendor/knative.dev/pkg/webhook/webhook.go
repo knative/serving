@@ -52,6 +52,21 @@ type Options struct {
 	// TLS 1.3 is the minimum version if not specified otherwise.
 	TLSMinVersion uint16
 
+	// TLSMaxVersion contains the maximum TLS version that is acceptable.
+	// If not set (0), the maximum version supported by the implementation will be used.
+	// This is useful for enforcing Modern profile (TLS 1.3 only) by setting both
+	// TLSMinVersion and TLSMaxVersion to tls.VersionTLS13.
+	TLSMaxVersion uint16
+
+	// TLSCipherSuites specifies the list of enabled cipher suites.
+	// If empty, a default list of secure cipher suites will be used.
+	// Note: Cipher suites are not configurable in TLS 1.3; they are determined by the implementation.
+	TLSCipherSuites []uint16
+
+	// TLSCurvePreferences specifies the elliptic curves that will be used in an ECDHE handshake.
+	// If empty, the default curves will be used.
+	TLSCurvePreferences []tls.CurveID
+
 	// ServiceName is the service name of the webhook.
 	ServiceName string
 
@@ -191,7 +206,10 @@ func New(
 
 		//nolint:gosec // operator configures TLS min version (default is 1.3)
 		webhook.tlsConfig = &tls.Config{
-			MinVersion: opts.TLSMinVersion,
+			MinVersion:       opts.TLSMinVersion,
+			MaxVersion:       opts.TLSMaxVersion,
+			CipherSuites:     opts.TLSCipherSuites,
+			CurvePreferences: opts.TLSCurvePreferences,
 
 			// If we return (nil, error) the client sees - 'tls: internal error"
 			// If we return (nil, nil) the client sees - 'tls: no certificates configured'
