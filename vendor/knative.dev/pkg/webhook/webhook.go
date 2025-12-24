@@ -333,9 +333,6 @@ func (wh *Webhook) Run(stop <-chan struct{}) error {
 	select {
 	case <-stop:
 		eg.Go(func() error {
-			// As we start to shutdown, disable keep-alives to avoid clients hanging onto connections.
-			server.SetKeepAlivesEnabled(false)
-
 			// Start failing readiness probes immediately.
 			logger.Info("Starting to fail readiness probes...")
 			drainer.Drain()

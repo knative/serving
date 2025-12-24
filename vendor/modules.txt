@@ -1475,7 +1475,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 # knative.dev/hack v0.0.0-20251021013703-4fae78067103
 ## explicit; go 1.24
 knative.dev/hack
-# knative.dev/networking v0.0.0-20251021092443-0bde19154dce
+# knative.dev/networking v0.0.0-20251030154838-4115314567bb
 ## explicit; go 1.24.0
 knative.dev/networking/config
 knative.dev/networking/pkg
@@ -1514,7 +1514,7 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20251022152246-7bf6febca0b3
+# knative.dev/pkg v0.0.0-20251224022520-6fe064596819
 ## explicit; go 1.24.0
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
