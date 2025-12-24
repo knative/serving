@@ -17,6 +17,8 @@ limitations under the License.
 package activator
 
 import (
+	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -43,7 +45,7 @@ func TestReportStats(t *testing.T) {
 	})
 
 	defer close(ch)
-	go ReportStats(logger, sink, ch)
+	go ReportStats(logger, sink, ch, nil)
 
 	inputs := [][]metrics.StatMessage{{{
 		Key: types.NamespacedName{Name: "first-a"},
@@ -94,4 +96,43 @@ type sendRawFunc func(msgType int, msg []byte) error
 
 func (fn sendRawFunc) SendRaw(msgType int, msg []byte) error {
 	return fn(msgType, msg)
+}
+
+type statusCheckerFunc func() error
+
+func (fn statusCheckerFunc) Status() error {
+	return fn()
+}
+
+func TestAutoscalerConnectionStatusMonitor(t *testing.T) {
+	tests := []struct {
+		name      string
+		statusErr error
+	}{{
+		name:      "connection established",
+		statusErr: nil,
+	}, {
+		name:      "connection not established",
+		statusErr: errors.New("connection not established"),
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := logtesting.TestLogger(t)
+			ctx, cancel := context.WithCancel(context.Background())
+
+			checker := statusCheckerFunc(func() error {
+				return tt.statusErr
+			})
+
+			// Start the monitor
+			go AutoscalerConnectionStatusMonitor(ctx, logger, checker, nil)
+
+			// Wait for at least one check to complete
+			time.Sleep(6 * time.Second)
+
+			// Cancel context to stop the monitor
+			cancel()
+		})
+	}
 }

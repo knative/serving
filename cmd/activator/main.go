@@ -205,7 +205,8 @@ func main() {
 	logger.Info("Connecting to Autoscaler at ", autoscalerEndpoint)
 	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
 	defer statSink.Shutdown()
-	go activator.ReportStats(logger, statSink, statCh)
+	go activator.ReportStats(logger, statSink, statCh, mp)
+	go activator.AutoscalerConnectionStatusMonitor(ctx, logger, statSink, mp)
 
 	// Create and run our concurrency reporter
 	concurrencyReporter := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, statCh, mp)
