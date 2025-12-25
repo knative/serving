@@ -84,8 +84,8 @@ type config struct {
 	MaxIdleProxyConns        int `split_words:"true" default:"1000"`
 	MaxIdleProxyConnsPerHost int `split_words:"true" default:"100"`
 
-	ProbeTimeout   int `split_words:"true" default:"300"`
-	ProbeFrequency int `split_words:"true" default:"200"`
+	ProbeTimeout   string `split_words:"true" default:"300ms"`
+	ProbeFrequency string `split_words:"true" default:"200ms"`
 }
 
 func main() {
@@ -161,7 +161,7 @@ func main() {
 	// transport so that throttler probe connections can be reused after probing
 	// (via keep-alive) to send real requests, avoiding needing an extra
 	// reconnect for the first request after the probe succeeds.
-	logger.Debugf("MaxIdleProxyConns: %d, MaxIdleProxyConnsPerHost: %d, ProbeTimeout: %dms, ProbeFrequency: %dms",
+	logger.Debugf("MaxIdleProxyConns: %d, MaxIdleProxyConnsPerHost: %d, ProbeTimeout: %s, ProbeFrequency: %s",
 		env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, env.ProbeTimeout, env.ProbeFrequency)
 	transport := pkgnet.NewProxyAutoTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
 
@@ -193,11 +193,19 @@ func main() {
 		transport = pkgnet.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, certCache.TLSContext())
 	}
 
+	probeTimeout, err := time.ParseDuration(env.ProbeTimeout)
+	if err != nil {
+		logger.Fatalw("Failed to parse PROBE_TIMEOUT", zap.String("value", env.ProbeTimeout), zap.Error(err))
+	}
+	probeFrequency, err := time.ParseDuration(env.ProbeFrequency)
+	if err != nil {
+		logger.Fatalw("Failed to parse PROBE_FREQUENCY", zap.String("value", env.ProbeFrequency), zap.Error(err))
+	}
+	activatornet.SetProbeSettings(probeTimeout, probeFrequency)
+
 	// Start throttler.
 	throttler := activatornet.NewThrottler(ctx, env.PodIP)
-	probeTimeout := time.Duration(env.ProbeTimeout) * time.Millisecond
-	probeFrequency := time.Duration(env.ProbeFrequency) * time.Millisecond
-	go throttler.Run(ctx, transport, networkConfig.EnableMeshPodAddressability, networkConfig.MeshCompatibilityMode, probeTimeout, probeFrequency)
+	go throttler.Run(ctx, transport, networkConfig.EnableMeshPodAddressability, networkConfig.MeshCompatibilityMode)
 
 	// Set up our config store
 	configMapWatcher := configmapinformer.NewInformedWatcher(kubeClient, system.Namespace())

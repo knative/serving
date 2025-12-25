@@ -58,6 +58,20 @@ import (
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
 )
 
+var (
+	// probeTimeout is the timeout for individual probe requests.
+	probeTimeout = 300 * time.Millisecond
+
+	// probeFrequency is the frequency at which probes are performed.
+	probeFrequency = 200 * time.Millisecond
+)
+
+// SetProbeSettings sets the probe timeout and frequency.
+func SetProbeSettings(timeout, frequency time.Duration) {
+	probeTimeout = timeout
+	probeFrequency = frequency
+}
+
 // revisionDestsUpdate contains the state of healthy l4 dests for talking to a revision and is the
 // primary output from the RevisionBackendsManager system. If a healthy ClusterIP is found then
 // ClusterIPDest will be set to non empty string and Dests will be nil. Otherwise Dests will be set
@@ -126,15 +140,13 @@ type revisionWatcher struct {
 	// cover the revision's ready conditions, for example when an exec probe is
 	// being used.
 	enableProbeOptimisation bool
-
-	probeTimeout time.Duration
 }
 
 func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol pkgnet.ProtocolType,
 	updateCh chan<- revisionDestsUpdate, destsCh chan dests,
 	transport http.RoundTripper, serviceLister corev1listers.ServiceLister,
 	usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode,
-	enableProbeOptimisation bool, probeTimeout time.Duration,
+	enableProbeOptimisation bool,
 	logger *zap.SugaredLogger,
 ) *revisionWatcher {
 	ctx, cancel := context.WithCancel(ctx)
@@ -152,7 +164,6 @@ func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol 
 		usePassthroughLb:        usePassthroughLb,
 		meshMode:                meshMode,
 		enableProbeOptimisation: enableProbeOptimisation,
-		probeTimeout:            probeTimeout,
 		logger:                  logger.With(zap.String(logkey.Key, rev.String())),
 	}
 }
@@ -217,7 +228,7 @@ func (rw *revisionWatcher) getDest() (string, error) {
 }
 
 func (rw *revisionWatcher) probeClusterIP(dest string) (bool, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), rw.probeTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
 	defer cancel()
 	match, _, err := rw.probe(ctx, dest)
 	return match, err
@@ -246,7 +257,7 @@ func (rw *revisionWatcher) probePodIPs(ready, notReady sets.Set[string]) (succee
 	}
 
 	// Context used for our probe requests.
-	ctx, cancel := context.WithTimeout(context.Background(), rw.probeTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
 	defer cancel()
 
 	// Empty errgroup is used as cancellation on first error is not desired, all probes should be
@@ -406,7 +417,7 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 	}
 }
 
-func (rw *revisionWatcher) run(probeFrequency time.Duration) {
+func (rw *revisionWatcher) run() {
 	defer close(rw.done)
 
 	var curDests, prevDests dests
@@ -457,12 +468,10 @@ type revisionBackendsManager struct {
 	usePassthroughLb bool
 	meshMode         netcfg.MeshCompatibilityMode
 	logger           *zap.SugaredLogger
-	probeTimeout     time.Duration
-	probeFrequency   time.Duration
 }
 
-// newRevisionBackendsManager returns a new RevisionBackendsManager with configurable probe settings.
-func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper, usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode, probeTimeout, probeFreq time.Duration) *revisionBackendsManager {
+// newRevisionBackendsManager returns a new RevisionBackendsManager.
+func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper, usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode) *revisionBackendsManager {
 	rbm := &revisionBackendsManager{
 		ctx:              ctx,
 		revisionLister:   revisioninformer.Get(ctx).Lister(),
@@ -473,8 +482,6 @@ func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper, usePa
 		usePassthroughLb: usePassthroughLb,
 		meshMode:         meshMode,
 		logger:           logging.FromContext(ctx),
-		probeTimeout:     probeTimeout,
-		probeFrequency:   probeFreq,
 	}
 	endpointsInformer := endpointsinformer.Get(ctx)
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -557,9 +564,9 @@ func (rbm *revisionBackendsManager) getOrCreateRevisionWatcher(revID types.Names
 		}
 
 		destsCh := make(chan dests)
-		rw := newRevisionWatcher(rbm.ctx, revID, rev.GetProtocol(), rbm.updateCh, destsCh, rbm.transport, rbm.serviceLister, rbm.usePassthroughLb, rbm.meshMode, enableProbeOptimisation, rbm.probeTimeout, rbm.logger)
+		rw := newRevisionWatcher(rbm.ctx, revID, rev.GetProtocol(), rbm.updateCh, destsCh, rbm.transport, rbm.serviceLister, rbm.usePassthroughLb, rbm.meshMode, enableProbeOptimisation, rbm.logger)
 		rbm.revisionWatchers[revID] = rw
-		go rw.run(rbm.probeFrequency)
+		go rw.run()
 		return rw, nil
 	}
 

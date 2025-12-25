@@ -545,6 +545,7 @@ func TestRevisionWatcher(t *testing.T) {
 				close(updateCh)
 			}()
 
+			SetProbeSettings(defaultProbeTimeout, probeFreq)
 			rw := newRevisionWatcher(
 				ctx,
 				revID,
@@ -556,7 +557,6 @@ func TestRevisionWatcher(t *testing.T) {
 				tc.usePassthroughLb, // usePassthroughLb
 				tc.meshMode,
 				true,
-				defaultProbeTimeout,
 				logger)
 			rw.clusterIPHealthy = tc.initialClusterIPState
 
@@ -564,7 +564,7 @@ func TestRevisionWatcher(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				rw.run(probeFreq)
+				rw.run()
 			}()
 
 			destsCh <- tc.dests
@@ -995,7 +995,8 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				t.Fatal("Failed to start informers:", err)
 			}
 
-			rbm := newRevisionBackendsManager(ctx, rt, false /*usePassthroughLb*/, netcfg.MeshCompatibilityModeAuto, defaultProbeTimeout, probeFreq)
+			SetProbeSettings(defaultProbeTimeout, probeFreq)
+			rbm := newRevisionBackendsManager(ctx, rt, false /*usePassthroughLb*/, netcfg.MeshCompatibilityModeAuto)
 			defer func() {
 				cancel()
 				waitInformers()
@@ -1458,7 +1459,8 @@ func TestRevisionDeleted(t *testing.T) {
 	ri.Informer().GetIndexer().Add(rev)
 
 	fakeRT := activatortest.FakeRoundTripper{}
-	rbm := newRevisionBackendsManager(ctx, pkgnetwork.RoundTripperFunc(fakeRT.RT), false /*usePassthroughLb*/, netcfg.MeshCompatibilityModeAuto, defaultProbeTimeout, probeFreq)
+	SetProbeSettings(defaultProbeTimeout, probeFreq)
+	rbm := newRevisionBackendsManager(ctx, pkgnetwork.RoundTripperFunc(fakeRT.RT), false /*usePassthroughLb*/, netcfg.MeshCompatibilityModeAuto)
 	defer func() {
 		cancel()
 		waitInformers()
@@ -1514,7 +1516,8 @@ func TestServiceDoesNotExist(t *testing.T) {
 			}},
 		},
 	}
-	rbm := newRevisionBackendsManager(ctx, pkgnetwork.RoundTripperFunc(fakeRT.RT), false /*usePassthroughLb*/, netcfg.MeshCompatibilityModeAuto, defaultProbeTimeout, probeFreq)
+	SetProbeSettings(defaultProbeTimeout, probeFreq)
+	rbm := newRevisionBackendsManager(ctx, pkgnetwork.RoundTripperFunc(fakeRT.RT), false /*usePassthroughLb*/, netcfg.MeshCompatibilityModeAuto)
 	defer func() {
 		cancel()
 		waitInformers()
@@ -1578,7 +1581,8 @@ func TestServiceMoreThanOne(t *testing.T) {
 			}},
 		},
 	}
-	rbm := newRevisionBackendsManager(ctx, pkgnetwork.RoundTripperFunc(fakeRT.RT), false /*usePassthroughLb*/, netcfg.MeshCompatibilityModeAuto, defaultProbeTimeout, probeFreq)
+	SetProbeSettings(defaultProbeTimeout, probeFreq)
+	rbm := newRevisionBackendsManager(ctx, pkgnetwork.RoundTripperFunc(fakeRT.RT), false /*usePassthroughLb*/, netcfg.MeshCompatibilityModeAuto)
 	defer func() {
 		cancel()
 		waitInformers()
@@ -1850,6 +1854,7 @@ func TestProbePodIPs(t *testing.T) {
 		}
 
 		// Minimally constructed revisionWatcher just to have what is needed for probing
+		SetProbeSettings(defaultProbeTimeout, probeFreq)
 		rw := &revisionWatcher{
 			rev:                     types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 			logger:                  TestLogger(t),
@@ -1857,7 +1862,6 @@ func TestProbePodIPs(t *testing.T) {
 			enableProbeOptimisation: input.enableProbeOptimization,
 			meshMode:                input.meshMode,
 			healthyPods:             input.healthy,
-			probeTimeout:            defaultProbeTimeout,
 		}
 
 		healthy, noop, notMesh, err := rw.probePodIPs(input.current.ready, input.current.notReady)

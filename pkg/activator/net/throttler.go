@@ -22,7 +22,6 @@ import (
 	"sort"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -498,8 +497,8 @@ func NewThrottler(ctx context.Context, ipAddr string) *Throttler {
 }
 
 // Run starts the throttler and blocks until the context is done.
-func (t *Throttler) Run(ctx context.Context, probeTransport http.RoundTripper, usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode, probeTimeout, probeFrequency time.Duration) {
-	rbm := newRevisionBackendsManager(ctx, probeTransport, usePassthroughLb, meshMode, probeTimeout, probeFrequency)
+func (t *Throttler) Run(ctx context.Context, probeTransport http.RoundTripper, usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode) {
+	rbm := newRevisionBackendsManager(ctx, probeTransport, usePassthroughLb, meshMode)
 	// Update channel is closed when ctx is done.
 	t.run(rbm.updates())
 }
