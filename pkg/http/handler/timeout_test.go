@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -624,6 +625,99 @@ func BenchmarkTimeoutHandler(b *testing.B) {
 			}
 		})
 	})
+}
+
+func TestTimeoutHandlerConcurrentHeaderAccess(t *testing.T) {
+	// This test verifies the fix for the race condition when requests time out.
+	// It simulates the scenario where the timeout handler completes while the
+	// inner handler is still trying to modify headers. The key is that this
+	// should not panic with a concurrent map access error.
+
+	var completedCount atomic.Int32
+	var panicCount int32
+	innerHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Simulate work that takes around the same time as timeout
+		time.Sleep(55 * time.Millisecond)
+
+		// After potential context cancellation, try to access headers
+		// This simulates what the error handler does
+		if r.Context().Err() != nil {
+			// Try to modify headers - this should not cause a panic
+			// even if timeout has occurred
+			w.Header().Set("X-Test-Header", "value")
+			http.Error(w, "context canceled", http.StatusBadGateway)
+		} else {
+			// If no timeout, write normally
+			w.WriteHeader(http.StatusOK)
+		}
+		completedCount.Add(1)
+	})
+
+	timeoutHandler := NewTimeoutHandler(
+		innerHandler,
+		"timeout",
+		func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
+			return 50 * time.Millisecond, 0, 0
+		},
+		zaptest.NewLogger(t).Sugar(),
+	)
+
+	// Run multiple concurrent requests to increase chances of hitting the race
+	var wg sync.WaitGroup
+	var timeoutResponses atomic.Int32
+	var normalResponses atomic.Int32
+	for range 10 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					// Should not panic with concurrent map access
+					atomic.AddInt32(&panicCount, 1)
+					t.Errorf("Unexpected panic: %v", r)
+				}
+			}()
+
+			req, err := http.NewRequest(http.MethodGet, "/", nil)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+
+			rec := httptest.NewRecorder()
+
+			// This should not panic with concurrent map access
+			timeoutHandler.ServeHTTP(rec, req)
+
+			// We may get either a timeout or a normal response depending on timing
+			// The key is that we don't panic
+			switch rec.Code {
+			case http.StatusGatewayTimeout:
+				timeoutResponses.Add(1)
+			case http.StatusOK:
+				normalResponses.Add(1)
+			default:
+				t.Errorf("Unexpected status code: %d", rec.Code)
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	// Give a bit more time for any lingering goroutines to complete
+	time.Sleep(100 * time.Millisecond)
+
+	// Check that no panics occurred
+	if panicCount > 0 {
+		t.Errorf("Got %d panics, expected 0", panicCount)
+	}
+
+	// At least some requests should have timed out
+	if timeoutResponses.Load() == 0 {
+		t.Error("Expected at least some timeout responses")
+	}
+
+	t.Logf("Got %d timeout responses and %d normal responses", timeoutResponses.Load(), normalResponses.Load())
 }
 
 func StaticTimeoutFunc(timeout time.Duration, requestStart time.Duration, idle time.Duration) TimeoutFunc {
