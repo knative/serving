@@ -82,6 +82,9 @@ type config struct {
 	// TODO: run loadtests using these flags to determine optimal default values.
 	MaxIdleProxyConns        int `split_words:"true" default:"1000"`
 	MaxIdleProxyConnsPerHost int `split_words:"true" default:"100"`
+
+	ProbeTimeout   string `split_words:"true" default:"300ms"`
+	ProbeFrequency string `split_words:"true" default:"200ms"`
 }
 
 func main() {
@@ -157,7 +160,8 @@ func main() {
 	// transport so that throttler probe connections can be reused after probing
 	// (via keep-alive) to send real requests, avoiding needing an extra
 	// reconnect for the first request after the probe succeeds.
-	logger.Debugf("MaxIdleProxyConns: %d, MaxIdleProxyConnsPerHost: %d", env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
+	logger.Debugf("MaxIdleProxyConns: %d, MaxIdleProxyConnsPerHost: %d, ProbeTimeout: %s, ProbeFrequency: %s",
+		env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, env.ProbeTimeout, env.ProbeFrequency)
 	transport := pkgnet.NewProxyAutoTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
 
 	// Fetch networking configuration to determine whether EnableMeshPodAddressability
@@ -187,6 +191,16 @@ func main() {
 		}
 		transport = pkgnet.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, certCache.TLSContext())
 	}
+
+	probeTimeout, err := time.ParseDuration(env.ProbeTimeout)
+	if err != nil {
+		logger.Fatalw("Failed to parse PROBE_TIMEOUT", zap.String("value", env.ProbeTimeout), zap.Error(err))
+	}
+	probeFrequency, err := time.ParseDuration(env.ProbeFrequency)
+	if err != nil {
+		logger.Fatalw("Failed to parse PROBE_FREQUENCY", zap.String("value", env.ProbeFrequency), zap.Error(err))
+	}
+	activatornet.SetProbeSettings(probeTimeout, probeFrequency)
 
 	// Start throttler.
 	throttler := activatornet.NewThrottler(ctx, env.PodIP)

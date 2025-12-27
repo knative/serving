@@ -58,6 +58,20 @@ import (
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
 )
 
+var (
+	// probeTimeout is the timeout for individual probe requests.
+	probeTimeout = 300 * time.Millisecond
+
+	// probeFrequency is the frequency at which probes are performed.
+	probeFrequency = 200 * time.Millisecond
+)
+
+// SetProbeSettings sets the probe timeout and frequency.
+func SetProbeSettings(timeout, frequency time.Duration) {
+	probeTimeout = timeout
+	probeFrequency = frequency
+}
+
 // revisionDestsUpdate contains the state of healthy l4 dests for talking to a revision and is the
 // primary output from the RevisionBackendsManager system. If a healthy ClusterIP is found then
 // ClusterIPDest will be set to non empty string and Dests will be nil. Otherwise Dests will be set
@@ -86,11 +100,6 @@ func (d dests) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("notReady", strings.Join(d.notReady.UnsortedList(), ","))
 	return nil
 }
-
-const (
-	probeTimeout          time.Duration = 300 * time.Millisecond
-	defaultProbeFrequency time.Duration = 200 * time.Millisecond
-)
 
 // revisionWatcher watches the podIPs and ClusterIP of the service for a revision. It implements the logic
 // to supply revisionDestsUpdate events on updateCh
@@ -408,7 +417,7 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 	}
 }
 
-func (rw *revisionWatcher) run(probeFrequency time.Duration) {
+func (rw *revisionWatcher) run() {
 	defer close(rw.done)
 
 	var curDests, prevDests dests
@@ -459,19 +468,10 @@ type revisionBackendsManager struct {
 	usePassthroughLb bool
 	meshMode         netcfg.MeshCompatibilityMode
 	logger           *zap.SugaredLogger
-	probeFrequency   time.Duration
 }
 
-// NewRevisionBackendsManager returns a new RevisionBackendsManager with default
-// probe time out.
+// newRevisionBackendsManager returns a new RevisionBackendsManager.
 func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper, usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode) *revisionBackendsManager {
-	return newRevisionBackendsManagerWithProbeFrequency(ctx, tr, usePassthroughLb, meshMode, defaultProbeFrequency)
-}
-
-// newRevisionBackendsManagerWithProbeFrequency creates a fully spec'd RevisionBackendsManager.
-func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.RoundTripper,
-	usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode, probeFreq time.Duration,
-) *revisionBackendsManager {
 	rbm := &revisionBackendsManager{
 		ctx:              ctx,
 		revisionLister:   revisioninformer.Get(ctx).Lister(),
@@ -482,7 +482,6 @@ func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.R
 		usePassthroughLb: usePassthroughLb,
 		meshMode:         meshMode,
 		logger:           logging.FromContext(ctx),
-		probeFrequency:   probeFreq,
 	}
 	endpointsInformer := endpointsinformer.Get(ctx)
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -567,7 +566,7 @@ func (rbm *revisionBackendsManager) getOrCreateRevisionWatcher(revID types.Names
 		destsCh := make(chan dests)
 		rw := newRevisionWatcher(rbm.ctx, revID, rev.GetProtocol(), rbm.updateCh, destsCh, rbm.transport, rbm.serviceLister, rbm.usePassthroughLb, rbm.meshMode, enableProbeOptimisation, rbm.logger)
 		rbm.revisionWatchers[revID] = rw
-		go rw.run(rbm.probeFrequency)
+		go rw.run()
 		return rw, nil
 	}
 
