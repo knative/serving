@@ -41,7 +41,7 @@ func newStatReporterMetrics(mp metric.MeterProvider) *statReporterMetrics {
 	meter := provider.Meter(scopeName)
 
 	m.autoscalerReachable, err = meter.Int64Gauge(
-		"activator_autoscaler_reachable",
+		"kn.activator.autoscaler.reachable",
 		metric.WithDescription("Whether the autoscaler is reachable from the activator (1 = reachable, 0 = not reachable)"),
 		metric.WithUnit("{reachable}"),
 	)
