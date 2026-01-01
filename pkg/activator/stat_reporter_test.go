@@ -104,6 +104,37 @@ func (fn statusCheckerFunc) Status() error {
 	return fn()
 }
 
+func TestReportStatsSendFailure(t *testing.T) {
+	logger := logtesting.TestLogger(t)
+	ch := make(chan []metrics.StatMessage)
+
+	sendErr := errors.New("connection refused")
+	errorReceived := make(chan struct{})
+	sink := sendRawFunc(func(msgType int, msg []byte) error {
+		close(errorReceived)
+		return sendErr
+	})
+
+	defer close(ch)
+	go ReportStats(logger, sink, ch, nil)
+
+	// Send a stat message
+	ch <- []metrics.StatMessage{{
+		Key: types.NamespacedName{Name: "test-revision"},
+	}}
+
+	// Wait for the error to be processed
+	select {
+	case <-errorReceived:
+		// Success - the error path was executed
+	case <-time.After(2 * time.Second):
+		t.Fatal("SendRaw was not called within timeout")
+	}
+
+	// Give some time for the goroutine to process the error and log
+	time.Sleep(100 * time.Millisecond)
+}
+
 func TestAutoscalerConnectionStatusMonitor(t *testing.T) {
 	tests := []struct {
 		name      string
