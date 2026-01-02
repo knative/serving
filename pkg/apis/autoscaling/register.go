@@ -151,6 +151,8 @@ const (
 	// This annotation takes precedence over the config map value.
 	TargetUtilizationPercentageKey = GroupName + "/target-utilization-percentage"
 
+	ConcurrentResourceRequestKey = GroupName + "/concurrent-resource-request"
+
 	// TargetBurstCapacityKey specifies the desired burst capacity for the
 	// revision. Possible values are:
 	// -1 -- infinite;
@@ -278,6 +280,10 @@ var (
 	TargetUtilizationPercentageAnnotation = kmap.KeyPriority{
 		TargetUtilizationPercentageKey,
 		GroupName + "/targetUtilizationPercentage",
+	}
+	ConcurrentResourceRequestAnnotation = kmap.KeyPriority{
+		ConcurrentResourceRequestKey,
+		GroupName + "/concurrentResourceRequest",
 	}
 	WindowAnnotation = kmap.KeyPriority{
 		WindowAnnotationKey,

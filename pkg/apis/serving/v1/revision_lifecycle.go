@@ -97,6 +97,30 @@ func (rs *RevisionSpec) GetContainerConcurrency() int64 {
 	return *rs.ContainerConcurrency
 }
 
+// For superpod
+func (rs *RevisionSpec) GetConcurrentResourceRequest() int64 {
+	if rs.ConcurrentResourceRequest == nil {
+		return config.DefaultConcurrentResourceRequest
+	}
+	return *rs.ConcurrentResourceRequest
+}
+
+// For superpod
+func (rs *RevisionSpec) GetQueueDepthResourceUnits() int64 {
+	if rs.QueueDepthResourceUnits == nil {
+		return config.DefaultQueueDepthResourceUnits
+	}
+	return *rs.QueueDepthResourceUnits
+}
+
+// For superpod
+func (rs *RevisionSpec) GetResourceUtilizationThreshold() float64 {
+	if rs.ResourceUtilizationThreshold == nil {
+		return config.DefaultResourceUtilizationThreshold
+	}
+	return *rs.ResourceUtilizationThreshold
+}
+
 // InitializeConditions sets the initial values to the conditions.
 func (rs *RevisionStatus) InitializeConditions() {
 	revisionCondSet.Manage(rs).InitializeConditions()

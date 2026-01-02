@@ -29,6 +29,8 @@ type ReqEvent struct {
 	Time time.Time
 	// Type is the type of the request event.
 	Type ReqEventType
+	// MemoryRequest is the memory request of the function request (for superpods).
+	MemoryRequest float64
 	// Key is the revision the event is associated with.
 	// +optional
 	Key types.NamespacedName
@@ -59,6 +61,7 @@ type RequestStats struct {
 
 	// State variables that track the current state. Not reset after reporting.
 	concurrency, proxiedConcurrency float64
+	concurrentMemoryRequest         float64 // for superpod memory request tracking
 	lastChange                      time.Time
 
 	// Reporting variables that track state over the current window. Reset after
@@ -85,6 +88,9 @@ type RequestStatsReport struct {
 	// ProxiedRequestCount is the number of proxied requests that arrived in the current
 	// reporting timeframe.
 	ProxiedRequestCount float64
+	// ConcurrentMemoryRequest is the sum of memory requests of all function requests
+	// that are concurrently being processed in superpods and queued.
+	ConcurrentMemoryRequest float64
 }
 
 // compute updates the internal state since the last computed change.
@@ -119,11 +125,13 @@ func (s *RequestStats) HandleEvent(event ReqEvent) {
 	case ReqIn:
 		s.requestCount++
 		s.concurrency++
+		s.concurrentMemoryRequest += event.MemoryRequest // track superpod memory request
 	case ProxiedOut:
 		s.proxiedConcurrency--
 		fallthrough
 	case ReqOut:
 		s.concurrency--
+		s.concurrentMemoryRequest -= event.MemoryRequest // track superpod memory request
 	}
 }
 
@@ -137,8 +145,9 @@ func (s *RequestStats) Report(now time.Time) RequestStatsReport {
 	defer s.reset()
 
 	report := RequestStatsReport{
-		RequestCount:        s.requestCount,
-		ProxiedRequestCount: s.proxiedCount,
+		RequestCount:            s.requestCount,
+		ProxiedRequestCount:     s.proxiedCount,
+		ConcurrentMemoryRequest: s.concurrentMemoryRequest, // track superpod memory request
 	}
 
 	if s.secondsInUse > 0 {

@@ -726,6 +726,10 @@ func (mc *metricClient) StableAndPanicRPS(key types.NamespacedName, now time.Tim
 	return mc.StableRPS, mc.PanicRPS, err
 }
 
+func (mc *metricClient) StableAndPanicMemory(key types.NamespacedName, now time.Time) (float64, float64, error) {
+	return 0, 0, nil
+}
+
 func BenchmarkAutoscaler(b *testing.B) {
 	metrics := &metricClient{StableConcurrency: 50.0, PanicConcurrency: 10}
 	a := newTestAutoscalerNoPC(10, 101, metrics)

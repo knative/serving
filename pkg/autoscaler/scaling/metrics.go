@@ -56,6 +56,18 @@ var (
 		"target_requests_per_second",
 		"The desired requests-per-second for each pod",
 		stats.UnitDimensionless)
+	stableMemoryM = stats.Float64(
+		"stable_memory_utilization",
+		"Average memory utilization per observed pod over the stable window",
+		stats.UnitDimensionless)
+	panicMemoryM = stats.Float64(
+		"panic_memory_utilization",
+		"Average memory utilization per observed pod over the panic window",
+		stats.UnitDimensionless)
+	targetMemoryM = stats.Float64(
+		"target_memory_utilization",
+		"The desired memory utilization for each pod",
+		stats.UnitDimensionless)
 	panicM = stats.Int64(
 		"panic_mode",
 		"1 if autoscaler is in panic mode, 0 otherwise",

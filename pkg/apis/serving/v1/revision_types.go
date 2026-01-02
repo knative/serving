@@ -83,6 +83,10 @@ type RevisionSpec struct {
 	// +optional
 	ContainerConcurrency *int64 `json:"containerConcurrency,omitempty"`
 
+	ConcurrentResourceRequest    *int64   `json:"concurrentResourceRequest,omitempty"`
+	QueueDepthResourceUnits      *int64   `json:"queueDepthResourceUnits,omitempty"`
+	ResourceUtilizationThreshold *float64 `json:"resourceUtilizationThreshold,omitempty"`
+
 	// TimeoutSeconds is the maximum duration in seconds that the request instance
 	// is allowed to respond to a request. If unspecified, a system default will
 	// be provided.

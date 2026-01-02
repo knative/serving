@@ -20,6 +20,7 @@ import (
 	"context"
 	"math"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -245,9 +246,18 @@ func (cr *ConcurrencyReporter) Handler(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		revisionKey := RevIDFrom(r.Context())
 
-		stat := cr.handleRequestIn(netstats.ReqEvent{Key: revisionKey, Type: netstats.ReqIn, Time: time.Now()})
+		// track superpod memory request
+		memoryRequest := r.Header.Get("Memory-Request") // Memory request in MB
+		var memReq float64
+		var err error
+		memReq, err = strconv.ParseFloat(memoryRequest, 64)
+		if err != nil {
+			memReq = 200 // If memory request value is not provided, default to 200MB
+		}
+
+		stat := cr.handleRequestIn(netstats.ReqEvent{Key: revisionKey, Type: netstats.ReqIn, Time: time.Now(), MemoryRequest: memReq})
 		defer func() {
-			cr.handleRequestOut(stat, netstats.ReqEvent{Key: revisionKey, Type: netstats.ReqOut, Time: time.Now()})
+			cr.handleRequestOut(stat, netstats.ReqEvent{Key: revisionKey, Type: netstats.ReqOut, Time: time.Now(), MemoryRequest: memReq})
 		}()
 
 		next.ServeHTTP(w, r)

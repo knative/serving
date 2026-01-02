@@ -122,6 +122,13 @@ func (pa *PodAutoscaler) TargetUtilization() (float64, bool) {
 	return 0, false
 }
 
+func (pa *PodAutoscaler) ConcurrentResourceRequest() (float64, bool) {
+	if crr, ok := pa.annotationFloat64(autoscaling.ConcurrentResourceRequestAnnotation); ok {
+		return crr, true
+	}
+	return 0, false
+}
+
 // TargetBC returns the target burst capacity, if the corresponding annotation is set.
 func (pa *PodAutoscaler) TargetBC() (float64, bool) {
 	// The value is validated in the webhook.

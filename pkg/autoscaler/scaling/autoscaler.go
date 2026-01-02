@@ -155,9 +155,16 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 
 	metricName := spec.ScalingMetric
 	var observedStableValue, observedPanicValue float64
+	// For superpod metric-based autoscaling
+	var observedStableValueConcurrency, observedPanicValueConcurrency float64
 	switch spec.ScalingMetric {
 	case autoscaling.RPS:
 		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicRPS(metricKey, now)
+	case autoscaling.Memory:
+		// for superpod autoscaling
+		observedStableValueConcurrency, observedPanicValueConcurrency, _ = a.metricClient.StableAndPanicConcurrency(metricKey, now)
+		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicMemory(metricKey, now)
+		// logger.Info("[WASMDEV] observedStableValue: ", observedStableValue, " observedPanicValue: ", observedPanicValue, " observedStableValueConcurrency: ", observedStableValueConcurrency, " observedPanicValueConcurrency: ", observedPanicValueConcurrency)
 	default:
 		metricName = autoscaling.Concurrency // concurrency is used by default
 		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicConcurrency(metricKey, now)
@@ -186,6 +193,24 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 
 	dspc := math.Ceil(observedStableValue / spec.TargetValue)
 	dppc := math.Ceil(observedPanicValue / spec.TargetValue)
+
+	// for superpod autoscaling
+	if spec.ScalingMetric == autoscaling.Memory {
+		if dspc == 0 && observedStableValueConcurrency > 0 {
+			// if the desired stable pod count is 0 but the observed stable concurrency is greater than 0
+			// scale from 0 to 1
+			_ = observedPanicValueConcurrency
+			dspc = 1
+			logger.Info("[WASMDEV] Desired stable pod count is 0 but the observed stable concurrency is greater than 0, scaling from 0 to 1")
+		} else if dspc == 1 && observedStableValueConcurrency <= 0 {
+			// if the desired stable pod count is 1 but the observed stable concurrency is 0
+			// scale from 1 to 0
+			// in some edge cases, the observed stable concurrency may be a very small negative number (e.g. -1.0e-6)
+			dspc = 0
+			logger.Info("[WASMDEV] Desired stable pod count is 1 but the observed stable concurrency is 0, scaling from 1 to 0")
+		}
+	}
+
 	if debugEnabled {
 		desugared.Debug(
 			fmt.Sprintf("For metric %s observed values: stable = %0.3f; panic = %0.3f; target = %0.3f "+
@@ -193,10 +218,21 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 				metricName, observedStableValue, observedPanicValue, spec.TargetValue,
 				dspc, dppc, originalReadyPodsCount, maxScaleUp, maxScaleDown))
 	}
+	// for debugging purposes
+	logger.Info(
+		fmt.Sprintf("[WASMDEV] For metric %s observed values: stable = %0.3f; panic = %0.3f; target = %0.3f "+
+			"Desired StablePodCount = %0.0f, PanicPodCount = %0.0f, ReadyEndpointCount = %d, MaxScaleUp = %0.0f, MaxScaleDown = %0.0f"+
+			" Total Pod Capacity = %0.3f, Observed Stable Value Concurrency = %0.3f, Observed Panic Value Concurrency = %0.3f",
+			metricName, observedStableValue, observedPanicValue, spec.TargetValue,
+			dspc, dppc, originalReadyPodsCount, maxScaleUp, maxScaleDown,
+			float64(originalReadyPodsCount)*spec.TotalValue, observedStableValueConcurrency, observedPanicValueConcurrency))
 
 	// We want to keep desired pod count in the  [maxScaleDown, maxScaleUp] range.
 	desiredStablePodCount := int32(math.Min(math.Max(dspc, maxScaleDown), maxScaleUp))
 	desiredPanicPodCount := int32(math.Min(math.Max(dppc, maxScaleDown), maxScaleUp))
+
+	// for debugging purposes
+	// logger.Info("[WASMDEV] For metric: ", metricName, " desiredStablePodCount: ", desiredStablePodCount, " desiredPanicPodCount: ", desiredPanicPodCount, " activationScale: ", a.deciderSpec.ActivationScale)
 
 	//	If ActivationScale > 1, then adjust the desired pod counts
 	if a.deciderSpec.ActivationScale > 1 {
@@ -296,6 +332,14 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 			stableRPSM.M(observedStableValue),
 			panicRPSM.M(observedPanicValue),
 			targetRPSM.M(spec.TargetValue),
+		)
+	case autoscaling.Memory:
+		pkgmetrics.RecordBatch(a.reporterCtx,
+			excessBurstCapacityM.M(excessBCF),
+			desiredPodCountM.M(int64(desiredPodCount)),
+			stableMemoryM.M(observedStableValue),
+			panicMemoryM.M(observedPanicValue),
+			targetMemoryM.M(spec.TargetValue),
 		)
 	default:
 		pkgmetrics.RecordBatch(a.reporterCtx,

@@ -63,6 +63,15 @@ const (
 	// DefaultContainerConcurrency is the default container concurrency. It will be set if ContainerConcurrency is not specified.
 	DefaultContainerConcurrency = 0
 
+	// DefaultConcurrentResourceRequest is the default hard limit for concurrent resource requests.
+	DefaultConcurrentResourceRequest = 8000
+
+	// DefaultQueueDepthResourceUnits is the default number of requested resource units for requests waiting in the queue.
+	DefaultQueueDepthResourceUnits = 16000
+
+	// DefaultResourceUtilizationThreshold is the maximum resource utilization for admitting new requests to the user container (i.e., superpod).
+	DefaultResourceUtilizationThreshold float64 = 10000 // no limit by default
+
 	// DefaultMaxRevisionContainerConcurrency is the maximum configurable
 	// container concurrency.
 	DefaultMaxRevisionContainerConcurrency = 1000

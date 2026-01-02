@@ -41,6 +41,10 @@ const (
 	// by queue-proxy for end user.
 	UserQueueMetricsPort = 9091
 
+	// UserContainerMetricsPort specifies the port number for metrics emitted
+	// by superpod (i.e., user container) for autoscaler.
+	SuperPodMetricsPort = 9096
+
 	// ActivatorServiceName is the name of the activator Kubernetes service.
 	ActivatorServiceName = "activator-service"
 

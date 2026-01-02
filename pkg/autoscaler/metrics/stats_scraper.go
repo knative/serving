@@ -305,6 +305,8 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 
 				stat, err := s.directClient.Do(req)
 				if err == nil {
+					// for debugging purposes
+					// s.logger.Info("[DEV-SCRAPER] Successfully scraped pod " + pods[myIdx] + " for metrics " + stat.String())
 					results <- stat
 					return nil
 				}

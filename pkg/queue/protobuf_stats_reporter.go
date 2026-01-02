@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"time"
 
-	"go.uber.org/atomic"
+	"sync/atomic"
 
 	"github.com/gogo/protobuf/proto"
 
@@ -63,6 +63,7 @@ func NewProtobufStatsReporter(pod string, reportingPeriod time.Duration) *Protob
 
 // Report captures request metrics.
 func (r *ProtobufStatsReporter) Report(stats netstats.RequestStatsReport) {
+	// spm := metric.Load()
 	r.stat.Store(metrics.Stat{
 		PodName:       r.podName,
 		ProcessUptime: time.Since(r.startTime).Seconds(),
@@ -72,6 +73,10 @@ func (r *ProtobufStatsReporter) Report(stats netstats.RequestStatsReport) {
 		ProxiedRequestCount:              stats.ProxiedRequestCount / r.reportingPeriodSeconds,
 		AverageConcurrentRequests:        stats.AverageConcurrency,
 		AverageProxiedConcurrentRequests: stats.AverageProxiedConcurrency,
+		// Superpod actual memory usage (may be deprecated in the future)
+		// AverageMemUtilization: spm.(spmetricserver.SuperPodMetrics).AverageMemUtilization,
+		// Track superpod memory request
+		ConcurrentMemoryRequest: stats.ConcurrentMemoryRequest,
 	})
 }
 

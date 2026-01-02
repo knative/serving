@@ -24,6 +24,9 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+
+	"go.uber.org/atomic"
+
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
@@ -31,6 +34,7 @@ import (
 	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap"
 	"knative.dev/serving/pkg/queue/certificate"
+	"knative.dev/serving/pkg/queue/spmetricserver"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -77,15 +81,18 @@ const (
 )
 
 type config struct {
-	ContainerConcurrency                int    `split_words:"true" required:"true"`
-	QueueServingPort                    string `split_words:"true" required:"true"`
-	QueueServingTLSPort                 string `split_words:"true" required:"true"`
-	UserPort                            string `split_words:"true" required:"true"`
-	RevisionTimeoutSeconds              int    `split_words:"true" required:"true"`
-	RevisionResponseStartTimeoutSeconds int    `split_words:"true"` // optional
-	RevisionIdleTimeoutSeconds          int    `split_words:"true"` // optional
-	ServingReadinessProbe               string `split_words:"true"` // optional
-	EnableProfiling                     bool   `split_words:"true"` // optional
+	ContainerConcurrency                int     `split_words:"true" required:"true"`
+	ConcurrentResourceRequest           int     `split_words:"true" required:"true"`
+	QueueDepthResourceUnits             int     `split_words:"true" required:"true"`
+	ResourceUtilizationThreshold        float64 `split_words:"true" required:"true"`
+	QueueServingPort                    string  `split_words:"true" required:"true"`
+	QueueServingTLSPort                 string  `split_words:"true" required:"true"`
+	UserPort                            string  `split_words:"true" required:"true"`
+	RevisionTimeoutSeconds              int     `split_words:"true" required:"true"`
+	RevisionResponseStartTimeoutSeconds int     `split_words:"true"` // optional
+	RevisionIdleTimeoutSeconds          int     `split_words:"true"` // optional
+	ServingReadinessProbe               string  `split_words:"true"` // optional
+	EnableProfiling                     bool    `split_words:"true"` // optional
 	// See https://github.com/knative/serving/issues/12387
 	EnableHTTPFullDuplex       bool `split_words:"true"`                      // optional
 	EnableHTTP2AutoDetection   bool `envconfig:"ENABLE_HTTP2_AUTO_DETECTION"` // optional
@@ -108,6 +115,9 @@ type config struct {
 	TracingConfigBackend        tracingconfig.BackendType `split_words:"true"` // optional
 	TracingConfigSampleRate     float64                   `split_words:"true"` // optional
 	TracingConfigZipkinEndpoint string                    `split_words:"true"` // optional
+
+	// Superpod configuration
+	EnableSuperpod bool `split_words:"true"` // optional // ENABLE_SUPERPOD
 
 	Env
 }
@@ -234,7 +244,9 @@ func Main(opts ...Option) error {
 	// Enable TLS when certificate is mounted.
 	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
-	mainHandler, drainer := mainHandler(d.Ctx, env, d.Transport, probe, stats, logger)
+	spMetricsVal := atomic.Value{}
+
+	mainHandler, drainer := mainHandler(d.Ctx, env, d.Transport, probe, stats, logger, &spMetricsVal)
 	adminHandler := adminHandler(d.Ctx, logger, drainer)
 
 	// Enable TLS server when activator server certs are mounted.
@@ -244,6 +256,17 @@ func Main(opts ...Option) error {
 		"main":    mainServer(":"+env.QueueServingPort, mainHandler),
 		"admin":   adminServer(":"+strconv.Itoa(networking.QueueAdminPort), adminHandler),
 		"metrics": metricsServer(protoStatReporter),
+	}
+
+	// Create and start the metrics server for superpod metrics
+
+	// superpod metrics buffe
+	spMetricsVal.Store(spmetricserver.SuperPodMetrics{CpuUtilization: 0})
+
+	if env.EnableSuperpod {
+		spmetricserver := spmetricserver.New(&spMetricsVal, logger)
+		defer spmetricserver.Shutdown(1 * time.Second)
+		go spmetricserver.ListenAndServe()
 	}
 
 	if env.EnableProfiling {
@@ -376,6 +399,20 @@ func buildBreaker(logger *zap.SugaredLogger, env config) *queue.Breaker {
 	}
 	logger.Infof("Queue container is starting with BreakerParams = %#v", params)
 	return queue.NewBreaker(params)
+}
+
+func buildResourceBreaker(logger *zap.SugaredLogger, env config, metricValue *atomic.Value) *queue.ResourceBreaker {
+	// We set the queue depth units to be equal to the ConcurrentResourceRequest * 2
+	// Note: This value may need to be adjusted
+	resourceBreakerParams := queue.ResourceBreakerParams{
+		QueueDepthUnits:              env.QueueDepthResourceUnits,
+		MaxConcurrencyUnits:          env.ConcurrentResourceRequest,
+		InitialCapacityUnits:         env.ConcurrentResourceRequest,
+		ResourceUtilizationThreshold: env.ResourceUtilizationThreshold,
+		MetricValue:                  metricValue,
+	}
+	logger.Infof("Queue container is starting with ResourceBreakerParams = %#v", resourceBreakerParams)
+	return queue.NewResourceBreaker(resourceBreakerParams)
 }
 
 func supportsMetrics(ctx context.Context, logger *zap.SugaredLogger, env config) bool {

@@ -48,6 +48,7 @@ import (
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/version"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler/bucket"
@@ -264,6 +265,10 @@ func statsScraperFactoryFunc(podLister corev1listers.PodLister, usePassthroughLb
 		}
 
 		podAccessor := resources.NewPodAccessor(podLister, metric.Namespace, revisionName)
+		// metrics scraper for metrics other than RPS and concurrency (i.e., memory)
+		if metric.Name == autoscaling.Memory {
+			return asmetrics.NewStatsScraper(metric, revisionName, podAccessor, usePassthroughLb, meshMode, logger), nil
+		}
 		return asmetrics.NewStatsScraper(metric, revisionName, podAccessor, usePassthroughLb, meshMode, logger), nil
 	}
 }

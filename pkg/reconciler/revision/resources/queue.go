@@ -340,6 +340,8 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 
 	fullDuplexFeature, fullDuplexExists := rev.Annotations[apicfg.AllowHTTPFullDuplexFeatureKey]
 
+	superpodFeature, superpodExists := rev.Annotations[apicfg.SuperpodKey]
+
 	useQPResourceDefaults := cfg.Features.QueueProxyResourceDefaults == apicfg.Enabled
 	c := &corev1.Container{
 		Name:            QueueContainerName,
@@ -370,6 +372,15 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		}, {
 			Name:  "CONTAINER_CONCURRENCY",
 			Value: strconv.Itoa(int(rev.Spec.GetContainerConcurrency())),
+		}, {
+			Name:  "CONCURRENT_RESOURCE_REQUEST",
+			Value: strconv.Itoa(int(rev.Spec.GetConcurrentResourceRequest())),
+		}, {
+			Name:  "QUEUE_DEPTH_RESOURCE_UNITS",
+			Value: strconv.Itoa(int(rev.Spec.GetQueueDepthResourceUnits())),
+		}, {
+			Name:  "RESOURCE_UTILIZATION_THRESHOLD",
+			Value: strconv.Itoa(int(rev.Spec.GetResourceUtilizationThreshold())),
 		}, {
 			Name:  "REVISION_TIMEOUT_SECONDS",
 			Value: strconv.Itoa(int(ts)),
@@ -464,6 +475,9 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		}, {
 			Name:  "ENABLE_MULTI_CONTAINER_PROBES",
 			Value: strconv.FormatBool(multiContainerProbingEnabled),
+		}, {
+			Name:  "ENABLE_SUPERPOD",
+			Value: strconv.FormatBool(superpodExists && strings.EqualFold(superpodFeature, string(apicfg.Enabled))),
 		}},
 	}
 

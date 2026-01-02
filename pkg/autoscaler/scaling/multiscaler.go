@@ -48,7 +48,7 @@ type Decider struct {
 type DeciderSpec struct {
 	MaxScaleUpRate   float64
 	MaxScaleDownRate float64
-	// The metric used for scaling, i.e. concurrency, rps.
+	// The metric used for scaling, i.e. concurrency, rps, and memory.
 	ScalingMetric string
 	// The value of scaling metric per pod that we target to maintain.
 	// TargetValue <= TotalValue.

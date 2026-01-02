@@ -84,6 +84,8 @@ type PodAutoscalerSpec struct {
 	// +optional
 	ContainerConcurrency int64 `json:"containerConcurrency,omitempty"`
 
+	ConcurrentResourceRequest int64 `json:"concurrentResourceRequest,omitempty"`
+
 	// ScaleTargetRef defines the /scale-able resource that this PodAutoscaler
 	// is responsible for quickly right-sizing.
 	ScaleTargetRef corev1.ObjectReference `json:"scaleTargetRef"`

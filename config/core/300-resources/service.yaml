@@ -152,6 +152,23 @@ spec:
                             target concurrency for the autoscaler.
                           type: integer
                           format: int64
+                        concurrentResourceRequest:
+                          description: |-
+                            ConcurrentResourceRequest specifies the maximum allowed in-flight (concurrent)
+                            resource requests for the Revision.
+                          type: integer
+                          format: int64
+                        queueDepthResourceUnits:
+                          description: |-
+                            QueueDepthResourceUnits specifies the maximum allowed in-flight (concurrent)
+                            resource requests in the queue proxy and user container for the Revision.
+                          type: integer
+                          format: int64
+                        resourceUtilizationThreshold:
+                          description: |-
+                            ResourceUtilizationThreshold specifies the maximum resource utilization for admitting new requests to the user container (i.e., superpod).
+                          type: number
+                          format: double
                         containers:
                           description: |-
                             List of containers belonging to the pod.

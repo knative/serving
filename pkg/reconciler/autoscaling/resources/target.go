@@ -35,14 +35,36 @@ func ResolveMetricTarget(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscal
 	case autoscaling.RPS:
 		total = config.RPSTargetDefault
 		tu = config.TargetUtilization
+	case autoscaling.Memory:
+		// Superpod autoscaling based on memory requests
+		if annotationTarget, ok := pa.Target(); ok {
+			// If the target is set in the annotation, use it as the target.
+			// Total is set to the concurrent resource request.
+			// If the concurrent resource request is smaller than the target (e.g., use a default value not matching the actual resource limit),
+			// we use the target as the total.
+			target = annotationTarget
+			total = float64(pa.Spec.ConcurrentResourceRequest)
+			total = math.Max(total, target)
+			return target, total
+		} else {
+			// If the target is not set in the annotation, use the concurrent resource request times the target utilization as the target.
+			total = float64(pa.Spec.ConcurrentResourceRequest)
+			tu = config.TargetUtilization
+			if v, ok := pa.TargetUtilization(); ok {
+				// If the target utilization is set in the annotation, use it.
+				tu = v
+			}
+			target = total * tu
+			return target, total
+		}
 	default:
 		// Concurrency is used by default
-		total = float64(pa.Spec.ContainerConcurrency)
+		total = float64(pa.Spec.ContainerConcurrency) // Default ContainerConcurrency is 0 (no limit), the maximum limit is 1000 (imposed by validator) if set.
 		// If containerConcurrency is 0 we'll always target the default.
 		if total == 0 {
-			total = config.ContainerConcurrencyTargetDefault
+			total = config.ContainerConcurrencyTargetDefault // ContainerConcurrencyTargetDefault is 100
 		}
-		tu = config.ContainerConcurrencyTargetFraction
+		tu = config.ContainerConcurrencyTargetFraction // Default ContainerConcurrencyTargetFraction is 0.7
 	}
 
 	// Use the target provided via annotation, if applicable.
@@ -57,8 +79,10 @@ func ResolveMetricTarget(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscal
 	}
 
 	if v, ok := pa.TargetUtilization(); ok {
+		// If the target utilization is set in the annotation, use it.
 		tu = v
 	}
+	//				  TargetMin is 0.01
 	target = math.Max(autoscaling.TargetMin, total*tu)
 
 	return target, total

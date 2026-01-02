@@ -80,6 +80,10 @@ type MetricClient interface {
 	// StableAndPanicRPS returns both the stable and the panic RPS
 	// for the given replica as of the given time.
 	StableAndPanicRPS(key types.NamespacedName, now time.Time) (float64, float64, error)
+
+	// StableAndPanicMemory returns both the stable and the panic memory utilization
+	// for the given replica as of the given time.
+	StableAndPanicMemory(key types.NamespacedName, now time.Time) (float64, float64, error)
 }
 
 // MetricCollector manages collection of metrics for many entities.
@@ -218,6 +222,25 @@ func (c *MetricCollector) StableAndPanicRPS(key types.NamespacedName, now time.T
 		nil
 }
 
+// StableAndPanicMemory returns both the stable and the panic memory utilization.
+// It may truncate metric buckets as a side-effect.
+func (c *MetricCollector) StableAndPanicMemory(key types.NamespacedName, now time.Time) (float64, float64, error) {
+	c.collectionsMutex.RLock()
+	defer c.collectionsMutex.RUnlock()
+
+	collection, exists := c.collections[key]
+	if !exists {
+		return 0, 0, ErrNotCollecting
+	}
+
+	if collection.memBuckets.IsEmpty(now) && collection.currentMetric().Spec.ScrapeTarget != "" {
+		return 0, 0, ErrNoData
+	}
+	return collection.memBuckets.WindowAverage(now),
+		collection.memPanicBuckets.WindowAverage(now),
+		nil
+}
+
 type (
 	// windowAverager is the client side abstraction for various bucket types.
 	windowAverager interface {
@@ -239,6 +262,8 @@ type (
 		concurrencyPanicBuckets windowAverager
 		rpsBuckets              windowAverager
 		rpsPanicBuckets         windowAverager
+		memBuckets              windowAverager
+		memPanicBuckets         windowAverager
 
 		// Fields relevant for metric scraping specifically.
 		scraper StatsScraper
@@ -285,6 +310,10 @@ func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clo
 		rpsBuckets: bucketCtor(
 			metric.Spec.StableWindow, config.BucketSize),
 		rpsPanicBuckets: bucketCtor(
+			metric.Spec.PanicWindow, config.BucketSize),
+		memBuckets: bucketCtor(
+			metric.Spec.StableWindow, config.BucketSize),
+		memPanicBuckets: bucketCtor(
 			metric.Spec.PanicWindow, config.BucketSize),
 		scraper: scraper,
 
@@ -347,6 +376,9 @@ func (c *collection) updateMetric(metric *autoscalingv1alpha1.Metric) {
 	c.concurrencyPanicBuckets.ResizeWindow(metric.Spec.PanicWindow)
 	c.rpsBuckets.ResizeWindow(metric.Spec.StableWindow)
 	c.rpsPanicBuckets.ResizeWindow(metric.Spec.PanicWindow)
+	// superpod metrics
+	c.memBuckets.ResizeWindow(metric.Spec.StableWindow)
+	c.memPanicBuckets.ResizeWindow(metric.Spec.PanicWindow)
 }
 
 // currentMetric safely returns the current metric stored in the collection.
@@ -387,6 +419,9 @@ func (c *collection) record(now time.Time, stat Stat) {
 	rps := stat.RequestCount - stat.ProxiedRequestCount
 	c.rpsBuckets.Record(now, rps)
 	c.rpsPanicBuckets.Record(now, rps)
+	// superpod metrics
+	c.memBuckets.Record(now, float64(stat.ConcurrentMemoryRequest))
+	c.memPanicBuckets.Record(now, stat.ConcurrentMemoryRequest)
 }
 
 // add adds the stats from `src` to `dst`.
@@ -395,6 +430,8 @@ func (dst *Stat) add(src Stat) {
 	dst.AverageProxiedConcurrentRequests += src.AverageProxiedConcurrentRequests
 	dst.RequestCount += src.RequestCount
 	dst.ProxiedRequestCount += src.ProxiedRequestCount
+	// aggregate memory utilization
+	dst.ConcurrentMemoryRequest += src.ConcurrentMemoryRequest
 }
 
 // average reduces the aggregate stat from `sample` pods to an averaged one over
@@ -413,4 +450,6 @@ func (dst *Stat) average(sample, total float64) {
 	dst.AverageProxiedConcurrentRequests = dst.AverageProxiedConcurrentRequests / sample * total
 	dst.RequestCount = dst.RequestCount / sample * total
 	dst.ProxiedRequestCount = dst.ProxiedRequestCount / sample * total
+	// average memory utilization
+	dst.ConcurrentMemoryRequest = dst.ConcurrentMemoryRequest / sample * total
 }

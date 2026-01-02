@@ -243,7 +243,7 @@ func validateMetric(c *autoscalerconfig.Config, m map[string]string) *apis.Field
 		switch classValue {
 		case KPA:
 			switch metric {
-			case Concurrency, RPS:
+			case Concurrency, RPS, Memory:
 				return nil
 			}
 		case HPA:

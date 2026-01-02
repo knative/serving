@@ -49,6 +49,9 @@ const (
 
 	// AllowHTTPFullDuplexFeatureKey gates the use of http1 full duplex per workload
 	AllowHTTPFullDuplexFeatureKey = "features.knative.dev/http-full-duplex"
+
+	// Superpod gates the use of superpods
+	SuperpodKey = "features.knative.dev/superpod"
 )
 
 func defaultFeaturesConfig() *Features {

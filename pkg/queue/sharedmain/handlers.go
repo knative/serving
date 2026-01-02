@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"time"
 
+	"go.uber.org/atomic"
+
 	"go.uber.org/zap"
 	netheader "knative.dev/networking/pkg/http/header"
 	netproxy "knative.dev/networking/pkg/http/proxy"
@@ -43,6 +45,7 @@ func mainHandler(
 	prober func() bool,
 	stats *netstats.RequestStats,
 	logger *zap.SugaredLogger,
+	superPodMetricValue *atomic.Value,
 ) (http.Handler, *pkghandler.Drainer) {
 	target := net.JoinHostPort("127.0.0.1", env.UserPort)
 
@@ -71,7 +74,15 @@ func mainHandler(
 	if metricsSupported {
 		composedHandler = requestAppMetricsHandler(logger, composedHandler, breaker, env)
 	}
-	composedHandler = queue.ProxyHandler(breaker, stats, tracingEnabled, composedHandler)
+
+	if env.EnableSuperpod {
+		logger.Info("Superpod feature is enabled")
+		resourceBreaker := buildResourceBreaker(logger, env, superPodMetricValue)
+		composedHandler = queue.SuperpodProxyHandler(resourceBreaker, stats, tracingEnabled, composedHandler)
+	} else {
+		composedHandler = queue.ProxyHandler(breaker, stats, tracingEnabled, composedHandler)
+	}
+
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
 	composedHandler = handler.NewTimeoutHandler(composedHandler, "request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
 		return timeout, responseStartTimeout, idleTimeout

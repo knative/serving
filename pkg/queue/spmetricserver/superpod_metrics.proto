@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+package spmetricserver;
+
+message SuperPodMetrics {
+  double cpu_utilization = 1;
+}

@@ -39,7 +39,8 @@ func MakePA(rev *v1.Revision, deployment *appsv1.Deployment) *autoscalingv1alpha
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: autoscalingv1alpha1.PodAutoscalerSpec{
-			ContainerConcurrency: rev.Spec.GetContainerConcurrency(),
+			ContainerConcurrency:      rev.Spec.GetContainerConcurrency(),
+			ConcurrentResourceRequest: rev.Spec.GetConcurrentResourceRequest(),
 			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
