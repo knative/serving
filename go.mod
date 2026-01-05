@@ -39,8 +39,8 @@ require (
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
 	knative.dev/caching v0.0.0-20251217015426-ca66f558da49
 	knative.dev/hack v0.0.0-20251126013634-1484a9e9b641
-	knative.dev/networking v0.0.0-20251217020127-11890a5dabea
-	knative.dev/pkg v0.0.0-20251217214024-80c8bc434670
+	knative.dev/networking v0.0.0-20260105015630-65d7d48ac9ef
+	knative.dev/pkg v0.0.0-20260104220430-51874fe86fcb
 	sigs.k8s.io/randfill v1.0.0
 	sigs.k8s.io/yaml v1.6.0
 )
