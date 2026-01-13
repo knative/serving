@@ -24,7 +24,8 @@ import (
 var scopeName = "knative.dev/serving/pkg/activator"
 
 type statReporterMetrics struct {
-	autoscalerReachable metric.Int64Gauge
+	autoscalerReachable        metric.Int64Gauge
+	autoscalerConnectionErrors metric.Int64Counter
 }
 
 func newStatReporterMetrics(mp metric.MeterProvider) *statReporterMetrics {
@@ -44,6 +45,15 @@ func newStatReporterMetrics(mp metric.MeterProvider) *statReporterMetrics {
 		"kn.activator.autoscaler.reachable",
 		metric.WithDescription("Whether the autoscaler is reachable from the activator (1 = reachable, 0 = not reachable)"),
 		metric.WithUnit("{reachable}"),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	m.autoscalerConnectionErrors, err = meter.Int64Counter(
+		"kn.activator.autoscaler.connection_errors_total",
+		metric.WithDescription("Total number of autoscaler connection errors from the activator"),
+		metric.WithUnit("{error}"),
 	)
 	if err != nil {
 		panic(err)

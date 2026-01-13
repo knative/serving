@@ -130,9 +130,6 @@ func TestReportStatsSendFailure(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("SendRaw was not called within timeout")
 	}
-
-	// Give some time for the goroutine to process the error and log
-	time.Sleep(100 * time.Millisecond)
 }
 
 func TestAutoscalerConnectionStatusMonitor(t *testing.T) {

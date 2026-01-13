@@ -58,6 +58,7 @@ func AutoscalerConnectionStatusMonitor(ctx context.Context, logger *zap.SugaredL
 				logger.Errorw("Autoscaler is not reachable from activator.",
 					zap.Error(err))
 				metrics.autoscalerReachable.Record(context.Background(), 0)
+				metrics.autoscalerConnectionErrors.Add(context.Background(), 1)
 			} else {
 				metrics.autoscalerReachable.Record(context.Background(), 1)
 			}
@@ -84,6 +85,7 @@ func ReportStats(logger *zap.SugaredLogger, sink RawSender, source <-chan []asme
 					zap.Error(err),
 					zap.Int("stat_message_count", len(sms)))
 				metrics.autoscalerReachable.Record(context.Background(), 0)
+				metrics.autoscalerConnectionErrors.Add(context.Background(), 1)
 			} else {
 				metrics.autoscalerReachable.Record(context.Background(), 1)
 			}
