@@ -17,8 +17,6 @@ limitations under the License.
 package activator
 
 import (
-	"context"
-
 	"github.com/gorilla/websocket"
 	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/zap"
@@ -35,17 +33,20 @@ type RawSender interface {
 // AutoscalerConnectionOptions returns websocket connection options that handle
 // connection status changes via callbacks. This enables real-time metric updates
 // when the connection state changes, without polling.
-func AutoscalerConnectionOptions(logger *zap.SugaredLogger, mp metric.MeterProvider) []pkgwebsocket.ConnectionOption {
+func AutoscalerConnectionOptions(
+	logger *zap.SugaredLogger,
+	mp metric.MeterProvider,
+) []pkgwebsocket.ConnectionOption {
 	metrics := newStatReporterMetrics(mp)
+
 	return []pkgwebsocket.ConnectionOption{
 		pkgwebsocket.WithOnConnect(func() {
 			logger.Info("Autoscaler connection established")
-			metrics.reachable.Record(context.Background(), 1, metric.WithAttributes(PeerAutoscaler))
+			metrics.OnAutoscalerConnect()
 		}),
 		pkgwebsocket.WithOnDisconnect(func(err error) {
 			logger.Errorw("Autoscaler connection lost", zap.Error(err))
-			metrics.reachable.Record(context.Background(), 0, metric.WithAttributes(PeerAutoscaler))
-			metrics.connectionErrors.Add(context.Background(), 1, metric.WithAttributes(PeerAutoscaler))
+			metrics.OnAutoscalerDisconnect()
 		}),
 	}
 }

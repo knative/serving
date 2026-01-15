@@ -17,22 +17,28 @@ limitations under the License.
 package activator
 
 import (
+	"context"
+
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+
+	"knative.dev/pkg/observability/attributekey"
 )
 
 var scopeName = "knative.dev/serving/pkg/activator"
 
 // peerAttrKey is the attribute key for identifying the connection peer.
-var peerAttrKey = attribute.Key("peer")
+var peerAttrKey = attributekey.String("peer")
 
 // PeerAutoscaler is the attribute value for autoscaler connections.
-var PeerAutoscaler = peerAttrKey.String("autoscaler")
+var PeerAutoscaler = peerAttrKey.With("autoscaler")
 
 type statReporterMetrics struct {
 	reachable        metric.Int64Gauge
 	connectionErrors metric.Int64Counter
+
+	autoscalerPeer attribute.Set
 }
 
 func newStatReporterMetrics(mp metric.MeterProvider) *statReporterMetrics {
@@ -46,10 +52,11 @@ func newStatReporterMetrics(mp metric.MeterProvider) *statReporterMetrics {
 		provider = otel.GetMeterProvider()
 	}
 
+	m.autoscalerPeer = attribute.NewSet(PeerAutoscaler)
 	meter := provider.Meter(scopeName)
 
 	m.reachable, err = meter.Int64Gauge(
-		"kn.activator.reachable",
+		"kn.activator.stats.conn.reachable",
 		metric.WithDescription("Whether a peer is reachable from the activator (1 = reachable, 0 = not reachable)"),
 		metric.WithUnit("{reachable}"),
 	)
@@ -58,7 +65,7 @@ func newStatReporterMetrics(mp metric.MeterProvider) *statReporterMetrics {
 	}
 
 	m.connectionErrors, err = meter.Int64Counter(
-		"kn.activator.connection_errors",
+		"kn.activator.stats.conn.errors",
 		metric.WithDescription("Number of connection errors from the activator"),
 		metric.WithUnit("{error}"),
 	)
@@ -67,4 +74,15 @@ func newStatReporterMetrics(mp metric.MeterProvider) *statReporterMetrics {
 	}
 
 	return &m
+}
+
+func (s *statReporterMetrics) OnAutoscalerConnect() {
+	ctx := context.Background()
+	s.reachable.Record(ctx, 1, metric.WithAttributes(PeerAutoscaler))
+}
+
+func (s *statReporterMetrics) OnAutoscalerDisconnect() {
+	ctx := context.Background()
+	s.reachable.Record(ctx, 0, metric.WithAttributeSet(s.autoscalerPeer))
+	s.connectionErrors.Add(ctx, 1, metric.WithAttributeSet(s.autoscalerPeer))
 }
