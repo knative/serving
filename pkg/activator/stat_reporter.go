@@ -40,12 +40,12 @@ func AutoscalerConnectionOptions(logger *zap.SugaredLogger, mp metric.MeterProvi
 	return []pkgwebsocket.ConnectionOption{
 		pkgwebsocket.WithOnConnect(func() {
 			logger.Info("Autoscaler connection established")
-			metrics.autoscalerReachable.Record(context.Background(), 1)
+			metrics.reachable.Record(context.Background(), 1, metric.WithAttributes(PeerAutoscaler))
 		}),
 		pkgwebsocket.WithOnDisconnect(func(err error) {
 			logger.Errorw("Autoscaler connection lost", zap.Error(err))
-			metrics.autoscalerReachable.Record(context.Background(), 0)
-			metrics.autoscalerConnectionErrors.Add(context.Background(), 1)
+			metrics.reachable.Record(context.Background(), 0, metric.WithAttributes(PeerAutoscaler))
+			metrics.connectionErrors.Add(context.Background(), 1, metric.WithAttributes(PeerAutoscaler))
 		}),
 	}
 }

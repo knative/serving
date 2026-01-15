@@ -18,14 +18,21 @@ package activator
 
 import (
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 )
 
 var scopeName = "knative.dev/serving/pkg/activator"
 
+// peerAttrKey is the attribute key for identifying the connection peer.
+var peerAttrKey = attribute.Key("peer")
+
+// PeerAutoscaler is the attribute value for autoscaler connections.
+var PeerAutoscaler = peerAttrKey.String("autoscaler")
+
 type statReporterMetrics struct {
-	autoscalerReachable        metric.Int64Gauge
-	autoscalerConnectionErrors metric.Int64Counter
+	reachable        metric.Int64Gauge
+	connectionErrors metric.Int64Counter
 }
 
 func newStatReporterMetrics(mp metric.MeterProvider) *statReporterMetrics {
@@ -41,18 +48,18 @@ func newStatReporterMetrics(mp metric.MeterProvider) *statReporterMetrics {
 
 	meter := provider.Meter(scopeName)
 
-	m.autoscalerReachable, err = meter.Int64Gauge(
-		"kn.activator.autoscaler.reachable",
-		metric.WithDescription("Whether the autoscaler is reachable from the activator (1 = reachable, 0 = not reachable)"),
+	m.reachable, err = meter.Int64Gauge(
+		"kn.activator.reachable",
+		metric.WithDescription("Whether a peer is reachable from the activator (1 = reachable, 0 = not reachable)"),
 		metric.WithUnit("{reachable}"),
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	m.autoscalerConnectionErrors, err = meter.Int64Counter(
-		"kn.activator.autoscaler.connection_errors_total",
-		metric.WithDescription("Total number of autoscaler connection errors from the activator"),
+	m.connectionErrors, err = meter.Int64Counter(
+		"kn.activator.connection_errors",
+		metric.WithDescription("Number of connection errors from the activator"),
 		metric.WithUnit("{error}"),
 	)
 	if err != nil {
