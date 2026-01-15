@@ -203,7 +203,8 @@ func main() {
 	// Open a WebSocket connection to the autoscaler.
 	autoscalerEndpoint := "ws://" + pkgnet.GetServiceHostname("autoscaler", system.Namespace()) + autoscalerPort
 	logger.Info("Connecting to Autoscaler at ", autoscalerEndpoint)
-	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
+	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger,
+		activator.AutoscalerConnectionOptions(logger, mp)...)
 	defer statSink.Shutdown()
 	go activator.ReportStats(logger, statSink, statCh)
 

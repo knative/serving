@@ -17,6 +17,7 @@ limitations under the License.
 package activator
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -94,4 +95,42 @@ type sendRawFunc func(msgType int, msg []byte) error
 
 func (fn sendRawFunc) SendRaw(msgType int, msg []byte) error {
 	return fn(msgType, msg)
+}
+
+func TestReportStatsSendFailure(t *testing.T) {
+	logger := logtesting.TestLogger(t)
+	ch := make(chan []metrics.StatMessage)
+
+	sendErr := errors.New("connection refused")
+	errorReceived := make(chan struct{})
+	sink := sendRawFunc(func(msgType int, msg []byte) error {
+		close(errorReceived)
+		return sendErr
+	})
+
+	defer close(ch)
+	go ReportStats(logger, sink, ch)
+
+	// Send a stat message
+	ch <- []metrics.StatMessage{{
+		Key: types.NamespacedName{Name: "test-revision"},
+	}}
+
+	// Wait for the error to be processed
+	select {
+	case <-errorReceived:
+		// Success - the error path was executed
+	case <-time.After(2 * time.Second):
+		t.Fatal("SendRaw was not called within timeout")
+	}
+}
+
+func TestAutoscalerConnectionOptions(t *testing.T) {
+	logger := logtesting.TestLogger(t)
+
+	opts := AutoscalerConnectionOptions(logger, nil)
+
+	if len(opts) != 2 {
+		t.Errorf("Expected 2 connection options, got %d", len(opts))
+	}
 }
