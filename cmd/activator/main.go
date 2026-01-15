@@ -203,10 +203,10 @@ func main() {
 	// Open a WebSocket connection to the autoscaler.
 	autoscalerEndpoint := "ws://" + pkgnet.GetServiceHostname("autoscaler", system.Namespace()) + autoscalerPort
 	logger.Info("Connecting to Autoscaler at ", autoscalerEndpoint)
-	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
+	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger,
+		activator.AutoscalerConnectionOptions(logger, mp)...)
 	defer statSink.Shutdown()
-	go activator.ReportStats(logger, statSink, statCh, mp)
-	go activator.AutoscalerConnectionStatusMonitor(ctx, logger, statSink, mp)
+	go activator.ReportStats(logger, statSink, statCh)
 
 	// Create and run our concurrency reporter
 	concurrencyReporter := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, statCh, mp)
