@@ -87,10 +87,19 @@ func (d dests) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-const (
-	probeTimeout          time.Duration = 300 * time.Millisecond
-	defaultProbeFrequency time.Duration = 200 * time.Millisecond
+var (
+	// probeTimeout is the timeout for individual probe requests.
+	probeTimeout = 300 * time.Millisecond
+
+	// probeFrequency is the frequency at which probes are performed.
+	probeFrequency = 200 * time.Millisecond
 )
+
+// SetProbeSettings sets the probe timeout and frequency.
+func SetProbeSettings(timeout, frequency time.Duration) {
+	probeTimeout = timeout
+	probeFrequency = frequency
+}
 
 // revisionWatcher watches the podIPs and ClusterIP of the service for a revision. It implements the logic
 // to supply revisionDestsUpdate events on updateCh
@@ -465,7 +474,7 @@ type revisionBackendsManager struct {
 // NewRevisionBackendsManager returns a new RevisionBackendsManager with default
 // probe time out.
 func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper, usePassthroughLb bool, meshMode netcfg.MeshCompatibilityMode) *revisionBackendsManager {
-	return newRevisionBackendsManagerWithProbeFrequency(ctx, tr, usePassthroughLb, meshMode, defaultProbeFrequency)
+	return newRevisionBackendsManagerWithProbeFrequency(ctx, tr, usePassthroughLb, meshMode, probeFrequency)
 }
 
 // newRevisionBackendsManagerWithProbeFrequency creates a fully spec'd RevisionBackendsManager.
