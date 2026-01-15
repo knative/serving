@@ -394,7 +394,6 @@ func kpa(ns, n string) *autoscalingv1alpha1.PodAutoscaler {
 	kpa.Generation = 1
 	kpa.Annotations[autoscaling.ClassAnnotationKey] = "kpa.autoscaling.knative.dev"
 	kpa.Annotations[autoscaling.MetricAnnotationKey] = "concurrency"
-	// pause metrics initially
 	kpa.Status.MetricsPaused = false
 	kpa.Status.InitializeConditions()
 	return kpa
