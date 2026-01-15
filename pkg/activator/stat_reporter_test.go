@@ -123,6 +123,14 @@ func TestReportStatsSendFailure(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("SendRaw was not called within timeout")
 	}
+
+	// The TestLogger will panic if logs occur after the test runs.
+	// This occurs in this test because ReportStats kicks off
+	// goroutines with no lifecycle management. Meaning we cannot
+	// wait for all routines to clean up prior to exiting the test.
+	//
+	// For now we include a sleep here to prevent said panic
+	time.Sleep(10 * time.Millisecond)
 }
 
 func TestAutoscalerConnectionOptions(t *testing.T) {
