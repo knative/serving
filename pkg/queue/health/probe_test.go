@@ -23,13 +23,10 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	corev1 "k8s.io/api/core/v1"
@@ -135,92 +132,6 @@ func TestHTTPProbeSuccess(t *testing.T) {
 	}
 }
 
-func TestHTTPProbeNoAutoHTTP2IfDisabled(t *testing.T) {
-	h2cHeaders := map[string]string{
-		"Connection": "Upgrade, HTTP2-Settings",
-		"Upgrade":    "h2c",
-	}
-	expectedPath := "/health"
-
-	var callCount atomic.Int32
-	server := newH2cTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		count := callCount.Add(1)
-		if count == 1 {
-			// This is the h2c handshake, we won't do anything.
-			for key, value := range h2cHeaders {
-				if r.Header.Get(key) == value {
-					t.Errorf("Key %v = %v was NOT supposed to be present in the request", key, value)
-				}
-			}
-		} else {
-			t.Errorf("Handler should only have one calls, this is call %d", count)
-		}
-	})
-
-	action := newHTTPGetAction(t, server.URL)
-	action.Path = expectedPath
-
-	config := HTTPProbeConfigOptions{
-		Timeout:       time.Second,
-		HTTPGetAction: action,
-		MaxProtoMajor: 1,
-	}
-	if err := HTTPProbe(config); err != nil {
-		t.Error("Expected probe to succeed but it failed with", err)
-	}
-	if count := callCount.Load(); count != 1 {
-		t.Errorf("Unexpected call count %d", count)
-	}
-}
-
-func TestHTTPProbeAutoHTTP2(t *testing.T) {
-	t.Skip("The test and the underlying behavior needs hardening, see #10962")
-
-	h2cHeaders := map[string]string{
-		"Connection": "Upgrade, HTTP2-Settings",
-		"Upgrade":    "h2c",
-	}
-	expectedPath := "/health"
-	var callCount atomic.Int32
-
-	server := newH2cTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		count := callCount.Add(1)
-		switch count {
-		case 1:
-			// This is the h2c handshake, we won't do anything.
-			for key, value := range h2cHeaders {
-				if r.Header.Get(key) != value {
-					t.Errorf("Key %v = %v was supposed to be present in the request", key, value)
-				}
-			}
-		case 2:
-			// This is the expected call. It should not have any of the h2c upgrade stuff, since the h2c test server will handle that for us.
-			for key, value := range h2cHeaders {
-				if r.Header.Get(key) == value {
-					t.Errorf("Key %v = %v was NOT supposed to be present in the request", key, value)
-				}
-			}
-		default:
-			t.Errorf("Handler should only have two calls, this is call %d", count)
-		}
-	})
-
-	action := newHTTPGetAction(t, server.URL)
-	action.Path = expectedPath
-
-	config := HTTPProbeConfigOptions{
-		Timeout:       time.Second,
-		HTTPGetAction: action,
-		MaxProtoMajor: 0,
-	}
-	if err := HTTPProbe(config); err != nil {
-		t.Error("Expected probe to succeed but it failed with", err)
-	}
-	if count := callCount.Load(); count != 2 {
-		t.Errorf("Unexpected call count %d", count)
-	}
-}
-
 func TestHTTPSchemeProbeSuccess(t *testing.T) {
 	server := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -289,6 +200,114 @@ func TestHTTPProbeResponseErrorFailure(t *testing.T) {
 	}
 }
 
+func TestHTTP2ProtocolProbe(t *testing.T) {
+	tests := []struct {
+		name          string
+		enableHTTP1   bool
+		enableH2C     bool
+		statusHTTP1   int
+		statusHTTP2   int
+		expectedProto int
+		expectError   bool
+	}{
+		{
+			name:          "server supports H2C only and ready",
+			enableHTTP1:   false,
+			enableH2C:     true,
+			statusHTTP1:   0,
+			statusHTTP2:   http.StatusOK,
+			expectedProto: 2,
+			expectError:   false,
+		},
+		{
+			name:          "server supports HTTP/1 only and ready",
+			enableHTTP1:   true,
+			enableH2C:     false,
+			statusHTTP1:   http.StatusOK,
+			statusHTTP2:   0,
+			expectedProto: 1,
+			expectError:   false,
+		},
+		{
+			name:          "server supports both H2C and HTTP/1 (should prefer H2C)",
+			enableHTTP1:   true,
+			enableH2C:     true,
+			statusHTTP1:   http.StatusOK,
+			statusHTTP2:   http.StatusOK,
+			expectedProto: 2,
+			expectError:   false,
+		},
+		{
+			name:          "server supports H2C (status 503) and HTTP/1 (status 200)",
+			enableHTTP1:   true,
+			enableH2C:     true,
+			statusHTTP1:   http.StatusOK,
+			statusHTTP2:   http.StatusServiceUnavailable,
+			expectedProto: 1,
+			expectError:   false,
+		},
+		{
+			name:          "server supports HTTP/1 but returns not ready (503)",
+			enableHTTP1:   true,
+			enableH2C:     false,
+			statusHTTP1:   http.StatusServiceUnavailable,
+			expectedProto: 0,
+			expectError:   true,
+		},
+		{
+			name:          "server supports both but returns not ready (500)",
+			enableHTTP1:   true,
+			enableH2C:     true,
+			statusHTTP1:   http.StatusInternalServerError,
+			statusHTTP2:   http.StatusInternalServerError,
+			expectedProto: 0,
+			expectError:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Setup server with specified protocols
+			protocols := &http.Protocols{}
+			protocols.SetHTTP1(tt.enableHTTP1)
+			protocols.SetUnencryptedHTTP2(tt.enableH2C)
+
+			server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				status := tt.statusHTTP1
+				if r.ProtoMajor == 2 {
+					status = tt.statusHTTP2
+				}
+				if status > 0 {
+					w.WriteHeader(status)
+				}
+			}))
+			server.Config.Protocols = protocols
+			server.Start()
+			t.Cleanup(server.Close)
+
+			action := newHTTPGetAction(t, server.URL)
+			config := HTTPProbeConfigOptions{
+				Timeout:       time.Second,
+				HTTPGetAction: action,
+				KubeMajor:     "1",
+				KubeMinor:     "28",
+			}
+
+			proto, err := detectHTTPProtocolVersion(config)
+
+			if tt.expectError && err == nil {
+				t.Errorf("Expected error but got none")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+			if proto != tt.expectedProto {
+				t.Errorf("Expected proto %d, got %d", tt.expectedProto, proto)
+			}
+		})
+	}
+}
+
 func TestGRPCProbeSuccess(t *testing.T) {
 	// use ephemeral port to prevent port conflict
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
@@ -322,17 +341,6 @@ func TestGRPCProbeSuccess(t *testing.T) {
 		t.Fatalf("Failed to run gRPC test server %v", grpcServerErr)
 	}
 	close(errChan)
-}
-
-func newH2cTestServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
-	h2s := &http2.Server{}
-	t.Helper()
-	server := httptest.NewServer(h2c.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		handler(w, r)
-	}), h2s))
-	t.Cleanup(server.Close)
-
-	return server
 }
 
 func newTestServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {

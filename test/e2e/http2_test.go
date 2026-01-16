@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"testing"
 
+	v1 "k8s.io/api/core/v1"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -49,7 +50,13 @@ func TestHelloHTTP2WithPortNameH2C(t *testing.T) {
 
 	t.Log("Creating a new Service")
 
-	resources, err := v1test.CreateServiceReady(t, clients, &names, rtesting.WithNamedPort("h2c"))
+	resources, err := v1test.CreateServiceReady(
+		t, clients, &names, rtesting.WithNamedPort("h2c"),
+		rtesting.WithEnv(v1.EnvVar{
+			Name:  "RESPONSE",
+			Value: test.HelloHTTP2Text,
+		}),
+	)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
