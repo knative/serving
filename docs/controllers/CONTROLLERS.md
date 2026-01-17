@@ -316,7 +316,7 @@ The DomainMapping controller enables mapping custom domains to Knative Services 
 **Watched Resource:** `serving.knative.dev/v1.Route`
 
 **Responsibility:**
-The Labeler controller syncs routing metadata (labels/annotations) from Routes to their referenced Configurations and Revisions. This enables efficient querying and garbage collection.
+The Labeler controller syncs routing metadata (labels/annotations) from Routes to their referenced Configurations and Revisions. This enables efficient querying and garbage collection. Additionally, the labeler indicates to the autoscaler which revisions are active, allowing the autoscaler to enforce minimum scale settings on active revisions.
 
 **Key Functions:**
 - Adds/updates labels on **Configurations** referenced by Route traffic:
@@ -447,24 +447,28 @@ User creates Service
                    └────────────┘              └───────────────┘              └─────────────┘
 ```
 
-#### 2. Traffic Routing Flow (Serving a request)
+#### 2. Networking Resource Hierarchy
 
-The **Route controller** creates a Knative Ingress resource that describes how external traffic should reach your Revisions. An ingress controller (Istio, Kourier, or Contour, depending on your installation) watches these Ingress resources and configures the actual load balancer/proxy. Traffic ultimately flows to Kubernetes Services managed by the ServerlessService (SKS) controller, which point to your revision pods.
+The **Route controller** creates a Knative Ingress resource that describes how external traffic should reach your Revisions. A networking plugin (Istio, Kourier, or Contour, depending on your installation) watches these Ingress resources and converts them into the specific resources for that networking layer (e.g., Istio VirtualServices, Envoy configurations). Traffic ultimately flows to Kubernetes Services managed by the ServerlessService (SKS) controller, which point to your revision pods.
+
+For a detailed view of the actual request flow, see the [Knative Request Flow documentation](https://knative.dev/docs/serving/request-flow).
 
 ```
 ┌─────────────────┐     ┌─────────────┐     ┌─────────────────────────────┐
-│ Service/Route   │────►│   Ingress   │────►│  Ingress Controller         │
+│ Service/Route   │────►│   Ingress   │────►│    Networking Plugin        │
 │   Controller    │     │  (Knative)  │     │  (Istio/Kourier/Contour)    │
 └─────────────────┘     └─────────────┘     └──────────────┬──────────────┘
                                                            │
                                                            ▼
-                                            External traffic routed to
-                                            K8s Services created by SKS
+                                            Converts to native resources
+                                            (VirtualService, HTTPProxy, etc.)
 ```
 
 #### 3. Autoscaling Flow (Normal operation with traffic)
 
 During normal operation when pods are running, the **KPA controller** keeps the SKS in "Serve" mode, meaning the public Kubernetes Service endpoints point directly to your revision pod IPs. Meanwhile, the **Metric controller** (running in the autoscaler component) manages a Collector that continuously scrapes request metrics from your pods. These metrics feed into the autoscaler's Decider, which determines the desired replica count.
+
+> **Note:** The SKS can switch from "Serve" to "Proxy" mode even with running pods if the backend doesn't have enough capacity. This behavior is controlled by the [target-burst-capacity](https://knative.dev/docs/serving/load-balancing/target-burst-capacity/) setting, which weaves in the Activator to act as a request buffer during traffic bursts.
 
 ```
 ┌──────────────────┐     ┌─────────────┐     ┌────────────────────┐
@@ -576,7 +580,7 @@ Controllers are configured via ConfigMaps in the `knative-serving` namespace:
 | `config-domain` | Route, Namespace Certificate |
 | `config-gc` | GC |
 | `config-network` | Route, DomainMapping, Certificate, Namespace Certificate |
-| `config-observability` | Revision |
+| `config-observability` | All components |
 | `config-certmanager` | Certificate |
 
 ---
