@@ -198,6 +198,16 @@ func TestMakeIngress(t *testing.T) {
 					Visibility: netv1alpha1.IngressVisibilityExternalIP,
 					HTTP: &netv1alpha1.HTTPIngressRuleValue{
 						Paths: []netv1alpha1.HTTPIngressPath{{
+							Path: "/.well-known/acme-challenge/challenge-token",
+							Splits: []netv1alpha1.IngressBackendSplit{{
+								IngressBackend: netv1alpha1.IngressBackend{
+									ServiceNamespace: "test-ns",
+									ServiceName:      "cm-solver",
+									ServicePort:      intstr.FromInt(8090),
+								},
+								Percent: 100,
+							}},
+						}, {
 							RewriteHost: "the-rewrite-host",
 							Splits: []netv1alpha1.IngressBackendSplit{{
 								Percent: 100,
@@ -209,22 +219,6 @@ func TestMakeIngress(t *testing.T) {
 									ServiceNamespace: "the-namespace",
 									ServicePort:      intstr.FromInt(80),
 								},
-							}},
-						}},
-					},
-				}, {
-					Hosts:      []string{"mapping.com"},
-					Visibility: netv1alpha1.IngressVisibilityExternalIP,
-					HTTP: &netv1alpha1.HTTPIngressRuleValue{
-						Paths: []netv1alpha1.HTTPIngressPath{{
-							Path: "/.well-known/acme-challenge/challenge-token",
-							Splits: []netv1alpha1.IngressBackendSplit{{
-								IngressBackend: netv1alpha1.IngressBackend{
-									ServiceNamespace: "test-ns",
-									ServiceName:      "cm-solver",
-									ServicePort:      intstr.FromInt(8090),
-								},
-								Percent: 100,
 							}},
 						}},
 					},
