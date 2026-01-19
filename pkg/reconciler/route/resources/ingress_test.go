@@ -852,7 +852,7 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 	}
 }
 
-// One active target.
+// One active target with ExternalIP visibility creates one rule per domain.
 func TestMakeIngressRuleVanilla(t *testing.T) {
 	domains := sets.New("a.com", "b.org")
 	targets := traffic.RevisionTargets{{
@@ -868,34 +868,42 @@ func TestMakeIngressRuleVanilla(t *testing.T) {
 		},
 	}
 	ro := tc.BuildRollout()
-	rule := makeIngressRule(domains, ns,
+	rules := makeIngressRules(domains, ns,
 		netv1alpha1.IngressVisibilityExternalIP, targets, ro.RolloutsByTag(traffic.DefaultTarget), false /* internal encryption */)
-	expected := netv1alpha1.IngressRule{
-		Hosts: []string{
-			"a.com",
-			"b.org",
-		},
-		HTTP: &netv1alpha1.HTTPIngressRuleValue{
-			Paths: []netv1alpha1.HTTPIngressPath{{
-				Splits: []netv1alpha1.IngressBackendSplit{{
-					IngressBackend: netv1alpha1.IngressBackend{
-						ServiceNamespace: ns,
-						ServiceName:      "revision-shark",
-						ServicePort:      intstr.FromInt(80),
-					},
-					Percent: 100,
-					AppendHeaders: map[string]string{
-						"Knative-Serving-Revision":  "revision-shark",
-						"Knative-Serving-Namespace": ns,
-					},
-				}},
-			}},
-		},
-		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+
+	// ExternalIP visibility creates one rule per host
+	if len(rules) != 2 {
+		t.Fatalf("Expected 2 rules (one per host), got %d", len(rules))
 	}
 
-	if !cmp.Equal(expected, rule) {
-		t.Error("Unexpected rule (-want, +got):", cmp.Diff(expected, rule))
+	// Both rules should have the same structure, just different single hosts
+	for _, rule := range rules {
+		if len(rule.Hosts) != 1 {
+			t.Errorf("Expected 1 host per rule, got %d", len(rule.Hosts))
+		}
+		if rule.Hosts[0] != "a.com" && rule.Hosts[0] != "b.org" {
+			t.Errorf("Unexpected host: %s", rule.Hosts[0])
+		}
+		expectedPath := netv1alpha1.HTTPIngressPath{
+			Splits: []netv1alpha1.IngressBackendSplit{{
+				IngressBackend: netv1alpha1.IngressBackend{
+					ServiceNamespace: ns,
+					ServiceName:      "revision-shark",
+					ServicePort:      intstr.FromInt(80),
+				},
+				Percent: 100,
+				AppendHeaders: map[string]string{
+					"Knative-Serving-Revision":  "revision-shark",
+					"Knative-Serving-Namespace": ns,
+				},
+			}},
+		}
+		if !cmp.Equal(expectedPath, rule.HTTP.Paths[0]) {
+			t.Error("Unexpected path (-want, +got):", cmp.Diff(expectedPath, rule.HTTP.Paths[0]))
+		}
+		if rule.Visibility != netv1alpha1.IngressVisibilityExternalIP {
+			t.Errorf("Expected ExternalIP visibility, got %v", rule.Visibility)
+		}
 	}
 }
 
@@ -921,8 +929,13 @@ func TestMakeIngressRuleZeroPercentTarget(t *testing.T) {
 		},
 	}
 	ro := tc.BuildRollout()
-	rule := makeIngressRule(domains, ns,
+	rules := makeIngressRules(domains, ns,
 		netv1alpha1.IngressVisibilityExternalIP, targets, ro.RolloutsByTag(traffic.DefaultTarget), false /* internal encryption */)
+
+	if len(rules) != 1 {
+		t.Fatalf("Expected 1 rule, got %d", len(rules))
+	}
+
 	expected := netv1alpha1.IngressRule{
 		Hosts: []string{"test.org"},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -944,8 +957,8 @@ func TestMakeIngressRuleZeroPercentTarget(t *testing.T) {
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 	}
 
-	if !cmp.Equal(expected, rule) {
-		t.Error("Unexpected rule (-want, +got):", cmp.Diff(expected, rule))
+	if !cmp.Equal(expected, rules[0]) {
+		t.Error("Unexpected rule (-want, +got):", cmp.Diff(expected, rules[0]))
 	}
 }
 
@@ -971,8 +984,13 @@ func TestMakeIngressRuleTwoTargets(t *testing.T) {
 	}
 	ro := tc.BuildRollout()
 	domains := sets.New("test.org")
-	rule := makeIngressRule(domains, ns, netv1alpha1.IngressVisibilityExternalIP,
+	rules := makeIngressRules(domains, ns, netv1alpha1.IngressVisibilityExternalIP,
 		targets, ro.RolloutsByTag("a-tag"), false /* internal encryption */)
+
+	if len(rules) != 1 {
+		t.Fatalf("Expected 1 rule, got %d", len(rules))
+	}
+
 	expected := netv1alpha1.IngressRule{
 		Hosts: []string{"test.org"},
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -1005,8 +1023,8 @@ func TestMakeIngressRuleTwoTargets(t *testing.T) {
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 	}
 
-	if !cmp.Equal(expected, rule) {
-		t.Errorf("Unexpected rule (-want, +got):\n%s", cmp.Diff(expected, rule))
+	if !cmp.Equal(expected, rules[0]) {
+		t.Errorf("Unexpected rule (-want, +got):\n%s", cmp.Diff(expected, rules[0]))
 	}
 }
 
@@ -1303,6 +1321,16 @@ func TestMakeIngressACMEChallenges(t *testing.T) {
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{{
+				Path: "/.well-known/acme-challenge/challenge-token",
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: "test-ns",
+						ServiceName:      "cm-solver",
+						ServicePort:      intstr.FromInt(8090),
+					},
+					Percent: 100,
+				}},
+			}, {
 				Splits: []netv1alpha1.IngressBackendSplit{{
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: "test-ns",
@@ -1314,24 +1342,6 @@ func TestMakeIngressACMEChallenges(t *testing.T) {
 						"Knative-Serving-Revision":  "v2",
 						"Knative-Serving-Namespace": "test-ns",
 					},
-				}},
-			}},
-		},
-	}, {
-		Hosts: []string{
-			"test-route.test-ns.example.com",
-		},
-		Visibility: netv1alpha1.IngressVisibilityExternalIP,
-		HTTP: &netv1alpha1.HTTPIngressRuleValue{
-			Paths: []netv1alpha1.HTTPIngressPath{{
-				Path: "/.well-known/acme-challenge/challenge-token",
-				Splits: []netv1alpha1.IngressBackendSplit{{
-					IngressBackend: netv1alpha1.IngressBackend{
-						ServiceNamespace: "test-ns",
-						ServiceName:      "cm-solver",
-						ServicePort:      intstr.FromInt(8090),
-					},
-					Percent: 100,
 				}},
 			}},
 		},

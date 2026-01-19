@@ -57,10 +57,23 @@ func MakeIngress(dm *servingv1beta1.DomainMapping, backendServiceName, hostName,
 		},
 	}}
 
-	// Add dedicated ACME challenge rules
-	if len(acmeChallenges) > 0 {
-		acmeRules := routeresources.MakeACMEChallengeRules(acmeChallenges)
-		rules = append(rules, acmeRules...)
+	// Handle ACME challenges
+	for _, challenge := range acmeChallenges {
+		if challenge.URL.Host == dm.Name {
+			// Merge ACME challenge into the main rule (matching host)
+			acmePath := routeresources.MakeACMEIngressPath(challenge)
+			// Prepend ACME path before traffic path
+			rules[0].HTTP.Paths = append([]netv1alpha1.HTTPIngressPath{acmePath}, rules[0].HTTP.Paths...)
+		} else {
+			// Create separate rule for non-matching host (e.g., truncated domain)
+			rules = append(rules, netv1alpha1.IngressRule{
+				Hosts:      []string{challenge.URL.Host},
+				Visibility: netv1alpha1.IngressVisibilityExternalIP,
+				HTTP: &netv1alpha1.HTTPIngressRuleValue{
+					Paths: []netv1alpha1.HTTPIngressPath{routeresources.MakeACMEIngressPath(challenge)},
+				},
+			})
+		}
 	}
 
 	return &netv1alpha1.Ingress{

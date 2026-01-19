@@ -135,6 +135,14 @@ func makeIngressSpec(
 	featuresConfig := config.FromContextOrDefaults(ctx).Features
 	networkConfig := config.FromContextOrDefaults(ctx).Network
 
+	// Build ACME lookup map: host -> []HTTPIngressPath
+	acmePathsByHost := make(map[string][]netv1alpha1.HTTPIngressPath)
+	for _, challenge := range acmeChallenges {
+		host := challenge.URL.Host
+		acmePath := MakeACMEIngressPath(challenge)
+		acmePathsByHost[host] = append(acmePathsByHost[host], acmePath)
+	}
+
 	for _, name := range names {
 		visibilities := []netv1alpha1.IngressVisibility{netv1alpha1.IngressVisibilityClusterLocal}
 		// If this is a public target (or not being marked as cluster-local), we also make public rule.
@@ -146,49 +154,58 @@ func makeIngressSpec(
 			if err != nil {
 				return netv1alpha1.IngressSpec{}, err
 			}
-			rule := makeIngressRule(domains, r.Namespace,
+			domainRules := makeIngressRules(domains, r.Namespace,
 				visibility, tc.Targets[name], ro.RolloutsByTag(name), networkConfig.SystemInternalTLSEnabled())
-			if featuresConfig.TagHeaderBasedRouting == apicfg.Enabled {
-				if rule.HTTP.Paths[0].AppendHeaders == nil {
-					rule.HTTP.Paths[0].AppendHeaders = make(map[string]string, 1)
+
+			// Apply tag header routing and ACME merging to each rule
+			for i := range domainRules {
+				rule := &domainRules[i]
+
+				if featuresConfig.TagHeaderBasedRouting == apicfg.Enabled {
+					if rule.HTTP.Paths[0].AppendHeaders == nil {
+						rule.HTTP.Paths[0].AppendHeaders = make(map[string]string, 1)
+					}
+
+					if name == traffic.DefaultTarget {
+						// To provide information if a request is routed via the "default route" or not,
+						// the header "Knative-Serving-Default-Route: true" is appended here.
+						// If the header has "true" and there is a "Knative-Serving-Tag" header,
+						// then the request is having the undefined tag header,
+						// which will be observed in queue-proxy.
+						rule.HTTP.Paths[0].AppendHeaders[netheader.DefaultRouteKey] = "true"
+
+						// Add ingress paths for a request with the tag header.
+						// If a request has one of the `names` (tag name), specified as the
+						// Knative-Serving-Tag header, except for the DefaultTarget,
+						// the request will be routed to that target.
+						// corresponding to the tag name.
+						// Since names are sorted `DefaultTarget == ""` is the first one,
+						// so just pass the subslice.
+						rule.HTTP.Paths = append(
+							makeTagBasedRoutingIngressPaths(r.Namespace, tc, ro, networkConfig.SystemInternalTLSEnabled(), names[1:]), rule.HTTP.Paths...)
+					} else {
+						// If a request is routed by a tag-attached hostname instead of the tag header,
+						// the request may not have the tag header "Knative-Serving-Tag",
+						// even though the ingress path used in the case is also originated
+						// from the same Knative route with the ingress path for the tag based routing.
+						//
+						// To prevent such inconsistency,
+						// the tag header is appended with the tag corresponding to the tag-attached hostname
+						rule.HTTP.Paths[0].AppendHeaders[netheader.RouteTagKey] = name
+					}
 				}
 
-				if name == traffic.DefaultTarget {
-					// To provide information if a request is routed via the "default route" or not,
-					// the header "Knative-Serving-Default-Route: true" is appended here.
-					// If the header has "true" and there is a "Knative-Serving-Tag" header,
-					// then the request is having the undefined tag header,
-					// which will be observed in queue-proxy.
-					rule.HTTP.Paths[0].AppendHeaders[netheader.DefaultRouteKey] = "true"
-
-					// Add ingress paths for a request with the tag header.
-					// If a request has one of the `names` (tag name), specified as the
-					// Knative-Serving-Tag header, except for the DefaultTarget,
-					// the request will be routed to that target.
-					// corresponding to the tag name.
-					// Since names are sorted `DefaultTarget == ""` is the first one,
-					// so just pass the subslice.
-					rule.HTTP.Paths = append(
-						makeTagBasedRoutingIngressPaths(r.Namespace, tc, ro, networkConfig.SystemInternalTLSEnabled(), names[1:]), rule.HTTP.Paths...)
-				} else {
-					// If a request is routed by a tag-attached hostname instead of the tag header,
-					// the request may not have the tag header "Knative-Serving-Tag",
-					// even though the ingress path used in the case is also originated
-					// from the same Knative route with the ingress path for the tag based routing.
-					//
-					// To prevent such inconsistency,
-					// the tag header is appended with the tag corresponding to the tag-attached hostname
-					rule.HTTP.Paths[0].AppendHeaders[netheader.RouteTagKey] = name
+				// Merge ACME paths for ExternalIP single-host rules
+				// Note: ACME challenges without matching traffic rules are silently ignored
+				if visibility == netv1alpha1.IngressVisibilityExternalIP && len(rule.Hosts) == 1 {
+					if acmePaths, exists := acmePathsByHost[rule.Hosts[0]]; exists {
+						rule.HTTP.Paths = append(acmePaths, rule.HTTP.Paths...)
+					}
 				}
 			}
-			rules = append(rules, rule)
-		}
-	}
 
-	// Create dedicated rules for ACME challenges
-	if len(acmeChallenges) > 0 {
-		acmeRules := MakeACMEChallengeRules(acmeChallenges)
-		rules = append(rules, acmeRules...)
+			rules = append(rules, domainRules...)
+		}
 	}
 
 	httpOption, err := servingnetworking.GetHTTPOption(ctx, config.FromContext(ctx).Network, r.GetAnnotations())
@@ -203,46 +220,49 @@ func makeIngressSpec(
 	}, nil
 }
 
-// MakeACMEChallengeRules creates one dedicated rule per ACME challenge domain.
-func MakeACMEChallengeRules(acmeChallenges []netv1alpha1.HTTP01Challenge) []netv1alpha1.IngressRule {
-	rules := make([]netv1alpha1.IngressRule, 0, len(acmeChallenges))
-
-	for _, challenge := range acmeChallenges {
-		rules = append(rules, netv1alpha1.IngressRule{
-			Hosts:      []string{challenge.URL.Host},
-			Visibility: netv1alpha1.IngressVisibilityExternalIP,
-			HTTP: &netv1alpha1.HTTPIngressRuleValue{
-				Paths: []netv1alpha1.HTTPIngressPath{{
-					Splits: []netv1alpha1.IngressBackendSplit{{
-						IngressBackend: netv1alpha1.IngressBackend{
-							ServiceNamespace: challenge.ServiceNamespace,
-							ServiceName:      challenge.ServiceName,
-							ServicePort:      challenge.ServicePort,
-						},
-						Percent: 100,
-					}},
-					Path: challenge.URL.Path,
-				}},
+// MakeACMEIngressPath converts an ACME challenge into an HTTPIngressPath.
+func MakeACMEIngressPath(challenge netv1alpha1.HTTP01Challenge) netv1alpha1.HTTPIngressPath {
+	return netv1alpha1.HTTPIngressPath{
+		Path: challenge.URL.Path,
+		Splits: []netv1alpha1.IngressBackendSplit{{
+			IngressBackend: netv1alpha1.IngressBackend{
+				ServiceNamespace: challenge.ServiceNamespace,
+				ServiceName:      challenge.ServiceName,
+				ServicePort:      challenge.ServicePort,
 			},
-		})
+			Percent: 100,
+		}},
 	}
-
-	return rules
 }
 
-func makeIngressRule(domains sets.Set[string], ns string,
+func makeIngressRules(domains sets.Set[string], ns string,
 	visibility netv1alpha1.IngressVisibility,
 	targets traffic.RevisionTargets,
 	roCfgs []*traffic.ConfigurationRollout,
 	encryption bool,
-) netv1alpha1.IngressRule {
+) []netv1alpha1.IngressRule {
+	basePath := makeBaseIngressPath(ns, targets, roCfgs, encryption)
+
+	// ClusterLocal: keep multi-host (no ACME challenges needed)
+	if visibility == netv1alpha1.IngressVisibilityClusterLocal {
+		return []netv1alpha1.IngressRule{makeIngressRuleForHosts(sets.List(domains), visibility, basePath)}
+	}
+
+	// ExternalIP: create one rule per domain (enables per-host ACME challenge merging)
+	domainList := sets.List(domains)
+	rules := make([]netv1alpha1.IngressRule, 0, len(domainList))
+	for _, domain := range domainList {
+		rules = append(rules, makeIngressRuleForHosts([]string{domain}, visibility, basePath))
+	}
+	return rules
+}
+
+func makeIngressRuleForHosts(hosts []string, visibility netv1alpha1.IngressVisibility, basePath *netv1alpha1.HTTPIngressPath) netv1alpha1.IngressRule {
 	return netv1alpha1.IngressRule{
-		Hosts:      sets.List(domains),
+		Hosts:      hosts,
 		Visibility: visibility,
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
-			Paths: []netv1alpha1.HTTPIngressPath{
-				*makeBaseIngressPath(ns, targets, roCfgs, encryption),
-			},
+			Paths: []netv1alpha1.HTTPIngressPath{*basePath},
 		},
 	}
 }
