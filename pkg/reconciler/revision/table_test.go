@@ -632,6 +632,31 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/pod-schedule-error",
 	}, {
+		Name: "surface no pod schedule errors if pod-is-always-schedulable is true",
+		// Test the propagation of the scheduling errors of Pod into the
+		// revision is not happening when treat-pod-as-always-schedulable
+		// is enabled.
+		Objects: []runtime.Object{
+			Revision("foo", "pod-no-schedule-error",
+				WithLogURL,
+				MarkActivating("Deploying", ""),
+				WithRoutingState(v1.RoutingStateActive, fc),
+				withDefaultContainerStatuses(),
+				MarkDeploying("Deploying"),
+				WithRevisionObservedGeneration(1),
+				MarkContainerHealthyUnknown("Deploying"),
+			),
+			pa("foo", "pod-no-schedule-error", WithReachabilityReachable), // PA can't be ready, since no traffic.
+			pod(t, "foo", "pod-no-schedule-error", WithUnschedulableContainer("Insufficient energy", "Unschedulable")),
+			deploy(t, "foo", "pod-no-schedule-error"),
+			image("foo", "pod-no-schedule-error"),
+		},
+
+		Ctx: config.ToContext(context.Background(), reconcilerTestConfig(func(c *config.Config) {
+			c.Deployment.PodIsAlwaysSchedulable = true
+		})),
+		Key: "foo/pod-no-schedule-error",
+	}, {
 		Name: "ready steady state",
 		// Test the transition that Reconcile makes when Endpoints become ready on the
 		// SKS owned services, which is signalled by pa having service name.
@@ -893,11 +918,16 @@ func TestReconcile(t *testing.T) {
 			resolver:            &nopResolver{},
 		}
 
+		cfg := config.FromContext(ctx)
+		if cfg == nil {
+			cfg = reconcilerTestConfig()
+		}
+
 		return revisionreconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
 			listers.GetRevisionLister(), controller.GetEventRecorder(ctx), r,
 			controller.Options{
 				ConfigStore: &testConfigStore{
-					config: reconcilerTestConfig(),
+					config: cfg,
 				},
 			})
 	}))
@@ -1113,8 +1143,8 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 
 var _ pkgreconciler.ConfigStore = (*testConfigStore)(nil)
 
-func reconcilerTestConfig() *config.Config {
-	return &config.Config{
+func reconcilerTestConfig(mutateFuncs ...func(*config.Config)) *config.Config {
+	cfg := &config.Config{
 		Config: &defaultconfig.Config{
 			Defaults: &defaultconfig.Defaults{},
 			Autoscaler: &autoscalerconfig.Config{
@@ -1129,4 +1159,9 @@ func reconcilerTestConfig() *config.Config {
 		Logging: &logging.Config{},
 		Network: &netcfg.Config{},
 	}
+
+	for _, f := range mutateFuncs {
+		f(cfg)
+	}
+	return cfg
 }

@@ -41,7 +41,11 @@ type Config struct {
 
 // FromContext loads the configuration from the context.
 func FromContext(ctx context.Context) *Config {
-	return ctx.Value(cfgKey{}).(*Config)
+	x, ok := ctx.Value(cfgKey{}).(*Config)
+	if ok {
+		return x
+	}
+	return nil
 }
 
 // ToContext persists the configuration to the context.
