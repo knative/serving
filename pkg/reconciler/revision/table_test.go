@@ -651,7 +651,8 @@ func TestReconcile(t *testing.T) {
 			deploy(t, "foo", "pod-no-schedule-error"),
 			image("foo", "pod-no-schedule-error"),
 		},
-		Ctx: config.ToContext(context.Background(), mutateConfig(reconcilerTestConfig(), func(c *config.Config) {
+
+		Ctx: config.ToContext(context.Background(), reconcilerTestConfig(func(c *config.Config) {
 			c.Deployment.PodIsAlwaysSchedulable = true
 		})),
 		Key: "foo/pod-no-schedule-error",
@@ -1132,13 +1133,6 @@ func pod(t *testing.T, namespace, name string, po ...PodOption) *corev1.Pod {
 	return pod
 }
 
-func mutateConfig(cfg *config.Config, funcs ...func(*config.Config)) *config.Config {
-	for _, f := range funcs {
-		f(cfg)
-	}
-	return cfg
-}
-
 type testConfigStore struct {
 	config *config.Config
 }
@@ -1149,8 +1143,8 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 
 var _ pkgreconciler.ConfigStore = (*testConfigStore)(nil)
 
-func reconcilerTestConfig() *config.Config {
-	return &config.Config{
+func reconcilerTestConfig(mutateFuncs ...func(*config.Config)) *config.Config {
+	cfg := &config.Config{
 		Config: &defaultconfig.Config{
 			Defaults: &defaultconfig.Defaults{},
 			Autoscaler: &autoscalerconfig.Config{
@@ -1165,4 +1159,9 @@ func reconcilerTestConfig() *config.Config {
 		Logging: &logging.Config{},
 		Network: &netcfg.Config{},
 	}
+
+	for _, f := range mutateFuncs {
+		f(cfg)
+	}
+	return cfg
 }
