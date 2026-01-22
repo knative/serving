@@ -33,7 +33,26 @@ type Options struct {
 	maxRetryTime uint
 	// The base for the exponential retry delay
 	exponentialBase uint
+	// InfluxDB Enterprise write consistency as explained in https://docs.influxdata.com/enterprise_influxdb/v1.9/concepts/clustering/#write-consistency
+	consistency Consistency
 }
+
+const (
+	// ConsistencyOne requires at least one data node acknowledged a write.
+	ConsistencyOne Consistency = "one"
+
+	// ConsistencyAll requires all data nodes to acknowledge a write.
+	ConsistencyAll Consistency = "all"
+
+	// ConsistencyQuorum requires a quorum of data nodes to acknowledge a write.
+	ConsistencyQuorum Consistency = "quorum"
+
+	// ConsistencyAny allows for hinted hand off, potentially no write happened yet.
+	ConsistencyAny Consistency = "any"
+)
+
+// Consistency defines enum for allows consistency values for InfluxDB Enterprise, as explained  https://docs.influxdata.com/enterprise_influxdb/v1.9/concepts/clustering/#write-consistency
+type Consistency string
 
 // BatchSize returns size of batch
 func (o *Options) BatchSize() uint {
@@ -160,6 +179,17 @@ func (o *Options) DefaultTags() map[string]string {
 		o.defaultTags = make(map[string]string)
 	}
 	return o.defaultTags
+}
+
+// Consistency returns consistency for param value
+func (o *Options) Consistency() Consistency {
+	return o.consistency
+}
+
+// SetConsistency allows setting InfluxDB Enterprise write consistency, as explained in https://docs.influxdata.com/enterprise_influxdb/v1.9/concepts/clustering/#write-consistency */
+func (o *Options) SetConsistency(consistency Consistency) *Options {
+	o.consistency = consistency
+	return o
 }
 
 // DefaultOptions returns Options object with default values
