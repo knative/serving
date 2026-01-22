@@ -5,5 +5,17 @@
 // Package http hold internal HTTP related stuff
 package http
 
-// UserAgent keeps once created User-Agent string
-var UserAgent string
+import (
+	"fmt"
+)
+
+// UserAgentBase keeps once created base User-Agent string
+var UserAgentBase string
+
+// FormatUserAgent creates User-Agent header value for application name
+func FormatUserAgent(appName string) string {
+	if appName != "" {
+		return fmt.Sprintf("%s %s", UserAgentBase, appName)
+	}
+	return UserAgentBase
+}

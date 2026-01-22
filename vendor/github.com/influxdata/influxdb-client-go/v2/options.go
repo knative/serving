@@ -219,6 +219,17 @@ func (o *Options) AddDefaultTag(key, value string) *Options {
 	return o
 }
 
+// ApplicationName returns application name used in the User-Agent HTTP header
+func (o *Options) ApplicationName() string {
+	return o.HTTPOptions().ApplicationName()
+}
+
+// SetApplicationName sets an application name to the User-Agent HTTP header
+func (o *Options) SetApplicationName(appName string) *Options {
+	o.HTTPOptions().SetApplicationName(appName)
+	return o
+}
+
 // DefaultOptions returns Options object with default values
 func DefaultOptions() *Options {
 	return &Options{logLevel: 0, writeOptions: write.DefaultOptions(), httpOptions: http.DefaultOptions()}
