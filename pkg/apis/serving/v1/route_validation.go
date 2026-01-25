@@ -101,7 +101,8 @@ func (tt *TrafficTarget) Validate(ctx context.Context) *apis.FieldError {
 	errs := tt.validateLatestRevision(ctx)
 	errs = tt.validateRevisionAndConfiguration(ctx, errs)
 	errs = tt.validateTrafficPercentage(errs)
-	return tt.validateURL(ctx, errs)
+	errs = tt.validateURL(ctx, errs)
+	return tt.validateAppendHeaders(ctx, errs)
 }
 
 func (tt *TrafficTarget) validateRevisionAndConfiguration(ctx context.Context, errs *apis.FieldError) *apis.FieldError {
@@ -186,6 +187,24 @@ func (tt *TrafficTarget) validateURL(ctx context.Context, errs *apis.FieldError)
 		// URL must be specified in status when name is specified.
 		if apis.IsInStatus(ctx) {
 			errs = errs.Also(apis.ErrMissingField("url"))
+		}
+	}
+	return errs
+}
+
+func (tt *TrafficTarget) validateAppendHeaders(ctx context.Context, errs *apis.FieldError) *apis.FieldError {
+	if len(tt.AppendHeaders) == 0 {
+		return errs
+	}
+
+	// AppendHeaders is not allowed in status.
+	if apis.IsInStatus(ctx) {
+		return errs.Also(apis.ErrDisallowedFields("appendHeaders"))
+	}
+
+	for key := range tt.AppendHeaders {
+		if len(validation.IsHTTPHeaderName(key)) > 0 {
+			errs = errs.Also(apis.ErrInvalidKeyName(key, "appendHeaders"))
 		}
 	}
 	return errs

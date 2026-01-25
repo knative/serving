@@ -679,6 +679,82 @@ func TestMakeIngressSpecCorrectRuleVisibility(t *testing.T) {
 	}
 }
 
+func TestMakeIngressSpecWithAppendHeaders(t *testing.T) {
+	targets := map[string]traffic.RevisionTargets{
+		traffic.DefaultTarget: {{
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: "config",
+				RevisionName:      "v2",
+				Percent:           ptr.Int64(100),
+				AppendHeaders: map[string]string{
+					"Foo": "Bar",
+				},
+			},
+		}},
+	}
+
+	r := Route(ns, "test-route", WithURL)
+
+	expected := []netv1alpha1.IngressRule{{
+		Hosts: []string{
+			"test-route." + ns,
+			"test-route." + ns + ".svc",
+			pkgnet.GetServiceHostname("test-route", ns),
+		},
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: ns,
+						ServiceName:      "v2",
+						ServicePort:      intstr.FromInt(80),
+					},
+					Percent: 100,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "v2",
+						"Knative-Serving-Namespace": ns,
+						"Foo":                       "Bar",
+					},
+				}},
+			}},
+		},
+		Visibility: netv1alpha1.IngressVisibilityClusterLocal,
+	}, {
+		Hosts: []string{
+			"test-route." + ns + ".example.com",
+		},
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: ns,
+						ServiceName:      "v2",
+						ServicePort:      intstr.FromInt(80),
+					},
+					Percent: 100,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "v2",
+						"Knative-Serving-Namespace": ns,
+						"Foo":                       "Bar",
+					},
+				}},
+			}},
+		},
+		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+	}}
+
+	tc := &traffic.Config{Targets: targets}
+	ro := tc.BuildRollout()
+	ci, err := makeIngressSpec(testContext(), r, nil /*tls*/, tc, ro)
+	if err != nil {
+		t.Error("Unexpected error", err)
+	}
+
+	if !cmp.Equal(expected, ci.Rules) {
+		t.Error("Unexpected rules (-want, +got):", cmp.Diff(expected, ci.Rules))
+	}
+}
+
 func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{

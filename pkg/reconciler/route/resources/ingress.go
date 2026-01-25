@@ -322,10 +322,10 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets,
 					ServicePort: servicePort,
 				},
 				Percent: int(*t.Percent),
-				AppendHeaders: map[string]string{
+				AppendHeaders: kmeta.UnionMaps(map[string]string{
 					activator.RevisionHeaderName:      t.TrafficTarget.RevisionName,
 					activator.RevisionHeaderNamespace: ns,
-				},
+				}, t.TrafficTarget.AppendHeaders),
 			})
 		} else {
 			for i := range cfg.Revisions {
@@ -334,15 +334,13 @@ func makeBaseIngressPath(ns string, targets traffic.RevisionTargets,
 					IngressBackend: netv1alpha1.IngressBackend{
 						ServiceNamespace: ns,
 						ServiceName:      rev.RevisionName,
-						// Port on the public service must match port on the activator.
-						// Otherwise, the serverless services can't guarantee seamless positive handoff.
-						ServicePort: servicePort,
+						ServicePort:      servicePort,
 					},
 					Percent: rev.Percent,
-					AppendHeaders: map[string]string{
+					AppendHeaders: kmeta.UnionMaps(map[string]string{
 						activator.RevisionHeaderName:      rev.RevisionName,
 						activator.RevisionHeaderNamespace: ns,
-					},
+					}, t.TrafficTarget.AppendHeaders),
 				})
 			}
 		}
