@@ -93,6 +93,13 @@ spec:
                     description: TrafficTarget holds a single entry of the routing table for a Route.
                     type: object
                     properties:
+                      appendHeaders:
+                        description: |-
+                          AppendHeaders allow specifying additional HTTP headers to add
+                          before forwarding a request to the destination service.
+                        type: object
+                        additionalProperties:
+                          type: string
                       configurationName:
                         description: |-
                           ConfigurationName of a configuration to whose latest revision we will send
@@ -219,6 +226,13 @@ spec:
                     description: TrafficTarget holds a single entry of the routing table for a Route.
                     type: object
                     properties:
+                      appendHeaders:
+                        description: |-
+                          AppendHeaders allow specifying additional HTTP headers to add
+                          before forwarding a request to the destination service.
+                        type: object
+                        additionalProperties:
+                          type: string
                       configurationName:
                         description: |-
                           ConfigurationName of a configuration to whose latest revision we will send

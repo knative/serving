@@ -2082,6 +2082,19 @@ status, and is disallowed on spec. URL must contain a scheme (e.g. http://) and
 a hostname, but may not contain anything else (e.g. basic auth, url path, etc.)</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>appendHeaders</code><br/>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AppendHeaders allow specifying additional HTTP headers to add
+before forwarding a request to the destination service.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr/>
