@@ -101,9 +101,11 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 		// Before we can reconcile decider and get real number of activators
 		// we start with default of 2.
 		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeProxy, minActivators); err != nil {
+			pa.Status.MetricsPaused = false
 			return fmt.Errorf("error reconciling SKS: %w", err)
 		}
 		pa.Status.MarkSKSNotReady(noPrivateServiceName) // In both cases this is true.
+		pa.Status.MetricsPaused = false                 // unpause metrics
 		c.computeStatus(ctx, pa, podCounts{want: scaleUnknown}, logger)
 		return nil
 	}
@@ -111,10 +113,13 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	pa.Status.MetricsServiceName = sks.Status.PrivateServiceName
 	decider, err := c.reconcileDecider(ctx, pa)
 	if err != nil {
+		// unpause incase of this error
+		pa.Status.MetricsPaused = false
 		return fmt.Errorf("error reconciling Decider: %w", err)
 	}
 
 	if err := c.ReconcileMetric(ctx, pa, resolveScrapeTarget(ctx, pa)); err != nil {
+		pa.Status.MetricsPaused = false
 		return fmt.Errorf("error reconciling Metric: %w", err)
 	}
 
@@ -122,6 +127,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	// the scaleTargetRef based on it.
 	want, err := c.scaler.scale(ctx, pa, sks, decider.Status.DesiredScale)
 	if err != nil {
+		pa.Status.MetricsPaused = false
 		return fmt.Errorf("error scaling target: %w", err)
 	}
 
@@ -145,6 +151,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	podCounter := resourceutil.NewPodAccessor(c.podsLister, pa.Namespace, pa.Labels[serving.RevisionLabelKey])
 	ready, notReady, pending, terminating, err := podCounter.PodCountsByState()
 	if err != nil {
+		pa.Status.MetricsPaused = false
 		return fmt.Errorf("error getting pod counts: %w", err)
 	}
 
@@ -157,6 +164,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 
 	sks, err = c.ReconcileSKS(ctx, pa, mode, numActivators)
 	if err != nil {
+		pa.Status.MetricsPaused = false
 		return fmt.Errorf("error reconciling SKS: %w", err)
 	}
 	// Propagate service name.
@@ -169,6 +177,27 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 	} else {
 		logger.Debug("SKS is not ready, marking SKS status not ready")
 		pa.Status.MarkSKSNotReady(sks.Status.GetCondition(nv1alpha1.ServerlessServiceConditionReady).GetMessage())
+	}
+
+	var shouldPause bool
+	isSKSReady := pa.Status.GetCondition(autoscalingv1alpha1.PodAutoscalerConditionSKSReady).IsTrue()
+	// only try probe if sks should be in proxy mode and SKS is ready, otherwise always unpause
+	if sks.Spec.Mode == nv1alpha1.SKSOperationModeProxy && isSKSReady {
+		r, err := c.scaler.activatorProbe(pa, c.scaler.transport)
+		if err != nil {
+			shouldPause = false
+		} else {
+			if r {
+				logger.Debug("activator probed, pausing metrics")
+			}
+			shouldPause = r
+		}
+	} else {
+		shouldPause = false
+	}
+
+	if shouldPause != pa.Status.MetricsPaused {
+		pa.Status.MetricsPaused = shouldPause
 	}
 
 	logger.Infof("PA scale got=%d, want=%d, desiredPods=%d ebc=%d", ready, want,
