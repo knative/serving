@@ -18,7 +18,6 @@ package queue
 
 import (
 	"net/http"
-	"time"
 
 	"go.opentelemetry.io/otel/metric"
 	semconv "go.opentelemetry.io/otel/semconv/v1.34.0"
@@ -103,7 +102,7 @@ func (h *appRequestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 			status = http.StatusInternalServerError
 		}
 
-		elapsedTime := float64(latency / time.Second)
+		elapsedTime := latency.Seconds()
 		h.duration.Record(r.Context(), elapsedTime,
 			metric.WithAttributes(semconv.HTTPResponseStatusCode(status)),
 		)

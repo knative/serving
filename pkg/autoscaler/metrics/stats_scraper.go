@@ -226,7 +226,7 @@ func (s *serviceScraper) Scrape(window time.Duration) (stat Stat, err error) {
 			return
 		}
 		scrapeTime := s.clock.Since(startTime)
-		scrapeTimeSec := float64(scrapeTime / time.Second)
+		scrapeTimeSec := scrapeTime.Seconds()
 		s.duration.Record(context.Background(), scrapeTimeSec, metric.WithAttributeSet(s.attrs))
 	}()
 
