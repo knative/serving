@@ -559,6 +559,13 @@ func (in *TrafficTarget) DeepCopyInto(out *TrafficTarget) {
 		*out = new(apis.URL)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.AppendHeaders != nil {
+		in, out := &in.AppendHeaders, &out.AppendHeaders
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 

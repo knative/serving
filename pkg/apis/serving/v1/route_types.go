@@ -108,6 +108,12 @@ type TrafficTarget struct {
 	// a hostname, but may not contain anything else (e.g. basic auth, url path, etc.)
 	// +optional
 	URL *apis.URL `json:"url,omitempty"`
+
+	// AppendHeaders allow specifying additional HTTP headers to add
+	// before forwarding a request to the destination service.
+	//
+	// +optional
+	AppendHeaders map[string]string `json:"appendHeaders,omitempty"`
 }
 
 // RouteSpec holds the desired state of the Route (from the client).

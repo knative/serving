@@ -255,6 +255,38 @@ func TestTrafficTargetValidation(t *testing.T) {
 		},
 		wc:   apis.WithinSpec,
 		want: apis.ErrDisallowedFields("url"),
+	}, {
+		name: "valid append headers",
+		tt: &TrafficTarget{
+			ConfigurationName: "foo",
+			Percent:           ptr.Int64(100),
+			AppendHeaders: map[string]string{
+				"foo": "bar",
+			},
+		},
+		wc: apis.WithinSpec,
+	}, {
+		name: "invalid append headers (status)",
+		tt: &TrafficTarget{
+			RevisionName: "v1",
+			Percent:      ptr.Int64(100),
+			AppendHeaders: map[string]string{
+				"foo": "bar",
+			},
+		},
+		wc:   apis.WithinStatus,
+		want: apis.ErrDisallowedFields("appendHeaders"),
+	}, {
+		name: "invalid append headers (invalid key)",
+		tt: &TrafficTarget{
+			ConfigurationName: "foo",
+			Percent:           ptr.Int64(100),
+			AppendHeaders: map[string]string{
+				"foo/bar": "bar",
+			},
+		},
+		wc:   apis.WithinSpec,
+		want: apis.ErrInvalidKeyName("foo/bar", "appendHeaders"),
 	}}
 
 	for _, test := range tests {
