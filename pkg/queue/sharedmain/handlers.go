@@ -42,7 +42,7 @@ func mainHandler(
 	logger *zap.SugaredLogger,
 	mp metric.MeterProvider,
 	tp trace.TracerProvider,
-) (http.Handler, *pkghandler.Drainer) {
+) (*handler.HijackTracker, *pkghandler.Drainer) {
 	tracer := tp.Tracer("knative.dev/serving/pkg/queue")
 
 	breaker := buildBreaker(logger, env)
@@ -63,9 +63,10 @@ func mainHandler(
 	composedHandler = requestAppMetricsHandler(logger, composedHandler, breaker, mp)
 	composedHandler = queue.ProxyHandler(tracer, breaker, stats, composedHandler)
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
-	composedHandler = handler.NewTimeoutHandler(composedHandler, "request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
-		return timeout, responseStartTimeout, idleTimeout
-	}, logger)
+	composedHandler = handler.NewTimeoutHandler(composedHandler, "request timeout",
+		func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
+			return timeout, responseStartTimeout, idleTimeout
+		}, logger)
 
 	composedHandler = queue.NewRouteTagHandler(composedHandler)
 	composedHandler = withFullDuplex(composedHandler, env.EnableHTTPFullDuplex, logger)
@@ -95,7 +96,7 @@ func mainHandler(
 		}),
 	)
 
-	return composedHandler, drainer
+	return &handler.HijackTracker{Handler: composedHandler}, drainer
 }
 
 func adminHandler(ctx context.Context, logger *zap.SugaredLogger, drainer *pkghandler.Drainer) http.Handler {

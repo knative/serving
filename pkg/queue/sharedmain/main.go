@@ -314,17 +314,27 @@ func Main(opts ...Option) error {
 		logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
 		drainer.Drain()
 
+		ctx := context.Background()
+
 		for name, srv := range httpServers {
 			logger.Info("Shutting down server: ", name)
-			if err := srv.Shutdown(context.Background()); err != nil {
+			if err := srv.Shutdown(ctx); err != nil {
 				logger.Errorw("Failed to shutdown server", zap.String("server", name), zap.Error(err))
 			}
 		}
 		for name, srv := range tlsServers {
 			logger.Info("Shutting down server: ", name)
-			if err := srv.Shutdown(context.Background()); err != nil {
+			if err := srv.Shutdown(ctx); err != nil {
 				logger.Errorw("Failed to shutdown server", zap.String("server", name), zap.Error(err))
 			}
+		}
+
+		// Limit hijack draining to 60s for now
+		ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+		defer cancel()
+
+		if err := mainHandler.HijackDrain(ctx); err != nil {
+			logger.Warnw("Hijack connection drain failed", zap.Error(err))
 		}
 
 		logger.Info("Shutdown complete, exiting...")
