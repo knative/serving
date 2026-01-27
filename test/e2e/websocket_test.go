@@ -21,7 +21,10 @@ package e2e
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"golang.org/x/sync/errgroup"
@@ -116,6 +119,75 @@ func TestWebSocket(t *testing.T) {
 	// Validate the websocket connection.
 	if err := ValidateWebSocketConnection(t, clients, names, NoDelay); err != nil {
 		t.Error(err)
+	}
+}
+
+func TestWebSocketGracefulShutdown(t *testing.T) {
+	// TODO: https option with parallel leads to flakes.
+	// https://github.com/knative/serving/issues/11387
+	if !test.ServingFlags.HTTPS {
+		t.Parallel()
+	}
+
+	clients := Setup(t)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   wsServerTestImageName,
+	}
+
+	// Clean up in both abnormal and normal exits.
+	test.EnsureTearDown(t, clients, &names)
+
+	if _, err := v1test.CreateServiceReady(t, clients, &names); err != nil {
+		t.Fatal("Failed to create WebSocket server:", err)
+	}
+
+	conn, err := connect(t, clients, names.URL.Hostname(), NoDelay)
+	if err != nil {
+		t.Fatal("Failed to connect to websocket", err)
+	}
+	defer conn.Close()
+
+	eg, ctx := errgroup.WithContext(t.Context())
+
+	eg.Go(func() error {
+		for {
+			if err = conn.WriteMessage(websocket.TextMessage, []byte("hello")); err != nil {
+				return fmt.Errorf("failed to write message: %w", err)
+			}
+
+			// websocket.IsUnexpectedCloseError
+
+			t.Logf("Successfully wrote: %q", message)
+
+			_, message, err := conn.ReadMessage()
+			if err != nil {
+				return fmt.Errorf("failed to read message: %w", err)
+			}
+
+			t.Logf("Successfully read: %q", message)
+			time.Sleep(time.Second)
+		}
+	})
+
+	eg.Go(func() error {
+		// Give the request a bit of time to be established and reach the pod.
+		time.Sleep(5 * time.Second)
+
+		t.Log("Destroying the configuration (also destroys the pods)")
+		return clients.ServingClient.Services.Delete(ctx, names.Service, metav1.DeleteOptions{})
+	})
+
+	var closeErr *websocket.CloseError
+	err = eg.Wait()
+
+	if errors.As(err, &closeErr) {
+		if websocket.IsUnexpectedCloseError(closeErr, websocket.CloseNormalClosure) {
+			t.Fatal("websocket closed with unexpected close", err)
+		}
+	} else if err != nil {
+		t.Fatal("error running test", err)
 	}
 }
 
