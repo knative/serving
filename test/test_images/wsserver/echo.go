@@ -17,7 +17,8 @@ limitations under the License.
 package main
 
 import (
-	"flag"
+	"cmp"
+	"context"
 	"log"
 	"net/http"
 	"os"
@@ -26,7 +27,8 @@ import (
 
 	"github.com/gorilla/websocket"
 	netheader "knative.dev/networking/pkg/http/header"
-	"knative.dev/serving/test"
+	pkgnet "knative.dev/pkg/network"
+	"knative.dev/pkg/signals"
 )
 
 const suffixMessageEnv = "SUFFIX"
@@ -49,7 +51,11 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
+type handler struct {
+	ctx context.Context
+}
+
+func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	params := r.URL.Query()
 	d := params.Get("delay")
 	if d != "" {
@@ -69,7 +75,23 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 	log.Println("Connection upgraded to WebSocket. Entering receive loop.")
+
+	go func() {
+		<-h.ctx.Done()
+		log.Println("sending close message")
+		conn.WriteMessage(
+			websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.CloseNormalClosure, "bye"),
+		)
+	}()
+
 	for {
+		select {
+		case <-h.ctx.Done():
+			return
+		default:
+		}
+
 		messageType, message, err := conn.ReadMessage()
 		if err != nil {
 			// We close abnormally, because we're just closing the connection in the client,
@@ -100,7 +122,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	flag.Parse()
-	log.SetFlags(0)
-	test.ListenAndServeGracefully(":"+os.Getenv("PORT"), handler)
+	ctx := signals.NewContext()
+	addr := ":" + cmp.Or(os.Getenv("PORT"), "8080")
+	server := pkgnet.NewServer(addr, &handler{ctx: ctx})
+
+	log.Println("Listening on port", addr)
+	go server.ListenAndServe()
+
+	<-ctx.Done()
+	server.Shutdown(context.Background())
 }
