@@ -33,10 +33,20 @@ const (
 )
 
 // ProtobufStatsReporter structure represents a protobuf stats reporter.
+//
+// Security Property: Each ProtobufStatsReporter instance is bound to a single pod
+// identity at construction time. The podName field is immutable and set from the
+// pod's environment (env.ServingPod). This ensures that a queue-proxy can only
+// report statistics for its own pod and cannot spoof metrics for other pods.
+// The autoscaler relies on this property to correctly attribute metrics to the
+// appropriate pod and revision when making scaling decisions.
 type ProtobufStatsReporter struct {
 	startTime time.Time
 	stat      atomic.Value
-	podName   string
+	// podName is the immutable identity of this pod, set at construction time.
+	// This field ensures that all statistics reported by this instance are
+	// correctly attributed to this specific pod.
+	podName string
 
 	// RequestCount and ProxiedRequestCount need to be divided by the reporting period
 	// they were collected over to get a "per-second" value.
