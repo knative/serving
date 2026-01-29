@@ -155,3 +155,83 @@ func scrapeProtobufStat(t *testing.T, r *ProtobufStatsReporter) metrics.Stat {
 
 	return stat
 }
+
+// TestProtobufStatsReporterPodNameImmutable verifies that the queue-proxy can only
+// report statistics for its own pod. This is a security property that ensures
+// a queue-proxy cannot spoof metrics for other pods.
+//
+// Related to: https://github.com/knative/serving/issues/11015
+func TestProtobufStatsReporterPodNameImmutable(t *testing.T) {
+	expectedPodName := "test-pod-123"
+	reporter := NewProtobufStatsReporter(expectedPodName, 1*time.Second)
+
+	// Verify initial state has correct pod name
+	initialStat := scrapeProtobufStat(t, reporter)
+	if initialStat.PodName != expectedPodName {
+		t.Errorf("Initial pod name = %q, want %q", initialStat.PodName, expectedPodName)
+	}
+
+	// Report multiple times with different stats
+	reports := []netstats.RequestStatsReport{
+		{RequestCount: 10, AverageConcurrency: 1},
+		{RequestCount: 20, AverageConcurrency: 2},
+		{RequestCount: 30, AverageConcurrency: 3},
+	}
+
+	for i, report := range reports {
+		reporter.Report(report)
+		stat := scrapeProtobufStat(t, reporter)
+
+		// Verify pod name never changes regardless of what stats are reported
+		if stat.PodName != expectedPodName {
+			t.Errorf("After report %d: pod name = %q, want %q", i, stat.PodName, expectedPodName)
+		}
+
+		// Verify the stats themselves were updated (proving Report() is working)
+		if stat.RequestCount != report.RequestCount {
+			t.Errorf("After report %d: request count = %v, want %v", i, stat.RequestCount, report.RequestCount)
+		}
+	}
+}
+
+// TestProtobufStatsReporterMultiplePods verifies that different queue-proxy instances
+// maintain separate pod identities and cannot report for each other.
+func TestProtobufStatsReporterMultiplePods(t *testing.T) {
+	pod1Name := "pod-1"
+	pod2Name := "pod-2"
+
+	reporter1 := NewProtobufStatsReporter(pod1Name, 1*time.Second)
+	reporter2 := NewProtobufStatsReporter(pod2Name, 1*time.Second)
+
+	// Report stats from both reporters
+	report1 := netstats.RequestStatsReport{RequestCount: 100, AverageConcurrency: 5}
+	report2 := netstats.RequestStatsReport{RequestCount: 200, AverageConcurrency: 10}
+
+	reporter1.Report(report1)
+	reporter2.Report(report2)
+
+	// Scrape both reporters
+	stat1 := scrapeProtobufStat(t, reporter1)
+	stat2 := scrapeProtobufStat(t, reporter2)
+
+	// Verify each reporter only reports for its own pod
+	if stat1.PodName != pod1Name {
+		t.Errorf("Reporter 1 pod name = %q, want %q", stat1.PodName, pod1Name)
+	}
+	if stat2.PodName != pod2Name {
+		t.Errorf("Reporter 2 pod name = %q, want %q", stat2.PodName, pod2Name)
+	}
+
+	// Verify stats are correctly separated
+	if stat1.RequestCount != report1.RequestCount {
+		t.Errorf("Reporter 1 request count = %v, want %v", stat1.RequestCount, report1.RequestCount)
+	}
+	if stat2.RequestCount != report2.RequestCount {
+		t.Errorf("Reporter 2 request count = %v, want %v", stat2.RequestCount, report2.RequestCount)
+	}
+
+	// Verify they didn't affect each other
+	if stat1.RequestCount == stat2.RequestCount {
+		t.Error("Expected different request counts for different pods")
+	}
+}
