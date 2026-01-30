@@ -60,7 +60,7 @@ type tryResult struct {
 }
 
 func newTestThrottler(ctx context.Context) *Throttler {
-	return NewThrottler(ctx, "10.10.10.10")
+	return NewThrottler(ctx, "10.10.10.10", nil)
 }
 
 func TestThrottlerUpdateCapacity(t *testing.T) {
@@ -509,7 +509,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 
 			updateCh := make(chan revisionDestsUpdate)
 
-			throttler := NewThrottler(ctx, "130.0.0.2")
+			throttler := NewThrottler(ctx, "130.0.0.2", nil)
 			var grp errgroup.Group
 			grp.Go(func() error { throttler.run(updateCh); return nil })
 			// Ensure the throttler stopped before we leave the test, so that
@@ -729,7 +729,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 
 	updateCh := make(chan revisionDestsUpdate)
 
-	throttler := NewThrottler(ctx, "130.0.0.2")
+	throttler := NewThrottler(ctx, "130.0.0.2", nil)
 	var grp errgroup.Group
 	grp.Go(func() error { throttler.run(updateCh); return nil })
 	// Ensure the throttler stopped before we leave the test, so that
@@ -824,7 +824,7 @@ func TestMultipleActivators(t *testing.T) {
 
 	updateCh := make(chan revisionDestsUpdate)
 
-	throttler := NewThrottler(ctx, "130.0.0.2")
+	throttler := NewThrottler(ctx, "130.0.0.2", nil)
 	var grp errgroup.Group
 	grp.Go(func() error { throttler.run(updateCh); return nil })
 	// Ensure the throttler stopped before we leave the test, so that

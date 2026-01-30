@@ -203,7 +203,7 @@ func main() {
 	activatornet.SetProbeSettings(probeTimeout, probeFrequency)
 
 	// Start throttler.
-	throttler := activatornet.NewThrottler(ctx, env.PodIP)
+	throttler := activatornet.NewThrottler(ctx, env.PodIP, mp)
 	go throttler.Run(ctx, transport, networkConfig.EnableMeshPodAddressability, networkConfig.MeshCompatibilityMode)
 
 	// Set up our config store
