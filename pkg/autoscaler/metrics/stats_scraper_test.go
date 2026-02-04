@@ -856,13 +856,116 @@ func TestURLFromTarget(t *testing.T) {
 	}
 }
 
+// TestScrapeOnlyScrapesPodsForCorrectRevision verifies that when the autoscaler
+// scrapes queue-proxy pods, it only scrapes pods belonging to the specific revision
+// and does not scrape pods from other revisions. This ensures proper isolation and
+// that statistics are correctly attributed to the appropriate revision.
+//
+// Related to: https://github.com/knative/serving/issues/11015
+func TestScrapeOnlyScrapesPodsForCorrectRevision(t *testing.T) {
+	const (
+		revisionA = "revision-a"
+		revisionB = "revision-b"
+	)
+
+	// Create stats for revision-a pods only.
+	// We don't seed stats for revision-b because the scraper should never
+	// attempt to scrape those pods (they're filtered out by label).
+	statsRevA := []Stat{
+		{PodName: "rev-a-pod-0", AverageConcurrentRequests: 1.0, RequestCount: 10},
+		{PodName: "rev-a-pod-1", AverageConcurrentRequests: 2.0, RequestCount: 20},
+	}
+
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	wf, err := RunAndSyncInformers(ctx, informers...)
+	if err != nil {
+		cancel()
+		t.Fatal("Failed to start informers:", err)
+	}
+	t.Cleanup(func() {
+		cancel()
+		wf()
+	})
+
+	// Create pods for both revisions in the cluster.
+	// Both exist in Kubernetes, but only revision-a pods should be scraped.
+	makePodsWithRevision(ctx, "rev-a-pod-", 2, metav1.Now(), revisionA)
+	makePodsWithRevision(ctx, "rev-b-pod-", 2, metav1.Now(), revisionB)
+
+	// Create a scraper specifically for revision-a.
+	// Only seed stats for revision-a pods since those are the only ones
+	// that will be scraped (revision-b pods are filtered by label).
+	client := newTestScrapeClient(statsRevA, []error{nil})
+
+	reader := metric.NewManualReader()
+	mp := metric.NewMeterProvider(metric.WithReader(reader))
+	metricA := &autoscalingv1alpha1.Metric{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      revisionA,
+			Labels: map[string]string{
+				serving.RevisionLabelKey: revisionA,
+			},
+		},
+		Spec: autoscalingv1alpha1.MetricSpec{
+			StableWindow: time.Minute,
+			ScrapeTarget: revisionA + "-zhudex",
+		},
+	}
+
+	// PodAccessor is bound to revision-a, so it will only return pods labeled with revision-a
+	accessor := resources.NewPodAccessor(
+		fakepodsinformer.Get(ctx).Lister(),
+		testNamespace, revisionA)
+	logger := logtesting.TestLogger(t)
+	scraper := newServiceScraperWithClient(metricA, revisionA, accessor, false, netcfg.MeshCompatibilityModeAuto, client, client, logger, mp)
+	scraper.podsAddressable = true
+
+	// Scrape revision-a
+	got, err := scraper.Scrape(metricA.Spec.StableWindow)
+	if err != nil {
+		t.Fatal("Unexpected error from scraper.Scrape():", err)
+	}
+
+	// Verify only revision-a pods were scraped
+	// The scraper should have only requested 2 pod IPs (for revision-a pods)
+	// The 2 revision-b pods should never be scraped
+	if len(client.urls) != 2 {
+		t.Errorf("Expected scraper to request 2 pod IPs (revision-a only), got %d: %v", len(client.urls), client.urls)
+	}
+
+	// Verify the scraper only accessed revision-a pod IPs
+	for url := range client.urls {
+		if !strings.Contains(url, "rev-a-pod") {
+			t.Errorf("Scraper accessed unexpected URL: %s (should only access revision-a pods)", url)
+		}
+	}
+
+	// Verify the scraped stat contains data only from revision-a pods
+	// With 2 pods scraped (sample size = total size), the computation is:
+	// AverageConcurrentRequests = (1.0 + 2.0) / 2 * 2 = 3.0
+	// RequestCount = (10 + 20) / 2 * 2 = 30
+	wantAvg := 3.0
+	wantReq := 30.0
+	if got.AverageConcurrentRequests != wantAvg {
+		t.Errorf("AverageConcurrentRequests = %v, want %v (should only include revision-a pods)", got.AverageConcurrentRequests, wantAvg)
+	}
+	if got.RequestCount != wantReq {
+		t.Errorf("RequestCount = %v, want %v (should only include revision-a pods)", got.RequestCount, wantReq)
+	}
+}
+
 func makePods(ctx context.Context, prefix string, n int, startTime metav1.Time) {
+	makePodsWithRevision(ctx, prefix, n, startTime, testRevision)
+}
+
+func makePodsWithRevision(ctx context.Context, prefix string, n int, startTime metav1.Time, revision string) {
 	for i := range n {
 		p := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      prefix + strconv.Itoa(i),
 				Namespace: testNamespace,
-				Labels:    map[string]string{serving.RevisionLabelKey: testRevision},
+				Labels:    map[string]string{serving.RevisionLabelKey: revision},
 			},
 			Status: corev1.PodStatus{
 				StartTime: &startTime,

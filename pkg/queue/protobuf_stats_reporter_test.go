@@ -155,3 +155,41 @@ func scrapeProtobufStat(t *testing.T, r *ProtobufStatsReporter) metrics.Stat {
 
 	return stat
 }
+
+// TestProtobufStatsReporterPodNameImmutable verifies that the queue-proxy can only
+// report statistics for its own pod. This is a security property that ensures
+// a queue-proxy cannot spoof metrics for other pods.
+//
+// Related to: https://github.com/knative/serving/issues/11015
+func TestProtobufStatsReporterPodNameImmutable(t *testing.T) {
+	expectedPodName := "test-pod-123"
+	reporter := NewProtobufStatsReporter(expectedPodName, 1*time.Second)
+
+	// Verify initial state has correct pod name
+	initialStat := scrapeProtobufStat(t, reporter)
+	if initialStat.PodName != expectedPodName {
+		t.Errorf("Initial pod name = %q, want %q", initialStat.PodName, expectedPodName)
+	}
+
+	// Report multiple times with different stats
+	reports := []netstats.RequestStatsReport{
+		{RequestCount: 10, AverageConcurrency: 1},
+		{RequestCount: 20, AverageConcurrency: 2},
+		{RequestCount: 30, AverageConcurrency: 3},
+	}
+
+	for i, report := range reports {
+		reporter.Report(report)
+		stat := scrapeProtobufStat(t, reporter)
+
+		// Verify pod name never changes regardless of what stats are reported
+		if stat.PodName != expectedPodName {
+			t.Errorf("After report %d: pod name = %q, want %q", i, stat.PodName, expectedPodName)
+		}
+
+		// Verify the stats themselves were updated (proving Report() is working)
+		if stat.RequestCount != report.RequestCount {
+			t.Errorf("After report %d: request count = %v, want %v", i, stat.RequestCount, report.RequestCount)
+		}
+	}
+}

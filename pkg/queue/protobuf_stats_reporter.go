@@ -33,10 +33,14 @@ const (
 )
 
 // ProtobufStatsReporter structure represents a protobuf stats reporter.
+// Each instance is bound to a single pod identity (set from env.ServingPod)
+// which cannot be changed, ensuring statistics are correctly attributed to
+// the appropriate pod for autoscaling decisions.
 type ProtobufStatsReporter struct {
 	startTime time.Time
 	stat      atomic.Value
-	podName   string
+	// podName is the immutable identity of this pod, set at construction time.
+	podName string
 
 	// RequestCount and ProxiedRequestCount need to be divided by the reporting period
 	// they were collected over to get a "per-second" value.
