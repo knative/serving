@@ -23,7 +23,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -462,27 +461,17 @@ type Throttler struct {
 	ipAddress               string // The IP address of this activator.
 	logger                  *zap.SugaredLogger
 	epsUpdateCh             chan *corev1.Endpoints
-	metrics                 *throttlerMetrics
 }
 
 // NewThrottler creates a new Throttler
-func NewThrottler(ctx context.Context, ipAddr string, mp metric.MeterProvider) *Throttler {
+func NewThrottler(ctx context.Context, ipAddr string) *Throttler {
 	revisionInformer := revisioninformer.Get(ctx)
-	logger := logging.FromContext(ctx)
 	t := &Throttler{
 		revisionThrottlers: make(map[types.NamespacedName]*revisionThrottler),
 		revisionLister:     revisionInformer.Lister(),
 		ipAddress:          ipAddr,
-		logger:             logger,
+		logger:             logging.FromContext(ctx),
 		epsUpdateCh:        make(chan *corev1.Endpoints),
-	}
-
-	// Initialize metrics with the throttler as the queue depth provider.
-	metrics, err := newThrottlerMetrics(mp, t)
-	if err != nil {
-		logger.Warnw("Failed to initialize throttler metrics", "error", err)
-	} else {
-		t.metrics = metrics
 	}
 
 	// Watch revisions to create throttler with backlog immediately and delete

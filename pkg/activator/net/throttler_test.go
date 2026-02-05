@@ -60,7 +60,7 @@ type tryResult struct {
 }
 
 func newTestThrottler(ctx context.Context) *Throttler {
-	return NewThrottler(ctx, "10.10.10.10", nil)
+	return NewThrottler(ctx, "10.10.10.10")
 }
 
 func TestThrottlerUpdateCapacity(t *testing.T) {
@@ -509,7 +509,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 
 			updateCh := make(chan revisionDestsUpdate)
 
-			throttler := NewThrottler(ctx, "130.0.0.2", nil)
+			throttler := NewThrottler(ctx, "130.0.0.2")
 			var grp errgroup.Group
 			grp.Go(func() error { throttler.run(updateCh); return nil })
 			// Ensure the throttler stopped before we leave the test, so that
@@ -729,7 +729,7 @@ func TestActivatorsIndexUpdate(t *testing.T) {
 
 	updateCh := make(chan revisionDestsUpdate)
 
-	throttler := NewThrottler(ctx, "130.0.0.2", nil)
+	throttler := NewThrottler(ctx, "130.0.0.2")
 	var grp errgroup.Group
 	grp.Go(func() error { throttler.run(updateCh); return nil })
 	// Ensure the throttler stopped before we leave the test, so that
@@ -824,7 +824,7 @@ func TestMultipleActivators(t *testing.T) {
 
 	updateCh := make(chan revisionDestsUpdate)
 
-	throttler := NewThrottler(ctx, "130.0.0.2", nil)
+	throttler := NewThrottler(ctx, "130.0.0.2")
 	var grp errgroup.Group
 	grp.Go(func() error { throttler.run(updateCh); return nil })
 	// Ensure the throttler stopped before we leave the test, so that
@@ -1216,131 +1216,4 @@ func TestAssignSlice(t *testing.T) {
 			t.Errorf("Capacity for the tail pod = %d, want: %d", got, want)
 		}
 	})
-}
-
-func TestThrottlerQueueDepth(t *testing.T) {
-	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-	defer cancel()
-
-	// Setup fake clients
-	servfake := fakeservingclient.Get(ctx)
-	revisions := fakerevisioninformer.Get(ctx)
-	waitInformers, err := rtesting.RunAndSyncInformers(ctx, revisions.Informer())
-	if err != nil {
-		t.Fatal("Failed to start informers:", err)
-	}
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
-
-	// Create a revision with CC > 0 (uses queue.Breaker)
-	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
-	rev := revisionCC1(revID, pkgnet.ProtocolHTTP1)
-	servfake.ServingV1().Revisions(rev.Namespace).Create(ctx, rev, metav1.CreateOptions{})
-	revisions.Informer().GetIndexer().Add(rev)
-
-	throttler := NewThrottler(ctx, "10.10.10.10", nil)
-
-	// Initially no revisions tracked
-	depths := throttler.QueueDepth()
-	if len(depths) != 0 {
-		t.Errorf("Expected empty queue depths initially, got %v", depths)
-	}
-
-	// Create a revision throttler by calling getOrCreateRevisionThrottler
-	_, err = throttler.getOrCreateRevisionThrottler(revID)
-	if err != nil {
-		t.Fatalf("getOrCreateRevisionThrottler failed: %v", err)
-	}
-
-	// Now we should have one revision tracked with 0 in-flight
-	depths = throttler.QueueDepth()
-	if len(depths) != 1 {
-		t.Errorf("Expected 1 revision in queue depths, got %d", len(depths))
-	}
-
-	expectedKey := revID.String()
-	if depth, ok := depths[expectedKey]; !ok {
-		t.Errorf("Expected revision %s in queue depths", expectedKey)
-	} else if depth != 0 {
-		t.Errorf("Expected 0 in-flight for new revision, got %d", depth)
-	}
-}
-
-func TestInfiniteBreakerInFlight(t *testing.T) {
-	logger := TestLogger(t)
-	ib := newInfiniteBreaker(logger)
-
-	// Initially 0 in-flight
-	if got := ib.InFlight(); got != 0 {
-		t.Errorf("InFlight() = %d, want 0", got)
-	}
-
-	// Set capacity so Maybe() can proceed
-	ib.UpdateConcurrency(1)
-
-	// Track in-flight during Maybe execution
-	done := make(chan struct{})
-
-	go func() {
-		ib.Maybe(context.Background(), func() {
-			<-done // Wait to keep the request in-flight
-		})
-	}()
-
-	// Give goroutine time to enter Maybe
-	time.Sleep(10 * time.Millisecond)
-
-	// Should be 1 in-flight now
-	if got := ib.InFlight(); got != 1 {
-		t.Errorf("InFlight() during execution = %d, want 1", got)
-	}
-
-	// Release the request
-	close(done)
-
-	// Give goroutine time to exit
-	time.Sleep(10 * time.Millisecond)
-
-	// Should be back to 0
-	if got := ib.InFlight(); got != 0 {
-		t.Errorf("InFlight() after completion = %d, want 0", got)
-	}
-}
-
-func TestInfiniteBreakerInFlightWaiting(t *testing.T) {
-	logger := TestLogger(t)
-	ib := newInfiniteBreaker(logger)
-
-	// Capacity is 0, so Maybe will block waiting
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-	defer cancel()
-
-	var inFlightDuringWait int
-	done := make(chan struct{})
-
-	go func() {
-		defer close(done)
-		ib.Maybe(ctx, func() {
-			// This won't be called since capacity is 0
-		})
-	}()
-
-	// Give goroutine time to enter Maybe and start waiting
-	time.Sleep(10 * time.Millisecond)
-
-	// Should be 1 in-flight (waiting for capacity)
-	inFlightDuringWait = ib.InFlight()
-	if inFlightDuringWait != 1 {
-		t.Errorf("InFlight() while waiting = %d, want 1", inFlightDuringWait)
-	}
-
-	// Wait for context to timeout
-	<-done
-
-	// Should be back to 0 after context cancellation
-	if got := ib.InFlight(); got != 0 {
-		t.Errorf("InFlight() after timeout = %d, want 0", got)
-	}
 }

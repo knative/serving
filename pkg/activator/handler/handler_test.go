@@ -122,7 +122,7 @@ func TestActivationHandler(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer cancel()
 			handler := New(ctx, test.throttler, rt, false, /*usePassthroughLb*/
-				logging.FromContext(ctx), false /* TLS */, nil /* trace provider */)
+				logging.FromContext(ctx), false /* TLS */, nil /* trace provider */, nil /* meter provider */)
 
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -162,7 +162,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	defer cancel()
 
 	handler := New(ctx, fakeThrottler{}, rt, false, /*usePassthroughLb*/
-		logging.FromContext(ctx), false /* TLS */, nil /* trace provider */)
+		logging.FromContext(ctx), false /* TLS */, nil /* trace provider */, nil /* meter provider */)
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -196,7 +196,7 @@ func TestActivationHandlerPassthroughLb(t *testing.T) {
 	defer cancel()
 
 	handler := New(ctx, fakeThrottler{}, rt, true, /*usePassthroughLb*/
-		logging.FromContext(ctx), false /* TLS */, nil /* trace provider */)
+		logging.FromContext(ctx), false /* TLS */, nil /* trace provider */, nil /* meter provider */)
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -242,7 +242,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 		cancel()
 	}()
 
-	handler := New(ctx, fakeThrottler{}, rt, false /*usePassthroughLb*/, logging.FromContext(ctx), false /* TLS */, tp)
+	handler := New(ctx, fakeThrottler{}, rt, false /*usePassthroughLb*/, logging.FromContext(ctx), false /* TLS */, tp, nil)
 
 	// Set up config store to populate context.
 	configStore := setupConfigStore(t, logging.FromContext(ctx))
@@ -306,7 +306,7 @@ func BenchmarkHandler(b *testing.B) {
 			}, nil
 		})
 
-		handler := New(ctx, fakeThrottler{}, rt, false /*usePassthroughLb*/, logging.FromContext(ctx), false /* TLS */, nil)
+		handler := New(ctx, fakeThrottler{}, rt, false /*usePassthroughLb*/, logging.FromContext(ctx), false /* TLS */, nil, nil)
 
 		request := func() *http.Request {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)

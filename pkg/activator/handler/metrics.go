@@ -51,3 +51,43 @@ func newMetrics(mp metric.MeterProvider) *ccMetrics {
 
 	return &m
 }
+
+// requestMetrics holds metrics for tracking request states in the activator.
+type requestMetrics struct {
+	requestQueued metric.Int64UpDownCounter
+	requestActive metric.Int64UpDownCounter
+}
+
+func newRequestMetrics(mp metric.MeterProvider) *requestMetrics {
+	var (
+		m        requestMetrics
+		err      error
+		provider = mp
+	)
+
+	if provider == nil {
+		provider = otel.GetMeterProvider()
+	}
+
+	meter := provider.Meter(scopeName)
+
+	m.requestQueued, err = meter.Int64UpDownCounter(
+		"kn.revision.request.queued",
+		metric.WithDescription("Number of requests currently queued in the activator waiting for capacity"),
+		metric.WithUnit("{request}"),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	m.requestActive, err = meter.Int64UpDownCounter(
+		"kn.revision.request.active",
+		metric.WithDescription("Number of requests currently being proxied by the activator"),
+		metric.WithUnit("{request}"),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	return &m
+}

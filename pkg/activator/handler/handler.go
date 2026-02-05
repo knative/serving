@@ -28,6 +28,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 
 	"go.uber.org/zap"
@@ -41,6 +42,7 @@ import (
 	"knative.dev/serving/pkg/activator"
 	apiconfig "knative.dev/serving/pkg/apis/config"
 	pkghttp "knative.dev/serving/pkg/http"
+	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
@@ -61,6 +63,7 @@ type activationHandler struct {
 	logger           *zap.SugaredLogger
 	tls              bool
 	tracer           trace.Tracer
+	metrics          *requestMetrics
 }
 
 // New constructs a new http.Handler that deals with revision activation.
@@ -71,6 +74,7 @@ func New(_ context.Context,
 	logger *zap.SugaredLogger,
 	tlsEnabled bool,
 	tp trace.TracerProvider,
+	mp metric.MeterProvider,
 ) http.Handler {
 	if tp == nil {
 		tp = otel.GetTracerProvider()
@@ -101,6 +105,7 @@ func New(_ context.Context,
 		bufferPool:       netproxy.NewBufferPool(),
 		logger:           logger,
 		tls:              tlsEnabled,
+		metrics:          newRequestMetrics(mp),
 	}
 }
 
@@ -108,7 +113,31 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	tryContext, trySpan := a.tracer.Start(r.Context(), "throttler_try")
 
 	revID := RevIDFrom(r.Context())
+	rev := RevisionFrom(r.Context())
+
+	// Build attributes for metrics (use revID if rev is nil)
+	var metricOpts metric.MeasurementOption
+	if rev != nil {
+		metricOpts = metric.WithAttributes(
+			metrics.RevisionNameKey.With(rev.Name),
+			metrics.K8sNamespaceKey.With(rev.Namespace),
+		)
+	} else {
+		metricOpts = metric.WithAttributes(
+			metrics.RevisionNameKey.With(revID.Name),
+			metrics.K8sNamespaceKey.With(revID.Namespace),
+		)
+	}
+
+	// Increment queued count when request enters throttler
+	a.metrics.requestQueued.Add(r.Context(), 1, metricOpts)
+
 	if err := a.throttler.Try(tryContext, revID, func(dest string, isClusterIP bool) error {
+		// Request got capacity - decrement queued, increment active
+		a.metrics.requestQueued.Add(r.Context(), -1, metricOpts)
+		a.metrics.requestActive.Add(r.Context(), 1, metricOpts)
+		defer a.metrics.requestActive.Add(r.Context(), -1, metricOpts)
+
 		trySpan.End()
 
 		proxyCtx, proxySpan := a.tracer.Start(r.Context(), "activator_proxy")
@@ -117,6 +146,9 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		return nil
 	}); err != nil {
+		// Request failed to get capacity - decrement queued count
+		a.metrics.requestQueued.Add(r.Context(), -1, metricOpts)
+
 		// Set error on our capacity waiting span and end it.
 		trySpan.SetStatus(codes.Error, err.Error())
 		trySpan.End()
