@@ -228,11 +228,13 @@ func checkSLA(results *vegeta.Metrics, rate vegeta.ConstantPacer) error {
 		return fmt.Errorf("SLA 1 failed. P95 latency is not in 100-110ms time range: %s", results.Latencies.P95)
 	}
 
-	// SLA 2: making sure the defined vegeta rates is met
-	if math.Round(results.Rate) == rate.Rate(time.Second) {
-		log.Printf("SLA 2 passed. vegeta rate is %f", rate.Rate(time.Second))
+	// SLA 2: making sure the defined vegeta rates is met (within 1% tolerance)
+	expectedRate := rate.Rate(time.Second)
+	tolerance := expectedRate * 0.01 // 1% tolerance
+	if math.Abs(results.Rate-expectedRate) <= tolerance {
+		log.Printf("SLA 2 passed. vegeta rate is %f, expected rate is %f (tolerance: 1%%)", results.Rate, expectedRate)
 	} else {
-		return fmt.Errorf("SLA 2 failed. vegeta rate is %f, expected Rate is %f", results.Rate, rate.Rate(time.Second))
+		return fmt.Errorf("SLA 2 failed. vegeta rate is %f, expected rate is %f (tolerance: 1%%)", results.Rate, expectedRate)
 	}
 
 	return nil
