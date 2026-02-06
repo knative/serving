@@ -122,7 +122,6 @@ type breaker interface {
 	Maybe(ctx context.Context, thunk func()) error
 	UpdateConcurrency(int)
 	Reserve(ctx context.Context) (func(), bool)
-	InFlight() int
 }
 
 // revisionThrottler is used to throttle requests across the entire revision.
@@ -528,22 +527,6 @@ func (t *Throttler) Try(ctx context.Context, revID types.NamespacedName, functio
 	return rt.try(ctx, function)
 }
 
-// QueueDepth returns a snapshot of queue depths (in-flight requests) per revision.
-// The returned map keys are "namespace/name" formatted revision identifiers.
-// This method is called by the metrics callback and has no impact on the request path.
-func (t *Throttler) QueueDepth() map[string]int {
-	t.revisionThrottlersMutex.RLock()
-	defer t.revisionThrottlersMutex.RUnlock()
-
-	result := make(map[string]int, len(t.revisionThrottlers))
-	for revID, rt := range t.revisionThrottlers {
-		if rt.breaker != nil {
-			result[revID.String()] = rt.breaker.InFlight()
-		}
-	}
-	return result
-}
-
 func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*revisionThrottler, error) {
 	// First, see if we can succeed with just an RLock. This is in the request path so optimizing
 	// for this case is important
@@ -726,9 +709,6 @@ type infiniteBreaker struct {
 	// immediately or wait for capacity to appear.
 	concurrency atomic.Int32
 
-	// inFlight tracks the number of requests currently being processed.
-	inFlight atomic.Int64
-
 	logger *zap.SugaredLogger
 }
 
@@ -774,9 +754,6 @@ func (ib *infiniteBreaker) UpdateConcurrency(cc int) {
 
 // Maybe executes thunk when capacity is available
 func (ib *infiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
-	ib.inFlight.Add(1)
-	defer ib.inFlight.Add(-1)
-
 	has := ib.Capacity()
 	// We're scaled to serve.
 	if has > 0 {
@@ -799,11 +776,6 @@ func (ib *infiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
 		ib.logger.Info("Context is closed: ", ctx.Err())
 		return ctx.Err()
 	}
-}
-
-// InFlight returns the number of requests currently in flight in this breaker.
-func (ib *infiniteBreaker) InFlight() int {
-	return int(ib.inFlight.Load())
 }
 
 func (ib *infiniteBreaker) Reserve(context.Context) (func(), bool) { return noop, true }

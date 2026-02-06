@@ -42,7 +42,6 @@ import (
 	"knative.dev/serving/pkg/activator"
 	apiconfig "knative.dev/serving/pkg/apis/config"
 	pkghttp "knative.dev/serving/pkg/http"
-	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
@@ -113,30 +112,15 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	tryContext, trySpan := a.tracer.Start(r.Context(), "throttler_try")
 
 	revID := RevIDFrom(r.Context())
-	rev := RevisionFrom(r.Context())
-
-	// Build attributes for metrics (use revID if rev is nil)
-	var metricOpts metric.MeasurementOption
-	if rev != nil {
-		metricOpts = metric.WithAttributes(
-			metrics.RevisionNameKey.With(rev.Name),
-			metrics.K8sNamespaceKey.With(rev.Namespace),
-		)
-	} else {
-		metricOpts = metric.WithAttributes(
-			metrics.RevisionNameKey.With(revID.Name),
-			metrics.K8sNamespaceKey.With(revID.Namespace),
-		)
-	}
 
 	// Increment queued count when request enters throttler
-	a.metrics.requestQueued.Add(r.Context(), 1, metricOpts)
+	a.metrics.RecordRequestQueued(revID)
 
 	if err := a.throttler.Try(tryContext, revID, func(dest string, isClusterIP bool) error {
 		// Request got capacity - decrement queued, increment active
-		a.metrics.requestQueued.Add(r.Context(), -1, metricOpts)
-		a.metrics.requestActive.Add(r.Context(), 1, metricOpts)
-		defer a.metrics.requestActive.Add(r.Context(), -1, metricOpts)
+		a.metrics.RecordRequestDequeued(revID)
+		a.metrics.RecordRequestActive(revID)
+		defer a.metrics.RecordRequestInactive(revID)
 
 		trySpan.End()
 
@@ -147,7 +131,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return nil
 	}); err != nil {
 		// Request failed to get capacity - decrement queued count
-		a.metrics.requestQueued.Add(r.Context(), -1, metricOpts)
+		a.metrics.RecordRequestDequeued(revID)
 
 		// Set error on our capacity waiting span and end it.
 		trySpan.SetStatus(codes.Error, err.Error())
