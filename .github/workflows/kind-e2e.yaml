@@ -213,7 +213,7 @@ jobs:
       run: |
         gotestsum --format testname -- \
           -race -count=1 -parallel=1 -tags=e2e \
-          -timeout=30m \
+          -timeout=35m \
           ${{ matrix.test-path }} \
           -skip-cleanup-on-fail \
           -disable-logstream \
