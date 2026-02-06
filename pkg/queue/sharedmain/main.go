@@ -66,6 +66,10 @@ const (
 	// from its configuration and propagate that to all loadbalancers and nodes.
 	drainSleepDuration = 30 * time.Second
 
+	// hijack drain duration is the amount of extra time we wait for
+	// hijacked connections to drain
+	hijackDrainDuration = 60 * time.Second
+
 	// certPath is the path for the server certificate mounted by queue-proxy.
 	certPath = queue.CertDirectory + "/" + certificates.CertName
 
@@ -242,8 +246,8 @@ func Main(opts ...Option) error {
 	// Enable TLS when certificate is mounted.
 	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
-	mainHandler, drainer := mainHandler(env, d, probe, stats, logger, mp, tp)
-	adminHandler := adminHandler(d.Ctx, logger, drainer)
+	mainHandler, drainers := mainHandler(env, d, probe, stats, logger, mp, tp)
+	adminHandler := adminHandler(d.Ctx, logger, drainers.StandardDrainer)
 
 	// Enable TLS server when activator server certs are mounted.
 	// At this moment activator with TLS does not disable HTTP.
@@ -312,19 +316,29 @@ func Main(opts ...Option) error {
 	case <-d.Ctx.Done():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 		logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
-		drainer.Drain()
+		drainers.StandardDrainer.Drain()
+
+		ctx := context.Background()
 
 		for name, srv := range httpServers {
 			logger.Info("Shutting down server: ", name)
-			if err := srv.Shutdown(context.Background()); err != nil {
+			if err := srv.Shutdown(ctx); err != nil {
 				logger.Errorw("Failed to shutdown server", zap.String("server", name), zap.Error(err))
 			}
 		}
 		for name, srv := range tlsServers {
 			logger.Info("Shutting down server: ", name)
-			if err := srv.Shutdown(context.Background()); err != nil {
+			if err := srv.Shutdown(ctx); err != nil {
 				logger.Errorw("Failed to shutdown server", zap.String("server", name), zap.Error(err))
 			}
+		}
+
+		// Limit hijack draining to 60s for now
+		ctx, cancel := context.WithTimeout(ctx, hijackDrainDuration)
+		defer cancel()
+
+		if err := drainers.HijackedDrainer.Drain(ctx); err != nil {
+			logger.Warnw("Hijack connection drain failed", zap.Error(err))
 		}
 
 		logger.Info("Shutdown complete, exiting...")
