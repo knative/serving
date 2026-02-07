@@ -20,10 +20,10 @@ limitations under the License.
 package e2e
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -144,43 +144,6 @@ func TestWebSocketGracefulShutdown(t *testing.T) {
 		t.Fatal("Failed to create WebSocket server:", err)
 	}
 
-	list, err := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).List(
-		t.Context(),
-		metav1.ListOptions{
-			LabelSelector: "serving.knative.dev/configuration=" + names.Config,
-		},
-	)
-	if err != nil {
-		t.Fatal("failed to get pod", err)
-	}
-
-	podName := list.Items[0].GetName()
-
-	for _, container := range []string{"user-container", "queue-proxy"} {
-		req := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).GetLogs(podName, &corev1.PodLogOptions{
-			Follow:     true,
-			Timestamps: true,
-			Container:  container,
-		})
-
-		go func() {
-			t.Logf("starting %s stream", container)
-			stream, err := req.Stream(t.Context())
-			if err != nil {
-				t.Logf("failed to stream %s logs: %s", container, err)
-			}
-			defer stream.Close()
-
-			reader := bufio.NewScanner(stream)
-			for reader.Scan() {
-				t.Logf("[%s] %s", container, reader.Text())
-			}
-			if err := reader.Err(); err != nil {
-				t.Logf("failed to read %s logs: %s", container, err)
-			}
-		}()
-	}
-
 	conn, err := connect(t, clients, names.URL.Hostname(), NoDelay)
 	if err != nil {
 		t.Fatal("Failed to connect to websocket", err)
@@ -188,23 +151,28 @@ func TestWebSocketGracefulShutdown(t *testing.T) {
 	defer conn.Close()
 
 	eg, ctx := errgroup.WithContext(t.Context())
+	clientWroteMessage := make(chan struct{})
+	closeWroteChannel := sync.OnceFunc(func() {
+		close(clientWroteMessage)
+	})
 
 	eg.Go(func() error {
+		defer closeWroteChannel()
+
 		for {
 			if err := conn.WriteMessage(websocket.TextMessage, []byte("hello")); err != nil {
 				return fmt.Errorf("failed to write message: %w", err)
 			}
-
-			// websocket.IsUnexpectedCloseError
-
 			t.Logf("Successfully wrote: %q", message)
 
 			_, message, err := conn.ReadMessage()
 			if err != nil {
 				return fmt.Errorf("failed to read message: %w", err)
 			}
-
 			t.Logf("Successfully read: %q", message)
+
+			closeWroteChannel()
+
 			select {
 			case <-ctx.Done():
 				return nil
@@ -214,8 +182,8 @@ func TestWebSocketGracefulShutdown(t *testing.T) {
 	})
 
 	eg.Go(func() error {
-		// Give the request a bit of time to be established and reach the pod.
-		time.Sleep(5 * time.Second)
+		// Wait for the other go routine to write and read a message
+		<-clientWroteMessage
 
 		t.Log("Destroying the configuration (also destroys the pods)")
 		return clients.ServingClient.Services.Delete(ctx, names.Service, metav1.DeleteOptions{})
@@ -226,11 +194,9 @@ func TestWebSocketGracefulShutdown(t *testing.T) {
 
 	if errors.As(err, &closeErr) {
 		if websocket.IsUnexpectedCloseError(closeErr, websocket.CloseNormalClosure) {
-			time.Sleep(10 * time.Second) // wait for pod logs
 			t.Fatal("websocket closed with unexpected close", err)
 		}
 	} else if err != nil {
-		time.Sleep(10 * time.Second) // wait for pod logs
 		t.Fatal("error running test", err)
 	}
 }
