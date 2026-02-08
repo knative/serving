@@ -28,6 +28,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 
 	"go.uber.org/zap"
@@ -61,6 +62,7 @@ type activationHandler struct {
 	logger           *zap.SugaredLogger
 	tls              bool
 	tracer           trace.Tracer
+	metrics          *requestMetrics
 }
 
 // New constructs a new http.Handler that deals with revision activation.
@@ -71,6 +73,7 @@ func New(_ context.Context,
 	logger *zap.SugaredLogger,
 	tlsEnabled bool,
 	tp trace.TracerProvider,
+	mp metric.MeterProvider,
 ) http.Handler {
 	if tp == nil {
 		tp = otel.GetTracerProvider()
@@ -101,6 +104,7 @@ func New(_ context.Context,
 		bufferPool:       netproxy.NewBufferPool(),
 		logger:           logger,
 		tls:              tlsEnabled,
+		metrics:          newRequestMetrics(mp),
 	}
 }
 
@@ -108,7 +112,16 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	tryContext, trySpan := a.tracer.Start(r.Context(), "throttler_try")
 
 	revID := RevIDFrom(r.Context())
+
+	// Increment queued count when request enters throttler
+	a.metrics.RecordRequestQueued(revID)
+
 	if err := a.throttler.Try(tryContext, revID, func(dest string, isClusterIP bool) error {
+		// Request got capacity - decrement queued, increment active
+		a.metrics.RecordRequestDequeued(revID)
+		a.metrics.RecordRequestActive(revID)
+		defer a.metrics.RecordRequestInactive(revID)
+
 		trySpan.End()
 
 		proxyCtx, proxySpan := a.tracer.Start(r.Context(), "activator_proxy")
@@ -117,6 +130,9 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		return nil
 	}); err != nil {
+		// Request failed to get capacity - decrement queued count
+		a.metrics.RecordRequestDequeued(revID)
+
 		// Set error on our capacity waiting span and end it.
 		trySpan.SetStatus(codes.Error, err.Error())
 		trySpan.End()
