@@ -21,7 +21,11 @@ package e2e
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"golang.org/x/sync/errgroup"
@@ -116,6 +120,84 @@ func TestWebSocket(t *testing.T) {
 	// Validate the websocket connection.
 	if err := ValidateWebSocketConnection(t, clients, names, NoDelay); err != nil {
 		t.Error(err)
+	}
+}
+
+func TestWebSocketGracefulShutdown(t *testing.T) {
+	// TODO: https option with parallel leads to flakes.
+	// https://github.com/knative/serving/issues/11387
+	if !test.ServingFlags.HTTPS {
+		t.Parallel()
+	}
+
+	clients := Setup(t)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   wsServerTestImageName,
+	}
+
+	// Clean up in both abnormal and normal exits.
+	test.EnsureTearDown(t, clients, &names)
+
+	if _, err := v1test.CreateServiceReady(t, clients, &names); err != nil {
+		t.Fatal("Failed to create WebSocket server:", err)
+	}
+
+	conn, err := connect(t, clients, names.URL.Hostname(), NoDelay)
+	if err != nil {
+		t.Fatal("Failed to connect to websocket", err)
+	}
+	defer conn.Close()
+
+	eg, ctx := errgroup.WithContext(t.Context())
+	clientWroteMessage := make(chan struct{})
+	closeWroteChannel := sync.OnceFunc(func() {
+		close(clientWroteMessage)
+	})
+
+	eg.Go(func() error {
+		defer closeWroteChannel()
+
+		for {
+			if err := conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
+				return fmt.Errorf("failed to write message: %w", err)
+			}
+			t.Logf("Successfully wrote: %q", message)
+
+			_, message, err := conn.ReadMessage()
+			if err != nil {
+				return fmt.Errorf("failed to read message: %w", err)
+			}
+			t.Logf("Successfully read: %q", message)
+
+			closeWroteChannel()
+
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(time.Second):
+			}
+		}
+	})
+
+	eg.Go(func() error {
+		// Wait for the other go routine to write and read a message
+		<-clientWroteMessage
+
+		t.Log("Destroying the configuration (also destroys the pods)")
+		return clients.ServingClient.Services.Delete(ctx, names.Service, metav1.DeleteOptions{})
+	})
+
+	var closeErr *websocket.CloseError
+	err = eg.Wait()
+
+	if errors.As(err, &closeErr) {
+		if websocket.IsUnexpectedCloseError(closeErr, websocket.CloseNormalClosure) {
+			t.Fatal("websocket closed with unexpected close", err)
+		}
+	} else if err != nil {
+		t.Fatal("error running test", err)
 	}
 }
 

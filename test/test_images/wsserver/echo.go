@@ -17,16 +17,19 @@ limitations under the License.
 package main
 
 import (
-	"flag"
+	"cmp"
+	"context"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 	netheader "knative.dev/networking/pkg/http/header"
-	"knative.dev/serving/test"
+	pkgnet "knative.dev/pkg/network"
+	"knative.dev/pkg/signals"
 )
 
 const suffixMessageEnv = "SUFFIX"
@@ -49,7 +52,19 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
+type handler struct {
+	// Context is used for cancellation of long running websockets
+	ctx context.Context
+
+	// WaitGroup is used to coordinate the writing of websocket close
+	// messages and termination of the main process loop
+	wg *sync.WaitGroup
+}
+
+func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.wg.Add(1)
+	defer h.wg.Done()
+
 	params := r.URL.Query()
 	d := params.Get("delay")
 	if d != "" {
@@ -69,7 +84,16 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 	log.Println("Connection upgraded to WebSocket. Entering receive loop.")
+
+outer:
 	for {
+		select {
+		case <-h.ctx.Done():
+			log.Println("sigterm received in handler")
+			break outer
+		default:
+		}
+
 		messageType, message, err := conn.ReadMessage()
 		if err != nil {
 			// We close abnormally, because we're just closing the connection in the client,
@@ -97,10 +121,28 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		}
 		log.Printf("Successfully wrote: %q", message)
 	}
+
+	log.Println("sending close message")
+	conn.WriteMessage(
+		websocket.CloseMessage,
+		websocket.FormatCloseMessage(websocket.CloseNormalClosure, "bye"),
+	)
 }
 
 func main() {
-	flag.Parse()
-	log.SetFlags(0)
-	test.ListenAndServeGracefully(":"+os.Getenv("PORT"), handler)
+	wg := sync.WaitGroup{}
+	ctx := signals.NewContext()
+
+	addr := ":" + cmp.Or(os.Getenv("PORT"), "8080")
+	server := pkgnet.NewServer(addr, &handler{ctx: ctx, wg: &wg})
+
+	log.Println("Listening on port", addr)
+	go server.ListenAndServe()
+
+	<-ctx.Done()
+	log.Println("sigterm received - shutting down server")
+	server.Shutdown(context.Background())
+
+	log.Println("waiting for websocket connections to close cleanly")
+	wg.Wait()
 }
