@@ -48,7 +48,6 @@ func TestHijackTrackerConnectionHijacked(t *testing.T) {
 
 	inHandler := make(chan struct{})
 	handlerWait := make(chan struct{})
-	drainStarted := make(chan struct{})
 	drainResult := make(chan error, 1)
 
 	h := &HijackTracker{
@@ -63,13 +62,22 @@ func TestHijackTrackerConnectionHijacked(t *testing.T) {
 		h.ServeHTTP(w, r)
 	}()
 
+	select {
+	case <-inHandler:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("control flow never reached the http handler")
+	}
+
 	go func() {
-		<-inHandler
-		close(drainStarted)
 		drainResult <- h.Drain(context.Background())
 	}()
 
-	<-drainStarted
+	select {
+	case <-time.After(250 * time.Millisecond):
+	case <-drainResult:
+		t.Fatal("drain returned befoce handler was finished")
+	}
+
 	close(handlerWait)
 
 	var err error
