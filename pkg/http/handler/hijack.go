@@ -24,6 +24,14 @@ import (
 	"time"
 )
 
+// HijackTracker is used to track Websocket Connections
+// Go net/http by default will not manage connections that
+// are hijacked. Thus http.Server::Shutdown will not wait
+// for those connections to finish.
+//
+// What we this handler does is track inflight requests
+// using a counter and drain will loop and poll until
+// all the requests are finished.
 type HijackTracker struct {
 	Handler      http.Handler
 	PollInterval time.Duration
@@ -31,6 +39,7 @@ type HijackTracker struct {
 	inflight atomic.Int64
 }
 
+// Drain should be called after http.Server:Shutdown returns
 func (s *HijackTracker) Drain(ctx context.Context) error {
 	pollInterval := cmp.Or(s.PollInterval, time.Second)
 
