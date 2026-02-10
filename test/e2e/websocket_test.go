@@ -160,7 +160,7 @@ func TestWebSocketGracefulShutdown(t *testing.T) {
 		defer closeWroteChannel()
 
 		for {
-			if err := conn.WriteMessage(websocket.TextMessage, []byte("hello")); err != nil {
+			if err := conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
 				return fmt.Errorf("failed to write message: %w", err)
 			}
 			t.Logf("Successfully wrote: %q", message)
