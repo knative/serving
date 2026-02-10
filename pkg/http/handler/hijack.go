@@ -29,7 +29,7 @@ import (
 // are hijacked. Thus http.Server::Shutdown will not wait
 // for those connections to finish.
 //
-// What we this handler does is track inflight requests
+// What this handler does is track inflight requests
 // using a counter and drain will loop and poll until
 // all the requests are finished.
 type HijackTracker struct {
