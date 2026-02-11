@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -63,6 +64,12 @@ type requestMetrics struct {
 	requestActive metric.Int64UpDownCounter
 }
 
+type revisionRequestMetrics struct {
+	*requestMetrics
+	opts metric.MeasurementOption
+	ctx  context.Context
+}
+
 func newRequestMetrics(mp metric.MeterProvider) *requestMetrics {
 	var (
 		m        requestMetrics
@@ -97,29 +104,33 @@ func newRequestMetrics(mp metric.MeterProvider) *requestMetrics {
 	return &m
 }
 
+func (m *requestMetrics) NewForRequest(revNN types.NamespacedName) revisionRequestMetrics {
+	return revisionRequestMetrics{
+		requestMetrics: m,
+		ctx:            context.Background(),
+		opts: metric.WithAttributeSet(attribute.NewSet(
+			metrics.K8sNamespaceKey.With(revNN.Namespace),
+			metrics.RevisionNameKey.With(revNN.Name),
+		)),
+	}
+}
+
 // RecordRequestQueued increments the queued request count for a revision.
-func (m *requestMetrics) RecordRequestQueued(revID types.NamespacedName) {
-	m.requestQueued.Add(context.Background(), 1, m.metricOpts(revID))
+func (m revisionRequestMetrics) OnRequestQueued() {
+	m.requestQueued.Add(m.ctx, 1, m.opts)
 }
 
 // RecordRequestDequeued decrements the queued request count for a revision.
-func (m *requestMetrics) RecordRequestDequeued(revID types.NamespacedName) {
-	m.requestQueued.Add(context.Background(), -1, m.metricOpts(revID))
+func (m *revisionRequestMetrics) OnRequestDequeued() {
+	m.requestQueued.Add(m.ctx, -1, m.opts)
 }
 
 // RecordRequestActive increments the active request count for a revision.
-func (m *requestMetrics) RecordRequestActive(revID types.NamespacedName) {
-	m.requestActive.Add(context.Background(), 1, m.metricOpts(revID))
+func (m *revisionRequestMetrics) OnRequestProcessing() {
+	m.requestActive.Add(m.ctx, 1, m.opts)
 }
 
 // RecordRequestInactive decrements the active request count for a revision.
-func (m *requestMetrics) RecordRequestInactive(revID types.NamespacedName) {
-	m.requestActive.Add(context.Background(), -1, m.metricOpts(revID))
-}
-
-func (m *requestMetrics) metricOpts(revID types.NamespacedName) metric.MeasurementOption {
-	return metric.WithAttributes(
-		metrics.RevisionNameKey.With(revID.Name),
-		metrics.K8sNamespaceKey.With(revID.Namespace),
-	)
+func (m *revisionRequestMetrics) OnRequestComplete() {
+	m.requestActive.Add(m.ctx, -1, m.opts)
 }

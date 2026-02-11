@@ -113,14 +113,14 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	revID := RevIDFrom(r.Context())
 
-	// Increment queued count when request enters throttler
-	a.metrics.RecordRequestQueued(revID)
+	metrics := a.metrics.NewForRequest(revID)
+	metrics.OnRequestQueued()
 
 	if err := a.throttler.Try(tryContext, revID, func(dest string, isClusterIP bool) error {
 		// Request got capacity - decrement queued, increment active
-		a.metrics.RecordRequestDequeued(revID)
-		a.metrics.RecordRequestActive(revID)
-		defer a.metrics.RecordRequestInactive(revID)
+		metrics.OnRequestDequeued()
+		metrics.OnRequestProcessing()
+		defer metrics.OnRequestComplete()
 
 		trySpan.End()
 
@@ -131,7 +131,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return nil
 	}); err != nil {
 		// Request failed to get capacity - decrement queued count
-		a.metrics.RecordRequestDequeued(revID)
+		metrics.OnRequestDequeued()
 
 		// Set error on our capacity waiting span and end it.
 		trySpan.SetStatus(codes.Error, err.Error())
