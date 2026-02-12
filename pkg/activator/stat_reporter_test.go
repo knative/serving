@@ -130,7 +130,7 @@ func TestReportStatsSendFailure(t *testing.T) {
 	// wait for all routines to clean up prior to exiting the test.
 	//
 	// For now we include a sleep here to prevent said panic
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 }
 
 func TestAutoscalerConnectionOptions(t *testing.T) {
