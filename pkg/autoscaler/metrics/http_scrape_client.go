@@ -24,6 +24,8 @@ import (
 	"net/http"
 	"sync"
 
+	"google.golang.org/protobuf/proto"
+
 	nethttp "knative.dev/networking/pkg/http"
 	netheader "knative.dev/networking/pkg/http/header"
 )
@@ -88,7 +90,7 @@ func statFromProto(body io.Reader) (Stat, error) {
 	if err != nil {
 		return emptyStat, fmt.Errorf("reading body failed: %w", err)
 	}
-	err = stat.Unmarshal(b.Bytes())
+	err = proto.Unmarshal(b.Bytes(), &stat)
 	if err != nil {
 		return emptyStat, fmt.Errorf("unmarshalling failed: %w", err)
 	}
