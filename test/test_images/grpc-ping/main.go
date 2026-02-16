@@ -47,7 +47,9 @@ func pong(req *ping.Request) *ping.Response {
 	return &ping.Response{Msg: req.Msg + hostname + os.Getenv("SUFFIX")}
 }
 
-type server struct{}
+type server struct {
+	ping.UnimplementedPingServiceServer
+}
 
 func (s *server) Ping(ctx context.Context, req *ping.Request) (*ping.Response, error) {
 	log.Print("Received ping: ", req.Msg)
