@@ -27,6 +27,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/serving/pkg/autoscaler/bucket"
 	"knative.dev/serving/pkg/autoscaler/metrics"
@@ -179,7 +180,7 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		switch messageType {
 		case websocket.BinaryMessage:
 			var wsms metrics.WireStatMessages
-			if err := wsms.Unmarshal(msg); err != nil {
+			if err := proto.Unmarshal(msg, &wsms); err != nil {
 				s.logger.Errorw("Failed to unmarshal the object", zap.Error(err))
 				continue
 			}

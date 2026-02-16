@@ -28,6 +28,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 	"golang.org/x/sync/errgroup"
 	nethttp "knative.dev/networking/pkg/http"
 	netheader "knative.dev/networking/pkg/http/header"
@@ -243,8 +245,8 @@ func assertReceivedProto(t *testing.T, sms []metrics.StatMessage, statSink *webs
 	for range sms {
 		got = append(got, <-statsCh)
 	}
-	if !cmp.Equal(sms, got) {
-		t.Fatal("StatMessage mismatch: diff (-got, +want)", cmp.Diff(got, sms))
+	if !cmp.Equal(sms, got, protocmp.Transform()) {
+		t.Fatal("StatMessage mismatch: diff (-got, +want)", cmp.Diff(got, sms, protocmp.Transform()))
 	}
 }
 
@@ -275,7 +277,7 @@ func dial(serverURL string) (*websocket.Conn, error) {
 
 func sendProto(statSink *websocket.Conn, sms []metrics.StatMessage) error {
 	wsms := metrics.ToWireStatMessages(sms)
-	msg, err := wsms.Marshal()
+	msg, err := proto.Marshal(&wsms)
 	if err != nil {
 		return fmt.Errorf("failed to marshal StatMessage: %w", err)
 	}

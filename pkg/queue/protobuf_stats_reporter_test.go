@@ -24,7 +24,8 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	netstats "knative.dev/networking/pkg/http/stats"
 	"knative.dev/serving/pkg/autoscaler/metrics"
@@ -34,7 +35,10 @@ const (
 	pod = "helloworld-go-00001-deployment-8ff587cc9-7g9gc"
 )
 
-var ignoreStatFields = cmpopts.IgnoreFields(metrics.Stat{}, "ProcessUptime")
+var ignoreStatFields = cmp.Options{
+	protocmp.Transform(),
+	protocmp.IgnoreFields(&metrics.Stat{}, "process_uptime"),
+}
 
 var testCases = []struct {
 	name            string
@@ -104,18 +108,18 @@ var testCases = []struct {
 func TestProtobufStatsReporterReport(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			reporter := NewProtobufStatsReporter(pod, test.reportingPeriod)
-			// Make the value slightly more interesting, rather than microseconds.
-			reporter.startTime = reporter.startTime.Add(-5 * time.Second)
-			reporter.Report(test.report)
-			got := scrapeProtobufStat(t, reporter)
-			test.want.PodName = pod
-			if !cmp.Equal(test.want, got, ignoreStatFields) {
-				t.Errorf("Scraped stat mismatch; diff(-want,+got):\n%s", cmp.Diff(test.want, got))
-			}
-			if gotUptime := got.ProcessUptime; gotUptime < 5.0 || gotUptime > 6.0 {
-				t.Errorf("Got %v for process uptime, wanted 5.0 <= x < 6.0", gotUptime)
-			}
+		reporter := NewProtobufStatsReporter(pod, test.reportingPeriod)
+		// Make the value slightly more interesting, rather than microseconds.
+		reporter.startTime = reporter.startTime.Add(-5 * time.Second)
+		reporter.Report(test.report)
+		got := scrapeProtobufStat(t, reporter)
+		test.want.PodName = pod
+		if !cmp.Equal(test.want, got, ignoreStatFields) {
+			t.Errorf("Scraped stat mismatch; diff(-want,+got):\n%s", cmp.Diff(test.want, got, ignoreStatFields))
+		}
+		if gotUptime := got.ProcessUptime; gotUptime < 5.0 || gotUptime > 6.0 {
+			t.Errorf("Got %v for process uptime, wanted 5.0 <= x < 6.0", gotUptime)
+		}
 		})
 	}
 }
@@ -130,8 +134,8 @@ func TestInitialProtobufStateValid(t *testing.T) {
 	// stat rather than an error. We don't want to accidentally fall
 	// back to mesh mode or something if we manage to scrape too early.
 	got := scrapeProtobufStat(t, r)
-	if !cmp.Equal(emptyStat, got) {
-		t.Errorf("Scraped stat mismatch; diff(-want,+got):\n%s", cmp.Diff(emptyStat, got))
+	if !cmp.Equal(emptyStat, got, protocmp.Transform()) {
+		t.Errorf("Scraped stat mismatch; diff(-want,+got):\n%s", cmp.Diff(emptyStat, got, protocmp.Transform()))
 	}
 }
 
@@ -149,7 +153,7 @@ func scrapeProtobufStat(t *testing.T, r *ProtobufStatsReporter) metrics.Stat {
 	}
 
 	var stat metrics.Stat
-	if err := stat.Unmarshal(b); err != nil {
+	if err := proto.Unmarshal(b, &stat); err != nil {
 		t.Fatal("Expected Unmarshal to succeed, got", err)
 	}
 

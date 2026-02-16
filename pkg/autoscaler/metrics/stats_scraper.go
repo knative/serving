@@ -222,7 +222,7 @@ func (s *serviceScraper) Scrape(window time.Duration) (stat Stat, err error) {
 	defer func() {
 		// No errors and an empty stat? We didn't scrape at all because
 		// we're scaled to 0.
-		if stat == emptyStat && err == nil {
+		if isEmptyStat(stat) && err == nil {
 			return
 		}
 		scrapeTime := s.clock.Since(startTime)

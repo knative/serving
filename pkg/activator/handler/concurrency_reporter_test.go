@@ -28,6 +28,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"go.opentelemetry.io/otel/attribute"
+	"google.golang.org/protobuf/testing/protocmp"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -373,8 +374,8 @@ func TestStats(t *testing.T) {
 				return tc.expectedStats[i].Key.Name < tc.expectedStats[j].Key.Name
 			})
 
-			if got, want := stats, tc.expectedStats; !cmp.Equal(got, want) {
-				t.Error("Unexpected stats (-want +got):", cmp.Diff(want, got))
+			if got, want := stats, tc.expectedStats; !cmp.Equal(got, want, protocmp.Transform()) {
+				t.Error("Unexpected stats (-want +got):", cmp.Diff(want, got, protocmp.Transform()))
 			}
 		})
 	}
@@ -418,8 +419,8 @@ func TestConcurrencyReporterRun(t *testing.T) {
 	got := make([]asmetrics.StatMessage, 0, len(want))
 	got = append(got, <-cr.statCh...) // Scale from 0.
 	got = append(got, <-cr.statCh...) // Actual report.
-	if !cmp.Equal(got, want) {
-		t.Error("Unexpected stats (-want +got):", cmp.Diff(want, got))
+	if !cmp.Equal(got, want, protocmp.Transform()) {
+		t.Error("Unexpected stats (-want +got):", cmp.Diff(want, got, protocmp.Transform()))
 	}
 }
 
@@ -466,8 +467,8 @@ func TestConcurrencyReporterHandler(t *testing.T) {
 	got := make([]asmetrics.StatMessage, 0, len(want))
 	got = append(got, <-cr.statCh...) // Scale from 0.
 	got = append(got, <-cr.statCh...) // Actual report.
-	if !cmp.Equal(got, want) {
-		t.Error("Unexpected stats (-want +got):", cmp.Diff(want, got))
+	if !cmp.Equal(got, want, protocmp.Transform()) {
+		t.Error("Unexpected stats (-want +got):", cmp.Diff(want, got, protocmp.Transform()))
 	}
 }
 
@@ -508,8 +509,8 @@ func TestConcurrencyReporterRace(t *testing.T) {
 			PodName:                   activatorPodName,
 		},
 	}}
-	if !cmp.Equal(got, want) {
-		t.Error("Unexpected stats (-want +got):", cmp.Diff(want, got))
+	if !cmp.Equal(got, want, protocmp.Transform()) {
+		t.Error("Unexpected stats (-want +got):", cmp.Diff(want, got, protocmp.Transform()))
 	}
 
 	// 6. It continues to work correctly.
@@ -533,8 +534,8 @@ func TestConcurrencyReporterRace(t *testing.T) {
 			PodName:                   activatorPodName,
 		},
 	}}
-	if !cmp.Equal(got, want) {
-		t.Error("Unexpected stats (-want +got):", cmp.Diff(want, got))
+	if !cmp.Equal(got, want, protocmp.Transform()) {
+		t.Error("Unexpected stats (-want +got):", cmp.Diff(want, got, protocmp.Transform()))
 	}
 }
 

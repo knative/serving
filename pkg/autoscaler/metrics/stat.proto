@@ -18,6 +18,9 @@ syntax = "proto3";
 
 package metrics;
 
+// go_package is required for protoc-gen-go (google.golang.org/protobuf).
+option go_package = "knative.dev/serving/pkg/autoscaler/metrics";
+
 // Stat defines a single measurement at a point in time.
 message Stat {
   // The unique identity of this pod.  Used to count how many pods

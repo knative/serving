@@ -20,6 +20,7 @@ import (
 	"github.com/gorilla/websocket"
 	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 	pkgwebsocket "knative.dev/pkg/websocket"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 )
@@ -58,7 +59,7 @@ func ReportStats(logger *zap.SugaredLogger, sink RawSender, source <-chan []asme
 	for sms := range source {
 		go func(sms []asmetrics.StatMessage) {
 			wsms := asmetrics.ToWireStatMessages(sms)
-			b, err := wsms.Marshal()
+			b, err := proto.Marshal(&wsms)
 			if err != nil {
 				logger.Errorw("Error while marshaling stats", zap.Error(err))
 				return

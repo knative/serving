@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -45,12 +46,12 @@ func TestStatMessageConversion(t *testing.T) {
 		Stat:      &sm.Stat,
 	}
 
-	if got, want := sm.ToWireStatMessage(), wsm; !cmp.Equal(got, want) {
-		t.Fatal("WireStatMessage mismatch: diff (-got, +want)", cmp.Diff(got, want))
+	if got, want := sm.ToWireStatMessage(), wsm; !cmp.Equal(got, want, protocmp.Transform()) {
+		t.Fatal("WireStatMessage mismatch: diff (-got, +want)", cmp.Diff(got, want, protocmp.Transform()))
 	}
 
-	if got, want := wsm.ToStatMessage(), sm; !cmp.Equal(got, want) {
-		t.Fatal("StatMessage mismatch: diff (-got, +want)", cmp.Diff(got, want))
+	if got, want := wsm.ToStatMessage(), sm; !cmp.Equal(got, want, protocmp.Transform()) {
+		t.Fatal("StatMessage mismatch: diff (-got, +want)", cmp.Diff(got, want, protocmp.Transform()))
 	}
 }
 
@@ -86,9 +87,9 @@ func TestStatMessageSliceConversion(t *testing.T) {
 
 	wsm1 := sm1.ToWireStatMessage()
 	wsm2 := sm2.ToWireStatMessage()
-	wsms := WireStatMessages{Messages: []*WireStatMessage{wsm1, wsm2}}
+	wsms := WireStatMessages{Messages: []*WireStatMessage{wsm1, wsm2}	}
 
-	if got, want := ToWireStatMessages(sms), wsms; !cmp.Equal(got, want) {
-		t.Fatal("WireStatMessages mismatch: diff (-got, +want)", cmp.Diff(got, want))
+	if got, want := ToWireStatMessages(sms), wsms; !cmp.Equal(got, want, protocmp.Transform()) {
+		t.Fatal("WireStatMessages mismatch: diff (-got, +want)", cmp.Diff(got, want, protocmp.Transform()))
 	}
 }
