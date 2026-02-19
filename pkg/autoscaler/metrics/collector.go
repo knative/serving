@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/clock"
 	"knative.dev/pkg/logging/logkey"
@@ -51,6 +52,12 @@ var (
 type StatsScraperFactory func(*autoscalingv1alpha1.Metric, *zap.SugaredLogger) (StatsScraper, error)
 
 var emptyStat = Stat{}
+
+// isEmptyStat checks if a Stat is empty (all fields are zero/empty).
+// Uses proto.Equal for correct protobuf message comparison.
+func isEmptyStat(s Stat) bool {
+	return proto.Equal(&s, &emptyStat)
+}
 
 // StatMessage wraps a Stat with identifying information so it can be routed
 // to the correct receiver.
@@ -329,7 +336,7 @@ func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clo
 				if c.updateLastError(err) {
 					callback(key)
 				}
-				if stat != emptyStat {
+				if !isEmptyStat(stat) {
 					c.record(clock.Now(), stat)
 				}
 			}

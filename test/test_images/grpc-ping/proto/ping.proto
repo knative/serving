@@ -18,6 +18,9 @@ syntax = "proto3";
 
 package ping;
 
+// go_package is required for protoc-gen-go (google.golang.org/protobuf).
+option go_package = "knative.dev/serving/test/test_images/grpc-ping/proto/ping";
+
 service PingService {
   rpc Ping(Request) returns (Response) {}
   rpc PingStream(stream Request) returns (stream Response) {}

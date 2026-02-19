@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	gorillawebsocket "github.com/gorilla/websocket"
+	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -74,7 +75,7 @@ func TestReportStats(t *testing.T) {
 		var statNames []string
 		for _, b := range output {
 			var wsms metrics.WireStatMessages
-			if err := wsms.Unmarshal(b); err != nil {
+			if err := proto.Unmarshal(b, &wsms); err != nil {
 				t.Errorf("Unmarshal stats = %v, expected no error", err)
 			}
 

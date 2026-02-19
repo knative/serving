@@ -26,6 +26,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 	netheader "knative.dev/networking/pkg/http/header"
 )
 
@@ -63,8 +65,8 @@ func TestHTTPScrapeClientScrapeHappyCaseWithOptionals(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Scrape = %v, want no error", err)
 	}
-	if !cmp.Equal(got, stat) {
-		t.Errorf("Scraped stat mismatch; diff(-want,+got):\n%s", cmp.Diff(stat, got))
+	if !cmp.Equal(got, stat, protocmp.Transform()) {
+		t.Errorf("Scraped stat mismatch; diff(-want,+got):\n%s", cmp.Diff(stat, got, protocmp.Transform()))
 	}
 }
 
@@ -110,7 +112,7 @@ func TestHTTPScrapeClientScrapeProtoErrorCases(t *testing.T) {
 			ProcessUptime:                    12345.678,
 			Timestamp:                        1697431278,
 		},
-		expectedErr: "unmarshalling failed: unexpected EOF",
+		expectedErr: "unmarshalling failed: proto:",
 	}}
 
 	for _, test := range testCases {
@@ -137,7 +139,7 @@ func TestHTTPScrapeClientScrapeProtoErrorCases(t *testing.T) {
 }
 
 func makeProtoResponse(statusCode int, stat Stat, contentType string) *http.Response {
-	buffer, _ := stat.Marshal()
+	buffer, _ := proto.Marshal(&stat)
 	res := &http.Response{
 		StatusCode: statusCode,
 		Body:       io.NopCloser(bytes.NewBuffer(buffer)),
@@ -192,7 +194,7 @@ func BenchmarkUnmarshallingProtoData(b *testing.B) {
 	}}
 	for _, bm := range benchmarks {
 		stat.PodName = bm.podName
-		bodyBytes, err := stat.Marshal()
+		bodyBytes, err := proto.Marshal(&stat)
 		if err != nil {
 			b.Fatal(err)
 		}

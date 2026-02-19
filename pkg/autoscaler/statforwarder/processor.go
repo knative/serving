@@ -22,6 +22,7 @@ import (
 
 	gorillawebsocket "github.com/gorilla/websocket"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/websocket"
@@ -118,7 +119,7 @@ func (p *remoteProcessor) process(sm asmetrics.StatMessage) error {
 
 	l.Debugf("Forward stat of bucket %s to the holder %s", p.bkt, p.holder)
 	wsms := asmetrics.ToWireStatMessages([]asmetrics.StatMessage{sm})
-	b, err := wsms.Marshal()
+	b, err := proto.Marshal(&wsms)
 	if err != nil {
 		return err
 	}

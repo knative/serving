@@ -28,6 +28,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"go.opentelemetry.io/otel/sdk/metric"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -147,7 +148,7 @@ func TestPodDirectScrapeSuccess(t *testing.T) {
 	// No pods at all.
 	if stat, err := scraper.Scrape(defaultMetric.Spec.StableWindow); err != nil {
 		t.Error("Unexpected error from scraper.Scrape():", err)
-	} else if !cmp.Equal(stat, emptyStat) {
+	} else if !cmp.Equal(stat, emptyStat, protocmp.Transform()) {
 		t.Errorf("Wanted empty stat got: %#v", stat)
 	}
 
@@ -561,7 +562,7 @@ func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
 	if err != nil {
 		t.Fatal("scraper.Scrape() returned error:", err)
 	}
-	if stat != emptyStat {
+	if !isEmptyStat(stat) {
 		t.Error("Received unexpected Stat.")
 	}
 }
