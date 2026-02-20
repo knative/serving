@@ -163,6 +163,9 @@ func NewStatsScraper(
 	return newServiceScraperWithClient(metric, revisionName, podAccessor, usePassthroughLb, meshMode, directClient, meshClient, logger, mp)
 }
 
+// We aren't using revisionName because OTel metrics can't because removed
+//
+//nolint:unparam
 func newServiceScraperWithClient(
 	m *autoscalingv1alpha1.Metric,
 	revisionName string,
