@@ -1,5 +1,8 @@
 module knative.dev/serving
 
+// bump to trigger point release to fix
+// https://github.com/knative/serving/issues/16402
+
 go 1.24.0
 
 require (
