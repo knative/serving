@@ -8490,7 +8490,6 @@ spec:
                                     The supported values are: "TCP", "UDP", "SCTP"
                                   type: string
                               required:
-                                - error
                                 - port
                                 - protocol
                               type: object
@@ -8837,7 +8836,7 @@ rules:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: contour-certgen-v1-33-1
+  name: contour-certgen-v1-33-2
   namespace: contour-external
   labels:
     networking.knative.dev/ingress-provider: contour
@@ -8849,7 +8848,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: ghcr.io/projectcontour/contour:v1.33.1
+          image: ghcr.io/projectcontour/contour:v1.33.2
           imagePullPolicy: IfNotPresent
           command:
             - contour
@@ -9091,7 +9090,7 @@ spec:
             - --config-path=/config/contour.yaml
           command:
             - contour
-          image: ghcr.io/projectcontour/contour:v1.33.1
+          image: ghcr.io/projectcontour/contour:v1.33.2
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -9175,7 +9174,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: ghcr.io/projectcontour/contour:v1.33.1
+          image: ghcr.io/projectcontour/contour:v1.33.2
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -9268,7 +9267,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: ghcr.io/projectcontour/contour:v1.33.1
+          image: ghcr.io/projectcontour/contour:v1.33.2
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
@@ -9567,7 +9566,7 @@ rules:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: contour-certgen-v1-33-1
+  name: contour-certgen-v1-33-2
   namespace: contour-internal
   labels:
     networking.knative.dev/ingress-provider: contour
@@ -9579,7 +9578,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: ghcr.io/projectcontour/contour:v1.33.1
+          image: ghcr.io/projectcontour/contour:v1.33.2
           imagePullPolicy: IfNotPresent
           command:
             - contour
@@ -9729,7 +9728,7 @@ spec:
             - --config-path=/config/contour.yaml
           command:
             - contour
-          image: ghcr.io/projectcontour/contour:v1.33.1
+          image: ghcr.io/projectcontour/contour:v1.33.2
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -9813,7 +9812,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: ghcr.io/projectcontour/contour:v1.33.1
+          image: ghcr.io/projectcontour/contour:v1.33.2
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -9906,7 +9905,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: ghcr.io/projectcontour/contour:v1.33.1
+          image: ghcr.io/projectcontour/contour:v1.33.2
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
