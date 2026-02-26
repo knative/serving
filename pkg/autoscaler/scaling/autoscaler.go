@@ -292,9 +292,11 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 	}
 
 	switch {
-	case excessBCF < 0 && spec.TargetBurstCapacity != -1:
+	case excessBCF < 0:
+		logger.Info("excess burst capacity < 0, pausing direct pod scraping")
 		a.metricClient.Pause(metricKey)
 	case excessBCF >= 0:
+		logger.Info("excess burst capacity >= 0, resuming direct pod scraping scraping")
 		a.metricClient.Resume(metricKey)
 	}
 
