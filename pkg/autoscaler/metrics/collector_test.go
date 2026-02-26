@@ -722,7 +722,6 @@ func TestMetricCollectorPausing(t *testing.T) {
 		t.Errorf("Paused: StableRPS() = %v, want %v", gotRPS, wantPausedRPS)
 	}
 
-	// resume metric collection and go for half stable window
 	coll.Resume(&defaultMetric)
 	// increment by two to cover [2-3] (4 seconds total)
 	now = now.Add(2 * time.Second)
