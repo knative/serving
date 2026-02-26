@@ -291,16 +291,15 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 		excessBCF = math.Floor(totCap - spec.TargetBurstCapacity - observedPanicValue)
 	}
 
-	if excessBCF < 0 {
-		a.metricClient.Pause(metricKey)
-	} else {
-		a.metricClient.Resume(metricKey)
-	}
-
 	if debugEnabled {
 		desugared.Debug(fmt.Sprintf("PodCount=%d Total1PodCapacity=%0.3f ObsStableValue=%0.3f ObsPanicValue=%0.3f TargetBC=%0.3f ExcessBC=%0.3f",
 			originalReadyPodsCount, spec.TotalValue, observedStableValue,
 			observedPanicValue, spec.TargetBurstCapacity, excessBCF))
+	}
+
+	// Resume pod scraping if excess burst capacity >= 0
+	if excessBCF >= 0 {
+		a.metricClient.Resume(metricKey)
 	}
 
 	a.metrics.Record(
@@ -310,6 +309,11 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 		observedPanicValue,
 		spec.TargetValue,
 	)
+
+	// pause after recording concurrency if excess burst capacity is < 0
+	if excessBCF < 0 {
+		a.metricClient.Pause(metricKey)
+	}
 
 	return ScaleResult{
 		DesiredPodCount:     desiredPodCount,
