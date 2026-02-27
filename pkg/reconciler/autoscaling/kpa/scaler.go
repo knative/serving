@@ -302,7 +302,8 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1
 }
 
 func (ks *scaler) applyScale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, desiredScale int32,
-	gvr *schema.GroupVersionResource, resourceName string) error {
+	gvr *schema.GroupVersionResource, resourceName string,
+) error {
 	logger := logging.FromContext(ctx)
 
 	patchBytes := []byte(fmt.Sprintf(`[{"op":"replace","path":"/spec/replicas","value":%d}]`, desiredScale))
