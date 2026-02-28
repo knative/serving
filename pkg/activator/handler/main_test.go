@@ -86,7 +86,7 @@ func BenchmarkHandlerChain(b *testing.B) {
 	})
 
 	// Make sure to update this if the activator's main file changes.
-	ah := New(ctx, fakeThrottler{}, rt, false, logger, false /* TLS */, tp)
+	ah := New(ctx, fakeThrottler{}, rt, false, logger, false /* TLS */, tp, nil)
 	ah = concurrencyReporter.Handler(ah)
 	ah = NewTracingAttributeHandler(tp, ah)
 	ah, _ = pkghttp.NewRequestLogHandler(ah, io.Discard, "", nil, false)

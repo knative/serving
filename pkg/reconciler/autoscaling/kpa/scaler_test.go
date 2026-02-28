@@ -504,6 +504,19 @@ func TestScaler(t *testing.T) {
 		configMutator: func(c *config.Config) {
 			c.Autoscaler.AllowZeroInitialScale = true
 		},
+	}, {
+		label:         "unreachable revision with initialScale > 1 can scale to 0",
+		startReplicas: 2,
+		scaleTo:       0,
+		wantReplicas:  1, // First we deactivate and scale to 1.
+		wantScaling:   true,
+		wantCBCount:   1,
+		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
+			paMarkActive(k, time.Now().Add(-2*time.Minute))
+			k.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
+			// Mark as unreachable (routingState = "reserve")
+			k.Spec.Reachability = autoscalingv1alpha1.ReachabilityUnreachable
+		},
 	}}
 
 	for _, test := range tests {

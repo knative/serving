@@ -17,6 +17,7 @@ limitations under the License.
 package activator
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -94,4 +95,50 @@ type sendRawFunc func(msgType int, msg []byte) error
 
 func (fn sendRawFunc) SendRaw(msgType int, msg []byte) error {
 	return fn(msgType, msg)
+}
+
+func TestReportStatsSendFailure(t *testing.T) {
+	logger := logtesting.TestLogger(t)
+	ch := make(chan []metrics.StatMessage)
+
+	sendErr := errors.New("connection refused")
+	errorReceived := make(chan struct{})
+	sink := sendRawFunc(func(msgType int, msg []byte) error {
+		close(errorReceived)
+		return sendErr
+	})
+
+	defer close(ch)
+	go ReportStats(logger, sink, ch)
+
+	// Send a stat message
+	ch <- []metrics.StatMessage{{
+		Key: types.NamespacedName{Name: "test-revision"},
+	}}
+
+	// Wait for the error to be processed
+	select {
+	case <-errorReceived:
+		// Success - the error path was executed
+	case <-time.After(2 * time.Second):
+		t.Fatal("SendRaw was not called within timeout")
+	}
+
+	// The TestLogger will panic if logs occur after the test runs.
+	// This occurs in this test because ReportStats kicks off
+	// goroutines with no lifecycle management. Meaning we cannot
+	// wait for all routines to clean up prior to exiting the test.
+	//
+	// For now we include a sleep here to prevent said panic
+	time.Sleep(50 * time.Millisecond)
+}
+
+func TestAutoscalerConnectionOptions(t *testing.T) {
+	logger := logtesting.TestLogger(t)
+
+	opts := AutoscalerConnectionOptions(logger, nil)
+
+	if len(opts) != 2 {
+		t.Errorf("Expected 2 connection options, got %d", len(opts))
+	}
 }

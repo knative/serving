@@ -456,6 +456,22 @@ kata:
 				return string(b)
 			}(),
 		},
+	}, {
+		name: "controller configuration with always schedulable pods",
+		wantConfig: &Config{
+			PodIsAlwaysSchedulable:         true,
+			RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
+			DigestResolutionTimeout:        digestResolutionTimeoutDefault,
+			QueueSidecarImage:              defaultSidecarImage,
+			QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
+			QueueSidecarTokenAudiences:     sets.New(""),
+			ProgressDeadline:               ProgressDeadlineDefault,
+			DefaultAffinityType:            defaultAffinityTypeValue,
+		},
+		data: map[string]string{
+			podIsAlwaysSchedulableKey: "true",
+			QueueSidecarImageKey:      defaultSidecarImage,
+		},
 	}}
 
 	for _, tt := range configTests {

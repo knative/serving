@@ -129,5 +129,5 @@ func (l *logger) Errorf(format string, v ...interface{}) {
 func (l *logger) Error(msg string) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
-	log.Print(l.prefix, " [E]! ", msg)
+	log.Print(l.prefix, " E! ", msg)
 }

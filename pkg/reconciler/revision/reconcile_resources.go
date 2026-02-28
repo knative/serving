@@ -102,10 +102,12 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) 
 
 			// Update the revision status if pod cannot be scheduled (possibly resource constraints)
 			// If pod cannot be scheduled then we expect the container status to be empty.
-			for _, cond := range pod.Status.Conditions {
-				if cond.Type == corev1.PodScheduled && cond.Status == corev1.ConditionFalse {
-					rev.Status.MarkResourcesAvailableFalse(cond.Reason, cond.Message)
-					break
+			if !config.FromContext(ctx).Deployment.PodIsAlwaysSchedulable {
+				for _, cond := range pod.Status.Conditions {
+					if cond.Type == corev1.PodScheduled && cond.Status == corev1.ConditionFalse {
+						rev.Status.MarkResourcesAvailableFalse(cond.Reason, cond.Message)
+						break
+					}
 				}
 			}
 

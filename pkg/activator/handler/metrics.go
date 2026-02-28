@@ -17,8 +17,14 @@ limitations under the License.
 package handler
 
 import (
+	"context"
+
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	"k8s.io/apimachinery/pkg/types"
+
+	"knative.dev/serving/pkg/metrics"
 )
 
 var scopeName = "knative.dev/serving/pkg/activator"
@@ -50,4 +56,81 @@ func newMetrics(mp metric.MeterProvider) *ccMetrics {
 	}
 
 	return &m
+}
+
+// requestMetrics holds metrics for tracking request states in the activator.
+type requestMetrics struct {
+	requestQueued metric.Int64UpDownCounter
+	requestActive metric.Int64UpDownCounter
+}
+
+type revisionRequestMetrics struct {
+	*requestMetrics
+	opts metric.MeasurementOption
+	ctx  context.Context
+}
+
+func newRequestMetrics(mp metric.MeterProvider) *requestMetrics {
+	var (
+		m        requestMetrics
+		err      error
+		provider = mp
+	)
+
+	if provider == nil {
+		provider = otel.GetMeterProvider()
+	}
+
+	meter := provider.Meter(scopeName)
+
+	m.requestQueued, err = meter.Int64UpDownCounter(
+		"kn.revision.request.queued",
+		metric.WithDescription("Number of requests currently queued in the activator waiting for capacity"),
+		metric.WithUnit("{request}"),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	m.requestActive, err = meter.Int64UpDownCounter(
+		"kn.revision.request.active",
+		metric.WithDescription("Number of requests currently being proxied by the activator"),
+		metric.WithUnit("{request}"),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	return &m
+}
+
+func (m *requestMetrics) NewForRequest(revNN types.NamespacedName) revisionRequestMetrics {
+	return revisionRequestMetrics{
+		requestMetrics: m,
+		ctx:            context.Background(),
+		opts: metric.WithAttributeSet(attribute.NewSet(
+			metrics.K8sNamespaceKey.With(revNN.Namespace),
+			metrics.RevisionNameKey.With(revNN.Name),
+		)),
+	}
+}
+
+// RecordRequestQueued increments the queued request count for a revision.
+func (m revisionRequestMetrics) OnRequestQueued() {
+	m.requestQueued.Add(m.ctx, 1, m.opts)
+}
+
+// RecordRequestDequeued decrements the queued request count for a revision.
+func (m *revisionRequestMetrics) OnRequestDequeued() {
+	m.requestQueued.Add(m.ctx, -1, m.opts)
+}
+
+// RecordRequestActive increments the active request count for a revision.
+func (m *revisionRequestMetrics) OnRequestProcessing() {
+	m.requestActive.Add(m.ctx, 1, m.opts)
+}
+
+// RecordRequestInactive decrements the active request count for a revision.
+func (m *revisionRequestMetrics) OnRequestComplete() {
+	m.requestActive.Add(m.ctx, -1, m.opts)
 }

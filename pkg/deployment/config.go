@@ -78,6 +78,9 @@ const (
 	defaultAffinityTypeValue = PreferSpreadRevisionOverNodes
 
 	RuntimeClassNameKey = "runtime-class-name"
+
+	// pod-is-always-schedulable
+	podIsAlwaysSchedulableKey = "pod-is-always-schedulable"
 )
 
 var (
@@ -200,6 +203,8 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 		cm.AsString(queueSidecarRooCAKey, &nc.QueueSidecarRootCA),
 
 		cm.AsString(RuntimeClassNameKey, &runtimeClassNames),
+
+		cm.AsBool(podIsAlwaysSchedulableKey, &nc.PodIsAlwaysSchedulable),
 	); err != nil {
 		return nil, err
 	}
@@ -309,4 +314,7 @@ type Config struct {
 
 	// RuntimeClassNames specifies which runtime the Pod will use
 	RuntimeClassNames map[string]RuntimeClassNameLabelSelector
+
+	// PodIsAlwaysSchedulable specifies whether pods are considered to be always schedulable
+	PodIsAlwaysSchedulable bool
 }

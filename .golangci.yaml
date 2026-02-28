@@ -186,6 +186,9 @@ linters:
           - staticcheck
         text: corev1.Endpoint.* is deprecated
       - linters:
+          - staticcheck
+        text: NewSimpleClientset is deprecated
+      - linters:
           - gosec
           - noctx
           - protogetter

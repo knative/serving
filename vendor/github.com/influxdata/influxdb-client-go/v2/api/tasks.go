@@ -6,7 +6,6 @@ package api
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -58,7 +57,7 @@ type TasksAPI interface {
 	// Every has higher priority.
 	CreateTask(ctx context.Context, task *domain.Task) (*domain.Task, error)
 	// CreateTaskWithEvery creates a new task with the name, flux script and every repetition setting, in the org orgID.
-	// Every holds duration values.
+	// Every means duration values.
 	CreateTaskWithEvery(ctx context.Context, name, flux, every, orgID string) (*domain.Task, error)
 	// CreateTaskWithCron creates a new task with the name, flux script and cron repetition setting, in the org orgID
 	// Cron holds cron-like setting, e.g. once an hour at beginning of the hour "0 * * * *".
@@ -127,7 +126,7 @@ type TasksAPI interface {
 	FindLogsWithID(ctx context.Context, taskID string) ([]domain.LogEvent, error)
 	// FindLabels retrieves labels of a task.
 	FindLabels(ctx context.Context, task *domain.Task) ([]domain.Label, error)
-	// FindLabelsWithID retrieves labels of an task with taskID.
+	// FindLabelsWithID retrieves labels of a task with taskID.
 	FindLabelsWithID(ctx context.Context, taskID string) ([]domain.Label, error)
 	// AddLabel adds a label to a task.
 	AddLabel(ctx context.Context, task *domain.Task, label *domain.Label) (*domain.Label, error)
@@ -141,11 +140,11 @@ type TasksAPI interface {
 
 // tasksAPI implements TasksAPI
 type tasksAPI struct {
-	apiClient *domain.ClientWithResponses
+	apiClient *domain.Client
 }
 
 // NewTasksAPI creates new instance of TasksAPI
-func NewTasksAPI(apiClient *domain.ClientWithResponses) TasksAPI {
+func NewTasksAPI(apiClient *domain.Client) TasksAPI {
 	return &tasksAPI{
 		apiClient: apiClient,
 	}
@@ -178,17 +177,11 @@ func (t *tasksAPI) FindTasks(ctx context.Context, filter *TaskFilter) ([]domain.
 		}
 	}
 
-	response, err := t.apiClient.GetTasksWithResponse(ctx, params)
+	response, err := t.apiClient.GetTasks(ctx, params)
 	if err != nil {
 		return nil, err
 	}
-	if response.JSONDefault != nil {
-		return nil, domain.ErrorToHTTPError(response.JSONDefault, response.StatusCode())
-	}
-	if response.JSON200.Tasks == nil {
-		return nil, errors.New("tasks not found")
-	}
-	return *response.JSON200.Tasks, nil
+	return *response.Tasks, nil
 }
 
 func (t *tasksAPI) GetTask(ctx context.Context, task *domain.Task) (*domain.Task, error) {
@@ -196,27 +189,17 @@ func (t *tasksAPI) GetTask(ctx context.Context, task *domain.Task) (*domain.Task
 }
 
 func (t *tasksAPI) GetTaskByID(ctx context.Context, taskID string) (*domain.Task, error) {
-	params := &domain.GetTasksIDParams{}
-	response, err := t.apiClient.GetTasksIDWithResponse(ctx, taskID, params)
-	if err != nil {
-		return nil, err
+	params := &domain.GetTasksIDAllParams{
+		TaskID: taskID,
 	}
-	if response.JSONDefault != nil {
-		return nil, domain.ErrorToHTTPError(response.JSONDefault, response.StatusCode())
-	}
-	return response.JSON200, nil
+	return t.apiClient.GetTasksID(ctx, params)
 }
 
 func (t *tasksAPI) createTask(ctx context.Context, taskReq *domain.TaskCreateRequest) (*domain.Task, error) {
-	params := &domain.PostTasksParams{}
-	response, err := t.apiClient.PostTasksWithResponse(ctx, params, domain.PostTasksJSONRequestBody(*taskReq))
-	if err != nil {
-		return nil, err
+	params := &domain.PostTasksAllParams{
+		Body: domain.PostTasksJSONRequestBody(*taskReq),
 	}
-	if response.JSONDefault != nil {
-		return nil, domain.ErrorToHTTPError(response.JSONDefault, response.StatusCode())
-	}
-	return response.JSON201, nil
+	return t.apiClient.PostTasks(ctx, params)
 }
 
 func createTaskReqDetailed(name, flux string, every, cron *string, orgID string) *domain.TaskCreateRequest {
@@ -267,39 +250,29 @@ func (t *tasksAPI) DeleteTask(ctx context.Context, task *domain.Task) error {
 }
 
 func (t *tasksAPI) DeleteTaskWithID(ctx context.Context, taskID string) error {
-	params := &domain.DeleteTasksIDParams{}
-	response, err := t.apiClient.DeleteTasksIDWithResponse(ctx, taskID, params)
-	if err != nil {
-		return err
+	params := &domain.DeleteTasksIDAllParams{
+		TaskID: taskID,
 	}
-	if response.JSONDefault != nil {
-		return domain.ErrorToHTTPError(response.JSONDefault, response.StatusCode())
-	}
-	return nil
+	return t.apiClient.DeleteTasksID(ctx, params)
 }
 
 func (t *tasksAPI) UpdateTask(ctx context.Context, task *domain.Task) (*domain.Task, error) {
-	params := &domain.PatchTasksIDParams{}
-	updateReq := &domain.TaskUpdateRequest{
-		Description: task.Description,
-		Flux:        &task.Flux,
-		Name:        &task.Name,
-		Offset:      task.Offset,
-		Status:      task.Status,
+	params := &domain.PatchTasksIDAllParams{
+		Body: domain.PatchTasksIDJSONRequestBody(domain.TaskUpdateRequest{
+			Description: task.Description,
+			Flux:        &task.Flux,
+			Name:        &task.Name,
+			Offset:      task.Offset,
+			Status:      task.Status,
+		}),
+		TaskID: task.Id,
 	}
 	if task.Every != nil {
-		updateReq.Every = task.Every
+		params.Body.Every = task.Every
 	} else {
-		updateReq.Cron = task.Cron
+		params.Body.Cron = task.Cron
 	}
-	response, err := t.apiClient.PatchTasksIDWithResponse(ctx, task.Id, params, domain.PatchTasksIDJSONRequestBody(*updateReq))
-	if err != nil {
-		return nil, err
-	}
-	if response.JSONDefault != nil {
-		return nil, domain.ErrorToHTTPError(response.JSONDefault, response.StatusCode())
-	}
-	return response.JSON200, nil
+	return t.apiClient.PatchTasksID(ctx, params)
 }
 
 func (t *tasksAPI) FindMembers(ctx context.Context, task *domain.Task) ([]domain.ResourceMember, error) {
@@ -307,18 +280,14 @@ func (t *tasksAPI) FindMembers(ctx context.Context, task *domain.Task) ([]domain
 }
 
 func (t *tasksAPI) FindMembersWithID(ctx context.Context, taskID string) ([]domain.ResourceMember, error) {
-	params := &domain.GetTasksIDMembersParams{}
-	response, err := t.apiClient.GetTasksIDMembersWithResponse(ctx, taskID, params)
+	params := &domain.GetTasksIDMembersAllParams{
+		TaskID: taskID,
+	}
+	response, err := t.apiClient.GetTasksIDMembers(ctx, params)
 	if err != nil {
 		return nil, err
 	}
-	if response.JSONDefault != nil {
-		return nil, domain.ErrorToHTTPError(response.JSONDefault, response.StatusCode())
-	}
-	if response.JSON200.Users == nil {
-		return nil, fmt.Errorf("members for task '%s' not found", taskID)
-	}
-	return *response.JSON200.Users, nil
+	return *response.Users, nil
 }
 
 func (t *tasksAPI) AddMember(ctx context.Context, task *domain.Task, user *domain.User) (*domain.ResourceMember, error) {
@@ -326,16 +295,12 @@ func (t *tasksAPI) AddMember(ctx context.Context, task *domain.Task, user *domai
 }
 
 func (t *tasksAPI) AddMemberWithID(ctx context.Context, taskID, memberID string) (*domain.ResourceMember, error) {
-	params := &domain.PostTasksIDMembersParams{}
-	body := &domain.PostTasksIDMembersJSONRequestBody{Id: memberID}
-	response, err := t.apiClient.PostTasksIDMembersWithResponse(ctx, taskID, params, *body)
-	if err != nil {
-		return nil, err
+	params := &domain.PostTasksIDMembersAllParams{
+		TaskID: taskID,
+		Body:   domain.PostTasksIDMembersJSONRequestBody{Id: memberID},
 	}
-	if response.JSONDefault != nil {
-		return nil, domain.ErrorToHTTPError(response.JSONDefault, response.StatusCode())
-	}
-	return response.JSON201, nil
+
+	return t.apiClient.PostTasksIDMembers(ctx, params)
 }
 
 func (t *tasksAPI) RemoveMember(ctx context.Context, task *domain.Task, user *domain.User) error {
@@ -343,15 +308,11 @@ func (t *tasksAPI) RemoveMember(ctx context.Context, task *domain.Task, user *do
 }
 
 func (t *tasksAPI) RemoveMemberWithID(ctx context.Context, taskID, memberID string) error {
-	params := &domain.DeleteTasksIDMembersIDParams{}
-	response, err := t.apiClient.DeleteTasksIDMembersIDWithResponse(ctx, taskID, memberID, params)
-	if err != nil {
-		return err
+	params := &domain.DeleteTasksIDMembersIDAllParams{
+		TaskID: taskID,
+		UserID: memberID,
 	}
-	if response.JSONDefault != nil {
-		return domain.ErrorToHTTPError(response.JSONDefault, response.StatusCode())
-	}
-	return nil
+	return t.apiClient.DeleteTasksIDMembersID(ctx, params)
 }
 
 func (t *tasksAPI) FindOwners(ctx context.Context, task *domain.Task) ([]domain.ResourceOwner, error) {
@@ -359,18 +320,14 @@ func (t *tasksAPI) FindOwners(ctx context.Context, task *domain.Task) ([]domain.
 }
 
 func (t *tasksAPI) FindOwnersWithID(ctx context.Context, taskID string) ([]domain.ResourceOwner, error) {
-	params := &domain.GetTasksIDOwnersParams{}
-	response, err := t.apiClient.GetTasksIDOwnersWithResponse(ctx, taskID, params)
+	params := &domain.GetTasksIDOwnersAllParams{
+		TaskID: taskID,
+	}
+	response, err := t.apiClient.GetTasksIDOwners(ctx, params)
 	if err != nil {
 		return nil, err
 	}
-	if response.JSONDefault != nil {
-		return nil, domain.ErrorToHTTPError(response.JSONDefault, response.StatusCode())
-	}
-	if response.JSON200.Users == nil {
-		return nil, fmt.Errorf("owners for task '%s' not found", taskID)
-	}
-	return *response.JSON200.Users, nil
+	return *response.Users, nil
 }
 
 func (t *tasksAPI) AddOwner(ctx context.Context, task *domain.Task, user *domain.User) (*domain.ResourceOwner, error) {
@@ -378,16 +335,11 @@ func (t *tasksAPI) AddOwner(ctx context.Context, task *domain.Task, user *domain
 }
 
 func (t *tasksAPI) AddOwnerWithID(ctx context.Context, taskID, memberID string) (*domain.ResourceOwner, error) {
-	params := &domain.PostTasksIDOwnersParams{}
-	body := &domain.PostTasksIDOwnersJSONRequestBody{Id: memberID}
-	response, err := t.apiClient.PostTasksIDOwnersWithResponse(ctx, taskID, params, *body)
-	if err != nil {
-		return nil, err
+	params := &domain.PostTasksIDOwnersAllParams{
+		Body:   domain.PostTasksIDOwnersJSONRequestBody{Id: memberID},
+		TaskID: taskID,
 	}
-	if response.JSONDefault != nil {
-		return nil, domain.ErrorToHTTPError(response.JSONDefault, response.StatusCode())
-	}
-	return response.JSON201, nil
+	return t.apiClient.PostTasksIDOwners(ctx, params)
 }
 
 func (t *tasksAPI) RemoveOwner(ctx context.Context, task *domain.Task, user *domain.User) error {
@@ -395,15 +347,11 @@ func (t *tasksAPI) RemoveOwner(ctx context.Context, task *domain.Task, user *dom
 }
 
 func (t *tasksAPI) RemoveOwnerWithID(ctx context.Context, taskID, memberID string) error {
-	params := &domain.DeleteTasksIDOwnersIDParams{}
-	response, err := t.apiClient.DeleteTasksIDOwnersIDWithResponse(ctx, taskID, memberID, params)
-	if err != nil {
-		return err
+	params := &domain.DeleteTasksIDOwnersIDAllParams{
+		TaskID: taskID,
+		UserID: memberID,
 	}
-	if response.JSONDefault != nil {
-		return domain.ErrorToHTTPError(response.JSONDefault, response.StatusCode())
-	}
-	return nil
+	return t.apiClient.DeleteTasksIDOwnersID(ctx, params)
 }
 
 func (t *tasksAPI) FindRuns(ctx context.Context, task *domain.Task, filter *RunFilter) ([]domain.Run, error) {
@@ -411,7 +359,7 @@ func (t *tasksAPI) FindRuns(ctx context.Context, task *domain.Task, filter *RunF
 }
 
 func (t *tasksAPI) FindRunsWithID(ctx context.Context, taskID string, filter *RunFilter) ([]domain.Run, error) {
-	params := &domain.GetTasksIDRunsParams{}
+	params := &domain.GetTasksIDRunsAllParams{TaskID: taskID}
 	if filter != nil {
 		if !filter.AfterTime.IsZero() {
 			params.AfterTime = &filter.AfterTime
@@ -426,14 +374,11 @@ func (t *tasksAPI) FindRunsWithID(ctx context.Context, taskID string, filter *Ru
 			params.After = &filter.After
 		}
 	}
-	response, err := t.apiClient.GetTasksIDRunsWithResponse(ctx, taskID, params)
+	response, err := t.apiClient.GetTasksIDRuns(ctx, params)
 	if err != nil {
 		return nil, err
 	}
-	if response.JSONDefault != nil {
-		return nil, domain.ErrorToHTTPError(response.JSONDefault, response.StatusCode())
-	}
-	return *response.JSON200.Runs, nil
+	return *response.Runs, nil
 }
 
 func (t *tasksAPI) GetRun(ctx context.Context, run *domain.Run) (*domain.Run, error) {
@@ -441,34 +386,29 @@ func (t *tasksAPI) GetRun(ctx context.Context, run *domain.Run) (*domain.Run, er
 }
 
 func (t *tasksAPI) GetRunByID(ctx context.Context, taskID, runID string) (*domain.Run, error) {
-	params := &domain.GetTasksIDRunsIDParams{}
-	response, err := t.apiClient.GetTasksIDRunsIDWithResponse(ctx, taskID, runID, params)
-	if err != nil {
-		return nil, err
+	params := &domain.GetTasksIDRunsIDAllParams{
+		TaskID: taskID,
+		RunID:  runID,
 	}
-	if response.JSONDefault != nil {
-		return nil, domain.ErrorToHTTPError(response.JSONDefault, response.StatusCode())
-	}
-	return response.JSON200, nil
+	return t.apiClient.GetTasksIDRunsID(ctx, params)
 }
 
 func (t *tasksAPI) FindRunLogs(ctx context.Context, run *domain.Run) ([]domain.LogEvent, error) {
 	return t.FindRunLogsWithID(ctx, *run.TaskID, *run.Id)
 }
 func (t *tasksAPI) FindRunLogsWithID(ctx context.Context, taskID, runID string) ([]domain.LogEvent, error) {
-	params := &domain.GetTasksIDRunsIDLogsParams{}
-
-	response, err := t.apiClient.GetTasksIDRunsIDLogsWithResponse(ctx, taskID, runID, params)
+	params := &domain.GetTasksIDRunsIDLogsAllParams{
+		TaskID: taskID,
+		RunID:  runID,
+	}
+	response, err := t.apiClient.GetTasksIDRunsIDLogs(ctx, params)
 	if err != nil {
 		return nil, err
 	}
-	if response.JSONDefault != nil {
-		return nil, domain.ErrorToHTTPError(response.JSONDefault, response.StatusCode())
-	}
-	if response.JSON200.Events == nil {
+	if response.Events == nil {
 		return nil, fmt.Errorf("logs for task '%s' run '%s 'not found", taskID, runID)
 	}
-	return *response.JSON200.Events, nil
+	return *response.Events, nil
 }
 
 func (t *tasksAPI) RunManually(ctx context.Context, task *domain.Task) (*domain.Run, error) {
@@ -476,15 +416,10 @@ func (t *tasksAPI) RunManually(ctx context.Context, task *domain.Task) (*domain.
 }
 
 func (t *tasksAPI) RunManuallyWithID(ctx context.Context, taskID string) (*domain.Run, error) {
-	params := domain.PostTasksIDRunsParams{}
-	response, err := t.apiClient.PostTasksIDRunsWithResponse(ctx, taskID, &params, domain.PostTasksIDRunsJSONRequestBody{})
-	if err != nil {
-		return nil, err
+	params := &domain.PostTasksIDRunsAllParams{
+		TaskID: taskID,
 	}
-	if response.JSONDefault != nil {
-		return nil, domain.ErrorToHTTPError(response.JSONDefault, response.StatusCode())
-	}
-	return response.JSON201, nil
+	return t.apiClient.PostTasksIDRuns(ctx, params)
 }
 
 func (t *tasksAPI) RetryRun(ctx context.Context, run *domain.Run) (*domain.Run, error) {
@@ -492,15 +427,11 @@ func (t *tasksAPI) RetryRun(ctx context.Context, run *domain.Run) (*domain.Run, 
 }
 
 func (t *tasksAPI) RetryRunWithID(ctx context.Context, taskID, runID string) (*domain.Run, error) {
-	params := &domain.PostTasksIDRunsIDRetryParams{}
-	response, err := t.apiClient.PostTasksIDRunsIDRetryWithBodyWithResponse(ctx, taskID, runID, params, "application/json; charset=utf-8", nil)
-	if err != nil {
-		return nil, err
+	params := &domain.PostTasksIDRunsIDRetryAllParams{
+		TaskID: taskID,
+		RunID:  runID,
 	}
-	if response.JSONDefault != nil {
-		return nil, domain.ErrorToHTTPError(response.JSONDefault, response.StatusCode())
-	}
-	return response.JSON200, nil
+	return t.apiClient.PostTasksIDRunsIDRetry(ctx, params)
 }
 
 func (t *tasksAPI) CancelRun(ctx context.Context, run *domain.Run) error {
@@ -508,15 +439,11 @@ func (t *tasksAPI) CancelRun(ctx context.Context, run *domain.Run) error {
 }
 
 func (t *tasksAPI) CancelRunWithID(ctx context.Context, taskID, runID string) error {
-	params := &domain.DeleteTasksIDRunsIDParams{}
-	response, err := t.apiClient.DeleteTasksIDRunsIDWithResponse(ctx, taskID, runID, params)
-	if err != nil {
-		return err
+	params := &domain.DeleteTasksIDRunsIDAllParams{
+		TaskID: taskID,
+		RunID:  runID,
 	}
-	if response.JSONDefault != nil {
-		return domain.ErrorToHTTPError(response.JSONDefault, response.StatusCode())
-	}
-	return nil
+	return t.apiClient.DeleteTasksIDRunsID(ctx, params)
 }
 
 func (t *tasksAPI) FindLogs(ctx context.Context, task *domain.Task) ([]domain.LogEvent, error) {
@@ -524,19 +451,17 @@ func (t *tasksAPI) FindLogs(ctx context.Context, task *domain.Task) ([]domain.Lo
 }
 
 func (t *tasksAPI) FindLogsWithID(ctx context.Context, taskID string) ([]domain.LogEvent, error) {
-	params := &domain.GetTasksIDLogsParams{}
-
-	response, err := t.apiClient.GetTasksIDLogsWithResponse(ctx, taskID, params)
+	params := &domain.GetTasksIDLogsAllParams{
+		TaskID: taskID,
+	}
+	response, err := t.apiClient.GetTasksIDLogs(ctx, params)
 	if err != nil {
 		return nil, err
 	}
-	if response.JSONDefault != nil {
-		return nil, domain.ErrorToHTTPError(response.JSONDefault, response.StatusCode())
-	}
-	if response.JSON200.Events == nil {
+	if response.Events == nil {
 		return nil, fmt.Errorf("logs for task '%s' not found", taskID)
 	}
-	return *response.JSON200.Events, nil
+	return *response.Events, nil
 }
 
 func (t *tasksAPI) FindLabels(ctx context.Context, task *domain.Task) ([]domain.Label, error) {
@@ -544,18 +469,17 @@ func (t *tasksAPI) FindLabels(ctx context.Context, task *domain.Task) ([]domain.
 }
 
 func (t *tasksAPI) FindLabelsWithID(ctx context.Context, taskID string) ([]domain.Label, error) {
-	params := &domain.GetTasksIDLabelsParams{}
-	response, err := t.apiClient.GetTasksIDLabelsWithResponse(ctx, taskID, params)
+	params := &domain.GetTasksIDLabelsAllParams{
+		TaskID: taskID,
+	}
+	response, err := t.apiClient.GetTasksIDLabels(ctx, params)
 	if err != nil {
 		return nil, err
 	}
-	if response.JSONDefault != nil {
-		return nil, domain.ErrorToHTTPError(response.JSONDefault, response.StatusCode())
-	}
-	if response.JSON200.Labels == nil {
+	if response.Labels == nil {
 		return nil, fmt.Errorf("lables for task '%s' not found", taskID)
 	}
-	return *response.JSON200.Labels, nil
+	return *response.Labels, nil
 }
 
 func (t *tasksAPI) AddLabel(ctx context.Context, task *domain.Task, label *domain.Label) (*domain.Label, error) {
@@ -563,30 +487,25 @@ func (t *tasksAPI) AddLabel(ctx context.Context, task *domain.Task, label *domai
 }
 
 func (t *tasksAPI) AddLabelWithID(ctx context.Context, taskID, labelID string) (*domain.Label, error) {
-	params := &domain.PostTasksIDLabelsParams{}
-	body := &domain.PostTasksIDLabelsJSONRequestBody{LabelID: &labelID}
-	response, err := t.apiClient.PostTasksIDLabelsWithResponse(ctx, taskID, params, *body)
+	params := &domain.PostTasksIDLabelsAllParams{
+		Body:   domain.PostTasksIDLabelsJSONRequestBody{LabelID: &labelID},
+		TaskID: taskID,
+	}
+	response, err := t.apiClient.PostTasksIDLabels(ctx, params)
 	if err != nil {
 		return nil, err
 	}
-	if response.JSONDefault != nil {
-		return nil, domain.ErrorToHTTPError(response.JSONDefault, response.StatusCode())
-	}
-	return response.JSON201.Label, nil
+	return response.Label, nil
 }
 
 func (t *tasksAPI) RemoveLabel(ctx context.Context, task *domain.Task, label *domain.Label) error {
 	return t.RemoveLabelWithID(ctx, task.Id, *label.Id)
 }
 
-func (t *tasksAPI) RemoveLabelWithID(ctx context.Context, taskID, memberID string) error {
-	params := &domain.DeleteTasksIDLabelsIDParams{}
-	response, err := t.apiClient.DeleteTasksIDLabelsIDWithResponse(ctx, taskID, memberID, params)
-	if err != nil {
-		return err
+func (t *tasksAPI) RemoveLabelWithID(ctx context.Context, taskID, labelID string) error {
+	params := &domain.DeleteTasksIDLabelsIDAllParams{
+		TaskID:  taskID,
+		LabelID: labelID,
 	}
-	if response.JSONDefault != nil {
-		return domain.ErrorToHTTPError(response.JSONDefault, response.StatusCode())
-	}
-	return nil
+	return t.apiClient.DeleteTasksIDLabelsID(ctx, params)
 }

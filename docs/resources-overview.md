@@ -25,7 +25,9 @@ component which brings back scaled-to-zero pods and forwards requests. The
 fourth is the _Autoscaler_ which scales pods as requests come in.
 
 The controller processes a series of state changes in order to move the system
-from its current, actual state to the state desired by the user.
+from its current, actual state to the state desired by the user. For detailed
+documentation on each controller and their responsibilities, see the
+[Controllers Documentation](controllers/CONTROLLERS.md).
 
 All of the Knative Serving components are deployed into the `knative-serving`
 namespace. You can see the various objects in this namespace by running

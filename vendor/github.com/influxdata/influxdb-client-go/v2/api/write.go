@@ -51,17 +51,18 @@ type WriteAPIImpl struct {
 	service     *iwrite.Service
 	writeBuffer []string
 
-	errCh         chan error
-	writeCh       chan *iwrite.Batch
-	bufferCh      chan string
-	writeStop     chan struct{}
-	bufferStop    chan struct{}
-	bufferFlush   chan struct{}
-	doneCh        chan struct{}
-	bufferInfoCh  chan writeBuffInfoReq
-	writeInfoCh   chan writeBuffInfoReq
-	writeOptions  *write.Options
-	closingMu     *sync.Mutex
+	errCh        chan error
+	writeCh      chan *iwrite.Batch
+	bufferCh     chan string
+	writeStop    chan struct{}
+	bufferStop   chan struct{}
+	bufferFlush  chan struct{}
+	doneCh       chan struct{}
+	bufferInfoCh chan writeBuffInfoReq
+	writeInfoCh  chan writeBuffInfoReq
+	writeOptions *write.Options
+	closingMu    *sync.Mutex
+	// more appropriate Bool type from sync/atomic cannot be used because it is available since go 1.19
 	isErrChReader int32
 }
 
@@ -109,10 +110,12 @@ func (w *WriteAPIImpl) Errors() <-chan error {
 	return w.errCh
 }
 
-// Flush forces all pending writes from the buffer to be sent
+// Flush forces all pending writes from the buffer to be sent.
+// Flush also tries sending batches from retry queue without additional retrying.
 func (w *WriteAPIImpl) Flush() {
 	w.bufferFlush <- struct{}{}
 	w.waitForFlushing()
+	w.service.Flush()
 }
 
 func (w *WriteAPIImpl) waitForFlushing() {
@@ -167,7 +170,7 @@ x:
 func (w *WriteAPIImpl) flushBuffer() {
 	if len(w.writeBuffer) > 0 {
 		log.Info("sending batch")
-		batch := iwrite.NewBatch(buffer(w.writeBuffer), w.writeOptions.RetryInterval(), w.writeOptions.MaxRetryTime())
+		batch := iwrite.NewBatch(buffer(w.writeBuffer), w.writeOptions.MaxRetryTime())
 		w.writeCh <- batch
 		w.writeBuffer = w.writeBuffer[:0]
 	}

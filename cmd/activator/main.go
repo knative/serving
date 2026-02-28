@@ -82,6 +82,9 @@ type config struct {
 	// TODO: run loadtests using these flags to determine optimal default values.
 	MaxIdleProxyConns        int `split_words:"true" default:"1000"`
 	MaxIdleProxyConnsPerHost int `split_words:"true" default:"100"`
+
+	ProbeTimeout   string `split_words:"true" default:"300ms"`
+	ProbeFrequency string `split_words:"true" default:"200ms"`
 }
 
 func main() {
@@ -157,7 +160,8 @@ func main() {
 	// transport so that throttler probe connections can be reused after probing
 	// (via keep-alive) to send real requests, avoiding needing an extra
 	// reconnect for the first request after the probe succeeds.
-	logger.Debugf("MaxIdleProxyConns: %d, MaxIdleProxyConnsPerHost: %d", env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
+	logger.Debugf("MaxIdleProxyConns: %d, MaxIdleProxyConnsPerHost: %d, ProbeTimeout: %s, ProbeFrequency: %s",
+		env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, env.ProbeTimeout, env.ProbeFrequency)
 	transport := pkgnet.NewProxyAutoTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost)
 
 	// Fetch networking configuration to determine whether EnableMeshPodAddressability
@@ -188,6 +192,16 @@ func main() {
 		transport = pkgnet.NewProxyAutoTLSTransport(env.MaxIdleProxyConns, env.MaxIdleProxyConnsPerHost, certCache.TLSContext())
 	}
 
+	probeTimeout, err := time.ParseDuration(env.ProbeTimeout)
+	if err != nil {
+		logger.Fatalw("Failed to parse PROBE_TIMEOUT", zap.String("value", env.ProbeTimeout), zap.Error(err))
+	}
+	probeFrequency, err := time.ParseDuration(env.ProbeFrequency)
+	if err != nil {
+		logger.Fatalw("Failed to parse PROBE_FREQUENCY", zap.String("value", env.ProbeFrequency), zap.Error(err))
+	}
+	activatornet.SetProbeSettings(probeTimeout, probeFrequency)
+
 	// Start throttler.
 	throttler := activatornet.NewThrottler(ctx, env.PodIP)
 	go throttler.Run(ctx, transport, networkConfig.EnableMeshPodAddressability, networkConfig.MeshCompatibilityMode)
@@ -203,7 +217,8 @@ func main() {
 	// Open a WebSocket connection to the autoscaler.
 	autoscalerEndpoint := "ws://" + pkgnet.GetServiceHostname("autoscaler", system.Namespace()) + autoscalerPort
 	logger.Info("Connecting to Autoscaler at ", autoscalerEndpoint)
-	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
+	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger,
+		activator.AutoscalerConnectionOptions(logger, mp)...)
 	defer statSink.Shutdown()
 	go activator.ReportStats(logger, statSink, statCh)
 
@@ -213,7 +228,7 @@ func main() {
 
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
-	ah := activatorhandler.New(ctx, throttler, transport, networkConfig.EnableMeshPodAddressability, logger, tlsEnabled, tp)
+	ah := activatorhandler.New(ctx, throttler, transport, networkConfig.EnableMeshPodAddressability, logger, tlsEnabled, tp, mp)
 	ah = handler.NewTimeoutHandler(ah, "activator request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
 		if rev := activatorhandler.RevisionFrom(r.Context()); rev != nil {
 			responseStartTimeout := 0 * time.Second

@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
     - name: setup-go
       uses: knative/actions/setup-go@main
@@ -35,7 +35,7 @@ jobs:
         mkdir -p ~/artifacts/build
         mkdir -p ~/artifacts/registry
 
-    - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+    - uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
       with:
         path: |
           ~/.cache/go-build
@@ -68,7 +68,7 @@ jobs:
       run: |
         ./test/upload-test-images.sh
 
-    - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+    - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
       with:
         name: artifacts
         path: ~/artifacts
@@ -82,9 +82,8 @@ jobs:
       fail-fast: false # Keep running if one leg fails.
       matrix:
         k8s-version:
-        - v1.32.x
-        - v1.33.x
         - v1.34.x
+        - v1.35.x
 
         ingress:
         - kourier
@@ -156,7 +155,11 @@ jobs:
     - name: setup-go
       uses: knative/actions/setup-go@main
 
-    - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      with:
+        fetch-depth: 0
+
+    - uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
       with:
         path: |
           ~/.cache/go-build
@@ -165,13 +168,13 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
 
-    - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+    - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
       with:
         name: artifacts
         path: ~/artifacts
 
     - name: setup kind
-      uses: chainguard-dev/actions/setup-kind@3e8a2a226fad9e1ecbf2d359b8a7697554a4ac6d # main
+      uses: chainguard-dev/actions/setup-kind@127740c4cc23cb47120860698b0fd91a803bab32 # main
       with:
         k8s-version: ${{ matrix.k8s-version }}
         kind-worker-count: 4
@@ -186,10 +189,6 @@ jobs:
         chmod +x ./gotestsum
         sudo mv gotestsum /usr/local/bin
         echo "::endgroup::"
-
-    - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
-      with:
-        fetch-depth: 0
 
     - name: Install Serving & Ingress
       run: |
@@ -213,7 +212,7 @@ jobs:
       run: |
         gotestsum --format testname -- \
           -race -count=1 -parallel=1 -tags=e2e \
-          -timeout=30m \
+          -timeout=35m \
           ${{ matrix.test-path }} \
           -skip-cleanup-on-fail \
           -disable-logstream \

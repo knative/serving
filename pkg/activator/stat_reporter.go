@@ -18,8 +18,10 @@ package activator
 
 import (
 	"github.com/gorilla/websocket"
+	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/zap"
-	"knative.dev/serving/pkg/autoscaler/metrics"
+	pkgwebsocket "knative.dev/pkg/websocket"
+	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 )
 
 // RawSender sends raw byte array messages with a message type
@@ -28,13 +30,34 @@ type RawSender interface {
 	SendRaw(msgType int, msg []byte) error
 }
 
+// AutoscalerConnectionOptions returns websocket connection options that handle
+// connection status changes via callbacks. This enables real-time metric updates
+// when the connection state changes, without polling.
+func AutoscalerConnectionOptions(
+	logger *zap.SugaredLogger,
+	mp metric.MeterProvider,
+) []pkgwebsocket.ConnectionOption {
+	metrics := newStatReporterMetrics(mp)
+
+	return []pkgwebsocket.ConnectionOption{
+		pkgwebsocket.WithOnConnect(func() {
+			logger.Info("Autoscaler connection established")
+			metrics.OnAutoscalerConnect()
+		}),
+		pkgwebsocket.WithOnDisconnect(func(err error) {
+			logger.Errorw("Autoscaler connection lost", zap.Error(err))
+			metrics.OnAutoscalerDisconnect()
+		}),
+	}
+}
+
 // ReportStats sends any messages received on the source channel to the sink.
 // The messages are sent on a goroutine to avoid blocking, which means that
 // messages may arrive out of order.
-func ReportStats(logger *zap.SugaredLogger, sink RawSender, source <-chan []metrics.StatMessage) {
+func ReportStats(logger *zap.SugaredLogger, sink RawSender, source <-chan []asmetrics.StatMessage) {
 	for sms := range source {
-		go func(sms []metrics.StatMessage) {
-			wsms := metrics.ToWireStatMessages(sms)
+		go func(sms []asmetrics.StatMessage) {
+			wsms := asmetrics.ToWireStatMessages(sms)
 			b, err := wsms.Marshal()
 			if err != nil {
 				logger.Errorw("Error while marshaling stats", zap.Error(err))
@@ -42,7 +65,9 @@ func ReportStats(logger *zap.SugaredLogger, sink RawSender, source <-chan []metr
 			}
 
 			if err := sink.SendRaw(websocket.BinaryMessage, b); err != nil {
-				logger.Errorw("Error while sending stats", zap.Error(err))
+				logger.Errorw("Autoscaler is not reachable from activator. Stats were not sent.",
+					zap.Error(err),
+					zap.Int("stat_message_count", len(sms)))
 			}
 		}(sms)
 	}

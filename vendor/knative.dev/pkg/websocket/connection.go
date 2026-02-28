@@ -86,14 +86,40 @@ type ManagedConnection struct {
 
 	// Used for the exponential backoff when connecting
 	connectionBackoff wait.Backoff
+
+	// OnConnect is called when a connection is successfully established.
+	// This callback is invoked each time the connection is established,
+	// including reconnections.
+	OnConnect func()
+
+	// OnDisconnect is called when a connection is lost.
+	// The error parameter contains the reason for the disconnection.
+	OnDisconnect func(error)
+}
+
+// ConnectionOption is a functional option for configuring ManagedConnection.
+type ConnectionOption func(*ManagedConnection)
+
+// WithOnConnect sets a callback that is invoked when a connection is established.
+func WithOnConnect(f func()) ConnectionOption {
+	return func(c *ManagedConnection) {
+		c.OnConnect = f
+	}
+}
+
+// WithOnDisconnect sets a callback that is invoked when a connection is lost.
+func WithOnDisconnect(f func(error)) ConnectionOption {
+	return func(c *ManagedConnection) {
+		c.OnDisconnect = f
+	}
 }
 
 // NewDurableSendingConnection creates a new websocket connection
 // that can only send messages to the endpoint it connects to.
 // The connection will continuously be kept alive and reconnected
 // in case of a loss of connectivity.
-func NewDurableSendingConnection(target string, logger *zap.SugaredLogger) *ManagedConnection {
-	return NewDurableConnection(target, nil, logger)
+func NewDurableSendingConnection(target string, logger *zap.SugaredLogger, opts ...ConnectionOption) *ManagedConnection {
+	return NewDurableConnection(target, nil, logger, opts...)
 }
 
 // NewDurableSendingConnectionGuaranteed creates a new websocket connection
@@ -127,7 +153,7 @@ func NewDurableSendingConnectionGuaranteed(target string, duration time.Duration
 //
 // go func() {conn.Shutdown(); close(messageChan)}
 // go func() {for range messageChan {}}
-func NewDurableConnection(target string, messageChan chan []byte, logger *zap.SugaredLogger) *ManagedConnection {
+func NewDurableConnection(target string, messageChan chan []byte, logger *zap.SugaredLogger, opts ...ConnectionOption) *ManagedConnection {
 	websocketConnectionFactory := func() (rawConnection, error) {
 		dialer := &websocket.Dialer{
 			// This needs to be relatively short to avoid the connection getting blackholed for a long time
@@ -149,6 +175,11 @@ func NewDurableConnection(target string, messageChan chan []byte, logger *zap.Su
 
 	c := newConnection(websocketConnectionFactory, messageChan)
 
+	// Apply options before starting the goroutine
+	for _, opt := range opts {
+		opt(c)
+	}
+
 	// Keep the connection alive asynchronously and reconnect on
 	// connection failure.
 	c.processingWg.Add(1)
@@ -164,8 +195,14 @@ func NewDurableConnection(target string, messageChan chan []byte, logger *zap.Su
 					continue
 				}
 				logger.Debug("Connected to ", target)
+				if c.OnConnect != nil {
+					c.OnConnect()
+				}
 				if err := c.keepalive(); err != nil {
 					logger.Errorw(fmt.Sprintf("Connection to %s broke down, reconnecting...", target), zap.Error(err))
+					if c.OnDisconnect != nil {
+						c.OnDisconnect(err)
+					}
 				}
 				if err := c.closeConnection(); err != nil {
 					logger.Errorw("Failed to close the connection after crashing", zap.Error(err))

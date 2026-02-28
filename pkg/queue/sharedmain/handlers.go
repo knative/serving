@@ -34,6 +34,11 @@ import (
 	"knative.dev/serving/pkg/queue/health"
 )
 
+type drainers struct {
+	HijackedDrainer *handler.HijackTracker
+	StandardDrainer *pkghandler.Drainer
+}
+
 func mainHandler(
 	env config,
 	d Defaults,
@@ -42,9 +47,9 @@ func mainHandler(
 	logger *zap.SugaredLogger,
 	mp metric.MeterProvider,
 	tp trace.TracerProvider,
-) (http.Handler, *pkghandler.Drainer) {
+) (http.Handler, drainers) {
+	var drainers drainers
 	tracer := tp.Tracer("knative.dev/serving/pkg/queue")
-
 	breaker := buildBreaker(logger, env)
 
 	timeout := time.Duration(env.RevisionTimeoutSeconds) * time.Second
@@ -63,21 +68,26 @@ func mainHandler(
 	composedHandler = requestAppMetricsHandler(logger, composedHandler, breaker, mp)
 	composedHandler = queue.ProxyHandler(tracer, breaker, stats, composedHandler)
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
-	composedHandler = handler.NewTimeoutHandler(composedHandler, "request timeout", func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
-		return timeout, responseStartTimeout, idleTimeout
-	}, logger)
+	composedHandler = handler.NewTimeoutHandler(composedHandler, "request timeout",
+		func(r *http.Request) (time.Duration, time.Duration, time.Duration) {
+			return timeout, responseStartTimeout, idleTimeout
+		}, logger)
 
 	composedHandler = queue.NewRouteTagHandler(composedHandler)
 	composedHandler = withFullDuplex(composedHandler, env.EnableHTTPFullDuplex, logger)
 
-	drainer := &pkghandler.Drainer{
+	drainers.HijackedDrainer = &handler.HijackTracker{Handler: composedHandler}
+	composedHandler = drainers.HijackedDrainer
+
+	drainers.StandardDrainer = &pkghandler.Drainer{
 		QuietPeriod: drainSleepDuration,
 		// Add Activator probe header to the drainer so it can handle probes directly from activator
 		HealthCheckUAPrefixes: []string{netheader.ActivatorUserAgent, netheader.AutoscalingUserAgent},
 		Inner:                 composedHandler,
 		HealthCheck:           health.ProbeHandler(tracer, prober),
 	}
-	composedHandler = drainer
+
+	composedHandler = drainers.StandardDrainer
 
 	if env.Observability.EnableRequestLog {
 		// We want to capture the probes/healthchecks in the request logs.
@@ -95,7 +105,7 @@ func mainHandler(
 		}),
 	)
 
-	return composedHandler, drainer
+	return composedHandler, drainers
 }
 
 func adminHandler(ctx context.Context, logger *zap.SugaredLogger, drainer *pkghandler.Drainer) http.Handler {

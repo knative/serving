@@ -163,6 +163,9 @@ func NewStatsScraper(
 	return newServiceScraperWithClient(metric, revisionName, podAccessor, usePassthroughLb, meshMode, directClient, meshClient, logger, mp)
 }
 
+// We aren't using revisionName because OTel metrics can't because removed
+//
+//nolint:unparam
 func newServiceScraperWithClient(
 	m *autoscalingv1alpha1.Metric,
 	revisionName string,
@@ -226,7 +229,7 @@ func (s *serviceScraper) Scrape(window time.Duration) (stat Stat, err error) {
 			return
 		}
 		scrapeTime := s.clock.Since(startTime)
-		scrapeTimeSec := float64(scrapeTime / time.Second)
+		scrapeTimeSec := scrapeTime.Seconds()
 		s.duration.Record(context.Background(), scrapeTimeSec, metric.WithAttributeSet(s.attrs))
 	}()
 
