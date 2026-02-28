@@ -355,19 +355,16 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 	if err != nil {
 		return desiredScale, err
 	}
-
 	scaleObj, err := ks.dynamicClient.Resource(*gvr).Namespace(pa.Namespace).Get(ctx, name, metav1.GetOptions{}, "scale")
 	if err != nil {
 		return desiredScale, fmt.Errorf("failed to get scale target %v: %w", pa.Spec.ScaleTargetRef, err)
 	}
-
 	scale := &autoscalingv1.Scale{}
 
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(scaleObj.UnstructuredContent(),
 		scale); err != nil {
 		return desiredScale, fmt.Errorf("failed to convert to autoscalingv1.Scale type: %w", err)
 	}
-
 	currentScale := scale.Spec.Replicas
 	if desiredScale == currentScale {
 		return desiredScale, nil
