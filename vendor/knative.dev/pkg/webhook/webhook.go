@@ -34,6 +34,7 @@ import (
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/network/handlers"
 	"knative.dev/pkg/observability/semconv"
+	knativetls "knative.dev/pkg/tls"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/attribute"
@@ -48,7 +49,15 @@ import (
 	"knative.dev/pkg/system"
 )
 
-// Options contains the configuration for the webhook
+// Options contains the configuration for the webhook.
+//
+// TLS fields (TLSMinVersion, TLSMaxVersion, TLSCipherSuites, TLSCurvePreferences)
+// are resolved with the following precedence:
+//  1. Values set explicitly in Options (programmatic).
+//  2. WEBHOOK_TLS_* environment variables (WEBHOOK_TLS_MIN_VERSION,
+//     WEBHOOK_TLS_MAX_VERSION, WEBHOOK_TLS_CIPHER_SUITES, WEBHOOK_TLS_CURVE_PREFERENCES).
+//  3. Defaults (TLS 1.3 minimum version; zero values for the rest, meaning the
+//     Go standard library picks its defaults).
 type Options struct {
 	// TLSMinVersion contains the minimum TLS version that is acceptable to communicate with the API server.
 	// TLS 1.3 is the minimum version if not specified otherwise.
@@ -182,11 +191,36 @@ func New(
 
 	logger := logging.FromContext(ctx)
 
-	defaultTLSMinVersion := uint16(tls.VersionTLS13)
+	tlsCfg, err := knativetls.NewConfigFromEnv("WEBHOOK_")
+	if err != nil {
+		return nil, fmt.Errorf("reading TLS configuration from environment: %w", err)
+	}
+
+	// Replace the TLS configuration with the one from the environment if not set.
+	// Default to TLS 1.3 as the minimum version when neither the caller nor the
+	// environment specifies one.
 	if opts.TLSMinVersion == 0 {
-		opts.TLSMinVersion = TLSMinVersionFromEnv(defaultTLSMinVersion)
-	} else if opts.TLSMinVersion != tls.VersionTLS12 && opts.TLSMinVersion != tls.VersionTLS13 {
-		return nil, fmt.Errorf("unsupported TLS version: %d", opts.TLSMinVersion)
+		if tlsCfg.MinVersion != 0 {
+			opts.TLSMinVersion = tlsCfg.MinVersion
+		} else {
+			opts.TLSMinVersion = tls.VersionTLS13
+		}
+	}
+	if opts.TLSMaxVersion == 0 && tlsCfg.MaxVersion != 0 {
+		opts.TLSMaxVersion = tlsCfg.MaxVersion
+	}
+	if opts.TLSCipherSuites == nil && len(tlsCfg.CipherSuites) > 0 {
+		opts.TLSCipherSuites = tlsCfg.CipherSuites
+	}
+	if opts.TLSCurvePreferences == nil && len(tlsCfg.CurvePreferences) > 0 {
+		opts.TLSCurvePreferences = tlsCfg.CurvePreferences
+	}
+
+	if opts.TLSMinVersion != 0 && opts.TLSMinVersion != tls.VersionTLS12 && opts.TLSMinVersion != tls.VersionTLS13 {
+		return nil, fmt.Errorf("unsupported TLS minimum version %d: must be TLS 1.2 or TLS 1.3", opts.TLSMinVersion)
+	}
+	if opts.TLSMaxVersion != 0 && opts.TLSMinVersion > opts.TLSMaxVersion {
+		return nil, fmt.Errorf("TLS minimum version (%#x) is greater than maximum version (%#x)", opts.TLSMinVersion, opts.TLSMaxVersion)
 	}
 
 	syncCtx, cancel := context.WithCancel(context.Background())
