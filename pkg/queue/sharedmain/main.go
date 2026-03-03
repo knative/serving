@@ -18,7 +18,6 @@ package sharedmain
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -31,6 +30,7 @@ import (
 
 	netproxy "knative.dev/networking/pkg/http/proxy"
 	pkghandler "knative.dev/pkg/network/handlers"
+	knativetls "knative.dev/pkg/tls"
 	"knative.dev/serving/pkg/activator"
 
 	"github.com/kelseyhightower/envconfig"
@@ -265,22 +265,9 @@ func Main(opts ...Option) error {
 		httpServers["profile"] = pprof.Server
 	}
 
-	tlsServers := make(map[string]*http.Server)
+	var tlsServer *http.Server
 	var certWatcher *certificate.CertWatcher
 	var err error
-
-	if tlsEnabled {
-		tlsServers["main"] = mainServer(":"+env.QueueServingTLSPort, mainHandler)
-		// Keep admin server on HTTP even with TLS enabled since it's only accessed locally by kubelet
-
-		certWatcher, err = certificate.NewCertWatcher(certPath, keyPath, 1*time.Minute, logger)
-		if err != nil {
-			logger.Fatal("failed to create certWatcher", zap.Error(err))
-		}
-		defer certWatcher.Stop()
-	}
-
-	logger.Info("Starting queue-proxy")
 
 	errCh := make(chan error)
 	for name, server := range httpServers {
@@ -292,19 +279,33 @@ func Main(opts ...Option) error {
 			}
 		}(name, server)
 	}
-	for name, server := range tlsServers {
-		go func(name string, s *http.Server) {
-			logger.Info("Starting tls server ", name, s.Addr)
-			s.TLSConfig = &tls.Config{
-				GetCertificate: certWatcher.GetCertificate,
-				MinVersion:     tls.VersionTLS13,
-			}
+
+	if tlsEnabled {
+		tlsServer = mainServer(":"+env.QueueServingTLSPort, mainHandler)
+		// Keep admin server on HTTP even with TLS enabled since it's only accessed locally by kubelet
+
+		certWatcher, err = certificate.NewCertWatcher(certPath, keyPath, 1*time.Minute, logger)
+		if err != nil {
+			logger.Fatal("failed to create certWatcher", zap.Error(err))
+		}
+		defer certWatcher.Stop()
+
+		tlsCfg, err := knativetls.DefaultConfigFromEnv("QUEUE_PROXY_")
+		if err != nil {
+			logger.Fatalw("Failed to read TLS configuration from environment", zap.Error(err))
+		}
+		go func() {
+			logger.Info("Starting tls server main ", tlsServer.Addr)
+			tlsServer.TLSConfig = tlsCfg
+			tlsServer.TLSConfig.GetCertificate = certWatcher.GetCertificate
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
-			if err := s.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				errCh <- fmt.Errorf("%s server failed to serve: %w", name, err)
+			if err := tlsServer.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				errCh <- fmt.Errorf("main tls server failed to serve: %w", err)
 			}
-		}(name, server)
+		}()
 	}
+
+	logger.Info("Starting queue-proxy")
 
 	// Blocks until we actually receive a TERM signal or one of the servers
 	// exits unexpectedly. We fold both signals together because we only want
@@ -326,10 +327,10 @@ func Main(opts ...Option) error {
 				logger.Errorw("Failed to shutdown server", zap.String("server", name), zap.Error(err))
 			}
 		}
-		for name, srv := range tlsServers {
-			logger.Info("Shutting down server: ", name)
-			if err := srv.Shutdown(ctx); err != nil {
-				logger.Errorw("Failed to shutdown server", zap.String("server", name), zap.Error(err))
+		if tlsServer != nil {
+			logger.Info("Shutting down server: main tls")
+			if err := tlsServer.Shutdown(ctx); err != nil {
+				logger.Errorw("Failed to shutdown server", zap.String("server", "main tls"), zap.Error(err))
 			}
 		}
 
