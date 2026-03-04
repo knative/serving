@@ -33,22 +33,14 @@ const (
 	CurvePreferencesEnvKey = "TLS_CURVE_PREFERENCES"
 )
 
-// Config holds parsed TLS configuration values that can be used
-// to build a *crypto/tls.Config.
-type Config struct {
-	MinVersion       uint16
-	MaxVersion       uint16
-	CipherSuites     []uint16
-	CurvePreferences []cryptotls.CurveID
-}
-
-// NewConfigFromEnv reads TLS configuration from environment variables and
-// returns a Config. The prefix is prepended to each standard env-var suffix;
+// DefaultConfigFromEnv returns a tls.Config with secure defaults.
+// The prefix is prepended to each standard env-var suffix;
 // for example with prefix "WEBHOOK_" the function reads
 // WEBHOOK_TLS_MIN_VERSION, WEBHOOK_TLS_MAX_VERSION, etc.
-// Fields whose corresponding env var is unset are left at their zero value.
-func NewConfigFromEnv(prefix string) (*Config, error) {
-	var cfg Config
+func DefaultConfigFromEnv(prefix string) (*cryptotls.Config, error) {
+	cfg := &cryptotls.Config{
+		MinVersion: cryptotls.VersionTLS13,
+	}
 
 	if v := os.Getenv(prefix + MinVersionEnvKey); v != "" {
 		ver, err := parseVersion(v)
@@ -82,19 +74,7 @@ func NewConfigFromEnv(prefix string) (*Config, error) {
 		cfg.CurvePreferences = curves
 	}
 
-	return &cfg, nil
-}
-
-// TLSConfig constructs a *crypto/tls.Config from the parsed configuration.
-// The caller typically adds additional fields such as GetCertificate.
-func (c *Config) TLSConfig() *cryptotls.Config {
-	//nolint:gosec // Min version is caller-configurable; default is TLS 1.3.
-	return &cryptotls.Config{
-		MinVersion:       c.MinVersion,
-		MaxVersion:       c.MaxVersion,
-		CipherSuites:     c.CipherSuites,
-		CurvePreferences: c.CurvePreferences,
-	}
+	return cfg, nil
 }
 
 // parseVersion converts a TLS version string to the corresponding
