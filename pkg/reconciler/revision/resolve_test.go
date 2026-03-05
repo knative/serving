@@ -509,7 +509,7 @@ func TestNewResolverTransport_TLSMinVersion(t *testing.T) {
 		name           string
 		envOverride    string
 		expectedMinTLS uint16
-		expectedPanic  bool
+		wantErr        bool
 	}{{
 		name:           "TLS 1.2",
 		envOverride:    "1.2",
@@ -519,30 +519,38 @@ func TestNewResolverTransport_TLSMinVersion(t *testing.T) {
 		envOverride:    "1.3",
 		expectedMinTLS: tls.VersionTLS13,
 	}, {
-		name:           "default TLS 1.2",
+		name:           "default TLS 1.3",
 		envOverride:    "",
-		expectedMinTLS: tls.VersionTLS12,
+		expectedMinTLS: tls.VersionTLS13,
+	}, {
+		name:        "invalid version",
+		envOverride: "1.1",
+		wantErr:     true,
 	}}
 
 	tmpDir := t.TempDir()
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv(tlsMinVersionEnvKey, tc.envOverride)
+			t.Setenv(tlsEnvPrefix+"TLS_MIN_VERSION", tc.envOverride)
 
-			// noop for this test
 			path, err := writeCertFile(tmpDir, "cert.pem", []byte(certPEM))
 			if err != nil {
 				t.Fatal("Failed to write cert bundle file:", err)
 			}
 
-			// The actual test.
-			if tr, err := newResolverTransport(path, 100, 100); err != nil {
-				t.Error("Got unexpected err:", err)
-			} else if err == nil {
-				if diff := cmp.Diff(tc.expectedMinTLS, tr.TLSClientConfig.MinVersion); diff != "" {
-					t.Errorf("expected min TLS version does not match: %s", diff)
+			tr, err := newResolverTransport(path, 100, 100)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("Expected error, got nil")
 				}
+				return
+			}
+			if err != nil {
+				t.Fatal("Got unexpected err:", err)
+			}
+			if diff := cmp.Diff(tc.expectedMinTLS, tr.TLSClientConfig.MinVersion); diff != "" {
+				t.Errorf("expected min TLS version does not match: %s", diff)
 			}
 		})
 	}
