@@ -63,11 +63,6 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 	// TODO(dprotaso): determine other immutable properties.
 	deployment.Spec.Selector = have.Spec.Selector
 
-	// If the spec we want is the spec we have, then we're good.
-	if equality.Semantic.DeepEqual(have.Spec, deployment.Spec) {
-		return have, nil
-	}
-
 	// Otherwise attempt an update (with ONLY the spec changes).
 	desiredDeployment := have.DeepCopy()
 	desiredDeployment.Spec = deployment.Spec
@@ -79,6 +74,11 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 	// Carry over template-level labels and annotations (e.g., kubectl.kubernetes.io/restartedAt from rollout restart).
 	desiredDeployment.Spec.Template.Labels = mergeMetadata(deployment.Spec.Template.Labels, have.Spec.Template.Labels)
 	desiredDeployment.Spec.Template.Annotations = mergeMetadata(deployment.Spec.Template.Annotations, have.Spec.Template.Annotations)
+
+	// If the spec we want is the spec we have, then we're good.
+	if equality.Semantic.DeepEqual(have.Spec, desiredDeployment.Spec) {
+		return have, nil
+	}
 
 	d, err := c.kubeclient.AppsV1().Deployments(deployment.Namespace).Update(ctx, desiredDeployment, metav1.UpdateOptions{})
 	if err != nil {
