@@ -159,6 +159,18 @@ var (
 			Name:  "ROOT_CA",
 			Value: "",
 		}, {
+			Name:  "QUEUE_PROXY_TLS_MIN_VERSION",
+			Value: "",
+		}, {
+			Name:  "QUEUE_PROXY_TLS_MAX_VERSION",
+			Value: "",
+		}, {
+			Name:  "QUEUE_PROXY_TLS_CIPHER_SUITES",
+			Value: "",
+		}, {
+			Name:  "QUEUE_PROXY_TLS_CURVE_PREFERENCES",
+			Value: "",
+		}, {
 			Name:  "ENABLE_MULTI_CONTAINER_PROBES",
 			Value: "false",
 		}, {
