@@ -24,6 +24,9 @@ import (
 	"strconv"
 	"time"
 
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	"knative.dev/pkg/logging"
@@ -299,30 +302,16 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1
 }
 
 func (ks *scaler) applyScale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, desiredScale int32,
-	ps *autoscalingv1alpha1.PodScalable,
+	gvr *schema.GroupVersionResource, resourceName string,
 ) error {
 	logger := logging.FromContext(ctx)
 
-	gvr, name, err := resources.ScaleResourceArguments(pa.Spec.ScaleTargetRef)
-	if err != nil {
-		return err
-	}
+	patchBytes := []byte(fmt.Sprintf(`[{"op":"replace","path":"/spec/replicas","value":%d}]`, desiredScale))
 
-	psNew := ps.DeepCopy()
-	psNew.Spec.Replicas = &desiredScale
-	patch, err := duck.CreatePatch(ps, psNew)
+	_, err := ks.dynamicClient.Resource(*gvr).Namespace(pa.Namespace).Patch(ctx, resourceName, types.JSONPatchType,
+		patchBytes, metav1.PatchOptions{}, "scale")
 	if err != nil {
-		return err
-	}
-	patchBytes, err := patch.MarshalJSON()
-	if err != nil {
-		return err
-	}
-
-	_, err = ks.dynamicClient.Resource(*gvr).Namespace(pa.Namespace).Patch(ctx, ps.Name, types.JSONPatchType,
-		patchBytes, metav1.PatchOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to apply scale %d to scale target %s: %w", desiredScale, name, err)
+		return fmt.Errorf("failed to apply scale %d to scale target %s: %w", desiredScale, resourceName, err)
 	}
 
 	logger.Debug("Successfully scaled to ", desiredScale)
@@ -364,19 +353,25 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 		return desiredScale, nil
 	}
 
-	ps, err := resources.GetScaleResource(pa.Namespace, pa.Spec.ScaleTargetRef, ks.listerFactory)
+	gvr, name, err := resources.ScaleResourceArguments(pa.Spec.ScaleTargetRef)
+	if err != nil {
+		return desiredScale, err
+	}
+	scaleObj, err := ks.dynamicClient.Resource(*gvr).Namespace(pa.Namespace).Get(ctx, name, metav1.GetOptions{}, "scale")
 	if err != nil {
 		return desiredScale, fmt.Errorf("failed to get scale target %v: %w", pa.Spec.ScaleTargetRef, err)
 	}
+	scale := &autoscalingv1.Scale{}
 
-	currentScale := int32(1)
-	if ps.Spec.Replicas != nil {
-		currentScale = *ps.Spec.Replicas
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(scaleObj.UnstructuredContent(),
+		scale); err != nil {
+		return desiredScale, fmt.Errorf("failed to convert to autoscalingv1.Scale type: %w", err)
 	}
+	currentScale := scale.Spec.Replicas
 	if desiredScale == currentScale {
 		return desiredScale, nil
 	}
 
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
-	return desiredScale, ks.applyScale(ctx, pa, desiredScale, ps)
+	return desiredScale, ks.applyScale(ctx, pa, desiredScale, gvr, name)
 }

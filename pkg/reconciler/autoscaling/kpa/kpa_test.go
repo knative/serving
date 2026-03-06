@@ -438,7 +438,7 @@ func TestReconcile(t *testing.T) {
 				Namespace: testNamespace,
 			},
 			Name:  deployName,
-			Patch: []byte(`[{"op":"add","path":"/spec/replicas","value":11}]`),
+			Patch: []byte(`[{"op":"replace","path":"/spec/replicas","value":11}]`),
 		}},
 	}, {
 		Name: "scale up deployment failure",
@@ -459,7 +459,7 @@ func TestReconcile(t *testing.T) {
 				Namespace: testNamespace,
 			},
 			Name:  deployName,
-			Patch: []byte(`[{"op":"add","path":"/spec/replicas","value":11}]`),
+			Patch: []byte(`[{"op":"replace","path":"/spec/replicas","value":11}]`),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
@@ -735,14 +735,14 @@ func TestReconcile(t *testing.T) {
 				WithPAMetricsService(privateSvc), WithObservedGeneration(1)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
 			metric(testNamespace, testRevision),
-			deploy(testNamespace, testRevision),
+			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) { d.Spec.Replicas = ptr.Int32(1) }),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{{
 			ActionImpl: clientgotesting.ActionImpl{
 				Namespace: testNamespace,
 			},
 			Name:  deployName,
-			Patch: []byte(`[{"op":"add","path":"/spec/replicas","value":0}]`),
+			Patch: []byte(`[{"op":"replace","path":"/spec/replicas","value":0}]`),
 		}},
 	}, {
 		Name: "from serving to proxy",
@@ -777,7 +777,7 @@ func TestReconcile(t *testing.T) {
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc), WithObservedGeneration(1)),
 			defaultSKS,
 			metric(testNamespace, testRevision),
-			deploy(testNamespace, testRevision), defaultReady,
+			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) { d.Spec.Replicas = ptr.Int32(1) }), defaultReady,
 		},
 	}, {
 		Name: "activation failure",
@@ -790,7 +790,7 @@ func TestReconcile(t *testing.T) {
 				WithPAMetricsService(privateSvc)),
 			defaultSKS,
 			metric(testNamespace, testRevision),
-			deploy(testNamespace, testRevision), defaultReady,
+			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) { d.Spec.Replicas = ptr.Int32(1) }), defaultReady,
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, markScaleTargetInitialized, WithPASKSReady, WithPAMetricsService(privateSvc),
@@ -806,7 +806,7 @@ func TestReconcile(t *testing.T) {
 				Namespace: testNamespace,
 			},
 			Name:  deployName,
-			Patch: []byte(`[{"op":"add","path":"/spec/replicas","value":0}]`),
+			Patch: []byte(`[{"op":"replace","path":"/spec/replicas","value":0}]`),
 		}},
 	}, {
 		Name: "want=-1, underscaled, PA inactive",
