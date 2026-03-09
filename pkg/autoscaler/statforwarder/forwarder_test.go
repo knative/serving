@@ -26,16 +26,18 @@ import (
 	"github.com/google/go-cmp/cmp"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	ktesting "k8s.io/client-go/testing"
+	"k8s.io/utils/ptr"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakeleaseinformer "knative.dev/pkg/client/injection/kube/informers/coordination/v1/lease/fake"
-	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	fakeserviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
+	fakeendpointsliceinformer "knative.dev/pkg/client/injection/kube/informers/discovery/v1/endpointslice/fake"
 	"knative.dev/pkg/hash"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/system"
@@ -89,7 +91,7 @@ func must(t *testing.T, err error) {
 func TestForwarderReconcile(t *testing.T) {
 	ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
 	kubeClient := fakekubeclient.Get(ctx)
-	endpoints := fakeendpointsinformer.Get(ctx)
+	endpoints := fakeendpointsliceinformer.Get(ctx)
 	service := fakeserviceinformer.Get(ctx)
 	lease := fakeleaseinformer.Get(ctx)
 
@@ -124,19 +126,25 @@ func TestForwarderReconcile(t *testing.T) {
 		t.Fatal("Timeout to get the Service:", lastErr)
 	}
 
-	wantSubsets := []corev1.EndpointSubset{{
-		Addresses: []corev1.EndpointAddress{{
-			IP: testIP1,
+	want := discoveryv1.EndpointSlice{
+		AddressType: discoveryv1.AddressTypeIPv4,
+		Endpoints: []discoveryv1.Endpoint{{
+			Addresses: []string{testIP1},
+			Conditions: discoveryv1.EndpointConditions{
+				Ready:       ptr.To(true),
+				Serving:     ptr.To(true),
+				Terminating: ptr.To(false),
+			},
 		}},
-		Ports: []corev1.EndpointPort{{
-			Name:     autoscalerPortName,
-			Port:     autoscalerPort,
-			Protocol: corev1.ProtocolTCP,
+		Ports: []discoveryv1.EndpointPort{{
+			Name:     ptr.To(autoscalerPortName),
+			Port:     ptr.To[int32](autoscalerPort),
+			Protocol: ptr.To(corev1.ProtocolTCP),
 		}},
-	}}
+	}
 
 	// Check the endpoints got updated.
-	el := endpoints.Lister().Endpoints(testNs)
+	el := endpoints.Lister().EndpointSlices(testNs)
 	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 2*time.Second, true, func(context.Context) (bool, error) {
 		got, err := el.Get(bucket1)
 		if err != nil {
@@ -144,8 +152,8 @@ func TestForwarderReconcile(t *testing.T) {
 			return false, nil //nolint:nilerr
 		}
 
-		if !cmp.Equal(wantSubsets, got.Subsets) {
-			lastErr = fmt.Errorf("Got Subsets = %v, want = %v", got.Subsets, wantSubsets)
+		if diff := cmp.Diff(want.Endpoints, got.Endpoints); diff != "" {
+			lastErr = fmt.Errorf("resulting endpoints are different (-want, +got) %s", diff)
 			return false, nil
 		}
 		return true, nil
@@ -160,7 +168,7 @@ func TestForwarderReconcile(t *testing.T) {
 	lease.Informer().GetIndexer().Add(l)
 
 	// Check that the endpoints got updated.
-	wantSubsets[0].Addresses[0].IP = testIP2
+	want.Endpoints[0].Addresses[0] = testIP2
 	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 10*time.Second, true, func(context.Context) (bool, error) {
 		// Check the endpoints get updated.
 		got, err := el.Get(bucket1)
@@ -169,8 +177,8 @@ func TestForwarderReconcile(t *testing.T) {
 			return false, nil //nolint:nilerr
 		}
 
-		if !cmp.Equal(wantSubsets, got.Subsets) {
-			lastErr = fmt.Errorf("Got Subsets = %v, want = %v", got.Subsets, wantSubsets)
+		if !cmp.Equal(want.Endpoints, got.Endpoints) {
+			lastErr = fmt.Errorf("Got Subsets = %v, want = %v", got.Endpoints, want.Endpoints)
 			return false, nil
 		}
 		return true, nil
@@ -240,7 +248,7 @@ func TestForwarderRetryOnEndpointsCreationFailure(t *testing.T) {
 
 	endpointsCreation := 0
 	retried := make(chan struct{})
-	kubeClient.PrependReactor("create", "endpoints",
+	kubeClient.PrependReactor("create", "endpointslices",
 		func(action ktesting.Action) (bool, runtime.Object, error) {
 			endpointsCreation++
 			if endpointsCreation == 2 {
@@ -264,7 +272,7 @@ func TestForwarderRetryOnEndpointsCreationFailure(t *testing.T) {
 func TestForwarderRetryOnEndpointsUpdateFailure(t *testing.T) {
 	ctx, cancel, informers := rtesting.SetupFakeContextWithCancel(t)
 	kubeClient := fakekubeclient.Get(ctx)
-	endpoints := fakeendpointsinformer.Get(ctx)
+	endpoints := fakeendpointsliceinformer.Get(ctx)
 	lease := fakeleaseinformer.Get(ctx)
 
 	waitInformers, err := rtesting.RunAndSyncInformers(ctx, informers...)
@@ -282,7 +290,7 @@ func TestForwarderRetryOnEndpointsUpdateFailure(t *testing.T) {
 
 	endpointsUpdate := 0
 	retried := make(chan struct{})
-	kubeClient.PrependReactor("update", "endpoints",
+	kubeClient.PrependReactor("update", "endpointslices",
 		func(action ktesting.Action) (bool, runtime.Object, error) {
 			endpointsUpdate++
 			if endpointsUpdate == 2 {
@@ -293,13 +301,13 @@ func TestForwarderRetryOnEndpointsUpdateFailure(t *testing.T) {
 		},
 	)
 
-	e := &corev1.Endpoints{
+	e := &discoveryv1.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      bucket1,
 			Namespace: testNs,
 		},
 	}
-	kubeClient.CoreV1().Endpoints(testNs).Create(ctx, e, metav1.CreateOptions{})
+	kubeClient.DiscoveryV1().EndpointSlices(testNs).Create(ctx, e, metav1.CreateOptions{})
 	endpoints.Informer().GetIndexer().Add(e)
 	kubeClient.CoordinationV1().Leases(testNs).Create(ctx, testLease, metav1.CreateOptions{})
 	lease.Informer().GetIndexer().Add(testLease)
