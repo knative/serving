@@ -53,7 +53,7 @@ func TestReconcileIngressInsert(t *testing.T) {
 
 	r := Route("test-ns", "test-route")
 	tc, tls := testIngressParams(t, r)
-	_, ro, err := reconciler.reconcileIngress(updateContext(ctx, 0), r, tc, tls, "foo-ingress")
+	_, ro, err := reconciler.reconcileIngresses(updateContext(ctx, 0), r, tc, tls, "foo-ingress")
 	if err != nil {
 		t.Error("Unexpected error:", err)
 	}
@@ -110,7 +110,7 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 				duration = d
 			}
 			ctx := updateContext(baseCtx, rd)
-			_, ro, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress-class")
+			_, ro, err := reconciler.reconcileIngresses(ctx, r, tc, tls, "foo-ingress-class")
 			if err != nil {
 				t.Fatal("Unexpected error:", err)
 			}
@@ -119,13 +119,13 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 				t.Errorf("Complex initial rollout mismatch: diff(-want,+got):\n%s", cmp.Diff(want, got))
 			}
 
+			addAllRouteIngressesToIndexer(ctx, t, r)
 			ing := getRouteIngressFromClient(ctx, t, r)
-			fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(ing)
 
 			// Now we have initial version. Let's make a rollout.
 			tc.Targets[traffic.DefaultTarget][1].RevisionName = "miercoles"
 
-			_, updRO, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress-class")
+			_, updRO, err := reconciler.reconcileIngresses(ctx, r, tc, tls, "foo-ingress-class")
 			if err != nil {
 				t.Error("Unexpected error:", err)
 			}
@@ -146,9 +146,17 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 				t.Fatal("Rollout was bogus and impossible to deserialize")
 			}
 
+			// Per-tag ingress annotation only has default tag entries,
+			// so filter the returned rollout to compare.
+			defaultOnlyRO := &traffic.Rollout{}
+			for _, cfg := range updRO.Configurations {
+				if cfg.Tag == "" {
+					defaultOnlyRO.Configurations = append(defaultOnlyRO.Configurations, cfg)
+				}
+			}
 			// Verify the same rollout was returned by the ReconcileResources.
-			if !cmp.Equal(ro, updRO) {
-				t.Errorf("Returned and Annotation Rollouts differ: diff(-ret,+ann):\n%s", cmp.Diff(updRO, ro))
+			if !cmp.Equal(ro, defaultOnlyRO) {
+				t.Errorf("Returned and Annotation Rollouts differ: diff(-ret,+ann):\n%s", cmp.Diff(defaultOnlyRO, ro))
 			}
 
 			// After sorting `odin` will come first.
@@ -157,10 +165,13 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 			}
 
 			// OK. So now let's observe ready to start the rollout. For that we need to make ingress ready.
-			cp := updated.DeepCopy()
-			cp.Status.MarkLoadBalancerReady(nil, nil)
-			cp.Status.MarkNetworkConfigured()
-			fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(cp)
+			// Mark ALL per-tag ingresses as ready so allIngressesReady is true.
+			allIngresses := getRouteIngressesFromClient(ctx, t, r)
+			for i := range allIngresses {
+				allIngresses[i].Status.MarkLoadBalancerReady(nil, nil)
+				allIngresses[i].Status.MarkNetworkConfigured()
+				fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(&allIngresses[i])
+			}
 			// For comparisons.
 			ing = updated
 
@@ -175,7 +186,7 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 			stepSize := math.Max(1, math.Round((allocatedTraffic-1)/steps)) // we round the step size.
 			stepDuration := time.Duration(int(totalDuration * float64(time.Second) / steps))
 
-			_, updRO, err = reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress")
+			_, updRO, err = reconciler.reconcileIngresses(ctx, r, tc, tls, "foo-ingress")
 			if err != nil {
 				t.Error("Unexpected error:", err)
 			}
@@ -202,10 +213,18 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 				t.Errorf("StepDuration = %d, want: %d", got, want)
 			}
 
+			// Per-tag ingress annotation only has default tag entries,
+			// so filter the returned rollout to compare.
+			defaultOnlyRO = &traffic.Rollout{}
+			for _, cfg := range updRO.Configurations {
+				if cfg.Tag == "" {
+					defaultOnlyRO.Configurations = append(defaultOnlyRO.Configurations, cfg)
+				}
+			}
 			// Verify the same rollout was returned by the ReconcileResources.
-			if !cmp.Equal(ro, updRO) {
+			if !cmp.Equal(ro, defaultOnlyRO) {
 				t.Errorf("Returned and Annotation Rollouts after re-enqueue differ: diff(-ret,+ann):\n%s",
-					cmp.Diff(updRO, ro))
+					cmp.Diff(defaultOnlyRO, ro))
 			}
 
 			if got, want := ro.Configurations[0].StepParams.StepSize, int(stepSize); got != want {
@@ -272,7 +291,7 @@ func TestReconcileIngressUpdateReenqueueRolloutAnnotation(t *testing.T) {
 				duration = d
 			}
 			ctx := updateContext(baseCtx, 311 /*rolloutDuration*/) // This should be ignored, since we set annotation.
-			_, ro, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress-class")
+			_, ro, err := reconciler.reconcileIngresses(ctx, r, tc, tls, "foo-ingress-class")
 			if err != nil {
 				t.Fatal("Unexpected error:", err)
 			}
@@ -281,13 +300,13 @@ func TestReconcileIngressUpdateReenqueueRolloutAnnotation(t *testing.T) {
 				t.Errorf("Complex initial rollout mismatch: diff(-want,+got):\n%s", cmp.Diff(want, got))
 			}
 
+			addAllRouteIngressesToIndexer(ctx, t, r)
 			ing := getRouteIngressFromClient(ctx, t, r)
-			fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(ing)
 
 			// Now we have initial version. Let's make a rollout.
 			tc.Targets[traffic.DefaultTarget][1].RevisionName = "miercoles"
 
-			_, updRO, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress-class")
+			_, updRO, err := reconciler.reconcileIngresses(ctx, r, tc, tls, "foo-ingress-class")
 			if err != nil {
 				t.Error("Unexpected error:", err)
 			}
@@ -308,9 +327,17 @@ func TestReconcileIngressUpdateReenqueueRolloutAnnotation(t *testing.T) {
 				t.Fatal("Rollout was bogus and impossible to deserialize")
 			}
 
+			// Per-tag ingress annotation only has default tag entries,
+			// so filter the returned rollout to compare.
+			defaultOnlyRO := &traffic.Rollout{}
+			for _, cfg := range updRO.Configurations {
+				if cfg.Tag == "" {
+					defaultOnlyRO.Configurations = append(defaultOnlyRO.Configurations, cfg)
+				}
+			}
 			// Verify the same rollout was returned by the ReconcileResources.
-			if !cmp.Equal(ro, updRO) {
-				t.Errorf("Returned and Annotation Rollouts differ: diff(-ret,+ann):\n%s", cmp.Diff(updRO, ro))
+			if !cmp.Equal(ro, defaultOnlyRO) {
+				t.Errorf("Returned and Annotation Rollouts differ: diff(-ret,+ann):\n%s", cmp.Diff(defaultOnlyRO, ro))
 			}
 
 			// After sorting `odin` will come first.
@@ -319,10 +346,13 @@ func TestReconcileIngressUpdateReenqueueRolloutAnnotation(t *testing.T) {
 			}
 
 			// OK. So now let's observe ready to start the rollout. For that we need to make ingress ready.
-			cp := updated.DeepCopy()
-			cp.Status.MarkLoadBalancerReady(nil, nil)
-			cp.Status.MarkNetworkConfigured()
-			fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(cp)
+			// Mark ALL per-tag ingresses as ready so allIngressesReady is true.
+			allIngresses := getRouteIngressesFromClient(ctx, t, r)
+			for i := range allIngresses {
+				allIngresses[i].Status.MarkLoadBalancerReady(nil, nil)
+				allIngresses[i].Status.MarkNetworkConfigured()
+				fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(&allIngresses[i])
+			}
 			// For comparisons.
 			ing = updated
 
@@ -337,7 +367,7 @@ func TestReconcileIngressUpdateReenqueueRolloutAnnotation(t *testing.T) {
 			stepSize := math.Max(1, math.Round((allocatedTraffic-1)/steps)) // we round the step size.
 			stepDuration := time.Duration(int(totalDuration * float64(time.Second) / steps))
 
-			_, updRO, err = reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress")
+			_, updRO, err = reconciler.reconcileIngresses(ctx, r, tc, tls, "foo-ingress")
 			if err != nil {
 				t.Error("Unexpected error:", err)
 			}
@@ -364,10 +394,18 @@ func TestReconcileIngressUpdateReenqueueRolloutAnnotation(t *testing.T) {
 				t.Errorf("StepDuration = %d, want: %d", got, want)
 			}
 
+			// Per-tag ingress annotation only has default tag entries,
+			// so filter the returned rollout to compare.
+			defaultOnlyRO = &traffic.Rollout{}
+			for _, cfg := range updRO.Configurations {
+				if cfg.Tag == "" {
+					defaultOnlyRO.Configurations = append(defaultOnlyRO.Configurations, cfg)
+				}
+			}
 			// Verify the same rollout was returned by the ReconcileResources.
-			if !cmp.Equal(ro, updRO) {
+			if !cmp.Equal(ro, defaultOnlyRO) {
 				t.Errorf("Returned and Annotation Rollouts after re-enqueue differ: diff(-ret,+ann):\n%s",
-					cmp.Diff(updRO, ro))
+					cmp.Diff(defaultOnlyRO, ro))
 			}
 
 			if got, want := ro.Configurations[0].StepParams.StepSize, int(stepSize); got != want {
@@ -394,17 +432,17 @@ func TestReconcileIngressUpdateNoRollout(t *testing.T) {
 	r := Route("test-ns", "test-route")
 
 	tc, tls := testIngressParams(t, r)
-	if _, _, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress"); err != nil {
+	if _, _, err := reconciler.reconcileIngresses(ctx, r, tc, tls, "foo-ingress"); err != nil {
 		t.Error("Unexpected error:", err)
 	}
 
+	addAllRouteIngressesToIndexer(ctx, t, r)
 	initial := getRouteIngressFromClient(ctx, t, r)
-	fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(initial)
 
 	tc, tls = testIngressParams(t, r, func(tc *traffic.Config) {
 		tc.Targets[traffic.DefaultTarget][0].RevisionName = "revision2"
 	})
-	if _, _, err := reconciler.reconcileIngress(ctx, r, tc, tls, "foo-ingress"); err != nil {
+	if _, _, err := reconciler.reconcileIngresses(ctx, r, tc, tls, "foo-ingress"); err != nil {
 		t.Error("Unexpected error:", err)
 	}
 
@@ -441,12 +479,12 @@ func TestReconcileIngressUpdate(t *testing.T) {
 	r := Route("test-ns", "test-route")
 
 	tc, tls := testIngressParams(t, r)
-	if _, _, err := reconciler.reconcileIngress(updateContext(ctx, 0), r, tc, tls, "foo-ingress"); err != nil {
+	if _, _, err := reconciler.reconcileIngresses(updateContext(ctx, 0), r, tc, tls, "foo-ingress"); err != nil {
 		t.Error("Unexpected error:", err)
 	}
 
+	addAllRouteIngressesToIndexer(ctx, t, r)
 	initial := getRouteIngressFromClient(ctx, t, r)
-	fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(initial)
 
 	tc, tls = testIngressParams(t, r, func(tc *traffic.Config) {
 		tc.Targets[traffic.DefaultTarget][0].TrafficTarget.Percent = ptr.Int64(50)
@@ -457,7 +495,7 @@ func TestReconcileIngressUpdate(t *testing.T) {
 			},
 		})
 	})
-	if _, _, err := reconciler.reconcileIngress(updateContext(ctx, 0), r, tc, tls, "foo-ingress"); err != nil {
+	if _, _, err := reconciler.reconcileIngresses(updateContext(ctx, 0), r, tc, tls, "foo-ingress"); err != nil {
 		t.Error("Unexpected error:", err)
 	}
 
@@ -503,15 +541,16 @@ func TestReconcileIngressRolloutDeserializeFail(t *testing.T) {
 			r := Route("test-ns", "test-route-"+tc.name)
 
 			traffic, tls := testIngressParams(t, r)
-			ing, err := resources.MakeIngress(ctx, r, traffic, tls, "foo-ingress")
+			ings, err := resources.MakeIngress(ctx, r, traffic, tls, "foo-ingress")
 			if err != nil {
 				t.Fatal("Error creating ingress:", err)
 			}
+			ing := ings[0]
 			ing.Annotations[networking.RolloutAnnotationKey] = tc.val
 			ingClient := fakenetworkingclient.Get(ctx).NetworkingV1alpha1().Ingresses(ing.Namespace)
 			ingClient.Create(ctx, ing, metav1.CreateOptions{})
 			fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(ing)
-			if _, _, err := reconciler.reconcileIngress(ctx, r, traffic, tls, "foo-ingress"); err != nil {
+			if _, _, err := reconciler.reconcileIngresses(ctx, r, traffic, tls, "foo-ingress"); err != nil {
 				t.Error("Unexpected error:", err)
 			}
 			ing, err = ingClient.Get(ctx, ing.Name, metav1.GetOptions{})
@@ -519,8 +558,19 @@ func TestReconcileIngressRolloutDeserializeFail(t *testing.T) {
 				t.Fatal("Could not get the ingress:", err)
 			}
 			// In all cases we want to ignore the previous one, since it's bogus.
+			// Per-tag ingresses only contain their own tag's rollout entries.
+			// Since we're checking the default tag ingress, filter to tag == "".
 			want := func() string {
-				d, _ := json.Marshal(traffic.BuildRollout())
+				ro := traffic.BuildRollout()
+				n := 0
+				for i := range ro.Configurations {
+					if ro.Configurations[i].Tag == "" {
+						ro.Configurations[n] = ro.Configurations[i]
+						n++
+					}
+				}
+				ro.Configurations = ro.Configurations[:n]
+				d, _ := json.Marshal(ro)
 				return string(d)
 			}()
 			if got := ing.Annotations[networking.RolloutAnnotationKey]; got != want {
@@ -597,18 +647,21 @@ func TestReconcileIngressClassAnnotation(t *testing.T) {
 
 	r := Route("test-ns", "test-route")
 	tc, tls := testIngressParams(t, r)
-	if _, _, err := reconciler.reconcileIngress(updateContext(ctx, 0), r, tc, tls, "foo-ingress"); err != nil {
+	if _, _, err := reconciler.reconcileIngresses(updateContext(ctx, 0), r, tc, tls, "foo-ingress"); err != nil {
+		t.Error("Unexpected error:", err)
+	}
+
+	// Add all per-tag ingresses to the informer indexer.
+	allIngresses := getRouteIngressesFromClient(ctx, t, r)
+	for i := range allIngresses {
+		fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(&allIngresses[i])
+	}
+
+	if _, _, err := reconciler.reconcileIngresses(updateContext(ctx, 0), r, tc, tls, expClass); err != nil {
 		t.Error("Unexpected error:", err)
 	}
 
 	updated := getRouteIngressFromClient(ctx, t, r)
-	fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(updated)
-
-	if _, _, err := reconciler.reconcileIngress(updateContext(ctx, 0), r, tc, tls, expClass); err != nil {
-		t.Error("Unexpected error:", err)
-	}
-
-	updated = getRouteIngressFromClient(ctx, t, r)
 	updatedClass := networking.GetIngressClass(updated.Annotations)
 	if expClass != updatedClass {
 		t.Errorf("Unexpected annotation got %q want %q", expClass, updatedClass)

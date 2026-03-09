@@ -1678,8 +1678,8 @@ func TestReconcile(t *testing.T) {
 				WithConfigGeneration(1), WithLatestCreated("gray-00001"), WithLatestReady("gray-00001")),
 			rev("default", "gray", 1, MarkRevisionReady, WithRevName("gray-00001")),
 		},
-		WantCreates: []runtime.Object{
-			simpleIngress(
+		WantCreates: append(
+			simpleIngresses(
 				Route("default", "same-revision-targets", WithURL, WithRouteGeneration(1),
 					WithSpecTraffic(
 						v1.TrafficTarget{
@@ -1766,7 +1766,7 @@ func TestReconcile(t *testing.T) {
 						}), WithRouteUID("1-2"), WithRouteFinalizer),
 				"gray",
 			),
-		},
+		),
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "same-revision-targets", WithRouteGeneration(1), WithRouteGeneration(1), WithRouteObservedGeneration,
 				WithSpecTraffic(
@@ -1808,6 +1808,8 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "also-gray-same-revision-targets"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "gray-same-revision-targets"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "same-revision-targets"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "same-revision-targets-also-gray"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "same-revision-targets-gray"),
 		},
 		Key: "default/same-revision-targets",
 	}, {
@@ -3493,9 +3495,16 @@ func simpleIngress(r *v1.Route, tc *traffic.Config, io ...IngressOption) *netv1a
 	return ingressWithTLS(r, tc, nil /*tls*/, nil /*challenges*/, io...)
 }
 
-func ingressWithTLS(r *v1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS, challenges []netv1alpha1.HTTP01Challenge, io ...IngressOption) *netv1alpha1.Ingress {
-	ingress, _ := resources.MakeIngress(getContext(), r, tc, tls, testIngressClass, challenges...)
+func simpleIngresses(r *v1.Route, tc *traffic.Config, io ...IngressOption) []runtime.Object {
+	return ingressesWithTLS(r, tc, nil /*tls*/, nil /*challenges*/, io...)
+}
 
+// ingressWithTLS returns the default-tag ingress from MakeIngress.
+// For multi-tag scenarios, use ingressesWithTLS instead.
+func ingressWithTLS(r *v1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS, challenges []netv1alpha1.HTTP01Challenge, io ...IngressOption) *netv1alpha1.Ingress {
+	ingresses, _ := resources.MakeIngress(getContext(), r, tc, tls, testIngressClass, challenges...)
+
+	ingress := ingresses[0]
 	for _, opt := range io {
 		opt(ingress)
 	}
@@ -3503,10 +3512,27 @@ func ingressWithTLS(r *v1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTL
 	return ingress
 }
 
+func ingressesWithTLS(r *v1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS, challenges []netv1alpha1.HTTP01Challenge, io ...IngressOption) []runtime.Object {
+	ingresses, _ := resources.MakeIngress(getContext(), r, tc, tls, testIngressClass, challenges...)
+
+	result := make([]runtime.Object, 0, len(ingresses))
+	for _, ingress := range ingresses {
+		for _, opt := range io {
+			opt(ingress)
+		}
+		result = append(result, ingress)
+	}
+
+	return result
+}
+
+// ingressWithRollout returns the default-tag ingress from MakeIngressWithRollout.
+// For multi-tag scenarios, use ingressesWithRollout instead.
 func ingressWithRollout(r *v1.Route, tc *traffic.Config, ro *traffic.Rollout, io ...IngressOption) *netv1alpha1.Ingress {
-	ingress, _ := resources.MakeIngressWithRollout(getContext(), r, tc, ro, nil /*tls*/, testIngressClass)
-	for _, o := range io {
-		o(ingress)
+	ingresses, _ := resources.MakeIngressWithRollout(getContext(), r, tc, ro, nil /*tls*/, testIngressClass)
+	ingress := ingresses[0]
+	for _, opt := range io {
+		opt(ingress)
 	}
 	return ingress
 }

@@ -161,21 +161,47 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 		r.Status.MarkTLSNotEnabled(v1.TLSNotEnabledForClusterLocalMessage)
 	}
 
-	// Reconcile ingress and its children resources.
-	ingress, effectiveRO, err := c.reconcileIngress(ctx, r, traffic, tls, ingressClassForRoute(ctx, r), acmeChallenges...)
+	// Reconcile per-tag ingresses and their children resources.
+	ingresses, effectiveRO, err := c.reconcileIngresses(ctx, r, traffic, tls, ingressClassForRoute(ctx, r), acmeChallenges...)
 	if err != nil {
 		return err
 	}
 
 	roInProgress := !effectiveRO.Done()
-	if ingress.GetObjectMeta().GetGeneration() != ingress.Status.ObservedGeneration {
+	allConfigured := true
+	for _, ing := range ingresses {
+		if ing.GetObjectMeta().GetGeneration() != ing.Status.ObservedGeneration {
+			allConfigured = false
+			break
+		}
+	}
+	if !allConfigured {
 		r.Status.MarkIngressNotConfigured()
 	} else if !roInProgress {
-		r.Status.PropagateIngressStatus(ingress.Status)
+		// Propagate status: all ingresses must be ready for the route to be ready.
+		// Use the first non-ready ingress status, or the first ingress if all ready.
+		propagated := false
+		for _, ing := range ingresses {
+			if !ing.IsReady() {
+				r.Status.PropagateIngressStatus(ing.Status)
+				propagated = true
+				break
+			}
+		}
+		if !propagated && len(ingresses) > 0 {
+			r.Status.PropagateIngressStatus(ingresses[0].Status)
+		}
+	}
+
+	// Build ingress-by-tag map for placeholder service updates.
+	ingressByTag := make(map[string]*netv1alpha1.Ingress, len(ingresses))
+	for _, ing := range ingresses {
+		tag := ing.Labels[networking.TagLabelKey]
+		ingressByTag[tag] = ing
 	}
 
 	logger.Info("Updating placeholder k8s services with ingress information")
-	if err := c.updatePlaceholderServices(ctx, r, services, ingress); err != nil {
+	if err := c.updatePlaceholderServices(ctx, r, services, ingressByTag); err != nil {
 		return err
 	}
 

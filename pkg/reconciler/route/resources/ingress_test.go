@@ -62,7 +62,15 @@ func TestMakeIngressCorrectMetadata(t *testing.T) {
 		ingressClass         = "ng-ingress"
 		passdownIngressClass = "ok-ingress"
 	)
-	targets := map[string]traffic.RevisionTargets{}
+	targets := map[string]traffic.RevisionTargets{
+		traffic.DefaultTarget: {{
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: "config",
+				RevisionName:      "v1",
+				Percent:           ptr.Int64(100),
+			},
+		}},
+	}
 	r := Route(ns, "test-route", WithRouteLabel(map[string]string{
 		serving.RouteLabelKey:          "try-to-override",
 		serving.RouteNamespaceLabelKey: "try-to-override",
@@ -78,6 +86,7 @@ func TestMakeIngressCorrectMetadata(t *testing.T) {
 			serving.RouteLabelKey:          "test-route",
 			serving.RouteNamespaceLabelKey: ns,
 			"test-label":                   "foo",
+			networking.TagLabelKey:         traffic.DefaultTarget,
 		},
 		Annotations: map[string]string{
 			// Make sure to get passdownIngressClass instead of ingressClass
@@ -87,13 +96,17 @@ func TestMakeIngressCorrectMetadata(t *testing.T) {
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 	}
-	ia, err := MakeIngress(testContext(), r, &traffic.Config{Targets: targets}, nil, ingressClass)
+	ingresses, err := MakeIngress(testContext(), r, &traffic.Config{Targets: targets}, nil, ingressClass)
 	if err != nil {
 		t.Error("Unexpected error", err)
 	}
 
-	if !cmp.Equal(expected, ia.ObjectMeta) {
-		t.Error("Unexpected metadata (-want, +got):", cmp.Diff(expected, ia.ObjectMeta))
+	if len(ingresses) == 0 {
+		t.Fatal("Expected at least one ingress, got none")
+	}
+
+	if !cmp.Equal(expected, ingresses[0].ObjectMeta) {
+		t.Error("Unexpected metadata (-want, +got):", cmp.Diff(expected, ingresses[0].ObjectMeta))
 	}
 }
 
@@ -129,28 +142,57 @@ func TestMakeIngressWithTaggedRollout(t *testing.T) {
 		"test-annotation":                    "bar",
 	}), WithRouteUID("1234-5678"), WithURL)
 
-	wantMeta := metav1.ObjectMeta{
+	ingresses, err := MakeIngress(testContext(), r, cfg, nil, ingressClass)
+	if err != nil {
+		t.Error("Unexpected error", err)
+	}
+
+	if len(ingresses) != 2 {
+		t.Fatalf("Expected 2 ingresses, got %d", len(ingresses))
+	}
+
+	// Ingresses are sorted by tag name: "" (default) comes first, then "tagged"
+	defaultIng := ingresses[0]
+	taggedIng := ingresses[1]
+
+	wantDefaultMeta := metav1.ObjectMeta{
 		Name:      "test-route",
 		Namespace: ns,
 		Labels: map[string]string{
 			serving.RouteLabelKey:          "test-route",
 			serving.RouteNamespaceLabelKey: ns,
 			"test-label":                   "foo",
+			networking.TagLabelKey:         traffic.DefaultTarget,
 		},
 		Annotations: map[string]string{
 			networking.IngressClassAnnotationKey: ingressClass,
-			networking.RolloutAnnotationKey:      `{"configurations":[{"configurationName":"valhalla","percent":100,"revisions":[{"revisionName":"valhalla-01982","percent":100}],"stepParams":{}},{"configurationName":"thor","tag":"tagged","percent":100,"revisions":[{"revisionName":"thor-02020","percent":100}],"stepParams":{}}]}`,
+			networking.RolloutAnnotationKey:      `{"configurations":[{"configurationName":"valhalla","percent":100,"revisions":[{"revisionName":"valhalla-01982","percent":100}],"stepParams":{}}]}`,
 			"test-annotation":                    "bar",
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 	}
-	ing, err := MakeIngress(testContext(), r, cfg, nil, ingressClass)
-	if err != nil {
-		t.Error("Unexpected error", err)
+	if !cmp.Equal(wantDefaultMeta, defaultIng.ObjectMeta) {
+		t.Error("Unexpected default ingress metadata (-want, +got):", cmp.Diff(wantDefaultMeta, defaultIng.ObjectMeta))
 	}
 
-	if !cmp.Equal(wantMeta, ing.ObjectMeta) {
-		t.Error("Unexpected metadata (-want, +got):", cmp.Diff(wantMeta, ing.ObjectMeta))
+	wantTaggedMeta := metav1.ObjectMeta{
+		Name:      "test-route-tagged",
+		Namespace: ns,
+		Labels: map[string]string{
+			serving.RouteLabelKey:          "test-route",
+			serving.RouteNamespaceLabelKey: ns,
+			"test-label":                   "foo",
+			networking.TagLabelKey:         "tagged",
+		},
+		Annotations: map[string]string{
+			networking.IngressClassAnnotationKey: ingressClass,
+			networking.RolloutAnnotationKey:      `{"configurations":[{"configurationName":"thor","tag":"tagged","percent":100,"revisions":[{"revisionName":"thor-02020","percent":100}],"stepParams":{}}]}`,
+			"test-annotation":                    "bar",
+		},
+		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
+	}
+	if !cmp.Equal(wantTaggedMeta, taggedIng.ObjectMeta) {
+		t.Error("Unexpected tagged ingress metadata (-want, +got):", cmp.Diff(wantTaggedMeta, taggedIng.ObjectMeta))
 	}
 }
 
@@ -235,28 +277,45 @@ func TestMakeIngressWithActualRollout(t *testing.T) {
 		networking.IngressClassAnnotationKey: ingressClass,
 	}), WithRouteUID("1234-5678"), WithURL)
 
-	wantMeta := metav1.ObjectMeta{
+	ingresses, err := MakeIngressWithRollout(testContext(), r, cfg, ro, nil /*tls*/, ingressClass)
+	if err != nil {
+		t.Error("Unexpected error", err)
+	}
+
+	if len(ingresses) != 2 {
+		t.Fatalf("Expected 2 ingresses, got %d", len(ingresses))
+	}
+
+	// Ingresses are sorted by tag name: "" (default) first, then "hammer"
+	defaultIng := ingresses[0]
+	hammerIng := ingresses[1]
+
+	// Check default ingress metadata
+	wantDefaultMeta := metav1.ObjectMeta{
 		Name:      "test-route",
 		Namespace: ns,
 		Labels: map[string]string{
 			serving.RouteLabelKey:          "test-route",
 			serving.RouteNamespaceLabelKey: ns,
+			networking.TagLabelKey:         traffic.DefaultTarget,
 		},
 		Annotations: map[string]string{
 			networking.IngressClassAnnotationKey: ingressClass,
-			networking.RolloutAnnotationKey:      serializeRollout(context.Background(), ro),
+			networking.RolloutAnnotationKey: serializeRollout(context.Background(), &traffic.Rollout{
+				Configurations: []*traffic.ConfigurationRollout{
+					ro.Configurations[0], // rune
+					ro.Configurations[1], // valhalla
+					ro.Configurations[2], // rune (second entry)
+				},
+			}),
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 	}
-	ing, err := MakeIngressWithRollout(testContext(), r, cfg, ro, nil /*tls*/, ingressClass)
-	if err != nil {
-		t.Error("Unexpected error", err)
+	if !cmp.Equal(wantDefaultMeta, defaultIng.ObjectMeta) {
+		t.Error("Unexpected default ingress metadata (-want, +got):", cmp.Diff(wantDefaultMeta, defaultIng.ObjectMeta))
 	}
 
-	if !cmp.Equal(wantMeta, ing.ObjectMeta) {
-		t.Error("Unexpected metadata (-want, +got):", cmp.Diff(wantMeta, ing.ObjectMeta))
-	}
-	wantRules := []netv1alpha1.IngressRule{{
+	wantDefaultRules := []netv1alpha1.IngressRule{{
 		Hosts: []string{
 			"test-route." + ns,
 			"test-route." + ns + ".svc",
@@ -344,7 +403,12 @@ func TestMakeIngressWithActualRollout(t *testing.T) {
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
-	}, {
+	}}
+	if got, want := defaultIng.Spec.Rules, wantDefaultRules; !cmp.Equal(got, want) {
+		t.Errorf("Default ingress rules mismatch: diff(-want,+got)\n%s", cmp.Diff(want, got))
+	}
+
+	wantHammerRules := []netv1alpha1.IngressRule{{
 		Hosts: []string{
 			"hammer-test-route." + ns,
 			"hammer-test-route." + ns + ".svc",
@@ -455,22 +519,33 @@ func TestMakeIngressWithActualRollout(t *testing.T) {
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 	}}
-	if got, want := ing.Spec.Rules, wantRules; !cmp.Equal(got, want) {
-		t.Errorf("Rules mismatch: diff(-want,+got)\n%s", cmp.Diff(want, got))
+	if got, want := hammerIng.Spec.Rules, wantHammerRules; !cmp.Equal(got, want) {
+		t.Errorf("Hammer ingress rules mismatch: diff(-want,+got)\n%s", cmp.Diff(want, got))
 	}
 }
 
 func TestIngressNoKubectlAnnotation(t *testing.T) {
-	targets := map[string]traffic.RevisionTargets{}
+	targets := map[string]traffic.RevisionTargets{
+		traffic.DefaultTarget: {{
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: "config",
+				RevisionName:      "v1",
+				Percent:           ptr.Int64(100),
+			},
+		}},
+	}
 	r := Route(ns, testRouteName, WithRouteAnnotation(map[string]string{
 		networking.IngressClassAnnotationKey: testIngressClass,
 		corev1.LastAppliedConfigAnnotation:   testAnnotationValue,
 	}), WithRouteUID("1234-5678"), WithURL)
-	ing, err := MakeIngress(testContext(), r, &traffic.Config{Targets: targets}, nil, testIngressClass)
+	ingresses, err := MakeIngress(testContext(), r, &traffic.Config{Targets: targets}, nil, testIngressClass)
 	if err != nil {
 		t.Error("Unexpected error", err)
 	}
-	if v, ok := ing.Annotations[corev1.LastAppliedConfigAnnotation]; ok {
+	if len(ingresses) == 0 {
+		t.Fatal("Expected at least one ingress, got none")
+	}
+	if v, ok := ingresses[0].Annotations[corev1.LastAppliedConfigAnnotation]; ok {
 		t.Errorf("Annotation %s = %q, want empty", corev1.LastAppliedConfigAnnotation, v)
 	}
 }
@@ -586,14 +661,18 @@ func TestMakeIngressSpecCorrectRules(t *testing.T) {
 	}}
 
 	tc := &traffic.Config{Targets: targets}
-	ro := tc.BuildRollout()
-	ci, err := makeIngressSpec(testContext(), r, nil /*tls*/, tc, ro)
+	ingresses, err := MakeIngress(testContext(), r, tc, nil /*tls*/, "" /*ingressClass*/)
 	if err != nil {
 		t.Error("Unexpected error", err)
 	}
 
-	if !cmp.Equal(expected, ci.Rules) {
-		t.Error("Unexpected rules (-want, +got):", cmp.Diff(expected, ci.Rules))
+	var allRules []netv1alpha1.IngressRule
+	for _, ing := range ingresses {
+		allRules = append(allRules, ing.Spec.Rules...)
+	}
+
+	if !cmp.Equal(expected, allRules) {
+		t.Error("Unexpected rules (-want, +got):", cmp.Diff(expected, allRules))
 	}
 }
 
@@ -661,15 +740,18 @@ func TestMakeIngressSpecCorrectRuleVisibility(t *testing.T) {
 				Targets:    c.targets,
 				Visibility: c.serviceVisibility,
 			}
-			ro := tc.BuildRollout()
-			ci, err := makeIngressSpec(testContext(), c.route, nil /*tls*/, tc, ro)
+			ingresses, err := MakeIngress(testContext(), c.route, tc, nil /*tls*/, "" /*ingressClass*/)
 			if err != nil {
 				t.Error("Unexpected error", err)
 			}
-			if len(c.expectedVisibility) != len(ci.Rules) {
-				t.Errorf("|rules| = %d, want: %d", len(ci.Rules), len(c.expectedVisibility))
+			var allRules []netv1alpha1.IngressRule
+			for _, ing := range ingresses {
+				allRules = append(allRules, ing.Spec.Rules...)
 			}
-			for _, rule := range ci.Rules {
+			if len(c.expectedVisibility) != len(allRules) {
+				t.Errorf("|rules| = %d, want: %d", len(allRules), len(c.expectedVisibility))
+			}
+			for _, rule := range allRules {
 				visibility := rule.Visibility
 				if !cmp.Equal(c.expectedVisibility[visibility], rule.Hosts) {
 					t.Errorf("Hosts for visibility[%s] = %v, want: %v", visibility, rule.Hosts, c.expectedVisibility)
@@ -699,7 +781,10 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 
 	r := Route(ns, "test-route", WithURL)
 
-	expected := []netv1alpha1.IngressRule{{
+	// With per-tag ingresses, the default ingress has default-route rules
+	// and the v1 ingress has v1-tag rules. Each ingress's rules get the
+	// tag-based routing header appended independently.
+	expectedDefaultRules := []netv1alpha1.IngressRule{{
 		Hosts: []string{
 			"test-route." + ns,
 			"test-route." + ns + ".svc",
@@ -708,9 +793,7 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{{
 				Headers: map[string]netv1alpha1.HeaderMatch{
-					netheader.RouteTagKey: {
-						Exact: "v1",
-					},
+					netheader.RouteTagKey: {Exact: "v1"},
 				},
 				Splits: []netv1alpha1.IngressBackendSplit{{
 					IngressBackend: netv1alpha1.IngressBackend{
@@ -750,9 +833,7 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{{
 				Headers: map[string]netv1alpha1.HeaderMatch{
-					netheader.RouteTagKey: {
-						Exact: "v1",
-					},
+					netheader.RouteTagKey: {Exact: "v1"},
 				},
 				Splits: []netv1alpha1.IngressBackendSplit{{
 					IngressBackend: netv1alpha1.IngressBackend{
@@ -785,7 +866,9 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
-	}, {
+	}}
+
+	expectedV1Rules := []netv1alpha1.IngressRule{{
 		Hosts: []string{
 			"v1-test-route." + ns,
 			"v1-test-route." + ns + ".svc",
@@ -841,14 +924,21 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 	config.FromContext(ctx).Features.TagHeaderBasedRouting = apicfg.Enabled
 
 	tc := &traffic.Config{Targets: targets}
-	ro := tc.BuildRollout()
-	ci, err := makeIngressSpec(ctx, r, nil /*tls*/, tc, ro)
+	ingresses, err := MakeIngress(ctx, r, tc, nil /*tls*/, "" /*ingressClass*/)
 	if err != nil {
 		t.Error("Unexpected error", err)
 	}
 
-	if !cmp.Equal(expected, ci.Rules) {
-		t.Error("Unexpected rules (-want, +got):", cmp.Diff(expected, ci.Rules))
+	if len(ingresses) != 2 {
+		t.Fatalf("Expected 2 ingresses, got %d", len(ingresses))
+	}
+
+	// Ingresses sorted by tag: "" (default) first, then "v1"
+	if !cmp.Equal(expectedDefaultRules, ingresses[0].Spec.Rules) {
+		t.Error("Unexpected default ingress rules (-want, +got):", cmp.Diff(expectedDefaultRules, ingresses[0].Spec.Rules))
+	}
+	if !cmp.Equal(expectedV1Rules, ingresses[1].Spec.Rules) {
+		t.Error("Unexpected v1 ingress rules (-want, +got):", cmp.Diff(expectedV1Rules, ingresses[1].Spec.Rules))
 	}
 }
 
@@ -1029,44 +1119,50 @@ func TestMakeIngressRuleTwoTargets(t *testing.T) {
 }
 
 func TestMakeIngressWithTLS(t *testing.T) {
-	targets := map[string]traffic.RevisionTargets{}
+	targets := map[string]traffic.RevisionTargets{
+		traffic.DefaultTarget: {{
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: "config",
+				RevisionName:      "v1",
+				Percent:           ptr.Int64(100),
+			},
+		}},
+	}
 	ingressClass := "foo-ingress"
 	r := Route(ns, "test-route", WithRouteUID("1234-5678"), WithURL)
 	tls := []netv1alpha1.IngressTLS{{
-		Hosts:      []string{"*.default.domain.com"},
+		Hosts:      []string{"test-route." + ns + ".example.com"},
 		SecretName: "secret",
 	}}
-	expected := &netv1alpha1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-route",
-			Namespace: ns,
-			Annotations: map[string]string{
-				networking.IngressClassAnnotationKey: ingressClass,
-				networking.RolloutAnnotationKey:      emptyRollout,
-			},
-			Labels: map[string]string{
-				serving.RouteLabelKey:          "test-route",
-				serving.RouteNamespaceLabelKey: ns,
-			},
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
-		},
-		Spec: netv1alpha1.IngressSpec{
-			Rules: []netv1alpha1.IngressRule{},
-			TLS:   tls,
-		},
-	}
-	got, err := MakeIngress(testContext(), r, &traffic.Config{Targets: targets}, tls, ingressClass)
+	ingresses, err := MakeIngress(testContext(), r, &traffic.Config{Targets: targets}, tls, ingressClass)
 	if err != nil {
 		t.Error("Unexpected error:", err)
 	}
 
-	if diff := cmp.Diff(expected, got); diff != "" {
-		t.Error("Unexpected metadata (-want, +got):", diff)
+	if len(ingresses) == 0 {
+		t.Fatal("Expected at least one ingress, got none")
+	}
+
+	got := ingresses[0]
+	// Check that TLS is present in the ingress spec
+	if len(got.Spec.TLS) == 0 {
+		t.Error("Expected TLS entries in ingress spec, got none")
+	}
+	if diff := cmp.Diff(tls, got.Spec.TLS); diff != "" {
+		t.Error("Unexpected TLS (-want, +got):", diff)
 	}
 }
 
 func TestMakeIngressWithHTTPOption(t *testing.T) {
-	targets := map[string]traffic.RevisionTargets{}
+	targets := map[string]traffic.RevisionTargets{
+		traffic.DefaultTarget: {{
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: "config",
+				RevisionName:      "v1",
+				Percent:           ptr.Int64(100),
+			},
+		}},
+	}
 	ingressClass := "foo-ingress"
 	tls := []netv1alpha1.IngressTLS{{
 		Hosts:      []string{"*.default.domain.com"},
@@ -1102,7 +1198,7 @@ func TestMakeIngressWithHTTPOption(t *testing.T) {
 			if tc.wantError {
 				return
 			}
-			if diff := cmp.Diff(tc.wantOption, got.Spec.HTTPOption); diff != "" {
+			if diff := cmp.Diff(tc.wantOption, got[0].Spec.HTTPOption); diff != "" {
 				t.Error("Unexpected Ingress (-want, +got):", diff)
 			}
 		})
@@ -1220,14 +1316,18 @@ func TestMakeIngressWithActivatorCA(t *testing.T) {
 	}}
 
 	tc := &traffic.Config{Targets: targets}
-	ro := tc.BuildRollout()
-	ci, err := makeIngressSpec(testContextWithActivatorCA(), r, nil /*tls*/, tc, ro)
+	ingresses, err := MakeIngress(testContextWithActivatorCA(), r, tc, nil /*tls*/, "" /*ingressClass*/)
 	if err != nil {
 		t.Error("Unexpected error", err)
 	}
 
-	if !cmp.Equal(expected, ci.Rules) {
-		t.Error("Unexpected rules (-want, +got):", cmp.Diff(expected, ci.Rules))
+	var allRules []netv1alpha1.IngressRule
+	for _, ing := range ingresses {
+		allRules = append(allRules, ing.Spec.Rules...)
+	}
+
+	if !cmp.Equal(expected, allRules) {
+		t.Error("Unexpected rules (-want, +got):", cmp.Diff(expected, allRules))
 	}
 }
 
@@ -1350,15 +1450,19 @@ func TestMakeIngressACMEChallenges(t *testing.T) {
 	tc := &traffic.Config{
 		Targets: targets,
 	}
-	ro := tc.BuildRollout()
 
-	ci, err := makeIngressSpec(testContext(), r, nil /*tls*/, tc, ro, acmeChallenge)
+	ingresses, err := MakeIngress(testContext(), r, tc, nil /*tls*/, "" /*ingressClass*/, acmeChallenge)
 	if err != nil {
 		t.Error("Unexpected error", err)
 	}
 
-	if !cmp.Equal(expected, ci.Rules) {
-		t.Error("Unexpected rules (-want, +got):", cmp.Diff(expected, ci.Rules))
+	var allRules []netv1alpha1.IngressRule
+	for _, ing := range ingresses {
+		allRules = append(allRules, ing.Spec.Rules...)
+	}
+
+	if !cmp.Equal(expected, allRules) {
+		t.Error("Unexpected rules (-want, +got):", cmp.Diff(expected, allRules))
 	}
 }
 
@@ -1440,22 +1544,23 @@ func TestMakeIngressACMEChallengesWithTrafficTags(t *testing.T) {
 	tc := &traffic.Config{
 		Targets: targets,
 	}
-	ro := tc.BuildRollout()
 
-	ci, err := makeIngressSpec(testContext(), r, nil /*tls*/, tc, ro, acmeChallenges...)
+	ingresses, err := MakeIngress(testContext(), r, tc, nil /*tls*/, "" /*ingressClass*/, acmeChallenges...)
 	if err != nil {
 		t.Fatal("Unexpected error", err)
 	}
 
 	// Verify each ACME challenge path appears in exactly one rule
 	acmePathsSeen := make(map[string]int) // path -> count across all rules
-	for _, rule := range ci.Rules {
-		if rule.Visibility != netv1alpha1.IngressVisibilityExternalIP || rule.HTTP == nil {
-			continue
-		}
-		for _, path := range rule.HTTP.Paths {
-			if path.Path != "" && len(path.Path) > 0 {
-				acmePathsSeen[path.Path]++
+	for _, ing := range ingresses {
+		for _, rule := range ing.Spec.Rules {
+			if rule.Visibility != netv1alpha1.IngressVisibilityExternalIP || rule.HTTP == nil {
+				continue
+			}
+			for _, path := range rule.HTTP.Paths {
+				if path.Path != "" && len(path.Path) > 0 {
+					acmePathsSeen[path.Path]++
+				}
 			}
 		}
 	}

@@ -30,6 +30,7 @@ import (
 
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	netcfg "knative.dev/networking/pkg/config"
 	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
@@ -52,8 +53,9 @@ func MakeIngressTLS(cert *netv1alpha1.Certificate, hostNames []string) netv1alph
 	}
 }
 
-// MakeIngress creates Ingress to set up routing rules. Such Ingress specifies
-// which Hosts that it applies to, as well as the routing rules.
+// MakeIngress creates per-tag Ingress resources to set up routing rules.
+// Each returned Ingress specifies the Hosts it applies to and the routing
+// rules for a single traffic tag.
 func MakeIngress(
 	ctx context.Context,
 	r *servingv1.Route,
@@ -61,14 +63,14 @@ func MakeIngress(
 	tls []netv1alpha1.IngressTLS,
 	ingressClass string,
 	acmeChallenges ...netv1alpha1.HTTP01Challenge,
-) (*netv1alpha1.Ingress, error) {
+) ([]*netv1alpha1.Ingress, error) {
 	return MakeIngressWithRollout(
 		// If no rollout is specified, we just build the default one.
 		ctx, r, tc, tc.BuildRollout(), tls, ingressClass, acmeChallenges...)
 }
 
-// MakeIngressWithRollout builds a KIngress object from the given parameters.
-// When building the ingress the builder will take into the account
+// MakeIngressWithRollout builds per-tag KIngress objects from the given parameters.
+// When building the ingresses the builder will take into account
 // the desired rollout state to split the traffic.
 func MakeIngressWithRollout(
 	ctx context.Context,
@@ -78,27 +80,72 @@ func MakeIngressWithRollout(
 	tls []netv1alpha1.IngressTLS,
 	ingressClass string,
 	acmeChallenges ...netv1alpha1.HTTP01Challenge,
-) (*netv1alpha1.Ingress, error) {
-	spec, err := makeIngressSpec(ctx, r, tls, tc, ro, acmeChallenges...)
+) ([]*netv1alpha1.Ingress, error) {
+	// Get sorted tag names for deterministic ordering.
+	tagNames := make([]string, 0, len(tc.Targets))
+	for name := range tc.Targets {
+		tagNames = append(tagNames, name)
+	}
+	sort.Strings(tagNames)
+
+	// If there are no targets, still create a default ingress with empty rules
+	// to maintain backward compatibility.
+	if len(tagNames) == 0 {
+		tagNames = []string{traffic.DefaultTarget}
+	}
+
+	featuresConfig := config.FromContextOrDefaults(ctx).Features
+	networkConfig := config.FromContextOrDefaults(ctx).Network
+
+	httpOption, err := servingnetworking.GetHTTPOption(ctx, config.FromContext(ctx).Network, r.GetAnnotations())
 	if err != nil {
 		return nil, err
 	}
-	return &netv1alpha1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.Ingress(r),
-			Namespace: r.Namespace,
-			Labels: kmeta.UnionMaps(r.Labels, map[string]string{
-				serving.RouteLabelKey:          r.Name,
-				serving.RouteNamespaceLabelKey: r.Namespace,
-			}),
-			Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
-				networking.IngressClassAnnotationKey: ingressClass,
-				networking.RolloutAnnotationKey:      serializeRollout(ctx, ro),
-			}, r.GetAnnotations()), ExcludedAnnotations.Has),
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
-		},
-		Spec: spec,
-	}, nil
+
+	// Build ACME lookup map: host -> []HTTPIngressPath
+	acmePathsByHost := make(map[string][]netv1alpha1.HTTPIngressPath)
+	for _, challenge := range acmeChallenges {
+		host := challenge.URL.Host
+		acmePath := MakeACMEIngressPath(challenge)
+		acmePathsByHost[host] = append(acmePathsByHost[host], acmePath)
+	}
+
+	ingresses := make([]*netv1alpha1.Ingress, 0, len(tagNames))
+	for _, tagName := range tagNames {
+		spec, err := makeIngressSpecForTag(ctx, r, tls, tc, ro, tagName, featuresConfig, networkConfig, httpOption, acmePathsByHost)
+		if err != nil {
+			return nil, err
+		}
+
+		// Build per-tag rollout for annotation
+		tagRollout := &traffic.Rollout{}
+		for _, cfg := range ro.Configurations {
+			if cfg.Tag == tagName {
+				tagRollout.Configurations = append(tagRollout.Configurations, cfg)
+			}
+		}
+
+		ingress := &netv1alpha1.Ingress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      names.TaggedIngress(r, tagName),
+				Namespace: r.Namespace,
+				Labels: kmeta.UnionMaps(r.Labels, map[string]string{
+					serving.RouteLabelKey:          r.Name,
+					serving.RouteNamespaceLabelKey: r.Namespace,
+					networking.TagLabelKey:         tagName,
+				}),
+				Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
+					networking.IngressClassAnnotationKey: ingressClass,
+					networking.RolloutAnnotationKey:      serializeRollout(ctx, tagRollout),
+				}, r.GetAnnotations()), ExcludedAnnotations.Has),
+				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
+			},
+			Spec: spec,
+		}
+		ingresses = append(ingresses, ingress)
+	}
+
+	return ingresses, nil
 }
 
 func serializeRollout(ctx context.Context, r *traffic.Rollout) string {
@@ -112,112 +159,113 @@ func serializeRollout(ctx context.Context, r *traffic.Rollout) string {
 	return string(sr)
 }
 
-// makeIngressSpec builds a new IngressSpec from inputs.
-func makeIngressSpec(
+// makeIngressSpecForTag builds a new IngressSpec for a single traffic tag.
+func makeIngressSpecForTag(
 	ctx context.Context,
 	r *servingv1.Route,
 	tls []netv1alpha1.IngressTLS,
 	tc *traffic.Config,
 	ro *traffic.Rollout,
-	acmeChallenges ...netv1alpha1.HTTP01Challenge,
+	tagName string,
+	featuresConfig *apicfg.Features,
+	networkConfig *netcfg.Config,
+	httpOption netv1alpha1.HTTPOption,
+	acmePathsByHost map[string][]netv1alpha1.HTTPIngressPath,
 ) (netv1alpha1.IngressSpec, error) {
-	// Domain should have been specified in route status
-	// before calling this func.
-	names := make([]string, 0, len(tc.Targets))
-	for name := range tc.Targets {
-		names = append(names, name)
-	}
-	// Sort the names to give things a deterministic ordering.
-	sort.Strings(names)
-	// The routes are matching rule based on domain name to traffic split targets.
-	rules := make([]netv1alpha1.IngressRule, 0, len(names))
-
-	featuresConfig := config.FromContextOrDefaults(ctx).Features
-	networkConfig := config.FromContextOrDefaults(ctx).Network
-
-	// Build ACME lookup map: host -> []HTTPIngressPath
-	acmePathsByHost := make(map[string][]netv1alpha1.HTTPIngressPath)
-	for _, challenge := range acmeChallenges {
-		host := challenge.URL.Host
-		acmePath := MakeACMEIngressPath(challenge)
-		acmePathsByHost[host] = append(acmePathsByHost[host], acmePath)
+	visibilities := []netv1alpha1.IngressVisibility{netv1alpha1.IngressVisibilityClusterLocal}
+	// If this is a public target (or not being marked as cluster-local), we also make public rule.
+	if v, ok := tc.Visibility[tagName]; !ok || v == netv1alpha1.IngressVisibilityExternalIP {
+		visibilities = append(visibilities, netv1alpha1.IngressVisibilityExternalIP)
 	}
 
-	for _, name := range names {
-		visibilities := []netv1alpha1.IngressVisibility{netv1alpha1.IngressVisibilityClusterLocal}
-		// If this is a public target (or not being marked as cluster-local), we also make public rule.
-		if v, ok := tc.Visibility[name]; !ok || v == netv1alpha1.IngressVisibilityExternalIP {
-			visibilities = append(visibilities, netv1alpha1.IngressVisibilityExternalIP)
+	var rules []netv1alpha1.IngressRule
+	for _, visibility := range visibilities {
+		tagDomains, err := domains.GetDomainsForVisibility(ctx, tagName, r, visibility)
+		if err != nil {
+			return netv1alpha1.IngressSpec{}, err
 		}
-		for _, visibility := range visibilities {
-			domains, err := domains.GetDomainsForVisibility(ctx, name, r, visibility)
-			if err != nil {
-				return netv1alpha1.IngressSpec{}, err
-			}
-			domainRules := makeIngressRules(domains, r.Namespace,
-				visibility, tc.Targets[name], ro.RolloutsByTag(name), networkConfig.SystemInternalTLSEnabled())
+		domainRules := makeIngressRules(tagDomains, r.Namespace,
+			visibility, tc.Targets[tagName], ro.RolloutsByTag(tagName), networkConfig.SystemInternalTLSEnabled())
 
-			// Apply tag header routing and ACME merging to each rule
-			for i := range domainRules {
-				rule := &domainRules[i]
+		// Apply tag header routing and ACME merging to each rule
+		for i := range domainRules {
+			rule := &domainRules[i]
 
-				if featuresConfig.TagHeaderBasedRouting == apicfg.Enabled {
-					if rule.HTTP.Paths[0].AppendHeaders == nil {
-						rule.HTTP.Paths[0].AppendHeaders = make(map[string]string, 1)
-					}
-
-					if name == traffic.DefaultTarget {
-						// To provide information if a request is routed via the "default route" or not,
-						// the header "Knative-Serving-Default-Route: true" is appended here.
-						// If the header has "true" and there is a "Knative-Serving-Tag" header,
-						// then the request is having the undefined tag header,
-						// which will be observed in queue-proxy.
-						rule.HTTP.Paths[0].AppendHeaders[netheader.DefaultRouteKey] = "true"
-
-						// Add ingress paths for a request with the tag header.
-						// If a request has one of the `names` (tag name), specified as the
-						// Knative-Serving-Tag header, except for the DefaultTarget,
-						// the request will be routed to that target.
-						// corresponding to the tag name.
-						// Since names are sorted `DefaultTarget == ""` is the first one,
-						// so just pass the subslice.
-						rule.HTTP.Paths = append(
-							makeTagBasedRoutingIngressPaths(r.Namespace, tc, ro, networkConfig.SystemInternalTLSEnabled(), names[1:]), rule.HTTP.Paths...)
-					} else {
-						// If a request is routed by a tag-attached hostname instead of the tag header,
-						// the request may not have the tag header "Knative-Serving-Tag",
-						// even though the ingress path used in the case is also originated
-						// from the same Knative route with the ingress path for the tag based routing.
-						//
-						// To prevent such inconsistency,
-						// the tag header is appended with the tag corresponding to the tag-attached hostname
-						rule.HTTP.Paths[0].AppendHeaders[netheader.RouteTagKey] = name
-					}
+			if featuresConfig.TagHeaderBasedRouting == apicfg.Enabled {
+				if rule.HTTP.Paths[0].AppendHeaders == nil {
+					rule.HTTP.Paths[0].AppendHeaders = make(map[string]string, 1)
 				}
 
-				// Merge ACME paths for ExternalIP single-host rules
-				// Note: ACME challenges without matching traffic rules are silently ignored
-				if visibility == netv1alpha1.IngressVisibilityExternalIP && len(rule.Hosts) == 1 {
-					if acmePaths, exists := acmePathsByHost[rule.Hosts[0]]; exists {
-						rule.HTTP.Paths = append(acmePaths, rule.HTTP.Paths...)
+				if tagName == traffic.DefaultTarget {
+					rule.HTTP.Paths[0].AppendHeaders[netheader.DefaultRouteKey] = "true"
+
+					// Add ingress paths for requests with the tag header.
+					// Collect non-default tag names (sorted).
+					var otherTags []string
+					for name := range tc.Targets {
+						if name != traffic.DefaultTarget {
+							otherTags = append(otherTags, name)
+						}
 					}
+					sort.Strings(otherTags)
+					if len(otherTags) > 0 {
+						tagPaths := makeTagBasedRoutingIngressPaths(
+							r.Namespace, tc, ro, networkConfig.SystemInternalTLSEnabled(), otherTags)
+						rule.HTTP.Paths = append(tagPaths, rule.HTTP.Paths...)
+					}
+				} else {
+					rule.HTTP.Paths[0].AppendHeaders[netheader.RouteTagKey] = tagName
 				}
 			}
 
-			rules = append(rules, domainRules...)
+			// Merge ACME paths for ExternalIP single-host rules
+			// Note: ACME challenges without matching traffic rules are silently ignored
+			if visibility == netv1alpha1.IngressVisibilityExternalIP && len(rule.Hosts) == 1 {
+				if acmePaths, exists := acmePathsByHost[rule.Hosts[0]]; exists {
+					rule.HTTP.Paths = append(acmePaths, rule.HTTP.Paths...)
+				}
+			}
 		}
+
+		rules = append(rules, domainRules...)
 	}
 
-	httpOption, err := servingnetworking.GetHTTPOption(ctx, config.FromContext(ctx).Network, r.GetAnnotations())
-	if err != nil {
-		return netv1alpha1.IngressSpec{}, err
-	}
+	// Filter TLS entries to only include those relevant to this tag's domains.
+	tagTLS := filterTLSForRules(tls, rules)
 
 	return netv1alpha1.IngressSpec{
 		Rules:      rules,
-		TLS:        tls,
+		TLS:        tagTLS,
 		HTTPOption: httpOption,
 	}, nil
+}
+
+// filterTLSForRules returns the subset of TLS entries whose hosts match
+// hosts found in the given ingress rules.
+func filterTLSForRules(tls []netv1alpha1.IngressTLS, rules []netv1alpha1.IngressRule) []netv1alpha1.IngressTLS {
+	// Collect all hosts from rules
+	ruleHosts := sets.New[string]()
+	for _, rule := range rules {
+		ruleHosts.Insert(rule.Hosts...)
+	}
+
+	var filtered []netv1alpha1.IngressTLS
+	for _, t := range tls {
+		var matchingHosts []string
+		for _, h := range t.Hosts {
+			if ruleHosts.Has(h) {
+				matchingHosts = append(matchingHosts, h)
+			}
+		}
+		if len(matchingHosts) > 0 {
+			filtered = append(filtered, netv1alpha1.IngressTLS{
+				Hosts:           matchingHosts,
+				SecretName:      t.SecretName,
+				SecretNamespace: t.SecretNamespace,
+			})
+		}
+	}
+	return filtered
 }
 
 // MakeACMEIngressPath converts an ACME challenge into an HTTPIngressPath.
@@ -267,7 +315,6 @@ func makeIngressRuleForHosts(hosts []string, visibility netv1alpha1.IngressVisib
 	}
 }
 
-// `names` must not include `""` — the DefaultTarget.
 func makeTagBasedRoutingIngressPaths(ns string, tc *traffic.Config, ro *traffic.Rollout, encryption bool, names []string) []netv1alpha1.HTTPIngressPath {
 	paths := make([]netv1alpha1.HTTPIngressPath, 0, len(names))
 

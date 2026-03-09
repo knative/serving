@@ -43,69 +43,134 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
-	"knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 )
 
-func (c *Reconciler) reconcileIngress(
+func (c *Reconciler) reconcileIngresses(
 	ctx context.Context, r *v1.Route, tc *traffic.Config,
 	tls []netv1alpha1.IngressTLS,
 	ingressClass string,
 	acmeChallenges ...netv1alpha1.HTTP01Challenge,
-) (*netv1alpha1.Ingress, *traffic.Rollout, error) {
+) ([]*netv1alpha1.Ingress, *traffic.Rollout, error) {
 	recorder := controller.GetEventRecorder(ctx)
-	var effectiveRO *traffic.Rollout
 
-	ingress, err := c.ingressLister.Ingresses(r.Namespace).Get(names.Ingress(r))
-	if apierrs.IsNotFound(err) {
-		desired, err := resources.MakeIngress(ctx, r, tc, tls, ingressClass, acmeChallenges...)
-		if err != nil {
-			return nil, nil, err
-		}
-		ingress, err = c.netclient.NetworkingV1alpha1().Ingresses(desired.Namespace).Create(ctx, desired, metav1.CreateOptions{})
-		if err != nil {
-			recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress: %v", err)
-			return nil, nil, fmt.Errorf("failed to create Ingress: %w", err)
-		}
-
-		recorder.Eventf(r, corev1.EventTypeNormal, "Created", "Created Ingress %q", ingress.GetName())
-		return ingress, tc.BuildRollout(), nil
-	} else if err != nil {
+	// Build desired ingresses (without rollout) to determine names.
+	desired, err := resources.MakeIngress(ctx, r, tc, tls, ingressClass, acmeChallenges...)
+	if err != nil {
 		return nil, nil, err
-	} else {
-		// Ingress exists. We need to compute the rollout spec diff.
-		effectiveRO = c.reconcileRollout(ctx, r, tc, ingress)
-		desired, err := resources.MakeIngressWithRollout(ctx, r, tc, effectiveRO,
-			tls, ingressClass, acmeChallenges...)
-		if err != nil {
+	}
+
+	// Collect previous rollouts from existing per-tag ingresses and check readiness.
+	desiredNames := sets.New[string]()
+	prevRO := &traffic.Rollout{}
+	existingIngresses := map[string]*netv1alpha1.Ingress{}
+	allExistingReady := true
+	hasExisting := false
+
+	for _, d := range desired {
+		desiredNames.Insert(d.Name)
+		existing, err := c.ingressLister.Ingresses(r.Namespace).Get(d.Name)
+		if apierrs.IsNotFound(err) {
+			allExistingReady = false
+			continue
+		} else if err != nil {
 			return nil, nil, err
 		}
+		hasExisting = true
+		existingIngresses[d.Name] = existing
 
-		if !equality.Semantic.DeepEqual(ingress.Spec, desired.Spec) ||
-			!equality.Semantic.DeepEqual(ingress.Annotations, desired.Annotations) ||
-			!equality.Semantic.DeepEqual(ingress.Labels, desired.Labels) {
-			// It is notable that one reason for differences here may be defaulting.
-			// When that is the case, the Update will end up being a nop because the
-			// webhook will bring them into alignment and no new reconciliation will occur.
-			// Also, compare annotation and label in case ingress.Class or parent route's labels
-			// is updated.
+		tagRO := deserializeRollout(ctx, existing.Annotations[networking.RolloutAnnotationKey])
+		if tagRO != nil {
+			prevRO.Configurations = append(prevRO.Configurations, tagRO.Configurations...)
+		}
 
-			// Don't modify the informers copy.
-			origin := ingress.DeepCopy()
-			origin.Spec = desired.Spec
-			origin.Annotations = desired.Annotations
-			origin.Labels = desired.Labels
-
-			updated, err := c.netclient.NetworkingV1alpha1().Ingresses(origin.Namespace).Update(
-				ctx, origin, metav1.UpdateOptions{})
-			if err != nil {
-				return nil, nil, fmt.Errorf("failed to update Ingress: %w", err)
-			}
-			return updated, effectiveRO, nil
+		if !existing.IsReady() {
+			allExistingReady = false
 		}
 	}
 
-	return ingress, effectiveRO, err
+	// Compute the effective rollout.
+	var effectiveRO *traffic.Rollout
+	if !hasExisting {
+		effectiveRO = tc.BuildRollout()
+	} else {
+		effectiveRO = c.reconcileRolloutFromIngresses(ctx, r, tc, prevRO, allExistingReady)
+	}
+
+	// Rebuild desired with the effective rollout.
+	desired, err = resources.MakeIngressWithRollout(ctx, r, tc, effectiveRO, tls, ingressClass, acmeChallenges...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Create or update each desired per-tag ingress.
+	// On error, we fail fast and return. Already-created ingresses from this
+	// iteration are safe: the next reconciliation will pick them up as existing
+	// and converge to the desired state (eventual consistency).
+	var result []*netv1alpha1.Ingress
+	for _, d := range desired {
+		existing, ok := existingIngresses[d.Name]
+		if !ok {
+			created, err := c.netclient.NetworkingV1alpha1().Ingresses(d.Namespace).Create(ctx, d, metav1.CreateOptions{})
+			if err != nil {
+				recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress: %v", err)
+				return nil, nil, fmt.Errorf("failed to create Ingress: %w", err)
+			}
+			recorder.Eventf(r, corev1.EventTypeNormal, "Created", "Created Ingress %q", created.GetName())
+			result = append(result, created)
+		} else {
+			if !equality.Semantic.DeepEqual(existing.Spec, d.Spec) ||
+				!equality.Semantic.DeepEqual(existing.Annotations, d.Annotations) ||
+				!equality.Semantic.DeepEqual(existing.Labels, d.Labels) {
+				origin := existing.DeepCopy()
+				origin.Spec = d.Spec
+				origin.Annotations = d.Annotations
+				origin.Labels = d.Labels
+
+				updated, err := c.netclient.NetworkingV1alpha1().Ingresses(origin.Namespace).Update(
+					ctx, origin, metav1.UpdateOptions{})
+				if err != nil {
+					return nil, nil, fmt.Errorf("failed to update Ingress: %w", err)
+				}
+				result = append(result, updated)
+			} else {
+				result = append(result, existing)
+			}
+		}
+	}
+
+	// Delete orphaned ingresses (tags that no longer exist).
+	if err := c.deleteOrphanedIngresses(ctx, r, desiredNames); err != nil {
+		return nil, nil, err
+	}
+
+	return result, effectiveRO, nil
+}
+
+func (c *Reconciler) deleteOrphanedIngresses(ctx context.Context, r *v1.Route, desiredNames sets.Set[string]) error {
+	routeLabelSelector := labels.SelectorFromSet(labels.Set{serving.RouteLabelKey: r.Name})
+	allIngresses, err := c.ingressLister.Ingresses(r.Namespace).List(routeLabelSelector)
+	if err != nil {
+		return fmt.Errorf("failed to fetch existing ingresses: %w", err)
+	}
+
+	recorder := controller.GetEventRecorder(ctx)
+	for _, ing := range allIngresses {
+		if desiredNames.Has(ing.Name) {
+			continue
+		}
+		if !metav1.IsControlledBy(ing, r) {
+			continue
+		}
+		if err := c.netclient.NetworkingV1alpha1().Ingresses(r.Namespace).Delete(
+			ctx, ing.Name, metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
+			recorder.Eventf(r, corev1.EventTypeWarning, "DeleteFailed",
+				"Failed to delete orphaned Ingress %q: %v", ing.Name, err)
+			return fmt.Errorf("failed to delete orphaned Ingress: %w", err)
+		}
+		recorder.Eventf(r, corev1.EventTypeNormal, "Deleted", "Deleted orphaned Ingress %q", ing.Name)
+	}
+	return nil
 }
 
 func (c *Reconciler) deleteOrphanedServices(ctx context.Context, r *v1.Route, activeServices []resources.ServicePair) error {
@@ -215,13 +280,18 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 	return services, nil
 }
 
-func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Route, pairs []resources.ServicePair, ingress *netv1alpha1.Ingress) error {
+func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Route, pairs []resources.ServicePair, ingressByTag map[string]*netv1alpha1.Ingress) error {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
 
 	eg, egCtx := errgroup.WithContext(ctx)
 	for _, from := range pairs {
 		eg.Go(func() error {
+			ingress, ok := ingressByTag[from.Tag]
+			if !ok {
+				logger.Warnw("No ingress found for tag, skipping placeholder update", zap.String("tag", from.Tag))
+				return nil
+			}
 			to, err := resources.MakeK8sService(egCtx, route, from.Tag, ingress, resources.IsClusterLocalService(from.Service))
 			if err != nil {
 				// Loadbalancer not ready, no need to update.
@@ -328,9 +398,9 @@ func deserializeRollout(ctx context.Context, ro string) *traffic.Rollout {
 	return r
 }
 
-func (c *Reconciler) reconcileRollout(
+func (c *Reconciler) reconcileRolloutFromIngresses(
 	ctx context.Context, r *v1.Route, tc *traffic.Config,
-	ingress *netv1alpha1.Ingress,
+	prevRO *traffic.Rollout, allIngressesReady bool,
 ) *traffic.Rollout {
 	cfg := config.FromContext(ctx)
 
@@ -349,18 +419,18 @@ func (c *Reconciler) reconcileRollout(
 	logger := logging.FromContext(ctx).Desugar().With(
 		zap.Int("durationSecs", rd))
 	logger.Debug("Rollout is enabled. Stepping from previous state.")
-	// Get the previous rollout state from the annotation.
-	// If it's corrupt, inexistent, or otherwise incorrect,
-	// the prevRO will be just nil rollout.
-	prevRO := deserializeRollout(ctx,
-		ingress.Annotations[networking.RolloutAnnotationKey])
+
+	// prevRO was assembled by merging per-tag rollouts from individual ingresses.
+	if prevRO == nil || len(prevRO.Configurations) == 0 {
+		prevRO = nil
+	}
 
 	// And recompute the rollout state.
 	now := c.clock.Now().UnixNano()
 
-	// Now check if the ingress status changed from not ready to ready.
+	// Now check if all ingresses transitioned from not ready to ready.
 	rtView := r.Status.GetCondition(v1.RouteConditionIngressReady)
-	if prevRO != nil && ingress.IsReady() && !rtView.IsTrue() {
+	if prevRO != nil && allIngressesReady && !rtView.IsTrue() {
 		logger.Debug("Observing Ingress not-ready to ready switch condition for rollout")
 		prevRO.ObserveReady(ctx, now, float64(rd))
 	}

@@ -33,6 +33,7 @@ import (
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/test/spoof"
+	serving "knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -138,14 +139,23 @@ func testExternalDomainTLS(t *testing.T) {
 			t.Fatalf("Traffic for route: %s is not HTTPS: %v", names.Route, err)
 		}
 
-		ing, err := clients.NetworkingClient.Ingresses.Get(context.Background(), routenames.Ingress(objects.Route), metav1.GetOptions{})
+		// List all ingresses for this route, including per-tag ingresses,
+		// so we can load TLS certificates from each one.
+		ingList, err := clients.NetworkingClient.Ingresses.List(context.Background(), metav1.ListOptions{
+			LabelSelector: serving.RouteLabelKey + "=" + objects.Route.Name,
+		})
 		if err != nil {
-			t.Fatal("Failed to get ingress:", err)
+			t.Fatal("Failed to list ingresses:", err)
 		}
-		for _, tls := range ing.Spec.TLS {
-			// Each new cert has to be added to the root pool so we can make requests.
-			if !rootCAs.AppendCertsFromPEM(test.PemDataFromSecret(context.Background(), t.Logf, clients, tls.SecretNamespace, tls.SecretName)) {
-				t.Fatal("Failed to add the certificate to the root CA")
+		if len(ingList.Items) == 0 {
+			t.Fatalf("No ingresses found for route %q", objects.Route.Name)
+		}
+		for _, ing := range ingList.Items {
+			for _, tls := range ing.Spec.TLS {
+				// Each new cert has to be added to the root pool so we can make requests.
+				if !rootCAs.AppendCertsFromPEM(test.PemDataFromSecret(context.Background(), t.Logf, clients, tls.SecretNamespace, tls.SecretName)) {
+					t.Fatalf("Failed to add certificate to root CA from ingress %q (secret %s/%s)", ing.Name, tls.SecretNamespace, tls.SecretName)
+				}
 			}
 		}
 

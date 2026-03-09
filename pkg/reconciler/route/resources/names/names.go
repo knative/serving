@@ -37,6 +37,16 @@ func Ingress(route kmeta.Accessor) string {
 	return kmeta.ChildName(route.GetName(), "")
 }
 
+// TaggedIngress returns the name for the per-tag Ingress
+// child resource for the given Route and tag name.
+// For the default (untagged) target, it returns the same name as Ingress().
+func TaggedIngress(route kmeta.Accessor, tag string) string {
+	if tag == "" {
+		return Ingress(route)
+	}
+	return kmeta.ChildName(route.GetName(), "-"+tag)
+}
+
 // Certificate returns the name for the Certificate
 // child resource for the given Route.
 func Certificate(route kmeta.Accessor) string {
