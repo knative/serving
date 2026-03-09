@@ -203,6 +203,9 @@ spec:
                                           - type: integer
                                           - type: string
                                         x-kubernetes-int-or-string: true
+                      tag:
+                        description: Tag is the name of the traffic tag associated with this rule.
+                        type: string
                       visibility:
                         description: |-
                           Visibility signifies whether this rule should `ClusterLocal`. If it's not

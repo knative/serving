@@ -681,6 +681,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
+			Tag:        "test-revision-1",
 		}, {
 			Hosts: []string{
 				"test-revision-1-test-route.test.test-domain.dev",
@@ -702,6 +703,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
+			Tag:        "test-revision-1",
 		}, {
 			Hosts: []string{
 				"test-revision-2-test-route.test",
@@ -725,6 +727,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
+			Tag:        "test-revision-2",
 		}, {
 			Hosts: []string{
 				"test-revision-2-test-route.test.test-domain.dev",
@@ -746,6 +749,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
+			Tag:        "test-revision-2",
 		}},
 	}
 
@@ -885,6 +889,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
+			Tag:        "bar",
 		}, {
 			Hosts: []string{"bar-test-route.test.test-domain.dev"},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
@@ -904,6 +909,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
+			Tag:        "bar",
 		}, {
 			Hosts: []string{
 				"foo-test-route.test",
@@ -927,6 +933,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
+			Tag:        "foo",
 		}, {
 			Hosts: []string{"foo-test-route.test.test-domain.dev"},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
@@ -946,6 +953,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
+			Tag:        "foo",
 		}},
 	}
 
@@ -1183,6 +1191,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
+			Tag:        "bar",
 		}, {
 			Hosts: []string{
 				"bar-test-route.test.test-domain.dev",
@@ -1207,6 +1216,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
+			Tag:        "bar",
 		}, {
 			Hosts: []string{
 				"foo-test-route.test",
@@ -1233,6 +1243,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityClusterLocal,
+			Tag:        "foo",
 		}, {
 			Hosts: []string{"foo-test-route.test.test-domain.dev"},
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
@@ -1255,6 +1266,7 @@ func TestCreateRouteWithNamedTargetsAndTagBasedRouting(t *testing.T) {
 				}},
 			},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
+			Tag:        "foo",
 		}},
 	}
 

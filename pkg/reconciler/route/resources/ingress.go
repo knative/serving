@@ -155,7 +155,7 @@ func makeIngressSpec(
 				return netv1alpha1.IngressSpec{}, err
 			}
 			domainRules := makeIngressRules(domains, r.Namespace,
-				visibility, tc.Targets[name], ro.RolloutsByTag(name), networkConfig.SystemInternalTLSEnabled())
+				visibility, tc.Targets[name], ro.RolloutsByTag(name), networkConfig.SystemInternalTLSEnabled(), name)
 
 			// Apply tag header routing and ACME merging to each rule
 			for i := range domainRules {
@@ -240,30 +240,32 @@ func makeIngressRules(domains sets.Set[string], ns string,
 	targets traffic.RevisionTargets,
 	roCfgs []*traffic.ConfigurationRollout,
 	encryption bool,
+	tag string,
 ) []netv1alpha1.IngressRule {
 	basePath := makeBaseIngressPath(ns, targets, roCfgs, encryption)
 
 	// ClusterLocal: keep multi-host (no ACME challenges needed)
 	if visibility == netv1alpha1.IngressVisibilityClusterLocal {
-		return []netv1alpha1.IngressRule{makeIngressRuleForHosts(sets.List(domains), visibility, basePath)}
+		return []netv1alpha1.IngressRule{makeIngressRuleForHosts(sets.List(domains), visibility, basePath, tag)}
 	}
 
 	// ExternalIP: create one rule per domain (enables per-host ACME challenge merging)
 	domainList := sets.List(domains)
 	rules := make([]netv1alpha1.IngressRule, 0, len(domainList))
 	for _, domain := range domainList {
-		rules = append(rules, makeIngressRuleForHosts([]string{domain}, visibility, basePath))
+		rules = append(rules, makeIngressRuleForHosts([]string{domain}, visibility, basePath, tag))
 	}
 	return rules
 }
 
-func makeIngressRuleForHosts(hosts []string, visibility netv1alpha1.IngressVisibility, basePath *netv1alpha1.HTTPIngressPath) netv1alpha1.IngressRule {
+func makeIngressRuleForHosts(hosts []string, visibility netv1alpha1.IngressVisibility, basePath *netv1alpha1.HTTPIngressPath, tag string) netv1alpha1.IngressRule {
 	return netv1alpha1.IngressRule{
 		Hosts:      hosts,
 		Visibility: visibility,
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
 			Paths: []netv1alpha1.HTTPIngressPath{*basePath},
 		},
+		Tag: tag,
 	}
 }
 

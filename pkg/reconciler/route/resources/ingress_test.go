@@ -400,6 +400,7 @@ func TestMakeIngressWithActualRollout(t *testing.T) {
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityClusterLocal,
+		Tag:        "hammer",
 	}, {
 		Hosts: []string{
 			"hammer-test-route." + ns + ".example.com",
@@ -454,6 +455,7 @@ func TestMakeIngressWithActualRollout(t *testing.T) {
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+		Tag:        "hammer",
 	}}
 	if got, want := ing.Spec.Rules, wantRules; !cmp.Equal(got, want) {
 		t.Errorf("Rules mismatch: diff(-want,+got)\n%s", cmp.Diff(want, got))
@@ -562,6 +564,7 @@ func TestMakeIngressSpecCorrectRules(t *testing.T) {
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityClusterLocal,
+		Tag:        "v1",
 	}, {
 		Hosts: []string{
 			"v1-test-route." + ns + ".example.com",
@@ -583,6 +586,7 @@ func TestMakeIngressSpecCorrectRules(t *testing.T) {
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+		Tag:        "v1",
 	}}
 
 	tc := &traffic.Config{Targets: targets}
@@ -811,6 +815,7 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityClusterLocal,
+		Tag:        "v1",
 	}, {
 		Hosts: []string{
 			"v1-test-route." + ns + ".example.com",
@@ -835,6 +840,7 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+		Tag:        "v1",
 	}}
 
 	ctx := testContext()
@@ -869,7 +875,7 @@ func TestMakeIngressRuleVanilla(t *testing.T) {
 	}
 	ro := tc.BuildRollout()
 	rules := makeIngressRules(domains, ns,
-		netv1alpha1.IngressVisibilityExternalIP, targets, ro.RolloutsByTag(traffic.DefaultTarget), false /* internal encryption */)
+		netv1alpha1.IngressVisibilityExternalIP, targets, ro.RolloutsByTag(traffic.DefaultTarget), false /* internal encryption */, traffic.DefaultTarget)
 
 	// ExternalIP visibility creates one rule per host
 	if len(rules) != 2 {
@@ -930,7 +936,7 @@ func TestMakeIngressRuleZeroPercentTarget(t *testing.T) {
 	}
 	ro := tc.BuildRollout()
 	rules := makeIngressRules(domains, ns,
-		netv1alpha1.IngressVisibilityExternalIP, targets, ro.RolloutsByTag(traffic.DefaultTarget), false /* internal encryption */)
+		netv1alpha1.IngressVisibilityExternalIP, targets, ro.RolloutsByTag(traffic.DefaultTarget), false /* internal encryption */, traffic.DefaultTarget)
 
 	if len(rules) != 1 {
 		t.Fatalf("Expected 1 rule, got %d", len(rules))
@@ -985,7 +991,7 @@ func TestMakeIngressRuleTwoTargets(t *testing.T) {
 	ro := tc.BuildRollout()
 	domains := sets.New("test.org")
 	rules := makeIngressRules(domains, ns, netv1alpha1.IngressVisibilityExternalIP,
-		targets, ro.RolloutsByTag("a-tag"), false /* internal encryption */)
+		targets, ro.RolloutsByTag("a-tag"), false /* internal encryption */, "a-tag")
 
 	if len(rules) != 1 {
 		t.Fatalf("Expected 1 rule, got %d", len(rules))
@@ -1021,6 +1027,7 @@ func TestMakeIngressRuleTwoTargets(t *testing.T) {
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+		Tag:        "a-tag",
 	}
 
 	if !cmp.Equal(expected, rules[0]) {
@@ -1196,6 +1203,7 @@ func TestMakeIngressWithActivatorCA(t *testing.T) {
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityClusterLocal,
+		Tag:        "v1",
 	}, {
 		Hosts: []string{
 			"v1-test-route." + ns + ".example.com",
@@ -1217,6 +1225,7 @@ func TestMakeIngressWithActivatorCA(t *testing.T) {
 			}},
 		},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+		Tag:        "v1",
 	}}
 
 	tc := &traffic.Config{Targets: targets}

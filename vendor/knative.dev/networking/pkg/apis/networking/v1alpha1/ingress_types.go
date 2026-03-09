@@ -177,6 +177,10 @@ type IngressRule struct {
 	// HTTP represents a rule to apply against incoming requests. If the
 	// rule is satisfied, the request is routed to the specified backend.
 	HTTP *HTTPIngressRuleValue `json:"http,omitempty"`
+
+	// Tag is the name of the traffic tag associated with this rule.
+	// +optional
+	Tag string `json:"tag,omitzero"`
 }
 
 // HTTPIngressRuleValue is a list of http selectors pointing to backends.
