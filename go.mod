@@ -24,7 +24,7 @@ require (
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/zap v1.27.1
 	go.yaml.in/yaml/v3 v3.0.4
-	golang.org/x/sync v0.19.0
+	golang.org/x/sync v0.20.0
 	golang.org/x/sys v0.41.0
 	golang.org/x/time v0.10.0
 	google.golang.org/api v0.198.0
@@ -36,10 +36,10 @@ require (
 	k8s.io/code-generator v0.35.2
 	k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4
-	knative.dev/caching v0.0.0-20260303015151-ff2668f65724
-	knative.dev/hack v0.0.0-20260212092700-0126b283bf20
+	knative.dev/caching v0.0.0-20260310014150-a5ed06aee227
+	knative.dev/hack v0.0.0-20260310014051-c448fdb867e2
 	knative.dev/networking v0.0.0-20260303015753-965e7c322093
-	knative.dev/pkg v0.0.0-20260304131155-a902bbfa38de
+	knative.dev/pkg v0.0.0-20260310013839-5504026dd1b6
 	sigs.k8s.io/randfill v1.0.0
 	sigs.k8s.io/yaml v1.6.0
 )
