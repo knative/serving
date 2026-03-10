@@ -33,8 +33,8 @@ import (
 	kubeinformerfactory "knative.dev/pkg/injection/clients/namespacedkube/informers/factory"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/network/handlers"
+	knativetls "knative.dev/pkg/network/tls"
 	"knative.dev/pkg/observability/semconv"
-	knativetls "knative.dev/pkg/tls"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/attribute"
