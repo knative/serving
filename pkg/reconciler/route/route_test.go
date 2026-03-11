@@ -217,10 +217,9 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 
 	// Check labels
 	expectedLabels := map[string]string{
-		serving.RouteLabelKey:                 route.Name,
-		serving.RouteNamespaceLabelKey:        route.Namespace,
-		"route":                               "test-route",
-		"networking.internal.knative.dev/tag": "",
+		serving.RouteLabelKey:          route.Name,
+		serving.RouteNamespaceLabelKey: route.Namespace,
+		"route":                        "test-route",
 	}
 	if diff := cmp.Diff(expectedLabels, ci.Labels); diff != "" {
 		t.Errorf("Unexpected label diff (-want +got):\n%s", diff)

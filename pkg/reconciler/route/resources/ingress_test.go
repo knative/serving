@@ -86,7 +86,6 @@ func TestMakeIngressCorrectMetadata(t *testing.T) {
 			serving.RouteLabelKey:          "test-route",
 			serving.RouteNamespaceLabelKey: ns,
 			"test-label":                   "foo",
-			networking.TagLabelKey:         traffic.DefaultTarget,
 		},
 		Annotations: map[string]string{
 			// Make sure to get passdownIngressClass instead of ingressClass
@@ -162,7 +161,6 @@ func TestMakeIngressWithTaggedRollout(t *testing.T) {
 			serving.RouteLabelKey:          "test-route",
 			serving.RouteNamespaceLabelKey: ns,
 			"test-label":                   "foo",
-			networking.TagLabelKey:         traffic.DefaultTarget,
 		},
 		Annotations: map[string]string{
 			networking.IngressClassAnnotationKey: ingressClass,
@@ -297,7 +295,6 @@ func TestMakeIngressWithActualRollout(t *testing.T) {
 		Labels: map[string]string{
 			serving.RouteLabelKey:          "test-route",
 			serving.RouteNamespaceLabelKey: ns,
-			networking.TagLabelKey:         traffic.DefaultTarget,
 		},
 		Annotations: map[string]string{
 			networking.IngressClassAnnotationKey: ingressClass,
@@ -617,7 +614,6 @@ func TestMakeDefaultIngressWithRollout(t *testing.T) {
 		Labels: map[string]string{
 			serving.RouteLabelKey:          "test-route",
 			serving.RouteNamespaceLabelKey: ns,
-			networking.TagLabelKey:         traffic.DefaultTarget,
 		},
 		Annotations: map[string]string{
 			networking.IngressClassAnnotationKey: ingressClass,
@@ -956,7 +952,6 @@ func TestMakeDefaultIngressWithRolloutMetadata(t *testing.T) {
 			serving.RouteLabelKey:          "test-route",
 			serving.RouteNamespaceLabelKey: ns,
 			"test-label":                   "foo",
-			networking.TagLabelKey:         traffic.DefaultTarget,
 		},
 		Annotations: map[string]string{
 			networking.IngressClassAnnotationKey: ingressClass,

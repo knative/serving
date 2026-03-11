@@ -204,15 +204,19 @@ func buildTagIngress(
 
 	tagRollout := rolloutForTag(ro, tagName)
 
+	labels := map[string]string{
+		serving.RouteLabelKey:          r.Name,
+		serving.RouteNamespaceLabelKey: r.Namespace,
+	}
+	if tagName != traffic.DefaultTarget {
+		labels[networking.TagLabelKey] = tagName
+	}
+
 	return &netv1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.TaggedIngress(r, tagName),
 			Namespace: r.Namespace,
-			Labels: kmeta.UnionMaps(r.Labels, map[string]string{
-				serving.RouteLabelKey:          r.Name,
-				serving.RouteNamespaceLabelKey: r.Namespace,
-				networking.TagLabelKey:         tagName,
-			}),
+			Labels:    kmeta.UnionMaps(r.Labels, labels),
 			Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
 				networking.IngressClassAnnotationKey: ingressClass,
 				networking.RolloutAnnotationKey:      serializeRollout(ctx, tagRollout),
