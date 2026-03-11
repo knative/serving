@@ -19,6 +19,7 @@ package resources
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"sort"
 
 	"github.com/davecgh/go-spew/spew"
@@ -70,8 +71,9 @@ func MakeIngress(
 }
 
 // MakeIngressWithRollout builds per-tag KIngress objects from the given parameters.
-// When building the ingresses the builder will take into account
-// the desired rollout state to split the traffic.
+// It creates an ingress for each traffic target (including the default target),
+// using the provided rollout to determine traffic splitting.
+// Internally delegates to buildTagIngress for each tag.
 func MakeIngressWithRollout(
 	ctx context.Context,
 	r *servingv1.Route,
@@ -102,50 +104,145 @@ func MakeIngressWithRollout(
 		return nil, err
 	}
 
-	// Build ACME lookup map: host -> []HTTPIngressPath
+	acmePathsByHost := buildACMEPathsByHost(acmeChallenges)
+
+	ingresses := make([]*netv1alpha1.Ingress, 0, len(tagNames))
+	for _, tagName := range tagNames {
+		ing, err := buildTagIngress(ctx, r, tc, ro, tagName, tls, ingressClass,
+			featuresConfig, networkConfig, httpOption, acmePathsByHost)
+		if err != nil {
+			return nil, err
+		}
+		ingresses = append(ingresses, ing)
+	}
+
+	return ingresses, nil
+}
+
+// MakeDefaultIngressWithRollout creates the default Ingress for the Route,
+// incorporating the specified rollout configuration for gradual traffic shifting.
+// Rollout is only meaningful for the default ingress.
+//
+// When TagHeaderBasedRouting is enabled, the provided Rollout must contain
+// configurations for all traffic targets (not just the default), because
+// the default ingress includes tag-header-based routing paths for other tags.
+func MakeDefaultIngressWithRollout(
+	ctx context.Context,
+	r *servingv1.Route,
+	tc *traffic.Config,
+	ro *traffic.Rollout,
+	tls []netv1alpha1.IngressTLS,
+	ingressClass string,
+	acmeChallenges ...netv1alpha1.HTTP01Challenge,
+) (*netv1alpha1.Ingress, error) {
+	featuresConfig := config.FromContextOrDefaults(ctx).Features
+	networkConfig := config.FromContextOrDefaults(ctx).Network
+
+	httpOption, err := servingnetworking.GetHTTPOption(ctx, config.FromContext(ctx).Network, r.GetAnnotations())
+	if err != nil {
+		return nil, err
+	}
+
+	acmePathsByHost := buildACMEPathsByHost(acmeChallenges)
+
+	return buildTagIngress(ctx, r, tc, ro, traffic.DefaultTarget, tls, ingressClass,
+		featuresConfig, networkConfig, httpOption, acmePathsByHost)
+}
+
+// MakeRouteTagIngress creates an Ingress for a specific traffic tag.
+// Tag ingresses handle routing for named traffic targets (e.g., "canary", "latest").
+// Rollout configuration is derived internally via tc.BuildRollout();
+// gradual rollout (multi-step traffic shifting) is primarily a concern of the
+// default ingress. For orchestrated creation with an explicit effective rollout,
+// use MakeIngressWithRollout instead.
+func MakeRouteTagIngress(
+	ctx context.Context,
+	r *servingv1.Route,
+	tc *traffic.Config,
+	tagName string,
+	tls []netv1alpha1.IngressTLS,
+	ingressClass string,
+	acmeChallenges ...netv1alpha1.HTTP01Challenge,
+) (*netv1alpha1.Ingress, error) {
+	if tagName == traffic.DefaultTarget {
+		return nil, errors.New("cannot create per-tag ingress for default target: use MakeDefaultIngressWithRollout instead")
+	}
+
+	featuresConfig := config.FromContextOrDefaults(ctx).Features
+	networkConfig := config.FromContextOrDefaults(ctx).Network
+
+	httpOption, err := servingnetworking.GetHTTPOption(ctx, config.FromContext(ctx).Network, r.GetAnnotations())
+	if err != nil {
+		return nil, err
+	}
+
+	ro := tc.BuildRollout()
+	acmePathsByHost := buildACMEPathsByHost(acmeChallenges)
+
+	return buildTagIngress(ctx, r, tc, ro, tagName, tls, ingressClass,
+		featuresConfig, networkConfig, httpOption, acmePathsByHost)
+}
+
+// buildTagIngress builds a single Ingress for the given traffic tag.
+func buildTagIngress(
+	ctx context.Context,
+	r *servingv1.Route,
+	tc *traffic.Config,
+	ro *traffic.Rollout,
+	tagName string,
+	tls []netv1alpha1.IngressTLS,
+	ingressClass string,
+	featuresConfig *apicfg.Features,
+	networkConfig *netcfg.Config,
+	httpOption netv1alpha1.HTTPOption,
+	acmePathsByHost map[string][]netv1alpha1.HTTPIngressPath,
+) (*netv1alpha1.Ingress, error) {
+	spec, err := makeIngressSpecForTag(ctx, r, tls, tc, ro, tagName, featuresConfig, networkConfig, httpOption, acmePathsByHost)
+	if err != nil {
+		return nil, err
+	}
+
+	tagRollout := rolloutForTag(ro, tagName)
+
+	return &netv1alpha1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      names.TaggedIngress(r, tagName),
+			Namespace: r.Namespace,
+			Labels: kmeta.UnionMaps(r.Labels, map[string]string{
+				serving.RouteLabelKey:          r.Name,
+				serving.RouteNamespaceLabelKey: r.Namespace,
+				networking.TagLabelKey:         tagName,
+			}),
+			Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
+				networking.IngressClassAnnotationKey: ingressClass,
+				networking.RolloutAnnotationKey:      serializeRollout(ctx, tagRollout),
+			}, r.GetAnnotations()), ExcludedAnnotations.Has),
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
+		},
+		Spec: spec,
+	}, nil
+}
+
+// buildACMEPathsByHost creates a lookup map from host to ACME challenge paths.
+func buildACMEPathsByHost(acmeChallenges []netv1alpha1.HTTP01Challenge) map[string][]netv1alpha1.HTTPIngressPath {
 	acmePathsByHost := make(map[string][]netv1alpha1.HTTPIngressPath)
 	for _, challenge := range acmeChallenges {
 		host := challenge.URL.Host
 		acmePath := MakeACMEIngressPath(challenge)
 		acmePathsByHost[host] = append(acmePathsByHost[host], acmePath)
 	}
+	return acmePathsByHost
+}
 
-	ingresses := make([]*netv1alpha1.Ingress, 0, len(tagNames))
-	for _, tagName := range tagNames {
-		spec, err := makeIngressSpecForTag(ctx, r, tls, tc, ro, tagName, featuresConfig, networkConfig, httpOption, acmePathsByHost)
-		if err != nil {
-			return nil, err
+// rolloutForTag returns a Rollout containing only the configurations for the given tag.
+func rolloutForTag(ro *traffic.Rollout, tagName string) *traffic.Rollout {
+	tagRollout := &traffic.Rollout{}
+	for _, cfg := range ro.Configurations {
+		if cfg.Tag == tagName {
+			tagRollout.Configurations = append(tagRollout.Configurations, cfg)
 		}
-
-		// Build per-tag rollout for annotation
-		tagRollout := &traffic.Rollout{}
-		for _, cfg := range ro.Configurations {
-			if cfg.Tag == tagName {
-				tagRollout.Configurations = append(tagRollout.Configurations, cfg)
-			}
-		}
-
-		ingress := &netv1alpha1.Ingress{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      names.TaggedIngress(r, tagName),
-				Namespace: r.Namespace,
-				Labels: kmeta.UnionMaps(r.Labels, map[string]string{
-					serving.RouteLabelKey:          r.Name,
-					serving.RouteNamespaceLabelKey: r.Namespace,
-					networking.TagLabelKey:         tagName,
-				}),
-				Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
-					networking.IngressClassAnnotationKey: ingressClass,
-					networking.RolloutAnnotationKey:      serializeRollout(ctx, tagRollout),
-				}, r.GetAnnotations()), ExcludedAnnotations.Has),
-				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
-			},
-			Spec: spec,
-		}
-		ingresses = append(ingresses, ingress)
 	}
-
-	return ingresses, nil
+	return tagRollout
 }
 
 func serializeRollout(ctx context.Context, r *traffic.Rollout) string {

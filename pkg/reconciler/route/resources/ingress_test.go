@@ -524,6 +524,452 @@ func TestMakeIngressWithActualRollout(t *testing.T) {
 	}
 }
 
+func TestMakeDefaultIngressWithRollout(t *testing.T) {
+	const ingressClass = "ng-ingress"
+	ro := &traffic.Rollout{
+		Configurations: []*traffic.ConfigurationRollout{{
+			ConfigurationName: "rune",
+			Percent:           1,
+			Revisions: []traffic.RevisionRollout{{
+				RevisionName: "rune-01911",
+				Percent:      1,
+			}},
+		}, {
+			ConfigurationName: "valhalla",
+			Percent:           99,
+			Revisions: []traffic.RevisionRollout{{
+				RevisionName: "valhalla-01981",
+				Percent:      41,
+			}, {
+				RevisionName: "valhalla-01982",
+				Percent:      68,
+			}},
+		}, {
+			ConfigurationName: "rune",
+			Percent:           1,
+			Revisions: []traffic.RevisionRollout{{
+				RevisionName: "rune-01911",
+				Percent:      1,
+			}},
+		}, {
+			ConfigurationName: "thor",
+			Tag:               "hammer",
+			Percent:           80,
+			Revisions: []traffic.RevisionRollout{{
+				RevisionName: "thor-02018",
+				Percent:      60,
+			}, {
+				RevisionName: "thor-02019",
+				Percent:      15,
+			}, {
+				RevisionName: "thor-02020",
+				Percent:      5,
+			}},
+		}},
+	}
+	cfg := &traffic.Config{
+		Targets: map[string]traffic.RevisionTargets{
+			"hammer": {{
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: "thor",
+					LatestRevision:    ptr.Bool(true),
+					Percent:           ptr.Int64(80),
+					RevisionName:      "thor-02020",
+				},
+			}, {
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: "thor",
+					LatestRevision:    ptr.Bool(false),
+					Percent:           ptr.Int64(20),
+					RevisionName:      "thor-beta",
+				},
+			}},
+			traffic.DefaultTarget: {{
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: "rune",
+					LatestRevision:    ptr.Bool(true),
+					Percent:           ptr.Int64(1),
+					RevisionName:      "rune-01911",
+				},
+			}, {
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: "valhalla",
+					LatestRevision:    ptr.Bool(true),
+					Percent:           ptr.Int64(99),
+					RevisionName:      "valhalla-01982",
+				},
+			}},
+		},
+	}
+	r := Route(ns, "test-route", WithRouteAnnotation(map[string]string{
+		networking.IngressClassAnnotationKey: ingressClass,
+	}), WithRouteUID("1234-5678"), WithURL)
+
+	ing, err := MakeDefaultIngressWithRollout(testContext(), r, cfg, ro, nil /*tls*/, ingressClass)
+	if err != nil {
+		t.Fatal("Unexpected error", err)
+	}
+
+	// Check default ingress metadata
+	wantMeta := metav1.ObjectMeta{
+		Name:      "test-route",
+		Namespace: ns,
+		Labels: map[string]string{
+			serving.RouteLabelKey:          "test-route",
+			serving.RouteNamespaceLabelKey: ns,
+			networking.TagLabelKey:         traffic.DefaultTarget,
+		},
+		Annotations: map[string]string{
+			networking.IngressClassAnnotationKey: ingressClass,
+			networking.RolloutAnnotationKey: serializeRollout(context.Background(), &traffic.Rollout{
+				Configurations: []*traffic.ConfigurationRollout{
+					ro.Configurations[0], // rune
+					ro.Configurations[1], // valhalla
+					ro.Configurations[2], // rune (second entry)
+				},
+			}),
+		},
+		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
+	}
+	if !cmp.Equal(wantMeta, ing.ObjectMeta) {
+		t.Error("Unexpected default ingress metadata (-want, +got):", cmp.Diff(wantMeta, ing.ObjectMeta))
+	}
+
+	// Check default ingress rules (rollout splits for valhalla)
+	wantRules := []netv1alpha1.IngressRule{{
+		Hosts: []string{
+			"test-route." + ns,
+			"test-route." + ns + ".svc",
+			pkgnet.GetServiceHostname("test-route", ns),
+		},
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: ns,
+						ServiceName:      "rune-01911",
+						ServicePort:      intstr.FromInt(80),
+					},
+					Percent: 1,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "rune-01911",
+						"Knative-Serving-Namespace": ns,
+					},
+				}, {
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: ns,
+						ServiceName:      "valhalla-01981",
+						ServicePort:      intstr.FromInt(80),
+					},
+					Percent: 41,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "valhalla-01981",
+						"Knative-Serving-Namespace": ns,
+					},
+				}, {
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: ns,
+						ServiceName:      "valhalla-01982",
+						ServicePort:      intstr.FromInt(80),
+					},
+					Percent: 68,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "valhalla-01982",
+						"Knative-Serving-Namespace": ns,
+					},
+				}},
+			}},
+		},
+		Visibility: netv1alpha1.IngressVisibilityClusterLocal,
+	}, {
+		Hosts: []string{
+			"test-route." + ns + ".example.com",
+		},
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: ns,
+						ServiceName:      "rune-01911",
+						ServicePort:      intstr.FromInt(80),
+					},
+					Percent: 1,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "rune-01911",
+						"Knative-Serving-Namespace": ns,
+					},
+				}, {
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: ns,
+						ServiceName:      "valhalla-01981",
+						ServicePort:      intstr.FromInt(80),
+					},
+					Percent: 41,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "valhalla-01981",
+						"Knative-Serving-Namespace": ns,
+					},
+				}, {
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: ns,
+						ServiceName:      "valhalla-01982",
+						ServicePort:      intstr.FromInt(80),
+					},
+					Percent: 68,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "valhalla-01982",
+						"Knative-Serving-Namespace": ns,
+					},
+				}},
+			}},
+		},
+		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+	}}
+	if got, want := ing.Spec.Rules, wantRules; !cmp.Equal(got, want) {
+		t.Errorf("Default ingress rules mismatch: diff(-want,+got)\n%s", cmp.Diff(want, got))
+	}
+}
+
+func TestMakeRouteTagIngress(t *testing.T) {
+	const ingressClass = "ng-ingress"
+	cfg := &traffic.Config{
+		Targets: map[string]traffic.RevisionTargets{
+			"hammer": {{
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: "thor",
+					LatestRevision:    ptr.Bool(true),
+					Percent:           ptr.Int64(80),
+					RevisionName:      "thor-02020",
+				},
+			}, {
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: "thor",
+					LatestRevision:    ptr.Bool(false),
+					Percent:           ptr.Int64(20),
+					RevisionName:      "thor-beta",
+				},
+			}},
+			traffic.DefaultTarget: {{
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: "rune",
+					LatestRevision:    ptr.Bool(true),
+					Percent:           ptr.Int64(1),
+					RevisionName:      "rune-01911",
+				},
+			}, {
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: "valhalla",
+					LatestRevision:    ptr.Bool(true),
+					Percent:           ptr.Int64(99),
+					RevisionName:      "valhalla-01982",
+				},
+			}},
+		},
+	}
+	r := Route(ns, "test-route", WithRouteAnnotation(map[string]string{
+		networking.IngressClassAnnotationKey: ingressClass,
+	}), WithRouteUID("1234-5678"), WithURL)
+
+	ing, err := MakeRouteTagIngress(testContext(), r, cfg, "hammer", nil /*tls*/, ingressClass)
+	if err != nil {
+		t.Fatal("Unexpected error", err)
+	}
+
+	// Check hammer tag ingress metadata.
+	// MakeRouteTagIngress uses tc.BuildRollout() internally, which produces a single-revision
+	// rollout for thor (thor-02020 at 80%) since BuildRollout only captures the current state.
+	wantHammerRollout := &traffic.Rollout{
+		Configurations: []*traffic.ConfigurationRollout{{
+			ConfigurationName: "thor",
+			Tag:               "hammer",
+			Percent:           80,
+			Revisions: []traffic.RevisionRollout{{
+				RevisionName: "thor-02020",
+				Percent:      80,
+			}},
+		}},
+	}
+	wantMeta := metav1.ObjectMeta{
+		Name:      "test-route-hammer",
+		Namespace: ns,
+		Labels: map[string]string{
+			serving.RouteLabelKey:          "test-route",
+			serving.RouteNamespaceLabelKey: ns,
+			networking.TagLabelKey:         "hammer",
+		},
+		Annotations: map[string]string{
+			networking.IngressClassAnnotationKey: ingressClass,
+			networking.RolloutAnnotationKey:      serializeRollout(context.Background(), wantHammerRollout),
+		},
+		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
+	}
+	if !cmp.Equal(wantMeta, ing.ObjectMeta) {
+		t.Error("Unexpected hammer ingress metadata (-want, +got):", cmp.Diff(wantMeta, ing.ObjectMeta))
+	}
+
+	// Check hammer tag ingress rules.
+	// Since BuildRollout produces only 1 revision for thor (len < 2), makeBaseIngressPath
+	// uses the target directly rather than rollout splits. So thor-02020 gets 80% and
+	// thor-beta gets 20% as simple splits (no multi-revision rollout expansion).
+	wantRules := []netv1alpha1.IngressRule{{
+		Hosts: []string{
+			"hammer-test-route." + ns,
+			"hammer-test-route." + ns + ".svc",
+			pkgnet.GetServiceHostname("hammer-test-route", ns),
+		},
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: ns,
+						ServiceName:      "thor-02020",
+						ServicePort:      intstr.FromInt(80),
+					},
+					Percent: 80,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "thor-02020",
+						"Knative-Serving-Namespace": ns,
+					},
+				}, {
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: ns,
+						ServiceName:      "thor-beta",
+						ServicePort:      intstr.FromInt(80),
+					},
+					Percent: 20,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "thor-beta",
+						"Knative-Serving-Namespace": ns,
+					},
+				}},
+			}},
+		},
+		Visibility: netv1alpha1.IngressVisibilityClusterLocal,
+	}, {
+		Hosts: []string{
+			"hammer-test-route." + ns + ".example.com",
+		},
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: ns,
+						ServiceName:      "thor-02020",
+						ServicePort:      intstr.FromInt(80),
+					},
+					Percent: 80,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "thor-02020",
+						"Knative-Serving-Namespace": ns,
+					},
+				}, {
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: ns,
+						ServiceName:      "thor-beta",
+						ServicePort:      intstr.FromInt(80),
+					},
+					Percent: 20,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "thor-beta",
+						"Knative-Serving-Namespace": ns,
+					},
+				}},
+			}},
+		},
+		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+	}}
+	if got, want := ing.Spec.Rules, wantRules; !cmp.Equal(got, want) {
+		t.Errorf("Hammer ingress rules mismatch: diff(-want,+got)\n%s", cmp.Diff(want, got))
+	}
+}
+
+func TestMakeRouteTagIngressRejectsDefaultTarget(t *testing.T) {
+	const ingressClass = "ng-ingress"
+	cfg := &traffic.Config{
+		Targets: map[string]traffic.RevisionTargets{
+			traffic.DefaultTarget: {{
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: "config",
+					RevisionName:      "v1",
+					Percent:           ptr.Int64(100),
+				},
+			}},
+		},
+	}
+	r := Route(ns, "test-route", WithRouteAnnotation(map[string]string{
+		networking.IngressClassAnnotationKey: ingressClass,
+	}), WithRouteUID("1234-5678"), WithURL)
+
+	_, err := MakeRouteTagIngress(testContext(), r, cfg, traffic.DefaultTarget, nil /*tls*/, ingressClass)
+	if err == nil {
+		t.Fatal("Expected error when calling MakeRouteTagIngress with DefaultTarget, got nil")
+	}
+	if !strings.Contains(err.Error(), "cannot create per-tag ingress for default target") {
+		t.Errorf("Unexpected error message: %v", err)
+	}
+}
+
+func TestMakeDefaultIngressWithRolloutMetadata(t *testing.T) {
+	const ingressClass = "ng-ingress"
+
+	cfg := &traffic.Config{
+		Targets: map[string]traffic.RevisionTargets{
+			"tagged": {{
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: "thor",
+					LatestRevision:    ptr.Bool(true),
+					Percent:           ptr.Int64(100),
+					RevisionName:      "thor-02020",
+				},
+			}},
+			traffic.DefaultTarget: {{
+				TrafficTarget: v1.TrafficTarget{
+					ConfigurationName: "valhalla",
+					LatestRevision:    ptr.Bool(true),
+					Percent:           ptr.Int64(100),
+					RevisionName:      "valhalla-01982",
+				},
+			}},
+		},
+	}
+	r := Route(ns, "test-route", WithRouteLabel(map[string]string{
+		serving.RouteLabelKey:          "try-to-override",
+		serving.RouteNamespaceLabelKey: "try-to-override",
+		"test-label":                   "foo",
+	}), WithRouteAnnotation(map[string]string{
+		networking.IngressClassAnnotationKey: ingressClass,
+		"test-annotation":                    "bar",
+	}), WithRouteUID("1234-5678"), WithURL)
+
+	// Use MakeIngress to derive the rollout (same as TestMakeIngressWithTaggedRollout)
+	ro := cfg.BuildRollout()
+
+	ing, err := MakeDefaultIngressWithRollout(testContext(), r, cfg, ro, nil, ingressClass)
+	if err != nil {
+		t.Fatal("Unexpected error", err)
+	}
+
+	wantMeta := metav1.ObjectMeta{
+		Name:      "test-route",
+		Namespace: ns,
+		Labels: map[string]string{
+			serving.RouteLabelKey:          "test-route",
+			serving.RouteNamespaceLabelKey: ns,
+			"test-label":                   "foo",
+			networking.TagLabelKey:         traffic.DefaultTarget,
+		},
+		Annotations: map[string]string{
+			networking.IngressClassAnnotationKey: ingressClass,
+			networking.RolloutAnnotationKey:      `{"configurations":[{"configurationName":"valhalla","percent":100,"revisions":[{"revisionName":"valhalla-01982","percent":100}],"stepParams":{}}]}`,
+			"test-annotation":                    "bar",
+		},
+		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
+	}
+	if !cmp.Equal(wantMeta, ing.ObjectMeta) {
+		t.Error("Unexpected default ingress metadata (-want, +got):", cmp.Diff(wantMeta, ing.ObjectMeta))
+	}
+}
+
 func TestIngressNoKubectlAnnotation(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
