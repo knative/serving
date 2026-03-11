@@ -70,6 +70,18 @@ func MakeIngress(
 		ctx, r, tc, tc.BuildRollout(), tls, ingressClass, acmeChallenges...)
 }
 
+// DesiredIngressNames returns the set of ingress names that should exist
+// for the given traffic configuration. Always includes the default ingress.
+func DesiredIngressNames(r kmeta.Accessor, tc *traffic.Config) sets.Set[string] {
+	result := sets.New(names.TaggedIngress(r, traffic.DefaultTarget))
+	for tag := range tc.Targets {
+		if tag != traffic.DefaultTarget {
+			result.Insert(names.TaggedIngress(r, tag))
+		}
+	}
+	return result
+}
+
 // MakeIngressWithRollout builds per-tag KIngress objects from the given parameters.
 // It creates an ingress for each traffic target (including the default target),
 // using the provided rollout to determine traffic splitting.
@@ -90,8 +102,9 @@ func MakeIngressWithRollout(
 	}
 	sort.Strings(tagNames)
 
-	// If there are no targets, still create a default ingress with empty rules
-	// to maintain backward compatibility.
+	// Ensure at least the default ingress is created even if tc.Targets is empty.
+	// The reconciler calls split functions directly, but MakeIngress callers
+	// (e.g., tests) may still rely on this behavior.
 	if len(tagNames) == 0 {
 		tagNames = []string{traffic.DefaultTarget}
 	}

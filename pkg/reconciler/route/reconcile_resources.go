@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -54,22 +55,17 @@ func (c *Reconciler) reconcileIngresses(
 ) ([]*netv1alpha1.Ingress, *traffic.Rollout, error) {
 	recorder := controller.GetEventRecorder(ctx)
 
-	// Build desired ingresses (without rollout) to determine names.
-	desired, err := resources.MakeIngress(ctx, r, tc, tls, ingressClass, acmeChallenges...)
-	if err != nil {
-		return nil, nil, err
-	}
+	// Determine desired ingress names without building full specs.
+	desiredNames := resources.DesiredIngressNames(r, tc)
 
 	// Collect previous rollouts from existing per-tag ingresses and check readiness.
-	desiredNames := sets.New[string]()
 	prevRO := &traffic.Rollout{}
 	existingIngresses := map[string]*netv1alpha1.Ingress{}
 	allExistingReady := true
 	hasExisting := false
 
-	for _, d := range desired {
-		desiredNames.Insert(d.Name)
-		existing, err := c.ingressLister.Ingresses(r.Namespace).Get(d.Name)
+	for name := range desiredNames {
+		existing, err := c.ingressLister.Ingresses(r.Namespace).Get(name)
 		if apierrs.IsNotFound(err) {
 			allExistingReady = false
 			continue
@@ -77,7 +73,7 @@ func (c *Reconciler) reconcileIngresses(
 			return nil, nil, err
 		}
 		hasExisting = true
-		existingIngresses[d.Name] = existing
+		existingIngresses[name] = existing
 
 		tagRO := deserializeRollout(ctx, existing.Annotations[networking.RolloutAnnotationKey])
 		if tagRO != nil {
@@ -97,10 +93,32 @@ func (c *Reconciler) reconcileIngresses(
 		effectiveRO = c.reconcileRolloutFromIngresses(ctx, r, tc, prevRO, allExistingReady)
 	}
 
-	// Rebuild desired with the effective rollout.
-	desired, err = resources.MakeIngressWithRollout(ctx, r, tc, effectiveRO, tls, ingressClass, acmeChallenges...)
+	// Rebuild desired ingresses with the effective rollout.
+	defaultIng, err := resources.MakeDefaultIngressWithRollout(ctx, r, tc, effectiveRO, tls, ingressClass, acmeChallenges...)
 	if err != nil {
 		return nil, nil, err
+	}
+	desired := []*netv1alpha1.Ingress{defaultIng}
+
+	// Sort non-default tag names for deterministic ordering.
+	var tagNames []string
+	for tag := range tc.Targets {
+		if tag != traffic.DefaultTarget {
+			tagNames = append(tagNames, tag)
+		}
+	}
+	sort.Strings(tagNames)
+
+	// Per-tag ingresses use tc.BuildRollout() internally (not effectiveRO) because
+	// rollout progression (gradual traffic shifting) is a default ingress concern.
+	// Per-tag ingresses provide direct routing to specific tags and their rollout
+	// annotations contain only that tag's ConfigurationRollout baseline state.
+	for _, tag := range tagNames {
+		tagIng, err := resources.MakeRouteTagIngress(ctx, r, tc, tag, tls, ingressClass, acmeChallenges...)
+		if err != nil {
+			return nil, nil, err
+		}
+		desired = append(desired, tagIng)
 	}
 
 	// Create or update each desired per-tag ingress.

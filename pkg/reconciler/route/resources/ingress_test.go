@@ -2086,6 +2086,44 @@ func TestMakeIngressFailToGenerateTagHost(t *testing.T) {
 	}
 }
 
+func TestDesiredIngressNames(t *testing.T) {
+	r := Route(ns, testRouteName)
+
+	tests := []struct {
+		name     string
+		targets  map[string]traffic.RevisionTargets
+		expected sets.Set[string]
+	}{{
+		name: "default and named tags",
+		targets: map[string]traffic.RevisionTargets{
+			traffic.DefaultTarget: {},
+			"canary":              {},
+			"blue":                {},
+		},
+		expected: sets.New(testRouteName, testRouteName+"-canary", testRouteName+"-blue"),
+	}, {
+		name:     "empty targets",
+		targets:  map[string]traffic.RevisionTargets{},
+		expected: sets.New(testRouteName),
+	}, {
+		name: "default target only",
+		targets: map[string]traffic.RevisionTargets{
+			traffic.DefaultTarget: {},
+		},
+		expected: sets.New(testRouteName),
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := &traffic.Config{Targets: tt.targets}
+			got := DesiredIngressNames(r, tc)
+			if !got.Equal(tt.expected) {
+				t.Errorf("DesiredIngressNames() = %v, want %v", sets.List(got), sets.List(tt.expected))
+			}
+		})
+	}
+}
+
 func testContext() context.Context {
 	ctx := context.Background()
 	cfg := testConfig()
