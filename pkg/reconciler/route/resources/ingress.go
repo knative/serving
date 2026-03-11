@@ -57,6 +57,9 @@ func MakeIngressTLS(cert *netv1alpha1.Certificate, hostNames []string) netv1alph
 // MakeIngress creates per-tag Ingress resources to set up routing rules.
 // Each returned Ingress specifies the Hosts it applies to and the routing
 // rules for a single traffic tag.
+//
+// The provided traffic.Config's Targets map must contain the default target
+// (traffic.DefaultTarget), as this is essential for routing configuration.
 func MakeIngress(
 	ctx context.Context,
 	r *servingv1.Route,
@@ -86,6 +89,9 @@ func DesiredIngressNames(r kmeta.Accessor, tc *traffic.Config) sets.Set[string] 
 // It creates an ingress for each traffic target (including the default target),
 // using the provided rollout to determine traffic splitting.
 // Internally delegates to buildTagIngress for each tag.
+//
+// The provided traffic.Config's Targets map must contain the default target
+// (traffic.DefaultTarget), as this is essential for routing configuration.
 func MakeIngressWithRollout(
 	ctx context.Context,
 	r *servingv1.Route,
@@ -101,13 +107,6 @@ func MakeIngressWithRollout(
 		tagNames = append(tagNames, name)
 	}
 	sort.Strings(tagNames)
-
-	// Ensure at least the default ingress is created even if tc.Targets is empty.
-	// The reconciler calls split functions directly, but MakeIngress callers
-	// (e.g., tests) may still rely on this behavior.
-	if len(tagNames) == 0 {
-		tagNames = []string{traffic.DefaultTarget}
-	}
 
 	featuresConfig := config.FromContextOrDefaults(ctx).Features
 	networkConfig := config.FromContextOrDefaults(ctx).Network

@@ -230,7 +230,7 @@ func TestReconcile(t *testing.T) {
 						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
 					}),
-				WithPropagatedStatus(simpleIngress(Route("default", "ingress-failed"), &traffic.Config{},
+				WithPropagatedStatus(simpleIngress(Route("default", "ingress-failed"), emptyTrafficConfig(),
 					WithLoadbalancerFailed("TestFailure", "failure")).Status),
 			),
 		}},
@@ -3457,7 +3457,7 @@ func simplePlaceholderK8sService(ctx context.Context, r *v1.Route, targetName st
 }
 
 func simpleK8sService(r *v1.Route, so ...K8sServiceOption) *corev1.Service {
-	return k8sServiceWithIngress(r, simpleIngress(r, &traffic.Config{}, withReadyIngress), so...)
+	return k8sServiceWithIngress(r, simpleIngress(r, emptyTrafficConfig(), withReadyIngress), so...)
 }
 
 func k8sServiceWithIngress(r *v1.Route, ing *netv1alpha1.Ingress, so ...K8sServiceOption) *corev1.Service {
@@ -3489,6 +3489,14 @@ func k8sEndpointsWithIngress(r *v1.Route, ing *netv1alpha1.Ingress) *corev1.Endp
 	pair, _ := resources.MakeK8sService(ctx, r, "" /*targetName*/, ing, false /* is private */)
 
 	return pair.Endpoints
+}
+
+func emptyTrafficConfig() *traffic.Config {
+	return &traffic.Config{
+		Targets: map[string]traffic.RevisionTargets{
+			traffic.DefaultTarget: {},
+		},
+	}
 }
 
 func simpleIngress(r *v1.Route, tc *traffic.Config, io ...IngressOption) *netv1alpha1.Ingress {
