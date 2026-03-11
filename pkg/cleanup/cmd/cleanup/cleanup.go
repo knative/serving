@@ -30,6 +30,7 @@ import (
 	"knative.dev/pkg/environment"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
+	autoscalerbucket "knative.dev/serving/pkg/autoscaler/bucket"
 )
 
 const (
@@ -106,6 +107,21 @@ func main() {
 	if err = client.RbacV1().ClusterRoles().Delete(context.Background(), "knative-serving-certmanager", metav1.DeleteOptions{}); err != nil && !apierrs.IsNotFound(err) {
 		logger.Fatal("failed to delete clusterrole knative-serving-certmanager: ", err)
 	}
+
+	epList, err := client.CoreV1().Endpoints(system.Namespace()).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		logger.Fatal("failed to fetch endpoints: ", err)
+	}
+
+	for _, eps := range epList.Items {
+		if strings.HasPrefix(eps.GetName(), autoscalerbucket.BucketPrefix) {
+			err := client.CoreV1().Endpoints(system.Namespace()).Delete(context.Background(), eps.GetName(), metav1.DeleteOptions{})
+			if err != nil && !apierrs.IsNotFound(err) {
+				logger.Fatal("failed to delete autoscaler endpoints: ", err)
+			}
+		}
+	}
+
 	logger.Info("Old Serving resource deletion completed successfully")
 }
 
