@@ -103,11 +103,11 @@ func waitForEndpointsState(
 		})
 }
 
-func readyEndpointsDoNotContain(ip string) func(*discoveryv1.EndpointSliceList) (bool, error) {
-	return func(list *discoveryv1.EndpointSliceList) (bool, error) {
+func readyEndpointsDoNotContain(ip string) func([]discoveryv1.EndpointSlice) (bool, error) {
+	return func(epSlices []discoveryv1.EndpointSlice) (bool, error) {
 		contains := false
-		for _, item := range list.Items {
-			for _, eps := range item.Endpoints {
+		for _, slice := range epSlices {
+			for _, eps := range slice.Endpoints {
 				if eps.Conditions.Ready == nil || *eps.Conditions.Ready {
 					contains = contains || slices.Contains(eps.Addresses, ip)
 				}
