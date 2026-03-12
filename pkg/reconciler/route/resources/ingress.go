@@ -56,9 +56,8 @@ func MakeIngressTLS(cert *netv1alpha1.Certificate, hostNames []string) netv1alph
 	}
 }
 
-// MakeIngress creates per-tag Ingress resources to set up routing rules.
-// Each returned Ingress specifies the Hosts it applies to and the routing
-// rules for a single traffic tag.
+// MakeIngress creates the desired per-tag Ingress resources for the Route,
+// deriving the rollout from the current traffic configuration.
 //
 // The provided traffic.Config's Targets map must contain the default target
 // (traffic.DefaultTarget), as this is essential for routing configuration.
@@ -70,9 +69,7 @@ func MakeIngress(
 	ingressClass string,
 	acmeChallenges ...netv1alpha1.HTTP01Challenge,
 ) ([]*netv1alpha1.Ingress, error) {
-	return MakeIngressWithRollout(
-		// If no rollout is specified, we just build the default one.
-		ctx, r, tc, tc.BuildRollout(), tls, ingressClass, acmeChallenges...)
+	return makeIngresses(ctx, r, tc, tc.BuildRollout(), tls, ingressClass, acmeChallenges...)
 }
 
 // DesiredIngressNames returns the set of ingress names that should exist
@@ -87,14 +84,9 @@ func DesiredIngressNames(r kmeta.Accessor, tc *traffic.Config) sets.Set[string] 
 	return result
 }
 
-// MakeIngressWithRollout builds per-tag KIngress objects from the given parameters.
-// It creates an ingress for each traffic target (including the default target),
-// using the provided rollout to determine traffic splitting.
-// Internally delegates to buildTagIngress for each tag.
-//
-// The provided traffic.Config's Targets map must contain the default target
-// (traffic.DefaultTarget), as this is essential for routing configuration.
-func MakeIngressWithRollout(
+// makeIngresses builds the full set of per-tag KIngress objects from the given
+// parameters using the provided rollout.
+func makeIngresses(
 	ctx context.Context,
 	r *servingv1.Route,
 	tc *traffic.Config,
@@ -163,8 +155,7 @@ func MakeDefaultIngressWithRollout(
 // Tag ingresses handle routing for named traffic targets (e.g., "canary", "latest").
 // Rollout configuration is derived internally via tc.BuildRollout();
 // gradual rollout (multi-step traffic shifting) is primarily a concern of the
-// default ingress. For orchestrated creation with an explicit effective rollout,
-// use MakeIngressWithRollout instead.
+// default ingress.
 func MakeRouteTagIngress(
 	ctx context.Context,
 	r *servingv1.Route,

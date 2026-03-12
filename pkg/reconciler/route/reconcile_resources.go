@@ -70,7 +70,7 @@ func (c *Reconciler) reconcileIngresses(
 			allExistingReady = false
 			continue
 		} else if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("failed to get Ingress %q: %w", name, err)
 		}
 		hasExisting = true
 		existingIngresses[name] = existing
@@ -129,7 +129,7 @@ func (c *Reconciler) reconcileIngresses(
 				recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress: %v", err)
 				return nil, nil, fmt.Errorf("failed to create Ingress: %w", err)
 			}
-			recorder.Eventf(r, corev1.EventTypeNormal, "Created", "Created Ingress %q", created.GetName())
+			recorder.Eventf(r, corev1.EventTypeNormal, "Created", "Created Ingress %q (tag: %s)", created.GetName(), ingressTagForEvent(d.Labels))
 			result = append(result, created)
 		} else {
 			if !equality.Semantic.DeepEqual(existing.Spec, d.Spec) ||
@@ -181,7 +181,7 @@ func (c *Reconciler) deleteOrphanedIngresses(ctx context.Context, r *v1.Route, d
 				"Failed to delete orphaned Ingress %q: %v", ing.Name, err)
 			return fmt.Errorf("failed to delete orphaned Ingress: %w", err)
 		}
-		recorder.Eventf(r, corev1.EventTypeNormal, "Deleted", "Deleted orphaned Ingress %q", ing.Name)
+		recorder.Eventf(r, corev1.EventTypeNormal, "Deleted", "Deleted orphaned Ingress %q (tag: %s)", ing.Name, ingressTagForEvent(ing.Labels))
 	}
 	return nil
 }
@@ -254,10 +254,10 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 					"Failed to create placeholder service %q: %v", desiredService.Name, err)
 				return nil, fmt.Errorf("failed to create placeholder service: %w", err)
 			}
-			logger.Info("Created service ", desiredService.Name)
+			logger.Infof("Created service %q", desiredService.Name)
 			recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created placeholder service %q", desiredService.Name)
 		} else if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get Service %q: %w", desiredService.Name, err)
 		} else if !metav1.IsControlledBy(service, route) {
 			// Surface an error in the route's status, and return an error.
 			route.Status.MarkServiceNotOwned(desiredService.Name)
@@ -415,6 +415,13 @@ func deserializeRollout(ctx context.Context, ro string) *traffic.Rollout {
 		return nil
 	}
 	return r
+}
+
+func ingressTagForEvent(labels map[string]string) string {
+	if tag := labels[networking.TagLabelKey]; tag != traffic.DefaultTarget {
+		return tag
+	}
+	return "default"
 }
 
 func (c *Reconciler) reconcileRolloutFromIngresses(

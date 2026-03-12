@@ -67,6 +67,13 @@ const testIngressClass = "ingress-class-foo"
 
 var fakeCurTime = time.Unix(1e9, 0)
 
+func createdIngressEvent(name, tag string) string {
+	if tag == traffic.DefaultTarget {
+		tag = "default"
+	}
+	return Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q (tag: %s)", name, tag)
+}
+
 type key int
 
 const (
@@ -187,7 +194,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
+			createdIngressEvent("becomes-ready", traffic.DefaultTarget),
 		},
 		Key: "default/becomes-ready",
 	}, {
@@ -283,7 +290,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
+			createdIngressEvent("becomes-ready", traffic.DefaultTarget),
 		},
 		Key: "default/becomes-ready",
 	}, {
@@ -340,7 +347,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
+			createdIngressEvent("becomes-ready", traffic.DefaultTarget),
 		},
 		Key: "default/becomes-ready",
 	}, {
@@ -1657,7 +1664,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "named-traffic-split"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "named-traffic-split"),
+			createdIngressEvent("named-traffic-split", traffic.DefaultTarget),
 		},
 		Key: "default/named-traffic-split",
 	}, {
@@ -1807,9 +1814,9 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "same-revision-targets"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "also-gray-same-revision-targets"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "gray-same-revision-targets"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "same-revision-targets"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "same-revision-targets-also-gray"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "same-revision-targets-gray"),
+			createdIngressEvent("same-revision-targets", traffic.DefaultTarget),
+			createdIngressEvent("same-revision-targets-also-gray", "also-gray"),
+			createdIngressEvent("same-revision-targets-gray", "gray"),
 		},
 		Key: "default/same-revision-targets",
 	}, {
@@ -2397,7 +2404,7 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
+			createdIngressEvent("becomes-ready", traffic.DefaultTarget),
 		},
 		Key: "default/becomes-ready",
 	}, {
@@ -2449,7 +2456,7 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Certificate %s/%s", "default", "route-12-34"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
+			createdIngressEvent("becomes-ready", traffic.DefaultTarget),
 		},
 		Key: "default/becomes-ready",
 	}, {
@@ -2506,7 +2513,7 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
+			createdIngressEvent("becomes-ready", traffic.DefaultTarget),
 		},
 		Key: "default/becomes-ready",
 	}, {
@@ -2588,7 +2595,7 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Certificate %s/%s", "default", "route-12-34"),
 			Eventf(corev1.EventTypeNormal, "Deleted", "Deleted orphaned Knative Certificate %s/%s", "default", "route-12-34"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
+			createdIngressEvent("becomes-ready", traffic.DefaultTarget),
 		},
 		WantDeletes: []clientgotesting.DeleteActionImpl{{
 			// This certificate's DNS name is not the host name needed by the input Route.
@@ -2718,7 +2725,7 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Certificate %s/%s", "default", "route-12-34"),
 			Eventf(corev1.EventTypeNormal, "Deleted", "Deleted orphaned Knative Certificate %s/%s", "default", "route-12-34-unused"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
+			createdIngressEvent("becomes-ready", traffic.DefaultTarget),
 		},
 		WantDeletes: []clientgotesting.DeleteActionImpl{{
 			// This certificate's DNS name is not the host name needed by the input Route.
@@ -2823,7 +2830,7 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
+			createdIngressEvent("becomes-ready", traffic.DefaultTarget),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
@@ -3117,7 +3124,7 @@ func TestReconcileEnableExternalDomainTLS(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Certificate %s/%s", "default", "route-12-34"),
 			Eventf(corev1.EventTypeNormal, "Deleted", "Deleted orphaned Knative Certificate %s/%s", "default", "route-12-34"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
+			createdIngressEvent("becomes-ready", traffic.DefaultTarget),
 		},
 		WantDeletes: []clientgotesting.DeleteActionImpl{{
 			// This certificate's DNS name is not the host name needed by the input Route.
@@ -3534,11 +3541,9 @@ func ingressesWithTLS(r *v1.Route, tc *traffic.Config, tls []netv1alpha1.Ingress
 	return result
 }
 
-// ingressWithRollout returns the default-tag ingress from MakeIngressWithRollout.
-// For multi-tag scenarios, use ingressesWithRollout instead.
+// ingressWithRollout returns the default-tag ingress with the provided rollout.
 func ingressWithRollout(r *v1.Route, tc *traffic.Config, ro *traffic.Rollout, io ...IngressOption) *netv1alpha1.Ingress {
-	ingresses, _ := resources.MakeIngressWithRollout(getContext(), r, tc, ro, nil /*tls*/, testIngressClass)
-	ingress := ingresses[0]
+	ingress, _ := resources.MakeDefaultIngressWithRollout(getContext(), r, tc, ro, nil /*tls*/, testIngressClass)
 	for _, opt := range io {
 		opt(ingress)
 	}

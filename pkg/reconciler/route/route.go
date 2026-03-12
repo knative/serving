@@ -180,6 +180,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 	} else if !roInProgress {
 		// Propagate status: all ingresses must be ready for the route to be ready.
 		// Use the first non-ready ingress status, or the first ingress if all ready.
+		// Note: ingresses is guaranteed non-empty because DesiredIngressNames
+		// always includes the default ingress.
 		propagated := false
 		for _, ing := range ingresses {
 			if !ing.IsReady() {

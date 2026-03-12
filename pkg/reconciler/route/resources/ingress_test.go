@@ -274,7 +274,7 @@ func TestMakeIngressWithActualRollout(t *testing.T) {
 		networking.IngressClassAnnotationKey: ingressClass,
 	}), WithRouteUID("1234-5678"), WithURL)
 
-	ingresses, err := MakeIngressWithRollout(testContext(), r, cfg, ro, nil /*tls*/, ingressClass)
+	ingresses, err := makeIngresses(testContext(), r, cfg, ro, nil /*tls*/, ingressClass)
 	if err != nil {
 		t.Error("Unexpected error", err)
 	}
