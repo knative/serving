@@ -102,16 +102,12 @@ func MakeIngressWithRollout(
 	acmeChallenges ...netv1alpha1.HTTP01Challenge,
 ) ([]*netv1alpha1.Ingress, error) {
 	// Get sorted tag names for deterministic ordering.
-	tagNames := make([]string, 0, len(tc.Targets))
-	for name := range tc.Targets {
-		tagNames = append(tagNames, name)
-	}
-	sort.Strings(tagNames)
+	tagNames := slices.Sort(maps.Keys(tc.Targets))
 
 	featuresConfig := config.FromContextOrDefaults(ctx).Features
 	networkConfig := config.FromContextOrDefaults(ctx).Network
 
-	httpOption, err := servingnetworking.GetHTTPOption(ctx, config.FromContext(ctx).Network, r.GetAnnotations())
+	httpOption, err := servingnetworking.GetHTTPOption(ctx, networkConfig, r.GetAnnotations())
 	if err != nil {
 		return nil, err
 	}
