@@ -146,17 +146,10 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 				t.Fatal("Rollout was bogus and impossible to deserialize")
 			}
 
-			// Per-tag ingress annotation only has default tag entries,
-			// so filter the returned rollout to compare.
-			defaultOnlyRO := &traffic.Rollout{}
-			for _, cfg := range updRO.Configurations {
-				if cfg.Tag == "" {
-					defaultOnlyRO.Configurations = append(defaultOnlyRO.Configurations, cfg)
-				}
-			}
+			// Default ingress annotation now stores the full rollout (all tags).
 			// Verify the same rollout was returned by the ReconcileResources.
-			if !cmp.Equal(ro, defaultOnlyRO) {
-				t.Errorf("Returned and Annotation Rollouts differ: diff(-ret,+ann):\n%s", cmp.Diff(defaultOnlyRO, ro))
+			if !cmp.Equal(ro, updRO) {
+				t.Errorf("Returned and Annotation Rollouts differ: diff(-ret,+ann):\n%s", cmp.Diff(updRO, ro))
 			}
 
 			// After sorting `odin` will come first.
@@ -213,18 +206,11 @@ func TestReconcileIngressUpdateReenqueueRollout(t *testing.T) {
 				t.Errorf("StepDuration = %d, want: %d", got, want)
 			}
 
-			// Per-tag ingress annotation only has default tag entries,
-			// so filter the returned rollout to compare.
-			defaultOnlyRO = &traffic.Rollout{}
-			for _, cfg := range updRO.Configurations {
-				if cfg.Tag == "" {
-					defaultOnlyRO.Configurations = append(defaultOnlyRO.Configurations, cfg)
-				}
-			}
+			// Default ingress annotation now stores the full rollout (all tags).
 			// Verify the same rollout was returned by the ReconcileResources.
-			if !cmp.Equal(ro, defaultOnlyRO) {
+			if !cmp.Equal(ro, updRO) {
 				t.Errorf("Returned and Annotation Rollouts after re-enqueue differ: diff(-ret,+ann):\n%s",
-					cmp.Diff(defaultOnlyRO, ro))
+					cmp.Diff(updRO, ro))
 			}
 
 			if got, want := ro.Configurations[0].StepParams.StepSize, int(stepSize); got != want {
@@ -327,17 +313,10 @@ func TestReconcileIngressUpdateReenqueueRolloutAnnotation(t *testing.T) {
 				t.Fatal("Rollout was bogus and impossible to deserialize")
 			}
 
-			// Per-tag ingress annotation only has default tag entries,
-			// so filter the returned rollout to compare.
-			defaultOnlyRO := &traffic.Rollout{}
-			for _, cfg := range updRO.Configurations {
-				if cfg.Tag == "" {
-					defaultOnlyRO.Configurations = append(defaultOnlyRO.Configurations, cfg)
-				}
-			}
+			// Default ingress annotation now stores the full rollout (all tags).
 			// Verify the same rollout was returned by the ReconcileResources.
-			if !cmp.Equal(ro, defaultOnlyRO) {
-				t.Errorf("Returned and Annotation Rollouts differ: diff(-ret,+ann):\n%s", cmp.Diff(defaultOnlyRO, ro))
+			if !cmp.Equal(ro, updRO) {
+				t.Errorf("Returned and Annotation Rollouts differ: diff(-ret,+ann):\n%s", cmp.Diff(updRO, ro))
 			}
 
 			// After sorting `odin` will come first.
@@ -394,18 +373,11 @@ func TestReconcileIngressUpdateReenqueueRolloutAnnotation(t *testing.T) {
 				t.Errorf("StepDuration = %d, want: %d", got, want)
 			}
 
-			// Per-tag ingress annotation only has default tag entries,
-			// so filter the returned rollout to compare.
-			defaultOnlyRO = &traffic.Rollout{}
-			for _, cfg := range updRO.Configurations {
-				if cfg.Tag == "" {
-					defaultOnlyRO.Configurations = append(defaultOnlyRO.Configurations, cfg)
-				}
-			}
+			// Default ingress annotation now stores the full rollout (all tags).
 			// Verify the same rollout was returned by the ReconcileResources.
-			if !cmp.Equal(ro, defaultOnlyRO) {
+			if !cmp.Equal(ro, updRO) {
 				t.Errorf("Returned and Annotation Rollouts after re-enqueue differ: diff(-ret,+ann):\n%s",
-					cmp.Diff(defaultOnlyRO, ro))
+					cmp.Diff(updRO, ro))
 			}
 
 			if got, want := ro.Configurations[0].StepParams.StepSize, int(stepSize); got != want {
@@ -558,18 +530,9 @@ func TestReconcileIngressRolloutDeserializeFail(t *testing.T) {
 				t.Fatal("Could not get the ingress:", err)
 			}
 			// In all cases we want to ignore the previous one, since it's bogus.
-			// Per-tag ingresses only contain their own tag's rollout entries.
-			// Since we're checking the default tag ingress, filter to tag == "".
+			// Default ingress annotation now stores the full rollout (all tags).
 			want := func() string {
 				ro := traffic.BuildRollout()
-				n := 0
-				for i := range ro.Configurations {
-					if ro.Configurations[i].Tag == "" {
-						ro.Configurations[n] = ro.Configurations[i]
-						n++
-					}
-				}
-				ro.Configurations = ro.Configurations[:n]
 				d, _ := json.Marshal(ro)
 				return string(d)
 			}()

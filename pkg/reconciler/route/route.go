@@ -188,20 +188,13 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconcil
 				break
 			}
 		}
-		if !propagated && len(ingresses) > 0 {
+		if !propagated {
 			r.Status.PropagateIngressStatus(ingresses[0].Status)
 		}
 	}
 
-	// Build ingress-by-tag map for placeholder service updates.
-	ingressByTag := make(map[string]*netv1alpha1.Ingress, len(ingresses))
-	for _, ing := range ingresses {
-		tag := ing.Labels[networking.TagLabelKey]
-		ingressByTag[tag] = ing
-	}
-
 	logger.Info("Updating placeholder k8s services with ingress information")
-	if err := c.updatePlaceholderServices(ctx, r, services, ingressByTag); err != nil {
+	if err := c.updatePlaceholderServices(ctx, r, services, ingresses); err != nil {
 		return err
 	}
 

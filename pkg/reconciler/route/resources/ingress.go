@@ -20,6 +20,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
+	"slices"
 	"sort"
 
 	"github.com/davecgh/go-spew/spew"
@@ -102,7 +104,7 @@ func MakeIngressWithRollout(
 	acmeChallenges ...netv1alpha1.HTTP01Challenge,
 ) ([]*netv1alpha1.Ingress, error) {
 	// Get sorted tag names for deterministic ordering.
-	tagNames := slices.Sort(maps.Keys(tc.Targets))
+	tagNames := slices.Sorted(maps.Keys(tc.Targets))
 
 	featuresConfig := config.FromContextOrDefaults(ctx).Features
 	networkConfig := config.FromContextOrDefaults(ctx).Network
@@ -210,8 +212,6 @@ func buildTagIngress(
 		return nil, err
 	}
 
-	tagRollout := rolloutForTag(ro, tagName)
-
 	labels := map[string]string{
 		serving.RouteLabelKey:          r.Name,
 		serving.RouteNamespaceLabelKey: r.Namespace,
@@ -220,15 +220,21 @@ func buildTagIngress(
 		labels[networking.TagLabelKey] = tagName
 	}
 
+	// Rollout annotation is only set on the default ingress, as rollout state
+	// (gradual traffic shifting) is a concern of the default ingress only.
+	baseAnnotations := map[string]string{
+		networking.IngressClassAnnotationKey: ingressClass,
+	}
+	if tagName == traffic.DefaultTarget {
+		baseAnnotations[networking.RolloutAnnotationKey] = serializeRollout(ctx, ro)
+	}
+
 	return &netv1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.TaggedIngress(r, tagName),
-			Namespace: r.Namespace,
-			Labels:    kmeta.UnionMaps(r.Labels, labels),
-			Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
-				networking.IngressClassAnnotationKey: ingressClass,
-				networking.RolloutAnnotationKey:      serializeRollout(ctx, tagRollout),
-			}, r.GetAnnotations()), ExcludedAnnotations.Has),
+			Name:            names.TaggedIngress(r, tagName),
+			Namespace:       r.Namespace,
+			Labels:          kmeta.UnionMaps(r.Labels, labels),
+			Annotations:     kmeta.FilterMap(kmeta.UnionMaps(baseAnnotations, r.GetAnnotations()), ExcludedAnnotations.Has),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 		},
 		Spec: spec,
@@ -244,17 +250,6 @@ func buildACMEPathsByHost(acmeChallenges []netv1alpha1.HTTP01Challenge) map[stri
 		acmePathsByHost[host] = append(acmePathsByHost[host], acmePath)
 	}
 	return acmePathsByHost
-}
-
-// rolloutForTag returns a Rollout containing only the configurations for the given tag.
-func rolloutForTag(ro *traffic.Rollout, tagName string) *traffic.Rollout {
-	tagRollout := &traffic.Rollout{}
-	for _, cfg := range ro.Configurations {
-		if cfg.Tag == tagName {
-			tagRollout.Configurations = append(tagRollout.Configurations, cfg)
-		}
-	}
-	return tagRollout
 }
 
 func serializeRollout(ctx context.Context, r *traffic.Rollout) string {

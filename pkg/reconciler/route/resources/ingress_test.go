@@ -164,7 +164,7 @@ func TestMakeIngressWithTaggedRollout(t *testing.T) {
 		},
 		Annotations: map[string]string{
 			networking.IngressClassAnnotationKey: ingressClass,
-			networking.RolloutAnnotationKey:      `{"configurations":[{"configurationName":"valhalla","percent":100,"revisions":[{"revisionName":"valhalla-01982","percent":100}],"stepParams":{}}]}`,
+			networking.RolloutAnnotationKey:      `{"configurations":[{"configurationName":"valhalla","percent":100,"revisions":[{"revisionName":"valhalla-01982","percent":100}],"stepParams":{}},{"configurationName":"thor","tag":"tagged","percent":100,"revisions":[{"revisionName":"thor-02020","percent":100}],"stepParams":{}}]}`,
 			"test-annotation":                    "bar",
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
@@ -184,7 +184,6 @@ func TestMakeIngressWithTaggedRollout(t *testing.T) {
 		},
 		Annotations: map[string]string{
 			networking.IngressClassAnnotationKey: ingressClass,
-			networking.RolloutAnnotationKey:      `{"configurations":[{"configurationName":"thor","tag":"tagged","percent":100,"revisions":[{"revisionName":"thor-02020","percent":100}],"stepParams":{}}]}`,
 			"test-annotation":                    "bar",
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
@@ -289,6 +288,7 @@ func TestMakeIngressWithActualRollout(t *testing.T) {
 	hammerIng := ingresses[1]
 
 	// Check default ingress metadata
+	// Default ingress now includes full rollout (all configurations including tagged ones).
 	wantDefaultMeta := metav1.ObjectMeta{
 		Name:      "test-route",
 		Namespace: ns,
@@ -298,13 +298,7 @@ func TestMakeIngressWithActualRollout(t *testing.T) {
 		},
 		Annotations: map[string]string{
 			networking.IngressClassAnnotationKey: ingressClass,
-			networking.RolloutAnnotationKey: serializeRollout(context.Background(), &traffic.Rollout{
-				Configurations: []*traffic.ConfigurationRollout{
-					ro.Configurations[0], // rune
-					ro.Configurations[1], // valhalla
-					ro.Configurations[2], // rune (second entry)
-				},
-			}),
+			networking.RolloutAnnotationKey:      serializeRollout(context.Background(), ro),
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 	}
@@ -608,6 +602,7 @@ func TestMakeDefaultIngressWithRollout(t *testing.T) {
 	}
 
 	// Check default ingress metadata
+	// Default ingress now includes full rollout (all configurations including tagged ones).
 	wantMeta := metav1.ObjectMeta{
 		Name:      "test-route",
 		Namespace: ns,
@@ -617,13 +612,7 @@ func TestMakeDefaultIngressWithRollout(t *testing.T) {
 		},
 		Annotations: map[string]string{
 			networking.IngressClassAnnotationKey: ingressClass,
-			networking.RolloutAnnotationKey: serializeRollout(context.Background(), &traffic.Rollout{
-				Configurations: []*traffic.ConfigurationRollout{
-					ro.Configurations[0], // rune
-					ro.Configurations[1], // valhalla
-					ro.Configurations[2], // rune (second entry)
-				},
-			}),
+			networking.RolloutAnnotationKey:      serializeRollout(context.Background(), ro),
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 	}
@@ -772,19 +761,8 @@ func TestMakeRouteTagIngress(t *testing.T) {
 	}
 
 	// Check hammer tag ingress metadata.
-	// MakeRouteTagIngress uses tc.BuildRollout() internally, which produces a single-revision
-	// rollout for thor (thor-02020 at 80%) since BuildRollout only captures the current state.
-	wantHammerRollout := &traffic.Rollout{
-		Configurations: []*traffic.ConfigurationRollout{{
-			ConfigurationName: "thor",
-			Tag:               "hammer",
-			Percent:           80,
-			Revisions: []traffic.RevisionRollout{{
-				RevisionName: "thor-02020",
-				Percent:      80,
-			}},
-		}},
-	}
+	// Tag ingresses no longer carry rollout annotations; rollout state is only
+	// stored on the default ingress.
 	wantMeta := metav1.ObjectMeta{
 		Name:      "test-route-hammer",
 		Namespace: ns,
@@ -795,7 +773,6 @@ func TestMakeRouteTagIngress(t *testing.T) {
 		},
 		Annotations: map[string]string{
 			networking.IngressClassAnnotationKey: ingressClass,
-			networking.RolloutAnnotationKey:      serializeRollout(context.Background(), wantHammerRollout),
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 	}
@@ -955,7 +932,7 @@ func TestMakeDefaultIngressWithRolloutMetadata(t *testing.T) {
 		},
 		Annotations: map[string]string{
 			networking.IngressClassAnnotationKey: ingressClass,
-			networking.RolloutAnnotationKey:      `{"configurations":[{"configurationName":"valhalla","percent":100,"revisions":[{"revisionName":"valhalla-01982","percent":100}],"stepParams":{}}]}`,
+			networking.RolloutAnnotationKey:      serializeRollout(context.Background(), ro),
 			"test-annotation":                    "bar",
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},

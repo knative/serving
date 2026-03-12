@@ -44,6 +44,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
+	resourcenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 )
 
@@ -55,11 +56,10 @@ func (c *Reconciler) reconcileIngresses(
 ) ([]*netv1alpha1.Ingress, *traffic.Rollout, error) {
 	recorder := controller.GetEventRecorder(ctx)
 
-	// Determine desired ingress names without building full specs.
+	// Phase 1: Build the default ingress with rollout.
 	desiredNames := resources.DesiredIngressNames(r, tc)
 
-	// Collect previous rollouts from existing per-tag ingresses and check readiness.
-	prevRO := &traffic.Rollout{}
+	// Collect existing ingresses and check readiness.
 	existingIngresses := map[string]*netv1alpha1.Ingress{}
 	allExistingReady := true
 	hasExisting := false
@@ -74,15 +74,17 @@ func (c *Reconciler) reconcileIngresses(
 		}
 		hasExisting = true
 		existingIngresses[name] = existing
-
-		tagRO := deserializeRollout(ctx, existing.Annotations[networking.RolloutAnnotationKey])
-		if tagRO != nil {
-			prevRO.Configurations = append(prevRO.Configurations, tagRO.Configurations...)
-		}
-
 		if !existing.IsReady() {
 			allExistingReady = false
 		}
+	}
+
+	// Read previous rollout only from the default ingress.
+	// Rollout state is a concern of the default ingress only.
+	defaultName := resourcenames.TaggedIngress(r, traffic.DefaultTarget)
+	var prevRO *traffic.Rollout
+	if existingDefault, ok := existingIngresses[defaultName]; ok {
+		prevRO = deserializeRollout(ctx, existingDefault.Annotations[networking.RolloutAnnotationKey])
 	}
 
 	// Compute the effective rollout.
@@ -93,14 +95,14 @@ func (c *Reconciler) reconcileIngresses(
 		effectiveRO = c.reconcileRolloutFromIngresses(ctx, r, tc, prevRO, allExistingReady)
 	}
 
-	// Rebuild desired ingresses with the effective rollout.
+	// Build default ingress with the effective rollout.
 	defaultIng, err := resources.MakeDefaultIngressWithRollout(ctx, r, tc, effectiveRO, tls, ingressClass, acmeChallenges...)
 	if err != nil {
 		return nil, nil, err
 	}
 	desired := []*netv1alpha1.Ingress{defaultIng}
 
-	// Sort non-default tag names for deterministic ordering.
+	// Phase 2: Build per-tag ingresses (no rollout annotation).
 	var tagNames []string
 	for tag := range tc.Targets {
 		if tag != traffic.DefaultTarget {
@@ -109,10 +111,6 @@ func (c *Reconciler) reconcileIngresses(
 	}
 	sort.Strings(tagNames)
 
-	// Per-tag ingresses use tc.BuildRollout() internally (not effectiveRO) because
-	// rollout progression (gradual traffic shifting) is a default ingress concern.
-	// Per-tag ingresses provide direct routing to specific tags and their rollout
-	// annotations contain only that tag's ConfigurationRollout baseline state.
 	for _, tag := range tagNames {
 		tagIng, err := resources.MakeRouteTagIngress(ctx, r, tc, tag, tls, ingressClass, acmeChallenges...)
 		if err != nil {
@@ -121,10 +119,7 @@ func (c *Reconciler) reconcileIngresses(
 		desired = append(desired, tagIng)
 	}
 
-	// Create or update each desired per-tag ingress.
-	// On error, we fail fast and return. Already-created ingresses from this
-	// iteration are safe: the next reconciliation will pick them up as existing
-	// and converge to the desired state (eventual consistency).
+	// Phase 3: Create or update each desired ingress, then clean up orphans.
 	var result []*netv1alpha1.Ingress
 	for _, d := range desired {
 		existing, ok := existingIngresses[d.Name]
@@ -298,9 +293,15 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 	return services, nil
 }
 
-func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Route, pairs []resources.ServicePair, ingressByTag map[string]*netv1alpha1.Ingress) error {
+func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Route, pairs []resources.ServicePair, ingresses []*netv1alpha1.Ingress) error {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
+
+	ingressByTag := make(map[string]*netv1alpha1.Ingress, len(ingresses))
+	for _, ing := range ingresses {
+		tag := ing.Labels[networking.TagLabelKey]
+		ingressByTag[tag] = ing
+	}
 
 	eg, egCtx := errgroup.WithContext(ctx)
 	for _, from := range pairs {
@@ -438,7 +439,7 @@ func (c *Reconciler) reconcileRolloutFromIngresses(
 		zap.Int("durationSecs", rd))
 	logger.Debug("Rollout is enabled. Stepping from previous state.")
 
-	// prevRO was assembled by merging per-tag rollouts from individual ingresses.
+	// prevRO was read from the default ingress annotation.
 	if prevRO == nil || len(prevRO.Configurations) == 0 {
 		prevRO = nil
 	}
