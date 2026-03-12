@@ -19,9 +19,11 @@ package ha
 import (
 	"context"
 	"net/url"
+	"slices"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -80,29 +82,38 @@ func assertServiceEventuallyWorks(t *testing.T, clients *test.Clients, names tes
 	}
 }
 
-func waitForEndpointsState(client kubernetes.Interface, svcName, svcNamespace string, inState func(*corev1.Endpoints) (bool, error)) error {
-	endpointsService := client.CoreV1().Endpoints(svcNamespace)
+func waitForEndpointsState(
+	client kubernetes.Interface,
+	svcName,
+	svcNamespace string,
+	inState func([]discoveryv1.EndpointSlice) (bool, error),
+) error {
+	return wait.PollUntilContextTimeout(
+		context.Background(),
+		test.PollInterval,
+		test.PollTimeout,
+		true,
+		func(context.Context) (bool, error) {
+			slices, err := test.EndpointSlicesForService(client, svcNamespace, svcName)
+			if err != nil {
+				return false, err
+			}
 
-	return wait.PollUntilContextTimeout(context.Background(), test.PollInterval, test.PollTimeout, true, func(context.Context) (bool, error) {
-		endpoint, err := endpointsService.Get(context.Background(), svcName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-
-		return inState(endpoint)
-	})
+			return inState(slices)
+		})
 }
 
-func readyEndpointsDoNotContain(ip string) func(*corev1.Endpoints) (bool, error) {
-	return func(eps *corev1.Endpoints) (bool, error) {
-		for _, subset := range eps.Subsets {
-			for _, ready := range subset.Addresses {
-				if ready.IP == ip {
-					return false, nil
+func readyEndpointsDoNotContain(ip string) func(*discoveryv1.EndpointSliceList) (bool, error) {
+	return func(list *discoveryv1.EndpointSliceList) (bool, error) {
+		contains := false
+		for _, item := range list.Items {
+			for _, eps := range item.Endpoints {
+				if eps.Conditions.Ready == nil || *eps.Conditions.Ready {
+					contains = contains || slices.Contains(eps.Addresses, ip)
 				}
 			}
 		}
-		return true, nil
+		return !contains, nil
 	}
 }
 

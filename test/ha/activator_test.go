@@ -161,24 +161,27 @@ func gatherBackingActivators(ctx context.Context, client kubernetes.Interface, n
 	pods := make(podIPs)
 
 	for _, rev := range revs {
-		endpoints := client.CoreV1().Endpoints(namespace)
-		e, err := endpoints.Get(ctx, rev, metav1.GetOptions{})
+		slices, err := test.EndpointSlicesForService(client, namespace, rev)
 		if err != nil {
 			return nil, fmt.Errorf("failed to gather %s endpoints: %w", rev, err)
 		}
 
-		for _, subset := range e.Subsets {
-			for _, address := range subset.Addresses {
-				if address.TargetRef == nil {
+		for _, slice := range slices {
+			for _, ep := range slice.Endpoints {
+				if ep.TargetRef == nil {
 					return nil, fmt.Errorf("%s service is not pointing to a pod", rev)
 				}
 
-				name := address.TargetRef.Name
+				name := ep.TargetRef.Name
 				if !strings.HasPrefix(name, activatorDeploymentName) {
-					return nil, fmt.Errorf("%s service is not pointing to an activator pod but: %s", rev, address.TargetRef.Name)
+					return nil, fmt.Errorf("%s service is not pointing to an activator pod but: %s", rev, ep.TargetRef.Name)
 				}
 
-				pods[name] = address.IP
+				if len(ep.Addresses) == 0 {
+					return nil, fmt.Errorf("%s has no address: %s", rev, ep.TargetRef.Name)
+				}
+
+				pods[name] = ep.Addresses[0]
 			}
 		}
 	}

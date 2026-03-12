@@ -38,7 +38,6 @@ import (
 	"knative.dev/serving/pkg/networking"
 	revnames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources/names"
-	"knative.dev/serving/pkg/resources"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	testv1 "knative.dev/serving/test/v1"
@@ -219,14 +218,12 @@ func TestTargetBurstCapacity(t *testing.T) {
 	// We poll, since network programming takes times, but the timeout is set for
 	// uniformness with one above.
 	if err := wait.PollUntilContextTimeout(context.Background(), 250*time.Millisecond, 2*cfg.StableWindow, true, func(context.Context) (bool, error) {
-		svcEps, err := ctx.clients.KubeClient.CoreV1().Endpoints(test.ServingFlags.TestNamespace).Get(
-			context.Background(), ctx.resources.Revision.Name, /* revision service name is equal to revision name*/
-			metav1.GetOptions{})
+		slices, err := test.EndpointSlicesForService(ctx.clients.KubeClient, test.ServingFlags.TestNamespace, ctx.resources.Revision.Name)
 		if err != nil {
 			return false, err
 		}
-		t.Log("resources.ReadyAddressCount(svcEps) =", resources.ReadyAddressCount(svcEps))
-		return resources.ReadyAddressCount(svcEps) == 2, nil
+		t.Log("resources.ReadyAddressCount(svcEps) =", test.ReadyAddressCount(slices))
+		return test.ReadyAddressCount(slices) == 2, nil
 	}); err != nil {
 		t.Error("Never achieved subset of size 2:", err)
 	}
@@ -252,12 +249,12 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error retrieving autoscaler configmap:", err)
 	}
-	aeps, err := ctx.clients.KubeClient.CoreV1().Endpoints(
-		system.Namespace()).Get(context.Background(), networking.ActivatorServiceName, metav1.GetOptions{})
+
+	slices, err := test.EndpointSlicesForService(ctx.clients.KubeClient, system.Namespace(), networking.ActivatorServiceName)
 	if err != nil {
 		t.Fatal("Error getting activator endpoints:", err)
 	}
-	t.Log("Activator endpoints:", aeps)
+	t.Log("Activator endpoints:", slices)
 
 	// Wait for the activator endpoints to equalize.
 	if err := waitForActivatorEndpoints(ctx); err != nil {
@@ -336,11 +333,11 @@ func TestFastScaleToZero(t *testing.T) {
 	// of 20 runs (11s) + 4s of buffer for reliability.
 	st := time.Now()
 	if err := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, cfg.ScaleToZeroGracePeriod+15*time.Second, true, func(context.Context) (bool, error) {
-		eps, err := ctx.clients.KubeClient.CoreV1().Endpoints(test.ServingFlags.TestNamespace).Get(context.Background(), epsN, metav1.GetOptions{})
+		slices, err := test.EndpointSlicesForService(ctx.clients.KubeClient, test.ServingFlags.TestNamespace, epsN)
 		if err != nil {
 			return false, err
 		}
-		return resources.ReadyAddressCount(eps) == 0, nil
+		return test.ReadyAddressCount(slices) == 0, nil
 	}); err != nil {
 		t.Fatalf("Did not observe %q to actually be emptied", epsN)
 	}

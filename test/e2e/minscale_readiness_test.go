@@ -40,7 +40,6 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/resources"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
@@ -505,29 +504,25 @@ func latestRevisionName(t *testing.T, clients *test.Clients, configName, oldRevN
 // waitForDesiredScale returns the last observed number of pods and/or error if the cond
 // callback is never satisfied.
 func waitForDesiredScale(clients *test.Clients, serviceName string, cond func(int) bool) (latestReady int, err error) {
-	endpoints := clients.KubeClient.CoreV1().Endpoints(test.ServingFlags.TestNamespace)
-
 	// See https://github.com/knative/serving/issues/7727#issuecomment-706772507 for context.
 	return latestReady, wait.PollUntilContextTimeout(context.Background(), time.Second, 3*time.Minute, true, func(context.Context) (bool, error) {
-		endpoint, err := endpoints.Get(context.Background(), serviceName, metav1.GetOptions{})
+		endpoints, err := test.EndpointSlicesForService(clients.KubeClient, test.ServingFlags.TestNamespace, serviceName)
 		if err != nil {
 			return false, nil //nolint:nilerr
 		}
-		latestReady = resources.ReadyAddressCount(endpoint)
+		latestReady = test.ReadyAddressCount(endpoints)
 		return cond(latestReady), nil
 	})
 }
 
 func ensureDesiredScale(clients *test.Clients, t *testing.T, serviceName string, cond func(int) bool) (latestReady int, observed bool) {
-	endpoints := clients.KubeClient.CoreV1().Endpoints(test.ServingFlags.TestNamespace)
-
 	err := wait.PollUntilContextTimeout(context.Background(), time.Second, 30*time.Second, true, func(context.Context) (bool, error) {
-		endpoint, err := endpoints.Get(context.Background(), serviceName, metav1.GetOptions{})
+		endpoints, err := test.EndpointSlicesForService(clients.KubeClient, test.ServingFlags.TestNamespace, serviceName)
 		if err != nil {
 			return false, nil //nolint:nilerr
 		}
 
-		if latestReady = resources.ReadyAddressCount(endpoint); !cond(latestReady) {
+		if latestReady = test.ReadyAddressCount(endpoints); !cond(latestReady) {
 			return false, fmt.Errorf("scale %d didn't meet condition", latestReady)
 		}
 
