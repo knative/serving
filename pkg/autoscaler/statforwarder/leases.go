@@ -241,6 +241,9 @@ func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n string
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      n,
 			Namespace: ns,
+			Labels: map[string]string{
+				discoveryv1.LabelServiceName: n,
+			},
 		},
 		AddressType: discoveryv1.AddressTypeIPv4,
 		Endpoints: []discoveryv1.Endpoint{{
