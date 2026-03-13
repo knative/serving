@@ -182,7 +182,7 @@ func checkSLA(results *vegeta.Metrics, slaMin time.Duration, slaMax time.Duratio
 		threshold = 1 // Minimum tolerance of 1 request
 	}
 
-	difference := results.Requests
+	var difference uint64
 	if results.Requests >= expectedRequests {
 		difference = results.Requests - expectedRequests
 	} else {
