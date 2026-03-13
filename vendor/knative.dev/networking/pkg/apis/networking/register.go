@@ -41,9 +41,9 @@ const (
 	// the rollout state in the Annotations of the Kingress or Route.Status.
 	RolloutAnnotationKey = GroupName + "/rollout"
 
-	// TagLabelKey is the label key attached to per-tag Ingress resources
-	// to indicate which traffic tag the Ingress corresponds to.
-	TagLabelKey = GroupName + "/tag"
+	// TagToHostAnnotationKey is the annotation key used for storing a JSON map of
+	// tags to host names
+	TagToHostAnnotationKey = GroupName + "/tag-to-host"
 )
 
 const (
