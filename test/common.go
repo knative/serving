@@ -29,12 +29,7 @@ import (
 func ReadyAddressCount(slices []discoveryv1.EndpointSlice) int {
 	count := 0
 	for _, slice := range slices {
-		for _, ep := range slice.Endpoints {
-			if ep.Conditions.Ready != nil && !(*ep.Conditions.Ready) {
-				continue
-			}
-			count += len(ep.Addresses)
-		}
+		count += len(ReadyAddresses(slice))
 	}
 	return count
 }
@@ -53,4 +48,16 @@ func EndpointSlicesForService(k kubernetes.Interface, namespace, name string) ([
 	}
 
 	return slices.Items, nil
+}
+
+// ReadyAddresses returns an iterator over ready endpoint addresses.
+func ReadyAddresses(slice discoveryv1.EndpointSlice) []string {
+	var res []string
+	for _, ep := range slice.Endpoints {
+		if ep.Conditions.Ready != nil && !(*ep.Conditions.Ready) {
+			continue
+		}
+		res = append(res, ep.Addresses...)
+	}
+	return res
 }

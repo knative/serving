@@ -127,15 +127,11 @@ func waitForActivatorEndpoints(ctx *TestContext) error {
 		aset = make(sets.Set[string], wantAct)
 
 		for _, slice := range actEps {
-			for _, ep := range slice.Endpoints {
-				aset.Insert(ep.Addresses...)
-			}
+			aset.Insert(test.ReadyAddresses(slice)...)
 		}
 		svcSet = make(sets.Set[string], wantAct)
 		for _, slice := range svcEps {
-			for _, ep := range slice.Endpoints {
-				svcSet.Insert(ep.Addresses...)
-			}
+			svcSet.Insert(test.ReadyAddresses(slice)...)
 		}
 
 		// Subset wants this many activators, but there might not be as many,
