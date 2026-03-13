@@ -30,7 +30,7 @@ import (
 
 	netproxy "knative.dev/networking/pkg/http/proxy"
 	pkghandler "knative.dev/pkg/network/handlers"
-	knativetls "knative.dev/pkg/tls"
+	knativetls "knative.dev/pkg/network/tls"
 	"knative.dev/serving/pkg/activator"
 
 	"github.com/kelseyhightower/envconfig"

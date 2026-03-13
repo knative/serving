@@ -29,7 +29,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
-	knativetls "knative.dev/pkg/tls"
+	knativetls "knative.dev/pkg/network/tls"
 )
 
 type digestResolver struct {
