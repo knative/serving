@@ -181,10 +181,18 @@ func checkSLA(results *vegeta.Metrics, slaMin time.Duration, slaMax time.Duratio
 	if threshold == 0 {
 		threshold = 1 // Minimum tolerance of 1 request
 	}
-	if results.Requests >= expectedRequests-threshold {
-		log.Printf("SLA 2 passed. vegeta total request is %d, expected threshold is %d", results.Requests, expectedRequests-threshold)
+
+	difference := results.Requests
+	if results.Requests >= expectedRequests {
+		difference = results.Requests - expectedRequests
 	} else {
-		return fmt.Errorf("SLA 2 failed. vegeta total request is %d, expected threshold is %d", results.Requests, expectedRequests-threshold)
+		difference = expectedRequests - results.Requests
+	}
+
+	if difference <= threshold {
+		log.Printf("SLA 2 passed. vegeta total request is %d, expected requests is %d (tolerance: %d)", results.Requests, expectedRequests, threshold)
+	} else {
+		return fmt.Errorf("SLA 2 failed. vegeta total request is %d, expected requests is %d (tolerance: %d)", results.Requests, expectedRequests, threshold)
 	}
 
 	return nil

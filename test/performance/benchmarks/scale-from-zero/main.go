@@ -362,7 +362,11 @@ func checkSLA(results *vegeta.Metrics, p95min time.Duration, p95max time.Duratio
 	// SLA 3: making sure the defined vegeta total requests is met, the defined vegeta total requests should equal to the count of ksvcs we want to run scale-from-zero in parallel
 	// Allow a tolerance of 1 request to account for timing variations
 	expectedRequests := uint64(parallel)
-	if results.Requests >= expectedRequests-1 && results.Requests <= expectedRequests {
+	lowerBound := expectedRequests
+	if lowerBound > 0 {
+		lowerBound--
+	}
+	if results.Requests >= lowerBound && results.Requests <= expectedRequests {
 		log.Printf("SLA 3 passed. total requests is %d, expected requests is %d (tolerance: 1)", results.Requests, expectedRequests)
 	} else {
 		return fmt.Errorf("SLA 3 failed. total requests is %d, expected requests is %d (tolerance: 1)", results.Requests, expectedRequests)
