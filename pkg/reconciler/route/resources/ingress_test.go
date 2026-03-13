@@ -141,6 +141,7 @@ func TestMakeIngressWithTaggedRollout(t *testing.T) {
 			networking.IngressClassAnnotationKey: ingressClass,
 			networking.RolloutAnnotationKey:      `{"configurations":[{"configurationName":"valhalla","percent":100,"revisions":[{"revisionName":"valhalla-01982","percent":100}],"stepParams":{}},{"configurationName":"thor","tag":"tagged","percent":100,"revisions":[{"revisionName":"thor-02020","percent":100}],"stepParams":{}}]}`,
 			"test-annotation":                    "bar",
+			TagToHostAnnotationKey:               `{"tagged":["tagged-test-route.test-ns.svc.cluster.local","tagged-test-route.test-ns.example.com"]}`,
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 	}
@@ -245,6 +246,7 @@ func TestMakeIngressWithActualRollout(t *testing.T) {
 		Annotations: map[string]string{
 			networking.IngressClassAnnotationKey: ingressClass,
 			networking.RolloutAnnotationKey:      serializeRollout(context.Background(), ro),
+			TagToHostAnnotationKey:               `{"hammer":["hammer-test-route.test-ns.svc.cluster.local","hammer-test-route.test-ns.example.com"]}`,
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 	}
@@ -587,7 +589,7 @@ func TestMakeIngressSpecCorrectRules(t *testing.T) {
 
 	tc := &traffic.Config{Targets: targets}
 	ro := tc.BuildRollout()
-	ci, err := makeIngressSpec(testContext(), r, nil /*tls*/, tc, ro)
+	ci, _, err := makeIngressSpec(testContext(), r, nil /*tls*/, tc, ro)
 	if err != nil {
 		t.Error("Unexpected error", err)
 	}
@@ -662,7 +664,7 @@ func TestMakeIngressSpecCorrectRuleVisibility(t *testing.T) {
 				Visibility: c.serviceVisibility,
 			}
 			ro := tc.BuildRollout()
-			ci, err := makeIngressSpec(testContext(), c.route, nil /*tls*/, tc, ro)
+			ci, _, err := makeIngressSpec(testContext(), c.route, nil /*tls*/, tc, ro)
 			if err != nil {
 				t.Error("Unexpected error", err)
 			}
@@ -842,7 +844,7 @@ func TestMakeIngressSpecCorrectRulesWithTagBasedRouting(t *testing.T) {
 
 	tc := &traffic.Config{Targets: targets}
 	ro := tc.BuildRollout()
-	ci, err := makeIngressSpec(ctx, r, nil /*tls*/, tc, ro)
+	ci, _, err := makeIngressSpec(ctx, r, nil /*tls*/, tc, ro)
 	if err != nil {
 		t.Error("Unexpected error", err)
 	}
@@ -1221,7 +1223,7 @@ func TestMakeIngressWithActivatorCA(t *testing.T) {
 
 	tc := &traffic.Config{Targets: targets}
 	ro := tc.BuildRollout()
-	ci, err := makeIngressSpec(testContextWithActivatorCA(), r, nil /*tls*/, tc, ro)
+	ci, _, err := makeIngressSpec(testContextWithActivatorCA(), r, nil /*tls*/, tc, ro)
 	if err != nil {
 		t.Error("Unexpected error", err)
 	}
@@ -1352,7 +1354,7 @@ func TestMakeIngressACMEChallenges(t *testing.T) {
 	}
 	ro := tc.BuildRollout()
 
-	ci, err := makeIngressSpec(testContext(), r, nil /*tls*/, tc, ro, acmeChallenge)
+	ci, _, err := makeIngressSpec(testContext(), r, nil /*tls*/, tc, ro, acmeChallenge)
 	if err != nil {
 		t.Error("Unexpected error", err)
 	}
@@ -1442,7 +1444,7 @@ func TestMakeIngressACMEChallengesWithTrafficTags(t *testing.T) {
 	}
 	ro := tc.BuildRollout()
 
-	ci, err := makeIngressSpec(testContext(), r, nil /*tls*/, tc, ro, acmeChallenges...)
+	ci, _, err := makeIngressSpec(testContext(), r, nil /*tls*/, tc, ro, acmeChallenges...)
 	if err != nil {
 		t.Fatal("Unexpected error", err)
 	}
