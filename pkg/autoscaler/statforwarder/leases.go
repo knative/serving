@@ -233,8 +233,8 @@ func (f *leaseTracker) createService(ctx context.Context, ns, n string) error {
 	return nil
 }
 
-// createOrUpdateEndpoints creates an Endpoints object with the given namespace and
-// name, and the Forwarder.selfIP. If the Endpoints object already
+// createOrUpdateEndpoints creates an EndpointSlice object with the given namespace and
+// name, and the Forwarder.selfIP. If the EndpointSlice object already
 // exists, it will update the Endpoints with the Forwarder.selfIP.
 func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n string) error {
 	want := &discoveryv1.EndpointSlice{

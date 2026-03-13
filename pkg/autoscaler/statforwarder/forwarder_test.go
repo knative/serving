@@ -126,7 +126,14 @@ func TestForwarderReconcile(t *testing.T) {
 		t.Fatal("Timeout to get the Service:", lastErr)
 	}
 
-	want := discoveryv1.EndpointSlice{
+	want := &discoveryv1.EndpointSlice{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      bucket1,
+			Namespace: testNs,
+			Labels: map[string]string{
+				discoveryv1.LabelServiceName: bucket1,
+			},
+		},
 		AddressType: discoveryv1.AddressTypeIPv4,
 		Endpoints: []discoveryv1.Endpoint{{
 			Addresses: []string{testIP1},
@@ -152,13 +159,13 @@ func TestForwarderReconcile(t *testing.T) {
 			return false, nil //nolint:nilerr
 		}
 
-		if diff := cmp.Diff(want.Endpoints, got.Endpoints); diff != "" {
-			lastErr = fmt.Errorf("resulting endpoints are different (-want, +got) %s", diff)
+		if diff := cmp.Diff(want, got); diff != "" {
+			lastErr = fmt.Errorf("resulting EndpointSlice are different (-want, +got) %s", diff)
 			return false, nil
 		}
 		return true, nil
 	}); err != nil {
-		t.Fatal("Timeout to get the Endpoints:", lastErr)
+		t.Fatal("Timeout to get the EndpointSlice:", lastErr)
 	}
 
 	// Lease holder gets changed.
@@ -177,13 +184,13 @@ func TestForwarderReconcile(t *testing.T) {
 			return false, nil //nolint:nilerr
 		}
 
-		if !cmp.Equal(want.Endpoints, got.Endpoints) {
-			lastErr = fmt.Errorf("Got Subsets = %v, want = %v", got.Endpoints, want.Endpoints)
+		if diff := cmp.Diff(want, got); diff != "" {
+			lastErr = fmt.Errorf("Got (-want,+got): %s", diff)
 			return false, nil
 		}
 		return true, nil
 	}); err != nil {
-		t.Fatal("Timeout to get the Endpoints:", lastErr)
+		t.Fatal("Timeout to get the EndpointSlice:", lastErr)
 	}
 }
 
@@ -265,7 +272,7 @@ func TestForwarderRetryOnEndpointsCreationFailure(t *testing.T) {
 	select {
 	case <-retried:
 	case <-time.After(time.Second):
-		t.Error("Timeout waiting for Endpoints retry")
+		t.Error("Timeout waiting for EndpointSlice retry")
 	}
 }
 
@@ -315,7 +322,7 @@ func TestForwarderRetryOnEndpointsUpdateFailure(t *testing.T) {
 	select {
 	case <-retried:
 	case <-time.After(time.Second):
-		t.Error("Timeout waiting for Endpoints retry")
+		t.Error("Timeout waiting for EndpointSlice retry")
 	}
 }
 
@@ -344,10 +351,10 @@ func TestForwarderSkipReconciling(t *testing.T) {
 			return false, nil, nil
 		},
 	)
-	endpointsCreated := make(chan struct{})
-	kubeClient.PrependReactor("create", "endpoints",
+	endpointsliceCreated := make(chan struct{})
+	kubeClient.PrependReactor("create", "endpointslices",
 		func(action ktesting.Action) (bool, runtime.Object, error) {
-			endpointsCreated <- struct{}{}
+			endpointsliceCreated <- struct{}{}
 			return false, nil, nil
 		},
 	)
@@ -399,7 +406,7 @@ func TestForwarderSkipReconciling(t *testing.T) {
 			case <-time.After(50 * time.Millisecond):
 			}
 			select {
-			case <-endpointsCreated:
+			case <-endpointsliceCreated:
 				t.Error("Got Endpoints created, want no actions")
 			case <-time.After(50 * time.Millisecond):
 			}
