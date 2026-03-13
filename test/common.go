@@ -30,10 +30,7 @@ func ReadyAddressCount(slices []discoveryv1.EndpointSlice) int {
 	count := 0
 	for _, slice := range slices {
 		for _, ep := range slice.Endpoints {
-			if ep.Conditions.Ready == nil {
-				continue
-			}
-			if !(*ep.Conditions.Ready) {
+			if ep.Conditions.Ready != nil && !(*ep.Conditions.Ready) {
 				continue
 			}
 			count += len(ep.Addresses)
