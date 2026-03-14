@@ -281,6 +281,7 @@ func TestGetDomainsForVisibility(t *testing.T) {
 		visibility     v1alpha1.IngressVisibility
 		domainTemplate string
 		tagTemplate    string
+		primary        string
 		want           sets.Set[string]
 	}{
 		{
@@ -289,6 +290,7 @@ func TestGetDomainsForVisibility(t *testing.T) {
 			visibility:     v1alpha1.IngressVisibilityClusterLocal,
 			domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 			tagTemplate:    "{{.Name}}-{{.Tag}}",
+			primary:        "myroute.default.svc.cluster.local",
 			want: sets.New(
 				"myroute.default",
 				"myroute.default.svc",
@@ -300,6 +302,7 @@ func TestGetDomainsForVisibility(t *testing.T) {
 			visibility:     v1alpha1.IngressVisibilityExternalIP,
 			domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 			tagTemplate:    "{{.Name}}-{{.Tag}}",
+			primary:        "myroute.default.example.com",
 			want: sets.New(
 				"myroute.default.example.com",
 			),
@@ -309,6 +312,7 @@ func TestGetDomainsForVisibility(t *testing.T) {
 			visibility:     v1alpha1.IngressVisibilityClusterLocal,
 			domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 			tagTemplate:    "{{.Name}}-{{.Tag}}",
+			primary:        "myroute-test.default.svc.cluster.local",
 			want: sets.New(
 				"myroute-test.default",
 				"myroute-test.default.svc",
@@ -320,6 +324,7 @@ func TestGetDomainsForVisibility(t *testing.T) {
 			visibility:     v1alpha1.IngressVisibilityExternalIP,
 			domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 			tagTemplate:    "{{.Name}}-{{.Tag}}",
+			primary:        "myroute-test.default.example.com",
 			want: sets.New(
 				"myroute-test.default.example.com",
 			),
@@ -329,6 +334,7 @@ func TestGetDomainsForVisibility(t *testing.T) {
 			visibility:     v1alpha1.IngressVisibilityClusterLocal,
 			domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 			tagTemplate:    "{{.Tag}}-{{.Name}}",
+			primary:        "myroute.default.svc.cluster.local",
 			want: sets.New(
 				"myroute.default",
 				"myroute.default.svc",
@@ -340,6 +346,7 @@ func TestGetDomainsForVisibility(t *testing.T) {
 			visibility:     v1alpha1.IngressVisibilityExternalIP,
 			domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 			tagTemplate:    "{{.Tag}}-{{.Name}}",
+			primary:        "myroute.default.example.com",
 			want: sets.New(
 				"myroute.default.example.com",
 			),
@@ -349,6 +356,7 @@ func TestGetDomainsForVisibility(t *testing.T) {
 			visibility:     v1alpha1.IngressVisibilityClusterLocal,
 			domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 			tagTemplate:    "{{.Tag}}-{{.Name}}",
+			primary:        "test-myroute.default.svc.cluster.local",
 			want: sets.New(
 				"test-myroute.default",
 				"test-myroute.default.svc",
@@ -360,6 +368,7 @@ func TestGetDomainsForVisibility(t *testing.T) {
 			visibility:     v1alpha1.IngressVisibilityExternalIP,
 			domainTemplate: "{{.Name}}.{{.Namespace}}.{{.Domain}}",
 			tagTemplate:    "{{.Tag}}-{{.Name}}",
+			primary:        "test-myroute.default.example.com",
 			want: sets.New(
 				"test-myroute.default.example.com",
 			),
@@ -384,11 +393,16 @@ func TestGetDomainsForVisibility(t *testing.T) {
 			cfg.Network.TagTemplate = tt.tagTemplate
 			ctx = config.ToContext(ctx, cfg)
 
+			want := Domains{
+				Primary:  tt.primary,
+				Expanded: tt.want,
+			}
+
 			got, err := GetDomainsForVisibility(ctx, tt.tag, route, tt.visibility)
 			if err != nil {
 				t.Errorf("failed calling GetDomainsForVisibility: %v", err)
 			}
-			if diff := cmp.Diff(tt.want, got); diff != "" {
+			if diff := cmp.Diff(want, got); diff != "" {
 				t.Error("GetDomainsForVisibility() diff (-want +got):", diff)
 			}
 		})

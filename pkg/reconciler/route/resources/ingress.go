@@ -174,7 +174,7 @@ func makeIngressSpec(
 			if err != nil {
 				return netv1alpha1.IngressSpec{}, nil, err
 			}
-			domainRules := makeIngressRules(domains, r.Namespace,
+			domainRules := makeIngressRules(domains.Expanded, r.Namespace,
 				visibility, tc.Targets[name], ro.RolloutsByTag(name), networkConfig.SystemInternalTLSEnabled())
 
 			// Apply tag header routing and ACME merging to each rule
@@ -227,14 +227,7 @@ func makeIngressSpec(
 			rules = append(rules, domainRules...)
 
 			if name != traffic.DefaultTarget {
-				longestDomain := ""
-				for d := range domains {
-					if len(longestDomain) < len(d) {
-						longestDomain = d
-					}
-				}
-
-				tagToHost[name] = append(tagToHost[name], longestDomain)
+				tagToHost[name] = append(tagToHost[name], domains.Primary)
 			}
 		}
 	}
