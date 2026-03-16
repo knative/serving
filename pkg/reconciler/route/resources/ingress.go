@@ -43,10 +43,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 )
 
-const (
-	TagToHostAnnotationKey = networking.GroupName + "/tag-to-host"
-)
-
 // MakeIngressTLS creates IngressTLS to configure the ingress TLS.
 func MakeIngressTLS(cert *netv1alpha1.Certificate, hostNames []string) netv1alpha1.IngressTLS {
 	return netv1alpha1.IngressTLS{
@@ -106,7 +102,7 @@ func MakeIngressWithRollout(
 	}
 
 	if len(tagToHost) > 0 {
-		ing.Annotations[TagToHostAnnotationKey] = serializeTagToHostMap(ctx, tagToHost)
+		ing.Annotations[networking.TagToHostAnnotationKey] = serializeTagToHostMap(ctx, tagToHost)
 	}
 
 	return ing, nil

@@ -141,7 +141,7 @@ func TestMakeIngressWithTaggedRollout(t *testing.T) {
 			networking.IngressClassAnnotationKey: ingressClass,
 			networking.RolloutAnnotationKey:      `{"configurations":[{"configurationName":"valhalla","percent":100,"revisions":[{"revisionName":"valhalla-01982","percent":100}],"stepParams":{}},{"configurationName":"thor","tag":"tagged","percent":100,"revisions":[{"revisionName":"thor-02020","percent":100}],"stepParams":{}}]}`,
 			"test-annotation":                    "bar",
-			TagToHostAnnotationKey:               `{"tagged":["tagged-test-route.test-ns.svc.cluster.local","tagged-test-route.test-ns.example.com"]}`,
+			networking.TagToHostAnnotationKey:    `{"tagged":["tagged-test-route.test-ns.svc.cluster.local","tagged-test-route.test-ns.example.com"]}`,
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 	}
@@ -246,7 +246,7 @@ func TestMakeIngressWithActualRollout(t *testing.T) {
 		Annotations: map[string]string{
 			networking.IngressClassAnnotationKey: ingressClass,
 			networking.RolloutAnnotationKey:      serializeRollout(context.Background(), ro),
-			TagToHostAnnotationKey:               `{"hammer":["hammer-test-route.test-ns.svc.cluster.local","hammer-test-route.test-ns.example.com"]}`,
+			networking.TagToHostAnnotationKey:    `{"hammer":["hammer-test-route.test-ns.svc.cluster.local","hammer-test-route.test-ns.example.com"]}`,
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 	}
