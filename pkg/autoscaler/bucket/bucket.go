@@ -26,20 +26,20 @@ import (
 	"knative.dev/pkg/hash"
 )
 
-const prefix = "autoscaler-bucket"
+const BucketPrefix = "autoscaler-bucket"
 
 // IsBucketHost returns true if the given host is a host of a K8S Service
 // of a bucket.
 func IsBucketHost(host string) bool {
 	// Currently checking prefix is ok as only requests sent via bucket service
 	// have host with the prefix. Maybe use regexp for improvement.
-	return strings.HasPrefix(host, prefix)
+	return strings.HasPrefix(host, BucketPrefix)
 }
 
 // AutoscalerBucketName returns the name of the Autoscaler bucket with given `ordinal`
 // and `total` bucket count.
 func AutoscalerBucketName(ordinal, total uint32) string {
-	return strings.ToLower(fmt.Sprintf("%s-%02d-of-%02d", prefix, ordinal, total))
+	return strings.ToLower(fmt.Sprintf("%s-%02d-of-%02d", BucketPrefix, ordinal, total))
 }
 
 // AutoscalerBucketSet returns a hash.BucketSet consisting of Autoscaler

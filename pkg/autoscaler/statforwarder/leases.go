@@ -25,17 +25,19 @@ import (
 	"go.uber.org/zap"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	corev1listers "k8s.io/client-go/listers/core/v1"
+	discoveryv1listers "k8s.io/client-go/listers/discovery/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/ptr"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	leaseinformer "knative.dev/pkg/client/injection/kube/informers/coordination/v1/lease"
-	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
+	endpointsliceinformer "knative.dev/pkg/client/injection/kube/informers/discovery/v1/endpointslice"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/hash"
 	"knative.dev/pkg/logging"
@@ -50,13 +52,12 @@ func LeaseBasedProcessor(ctx context.Context, f *Forwarder, accept statProcessor
 	if err != nil {
 		return err
 	}
-	endpointsInformer := endpointsinformer.Get(ctx)
 	lt := &leaseTracker{
 		logger:          logging.FromContext(ctx),
 		selfIP:          selfIP,
 		bs:              f.bs,
 		kc:              kubeclient.Get(ctx),
-		endpointsLister: endpointsInformer.Lister(),
+		endpointsLister: endpointsliceinformer.Get(ctx).Lister(),
 		id2ip:           make(map[string]string),
 		accept:          accept,
 		fwd:             f,
@@ -86,7 +87,7 @@ type leaseTracker struct {
 	bs *hash.BucketSet
 
 	kc              kubernetes.Interface
-	endpointsLister corev1listers.EndpointsLister
+	endpointsLister discoveryv1listers.EndpointSliceLister
 
 	// id2ip stores the IP extracted from the holder identity to avoid
 	// string split each time.
@@ -232,25 +233,38 @@ func (f *leaseTracker) createService(ctx context.Context, ns, n string) error {
 	return nil
 }
 
-// createOrUpdateEndpoints creates an Endpoints object with the given namespace and
-// name, and the Forwarder.selfIP. If the Endpoints object already
+// createOrUpdateEndpoints creates an EndpointSlice object with the given namespace and
+// name, and the Forwarder.selfIP. If the EndpointSlice object already
 // exists, it will update the Endpoints with the Forwarder.selfIP.
 func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n string) error {
-	wantSubsets := []corev1.EndpointSubset{{
-		Addresses: []corev1.EndpointAddress{{
-			IP: f.selfIP,
+	want := &discoveryv1.EndpointSlice{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      n,
+			Namespace: ns,
+			Labels: map[string]string{
+				discoveryv1.LabelServiceName: n,
+			},
+		},
+		AddressType: discoveryv1.AddressTypeIPv4,
+		Endpoints: []discoveryv1.Endpoint{{
+			Addresses: []string{f.selfIP},
+			Conditions: discoveryv1.EndpointConditions{
+				Ready:       ptr.To(true),
+				Serving:     ptr.To(true),
+				Terminating: ptr.To(false),
+			},
 		}},
-		Ports: []corev1.EndpointPort{{
-			Name:     autoscalerPortName,
-			Port:     autoscalerPort,
-			Protocol: corev1.ProtocolTCP,
+		Ports: []discoveryv1.EndpointPort{{
+			Name:     ptr.To(autoscalerPortName),
+			Port:     ptr.To[int32](autoscalerPort),
+			Protocol: ptr.To(corev1.ProtocolTCP),
 		}},
-	}}
+	}
 
 	exists := true
 	var lastErr error
 	if err := wait.PollUntilContextTimeout(ctx, retryInterval, retryTimeout, true, func(context.Context) (bool, error) {
-		e, err := f.endpointsLister.Endpoints(ns).Get(n)
+		got, err := f.endpointsLister.EndpointSlices(ns).Get(n)
 		if apierrs.IsNotFound(err) {
 			exists = false
 			return true, nil
@@ -262,13 +276,13 @@ func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n string
 			return false, nil //nolint:nilerr
 		}
 
-		if equality.Semantic.DeepEqual(wantSubsets, e.Subsets) {
+		if equality.Semantic.DeepEqual(want.Endpoints, got.Endpoints) {
 			return true, nil
 		}
 
-		want := e.DeepCopy()
-		want.Subsets = wantSubsets
-		if _, lastErr = f.kc.CoreV1().Endpoints(ns).Update(ctx, want, metav1.UpdateOptions{}); lastErr != nil {
+		e := got.DeepCopy()
+		e.Endpoints = want.Endpoints
+		if _, lastErr = f.kc.DiscoveryV1().EndpointSlices(ns).Update(ctx, e, metav1.UpdateOptions{}); lastErr != nil {
 			// Do not return the error to cause a retry.
 			return false, nil //nolint:nilerr
 		}
@@ -284,13 +298,7 @@ func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n string
 	}
 
 	if err := wait.PollUntilContextTimeout(ctx, retryInterval, retryTimeout, true, func(context.Context) (bool, error) {
-		_, lastErr = f.kc.CoreV1().Endpoints(ns).Create(ctx, &corev1.Endpoints{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      n,
-				Namespace: ns,
-			},
-			Subsets: wantSubsets,
-		}, metav1.CreateOptions{})
+		_, lastErr = f.kc.DiscoveryV1().EndpointSlices(ns).Create(ctx, want, metav1.CreateOptions{})
 		// Do not return the error to cause a retry.
 		return lastErr == nil, nil
 	}); err != nil {
