@@ -27,6 +27,9 @@ rules:
   - apiGroups: [""]
     resources: ["endpoints/restricted"] # Permission for RestrictedEndpointsAdmission
     verbs: ["create"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices/restricted"] # Permission for RestrictedEndpointsAdmission
+    verbs: ["create"]
   - apiGroups: [""]
     resources: ["namespaces/finalizers"] # finalizers are needed for the owner reference of the webhook
     verbs: ["update"]
