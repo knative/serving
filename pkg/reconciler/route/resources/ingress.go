@@ -79,11 +79,12 @@ func MakeIngressWithRollout(
 	ingressClass string,
 	acmeChallenges ...netv1alpha1.HTTP01Challenge,
 ) (*netv1alpha1.Ingress, error) {
-	spec, err := makeIngressSpec(ctx, r, tls, tc, ro, acmeChallenges...)
+	spec, tagToHost, err := makeIngressSpec(ctx, r, tls, tc, ro, acmeChallenges...)
 	if err != nil {
 		return nil, err
 	}
-	return &netv1alpha1.Ingress{
+
+	ing := &netv1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.Ingress(r),
 			Namespace: r.Namespace,
@@ -98,7 +99,24 @@ func MakeIngressWithRollout(
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 		},
 		Spec: spec,
-	}, nil
+	}
+
+	if len(tagToHost) > 0 {
+		ing.Annotations[networking.TagToHostAnnotationKey] = serializeTagToHostMap(ctx, tagToHost)
+	}
+
+	return ing, nil
+}
+
+func serializeTagToHostMap(ctx context.Context, mapping map[string][]string) string {
+	sr, err := json.Marshal(mapping)
+	if err != nil {
+		// This must never happen in the normal course of things.
+		logging.FromContext(ctx).Warnw("Error serializing tag to host mapping: "+spew.Sprint(mapping),
+			zap.Error(err))
+		return ""
+	}
+	return string(sr)
 }
 
 func serializeRollout(ctx context.Context, r *traffic.Rollout) string {
@@ -120,7 +138,9 @@ func makeIngressSpec(
 	tc *traffic.Config,
 	ro *traffic.Rollout,
 	acmeChallenges ...netv1alpha1.HTTP01Challenge,
-) (netv1alpha1.IngressSpec, error) {
+) (netv1alpha1.IngressSpec, map[string][]string, error) {
+	tagToHost := make(map[string][]string)
+
 	// Domain should have been specified in route status
 	// before calling this func.
 	names := make([]string, 0, len(tc.Targets))
@@ -152,9 +172,9 @@ func makeIngressSpec(
 		for _, visibility := range visibilities {
 			domains, err := domains.GetDomainsForVisibility(ctx, name, r, visibility)
 			if err != nil {
-				return netv1alpha1.IngressSpec{}, err
+				return netv1alpha1.IngressSpec{}, nil, err
 			}
-			domainRules := makeIngressRules(domains, r.Namespace,
+			domainRules := makeIngressRules(domains.Expanded, r.Namespace,
 				visibility, tc.Targets[name], ro.RolloutsByTag(name), networkConfig.SystemInternalTLSEnabled())
 
 			// Apply tag header routing and ACME merging to each rule
@@ -205,19 +225,25 @@ func makeIngressSpec(
 			}
 
 			rules = append(rules, domainRules...)
+
+			if name != traffic.DefaultTarget {
+				tagToHost[name] = append(tagToHost[name], domains.Primary)
+			}
 		}
 	}
 
 	httpOption, err := servingnetworking.GetHTTPOption(ctx, config.FromContext(ctx).Network, r.GetAnnotations())
 	if err != nil {
-		return netv1alpha1.IngressSpec{}, err
+		return netv1alpha1.IngressSpec{}, nil, err
 	}
 
-	return netv1alpha1.IngressSpec{
+	spec := netv1alpha1.IngressSpec{
 		Rules:      rules,
 		TLS:        tls,
 		HTTPOption: httpOption,
-	}, nil
+	}
+
+	return spec, tagToHost, nil
 }
 
 // MakeACMEIngressPath converts an ACME challenge into an HTTPIngressPath.

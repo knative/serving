@@ -326,7 +326,7 @@ func (c *Reconciler) clusterLocalDomainTLS(ctx context.Context, r *v1.Route, tc 
 			return nil, err
 		}
 
-		desiredCert := resources.MakeClusterLocalCertificate(r, name, localDomains, certClass(ctx, r))
+		desiredCert := resources.MakeClusterLocalCertificate(r, name, localDomains.Expanded, certClass(ctx, r))
 		cert, err := networkaccessor.ReconcileCertificate(ctx, r, desiredCert, c)
 		if err != nil {
 			if kaccessor.IsNotOwned(err) {
@@ -342,19 +342,19 @@ func (c *Reconciler) clusterLocalDomainTLS(ctx context.Context, r *v1.Route, tc 
 
 			// r.Status.URL contains the major domain,
 			// so only change if the cert is for the major domain
-			if localDomains.Has(r.Status.URL.Host) {
+			if localDomains.Expanded.Has(r.Status.URL.Host) {
 				r.Status.URL.Scheme = "https"
 			}
 
 			r.Status.MarkCertificateReady(cert.Name)
-			tls = append(tls, resources.MakeIngressTLS(cert, sets.List(localDomains)))
+			tls = append(tls, resources.MakeIngressTLS(cert, sets.List(localDomains.Expanded)))
 		} else if cert.IsFailed() {
 			r.Status.MarkCertificateProvisionFailed(cert)
 		} else {
 			r.Status.MarkCertificateNotReady(cert)
 		}
 
-		for s := range localDomains {
+		for s := range localDomains.Expanded {
 			usedDomains[s] = s
 		}
 	}

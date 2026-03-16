@@ -45,6 +45,11 @@ const HTTPScheme string = "http"
 
 var ErrDomainName = errors.New("domain name error")
 
+type Domains struct {
+	Primary  string
+	Expanded sets.Set[string]
+}
+
 // GetAllDomainsAndTags returns all of the domains and tags(including subdomains) associated with a Route
 func GetAllDomainsAndTags(ctx context.Context, r *v1.Route, names []string, visibility map[string]netv1alpha1.IngressVisibility) (map[string]string, error) {
 	domainTagMap := make(map[string]string)
@@ -69,10 +74,11 @@ func GetAllDomainsAndTags(ctx context.Context, r *v1.Route, names []string, visi
 }
 
 // GetDomainsForVisibility return all domains for the specified visibility.
-func GetDomainsForVisibility(ctx context.Context, targetName string, r *v1.Route, visibility netv1alpha1.IngressVisibility) (sets.Set[string], error) {
+func GetDomainsForVisibility(ctx context.Context, targetName string, r *v1.Route, visibility netv1alpha1.IngressVisibility) (Domains, error) {
+	domains := Domains{}
 	hostname, err := HostnameFromTemplate(ctx, r.Name, targetName)
 	if err != nil {
-		return nil, err
+		return domains, err
 	}
 
 	meta := r.ObjectMeta.DeepCopy()
@@ -81,13 +87,15 @@ func GetDomainsForVisibility(ctx context.Context, targetName string, r *v1.Route
 
 	domain, err := DomainNameFromTemplate(ctx, *meta, hostname)
 	if err != nil {
-		return nil, err
+		return domains, err
 	}
-	domains := []string{domain}
+
+	domains.Primary = domain
+	domains.Expanded = sets.New(domain)
 	if isClusterLocal {
-		domains = sets.List(ingress.ExpandedHosts(sets.New(domains...)))
+		domains.Expanded = ingress.ExpandedHosts(domains.Expanded)
 	}
-	return sets.New(domains...), err
+	return domains, err
 }
 
 // DomainNameFromTemplate generates domain name base on the template specified in the `config-network` ConfigMap.
