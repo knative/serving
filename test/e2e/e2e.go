@@ -32,6 +32,7 @@ import (
 	// Mysteriously required to support GCP auth (required by k8s libs).
 	// Apparently just importing it is enough. @_@ side effects @_@.
 	// https://github.com/kubernetes/client-go/issues/242
+
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -108,9 +109,7 @@ func waitForActivatorEndpoints(ctx *TestContext) error {
 	)
 
 	if rerr := wait.PollUntilContextTimeout(context.Background(), 250*time.Millisecond, time.Minute, true, func(context.Context) (bool, error) {
-		// We need to fetch the activator endpoints at every check, since it can change.
-		actEps, err := ctx.clients.KubeClient.CoreV1().Endpoints(
-			system.Namespace()).Get(context.Background(), networking.ActivatorServiceName, metav1.GetOptions{})
+		actEps, err := test.EndpointSlicesForService(ctx.clients.KubeClient, system.Namespace(), networking.ActivatorServiceName)
 		if err != nil {
 			return false, nil //nolint:nilerr
 		}
@@ -119,25 +118,22 @@ func waitForActivatorEndpoints(ctx *TestContext) error {
 			return false, nil //nolint:nilerr
 		}
 
-		svcEps, err := ctx.clients.KubeClient.CoreV1().Endpoints(test.ServingFlags.TestNamespace).Get(
-			context.Background(), ctx.resources.Revision.Name, metav1.GetOptions{})
+		svcEps, err := test.EndpointSlicesForService(ctx.clients.KubeClient, test.ServingFlags.TestNamespace, ctx.resources.Revision.Name)
 		if err != nil {
 			return false, err
 		}
 
 		wantAct = int(sks.Spec.NumActivators)
 		aset = make(sets.Set[string], wantAct)
-		for _, ss := range actEps.Subsets {
-			for i := range len(ss.Addresses) {
-				aset.Insert(ss.Addresses[i].IP)
-			}
+
+		for _, slice := range actEps {
+			aset.Insert(test.ReadyAddresses(slice)...)
 		}
 		svcSet = make(sets.Set[string], wantAct)
-		for _, ss := range svcEps.Subsets {
-			for i := range len(ss.Addresses) {
-				svcSet.Insert(ss.Addresses[i].IP)
-			}
+		for _, slice := range svcEps {
+			svcSet.Insert(test.ReadyAddresses(slice)...)
 		}
+
 		// Subset wants this many activators, but there might not be as many,
 		// so reduce the expectation.
 		if aset.Len() < wantAct {

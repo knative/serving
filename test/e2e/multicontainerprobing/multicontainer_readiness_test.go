@@ -26,14 +26,12 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/resources"
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
@@ -386,15 +384,14 @@ func TestMultiContainerProbeStartFailingAfterReady(t *testing.T) {
 		t.Fatal("Unable to get revision: ", err)
 	}
 	privateSvcName := e2e.PrivateServiceName(t, clients, revName)
-	endpoints := clients.KubeClient.CoreV1().Endpoints(test.ServingFlags.TestNamespace)
 
 	var latestReady int
 	if err := wait.PollUntilContextTimeout(context.Background(), time.Second, 60*time.Second, true, func(context.Context) (bool, error) {
-		endpoint, err := endpoints.Get(context.Background(), privateSvcName, metav1.GetOptions{})
+		slices, err := test.EndpointSlicesForService(clients.KubeClient, test.ServingFlags.TestNamespace, privateSvcName)
 		if err != nil {
 			return false, nil //nolint:nilerr
 		}
-		latestReady = resources.ReadyAddressCount(endpoint)
+		latestReady = test.ReadyAddressCount(slices)
 		return latestReady == 0, nil
 	}); err != nil {
 		t.Fatalf("Service still has endpoints: %d", latestReady)
