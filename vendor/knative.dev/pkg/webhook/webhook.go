@@ -37,7 +37,6 @@ import (
 	"knative.dev/pkg/observability/semconv"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
@@ -313,19 +312,11 @@ func (wh *Webhook) Run(stop <-chan struct{}) error {
 	}
 
 	otelHandler := otelhttp.NewHandler(
-		drainer,
+		&routeLabeler{next: drainer},
 		wh.Options.ServiceName, // Note this service is k8s service name
 		otelhttp.WithMeterProvider(wh.Options.MeterProvider),
 		otelhttp.WithTracerProvider(wh.Options.TracerProvider),
 		otelhttp.WithPropagators(wh.Options.TextMapPropagator),
-		otelhttp.WithMetricAttributesFn(func(r *http.Request) []attribute.KeyValue {
-			if r.URL.Path == "" {
-				return nil
-			}
-			return []attribute.KeyValue{
-				semconv.HTTPRoute(r.URL.Path),
-			}
-		}),
 		otelhttp.WithFilter(func(r *http.Request) bool {
 			// Don't trace kubelet probes
 			return !network.IsKubeletProbe(r)
@@ -405,4 +396,17 @@ func (wh *Webhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	wh.mux.ServeHTTP(w, r)
+}
+
+type routeLabeler struct {
+	next http.Handler
+}
+
+func (rl *routeLabeler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "" {
+		labeler, _ := otelhttp.LabelerFromContext(r.Context())
+		labeler.Add(semconv.HTTPRoute(r.URL.Path))
+	}
+
+	rl.next.ServeHTTP(w, r)
 }
