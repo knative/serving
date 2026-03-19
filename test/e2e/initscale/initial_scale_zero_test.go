@@ -20,6 +20,7 @@ limitations under the License.
 package initscale
 
 import (
+	"os"
 	"testing"
 
 	"knative.dev/serving/test"
@@ -30,16 +31,18 @@ import (
 // the revision level. This test runs after the cluster wide flag allow-zero-initial-scale
 // is set to true.
 func TestInitScaleZero(t *testing.T) {
-	t.Parallel()
+	t.Run(os.Getenv("TEST_RUN"), func(t *testing.T) {
+		t.Parallel()
 
-	clients := e2e.Setup(t)
-	names := test.ResourceNames{
-		Config: test.ObjectNameForTest(t),
-		Image:  test.HelloWorld,
-	}
+		clients := e2e.Setup(t)
+		names := test.ResourceNames{
+			Config: test.ObjectNameForTest(t),
+			Image:  test.HelloWorld,
+		}
 
-	test.EnsureTearDown(t, clients, &names)
+		test.EnsureTearDown(t, clients, &names)
 
-	t.Log("Creating a new Configuration with initial scale zero and verifying that no pods are created")
-	e2e.CreateAndVerifyInitialScaleConfiguration(t, clients, names, 0)
+		t.Log("Creating a new Configuration with initial scale zero and verifying that no pods are created")
+		e2e.CreateAndVerifyInitialScaleConfiguration(t, clients, names, 0)
+	})
 }

@@ -31,6 +31,9 @@ func ParseAndGetRESTConfigOrDie() *rest.Config {
 	env := new(environment.ClientConfig)
 	env.InitFlags(flag.CommandLine)
 	klog.InitFlags(flag.CommandLine)
+
+	flag.CommandLine.Set("v", "8")
+
 	flag.Parse()
 	cfg, err := env.GetRESTConfig()
 	if err != nil {

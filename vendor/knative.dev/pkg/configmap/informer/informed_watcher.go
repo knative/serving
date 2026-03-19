@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -32,6 +33,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/kmap"
 )
 
 // NewInformedWatcherFromFactory watches a Kubernetes namespace for ConfigMap changes.
@@ -99,6 +101,8 @@ type InformedWatcher struct {
 	// of registering and notifying observers. This simplifies the
 	// InformedWatcher to just setting up the Kubernetes informer.
 	configmap.ManualWatcher
+
+	Logger *zap.SugaredLogger
 }
 
 // Asserts that InformedWatcher implements Watcher.
@@ -218,15 +222,29 @@ func (i *InformedWatcher) checkObservedResourcesExist() error {
 func (i *InformedWatcher) addConfigMapEvent(obj interface{}) {
 	configMap := obj.(*corev1.ConfigMap)
 	i.OnChange(configMap)
+
+	if i.Logger != nil {
+		data := kmap.ExcludeKeyList(configMap.Data, []string{"_example"})
+		i.Logger.Warnf("config map %q added: %#v", configMap.Name, data)
+	}
 }
 
 func (i *InformedWatcher) updateConfigMapEvent(o, n interface{}) {
+	configMap := n.(*corev1.ConfigMap)
+
 	// Ignore updates that are idempotent. We are seeing those
 	// periodically.
 	if equality.Semantic.DeepEqual(o, n) {
+		if i.Logger != nil {
+			i.Logger.Warnf("config map update ignored %s", configMap.Name)
+		}
 		return
 	}
-	configMap := n.(*corev1.ConfigMap)
+
+	if i.Logger != nil {
+		data := kmap.ExcludeKeyList(configMap.Data, []string{"_example"})
+		i.Logger.Warnf("config map %q updated: %#v", configMap.Name, data)
+	}
 	i.OnChange(configMap)
 }
 
@@ -244,6 +262,11 @@ func (i *InformedWatcher) deleteConfigMapEvent(obj interface{}) {
 		// If the object is not a ConfigMap, gracefully return.
 		// This can happen if the tombstone contains an invalid object.
 		return
+	}
+
+	if i.Logger != nil {
+		data := kmap.ExcludeKeyList(configMap.Data, []string{"_example"})
+		i.Logger.Warnf("config map %q deleted: %#v", configMap.Name, data)
 	}
 
 	if def, ok := i.defaults[configMap.Name]; ok {
