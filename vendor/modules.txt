@@ -1536,7 +1536,7 @@ knative.dev/networking/pkg/http/proxy
 knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20260120122510-4a022ed9999a
+# knative.dev/pkg v0.0.0-20260319144603-18c5d580ae64
 ## explicit; go 1.24.0
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1618,6 +1618,7 @@ knative.dev/pkg/logging/logkey
 knative.dev/pkg/logging/testing
 knative.dev/pkg/network
 knative.dev/pkg/network/handlers
+knative.dev/pkg/network/tls
 knative.dev/pkg/observability
 knative.dev/pkg/observability/attributekey
 knative.dev/pkg/observability/configmap

@@ -472,6 +472,28 @@ kata:
 			podIsAlwaysSchedulableKey: "true",
 			QueueSidecarImageKey:      defaultSidecarImage,
 		},
+	}, {
+		name: "controller configuration with queue sidecar TLS settings",
+		wantConfig: &Config{
+			RegistriesSkippingTagResolving:  sets.New("kind.local", "ko.local", "dev.local"),
+			DigestResolutionTimeout:         digestResolutionTimeoutDefault,
+			QueueSidecarImage:               defaultSidecarImage,
+			QueueSidecarCPURequest:          &QueueSidecarCPURequestDefault,
+			QueueSidecarTokenAudiences:      sets.New(""),
+			ProgressDeadline:                ProgressDeadlineDefault,
+			DefaultAffinityType:             defaultAffinityTypeValue,
+			QueueSidecarTLSMinVersion:       "1.2",
+			QueueSidecarTLSMaxVersion:       "1.3",
+			QueueSidecarTLSCipherSuites:     "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+			QueueSidecarTLSCurvePreferences: "X25519,CurveP256",
+		},
+		data: map[string]string{
+			QueueSidecarImageKey:               defaultSidecarImage,
+			queueSidecarTLSMinVersionKey:       "1.2",
+			queueSidecarTLSMaxVersionKey:       "1.3",
+			queueSidecarTLSCipherSuitesKey:     "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+			queueSidecarTLSCurvePreferencesKey: "X25519,CurveP256",
+		},
 	}}
 
 	for _, tt := range configTests {

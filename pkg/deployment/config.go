@@ -74,6 +74,12 @@ const (
 	queueSidecarTokenAudiencesKey = "queue-sidecar-token-audiences"
 	queueSidecarRooCAKey          = "queue-sidecar-rootca"
 
+	// queueSidecar TLS configuration keys.
+	queueSidecarTLSMinVersionKey       = "queue-sidecar-tls-min-version"
+	queueSidecarTLSMaxVersionKey       = "queue-sidecar-tls-max-version"
+	queueSidecarTLSCipherSuitesKey     = "queue-sidecar-tls-cipher-suites"
+	queueSidecarTLSCurvePreferencesKey = "queue-sidecar-tls-curve-preferences"
+
 	defaultAffinityTypeKey   = "default-affinity-type"
 	defaultAffinityTypeValue = PreferSpreadRevisionOverNodes
 
@@ -202,6 +208,11 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 		cm.AsStringSet(queueSidecarTokenAudiencesKey, &nc.QueueSidecarTokenAudiences),
 		cm.AsString(queueSidecarRooCAKey, &nc.QueueSidecarRootCA),
 
+		cm.AsString(queueSidecarTLSMinVersionKey, &nc.QueueSidecarTLSMinVersion),
+		cm.AsString(queueSidecarTLSMaxVersionKey, &nc.QueueSidecarTLSMaxVersion),
+		cm.AsString(queueSidecarTLSCipherSuitesKey, &nc.QueueSidecarTLSCipherSuites),
+		cm.AsString(queueSidecarTLSCurvePreferencesKey, &nc.QueueSidecarTLSCurvePreferences),
+
 		cm.AsString(RuntimeClassNameKey, &runtimeClassNames),
 
 		cm.AsBool(podIsAlwaysSchedulableKey, &nc.PodIsAlwaysSchedulable),
@@ -307,6 +318,18 @@ type Config struct {
 
 	// QueueSidecarRootCA is a root certificate to be trusted by the queue proxy sidecar  qpoptions.
 	QueueSidecarRootCA string
+
+	// QueueSidecarTLSMinVersion is the minimum TLS version for the queue proxy sidecar (e.g. "1.2", "1.3").
+	QueueSidecarTLSMinVersion string
+
+	// QueueSidecarTLSMaxVersion is the maximum TLS version for the queue proxy sidecar (e.g. "1.2", "1.3").
+	QueueSidecarTLSMaxVersion string
+
+	// QueueSidecarTLSCipherSuites is a comma-separated list of cipher suites for the queue proxy sidecar.
+	QueueSidecarTLSCipherSuites string
+
+	// QueueSidecarTLSCurvePreferences is a comma-separated list of elliptic curves for the queue proxy sidecar.
+	QueueSidecarTLSCurvePreferences string
 
 	// DefaultAffinityType is a string that controls what affinity rules will be automatically
 	// applied to the PodSpec of all Knative services.

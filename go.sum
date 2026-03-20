@@ -550,8 +550,8 @@ knative.dev/hack v0.0.0-20260120115810-bf6758cba446 h1:Y8raYHIuAL9/gUKGYD9/dD+Eq
 knative.dev/hack v0.0.0-20260120115810-bf6758cba446/go.mod h1:L5RzHgbvam0u8QFHfzCX6MKxu/a/gIGEdaRBqNiVbl0=
 knative.dev/networking v0.0.0-20260120131110-a7cdca238a0d h1:QQ5QeH5MZlYdu6gRGGjmEBQ/CVoatiXKnVIrUoKlj4U=
 knative.dev/networking v0.0.0-20260120131110-a7cdca238a0d/go.mod h1:mZD2edO8op3zI6yLOn1yoz8xqbyZfrrDOJCbYElMEKs=
-knative.dev/pkg v0.0.0-20260120122510-4a022ed9999a h1:9f29OTA7w/iVIX6PS6yveVVzNbcUS74eQfchVe8o2/4=
-knative.dev/pkg v0.0.0-20260120122510-4a022ed9999a/go.mod h1:Tz3GoxcNC5vH3Zo//cW3mnHL474u+Y1wbsUIZ11p8No=
+knative.dev/pkg v0.0.0-20260319144603-18c5d580ae64 h1:TiwrcgUKNePfdAbaJT9W4P57lsKjiZnjJ0wVC6XrL0U=
+knative.dev/pkg v0.0.0-20260319144603-18c5d580ae64/go.mod h1:Tz3GoxcNC5vH3Zo//cW3mnHL474u+Y1wbsUIZ11p8No=
 pgregory.net/rapid v1.1.0 h1:CMa0sjHSru3puNx+J0MIAuiiEV4N0qj8/cMWGBBCsjw=
 pgregory.net/rapid v1.1.0/go.mod h1:PY5XlDGj0+V1FCq0o192FdRhpKHGTRIWBgqjDBTrq04=
 sigs.k8s.io/gateway-api v1.1.0 h1:DsLDXCi6jR+Xz8/xd0Z1PYl2Pn0TyaFMOPPZIj4inDM=

@@ -1122,6 +1122,10 @@ var defaultEnv = map[string]string{
 	"SYSTEM_NAMESPACE":                        system.Namespace(),
 	"USER_PORT":                               strconv.Itoa(v1.DefaultUserPort),
 	"ROOT_CA":                                 "",
+	"QUEUE_PROXY_TLS_MIN_VERSION":             "",
+	"QUEUE_PROXY_TLS_MAX_VERSION":             "",
+	"QUEUE_PROXY_TLS_CIPHER_SUITES":           "",
+	"QUEUE_PROXY_TLS_CURVE_PREFERENCES":       "",
 	"ENABLE_MULTI_CONTAINER_PROBES":           "false",
 	"OBSERVABILITY_CONFIG":                    `{"tracing":{},"metrics":{},"runtime":{},"requestMetrics":{}}`,
 }
