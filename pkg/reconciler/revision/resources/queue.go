@@ -429,6 +429,18 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			Name:  "ROOT_CA",
 			Value: cfg.Deployment.QueueSidecarRootCA,
 		}, {
+			Name:  "QUEUE_PROXY_TLS_MIN_VERSION",
+			Value: cfg.Deployment.QueueSidecarTLSMinVersion,
+		}, {
+			Name:  "QUEUE_PROXY_TLS_MAX_VERSION",
+			Value: cfg.Deployment.QueueSidecarTLSMaxVersion,
+		}, {
+			Name:  "QUEUE_PROXY_TLS_CIPHER_SUITES",
+			Value: cfg.Deployment.QueueSidecarTLSCipherSuites,
+		}, {
+			Name:  "QUEUE_PROXY_TLS_CURVE_PREFERENCES",
+			Value: cfg.Deployment.QueueSidecarTLSCurvePreferences,
+		}, {
 			Name:  "ENABLE_MULTI_CONTAINER_PROBES",
 			Value: strconv.FormatBool(multiContainerProbingEnabled),
 		}, {

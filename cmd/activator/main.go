@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"log"
@@ -47,6 +46,7 @@ import (
 	pkglogging "knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	pkgnet "knative.dev/pkg/network"
+	knativetls "knative.dev/pkg/network/tls"
 	k8sruntime "knative.dev/pkg/observability/runtime/k8s"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
@@ -292,7 +292,7 @@ func main() {
 		"profile": pprof.Server,
 	}
 
-	errCh := make(chan error, len(servers))
+	errCh := make(chan error, len(servers)+1)
 	for name, server := range servers {
 		go func(name string, s *http.Server) {
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
@@ -306,17 +306,21 @@ func main() {
 	// At this moment activator with TLS does not disable HTTP.
 	// See also https://github.com/knative/serving/issues/12808.
 	if tlsEnabled {
-		name, server := "https", pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTPSPort), ah)
-		go func(name string, s *http.Server) {
-			s.TLSConfig = &tls.Config{
-				MinVersion:     tls.VersionTLS13,
-				GetCertificate: certCache.GetCertificate,
-			}
+		tlsCfg, err := knativetls.DefaultConfigFromEnv("ACTIVATOR_")
+		if err != nil {
+			logger.Fatalw("Failed to read TLS configuration from environment", zap.Error(err))
+		}
+
+		server := pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTPSPort), ah)
+		servers["https"] = server
+		go func(s *http.Server) {
+			s.TLSConfig = tlsCfg
+			s.TLSConfig.GetCertificate = certCache.GetCertificate
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
 			if err := s.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				errCh <- fmt.Errorf("%s server failed: %w", name, err)
+				errCh <- fmt.Errorf("https server failed: %w", err)
 			}
-		}(name, server)
+		}(server)
 	}
 
 	// Wait for the signal to drain.
