@@ -36,6 +36,7 @@
 # * `$KO_DOCKER_REPO` If not set, use ko.local as the registry.
 
 set -o errexit
+set -o nounset
 set -o pipefail
 
 readonly YAML_REPO_ROOT=${1:?"First argument must be the repo root dir"}
