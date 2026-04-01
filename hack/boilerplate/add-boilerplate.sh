@@ -25,7 +25,9 @@ Example: (from repository root)
 EOF
 )
 
-set -e
+set -o errexit
+set -o nounset
+set -o pipefail
 
 if [[ -z $1 || -z $2 ]]; then
   echo "${USAGE}"
