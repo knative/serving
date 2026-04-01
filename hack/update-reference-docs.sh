@@ -18,8 +18,6 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-export GO111MODULE=on
-
 if [ -z "${GOPATH:-}" ]; then
   export GOPATH=$(go env GOPATH)
 fi
