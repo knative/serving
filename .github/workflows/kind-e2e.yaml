@@ -53,7 +53,7 @@ jobs:
         docker run -d --restart=always \
           -p $REGISTRY_PORT:$REGISTRY_PORT \
           -v ~/artifacts/registry:/var/lib/registry \
-          --name $REGISTRY_NAME registry:2.8.3
+          --name $REGISTRY_NAME registry:3.0.0
 
         # Make the $REGISTRY_NAME -> 127.0.0.1, to tell `ko` to publish to
         # local reigstry, even when pushing $REGISTRY_NAME:$REGISTRY_PORT/some/image
