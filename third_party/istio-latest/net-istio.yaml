@@ -1,4 +1,4 @@
-# Generated when HEAD was 3cfda245e0002d23e362a1ce24bdf93925edfa01
+# Generated when HEAD was 526538171f805e90ee86a08414084c46edebd22d
 #
 # Copyright 2019 The Knative Authors
 #
@@ -22,7 +22,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20260401-3cfda245"
+    app.kubernetes.io/version: "20260402-52653817"
     serving.knative.dev/controller: "true"
     networking.knative.dev/ingress-provider: istio
 rules:
@@ -46,6 +46,11 @@ rules:
 # limitations under the License.
 
 # This is the shared Gateway for all Knative routes to use.
+#
+# Although this resource may exist in the cluster, it will not be reconciled
+# by the controller when gateways are disabled (external-gateways: "[]" and
+# local-gateways: "[]" in config-istio). It can be safely omitted from
+# mesh-only deployments.
 apiVersion: networking.istio.io/v1beta1
 kind: Gateway
 metadata:
@@ -54,7 +59,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20260401-3cfda245"
+    app.kubernetes.io/version: "20260402-52653817"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -85,6 +90,11 @@ spec:
 # A cluster local gateway to allow pods outside of the mesh to access
 # Services and Routes not exposing through an ingress.  If the users
 # do have a service mesh setup, this isn't required.
+#
+# Although this resource may exist in the cluster, it will not be reconciled
+# by the controller when gateways are disabled (external-gateways: "[]" and
+# local-gateways: "[]" in config-istio). It can be safely omitted from
+# mesh-only deployments.
 apiVersion: networking.istio.io/v1beta1
 kind: Gateway
 metadata:
@@ -93,7 +103,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20260401-3cfda245"
+    app.kubernetes.io/version: "20260402-52653817"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -114,7 +124,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20260401-3cfda245"
+    app.kubernetes.io/version: "20260402-52653817"
     networking.knative.dev/ingress-provider: istio
     experimental.istio.io/disable-gateway-port-translation: "true"
 spec:
@@ -152,7 +162,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20260401-3cfda245"
+    app.kubernetes.io/version: "20260402-52653817"
     networking.knative.dev/ingress-provider: istio
 data:
   # TODO(nghia): Extract the .svc.cluster.local suffix into its own config.
@@ -193,6 +203,14 @@ data:
     # If labelSelector is specified, the external gateway will be used by the knative service with matching labels.
     # See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/ for more details about labelSelector.
     # Only one external gateway can be specified without a selector. It will act as the default external gateway.
+    #
+    # To use mesh-only mode (no external ingress gateways), set to an empty list:
+    #   external-gateways: "[]"
+    # Both external-gateways and local-gateways must be set to "[]" for mesh-only mode.
+    #
+    # IMPORTANT: Do not add or remove gateways after Knative Services have been
+    # created. Existing services will not be updated to reflect the new gateway
+    # configuration and may become unreachable.
     external-gateways: |
       - name: knative-ingress-gateway
         namespace: knative-serving
@@ -236,6 +254,14 @@ data:
     # If labelSelector is specified, the local gateway will be used by the knative service with matching labels.
     # See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/ for more details about labelSelector.
     # Only one local gateway can be specified without a selector. It will act as the default local gateway.
+    #
+    # To use mesh-only mode (no local gateways), set to an empty list:
+    #   local-gateways: "[]"
+    # Both external-gateways and local-gateways must be set to "[]" for mesh-only mode.
+    #
+    # IMPORTANT: Do not add or remove gateways after Knative Services have been
+    # created. Existing services will not be updated to reflect the new gateway
+    # configuration and may become unreachable.
     local-gateways: |
       - name: knative-local-gateway
         namespace: knative-serving
@@ -262,7 +288,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20260401-3cfda245"
+    app.kubernetes.io/version: "20260402-52653817"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -280,7 +306,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20260401-3cfda245"
+    app.kubernetes.io/version: "20260402-52653817"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -313,7 +339,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20260401-3cfda245"
+    app.kubernetes.io/version: "20260402-52653817"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -322,21 +348,22 @@ spec:
   template:
     metadata:
       labels:
-        # This must be outside of the mesh to probe the gateways.
-        # NOTE: this is allowed here and not elsewhere because
-        # this is the Istio controller, and so it may be Istio-aware.
+        # In gateway mode, this must be "false" so the controller can
+        # directly probe the gateway pods outside of the mesh.
+        # In mesh-only mode (external-gateways: "[]", local-gateways: "[]"),
+        # probing is skipped entirely so this value does not matter.
         sidecar.istio.io/inject: "false"
         app: net-istio-controller
         app.kubernetes.io/component: net-istio
         app.kubernetes.io/name: knative-serving
-        app.kubernetes.io/version: "20260401-3cfda245"
+        app.kubernetes.io/version: "20260402-52653817"
     spec:
       serviceAccountName: controller
       containers:
         - name: controller
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/controller@sha256:9475be895da76bc57dcf887a4a6d5fc2490546899bd030893285b71798d218d2
+          image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/controller@sha256:1bee78f513a974c660c4ca78fdb52b9bb29c1b84792f504600ece261680cbfb2
           resources:
             requests:
               cpu: 30m
@@ -415,7 +442,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20260401-3cfda245"
+    app.kubernetes.io/version: "20260402-52653817"
     networking.knative.dev/ingress-provider: istio
 spec:
   selector:
@@ -429,14 +456,14 @@ spec:
         role: net-istio-webhook
         app.kubernetes.io/component: net-istio
         app.kubernetes.io/name: knative-serving
-        app.kubernetes.io/version: "20260401-3cfda245"
+        app.kubernetes.io/version: "20260402-52653817"
     spec:
       serviceAccountName: controller
       containers:
         - name: webhook
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/webhook@sha256:f72d6de53acc39c063ce8a23f8f4f819e4e44869b7d8be9a7a8985bfb4a927c7
+          image: gcr.io/knative-nightly/knative.dev/net-istio/cmd/webhook@sha256:12b3f158b9b7f7c65e48d51eb0e980c042eac5104e9a5be86f5bfe7e714a26cf
           resources:
             requests:
               cpu: 20m
@@ -514,7 +541,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20260401-3cfda245"
+    app.kubernetes.io/version: "20260402-52653817"
     networking.knative.dev/ingress-provider: istio
 
 ---
@@ -541,7 +568,7 @@ metadata:
     role: net-istio-webhook
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20260401-3cfda245"
+    app.kubernetes.io/version: "20260402-52653817"
     networking.knative.dev/ingress-provider: istio
 spec:
   ports:
@@ -580,7 +607,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20260401-3cfda245"
+    app.kubernetes.io/version: "20260402-52653817"
     networking.knative.dev/ingress-provider: istio
 webhooks:
   - admissionReviewVersions:
@@ -619,7 +646,7 @@ metadata:
   labels:
     app.kubernetes.io/component: net-istio
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20260401-3cfda245"
+    app.kubernetes.io/version: "20260402-52653817"
     networking.knative.dev/ingress-provider: istio
 webhooks:
   - admissionReviewVersions:
