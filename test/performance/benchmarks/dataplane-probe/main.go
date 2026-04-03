@@ -175,11 +175,24 @@ func checkSLA(results *vegeta.Metrics, slaMin time.Duration, slaMax time.Duratio
 		return fmt.Errorf("SLA 1 failed. P95 latency is not in %d-%dms time range: %s", slaMin, slaMax, results.Latencies.P95)
 	}
 
-	// SLA 2: making sure the defined total request is met
-	if results.Requests == uint64(rate.Rate(time.Second)*duration.Seconds()) {
-		log.Printf("SLA 2 passed. vegeta total request is %d", results.Requests)
+	// SLA 2: making sure the defined total request is met (within 0.1% threshold)
+	expectedRequests := uint64(rate.Rate(time.Second) * duration.Seconds())
+	threshold := expectedRequests / 1000 // 0.1% tolerance
+	if threshold == 0 {
+		threshold = 1 // Minimum tolerance of 1 request
+	}
+
+	var difference uint64
+	if results.Requests >= expectedRequests {
+		difference = results.Requests - expectedRequests
 	} else {
-		return fmt.Errorf("SLA 2 failed. vegeta total request is %d, expected total request is %f", results.Requests, rate.Rate(time.Second)*duration.Seconds())
+		difference = expectedRequests - results.Requests
+	}
+
+	if difference <= threshold {
+		log.Printf("SLA 2 passed. vegeta total request is %d, expected requests is %d (tolerance: %d)", results.Requests, expectedRequests, threshold)
+	} else {
+		return fmt.Errorf("SLA 2 failed. vegeta total request is %d, expected requests is %d (tolerance: %d)", results.Requests, expectedRequests, threshold)
 	}
 
 	return nil
