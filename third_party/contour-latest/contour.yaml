@@ -8836,7 +8836,7 @@ rules:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: contour-certgen-v1-33-2
+  name: contour-certgen-v1-33-3
   namespace: contour-external
   labels:
     networking.knative.dev/ingress-provider: contour
@@ -8848,7 +8848,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: ghcr.io/projectcontour/contour:v1.33.2
+          image: ghcr.io/projectcontour/contour:v1.33.3
           imagePullPolicy: IfNotPresent
           command:
             - contour
@@ -9090,7 +9090,7 @@ spec:
             - --config-path=/config/contour.yaml
           command:
             - contour
-          image: ghcr.io/projectcontour/contour:v1.33.2
+          image: ghcr.io/projectcontour/contour:v1.33.3
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -9174,7 +9174,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: ghcr.io/projectcontour/contour:v1.33.2
+          image: ghcr.io/projectcontour/contour:v1.33.3
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -9202,7 +9202,7 @@ spec:
             - --log-level info
           command:
             - envoy
-          image: docker.io/envoyproxy/envoy:distroless-v1.35.8
+          image: docker.io/envoyproxy/envoy:distroless-v1.35.9
           imagePullPolicy: IfNotPresent
           name: envoy
           env:
@@ -9267,7 +9267,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: ghcr.io/projectcontour/contour:v1.33.2
+          image: ghcr.io/projectcontour/contour:v1.33.3
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
@@ -9566,7 +9566,7 @@ rules:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: contour-certgen-v1-33-2
+  name: contour-certgen-v1-33-3
   namespace: contour-internal
   labels:
     networking.knative.dev/ingress-provider: contour
@@ -9578,7 +9578,7 @@ spec:
     spec:
       containers:
         - name: contour
-          image: ghcr.io/projectcontour/contour:v1.33.2
+          image: ghcr.io/projectcontour/contour:v1.33.3
           imagePullPolicy: IfNotPresent
           command:
             - contour
@@ -9728,7 +9728,7 @@ spec:
             - --config-path=/config/contour.yaml
           command:
             - contour
-          image: ghcr.io/projectcontour/contour:v1.33.2
+          image: ghcr.io/projectcontour/contour:v1.33.3
           imagePullPolicy: IfNotPresent
           name: contour
           ports:
@@ -9812,7 +9812,7 @@ spec:
           args:
             - envoy
             - shutdown-manager
-          image: ghcr.io/projectcontour/contour:v1.33.2
+          image: ghcr.io/projectcontour/contour:v1.33.3
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -9840,7 +9840,7 @@ spec:
             - --log-level info
           command:
             - envoy
-          image: docker.io/envoyproxy/envoy:distroless-v1.35.8
+          image: docker.io/envoyproxy/envoy:distroless-v1.35.9
           imagePullPolicy: IfNotPresent
           name: envoy
           env:
@@ -9905,7 +9905,7 @@ spec:
             - --envoy-key-file=/certs/tls.key
           command:
             - contour
-          image: ghcr.io/projectcontour/contour:v1.33.2
+          image: ghcr.io/projectcontour/contour:v1.33.3
           imagePullPolicy: IfNotPresent
           name: envoy-initconfig
           volumeMounts:
