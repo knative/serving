@@ -224,6 +224,16 @@ func TestReconcile(t *testing.T) {
 		}},
 		Key: "foo/preserve-annotations",
 	}, {
+		Name: "do not update deployments with no spec changes",
+		Objects: []runtime.Object{
+			Revision("foo", "preserve-annotations",
+				WithLogURL, allUnknownConditions, withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+			pa("foo", "preserve-annotations", WithReachabilityUnknown),
+			addDeploymentMetadata(deploy(t, "foo", "preserve-annotations"), false),
+			image("foo", "preserve-annotations"),
+		},
+		Key: "foo/preserve-annotations",
+	}, {
 		Name: "failure updating deployment",
 		// Test that we handle an error updating the deployment properly.
 		WantErr: true,
