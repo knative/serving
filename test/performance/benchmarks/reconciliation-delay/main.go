@@ -157,7 +157,7 @@ func main() {
 	metricResults := func() *vegeta.Metrics {
 		influxReporter, err := performance.NewInfluxReporter(map[string]string{})
 		if err != nil {
-			fatalf(fmt.Sprintf("failed to create influx reporter: %v", err.Error()))
+			fatalf("failed to create influx reporter: %v", err.Error())
 		}
 		defer influxReporter.FlushAndShutdown()
 
@@ -242,7 +242,7 @@ func main() {
 
 	expectedServices := duration.Seconds() / frequency.Seconds()
 	if err := checkSLA(metricResults, expectedServices); err != nil {
-		fatalf(err.Error())
+		fatalf("%s", err.Error())
 	}
 
 	log.Println("Reconciliation delay run finished")
