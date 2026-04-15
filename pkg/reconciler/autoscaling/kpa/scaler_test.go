@@ -785,7 +785,7 @@ func checkReplicas(t *testing.T, dynamicClient *fakedynamic.FakeDynamicClient, d
 			if patch.GetName() != deployment.Name {
 				continue
 			}
-			want := fmt.Sprintf(`[{"op":"replace","path":"/spec/replicas","value":%d}]`, expectedScale)
+			want := fmt.Sprintf(`[{"op":"add","path":"/spec/replicas","value":%d}]`, expectedScale)
 			if got := string(patch.GetPatch()); got != want {
 				t.Errorf("Patch = %s, wanted %s", got, want)
 			}
