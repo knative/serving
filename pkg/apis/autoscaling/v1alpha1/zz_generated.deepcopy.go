@@ -299,7 +299,6 @@ func (in *PodScalableSpec) DeepCopyInto(out *PodScalableSpec) {
 		*out = new(v1.LabelSelector)
 		(*in).DeepCopyInto(*out)
 	}
-	in.Template.DeepCopyInto(&out.Template)
 	return
 }
 

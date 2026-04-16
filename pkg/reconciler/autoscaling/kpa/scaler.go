@@ -298,7 +298,10 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1
 	}
 }
 
-func (ks *scaler) applyScale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, desiredScale int32,
+func (ks *scaler) applyScale(
+	ctx context.Context,
+	pa *autoscalingv1alpha1.PodAutoscaler,
+	desiredScale int32,
 	ps *autoscalingv1alpha1.PodScalable,
 ) error {
 	logger := logging.FromContext(ctx)
@@ -308,19 +311,15 @@ func (ks *scaler) applyScale(ctx context.Context, pa *autoscalingv1alpha1.PodAut
 		return err
 	}
 
-	psNew := ps.DeepCopy()
-	psNew.Spec.Replicas = &desiredScale
-	patch, err := duck.CreatePatch(ps, psNew)
-	if err != nil {
-		return err
-	}
-	patchBytes, err := patch.MarshalJSON()
-	if err != nil {
-		return err
-	}
+	patch := fmt.Sprintf(`[{"op":"add","path":"/spec/replicas","value":%d}]`, desiredScale)
 
-	_, err = ks.dynamicClient.Resource(*gvr).Namespace(pa.Namespace).Patch(ctx, ps.Name, types.JSONPatchType,
-		patchBytes, metav1.PatchOptions{})
+	_, err = ks.dynamicClient.Resource(*gvr).Namespace(pa.Namespace).Patch(
+		ctx,
+		ps.Name,
+		types.JSONPatchType,
+		[]byte(patch),
+		metav1.PatchOptions{},
+		"scale")
 	if err != nil {
 		return fmt.Errorf("failed to apply scale %d to scale target %s: %w", desiredScale, name, err)
 	}

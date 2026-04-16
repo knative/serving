@@ -565,18 +565,6 @@ Kubernetes meta/v1.LabelSelector
 <td>
 </td>
 </tr>
-<tr>
-<td>
-<code>template</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#podtemplatespec-v1-core">
-Kubernetes core/v1.PodTemplateSpec
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
 </table>
 </td>
 </tr>
@@ -627,18 +615,6 @@ int32
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#labelselector-v1-meta">
 Kubernetes meta/v1.LabelSelector
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>template</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#podtemplatespec-v1-core">
-Kubernetes core/v1.PodTemplateSpec
 </a>
 </em>
 </td>

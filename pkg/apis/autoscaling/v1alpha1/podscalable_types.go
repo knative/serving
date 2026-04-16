@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
@@ -43,9 +42,8 @@ type PodScalable struct {
 // PodScalableSpec is the specification for the desired state of a
 // PodScalable (or at least our shared portion).
 type PodScalableSpec struct {
-	Replicas *int32                 `json:"replicas,omitempty"`
-	Selector *metav1.LabelSelector  `json:"selector"`
-	Template corev1.PodTemplateSpec `json:"template"`
+	Replicas *int32                `json:"replicas,omitempty"`
+	Selector *metav1.LabelSelector `json:"selector"`
 }
 
 // PodScalableStatus is the observed state of a PodScalable (or at
@@ -79,19 +77,6 @@ func (t *PodScalable) Populate() {
 				Operator: "In",
 				Values:   []string{"baz", "blah"},
 			}},
-		},
-		Template: corev1.PodTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{
-					"foo": "bar",
-				},
-			},
-			Spec: corev1.PodSpec{
-				Containers: []corev1.Container{{
-					Name:  "container-name",
-					Image: "container-image:latest",
-				}},
-			},
 		},
 	}
 	t.Status = PodScalableStatus{

@@ -264,7 +264,7 @@ func TestReconcile(t *testing.T) {
 	minScalePatch := clientgotesting.PatchActionImpl{
 		ActionImpl: clientgotesting.ActionImpl{Namespace: testNamespace},
 		Name:       deployName,
-		Patch:      []byte(fmt.Sprintf(`[{"op":"replace","path":"/spec/replicas","value":%d}]`, defaultScale)),
+		Patch:      fmt.Appendf(nil, `[{"op":"add","path":"/spec/replicas","value":%d}]`, defaultScale),
 	}
 
 	inactiveKPAMinScale := func(g int32) *autoscalingv1alpha1.PodAutoscaler {
@@ -1030,7 +1030,7 @@ func TestReconcile(t *testing.T) {
 		WantPatches: []clientgotesting.PatchActionImpl{{
 			ActionImpl: clientgotesting.ActionImpl{Namespace: testNamespace},
 			Name:       deployName,
-			Patch:      []byte(fmt.Sprintf(`[{"op":"replace","path":"/spec/replicas","value":%d}]`, 20)),
+			Patch:      fmt.Appendf(nil, `[{"op":"add","path":"/spec/replicas","value":%d}]`, 20),
 		}},
 	}, {
 		Name: "initial scale reached, mark PA as active",
@@ -1058,7 +1058,7 @@ func TestReconcile(t *testing.T) {
 		WantPatches: []clientgotesting.PatchActionImpl{{
 			ActionImpl: clientgotesting.ActionImpl{Namespace: testNamespace},
 			Name:       deployName,
-			Patch:      []byte(fmt.Sprintf(`[{"op":"replace","path":"/spec/replicas","value":%d}]`, 20)),
+			Patch:      fmt.Appendf(nil, `[{"op":"add","path":"/spec/replicas","value":%d}]`, 20),
 		}},
 	}, {
 		Name: "initial scale zero: scale to zero",
