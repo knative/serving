@@ -1476,7 +1476,7 @@ to their respective digests and their container name.
 The digests are resolved during the creation of Revision.
 ContainerStatuses holds the container name and image digests
 for both serving and non serving containers.
-ref: <a href="http://bit.ly/image-digests">http://bit.ly/image-digests</a></p>
+ref: <a href="https://bit.ly/image-digests">https://bit.ly/image-digests</a></p>
 </td>
 </tr>
 <tr>
@@ -1495,7 +1495,7 @@ to their respective digests and their container name.
 The digests are resolved during the creation of Revision.
 ContainerStatuses holds the container name and image digests
 for both serving and non serving containers.
-ref: <a href="http://bit.ly/image-digests">http://bit.ly/image-digests</a></p>
+ref: <a href="https://bit.ly/image-digests">https://bit.ly/image-digests</a></p>
 </td>
 </tr>
 <tr>
