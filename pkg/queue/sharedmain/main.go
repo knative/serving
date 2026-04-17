@@ -131,7 +131,7 @@ type Env struct {
 	ServingPodIP string `split_words:"true" required:"true"`
 }
 
-// Defaults provides Options (QP Extensions) with the default bahaviour of QP
+// Defaults provides Options (QP Extensions) with the default behaviour of QP
 // Some attributes of Defaults may be modified by Options
 // Modifying Defaults mutates the behavior of QP
 type Defaults struct {

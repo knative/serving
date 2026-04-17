@@ -47,7 +47,7 @@ const (
 	// - Readiness.PeriodSeconds=10
 	// - Readiness.FailureThreshold=3
 	//
-	// Thus it takes at a mininum 30 seconds for the Pod to become
+	// Thus it takes at a minimum 30 seconds for the Pod to become
 	// unready. To account for this we bump max propagation time
 	readinessPropagationTime = time.Minute
 	readinessPath            = "/healthz/readiness"

@@ -118,7 +118,7 @@ func MakeClusterLocalCertificate(route *v1.Route, tag string, domains sets.Set[s
 	}
 }
 
-// certNameFromRouteAndTag returns a possibly shortended certName as
+// certNameFromRouteAndTag returns a possibly shortened certName as
 // k8s supports cert name only up to 63 chars and so is constructed as route-[UID]-[tag digest]
 // where route-[UID] will take 42 characters and leaves 20 characters for tag digest (need to include `-`).
 // We use https://golang.org/pkg/hash/adler32/#Checksum to compute the digest which returns a uint32.

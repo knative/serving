@@ -1249,7 +1249,7 @@ func TestAdjustPercentage(t *testing.T) {
 			logger := TestLogger(t)
 			adjustPercentage(tc.goal, tc.prev, logger)
 			if got, want := tc.prev.Revisions, tc.want; !cmp.Equal(got, want, cmpopts.EquateEmpty()) {
-				t.Errorf("Rollout Mistmatch(-want,+got):\n%s", cmp.Diff(want, got))
+				t.Errorf("Rollout Mismatch(-want,+got):\n%s", cmp.Diff(want, got))
 			}
 		})
 	}

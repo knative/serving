@@ -361,7 +361,7 @@ func stepRevisions(goal *ConfigurationRollout, nowTS int64) {
 }
 
 // stepConfig takes previous and goal configuration shapes and returns a new
-// config rollout, after computing the percetage allocations.
+// config rollout, after computing the percentage allocations.
 func stepConfig(goal, prev *ConfigurationRollout, nowTS int64, logger *zap.SugaredLogger) *ConfigurationRollout {
 	pc := len(prev.Revisions)
 	ret := &ConfigurationRollout{

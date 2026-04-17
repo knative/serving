@@ -38,10 +38,10 @@ At the end of reading an issue, you should do one of the following:
 1. Move it to the correct repo (for example, Istio-specific questions should
    probably go to `net-istio`). In some cases, you may need to create a new
    issue in the new repo and link / copy the current issue. If you do this, be
-   sure to `@mention` the requestor and others on the old issue, and then
+   sure to `@mention` the requester and others on the old issue, and then
    `/close` the issue is serving with a link to the other repo.
 
-1. If it's not clear what the problem or issue is, add a note for the requestor
+1. If it's not clear what the problem or issue is, add a note for the requester
    (or occasionally some other user on the thread), make sure that there is a
    reasonable `/kind` on the issue and mark it as `/triage needs-user-input` so
    that it's off the list for a few days. If a `needs-user-input` issue persists

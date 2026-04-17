@@ -111,7 +111,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 	}
 
 	// ExceedingMemoryLimitSize defaults to 500.
-	// Allows override the memory usage to get a non-200 resposne because the serverless platform
+	// Allows override the memory usage to get a non-200 response because the serverless platform
 	// MAY automatically adjust the resource limits.
 	// See https://github.com/knative/specs/blob/main/specs/serving/runtime-contract.md#memory-and-cpu-limits
 	exceedingMemory := test.ServingFlags.ExceedingMemoryLimitSize

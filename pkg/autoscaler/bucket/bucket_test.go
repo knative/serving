@@ -126,7 +126,7 @@ func TestIdentity(t *testing.T) {
 			got, err := Identity()
 			if err != nil {
 				if tc.wantErr == "" {
-					t.Fatal("Unexpect error from Identity(): ", err)
+					t.Fatal("Unexpected error from Identity(): ", err)
 				}
 				if got := err.Error(); got != tc.wantErr {
 					t.Errorf("got := %v, want = %v", got, tc.wantErr)
@@ -146,7 +146,7 @@ func TestIdentity(t *testing.T) {
 func TestExtractPodNameAndIP(t *testing.T) {
 	gotName, gotIP, err := ExtractPodNameAndIP("as_1.2.3.4")
 	if err != nil {
-		t.Fatal("Unexpect error from Identity(): ", err)
+		t.Fatal("Unexpected error from Identity(): ", err)
 	}
 	if wantName := "as"; gotName != wantName {
 		t.Errorf("got := %v, want = %v", gotName, wantName)

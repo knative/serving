@@ -355,7 +355,7 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "first-reconcile.com"),
 		},
 	}, {
-		Name: "first reconcile, cant claim domain",
+		Name: "first reconcile, can't claim domain",
 		Key:  "default/first-reconcile.com",
 		Objects: []runtime.Object{
 			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
@@ -833,7 +833,7 @@ func TestReconcileAutocreateClaimsDisabled(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "first-reconcile.com"),
 		},
 	}, {
-		Name: "first reconcile, claim exists but isnt owned",
+		Name: "first reconcile, claim exists but isn't owned",
 		Key:  "default/first-reconcile.com",
 		Objects: []runtime.Object{
 			domainMapping("default", "first-reconcile.com", withRef("default", "target")),

@@ -47,7 +47,7 @@ const (
 )
 
 // Connects to a WebSocket target and executes `numReqs` requests.
-// Collects the answer frequences and returns them.
+// Collects the answer frequencies and returns them.
 // Returns nil map and error if any of the requests fails.
 func webSocketResponseFreqs(t *testing.T, clients *test.Clients, url string, numReqs int) (map[string]int, error) {
 	t.Helper()

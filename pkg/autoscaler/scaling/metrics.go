@@ -96,7 +96,7 @@ func newMetrics(mp metric.MeterProvider, scalingMetric string, attrs attribute.S
 
 	m.panicMode = must(meter.Int64ObservableGauge(
 		"kn.revision.panic.mode",
-		metric.WithDescription("If greater tha 0 the autoscaler is in panic mode"),
+		metric.WithDescription("If greater than 0 the autoscaler is in panic mode"),
 	))
 
 	switch scalingMetric {
