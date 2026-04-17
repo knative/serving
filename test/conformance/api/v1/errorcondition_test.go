@@ -161,7 +161,7 @@ func TestContainerExitingMsg(t *testing.T) {
 	t.Log("When the containers keep crashing, the Revision should have error status.")
 	err = v1test.CheckRevisionState(clients.ServingClient, names.Revision, func(r *v1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1.RevisionConditionReady)
-		t.Logf("Revsion %s Ready status = %v", names.Revision, cond)
+		t.Logf("Revision %s Ready status = %v", names.Revision, cond)
 		if cond != nil {
 			if cond.Reason != "" && cond.Message != "" {
 				return true, nil

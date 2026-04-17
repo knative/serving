@@ -54,7 +54,7 @@ func isCgroupsV2(mounts []*types.Mount) (bool, error) {
 }
 
 // TestMustHaveCgroupConfigured verifies that the Linux cgroups are configured based on the specified
-// resource limits and requests as delared by "MUST" in the runtime-contract.
+// resource limits and requests as declared by "MUST" in the runtime-contract.
 func TestMustHaveCgroupConfigured(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)

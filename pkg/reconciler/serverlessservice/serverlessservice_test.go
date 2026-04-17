@@ -205,7 +205,7 @@ func TestReconcile(t *testing.T) {
 				withFilteredPorts(networking.BackendHTTPPort)),
 		}},
 	}, {
-		// This is the case for once we are proxying for unsufficient burst capacity.
+		// This is the case for once we are proxying for insufficient burst capacity.
 		// It should be a no-op.
 		Name: "steady switch to proxy mode with endpoints",
 		Key:  "steady/to-proxy",

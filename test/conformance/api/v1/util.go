@@ -281,7 +281,7 @@ func validateK8sServiceAnnotations(t *testing.T, clients *test.Clients, names te
 }
 
 func validateReleaseServiceShape(objs *v1test.ResourceObjects) error {
-	// Traffic should be routed to the lastest created revision.
+	// Traffic should be routed to the latest created revision.
 	if got, want := objs.Service.Status.Traffic[0].RevisionName, objs.Config.Status.LatestReadyRevisionName; got != want {
 		return fmt.Errorf("Status.Traffic[0].RevisionsName = %s, want: %s", got, want)
 	}

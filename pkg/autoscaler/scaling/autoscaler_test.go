@@ -930,7 +930,7 @@ func panicMetric(panic bool) metricdata.Metrics {
 	}
 	return metricdata.Metrics{
 		Name:        "kn.revision.panic.mode",
-		Description: "If greater tha 0 the autoscaler is in panic mode",
+		Description: "If greater than 0 the autoscaler is in panic mode",
 		Data: metricdata.Gauge[int64]{
 			DataPoints: []metricdata.DataPoint[int64]{{
 				Value:      int64(val),

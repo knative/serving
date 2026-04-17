@@ -113,7 +113,7 @@ func TestRandomChoice2(t *testing.T) {
 			t.Errorf("pt.weight = %d, want: %d", got, want)
 		}
 		cb()
-		// Should return same or the other unsued one.
+		// Should return same or the other unused one.
 		_, pt = randomChoice2Policy(context.Background(), podTrackers)
 		if got, want := pt.getWeight(), wantW; got != want {
 			t.Errorf("pt.weight = %d, want: %d", got, want)
