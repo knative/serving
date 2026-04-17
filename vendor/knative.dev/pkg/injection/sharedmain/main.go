@@ -479,7 +479,9 @@ func SetupConfigMapWatchOrDie(ctx context.Context, logger *zap.SugaredLogger) *c
 		cmLabelReqs = append(cmLabelReqs, *req)
 	}
 	// TODO(mattmoor): This should itself take a context and be injection-based.
-	return cminformer.NewInformedWatcher(kc, system.Namespace(), cmLabelReqs...)
+	cmw := cminformer.NewInformedWatcher(kc, system.Namespace(), cmLabelReqs...)
+	cmw.Logger = logger.Named("cmw")
+	return cmw
 }
 
 // WatchLoggingConfigOrDie establishes a watch of the logging config or dies by
