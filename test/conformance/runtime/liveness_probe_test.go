@@ -89,7 +89,7 @@ func TestLivenessWithFail(t *testing.T) {
 		t.Fatalf("The endpoint for Route %s at %s didn't return success: %v", names.Route, url, err)
 	}
 
-	// Check that user-container hasn't been restarted yet.
+	// Check that the serving container hasn't been restarted yet.
 	deploymentName := resourcenames.Deployment(resources.Revision)
 	podList, err := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
@@ -97,8 +97,8 @@ func TestLivenessWithFail(t *testing.T) {
 	}
 	for i := range podList.Items {
 		pod := &podList.Items[i]
-		if strings.Contains(pod.Name, deploymentName) && test.UserContainerRestarted(pod) {
-			t.Fatal("User container unexpectedly restarted")
+		if strings.Contains(pod.Name, deploymentName) && test.ServingContainerRestarted(pod) {
+			t.Fatal("Serving container unexpectedly restarted")
 		}
 	}
 
@@ -122,21 +122,21 @@ func TestLivenessWithFail(t *testing.T) {
 		t.Fatalf("POST to /start-failing failed: %v", err)
 	}
 
-	// Wait for the user-container to be restarted.
+	// Wait for the serving container to be restarted.
 	if err := pkgtest.WaitForPodListState(
 		context.Background(),
 		clients.KubeClient,
 		func(p *corev1.PodList) (bool, error) {
 			for i := range p.Items {
 				pod := &p.Items[i]
-				if strings.Contains(pod.Name, deploymentName) && test.UserContainerRestarted(pod) {
+				if strings.Contains(pod.Name, deploymentName) && test.ServingContainerRestarted(pod) {
 					return true, nil
 				}
 			}
 			return false, nil
 		},
 		"WaitForContainerRestart", test.ServingFlags.TestNamespace); err != nil {
-		t.Fatalf("Failed waiting for user-container to be restarted: %v", err)
+		t.Fatalf("Failed waiting for serving container to be restarted: %v", err)
 	}
 
 	// After restart, verify the liveness probe passes a few times again.
