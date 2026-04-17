@@ -28,7 +28,7 @@ type entry struct {
 }
 
 // window is a circular buffer which keeps track of the maximum value observed in a particular time.
-// Based on the "ascending minima algorithm" (http://web.archive.org/web/20120805114719/http://home.tiac.net/~cri/2001/slidingmin.html).
+// Based on the "ascending minima algorithm" (https://web.archive.org/web/20120805114719/http://home.tiac.net/~cri/2001/slidingmin.html).
 type window struct {
 	maxima        []entry
 	first, length int

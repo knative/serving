@@ -198,7 +198,7 @@ kubectl -n knative-serving logs $(kubectl -n knative-serving get pods -l app=con
 
 If you're using a GCP project to host your Kubernetes cluster, it's good to
 check the
-[Discovery & load balancing](http://console.developers.google.com/kubernetes/discovery)
+[Discovery & load balancing](https://console.developers.google.com/kubernetes/discovery)
 page to ensure that all services are up and running (and not blocked by a quota
 issue, for example).
 

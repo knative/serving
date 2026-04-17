@@ -172,7 +172,7 @@ data:
     # The `unit` is one concurrent request proxied by the activator.
     # activator-capacity must be at least 1.
     # This value is used for computation of the Activator subset size.
-    # See the algorithm here: http://bit.ly/38XiCZ3.
+    # See the algorithm here: https://bit.ly/38XiCZ3.
     # TODO(vagababov): tune after actual benchmarking.
     activator-capacity: "100.0"
 
