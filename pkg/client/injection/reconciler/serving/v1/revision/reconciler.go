@@ -48,7 +48,7 @@ import (
 type Interface interface {
 	// ReconcileKind implements custom logic to reconcile v1.Revision. Any changes
 	// to the objects .Status or .Finalizers will be propagated to the stored
-	// object. It is recommended that implementers do not call any update calls
+	// object. It is recommended that implementors do not call any update calls
 	// for the Kind inside of ReconcileKind, it is the responsibility of the calling
 	// controller to propagate those properties. The resource passed to ReconcileKind
 	// will always have an empty deletion timestamp.
