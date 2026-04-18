@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "9553535b"
+    knative.dev/example-checksum: "bee75b26"
 data:
   _example: |-
     ################################
@@ -238,7 +238,7 @@ data:
     # Enabling will mount a podInfo volume to the queue proxy container.
     # The volume will contains an 'annotations' file (from the pod's annotation field).
     # The annotations in this file include the Service annotations set by the client creating the service.
-    # If mounted, the annotations can be accessed by queue proxy extensions at /etc/podinfo/annnotations
+    # If mounted, the annotations can be accessed by queue proxy extensions at /etc/podinfo/annotations
     #
     # 1. "enabled": always mount a podInfo volume
     # 2. "disabled": never mount a podInfo volume

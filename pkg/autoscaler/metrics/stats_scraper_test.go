@@ -313,7 +313,7 @@ func TestPodDirectScrapeSomeFailWithNonMeshError(t *testing.T) {
 		mightBeMesh: true,
 	}
 	nonMeshErr := scrapeError{
-		error:       errors.New("cant mesh with this"),
+		error:       errors.New("can't mesh with this"),
 		mightBeMesh: false,
 	}
 

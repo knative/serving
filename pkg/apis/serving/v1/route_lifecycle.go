@@ -124,7 +124,7 @@ func (rs *RouteStatus) MarkRevisionTargetTrafficError(reason, msg string) {
 }
 
 // MarkConfigurationNotReady marks the RouteConditionAllTrafficAssigned
-// condition to indiciate the Revision is not yet ready.
+// condition to indicate the Revision is not yet ready.
 func (rs *RouteStatus) MarkConfigurationNotReady(name string) {
 	routeCondSet.Manage(rs).MarkUnknown(RouteConditionAllTrafficAssigned,
 		"RevisionMissing",
@@ -140,7 +140,7 @@ func (rs *RouteStatus) MarkConfigurationFailed(name string) {
 }
 
 // MarkRevisionNotReady marks the RouteConditionAllTrafficAssigned condition to
-// indiciate the Revision is not yet ready.
+// indicate the Revision is not yet ready.
 func (rs *RouteStatus) MarkRevisionNotReady(name string) {
 	routeCondSet.Manage(rs).MarkUnknown(RouteConditionAllTrafficAssigned,
 		"RevisionMissing",
@@ -148,7 +148,7 @@ func (rs *RouteStatus) MarkRevisionNotReady(name string) {
 }
 
 // MarkRevisionFailed marks the RouteConditionAllTrafficAssigned condition to
-// indiciate the Revision has failed.
+// indicate the Revision has failed.
 func (rs *RouteStatus) MarkRevisionFailed(name string) {
 	routeCondSet.Manage(rs).MarkFalse(RouteConditionAllTrafficAssigned,
 		"RevisionMissing",

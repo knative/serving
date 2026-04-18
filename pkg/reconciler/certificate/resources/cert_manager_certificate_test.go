@@ -434,7 +434,7 @@ func TestGetReadyCondition(t *testing.T) {
 			Message: "not ready",
 		},
 	}, {
-		name:          "unknow",
+		name:          "unknown",
 		cmCertificate: makeTestCertificate(cmmeta.ConditionUnknown, cmv1.CertificateConditionReady, "unknown", "unknown"),
 		want: &cmv1.CertificateCondition{
 			Type:    cmv1.CertificateConditionReady,

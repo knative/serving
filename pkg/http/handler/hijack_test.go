@@ -122,7 +122,7 @@ func TestHijackTrackerConnectionHijackedTimeout(t *testing.T) {
 	}()
 
 	<-drainStarted
-	// note: this is defered to unblock the go-routine
+	// note: this is deferred to unblock the go-routine
 	// to clean up the test
 	defer close(handlerWait)
 

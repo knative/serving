@@ -145,7 +145,7 @@ type RevisionStatus struct {
 	// The digests are resolved during the creation of Revision.
 	// ContainerStatuses holds the container name and image digests
 	// for both serving and non serving containers.
-	// ref: http://bit.ly/image-digests
+	// ref: https://bit.ly/image-digests
 	// +optional
 	ContainerStatuses []ContainerStatus `json:"containerStatuses,omitempty"`
 
@@ -154,7 +154,7 @@ type RevisionStatus struct {
 	// The digests are resolved during the creation of Revision.
 	// ContainerStatuses holds the container name and image digests
 	// for both serving and non serving containers.
-	// ref: http://bit.ly/image-digests
+	// ref: https://bit.ly/image-digests
 	// +optional
 	InitContainerStatuses []ContainerStatus `json:"initContainerStatuses,omitempty"`
 

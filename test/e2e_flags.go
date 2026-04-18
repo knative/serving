@@ -98,7 +98,7 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 
 	flag.IntVar(&f.ExceedingMemoryLimitSize, "exceeding-memory-limit-size", 500,
 		"Set this flag to the MB of memory consumed by your service in resource limit tests. "+
-			"You service is set with 300 MB memory limit and shoud return a non-200 response when consuming such amount of memory.")
+			"Your service is set with 300 MB memory limit and should return a non-200 response when consuming such amount of memory.")
 
 	flag.StringVar(&f.RequestHeaders, "request-headers", "",
 		"Set this flag to add extra HTTP request headers sent to the testing deployed KServices. "+

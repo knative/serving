@@ -116,7 +116,7 @@ func TestRequestLogs(t *testing.T) {
 			t.Fatal("Got error waiting for normal request logs:", err)
 		}
 	} else {
-		t.Log("Skipping verifing request logs because they are not enabled")
+		t.Log("Skipping verifying request logs because they are not enabled")
 	}
 
 	// Only check probe request logs if the feature is enabled in config-observability.

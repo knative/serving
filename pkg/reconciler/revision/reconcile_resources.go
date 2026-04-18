@@ -193,7 +193,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 	logger.Debugf("Observed PA Status=%#v", pa.Status)
 	rev.Status.PropagateAutoscalerStatus(&pa.Status)
 
-	// Perhaps tha PA spec changed underneath ourselves?
+	// Perhaps the PA spec changed underneath ourselves?
 	// We no longer require immutability, so need to reconcile PA each time.
 	tmpl := resources.MakePA(rev, deployment)
 	logger.Debugf("Desired PASpec: %#v", tmpl.Spec)

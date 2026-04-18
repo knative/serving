@@ -115,7 +115,7 @@ func deleteUserPods(t *testing.T, ctx context.Context, clients *test.Clients, se
 		}
 
 		if err := pkgTest.WaitForPodState(ctx, clients.KubeClient, func(p *corev1.Pod) (bool, error) {
-			// Always return false. We're oly interested in the error which indicates pod deletion or timeout.
+			// Always return false. We're only interested in the error which indicates pod deletion or timeout.
 			t.Logf("%q still not deleted - %s", p.Name, time.Now().String())
 			return false, nil
 		}, pod.Name, pod.Namespace); err != nil {

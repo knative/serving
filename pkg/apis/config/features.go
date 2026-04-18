@@ -44,7 +44,7 @@ const (
 
 // service annotations under features.knative.dev/*
 const (
-	// QueueProxyPodInfoFeatureKey gates mouting of podinfo with the value 'enabled'
+	// QueueProxyPodInfoFeatureKey gates mounting of podinfo with the value 'enabled'
 	QueueProxyPodInfoFeatureKey = "features.knative.dev/queueproxy-podinfo"
 
 	// AllowHTTPFullDuplexFeatureKey gates the use of http1 full duplex per workload
