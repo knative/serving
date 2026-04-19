@@ -17,15 +17,14 @@ limitations under the License.
 package resources
 
 import (
-	"fmt"
 	"hash/fnv"
 	"io"
+	"strconv"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/dump"
-	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/pkg/kmap"
@@ -113,15 +112,7 @@ func UpdateDeploymentHashLabel(d *appsv1.Deployment) {
 	io.WriteString(hasher, dump.ForHash(d.Annotations))
 	io.WriteString(hasher, dump.ForHash(d.Labels))
 
-	hash := rand.SafeEncodeString(fmt.Sprint(hasher.Sum32()))
+	hash := strconv.FormatUint(uint64(hasher.Sum32()), 36)
 
-	// if hash == "6fbf9d9799" || hash == "f6786f79c" {
-	// 	fmt.Println("=======", hash)
-	// 	b, _ := json.Marshal(d)
-	// 	fmt.Printf(string(b))
-	// 	fmt.Println()
-	// }
-	// //
-	// Set the computed hash
 	d.Labels[serving.RevisionDeploymentHashLabelKey] = hash
 }
