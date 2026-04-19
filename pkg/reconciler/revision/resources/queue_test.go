@@ -542,6 +542,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		rev: revision("bar", "foo",
 			func(revision *v1.Revision) {
 				revision.Annotations = map[string]string{
+					//nolint
 					serving.QueueSidecarResourcePercentageAnnotationKey: "20",
 				}
 				revision.Spec.PodSpec.Containers = []corev1.Container{{
@@ -567,6 +568,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		rev: revision("bar", "foo",
 			func(revision *v1.Revision) {
 				revision.Annotations = map[string]string{
+					//nolint
 					serving.QueueSidecarResourcePercentageAnnotationKey: "0.2",
 				}
 				revision.Spec.PodSpec.Containers = []corev1.Container{{
@@ -592,6 +594,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		rev: revision("bar", "foo",
 			func(revision *v1.Revision) {
 				revision.Annotations = map[string]string{
+					//nolint
 					serving.QueueSidecarResourcePercentageAnnotationKey: "foo",
 				}
 				revision.Spec.PodSpec.Containers = []corev1.Container{{
@@ -619,6 +622,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		rev: revision("bar", "foo",
 			func(revision *v1.Revision) {
 				revision.Annotations = map[string]string{
+					//nolint
 					serving.QueueSidecarResourcePercentageAnnotationKey: "100",
 				}
 				revision.Spec.PodSpec.Containers = []corev1.Container{{
@@ -729,7 +733,8 @@ func TestMakeQueueContainerWithResourceAnnotations(t *testing.T) {
 				revision.Annotations = map[string]string{
 					serving.QueueSidecarCPUResourceLimitAnnotationKey:    "1",
 					serving.QueueSidecarMemoryResourceLimitAnnotationKey: "4Gi",
-					serving.QueueSidecarResourcePercentageAnnotationKey:  "50",
+					//nolint
+					serving.QueueSidecarResourcePercentageAnnotationKey: "50",
 				}
 				revision.Spec.PodSpec.Containers = []corev1.Container{{
 					Name:           servingContainerName,

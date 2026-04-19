@@ -103,6 +103,7 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 				corev1.ResourceMemory: resource.MustParse("258Mi"),
 			},
 		}), rtesting.WithConfigAnnotations(map[string]string{
+			//nolint
 			serving.QueueSidecarResourcePercentageAnnotationKey: "0.2",
 		}))
 	if err != nil {

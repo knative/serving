@@ -19,6 +19,7 @@ package domainmapping
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -208,7 +209,6 @@ func (r *Reconciler) tls(ctx context.Context, dm *v1beta1.DomainMapping) ([]netv
 		return nil, nil, nil
 	}
 
-	acmeChallenges := []netv1alpha1.HTTP01Challenge{}
 	desiredCert := resources.MakeCertificate(dm, certClass(ctx))
 	cert, err := networkaccessor.ReconcileCertificate(ctx, dm, desiredCert, r)
 	if err != nil {
@@ -238,8 +238,8 @@ func (r *Reconciler) tls(ctx context.Context, dm *v1beta1.DomainMapping) ([]netv
 		// Otherwise, mark certificate not ready.
 		dm.Status.MarkCertificateNotReady(cert.Name)
 	}
-	acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
 
+	acmeChallenges := slices.Clone(cert.Status.HTTP01Challenges)
 	sort.Slice(acmeChallenges, func(i, j int) bool {
 		return acmeChallenges[i].URL.String() < acmeChallenges[j].URL.String()
 	})

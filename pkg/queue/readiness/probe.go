@@ -87,7 +87,7 @@ func (gv *gateValue) read() bool {
 
 // NewProbe returns a pointer to a new Probe.
 func NewProbe(probes []*corev1.Probe) *Probe {
-	wrappedProbes := []*wrappedProbe{}
+	wrappedProbes := make([]*wrappedProbe, 0, len(probes))
 	for _, p := range probes {
 		wrappedProbes = append(wrappedProbes, &wrappedProbe{
 			Probe:       p,
@@ -104,7 +104,7 @@ func NewProbe(probes []*corev1.Probe) *Probe {
 // NewProbeWithHTTP2AutoDetection returns a pointer to a new Probe that has HTTP2
 // auto-detection enabled.
 func NewProbeWithHTTP2AutoDetection(probes []*corev1.Probe) *Probe {
-	wrappedProbes := []*wrappedProbe{}
+	wrappedProbes := make([]*wrappedProbe, 0, len(probes))
 	for _, p := range probes {
 		wrappedProbes = append(wrappedProbes, &wrappedProbe{
 			Probe:           p,

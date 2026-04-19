@@ -186,6 +186,9 @@ linters:
           - prealloc
         path: _test\.go
       - linters:
+          - prealloc
+        path: cmd/schema-tweak/overrides.go
+      - linters:
           - staticcheck
         text: corev1.Endpoint.* is deprecated
       - linters:

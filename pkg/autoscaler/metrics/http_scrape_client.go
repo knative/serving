@@ -53,7 +53,7 @@ func newHTTPScrapeClient(httpClient *http.Client) *httpScrapeClient {
 
 func (c *httpScrapeClient) Do(req *http.Request) (Stat, error) {
 	req.Header.Add("Accept", netheader.ProtobufMIMEType)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) //nolint:gosec // G704: URL is trusted
 	if err != nil {
 		return emptyStat, err
 	}
