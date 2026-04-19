@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"knative.dev/pkg/kmap"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -1765,6 +1766,10 @@ var quantityComparer = cmp.Comparer(func(x, y resource.Quantity) bool {
 	return x.Cmp(y) == 0
 })
 
+var ignoreTemplateHashLabel = cmpopts.IgnoreMapEntries(func(k string, v any) bool {
+	return k == serving.RevisionDeploymentHashLabelKey
+})
+
 func TestMakeDeployment(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -1959,7 +1964,9 @@ func TestMakeDeployment(t *testing.T) {
 			if err != nil {
 				t.Fatal("Got unexpected error:", err)
 			}
-			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
+
+			opts := []cmp.Option{quantityComparer, ignoreTemplateHashLabel}
+			if diff := cmp.Diff(test.want, got, opts...); diff != "" {
 				t.Errorf("MakeDeployment (-want, +got) =\n%s", diff)
 			}
 		})

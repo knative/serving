@@ -17,10 +17,17 @@ limitations under the License.
 package resources
 
 import (
+	"fmt"
+	"hash/fnv"
+	"io"
 	"strings"
 
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/dump"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/sets"
+
 	"knative.dev/pkg/kmap"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
@@ -59,6 +66,7 @@ func makeLabels(revision *v1.Revision) map[string]string {
 	if _, ok := labels[AppLabelKey]; !ok {
 		labels[AppLabelKey] = revision.Name
 	}
+
 	return labels
 }
 
@@ -95,4 +103,25 @@ func makeSelector(revision *v1.Revision) *metav1.LabelSelector {
 			serving.RevisionUID: string(revision.UID),
 		},
 	}
+}
+
+// UpdateDeploymentHashLabel is exposed for testing
+func UpdateDeploymentHashLabel(d *appsv1.Deployment) {
+	hasher := fnv.New32a()
+
+	io.WriteString(hasher, dump.ForHash(d.Spec))
+	io.WriteString(hasher, dump.ForHash(d.Annotations))
+	io.WriteString(hasher, dump.ForHash(d.Labels))
+
+	hash := rand.SafeEncodeString(fmt.Sprint(hasher.Sum32()))
+
+	// if hash == "6fbf9d9799" || hash == "f6786f79c" {
+	// 	fmt.Println("=======", hash)
+	// 	b, _ := json.Marshal(d)
+	// 	fmt.Printf(string(b))
+	// 	fmt.Println()
+	// }
+	// //
+	// Set the computed hash
+	d.Labels[serving.RevisionDeploymentHashLabelKey] = hash
 }

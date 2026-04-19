@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,850 +63,915 @@ func TestReconcile(t *testing.T) {
 	// since it leads to flakes.
 	fc := clocktest.NewFakePassiveClock(time.Now())
 
-	table := TableTest{{
-		Name: "bad workqueue key",
-		// Make sure Reconcile handles bad keys.
-		Key: "too/many/parts",
-	}, {
-		Name: "key not found",
-		// Make sure Reconcile handles good keys that don't exist.
-		Key: "foo/not-found",
-	}, {
-		Name: "nop deletion reconcile",
-		// Test that with a DeletionTimestamp we do nothing.
-		Objects: []runtime.Object{
-			Revision("foo", "delete-pending", WithRevisionDeletionTimestamp),
+	table := TableTest{
+		{
+			Name: "bad workqueue key",
+			// Make sure Reconcile handles bad keys.
+			Key: "too/many/parts",
 		},
-		Key: "foo/delete-pending",
-	}, {
-		Name: "first revision reconciliation",
-		// Test the simplest successful reconciliation flow.
-		// We feed in a well formed Revision where none of its sub-resources exist,
-		// and we expect it to create them and initialize the Revision's status.
-		Objects: []runtime.Object{
-			Revision("foo", "first-reconcile"),
+		{
+			Name: "key not found",
+			// Make sure Reconcile handles good keys that don't exist.
+			Key: "foo/not-found",
 		},
-		WantCreates: []runtime.Object{
-			// The first reconciliation of a Revision creates the following resources.
-			pa("foo", "first-reconcile"),
-			deploy(t, "foo", "first-reconcile"),
-			image("foo", "first-reconcile"),
+		{
+			Name: "nop deletion reconcile",
+			// Test that with a DeletionTimestamp we do nothing.
+			Objects: []runtime.Object{
+				Revision("foo", "delete-pending", WithRevisionDeletionTimestamp),
+			},
+			Key: "foo/delete-pending",
 		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Revision("foo", "first-reconcile",
-				// The first reconciliation Populates the following status properties.
-				WithLogURL, allUnknownConditions, MarkDeploying("Deploying"),
-				withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
-		}},
-		Key: "foo/first-reconcile",
-	}, {
-		Name: "failure updating revision status",
-		// This starts from the first reconciliation case above and induces a failure
-		// updating the revision status.
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("update", "revisions"),
+		{
+			Name: "first revision reconciliation",
+			// Test the simplest successful reconciliation flow.
+			// We feed in a well formed Revision where none of its sub-resources exist,
+			// and we expect it to create them and initialize the Revision's status.
+			Objects: []runtime.Object{
+				Revision("foo", "first-reconcile"),
+			},
+			WantCreates: []runtime.Object{
+				// The first reconciliation of a Revision creates the following resources.
+				pa("foo", "first-reconcile"),
+				deploy(t, "foo", "first-reconcile"),
+				image("foo", "first-reconcile"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "first-reconcile",
+					// The first reconciliation Populates the following status properties.
+					WithLogURL, allUnknownConditions, MarkDeploying("Deploying"),
+					withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+			}},
+			Key: "foo/first-reconcile",
 		},
-		Objects: []runtime.Object{
-			Revision("foo", "update-status-failure"),
-			pa("foo", "update-status-failure"),
+		{
+			Name: "failure updating revision status",
+			// This starts from the first reconciliation case above and induces a failure
+			// updating the revision status.
+			WantErr: true,
+			WithReactors: []clientgotesting.ReactionFunc{
+				InduceFailure("update", "revisions"),
+			},
+			Objects: []runtime.Object{
+				Revision("foo", "update-status-failure"),
+				pa("foo", "update-status-failure"),
+			},
+			WantCreates: []runtime.Object{
+				// We still see the following creates before the failure is induced.
+				deploy(t, "foo", "update-status-failure"),
+				image("foo", "update-status-failure"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "update-status-failure",
+					// Despite failure, the following status properties are set.
+					WithLogURL, allUnknownConditions, MarkDeploying("Deploying"),
+					withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+			}},
+			WantEvents: []string{
+				Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for %q: %v",
+					"update-status-failure", "inducing failure for update revisions"),
+			},
+			Key: "foo/update-status-failure",
 		},
-		WantCreates: []runtime.Object{
-			// We still see the following creates before the failure is induced.
-			deploy(t, "foo", "update-status-failure"),
-			image("foo", "update-status-failure"),
+		{
+			Name: "failure creating pa",
+			// This starts from the first reconciliation case above and induces a failure
+			// creating the PA.
+			WantErr: true,
+			WithReactors: []clientgotesting.ReactionFunc{
+				InduceFailure("create", "podautoscalers"),
+			},
+			Objects: []runtime.Object{
+				Revision("foo", "create-pa-failure"),
+			},
+			WantCreates: []runtime.Object{
+				// We still see the following creates before the failure is induced.
+				pa("foo", "create-pa-failure"),
+				deploy(t, "foo", "create-pa-failure"),
+				image("foo", "create-pa-failure"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "create-pa-failure",
+					// Despite failure, the following status properties are set.
+					WithLogURL, WithInitRevConditions,
+					MarkDeploying("Deploying"), withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+			}},
+			WantEvents: []string{
+				Eventf(corev1.EventTypeWarning, "InternalError", `failed to create PA "create-pa-failure": inducing failure for create podautoscalers`),
+			},
+			Key: "foo/create-pa-failure",
 		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Revision("foo", "update-status-failure",
-				// Despite failure, the following status properties are set.
-				WithLogURL, allUnknownConditions, MarkDeploying("Deploying"),
-				withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for %q: %v",
-				"update-status-failure", "inducing failure for update revisions"),
+		{
+			Name: "failure creating user deployment",
+			// This starts from the first reconciliation case above and induces a failure
+			// creating the user's deployment
+			WantErr: true,
+			WithReactors: []clientgotesting.ReactionFunc{
+				InduceFailure("create", "deployments"),
+			},
+			Objects: []runtime.Object{
+				Revision("foo", "create-user-deploy-failure"),
+				pa("foo", "create-user-deploy-failure"),
+			},
+			WantCreates: []runtime.Object{
+				// We still see the following creates before the failure is induced.
+				deploy(t, "foo", "create-user-deploy-failure"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "create-user-deploy-failure",
+					// Despite failure, the following status properties are set.
+					WithLogURL, WithInitRevConditions,
+					MarkDeploying("Deploying"), withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+			}},
+			WantEvents: []string{
+				Eventf(corev1.EventTypeWarning, "InternalError",
+					`failed to create deployment "create-user-deploy-failure-deployment": inducing failure for create deployments`),
+			},
+			Key: "foo/create-user-deploy-failure",
 		},
-		Key: "foo/update-status-failure",
-	}, {
-		Name: "failure creating pa",
-		// This starts from the first reconciliation case above and induces a failure
-		// creating the PA.
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("create", "podautoscalers"),
-		},
-		Objects: []runtime.Object{
-			Revision("foo", "create-pa-failure"),
-		},
-		WantCreates: []runtime.Object{
-			// We still see the following creates before the failure is induced.
-			pa("foo", "create-pa-failure"),
-			deploy(t, "foo", "create-pa-failure"),
-			image("foo", "create-pa-failure"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Revision("foo", "create-pa-failure",
-				// Despite failure, the following status properties are set.
-				WithLogURL, WithInitRevConditions,
-				MarkDeploying("Deploying"), withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `failed to create PA "create-pa-failure": inducing failure for create podautoscalers`),
-		},
-		Key: "foo/create-pa-failure",
-	}, {
-		Name: "failure creating user deployment",
-		// This starts from the first reconciliation case above and induces a failure
-		// creating the user's deployment
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("create", "deployments"),
-		},
-		Objects: []runtime.Object{
-			Revision("foo", "create-user-deploy-failure"),
-			pa("foo", "create-user-deploy-failure"),
-		},
-		WantCreates: []runtime.Object{
-			// We still see the following creates before the failure is induced.
-			deploy(t, "foo", "create-user-deploy-failure"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Revision("foo", "create-user-deploy-failure",
-				// Despite failure, the following status properties are set.
-				WithLogURL, WithInitRevConditions,
-				MarkDeploying("Deploying"), withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError",
-				`failed to create deployment "create-user-deploy-failure-deployment": inducing failure for create deployments`),
-		},
-		Key: "foo/create-user-deploy-failure",
-	}, {
-		Name: "stable revision reconciliation",
-		// Test a simple stable reconciliation of an Active Revision.
-		// We feed in a Revision and the resources it controls in a steady
-		// state (immediately post-creation), and verify that no changes
-		// are necessary.
-		Objects: []runtime.Object{
-			Revision("foo", "stable-reconcile", WithLogURL, allUnknownConditions,
-				withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
-			pa("foo", "stable-reconcile", WithReachabilityUnknown),
+		{
+			Name: "stable revision reconciliation",
+			// Test a simple stable reconciliation of an Active Revision.
+			// We feed in a Revision and the resources it controls in a steady
+			// state (immediately post-creation), and verify that no changes
+			// are necessary.
+			Objects: []runtime.Object{
+				Revision("foo", "stable-reconcile", WithLogURL, allUnknownConditions,
+					withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+				pa("foo", "stable-reconcile", WithReachabilityUnknown),
 
-			deploy(t, "foo", "stable-reconcile"),
-			image("foo", "stable-reconcile"),
+				deploy(t, "foo", "stable-reconcile"),
+				image("foo", "stable-reconcile"),
+			},
+			// No changes are made to any objects.
+			Key: "foo/stable-reconcile",
 		},
-		// No changes are made to any objects.
-		Key: "foo/stable-reconcile",
-	}, {
-		Name: "update deployment containers",
-		// Test that we update a deployment with new containers when they disagree
-		// with our desired spec.
-		Objects: []runtime.Object{
-			Revision("foo", "fix-containers",
-				WithLogURL, allUnknownConditions, withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
-			pa("foo", "fix-containers", WithReachabilityUnknown),
-			changeContainers(deploy(t, "foo", "fix-containers")),
-			image("foo", "fix-containers"),
+		{
+			Name: "update deployment containers",
+			// Test that we update a deployment with new containers when they disagree
+			// with our desired spec.
+			Objects: []runtime.Object{
+				Revision("foo", "fix-containers",
+					WithLogURL, allUnknownConditions, withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+				pa("foo", "fix-containers", WithReachabilityUnknown),
+				deploy(t, "foo", "fix-containers", changeContainers),
+				image("foo", "fix-containers"),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: deploy(t, "foo", "fix-containers"),
+			}},
+			Key: "foo/fix-containers",
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: deploy(t, "foo", "fix-containers"),
-		}},
-		Key: "foo/fix-containers",
-	}, {
-		Name: "preserve external deployment and template annotations and labels",
-		Objects: []runtime.Object{
-			Revision("foo", "preserve-annotations",
-				WithLogURL, allUnknownConditions, withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
-			pa("foo", "preserve-annotations", WithReachabilityUnknown),
-			addDeploymentMetadata(deploy(t, "foo", "preserve-annotations"), true),
-			image("foo", "preserve-annotations"),
+		{
+			Name: "preserve third party annotations and labels",
+			Objects: []runtime.Object{
+				Revision("foo", "preserve-annotations",
+					WithLogURL, allUnknownConditions, withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+				pa("foo", "preserve-annotations", WithReachabilityUnknown),
+				deploy(t, "foo", "preserve-annotations",
+					externalMetadata,
+					internalMetadata,
+					clearDeploymentHashLabel, /* this forces an update */
+				),
+				image("foo", "preserve-annotations"),
+			},
+			// we include a compare option since the fixture
+			// we are comparing it to will have a different deployment hash
+			CmpOpts: []cmp.Option{
+				cmpopts.IgnoreMapEntries(func(k string, v any) bool {
+					return k == serving.RevisionDeploymentHashLabelKey
+				}),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: deploy(t, "foo", "preserve-annotations", externalMetadata),
+			}},
+			Key: "foo/preserve-annotations",
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: addDeploymentMetadata(deploy(t, "foo", "preserve-annotations"), false),
-		}},
-		Key: "foo/preserve-annotations",
-	}, {
-		Name: "failure updating deployment",
-		// Test that we handle an error updating the deployment properly.
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("update", "deployments"),
-		},
-		Objects: []runtime.Object{
-			Revision("foo", "failure-update-deploy",
-				WithLogURL, allUnknownConditions,
-				withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
-			pa("foo", "failure-update-deploy"),
-			changeContainers(deploy(t, "foo", "failure-update-deploy")),
-			image("foo", "failure-update-deploy"),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: deploy(t, "foo", "failure-update-deploy"),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError",
-				`failed to update deployment "failure-update-deploy-deployment": inducing failure for update deployments`),
-		},
-		Key: "foo/failure-update-deploy",
-	}, {
-		Name: "deactivated revision is stable",
-		// Test a simple stable reconciliation of an inactive Revision.
-		// We feed in a Revision and the resources it controls in a steady
-		// state (port-Reserve), and verify that no changes are necessary.
-		Objects: []runtime.Object{
-			Revision("foo", "stable-deactivation",
-				WithLogURL, MarkRevisionReady,
-				MarkInactive("NoTraffic", "This thing is inactive."),
-				WithRoutingState(v1.RoutingStateReserve, fc),
-				withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
-			pa("foo", "stable-deactivation",
-				WithPAStatusService("stable-deactivation"),
-				WithNoTraffic("NoTraffic", "This thing is inactive."),
-				WithReachabilityUnreachable,
-				WithScaleTargetInitialized),
-			deploy(t, "foo", "stable-deactivation"),
-			image("foo", "stable-deactivation"),
-		},
-		Key: "foo/stable-deactivation",
-	}, {
-		Name: "pa is ready",
-		Objects: []runtime.Object{
-			Revision("foo", "pa-ready",
-				WithLogURL, allUnknownConditions),
-			pa("foo", "pa-ready", WithPASKSReady, WithTraffic,
-				WithScaleTargetInitialized, WithPAStatusService("new-stuff"), WithReachabilityUnknown),
-			deploy(t, "foo", "pa-ready"),
-			image("foo", "pa-ready"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Revision("foo", "pa-ready",
-				WithLogURL,
-				// When the endpoint and pa are ready, then we will see the
-				// Revision become ready.
-				MarkRevisionReady, withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon all resources being ready"),
-		},
-		Key: "foo/pa-ready",
-	}, {
-		Name: "pa not ready",
-		// Test propagating the pa not ready status to the Revision.
-		Objects: []runtime.Object{
-			Revision("foo", "pa-not-ready",
-				WithLogURL,
-				WithRoutingState(v1.RoutingStateActive, fc),
-				MarkRevisionReady, WithRevisionObservedGeneration(1)),
-			pa("foo", "pa-not-ready",
-				WithScaleTargetInitialized,
-				WithPAStatusService("its-not-confidential"),
-				WithBufferedTraffic,
-				WithReachabilityReachable),
-			readyDeploy(deploy(t, "foo", "pa-not-ready")),
-			image("foo", "pa-not-ready"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Revision("foo", "pa-not-ready",
-				WithLogURL, MarkRevisionReady, withDefaultContainerStatuses(),
-				WithRoutingState(v1.RoutingStateActive, fc),
-				// When we reconcile a ready state and our pa is in an activating
-				// state, we should see the following mutation.
-				MarkActivating("Queued", "Requests to the target are being buffered as resources are provisioned."),
-				WithRevisionObservedGeneration(1),
-			),
-		}},
-		Key: "foo/pa-not-ready",
-	}, {
-		Name: "pa inactive",
-		// Test propagating the inactivity signal from the pa to the Revision.
-		Objects: []runtime.Object{
-			Revision("foo", "pa-inactive",
-				WithLogURL,
-				WithRoutingState(v1.RoutingStateReserve, fc),
-				MarkRevisionReady, WithRevisionObservedGeneration(1)),
-			pa("foo", "pa-inactive",
-				WithPAStatusService("pa-inactive"),
-				WithNoTraffic("NoTraffic", "This thing is inactive."),
-				WithScaleTargetInitialized,
-				WithReachabilityUnreachable),
-			readyDeploy(deploy(t, "foo", "pa-inactive")),
-			image("foo", "pa-inactive"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Revision("foo", "pa-inactive",
-				WithLogURL, MarkRevisionReady, withDefaultContainerStatuses(),
-				WithRoutingState(v1.RoutingStateReserve, fc),
+		{
+			Name: "do not update deployments with no spec changes",
+			Objects: []runtime.Object{
+				Revision("foo", "preserve-annotations",
+					WithLogURL, allUnknownConditions, withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+				pa("foo", "preserve-annotations", WithReachabilityUnknown),
 
-				// When we reconcile an "all ready" revision when the PA
-				// is inactive, we should see the following change.
-				MarkInactive("NoTraffic", "This thing is inactive."), WithRevisionObservedGeneration(1)),
-		}},
-		Key: "foo/pa-inactive",
-	}, {
-		Name: "pa inactive II",
-		// Test propagating the inactivity signal from the pa to the Revision.
-		Objects: []runtime.Object{
-			Revision("foo", "pa-inactive",
-				WithLogURL,
-				WithRevisionObservedGeneration(1)),
-			pa("foo", "pa-inactive",
-				WithReachability(autoscalingv1alpha1.ReachabilityUnreachable),
-				WithNoTraffic("NoTraffic", "This thing is inactive."),
-				WithPAStatusService("pa-inactive")),
-			readyDeploy(deploy(t, "foo", "pa-inactive")),
-			image("foo", "pa-inactive"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Revision("foo", "pa-inactive",
-				WithLogURL, withDefaultContainerStatuses(), MarkDeploying(""),
-				// When we reconcile an "all ready" revision when the PA
-				// is inactive, we should see the following change.
-				MarkInactive("NoTraffic", "This thing is inactive."),
-				WithRevisionObservedGeneration(1),
-				MarkResourcesUnavailable(v1.ReasonProgressDeadlineExceeded, "Initial scale was never achieved")),
-		}},
-		Key: "foo/pa-inactive",
-	}, {
-		Name: "pa is not ready with initial scale zero, but ServiceName still empty, so not marking resources available false",
-		Objects: []runtime.Object{
-			Revision("foo", "pa-inactive", allUnknownConditions,
-				WithLogURL,
-				MarkDeploying(v1.ReasonDeploying),
-				WithRevisionObservedGeneration(1)),
-			pa("foo", "pa-inactive",
-				WithNoTraffic("NoTraffic", "This thing is inactive."), WithPAStatusService("")),
-			readyDeploy(deploy(t, "foo", "pa-inactive")),
-			image("foo", "pa-inactive"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			// We should not mark resources unavailable if ServiceName is empty
-			Object: Revision("foo", "pa-inactive",
-				WithLogURL, withDefaultContainerStatuses(), allUnknownConditions,
-				MarkInactive("NoTraffic", "This thing is inactive."),
-				MarkDeploying(v1.ReasonDeploying),
-				WithRevisionObservedGeneration(1)),
-		}},
-		Key: "foo/pa-inactive",
-	}, {
-		Name: "pa inactive, but has service",
-		// Test propagating the inactivity signal from the pa to the Revision.
-		// But propagate the service name.
-		Objects: []runtime.Object{
-			Revision("foo", "pa-inactive",
-				WithLogURL, MarkRevisionReady,
-				WithRoutingState(v1.RoutingStateReserve, fc),
-				WithRevisionObservedGeneration(1)),
-			pa("foo", "pa-inactive",
-				WithNoTraffic("NoTraffic", "This thing is inactive."),
-				WithPAStatusService("pa-inactive-svc"),
-				WithScaleTargetInitialized,
-				WithReachabilityUnreachable),
-			readyDeploy(deploy(t, "foo", "pa-inactive")),
-			image("foo", "pa-inactive"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Revision("foo", "pa-inactive",
-				WithLogURL, MarkRevisionReady,
-				WithRoutingState(v1.RoutingStateReserve, fc),
-				// When we reconcile an "all ready" revision when the PA
-				// is inactive, we should see the following change.
-				MarkInactive("NoTraffic", "This thing is inactive."),
-				withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
-		}},
-		Key: "foo/pa-inactive",
-	}, {
-		Name: "mutated pa gets fixed",
-		// This test validates, that when users mess with the pa directly
-		// we bring it back to the required shape.
-		// Protocol type is the only thing that can be changed on PA
-		Objects: []runtime.Object{
-			Revision("foo", "fix-mutated-pa",
-				allUnknownConditions,
-				WithLogURL, MarkRevisionReady,
-				WithRoutingState(v1.RoutingStateActive, fc)),
-			pa("foo", "fix-mutated-pa", WithProtocolType(networking.ProtocolH2C),
-				WithTraffic, WithPASKSReady, WithScaleTargetInitialized, WithReachabilityReachable,
-				WithPAStatusService("fix-mutated-pa")),
-			deploy(t, "foo", "fix-mutated-pa"),
-			image("foo", "fix-mutated-pa"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Revision("foo", "fix-mutated-pa",
-				WithLogURL, allUnknownConditions,
-				// When our reconciliation has to change the service
-				// we should see the following mutations to status.
+				deploy(t, "foo", "preserve-annotations", externalMetadata,
+					// we want the external metadata to not update the hash for the test
+					skipHashLabelUpdate{},
+				),
 
-				WithRoutingState(v1.RoutingStateActive, fc), WithLogURL, MarkRevisionReady,
-				withDefaultContainerStatuses()),
-		}},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: pa("foo", "fix-mutated-pa", WithPASKSReady,
-				WithTraffic, WithScaleTargetInitialized,
-				WithPAStatusService("fix-mutated-pa"), WithReachabilityReachable),
-		}},
-		Key: "foo/fix-mutated-pa",
-	}, {
-		Name: "mutated pa gets error during the fix",
-		// Same as above, but will fail during the update.
-		Objects: []runtime.Object{
-			Revision("foo", "fix-mutated-pa-fail",
-				WithLogURL, allUnknownConditions,
-				withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
-			pa("foo", "fix-mutated-pa-fail", WithProtocolType(networking.ProtocolH2C), WithReachabilityUnknown),
-			deploy(t, "foo", "fix-mutated-pa-fail"),
-			image("foo", "fix-mutated-pa-fail"),
+				image("foo", "preserve-annotations"),
+			},
+			Key: "foo/preserve-annotations",
 		},
-		WantErr: true,
-		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("update", "podautoscalers"),
+		{
+			Name: "failure updating deployment",
+			// Test that we handle an error updating the deployment properly.
+			WantErr: true,
+			WithReactors: []clientgotesting.ReactionFunc{
+				InduceFailure("update", "deployments"),
+			},
+			Objects: []runtime.Object{
+				Revision("foo", "failure-update-deploy",
+					WithLogURL, allUnknownConditions,
+					withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+				pa("foo", "failure-update-deploy"),
+				deploy(t, "foo", "failure-update-deploy", changeContainers),
+				image("foo", "failure-update-deploy"),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: deploy(t, "foo", "failure-update-deploy"),
+			}},
+			WantEvents: []string{
+				Eventf(corev1.EventTypeWarning, "InternalError",
+					`failed to update deployment "failure-update-deploy-deployment": inducing failure for update deployments`),
+			},
+			Key: "foo/failure-update-deploy",
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: pa("foo", "fix-mutated-pa-fail", WithReachabilityUnknown),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `failed to update PA "fix-mutated-pa-fail": inducing failure for update podautoscalers`),
+		{
+			Name: "deactivated revision is stable",
+			// Test a simple stable reconciliation of an inactive Revision.
+			// We feed in a Revision and the resources it controls in a steady
+			// state (port-Reserve), and verify that no changes are necessary.
+			Objects: []runtime.Object{
+				Revision("foo", "stable-deactivation",
+					WithLogURL, MarkRevisionReady,
+					MarkInactive("NoTraffic", "This thing is inactive."),
+					WithRoutingState(v1.RoutingStateReserve, fc),
+					withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+				pa("foo", "stable-deactivation",
+					WithPAStatusService("stable-deactivation"),
+					WithNoTraffic("NoTraffic", "This thing is inactive."),
+					WithReachabilityUnreachable,
+					WithScaleTargetInitialized),
+				deploy(t, "foo", "stable-deactivation"),
+				image("foo", "stable-deactivation"),
+			},
+			Key: "foo/stable-deactivation",
 		},
-		Key: "foo/fix-mutated-pa-fail",
-	}, {
-		Name: "surface deployment timeout",
-		// Test the propagation of ProgressDeadlineExceeded from Deployment.
-		// This initializes the world to the stable state after its first reconcile,
-		// but changes the user deployment to have a ProgressDeadlineExceeded
-		// condition.  It then verifies that Reconcile propagates this into the
-		// status of the Revision.
-		Objects: []runtime.Object{
-			Revision("foo", "deploy-timeout",
-				allUnknownConditions,
-				WithRoutingState(v1.RoutingStateActive, fc),
-				WithLogURL, MarkActive),
-			pa("foo", "deploy-timeout", WithReachabilityReachable),
-			timeoutDeploy(deploy(t, "foo", "deploy-timeout"), "I timed out!"),
-			image("foo", "deploy-timeout"),
+		{
+			Name: "pa is ready",
+			Objects: []runtime.Object{
+				Revision("foo", "pa-ready",
+					WithLogURL, allUnknownConditions),
+				pa("foo", "pa-ready", WithPASKSReady, WithTraffic,
+					WithScaleTargetInitialized, WithPAStatusService("new-stuff"), WithReachabilityUnknown),
+				deploy(t, "foo", "pa-ready"),
+				image("foo", "pa-ready"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "pa-ready",
+					WithLogURL,
+					// When the endpoint and pa are ready, then we will see the
+					// Revision become ready.
+					MarkRevisionReady, withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+			}},
+			WantEvents: []string{
+				Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon all resources being ready"),
+			},
+			Key: "foo/pa-ready",
 		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Revision("foo", "deploy-timeout",
-				WithLogURL, allUnknownConditions,
-				WithRoutingState(v1.RoutingStateActive, fc),
-				// When the revision is reconciled after a Deployment has
-				// timed out, we should see it marked with the PDE state.
-				MarkProgressDeadlineExceeded("I timed out!"), withDefaultContainerStatuses(),
-				WithRevisionObservedGeneration(1)),
-		}},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: pa("foo", "deploy-timeout", WithReachabilityUnreachable),
-		}},
-		Key: "foo/deploy-timeout",
-	}, {
-		Name: "revision failure because replicaset and deployment failed",
-		// This test defines a Revision InProgress with status Deploying but with a
-		// Deployment with a ReplicaSet failure, so the wanted status update is for
-		// the Deployment FailedCreate error to bubble up to the Revision
-		Objects: []runtime.Object{
-			Revision("foo", "deploy-replicaset-failure",
-				WithLogURL, MarkActivating("Deploying", ""),
-				WithRoutingState(v1.RoutingStateActive, fc),
-				withDefaultContainerStatuses(),
-				WithRevisionObservedGeneration(1),
-				MarkContainerHealthyUnknown("Deploying"),
-			),
-			pa("foo", "deploy-replicaset-failure", WithReachabilityUnreachable),
-			replicaFailureDeploy(deploy(t, "foo", "deploy-replicaset-failure"), "I ReplicaSet failed!"),
-			image("foo", "deploy-replicaset-failure"),
+		{
+			Name: "pa not ready",
+			// Test propagating the pa not ready status to the Revision.
+			Objects: []runtime.Object{
+				Revision("foo", "pa-not-ready",
+					WithLogURL,
+					WithRoutingState(v1.RoutingStateActive, fc),
+					MarkRevisionReady, WithRevisionObservedGeneration(1)),
+				pa("foo", "pa-not-ready",
+					WithScaleTargetInitialized,
+					WithPAStatusService("its-not-confidential"),
+					WithBufferedTraffic,
+					WithReachabilityReachable),
+				readyDeploy(deploy(t, "foo", "pa-not-ready")),
+				image("foo", "pa-not-ready"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "pa-not-ready",
+					WithLogURL, MarkRevisionReady, withDefaultContainerStatuses(),
+					WithRoutingState(v1.RoutingStateActive, fc),
+					// When we reconcile a ready state and our pa is in an activating
+					// state, we should see the following mutation.
+					MarkActivating("Queued", "Requests to the target are being buffered as resources are provisioned."),
+					WithRevisionObservedGeneration(1),
+				),
+			}},
+			Key: "foo/pa-not-ready",
 		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Revision("foo", "deploy-replicaset-failure",
-				WithLogURL, MarkResourcesUnavailable("FailedCreate", "I ReplicaSet failed!"),
-				withDefaultContainerStatuses(),
-				WithRoutingState(v1.RoutingStateActive, fc),
-				MarkContainerHealthyUnknown("Deploying"),
-				WithRevisionObservedGeneration(1),
-				MarkActivating("Deploying", ""),
-			),
-		}},
-		Key: "foo/deploy-replicaset-failure",
-	}, {
-		Name: "surface replica failure",
-		// Test the propagation of FailedCreate from Deployment.
-		// This initializes the world to the stable state after its first reconcile,
-		// but changes the user deployment to have a FailedCreate condition.
-		// It then verifies that Reconcile propagates this into the status of the Revision.
-		Objects: []runtime.Object{
-			Revision("foo", "deploy-replica-failure",
-				allUnknownConditions,
-				WithRoutingState(v1.RoutingStateActive, fc),
-				WithLogURL, MarkActive),
-			pa("foo", "deploy-replica-failure", WithReachabilityReachable),
-			replicaFailureDeploy(deploy(t, "foo", "deploy-replica-failure"), "I replica failed!"),
-			image("foo", "deploy-replica-failure"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Revision("foo", "deploy-replica-failure",
-				WithLogURL, allUnknownConditions,
-				WithRoutingState(v1.RoutingStateActive, fc),
-				// When the revision is reconciled after a Deployment has
-				// timed out, we should see it marked with the FailedCreate state.
-				MarkResourcesUnavailable("FailedCreate", "I replica failed!"),
-				withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
-		}},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: pa("foo", "deploy-replica-failure", WithReachabilityUnreachable),
-		}},
-		Key: "foo/deploy-replica-failure",
-	}, {
-		Name: "surface ImagePullBackoff",
-		// Test the propagation of ImagePullBackoff from user container.
-		Objects: []runtime.Object{
-			Revision("foo", "pull-backoff",
-				WithLogURL,
-				allUnknownConditions,
-				WithRoutingState(v1.RoutingStateActive, fc),
-			),
-			pa("foo", "pull-backoff", WithReachabilityReachable), // pa can't be ready since deployment times out.
-			pod(t, "foo", "pull-backoff", WithPodCondition(corev1.PodReady, corev1.ConditionFalse, "ContainersNotReady"), WithWaitingContainer("pull-backoff", "ImagePullBackoff", "can't pull it")),
-			timeoutDeploy(deploy(t, "foo", "pull-backoff"), "Timed out!"),
-			image("foo", "pull-backoff"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Revision("foo", "pull-backoff",
-				WithLogURL, allUnknownConditions,
-				WithRoutingState(v1.RoutingStateActive, fc),
-				MarkResourcesUnavailable("ImagePullBackoff", "can't pull it"), withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
-		}},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: pa("foo", "pull-backoff", WithReachabilityUnreachable),
-		}},
-		Key: "foo/pull-backoff",
-	}, {
-		Name: "surface pod errors",
-		// Test the propagation of the termination state of a Pod into the revision.
-		// This initializes the world to the stable state after its first reconcile,
-		// but changes the user deployment to have a failing pod. It then verifies
-		// that Reconcile propagates this into the status of the Revision.
-		Objects: []runtime.Object{
-			Revision("foo", "pod-error",
-				allUnknownConditions,
-				WithRoutingState(v1.RoutingStateActive, fc),
-				WithLogURL, allUnknownConditions, MarkActive),
-			pa("foo", "pod-error", WithReachabilityReachable), // PA can't be ready, since no traffic.
-			pod(t, "foo", "pod-error", WithPodCondition(corev1.PodReady, corev1.ConditionFalse, "ContainersNotReady"), WithFailingContainer("pod-error", 5, "I failed man!")),
-			deploy(t, "foo", "pod-error"),
-			image("foo", "pod-error"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Revision("foo", "pod-error",
-				WithLogURL, allUnknownConditions,
-				WithRoutingState(v1.RoutingStateActive, fc),
-				MarkContainerExiting(5, v1.RevisionContainerExitingMessage("I failed man!")),
-				withDefaultContainerStatuses(),
-				WithRevisionObservedGeneration(1),
-			),
-		}},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: pa("foo", "pod-error", WithReachabilityUnreachable),
-		}},
-		Key: "foo/pod-error",
-	}, {
-		Name: "surface pod schedule errors",
-		// Test the propagation of the scheduling errors of Pod into the revision.
-		// This initializes the world to unschedule pod. It then verifies
-		// that Reconcile propagates this into the status of the Revision.
-		Objects: []runtime.Object{
-			Revision("foo", "pod-schedule-error",
-				WithRoutingState(v1.RoutingStateActive, fc),
-				WithLogURL, allUnknownConditions, MarkActive),
-			pa("foo", "pod-schedule-error", WithReachabilityReachable), // PA can't be ready, since no traffic.
-			pod(t, "foo", "pod-schedule-error", WithUnschedulableContainer("Insufficient energy", "Unschedulable")),
-			deploy(t, "foo", "pod-schedule-error"),
-			image("foo", "pod-schedule-error"),
-		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Revision("foo", "pod-schedule-error",
-				WithLogURL,
-				allUnknownConditions,
-				WithRoutingState(v1.RoutingStateActive, fc),
-				MarkResourcesUnavailable("Insufficient energy", "Unschedulable"),
-				withDefaultContainerStatuses(),
-				WithRevisionObservedGeneration(1),
-			),
-		}},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: pa("foo", "pod-schedule-error", WithReachabilityUnreachable),
-		}},
-		Key: "foo/pod-schedule-error",
-	}, {
-		Name: "surface no pod schedule errors if pod-is-always-schedulable is true",
-		// Test the propagation of the scheduling errors of Pod into the
-		// revision is not happening when treat-pod-as-always-schedulable
-		// is enabled.
-		Objects: []runtime.Object{
-			Revision("foo", "pod-no-schedule-error",
-				WithLogURL,
-				MarkActivating("Deploying", ""),
-				WithRoutingState(v1.RoutingStateActive, fc),
-				withDefaultContainerStatuses(),
-				MarkDeploying("Deploying"),
-				WithRevisionObservedGeneration(1),
-				MarkContainerHealthyUnknown("Deploying"),
-			),
-			pa("foo", "pod-no-schedule-error", WithReachabilityReachable), // PA can't be ready, since no traffic.
-			pod(t, "foo", "pod-no-schedule-error", WithUnschedulableContainer("Insufficient energy", "Unschedulable")),
-			deploy(t, "foo", "pod-no-schedule-error"),
-			image("foo", "pod-no-schedule-error"),
-		},
+		{
+			Name: "pa inactive",
+			// Test propagating the inactivity signal from the pa to the Revision.
+			Objects: []runtime.Object{
+				Revision("foo", "pa-inactive",
+					WithLogURL,
+					WithRoutingState(v1.RoutingStateReserve, fc),
+					MarkRevisionReady, WithRevisionObservedGeneration(1)),
+				pa("foo", "pa-inactive",
+					WithPAStatusService("pa-inactive"),
+					WithNoTraffic("NoTraffic", "This thing is inactive."),
+					WithScaleTargetInitialized,
+					WithReachabilityUnreachable),
+				readyDeploy(deploy(t, "foo", "pa-inactive")),
+				image("foo", "pa-inactive"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "pa-inactive",
+					WithLogURL, MarkRevisionReady, withDefaultContainerStatuses(),
+					WithRoutingState(v1.RoutingStateReserve, fc),
 
-		Ctx: config.ToContext(context.Background(), reconcilerTestConfig(func(c *config.Config) {
-			c.Deployment.PodIsAlwaysSchedulable = true
-		})),
-		Key: "foo/pod-no-schedule-error",
-	}, {
-		Name: "ready steady state",
-		// Test the transition that Reconcile makes when Endpoints become ready on the
-		// SKS owned services, which is signalled by pa having service name.
-		// This puts the world into the stable post-reconcile state for an Active
-		// Revision.  It then creates an Endpoints resource with active subsets.
-		// This signal should make our Reconcile mark the Revision as Ready.
-		Objects: []runtime.Object{
-			Revision("foo", "steady-ready", WithLogURL),
-			pa("foo", "steady-ready", WithPASKSReady, WithTraffic,
-				WithScaleTargetInitialized, WithPAStatusService("steadier-even")),
-			deploy(t, "foo", "steady-ready"),
-			image("foo", "steady-ready"),
+					// When we reconcile an "all ready" revision when the PA
+					// is inactive, we should see the following change.
+					MarkInactive("NoTraffic", "This thing is inactive."), WithRevisionObservedGeneration(1)),
+			}},
+			Key: "foo/pa-inactive",
 		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Revision("foo", "steady-ready", WithLogURL,
-				// All resources are ready to go, we should see the revision being
-				// marked ready
-				MarkRevisionReady, withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon all resources being ready"),
+		{
+			Name: "pa inactive II",
+			// Test propagating the inactivity signal from the pa to the Revision.
+			Objects: []runtime.Object{
+				Revision("foo", "pa-inactive",
+					WithLogURL,
+					WithRevisionObservedGeneration(1)),
+				pa("foo", "pa-inactive",
+					WithReachability(autoscalingv1alpha1.ReachabilityUnreachable),
+					WithNoTraffic("NoTraffic", "This thing is inactive."),
+					WithPAStatusService("pa-inactive")),
+				readyDeploy(deploy(t, "foo", "pa-inactive")),
+				image("foo", "pa-inactive"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "pa-inactive",
+					WithLogURL, withDefaultContainerStatuses(), MarkDeploying(""),
+					// When we reconcile an "all ready" revision when the PA
+					// is inactive, we should see the following change.
+					MarkInactive("NoTraffic", "This thing is inactive."),
+					WithRevisionObservedGeneration(1),
+					MarkResourcesUnavailable(v1.ReasonProgressDeadlineExceeded, "Initial scale was never achieved")),
+			}},
+			Key: "foo/pa-inactive",
 		},
-		Key: "foo/steady-ready",
-	}, {
-		Name:    "lost pa owner ref",
-		WantErr: true,
-		Objects: []runtime.Object{
-			Revision("foo", "missing-owners", WithLogURL,
-				MarkRevisionReady),
-			pa("foo", "missing-owners", WithTraffic, WithPodAutoscalerOwnersRemoved),
-			deploy(t, "foo", "missing-owners"),
-			image("foo", "missing-owners"),
+		{
+			Name: "pa is not ready with initial scale zero, but ServiceName still empty, so not marking resources available false",
+			Objects: []runtime.Object{
+				Revision("foo", "pa-inactive", allUnknownConditions,
+					WithLogURL,
+					MarkDeploying(v1.ReasonDeploying),
+					WithRevisionObservedGeneration(1)),
+				pa("foo", "pa-inactive",
+					WithNoTraffic("NoTraffic", "This thing is inactive."), WithPAStatusService("")),
+				readyDeploy(deploy(t, "foo", "pa-inactive")),
+				image("foo", "pa-inactive"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				// We should not mark resources unavailable if ServiceName is empty
+				Object: Revision("foo", "pa-inactive",
+					WithLogURL, withDefaultContainerStatuses(), allUnknownConditions,
+					MarkInactive("NoTraffic", "This thing is inactive."),
+					MarkDeploying(v1.ReasonDeploying),
+					WithRevisionObservedGeneration(1)),
+			}},
+			Key: "foo/pa-inactive",
 		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Revision("foo", "missing-owners", WithLogURL,
-				MarkRevisionReady,
-				// When we're missing the OwnerRef for PodAutoscaler we see this update.
-				MarkResourceNotOwned("PodAutoscaler", "missing-owners"), withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `revision: "missing-owners" does not own PodAutoscaler: "missing-owners"`),
+		{
+			Name: "pa inactive, but has service",
+			// Test propagating the inactivity signal from the pa to the Revision.
+			// But propagate the service name.
+			Objects: []runtime.Object{
+				Revision("foo", "pa-inactive",
+					WithLogURL, MarkRevisionReady,
+					WithRoutingState(v1.RoutingStateReserve, fc),
+					WithRevisionObservedGeneration(1)),
+				pa("foo", "pa-inactive",
+					WithNoTraffic("NoTraffic", "This thing is inactive."),
+					WithPAStatusService("pa-inactive-svc"),
+					WithScaleTargetInitialized,
+					WithReachabilityUnreachable),
+				readyDeploy(deploy(t, "foo", "pa-inactive")),
+				image("foo", "pa-inactive"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "pa-inactive",
+					WithLogURL, MarkRevisionReady,
+					WithRoutingState(v1.RoutingStateReserve, fc),
+					// When we reconcile an "all ready" revision when the PA
+					// is inactive, we should see the following change.
+					MarkInactive("NoTraffic", "This thing is inactive."),
+					withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+			}},
+			Key: "foo/pa-inactive",
 		},
-		Key: "foo/missing-owners",
-	}, {
-		Name:    "lost deployment owner ref",
-		WantErr: true,
-		Objects: []runtime.Object{
-			Revision("foo", "missing-owners", WithLogURL,
-				MarkRevisionReady),
-			pa("foo", "missing-owners", WithTraffic),
-			noOwner(deploy(t, "foo", "missing-owners")),
-			image("foo", "missing-owners"),
+		{
+			Name: "mutated pa gets fixed",
+			// This test validates, that when users mess with the pa directly
+			// we bring it back to the required shape.
+			// Protocol type is the only thing that can be changed on PA
+			Objects: []runtime.Object{
+				Revision("foo", "fix-mutated-pa",
+					allUnknownConditions,
+					WithLogURL, MarkRevisionReady,
+					WithRoutingState(v1.RoutingStateActive, fc)),
+				pa("foo", "fix-mutated-pa", WithProtocolType(networking.ProtocolH2C),
+					WithTraffic, WithPASKSReady, WithScaleTargetInitialized, WithReachabilityReachable,
+					WithPAStatusService("fix-mutated-pa")),
+				deploy(t, "foo", "fix-mutated-pa"),
+				image("foo", "fix-mutated-pa"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "fix-mutated-pa",
+					WithLogURL, allUnknownConditions,
+					// When our reconciliation has to change the service
+					// we should see the following mutations to status.
+
+					WithRoutingState(v1.RoutingStateActive, fc), WithLogURL, MarkRevisionReady,
+					withDefaultContainerStatuses()),
+			}},
+			WantUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: pa("foo", "fix-mutated-pa", WithPASKSReady,
+					WithTraffic, WithScaleTargetInitialized,
+					WithPAStatusService("fix-mutated-pa"), WithReachabilityReachable),
+			}},
+			Key: "foo/fix-mutated-pa",
 		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Revision("foo", "missing-owners", WithLogURL,
-				MarkRevisionReady,
-				// When we're missing the OwnerRef for Deployment we see this update.
-				MarkResourceNotOwned("Deployment", "missing-owners-deployment"), withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `revision: "missing-owners" does not own Deployment: "missing-owners-deployment"`),
+		{
+			Name: "mutated pa gets error during the fix",
+			// Same as above, but will fail during the update.
+			Objects: []runtime.Object{
+				Revision("foo", "fix-mutated-pa-fail",
+					WithLogURL, allUnknownConditions,
+					withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+				pa("foo", "fix-mutated-pa-fail", WithProtocolType(networking.ProtocolH2C), WithReachabilityUnknown),
+				deploy(t, "foo", "fix-mutated-pa-fail"),
+				image("foo", "fix-mutated-pa-fail"),
+			},
+			WantErr: true,
+			WithReactors: []clientgotesting.ReactionFunc{
+				InduceFailure("update", "podautoscalers"),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: pa("foo", "fix-mutated-pa-fail", WithReachabilityUnknown),
+			}},
+			WantEvents: []string{
+				Eventf(corev1.EventTypeWarning, "InternalError", `failed to update PA "fix-mutated-pa-fail": inducing failure for update podautoscalers`),
+			},
+			Key: "foo/fix-mutated-pa-fail",
 		},
-		Key: "foo/missing-owners",
-	}, {
-		Name: "image pull secrets",
-		// This test case tests that the image pull secrets from revision propagate to deployment and image
-		Objects: []runtime.Object{
-			Revision("foo", "image-pull-secrets", WithImagePullSecrets("foo-secret")),
+		{
+			Name: "surface deployment timeout",
+			// Test the propagation of ProgressDeadlineExceeded from Deployment.
+			// This initializes the world to the stable state after its first reconcile,
+			// but changes the user deployment to have a ProgressDeadlineExceeded
+			// condition.  It then verifies that Reconcile propagates this into the
+			// status of the Revision.
+			Objects: []runtime.Object{
+				Revision("foo", "deploy-timeout",
+					allUnknownConditions,
+					WithRoutingState(v1.RoutingStateActive, fc),
+					WithLogURL, MarkActive),
+				pa("foo", "deploy-timeout", WithReachabilityReachable),
+				timeoutDeploy(deploy(t, "foo", "deploy-timeout"), "I timed out!"),
+				image("foo", "deploy-timeout"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "deploy-timeout",
+					WithLogURL, allUnknownConditions,
+					WithRoutingState(v1.RoutingStateActive, fc),
+					// When the revision is reconciled after a Deployment has
+					// timed out, we should see it marked with the PDE state.
+					MarkProgressDeadlineExceeded("I timed out!"), withDefaultContainerStatuses(),
+					WithRevisionObservedGeneration(1)),
+			}},
+			WantUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: pa("foo", "deploy-timeout", WithReachabilityUnreachable),
+			}},
+			Key: "foo/deploy-timeout",
 		},
-		WantCreates: []runtime.Object{
-			pa("foo", "image-pull-secrets"),
-			deployImagePullSecrets(deploy(t, "foo", "image-pull-secrets"), "foo-secret"),
-			imagePullSecrets(image("foo", "image-pull-secrets"), "foo-secret"),
+		{
+			Name: "revision failure because replicaset and deployment failed",
+			// This test defines a Revision InProgress with status Deploying but with a
+			// Deployment with a ReplicaSet failure, so the wanted status update is for
+			// the Deployment FailedCreate error to bubble up to the Revision
+			Objects: []runtime.Object{
+				Revision("foo", "deploy-replicaset-failure",
+					WithLogURL, MarkActivating("Deploying", ""),
+					WithRoutingState(v1.RoutingStateActive, fc),
+					withDefaultContainerStatuses(),
+					WithRevisionObservedGeneration(1),
+					MarkContainerHealthyUnknown("Deploying"),
+				),
+				pa("foo", "deploy-replicaset-failure", WithReachabilityUnreachable),
+				replicaFailureDeploy(deploy(t, "foo", "deploy-replicaset-failure"), "I ReplicaSet failed!"),
+				image("foo", "deploy-replicaset-failure"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "deploy-replicaset-failure",
+					WithLogURL, MarkResourcesUnavailable("FailedCreate", "I ReplicaSet failed!"),
+					withDefaultContainerStatuses(),
+					WithRoutingState(v1.RoutingStateActive, fc),
+					MarkContainerHealthyUnknown("Deploying"),
+					WithRevisionObservedGeneration(1),
+					MarkActivating("Deploying", ""),
+				),
+			}},
+			Key: "foo/deploy-replicaset-failure",
 		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Revision("foo", "image-pull-secrets",
-				WithImagePullSecrets("foo-secret"),
-				WithLogURL, allUnknownConditions, MarkDeploying("Deploying"), withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
-		}},
-		Key: "foo/image-pull-secrets",
-	}, {
-		Name: "first revision reconciliation with init containers",
-		// Test the simplest successful reconciliation flow.
-		// We feed in a well formed Revision where none of its sub-resources exist,
-		// and we expect it to create them and initialize the Revision's status.
-		Objects: []runtime.Object{
-			Revision("foo", "first-reconcile", WithRevisionInitContainers()),
+		{
+			Name: "surface replica failure",
+			// Test the propagation of FailedCreate from Deployment.
+			// This initializes the world to the stable state after its first reconcile,
+			// but changes the user deployment to have a FailedCreate condition.
+			// It then verifies that Reconcile propagates this into the status of the Revision.
+			Objects: []runtime.Object{
+				Revision("foo", "deploy-replica-failure",
+					allUnknownConditions,
+					WithRoutingState(v1.RoutingStateActive, fc),
+					WithLogURL, MarkActive),
+				pa("foo", "deploy-replica-failure", WithReachabilityReachable),
+				replicaFailureDeploy(deploy(t, "foo", "deploy-replica-failure"), "I replica failed!"),
+				image("foo", "deploy-replica-failure"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "deploy-replica-failure",
+					WithLogURL, allUnknownConditions,
+					WithRoutingState(v1.RoutingStateActive, fc),
+					// When the revision is reconciled after a Deployment has
+					// timed out, we should see it marked with the FailedCreate state.
+					MarkResourcesUnavailable("FailedCreate", "I replica failed!"),
+					withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+			}},
+			WantUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: pa("foo", "deploy-replica-failure", WithReachabilityUnreachable),
+			}},
+			Key: "foo/deploy-replica-failure",
 		},
-		WantCreates: append([]runtime.Object{
-			// The first reconciliation of a Revision creates the following resources.
-			pa("foo", "first-reconcile"),
-			deploy(t, "foo", "first-reconcile", WithRevisionInitContainers()),
-			image("foo", "first-reconcile"),
+		{
+			Name: "surface ImagePullBackoff",
+			// Test the propagation of ImagePullBackoff from user container.
+			Objects: []runtime.Object{
+				Revision("foo", "pull-backoff",
+					WithLogURL,
+					allUnknownConditions,
+					WithRoutingState(v1.RoutingStateActive, fc),
+				),
+				pa("foo", "pull-backoff", WithReachabilityReachable), // pa can't be ready since deployment times out.
+				pod(t, "foo", "pull-backoff", WithPodCondition(corev1.PodReady, corev1.ConditionFalse, "ContainersNotReady"), WithWaitingContainer("pull-backoff", "ImagePullBackoff", "can't pull it")),
+				timeoutDeploy(deploy(t, "foo", "pull-backoff"), "Timed out!"),
+				image("foo", "pull-backoff"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "pull-backoff",
+					WithLogURL, allUnknownConditions,
+					WithRoutingState(v1.RoutingStateActive, fc),
+					MarkResourcesUnavailable("ImagePullBackoff", "can't pull it"), withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+			}},
+			WantUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: pa("foo", "pull-backoff", WithReachabilityUnreachable),
+			}},
+			Key: "foo/pull-backoff",
 		},
-			imageInit("foo", "first-reconcile")...),
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Revision("foo", "first-reconcile", WithRevisionInitContainers(),
-				// The first reconciliation Populates the following status properties.
-				WithLogURL, allUnknownConditions, MarkDeploying("Deploying"),
-				withDefaultContainerStatuses(), withInitContainerStatuses(), WithRevisionObservedGeneration(1)),
-		}},
-		Key: "foo/first-reconcile",
-		Ctx: defaultconfig.ToContext(context.Background(), &defaultconfig.Config{Features: &defaultconfig.Features{PodSpecInitContainers: defaultconfig.Enabled}}),
-	}, {
-		Name: "first revision reconciliation with PVC, PVC enabled",
-		// Test the simplest successful reconciliation flow.
-		// We feed in a well formed Revision where none of its sub-resources exist,
-		// and we expect it to create them and initialize the Revision's status.
-		Objects: []runtime.Object{
-			Revision("foo", "first-reconcile", WithRevisionPVC()),
+		{
+			Name: "surface pod errors",
+			// Test the propagation of the termination state of a Pod into the revision.
+			// This initializes the world to the stable state after its first reconcile,
+			// but changes the user deployment to have a failing pod. It then verifies
+			// that Reconcile propagates this into the status of the Revision.
+			Objects: []runtime.Object{
+				Revision("foo", "pod-error",
+					allUnknownConditions,
+					WithRoutingState(v1.RoutingStateActive, fc),
+					WithLogURL, allUnknownConditions, MarkActive),
+				pa("foo", "pod-error", WithReachabilityReachable), // PA can't be ready, since no traffic.
+				pod(t, "foo", "pod-error", WithPodCondition(corev1.PodReady, corev1.ConditionFalse, "ContainersNotReady"), WithFailingContainer("pod-error", 5, "I failed man!")),
+				deploy(t, "foo", "pod-error"),
+				image("foo", "pod-error"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "pod-error",
+					WithLogURL, allUnknownConditions,
+					WithRoutingState(v1.RoutingStateActive, fc),
+					MarkContainerExiting(5, v1.RevisionContainerExitingMessage("I failed man!")),
+					withDefaultContainerStatuses(),
+					WithRevisionObservedGeneration(1),
+				),
+			}},
+			WantUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: pa("foo", "pod-error", WithReachabilityUnreachable),
+			}},
+			Key: "foo/pod-error",
 		},
-		WantCreates: []runtime.Object{
-			// The first reconciliation of a Revision creates the following resources.
-			pa("foo", "first-reconcile"),
-			deploy(t, "foo", "first-reconcile", WithRevisionPVC()),
-			image("foo", "first-reconcile"),
+		{
+			Name: "surface pod schedule errors",
+			// Test the propagation of the scheduling errors of Pod into the revision.
+			// This initializes the world to unschedule pod. It then verifies
+			// that Reconcile propagates this into the status of the Revision.
+			Objects: []runtime.Object{
+				Revision("foo", "pod-schedule-error",
+					WithRoutingState(v1.RoutingStateActive, fc),
+					WithLogURL, allUnknownConditions, MarkActive),
+				pa("foo", "pod-schedule-error", WithReachabilityReachable), // PA can't be ready, since no traffic.
+				pod(t, "foo", "pod-schedule-error", WithUnschedulableContainer("Insufficient energy", "Unschedulable")),
+				deploy(t, "foo", "pod-schedule-error"),
+				image("foo", "pod-schedule-error"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "pod-schedule-error",
+					WithLogURL,
+					allUnknownConditions,
+					WithRoutingState(v1.RoutingStateActive, fc),
+					MarkResourcesUnavailable("Insufficient energy", "Unschedulable"),
+					withDefaultContainerStatuses(),
+					WithRevisionObservedGeneration(1),
+				),
+			}},
+			WantUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: pa("foo", "pod-schedule-error", WithReachabilityUnreachable),
+			}},
+			Key: "foo/pod-schedule-error",
 		},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Revision("foo", "first-reconcile",
-				// The first reconciliation Populates the following status properties.
-				WithLogURL, allUnknownConditions, MarkDeploying("Deploying"),
-				withDefaultContainerStatuses(), WithRevisionObservedGeneration(1), WithRevisionPVC()),
-		}},
-		Key: "foo/first-reconcile",
-		Ctx: defaultconfig.ToContext(context.Background(), &defaultconfig.Config{Features: &defaultconfig.Features{
-			PodSpecPersistentVolumeClaim: defaultconfig.Enabled,
-			PodSpecPersistentVolumeWrite: defaultconfig.Enabled,
-		}}),
-	}, {
-		Name: "revision's ContainerHealthy turns back to True if the deployment is healthy",
-		Objects: []runtime.Object{
-			Revision("foo", "container-unhealthy",
-				WithLogURL,
-				MarkRevisionReady,
-				withDefaultContainerStatuses(),
-				WithRevisionLabel(serving.RoutingStateLabelKey, "active"),
-				MarkContainerHealthyFalse("ExitCode137"),
-			),
-			pa("foo", "container-unhealthy",
-				WithPASKSReady,
-				WithScaleTargetInitialized,
-				WithTraffic,
-				WithReachabilityReachable,
-				WithPAStatusService("something"),
-			),
-			readyDeploy(deploy(t, "foo", "container-unhealthy", withReplicas(1))),
-			image("foo", "container-unhealthy"),
+		{
+			Name: "surface no pod schedule errors if pod-is-always-schedulable is true",
+			// Test the propagation of the scheduling errors of Pod into the
+			// revision is not happening when treat-pod-as-always-schedulable
+			// is enabled.
+			Objects: []runtime.Object{
+				Revision("foo", "pod-no-schedule-error",
+					WithLogURL,
+					MarkActivating("Deploying", ""),
+					WithRoutingState(v1.RoutingStateActive, fc),
+					withDefaultContainerStatuses(),
+					MarkDeploying("Deploying"),
+					WithRevisionObservedGeneration(1),
+					MarkContainerHealthyUnknown("Deploying"),
+				),
+				pa("foo", "pod-no-schedule-error", WithReachabilityReachable), // PA can't be ready, since no traffic.
+				pod(t, "foo", "pod-no-schedule-error", WithUnschedulableContainer("Insufficient energy", "Unschedulable")),
+				deploy(t, "foo", "pod-no-schedule-error"),
+				image("foo", "pod-no-schedule-error"),
+			},
+
+			Ctx: config.ToContext(context.Background(), reconcilerTestConfig(func(c *config.Config) {
+				c.Deployment.PodIsAlwaysSchedulable = true
+			})),
+			Key: "foo/pod-no-schedule-error",
 		},
-		Key: "foo/container-unhealthy",
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: Revision("foo", "container-unhealthy",
-				WithLogURL,
-				MarkRevisionReady,
-				withDefaultContainerStatuses(),
-				WithRevisionLabel(serving.RoutingStateLabelKey, "active"),
-			),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon all resources being ready"),
+		{
+			Name: "ready steady state",
+			// Test the transition that Reconcile makes when Endpoints become ready on the
+			// SKS owned services, which is signalled by pa having service name.
+			// This puts the world into the stable post-reconcile state for an Active
+			// Revision.  It then creates an Endpoints resource with active subsets.
+			// This signal should make our Reconcile mark the Revision as Ready.
+			Objects: []runtime.Object{
+				Revision("foo", "steady-ready", WithLogURL),
+				pa("foo", "steady-ready", WithPASKSReady, WithTraffic,
+					WithScaleTargetInitialized, WithPAStatusService("steadier-even")),
+				deploy(t, "foo", "steady-ready"),
+				image("foo", "steady-ready"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "steady-ready", WithLogURL,
+					// All resources are ready to go, we should see the revision being
+					// marked ready
+					MarkRevisionReady, withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+			}},
+			WantEvents: []string{
+				Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon all resources being ready"),
+			},
+			Key: "foo/steady-ready",
 		},
-	}, {
-		Name: "revision's ContainerHealthy stays True even if the last Pod with restarts terminates",
-		Objects: []runtime.Object{
-			Revision("foo", "container-healthy",
-				WithLogURL,
-				MarkRevisionReady,
-				withDefaultContainerStatuses(),
-				WithRevisionLabel(serving.RoutingStateLabelKey, "active"),
-				MarkContainerHealthyTrue(),
-			),
-			pa("foo", "container-healthy",
-				WithPASKSReady,
-				WithScaleTargetInitialized,
-				WithTraffic,
-				WithReachabilityReachable,
-				WithPAStatusService("something"),
-			),
-			WithDeletionTimestamp(pod(t, "foo", "container-healthy", WithPodCondition(corev1.PodReady, corev1.ConditionFalse, "ContainersNotReady"), WithFailingContainer("crashed-at-some-point", 128, "OOMKilled"))),
-			readyDeploy(deploy(t, "foo", "container-healthy", withReplicas(0))),
-			image("foo", "container-healthy"),
+		{
+			Name:    "lost pa owner ref",
+			WantErr: true,
+			Objects: []runtime.Object{
+				Revision("foo", "missing-owners", WithLogURL,
+					MarkRevisionReady),
+				pa("foo", "missing-owners", WithTraffic, WithPodAutoscalerOwnersRemoved),
+				deploy(t, "foo", "missing-owners"),
+				image("foo", "missing-owners"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "missing-owners", WithLogURL,
+					MarkRevisionReady,
+					// When we're missing the OwnerRef for PodAutoscaler we see this update.
+					MarkResourceNotOwned("PodAutoscaler", "missing-owners"), withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+			}},
+			WantEvents: []string{
+				Eventf(corev1.EventTypeWarning, "InternalError", `revision: "missing-owners" does not own PodAutoscaler: "missing-owners"`),
+			},
+			Key: "foo/missing-owners",
 		},
-		Key: "foo/container-healthy",
-	}, {
-		Name: "update pa annotations when they change",
-		Objects: []runtime.Object{
-			Revision("foo", "update-pa-annotations",
-				WithLogURL,
-				MarkRevisionReady,
-				withDefaultContainerStatuses(),
-				WithRevisionLabel(serving.RoutingStateLabelKey, "active"),
-				MarkContainerHealthyTrue(),
-				// New Annotation
-				WithRevisionAnn(autoscaling.MinScaleAnnotationKey, "1"),
-			),
-			pa("foo", "update-pa-annotations",
-				WithPASKSReady,
-				WithScaleTargetInitialized,
-				WithTraffic,
-				WithReachabilityReachable,
-				WithPAStatusService("something"),
-			),
-			readyDeploy(deploy(t, "foo", "update-pa-annotations", withReplicas(1))),
-			image("foo", "update-pa-annotations"),
+		{
+			Name:    "lost deployment owner ref",
+			WantErr: true,
+			Objects: []runtime.Object{
+				Revision("foo", "missing-owners", WithLogURL,
+					MarkRevisionReady),
+				pa("foo", "missing-owners", WithTraffic),
+				noOwner(deploy(t, "foo", "missing-owners")),
+				image("foo", "missing-owners"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "missing-owners", WithLogURL,
+					MarkRevisionReady,
+					// When we're missing the OwnerRef for Deployment we see this update.
+					MarkResourceNotOwned("Deployment", "missing-owners-deployment"), withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+			}},
+			WantEvents: []string{
+				Eventf(corev1.EventTypeWarning, "InternalError", `revision: "missing-owners" does not own Deployment: "missing-owners-deployment"`),
+			},
+			Key: "foo/missing-owners",
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: pa("foo", "update-pa-annotations",
-				WithPASKSReady,
-				WithScaleTargetInitialized,
-				WithTraffic,
-				WithReachabilityReachable,
-				WithPAStatusService("something"),
-				WithAnnotationValue(autoscaling.MinScaleAnnotationKey, "1"),
-			),
-		}},
-		// No changes are made to any objects.
-		Key: "foo/update-pa-annotations",
-	}, {
-		Name: "revision min scale annotation deletion",
-		Objects: []runtime.Object{
-			Revision("foo", "delete-pa-annotations",
-				WithLogURL,
-				MarkRevisionReady,
-				withDefaultContainerStatuses(),
-				WithRevisionLabel(serving.RoutingStateLabelKey, "active"),
-				MarkContainerHealthyTrue(),
-			),
-			pa("foo", "delete-pa-annotations",
-				WithPASKSReady,
-				WithScaleTargetInitialized,
-				WithTraffic,
-				WithReachabilityReachable,
-				WithAnnotationValue(autoscaling.MinScaleAnnotationKey, "1"),
-				WithPAStatusService("something"),
-			),
-			readyDeploy(deploy(t, "foo", "delete-pa-annotations", withReplicas(1))),
-			image("foo", "delete-pa-annotations"),
+		{
+			Name: "image pull secrets",
+			// This test case tests that the image pull secrets from revision propagate to deployment and image
+			Objects: []runtime.Object{
+				Revision("foo", "image-pull-secrets", WithImagePullSecrets("foo-secret")),
+			},
+			WantCreates: []runtime.Object{
+				pa("foo", "image-pull-secrets"),
+				deploy(t, "foo", "image-pull-secrets", deployPullSecrets("foo-secret")),
+				imagePullSecrets(image("foo", "image-pull-secrets"), "foo-secret"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "image-pull-secrets",
+					WithImagePullSecrets("foo-secret"),
+					WithLogURL, allUnknownConditions, MarkDeploying("Deploying"), withDefaultContainerStatuses(), WithRevisionObservedGeneration(1)),
+			}},
+			Key: "foo/image-pull-secrets",
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: pa("foo", "delete-pa-annotations",
-				WithPASKSReady,
-				WithScaleTargetInitialized,
-				WithTraffic,
-				WithReachabilityReachable,
-				WithPAStatusService("something"),
-			),
-		}},
-		Key: "foo/delete-pa-annotations",
-	}}
+		{
+			Name: "first revision reconciliation with init containers",
+			// Test the simplest successful reconciliation flow.
+			// We feed in a well formed Revision where none of its sub-resources exist,
+			// and we expect it to create them and initialize the Revision's status.
+			Objects: []runtime.Object{
+				Revision("foo", "first-reconcile", WithRevisionInitContainers()),
+			},
+			WantCreates: append([]runtime.Object{
+				// The first reconciliation of a Revision creates the following resources.
+				pa("foo", "first-reconcile"),
+				deploy(t, "foo", "first-reconcile", WithRevisionInitContainers()),
+				image("foo", "first-reconcile"),
+			},
+				imageInit("foo", "first-reconcile")...),
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "first-reconcile", WithRevisionInitContainers(),
+					// The first reconciliation Populates the following status properties.
+					WithLogURL, allUnknownConditions, MarkDeploying("Deploying"),
+					withDefaultContainerStatuses(), withInitContainerStatuses(), WithRevisionObservedGeneration(1)),
+			}},
+			Key: "foo/first-reconcile",
+			Ctx: defaultconfig.ToContext(context.Background(), &defaultconfig.Config{Features: &defaultconfig.Features{PodSpecInitContainers: defaultconfig.Enabled}}),
+		},
+		{
+			Name: "first revision reconciliation with PVC, PVC enabled",
+			// Test the simplest successful reconciliation flow.
+			// We feed in a well formed Revision where none of its sub-resources exist,
+			// and we expect it to create them and initialize the Revision's status.
+			Objects: []runtime.Object{
+				Revision("foo", "first-reconcile", WithRevisionPVC()),
+			},
+			WantCreates: []runtime.Object{
+				// The first reconciliation of a Revision creates the following resources.
+				pa("foo", "first-reconcile"),
+				deploy(t, "foo", "first-reconcile", WithRevisionPVC()),
+				image("foo", "first-reconcile"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "first-reconcile",
+					// The first reconciliation Populates the following status properties.
+					WithLogURL, allUnknownConditions, MarkDeploying("Deploying"),
+					withDefaultContainerStatuses(), WithRevisionObservedGeneration(1), WithRevisionPVC()),
+			}},
+			Key: "foo/first-reconcile",
+			Ctx: defaultconfig.ToContext(context.Background(), &defaultconfig.Config{Features: &defaultconfig.Features{
+				PodSpecPersistentVolumeClaim: defaultconfig.Enabled,
+				PodSpecPersistentVolumeWrite: defaultconfig.Enabled,
+			}}),
+		},
+		{
+			Name: "revision's ContainerHealthy turns back to True if the deployment is healthy",
+			Objects: []runtime.Object{
+				Revision("foo", "container-unhealthy",
+					WithLogURL,
+					MarkRevisionReady,
+					withDefaultContainerStatuses(),
+					WithRevisionLabel(serving.RoutingStateLabelKey, "active"),
+					MarkContainerHealthyFalse("ExitCode137"),
+				),
+				pa("foo", "container-unhealthy",
+					WithPASKSReady,
+					WithScaleTargetInitialized,
+					WithTraffic,
+					WithReachabilityReachable,
+					WithPAStatusService("something"),
+				),
+				readyDeploy(deploy(t, "foo", "container-unhealthy", withReplicas(1))),
+				image("foo", "container-unhealthy"),
+			},
+			Key: "foo/container-unhealthy",
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "container-unhealthy",
+					WithLogURL,
+					MarkRevisionReady,
+					withDefaultContainerStatuses(),
+					WithRevisionLabel(serving.RoutingStateLabelKey, "active"),
+				),
+			}},
+			WantEvents: []string{
+				Eventf(corev1.EventTypeNormal, "RevisionReady", "Revision becomes ready upon all resources being ready"),
+			},
+		},
+		{
+			Name: "revision's ContainerHealthy stays True even if the last Pod with restarts terminates",
+			Objects: []runtime.Object{
+				Revision("foo", "container-healthy",
+					WithLogURL,
+					MarkRevisionReady,
+					withDefaultContainerStatuses(),
+					WithRevisionLabel(serving.RoutingStateLabelKey, "active"),
+					MarkContainerHealthyTrue(),
+				),
+				pa("foo", "container-healthy",
+					WithPASKSReady,
+					WithScaleTargetInitialized,
+					WithTraffic,
+					WithReachabilityReachable,
+					WithPAStatusService("something"),
+				),
+				WithDeletionTimestamp(pod(t, "foo", "container-healthy", WithPodCondition(corev1.PodReady, corev1.ConditionFalse, "ContainersNotReady"), WithFailingContainer("crashed-at-some-point", 128, "OOMKilled"))),
+				readyDeploy(deploy(t, "foo", "container-healthy", withReplicas(0))),
+				image("foo", "container-healthy"),
+			},
+			Key: "foo/container-healthy",
+		},
+		{
+			Name: "update pa annotations when they change",
+			Objects: []runtime.Object{
+				Revision("foo", "update-pa-annotations",
+					WithLogURL,
+					MarkRevisionReady,
+					withDefaultContainerStatuses(),
+					WithRevisionLabel(serving.RoutingStateLabelKey, "active"),
+					MarkContainerHealthyTrue(),
+					// New Annotation
+					WithRevisionAnn(autoscaling.MinScaleAnnotationKey, "1"),
+				),
+				pa("foo", "update-pa-annotations",
+					WithPASKSReady,
+					WithScaleTargetInitialized,
+					WithTraffic,
+					WithReachabilityReachable,
+					WithPAStatusService("something"),
+				),
+				readyDeploy(deploy(t, "foo", "update-pa-annotations", withReplicas(1))),
+				image("foo", "update-pa-annotations"),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: pa("foo", "update-pa-annotations",
+					WithPASKSReady,
+					WithScaleTargetInitialized,
+					WithTraffic,
+					WithReachabilityReachable,
+					WithPAStatusService("something"),
+					WithAnnotationValue(autoscaling.MinScaleAnnotationKey, "1"),
+				),
+			}},
+			// No changes are made to any objects.
+			Key: "foo/update-pa-annotations",
+		},
+		{
+			Name: "revision min scale annotation deletion",
+			Objects: []runtime.Object{
+				Revision("foo", "delete-pa-annotations",
+					WithLogURL,
+					MarkRevisionReady,
+					withDefaultContainerStatuses(),
+					WithRevisionLabel(serving.RoutingStateLabelKey, "active"),
+					MarkContainerHealthyTrue(),
+				),
+				pa("foo", "delete-pa-annotations",
+					WithPASKSReady,
+					WithScaleTargetInitialized,
+					WithTraffic,
+					WithReachabilityReachable,
+					WithAnnotationValue(autoscaling.MinScaleAnnotationKey, "1"),
+					WithPAStatusService("something"),
+				),
+				readyDeploy(deploy(t, "foo", "delete-pa-annotations", withReplicas(1))),
+				image("foo", "delete-pa-annotations"),
+			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: pa("foo", "delete-pa-annotations",
+					WithPASKSReady,
+					WithScaleTargetInitialized,
+					WithTraffic,
+					WithReachabilityReachable,
+					WithPAStatusService("something"),
+				),
+			}},
+			Key: "foo/delete-pa-annotations",
+		},
+	}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, _ configmap.Watcher) controller.Reconciler {
 		r := &Reconciler{
@@ -966,11 +1033,12 @@ func noOwner(deploy *appsv1.Deployment) *appsv1.Deployment {
 	return deploy
 }
 
-func deployImagePullSecrets(deploy *appsv1.Deployment, secretName string) *appsv1.Deployment {
-	deploy.Spec.Template.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{
-		Name: secretName,
-	}}
-	return deploy
+func deployPullSecrets(secretName string) deploymentOption {
+	return func(deploy *appsv1.Deployment) {
+		deploy.Spec.Template.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{
+			Name: secretName,
+		}}
+	}
 }
 
 func imagePullSecrets(img *caching.Image, secretName string) *caching.Image {
@@ -980,29 +1048,24 @@ func imagePullSecrets(img *caching.Image, secretName string) *caching.Image {
 	return img
 }
 
-func changeContainers(deploy *appsv1.Deployment) *appsv1.Deployment {
+func changeContainers(deploy *appsv1.Deployment) {
 	podSpec := deploy.Spec.Template.Spec
 	for i := range podSpec.Containers {
 		podSpec.Containers[i].Image = "asdf"
 	}
-	return deploy
 }
 
-func addDeploymentMetadata(deploy *appsv1.Deployment, includeInternalMetadata bool) *appsv1.Deployment {
-	setMetadata := func(m map[string]string, key, value string) {
-		m[key] = value
-		if includeInternalMetadata {
-			m[resources.AppLabelKey] = "app"
-			m["internal.knative.dev/foo"] = "bar"
-		}
+func externalMetadata(d *appsv1.Deployment) {
+	for _, m := range []map[string]string{d.Annotations, d.Labels} {
+		m["external.io/key"] = "val"
 	}
+}
 
-	setMetadata(deploy.Annotations, "external.io/annotation", "external-annotation")
-	setMetadata(deploy.Labels, "external.io/label", "external-label")
-	setMetadata(deploy.Spec.Template.Annotations, "external.io/template-annotation", "external-template-annotation")
-	setMetadata(deploy.Spec.Template.Labels, "external.io/template-label", "external-template-label")
-
-	return deploy
+func internalMetadata(d *appsv1.Deployment) {
+	for _, m := range []map[string]string{d.Annotations, d.Labels} {
+		m[resources.AppLabelKey] = "app"
+		m["internal.knative.dev/foo"] = "bar"
+	}
 }
 
 func withDefaultContainerStatuses() RevisionOption {
@@ -1033,9 +1096,10 @@ func allUnknownConditions(r *v1.Revision) {
 	MarkActivating("Deploying", "")(r)
 }
 
-type configOption func(*config.Config)
-
-type deploymentOption func(*appsv1.Deployment)
+type (
+	configOption     = func(*config.Config)
+	deploymentOption = func(*appsv1.Deployment)
+)
 
 // withReplicas configures the number of replicas on the Deployment
 func withReplicas(replicas int32) deploymentOption {
@@ -1046,6 +1110,10 @@ func withReplicas(replicas int32) deploymentOption {
 		d.Status.Replicas = replicas
 		d.Status.UpdatedReplicas = replicas
 	}
+}
+
+func clearDeploymentHashLabel(d *appsv1.Deployment) {
+	delete(d.Labels, serving.RevisionDeploymentHashLabelKey)
 }
 
 func deploy(t *testing.T, namespace, name string, opts ...interface{}) *appsv1.Deployment {
@@ -1070,6 +1138,9 @@ func deploy(t *testing.T, namespace, name string, opts ...interface{}) *appsv1.D
 	// before calling MakeDeployment within Reconcile.
 	rev.SetDefaults(context.Background())
 	deployment, err := resources.MakeDeployment(rev, cfg)
+
+	initialReplicas := deployment.Spec.Replicas
+
 	if err != nil {
 		t.Fatal("failed to create deployment")
 	}
@@ -1078,10 +1149,26 @@ func deploy(t *testing.T, namespace, name string, opts ...interface{}) *appsv1.D
 		if deploymentOpt, ok := opt.(deploymentOption); ok {
 			deploymentOpt(deployment)
 		}
+		if _, ok := opt.(skipHashLabelUpdate); ok {
+			return deployment
+		}
 	}
+
+	updatedReplicas := deployment.Spec.Replicas
+
+	// recalculate hash after options have been applied
+	// note: we preserve the default replica count
+	delete(deployment.Labels, serving.RevisionDeploymentHashLabelKey)
+	deployment.Spec.Replicas = initialReplicas
+
+	resources.UpdateDeploymentHashLabel(deployment)
+
+	deployment.Spec.Replicas = updatedReplicas
 
 	return deployment
 }
+
+type skipHashLabelUpdate struct{}
 
 func image(namespace, name string, co ...configOption) *caching.Image {
 	config := reconcilerTestConfig()

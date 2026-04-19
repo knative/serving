@@ -18,6 +18,7 @@ package resources
 
 import (
 	"fmt"
+	"maps"
 	"sort"
 	"strconv"
 	"strings"
@@ -375,7 +376,7 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 
 	// Slowly but steadily roll the deployment out, to have the least possible impact.
 	maxUnavailable := intstr.FromInt(0)
-	return &appsv1.Deployment{
+	d := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            names.Deployment(rev),
 			Namespace:       rev.Namespace,
@@ -396,11 +397,19 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      labels,
+					// make a copy so when we add the deployment hash it doesn't
+					// propagate include it here
+					Labels:      maps.Clone(labels),
 					Annotations: podAnnotations(rev),
 				},
 				Spec: *podSpec,
 			},
 		},
-	}, nil
+	}
+
+	// We has the desired deployment so that we reconcile
+	// changes when settings in config-maps change etc.
+	UpdateDeploymentHashLabel(d)
+
+	return d, nil
 }
