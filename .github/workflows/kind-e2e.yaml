@@ -4,6 +4,9 @@ on:
   pull_request:
     branches: [ 'main', 'release-*' ]
 
+permissions:
+  contents: read
+
 defaults:
   run:
     shell: bash
