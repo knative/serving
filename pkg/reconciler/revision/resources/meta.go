@@ -106,6 +106,10 @@ func makeSelector(revision *v1.Revision) *metav1.LabelSelector {
 
 // UpdateDeploymentHashLabel is exposed for testing
 func UpdateDeploymentHashLabel(d *appsv1.Deployment) {
+	// Delete the existing hash label so repeated calls to this
+	// function will be stable
+	delete(d.Labels, serving.RevisionDeploymentHashLabelKey)
+
 	hasher := fnv.New32a()
 
 	io.WriteString(hasher, dump.ForHash(d.Spec))

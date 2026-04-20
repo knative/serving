@@ -1158,7 +1158,6 @@ func deploy(t *testing.T, namespace, name string, opts ...interface{}) *appsv1.D
 
 	// recalculate hash after options have been applied
 	// note: we preserve the default replica count
-	delete(deployment.Labels, serving.RevisionDeploymentHashLabelKey)
 	deployment.Spec.Replicas = initialReplicas
 
 	resources.UpdateDeploymentHashLabel(deployment)

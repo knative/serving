@@ -407,7 +407,7 @@ func MakeDeployment(rev *v1.Revision, cfg *config.Config) (*appsv1.Deployment, e
 		},
 	}
 
-	// We has the desired deployment so that we reconcile
+	// We hash the desired deployment so that we reconcile
 	// changes when settings in config-maps change etc.
 	UpdateDeploymentHashLabel(d)
 
