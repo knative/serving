@@ -88,5 +88,5 @@ func (r *ProtobufStatsReporter) ServeHTTP(w http.ResponseWriter, _ *http.Request
 	}
 
 	w.Header().Set(contentTypeHeader, netheader.ProtobufMIMEType)
-	w.Write(buffer)
+	w.Write(buffer) //nolint:gosec // G705: protobuf stats output, not HTML response
 }

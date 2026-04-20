@@ -217,6 +217,7 @@ func GRPCProbe(config GRPCProbeConfigOptions) error {
 	dialer := &net.Dialer{
 		Control: func(network, address string, c syscall.RawConn) error {
 			return c.Control(func(fd uintptr) {
+				//nolint:gosec // G115: fd is a valid OS file descriptor
 				unix.SetsockoptLinger(int(fd), syscall.SOL_SOCKET, syscall.SO_LINGER, &unix.Linger{Onoff: 1, Linger: 1})
 			})
 		},

@@ -909,6 +909,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		rts: &RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
+					//nolint
 					serving.QueueSidecarResourcePercentageAnnotationKey: "200",
 				},
 			},
@@ -922,13 +923,15 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		},
 		want: (&apis.FieldError{
 			Message: "expected 0.1 <= 200 <= 100",
-			Paths:   []string{"[" + serving.QueueSidecarResourcePercentageAnnotationKey + "]"},
+			//nolint
+			Paths: []string{"[" + serving.QueueSidecarResourcePercentageAnnotationKey + "]"},
 		}).ViaField("metadata.annotations"),
 	}, {
 		name: "Invalid queue sidecar resource percentage annotation",
 		rts: &RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
+					//nolint
 					serving.QueueSidecarResourcePercentageAnnotationKey: "50mx",
 				},
 			},
@@ -942,7 +945,8 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		},
 		want: (&apis.FieldError{
 			Message: "invalid value: 50mx",
-			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSidecarResourcePercentageAnnotationKey)},
+			//nolint
+			Paths: []string{fmt.Sprintf("[%s]", serving.QueueSidecarResourcePercentageAnnotationKey)},
 		}).ViaField("metadata.annotations"),
 	}, {
 		name: "Invalid queue sidecar resource annotations",
@@ -1174,6 +1178,7 @@ func autoscalerConfigCtx(allowInitialScaleZero bool, initialScale int) context.C
 }
 
 func TestValidateQueueSidecarAnnotation(t *testing.T) {
+	//nolint
 	resourcePercentageDeprecationWarning := apis.ErrGeneric("Queue proxy resource percentage annotation is deprecated. Please use the available annotations to explicitly set resource values per service").
 		ViaKey(serving.QueueSidecarResourcePercentageAnnotationKey).At(apis.WarningLevel)
 
@@ -1184,29 +1189,34 @@ func TestValidateQueueSidecarAnnotation(t *testing.T) {
 	}{{
 		name: "too small",
 		annotation: map[string]string{
+			//nolint
 			serving.QueueSidecarResourcePercentageAnnotationKey: "0.01982",
 		},
 		expectErr: (&apis.FieldError{
 			Message: "expected 0.1 <= 0.01982 <= 100",
-			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSidecarResourcePercentageAnnotationKey)},
+			//nolint
+			Paths: []string{fmt.Sprintf("[%s]", serving.QueueSidecarResourcePercentageAnnotationKey)},
 		}).Also(resourcePercentageDeprecationWarning),
 	}, {
 		name: "too big for Queue sidecar resource percentage annotation",
 		annotation: map[string]string{
-			serving.QueueSidecarResourcePercentageAnnotationKey: "100.0001",
+			serving.QueueSidecarResourcePercentageAnnotationKey: "100.0001", //nolint
 		},
 		expectErr: (&apis.FieldError{
 			Message: "expected 0.1 <= 100.0001 <= 100",
-			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSidecarResourcePercentageAnnotationKey)},
+			//nolint
+			Paths: []string{fmt.Sprintf("[%s]", serving.QueueSidecarResourcePercentageAnnotationKey)},
 		}).Also(resourcePercentageDeprecationWarning),
 	}, {
 		name: "Invalid queue sidecar resource percentage annotation",
 		annotation: map[string]string{
+			//nolint
 			serving.QueueSidecarResourcePercentageAnnotationKey: "",
 		},
 		expectErr: (&apis.FieldError{
 			Message: "invalid value: ",
-			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSidecarResourcePercentageAnnotationKey)},
+			//nolint
+			Paths: []string{fmt.Sprintf("[%s]", serving.QueueSidecarResourcePercentageAnnotationKey)},
 		}).Also(resourcePercentageDeprecationWarning),
 	}, {
 		name:       "empty annotation",
@@ -1219,12 +1229,14 @@ func TestValidateQueueSidecarAnnotation(t *testing.T) {
 	}, {
 		name: "valid value for Queue sidecar resource percentage annotation",
 		annotation: map[string]string{
+			//nolint
 			serving.QueueSidecarResourcePercentageAnnotationKey: "0.1",
 		},
 		expectErr: resourcePercentageDeprecationWarning,
 	}, {
 		name: "valid value for Queue sidecar resource percentage annotation",
 		annotation: map[string]string{
+			//nolint
 			serving.QueueSidecarResourcePercentageAnnotationKey: "100",
 		},
 		expectErr: resourcePercentageDeprecationWarning,
