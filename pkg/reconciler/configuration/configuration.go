@@ -18,9 +18,7 @@ package configuration
 
 import (
 	"context"
-	stderrors "errors"
 	"fmt"
-	"net/url"
 	"sort"
 	"strconv"
 
@@ -78,7 +76,9 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 			return fmt.Errorf("failed to create Revision: %w", err)
 		} else if err != nil {
 			recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision: %v", err)
-			if !isTransientCreateError(err) {
+			if isTransientCreateError(err) {
+				config.Status.MarkRevisionCreationRetrying(err.Error())
+			} else {
 				config.Status.MarkRevisionCreationFailed(err.Error())
 			}
 			return fmt.Errorf("failed to create Revision: %w", err)
@@ -314,17 +314,20 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1.Configuratio
 }
 
 // isTransientCreateError returns true for errors that are likely transient
-// (network blips, webhook timeouts, API server overload) and should not cause
-// the Configuration status to be marked as permanently failed. The reconciler
-// will retry, and the status should stay Unknown rather than flip to False.
+// (webhook timeouts, API server overload, rate limiting) and should result in
+// a retry rather than a permanent RevisionFailed status. Only HTTP status codes
+// whose semantics are definitively transient are included here.
+//
+// NOTE: IsInternalError (HTTP 500) is included because webhook infrastructure
+// failures surface as InternalError (e.g. "failed calling webhook: context
+// deadline exceeded"). A webhook that permanently rejects a spec typically
+// returns Forbidden or Invalid, not InternalError. However, a webhook service
+// that is permanently unreachable (deleted, wrong DNS) also surfaces as
+// InternalError, so there is no perfect distinction at this layer.
 func isTransientCreateError(err error) bool {
-	if apierrs.IsInternalError(err) ||
+	return apierrs.IsInternalError(err) ||
 		apierrs.IsServiceUnavailable(err) ||
 		apierrs.IsServerTimeout(err) ||
 		apierrs.IsTimeout(err) ||
-		apierrs.IsTooManyRequests(err) {
-		return true
-	}
-	var urlErr *url.Error
-	return stderrors.As(err, &urlErr)
+		apierrs.IsTooManyRequests(err)
 }

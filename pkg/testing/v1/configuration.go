@@ -62,14 +62,11 @@ func WithConfigObservedGen(cfg *v1.Configuration) {
 	cfg.Status.ObservedGeneration = cfg.Generation
 }
 
-// WithConfigObservedGenFailure marks the Configuration ready condition as Unknown
-// to indicate the reconciler saw a new generation but returned an error before
-// completing all status updates (e.g. transient create failure).
-func WithConfigObservedGenFailure(cfg *v1.Configuration) {
-	WithConfigObservedGen(cfg)
-	condSet := cfg.GetConditionSet()
-	condSet.Manage(&cfg.Status).MarkUnknown(condSet.GetTopLevelConditionType(),
-		"NewObservedGenFailure", "unsuccessfully observed a new generation")
+// MarkRevisionCreationRetrying calls .Status.MarkRevisionCreationRetrying.
+func MarkRevisionCreationRetrying(msg string) ConfigOption {
+	return func(cfg *v1.Configuration) {
+		cfg.Status.MarkRevisionCreationRetrying(msg)
+	}
 }
 
 // WithLatestCreated initializes the .status.latestCreatedRevisionName to be the name

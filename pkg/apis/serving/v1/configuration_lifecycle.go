@@ -109,6 +109,17 @@ func (cs *ConfigurationStatus) MarkRevisionCreationFailed(message string) {
 		"Revision creation failed with message: %s.", message)
 }
 
+// MarkRevisionCreationRetrying marks the ConfigurationConditionReady condition
+// as Unknown to indicate a transient error occurred during Revision creation
+// and the reconciler will retry. Using Unknown (not False) prevents clients
+// from treating retryable infrastructure blips as permanent failures.
+func (cs *ConfigurationStatus) MarkRevisionCreationRetrying(message string) {
+	configCondSet.Manage(cs).MarkUnknown(
+		ConfigurationConditionReady,
+		"RevisionCreationRetrying",
+		"Revision creation failed transiently and will be retried: %s.", message)
+}
+
 // MarkLatestReadyDeleted marks the ConfigurationConditionReady condition to
 // indicate that the Revision was deleted.
 func (cs *ConfigurationStatus) MarkLatestReadyDeleted() {
