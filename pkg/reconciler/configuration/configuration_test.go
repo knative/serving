@@ -19,7 +19,6 @@ package configuration
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
@@ -375,7 +374,7 @@ func TestReconcile(t *testing.T) {
 		WithReactors: []clientgotesting.ReactionFunc{
 			func(action clientgotesting.Action) (bool, runtime.Object, error) {
 				if action.Matches("create", "revisions") {
-					return true, nil, apierrs.NewInternalError(fmt.Errorf("failed calling webhook: context deadline exceeded"))
+					return true, nil, apierrs.NewInternalError(errors.New("failed calling webhook: context deadline exceeded"))
 				}
 				return false, nil, nil
 			},
