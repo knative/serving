@@ -18,13 +18,15 @@ package configuration
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
+	"net/url"
 	"sort"
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -65,9 +67,9 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 
 	// First, fetch the revision that should exist for the current generation.
 	lcr, isBYOName, err := c.latestCreatedRevision(ctx, config)
-	if errors.IsNotFound(err) {
+	if apierrs.IsNotFound(err) {
 		lcr, err = c.createRevision(ctx, config)
-		if errors.IsAlreadyExists(err) {
+		if apierrs.IsAlreadyExists(err) {
 			// Newer revisions with a consistent naming scheme can theoretically hit this
 			// path during normal operation so we don't actually report any failures to
 			// the user.
@@ -76,11 +78,12 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 			return fmt.Errorf("failed to create Revision: %w", err)
 		} else if err != nil {
 			recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision: %v", err)
-			config.Status.MarkRevisionCreationFailed(err.Error())
-
+			if !isTransientCreateError(err) {
+				config.Status.MarkRevisionCreationFailed(err.Error())
+			}
 			return fmt.Errorf("failed to create Revision: %w", err)
 		}
-	} else if errors.IsAlreadyExists(err) {
+	} else if apierrs.IsAlreadyExists(err) {
 		// If we get an already-exists error from latestCreatedRevision it means
 		// that the Revision name already exists for another Configuration or at
 		// the wrong generation of this configuration.
@@ -239,10 +242,10 @@ func CheckNameAvailability(ctx context.Context, config *v1.Configuration, lister
 	if name == "" {
 		return nil, nil
 	}
-	errConflict := errors.NewAlreadyExists(v1.Resource("revisions"), name)
+	errConflict := apierrs.NewAlreadyExists(v1.Resource("revisions"), name)
 
 	rev, err := lister.Revisions(config.Namespace).Get(name)
-	if errors.IsNotFound(err) {
+	if apierrs.IsNotFound(err) {
 		// Does not exist, we must be good!
 		// note: for the name to change the generation must change.
 		return nil, err
@@ -293,7 +296,7 @@ func (c *Reconciler) latestCreatedRevision(ctx context.Context, config *v1.Confi
 		return list[0], false, nil
 	}
 
-	return nil, false, errors.NewNotFound(v1.Resource("revisions"), "revision for "+config.Name)
+	return nil, false, apierrs.NewNotFound(v1.Resource("revisions"), "revision for "+config.Name)
 }
 
 func (c *Reconciler) createRevision(ctx context.Context, config *v1.Configuration) (*v1.Revision, error) {
@@ -308,4 +311,20 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1.Configuratio
 	logger.Infof("Created Revision: %#v", created)
 
 	return created, nil
+}
+
+// isTransientCreateError returns true for errors that are likely transient
+// (network blips, webhook timeouts, API server overload) and should not cause
+// the Configuration status to be marked as permanently failed. The reconciler
+// will retry, and the status should stay Unknown rather than flip to False.
+func isTransientCreateError(err error) bool {
+	if apierrs.IsInternalError(err) ||
+		apierrs.IsServiceUnavailable(err) ||
+		apierrs.IsServerTimeout(err) ||
+		apierrs.IsTimeout(err) ||
+		apierrs.IsTooManyRequests(err) {
+		return true
+	}
+	var urlErr *url.Error
+	return stderrors.As(err, &urlErr)
 }

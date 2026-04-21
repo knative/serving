@@ -19,6 +19,8 @@ package configuration
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/url"
 	"testing"
 	"time"
 
@@ -364,6 +366,68 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create Revision: inducing failure for create revisions"),
 		},
 		Key: "foo/create-revision-failure",
+	}, {
+		Name: "transient failure creating revision (internal server error) - status not marked failed",
+		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
+		// Webhook timeouts and other internal server errors are transient; the
+		// reconciler should retry without marking the Configuration as failed.
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			func(action clientgotesting.Action) (bool, runtime.Object, error) {
+				if action.Matches("create", "revisions") {
+					return true, nil, apierrs.NewInternalError(fmt.Errorf("failed calling webhook: context deadline exceeded"))
+				}
+				return false, nil, nil
+			},
+		},
+		Objects: []runtime.Object{
+			cfg("transient-create-failure-internal", "foo", 99998),
+		},
+		WantCreates: []runtime.Object{
+			rev("transient-create-failure-internal", "foo", 99998),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfg("transient-create-failure-internal", "foo", 99998,
+				WithConfigObservedGenFailure),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision: Internal error occurred: failed calling webhook: context deadline exceeded"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create Revision: Internal error occurred: failed calling webhook: context deadline exceeded"),
+		},
+		Key: "foo/transient-create-failure-internal",
+	}, {
+		Name: "transient failure creating revision (network/url error) - status not marked failed",
+		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
+		// Network-level transport errors (GOAWAY, Content-Length mismatch) are
+		// transient; the reconciler should retry without marking Configuration as failed.
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			func(action clientgotesting.Action) (bool, runtime.Object, error) {
+				if action.Matches("create", "revisions") {
+					return true, nil, &url.Error{
+						Op:  "Post",
+						URL: "https://webhook.knative-serving.svc:443/defaulting",
+						Err: errors.New("http2: server sent GOAWAY and closed the connection"),
+					}
+				}
+				return false, nil, nil
+			},
+		},
+		Objects: []runtime.Object{
+			cfg("transient-create-failure-network", "foo", 99998),
+		},
+		WantCreates: []runtime.Object{
+			rev("transient-create-failure-network", "foo", 99998),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfg("transient-create-failure-network", "foo", 99998,
+				WithConfigObservedGenFailure),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "CreationFailed", `Failed to create Revision: Post "https://webhook.knative-serving.svc:443/defaulting": http2: server sent GOAWAY and closed the connection`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `failed to create Revision: Post "https://webhook.knative-serving.svc:443/defaulting": http2: server sent GOAWAY and closed the connection`),
+		},
+		Key: "foo/transient-create-failure-network",
 	}, {
 		Name: "failure updating configuration status",
 		Ctx:  config.ToContext(context.Background(), config.FromContext(testCtx)),
