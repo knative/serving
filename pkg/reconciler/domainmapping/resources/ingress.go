@@ -25,7 +25,7 @@ import (
 	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
-	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	routeresources "knative.dev/serving/pkg/reconciler/route/resources"
 )
 
@@ -34,7 +34,7 @@ import (
 // backend is always in the same namespace also (as this is required by
 // KIngress).  The created ingress will contain a RewriteHost rule to cause the
 // given hostName to be used as the host.
-func MakeIngress(dm *servingv1beta1.DomainMapping, backendServiceName, hostName, ingressClass string, httpOption netv1alpha1.HTTPOption, tls []netv1alpha1.IngressTLS, acmeChallenges ...netv1alpha1.HTTP01Challenge) *netv1alpha1.Ingress {
+func MakeIngress(dm *servingv1.DomainMapping, backendServiceName, hostName, ingressClass string, httpOption netv1alpha1.HTTPOption, tls []netv1alpha1.IngressTLS, acmeChallenges ...netv1alpha1.HTTP01Challenge) *netv1alpha1.Ingress {
 	// Traffic rule
 	rules := []netv1alpha1.IngressRule{{
 		Hosts:      []string{dm.Name},

@@ -26,6 +26,14 @@ type ConfigurationListerExpansion interface{}
 // ConfigurationNamespaceLister.
 type ConfigurationNamespaceListerExpansion interface{}
 
+// DomainMappingListerExpansion allows custom methods to be added to
+// DomainMappingLister.
+type DomainMappingListerExpansion interface{}
+
+// DomainMappingNamespaceListerExpansion allows custom methods to be added to
+// DomainMappingNamespaceLister.
+type DomainMappingNamespaceListerExpansion interface{}
+
 // RevisionListerExpansion allows custom methods to be added to
 // RevisionLister.
 type RevisionListerExpansion interface{}

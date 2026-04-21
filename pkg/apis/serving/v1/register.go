@@ -55,6 +55,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&RouteList{},
 		&Service{},
 		&ServiceList{},
+		&DomainMapping{},
+		&DomainMappingList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

@@ -27,7 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/test"
 	e2e "knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
@@ -67,14 +67,14 @@ func TestDomainMappingWebsocket(t *testing.T) {
 		host = ksvc.Service.Name + "." + test.ServingFlags.CustomDomain
 	}
 
-	dm := v1beta1.DomainMapping{
+	dm := servingv1.DomainMapping{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        host,
 			Namespace:   ksvc.Service.Namespace,
 			Annotations: map[string]string{"kourier.knative.dev/disable-http2": "true"},
 		},
-		Spec: v1beta1.DomainMappingSpec{
+		Spec: servingv1.DomainMappingSpec{
 			Ref: duckv1.KReference{
 				APIVersion: "serving.knative.dev/v1",
 				Name:       ksvc.Service.Name,
@@ -82,7 +82,7 @@ func TestDomainMappingWebsocket(t *testing.T) {
 				Kind:       "Service",
 			},
 		},
-		Status: v1beta1.DomainMappingStatus{},
+		Status: servingv1.DomainMappingStatus{},
 	}
 
 	_, err = clients.ServingBetaClient.DomainMappings.Create(ctx, &dm, metav1.CreateOptions{})

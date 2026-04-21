@@ -29,6 +29,7 @@ import (
 type ServingV1Interface interface {
 	RESTClient() rest.Interface
 	ConfigurationsGetter
+	DomainMappingsGetter
 	RevisionsGetter
 	RoutesGetter
 	ServicesGetter
@@ -41,6 +42,10 @@ type ServingV1Client struct {
 
 func (c *ServingV1Client) Configurations(namespace string) ConfigurationInterface {
 	return newConfigurations(c, namespace)
+}
+
+func (c *ServingV1Client) DomainMappings(namespace string) DomainMappingInterface {
+	return newDomainMappings(c, namespace)
 }
 
 func (c *ServingV1Client) Revisions(namespace string) RevisionInterface {

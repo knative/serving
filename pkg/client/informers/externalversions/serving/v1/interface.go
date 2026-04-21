@@ -26,6 +26,8 @@ import (
 type Interface interface {
 	// Configurations returns a ConfigurationInformer.
 	Configurations() ConfigurationInformer
+	// DomainMappings returns a DomainMappingInformer.
+	DomainMappings() DomainMappingInformer
 	// Revisions returns a RevisionInformer.
 	Revisions() RevisionInformer
 	// Routes returns a RouteInformer.
@@ -48,6 +50,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // Configurations returns a ConfigurationInformer.
 func (v *version) Configurations() ConfigurationInformer {
 	return &configurationInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// DomainMappings returns a DomainMappingInformer.
+func (v *version) DomainMappings() DomainMappingInformer {
+	return &domainMappingInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // Revisions returns a RevisionInformer.

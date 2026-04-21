@@ -29,7 +29,7 @@ import (
 	"knative.dev/pkg/reconciler"
 	pkgtest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
@@ -68,14 +68,14 @@ func TestDomainMapping(t *testing.T) {
 		resolvableCustomDomain = true
 	}
 	// Point DomainMapping at our service.
-	var dm *v1beta1.DomainMapping
+	var dm *servingv1.DomainMapping
 	if err := reconciler.RetryTestErrors(func(int) error {
-		dm, err = clients.ServingBetaClient.DomainMappings.Create(ctx, &v1beta1.DomainMapping{
+		dm, err = clients.ServingBetaClient.DomainMappings.Create(ctx, &servingv1.DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      host,
 				Namespace: svc.Service.Namespace,
 			},
-			Spec: v1beta1.DomainMappingSpec{
+			Spec: servingv1.DomainMappingSpec{
 				Ref: duckv1.KReference{
 					Namespace:  svc.Service.Namespace,
 					Name:       svc.Service.Name,
@@ -136,14 +136,14 @@ func TestDomainMapping(t *testing.T) {
 	}
 
 	// Create second domain mapping with same name in alt namespace - this will collide with the existing mapping.
-	var altDm *v1beta1.DomainMapping
+	var altDm *servingv1.DomainMapping
 	if err := reconciler.RetryTestErrors(func(int) error {
-		altDm, err = altClients.ServingBetaClient.DomainMappings.Create(ctx, &v1beta1.DomainMapping{
+		altDm, err = altClients.ServingBetaClient.DomainMappings.Create(ctx, &servingv1.DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      host,
 				Namespace: altSvc.Service.Namespace,
 			},
-			Spec: v1beta1.DomainMappingSpec{
+			Spec: servingv1.DomainMappingSpec{
 				Ref: duckv1.KReference{
 					Namespace:  altSvc.Service.Namespace,
 					Name:       altSvc.Service.Name,
@@ -169,7 +169,7 @@ func TestDomainMapping(t *testing.T) {
 		}
 
 		return state.Generation == state.Status.ObservedGeneration &&
-			state.Status.GetCondition(v1beta1.DomainMappingConditionDomainClaimed).IsFalse(), nil
+			state.Status.GetCondition(servingv1.DomainMappingConditionDomainClaimed).IsFalse(), nil
 	})
 	if waitErr != nil {
 		t.Fatalf("The second DomainMapping %s did not enter DomainMappingConditionDomainClaimed=false state: %v", altDm.Name, waitErr)

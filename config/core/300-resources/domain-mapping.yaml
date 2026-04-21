@@ -23,9 +23,100 @@ metadata:
 spec:
   group: serving.knative.dev
   versions:
-    - name: v1beta1
+    - name: v1
       served: true
       storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: URL
+          type: string
+          jsonPath: .status.url
+        - name: Ready
+          type: string
+          jsonPath: ".status.conditions[?(@.type=='Ready')].status"
+        - name: Reason
+          type: string
+          jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
+      "schema":
+        "openAPIV3Schema":
+          description: DomainMapping is a mapping from a custom hostname to an Addressable.
+          type: object
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values.'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this object represents.'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: 'Spec is the desired state of the DomainMapping.'
+              type: object
+              required:
+                - ref
+              properties:
+                ref:
+                  description: "Ref specifies the target of the Domain Mapping."
+                  type: object
+                  required:
+                    - kind
+                    - name
+                  properties:
+                    apiVersion:
+                      type: string
+                    kind:
+                      type: string
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                tls:
+                  description: TLS allows the DomainMapping to terminate TLS traffic with an existing secret.
+                  type: object
+                  required:
+                    - secretName
+                  properties:
+                    secretName:
+                      type: string
+            status:
+              description: 'Status is the current state of the DomainMapping.'
+              type: object
+              properties:
+                address:
+                  type: object
+                  properties:
+                    url:
+                      type: string
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - status
+                      - type
+                    properties:
+                      lastTransitionTime:
+                        type: string
+                      message:
+                        type: string
+                      reason:
+                        type: string
+                      severity:
+                        type: string
+                      status:
+                        type: string
+                      type:
+                        type: string
+                observedGeneration:
+                  type: integer
+                  format: int64
+                url:
+                  type: string
+    - name: v1beta1
+      served: true
+      storage: false
       subresources:
         status: {}
       additionalPrinterColumns:

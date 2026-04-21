@@ -22,11 +22,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestMakeDomainClaim(t *testing.T) {
-	got := MakeDomainClaim(&v1beta1.DomainMapping{
+	got := MakeDomainClaim(&servingv1.DomainMapping{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "mapping.com",
 			Namespace: "the-namespace",

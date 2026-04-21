@@ -30,7 +30,7 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
 )
@@ -97,14 +97,14 @@ func TestDomainMappingExternalDomainTLS(t *testing.T) {
 	host := "dm." + suffix
 
 	// Point DomainMapping at our service.
-	var dm *v1beta1.DomainMapping
+	var dm *servingv1.DomainMapping
 	if err := reconciler.RetryTestErrors(func(int) error {
-		dm, err = clients.ServingBetaClient.DomainMappings.Create(ctx, &v1beta1.DomainMapping{
+		dm, err = clients.ServingBetaClient.DomainMappings.Create(ctx, &servingv1.DomainMapping{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      host,
 				Namespace: svc.Service.Namespace,
 			},
-			Spec: v1beta1.DomainMappingSpec{
+			Spec: servingv1.DomainMappingSpec{
 				Ref: duckv1.KReference{
 					Namespace:  svc.Service.Namespace,
 					Name:       svc.Service.Name,

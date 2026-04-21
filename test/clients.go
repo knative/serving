@@ -34,7 +34,6 @@ import (
 	networkingv1alpha1 "knative.dev/networking/pkg/client/clientset/versioned/typed/networking/v1alpha1"
 	"knative.dev/serving/pkg/client/clientset/versioned"
 	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
-	servingv1beta1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1beta1"
 )
 
 // Clients holds instances of interfaces for making requests to Knative Serving.
@@ -49,7 +48,7 @@ type Clients struct {
 
 // ServingBetaClients holds instances of interfaces for making requests to knative serving clients.
 type ServingBetaClients struct {
-	DomainMappings servingv1beta1.DomainMappingInterface
+	DomainMappings servingv1.DomainMappingInterface
 }
 
 // ServingClients holds instances of interfaces for making requests to knative serving clients.
@@ -136,7 +135,7 @@ func newServingBetaClients(cfg *rest.Config, namespace string) (*ServingBetaClie
 	}
 
 	return &ServingBetaClients{
-		DomainMappings: cs.ServingV1beta1().DomainMappings(namespace),
+		DomainMappings: cs.ServingV1().DomainMappings(namespace),
 	}, nil
 }
 
