@@ -114,6 +114,10 @@ const (
 	// last updated the resource.
 	UpdaterAnnotation = GroupName + "/lastModifier"
 
+	// RevisionDeploymentHashLabelKey is the label key used to identify
+	// if a child deployment should be updated
+	RevisionDeploymentHashLabelKey = GroupName + "/deployment-hash"
+
 	// QueueSidecarResourcePercentageAnnotationKey is the percentage of user container resources to be used for queue-proxy
 	// It has to be in [0.1,100]
 	//

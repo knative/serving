@@ -17,10 +17,16 @@ limitations under the License.
 package resources
 
 import (
+	"hash/fnv"
+	"io"
+	"strconv"
 	"strings"
 
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/dump"
 	"k8s.io/apimachinery/pkg/util/sets"
+
 	"knative.dev/pkg/kmap"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
@@ -59,6 +65,7 @@ func makeLabels(revision *v1.Revision) map[string]string {
 	if _, ok := labels[AppLabelKey]; !ok {
 		labels[AppLabelKey] = revision.Name
 	}
+
 	return labels
 }
 
@@ -95,4 +102,21 @@ func makeSelector(revision *v1.Revision) *metav1.LabelSelector {
 			serving.RevisionUID: string(revision.UID),
 		},
 	}
+}
+
+// UpdateDeploymentHashLabel is exposed for testing
+func UpdateDeploymentHashLabel(d *appsv1.Deployment) {
+	// Delete the existing hash label so repeated calls to this
+	// function will be stable
+	delete(d.Labels, serving.RevisionDeploymentHashLabelKey)
+
+	hasher := fnv.New32a()
+
+	io.WriteString(hasher, dump.ForHash(d.Spec))
+	io.WriteString(hasher, dump.ForHash(d.Annotations))
+	io.WriteString(hasher, dump.ForHash(d.Labels))
+
+	hash := strconv.FormatUint(uint64(hasher.Sum32()), 36)
+
+	d.Labels[serving.RevisionDeploymentHashLabelKey] = hash
 }

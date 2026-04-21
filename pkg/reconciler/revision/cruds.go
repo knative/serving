@@ -30,6 +30,7 @@ import (
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 	"knative.dev/serving/pkg/reconciler/revision/config"
@@ -56,17 +57,19 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 		return nil, fmt.Errorf("failed to update deployment: %w", err)
 	}
 
+	haveHash := have.Labels[serving.RevisionDeploymentHashLabelKey]
+	wantHash := deployment.Labels[serving.RevisionDeploymentHashLabelKey]
+
+	if haveHash == wantHash {
+		return have, nil
+	}
+
 	// Preserve the current scale of the Deployment.
 	deployment.Spec.Replicas = have.Spec.Replicas
 
 	// Preserve the label selector since it's immutable.
 	// TODO(dprotaso): determine other immutable properties.
 	deployment.Spec.Selector = have.Spec.Selector
-
-	// If the spec we want is the spec we have, then we're good.
-	if equality.Semantic.DeepEqual(have.Spec, deployment.Spec) {
-		return have, nil
-	}
 
 	// Otherwise attempt an update (with ONLY the spec changes).
 	desiredDeployment := have.DeepCopy()
