@@ -308,8 +308,8 @@ func TestTemplating(t *testing.T) {
 				Namespace: "guardians",
 			})
 
-			if got, want := def.UserContainerName(ctx), test.want; got != want {
-				t.Errorf("UserContainerName() = %v, wanted %v", got, want)
+			if got, want := def.ServingContainerName(ctx), test.want; got != want {
+				t.Errorf("ServingContainerName() = %v, wanted %v", got, want)
 			}
 
 			if got, want := def.InitContainerName(ctx), test.want; got != want {

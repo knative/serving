@@ -56,9 +56,15 @@ const (
 	// specified by the user, if `name:` is omitted.
 	DefaultInitContainerName = "init-container"
 
+	// DefaultServingContainerName is the default name we give to the container
+	// that serves traffic, if `name:` is omitted.
+	DefaultServingContainerName = "user-container"
+
 	// DefaultUserContainerName is the default name we give to the container
 	// specified by the user, if `name:` is omitted.
-	DefaultUserContainerName = "user-container"
+	// Kept for compatibility with existing callers; new code should use
+	// DefaultServingContainerName.
+	DefaultUserContainerName = DefaultServingContainerName
 
 	// DefaultContainerConcurrency is the default container concurrency. It will be set if ContainerConcurrency is not specified.
 	DefaultContainerConcurrency = 0
@@ -73,8 +79,11 @@ const (
 )
 
 var (
-	DefaultInitContainerNameTemplate = mustParseTemplate(DefaultInitContainerName)
-	DefaultUserContainerNameTemplate = mustParseTemplate(DefaultUserContainerName)
+	DefaultInitContainerNameTemplate    = mustParseTemplate(DefaultInitContainerName)
+	DefaultServingContainerNameTemplate = mustParseTemplate(DefaultServingContainerName)
+	// Kept for compatibility with existing callers; new code should use
+	// DefaultServingContainerNameTemplate.
+	DefaultUserContainerNameTemplate = DefaultServingContainerNameTemplate
 )
 
 func defaultDefaultsConfig() *Defaults {
@@ -84,7 +93,7 @@ func defaultDefaultsConfig() *Defaults {
 		RevisionResponseStartTimeoutSeconds: DefaultRevisionResponseStartTimeoutSeconds,
 		RevisionIdleTimeoutSeconds:          DefaultRevisionIdleTimeoutSeconds,
 		InitContainerNameTemplate:           DefaultInitContainerNameTemplate,
-		UserContainerNameTemplate:           DefaultUserContainerNameTemplate,
+		UserContainerNameTemplate:           DefaultServingContainerNameTemplate,
 		ContainerConcurrency:                DefaultContainerConcurrency,
 		ContainerConcurrencyMaxLimit:        DefaultMaxRevisionContainerConcurrency,
 		AllowContainerConcurrencyZero:       DefaultAllowContainerConcurrencyZero,
@@ -226,9 +235,16 @@ func containerNameFromTemplate(ctx context.Context, tmpl *ObjectMetaTemplate) st
 	return buf.String()
 }
 
-// UserContainerName returns the name of the user container based on the context.
-func (d Defaults) UserContainerName(ctx context.Context) string {
+// ServingContainerName returns the name of the serving container based on the context.
+func (d Defaults) ServingContainerName(ctx context.Context) string {
 	return containerNameFromTemplate(ctx, d.UserContainerNameTemplate)
+}
+
+// UserContainerName returns the name of the user container based on the context.
+// Kept for compatibility with existing callers; new code should use
+// ServingContainerName.
+func (d Defaults) UserContainerName(ctx context.Context) string {
+	return d.ServingContainerName(ctx)
 }
 
 // InitContainerName returns the name of the init container based on the context.

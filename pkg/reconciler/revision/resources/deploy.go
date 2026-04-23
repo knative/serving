@@ -101,9 +101,9 @@ var (
 
 	// This PreStop hook is actually calling an endpoint on the queue-proxy
 	// because of the way PreStop hooks are called by kubelet. We use this
-	// to block the user-container from exiting before the queue-proxy is ready
+	// to block the serving container from exiting before the queue-proxy is ready
 	// to exit so we can guarantee that there are no more requests in flight.
-	userLifecycle = &corev1.Lifecycle{
+	servingLifecycle = &corev1.Lifecycle{
 		PreStop: &corev1.LifecycleHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Port: intstr.FromInt(networking.QueueAdminPort),
@@ -111,6 +111,9 @@ var (
 			},
 		},
 	}
+	// Kept for compatibility with existing callers; new code should use
+	// servingLifecycle.
+	userLifecycle = servingLifecycle
 )
 
 func addToken(tokenVolume *corev1.Volume, filename string, audience string, expiry *int64) {
@@ -206,7 +209,7 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 		extraVolumes = append(extraVolumes, certVolume(networking.ServingCertName))
 	}
 
-	podSpec := BuildPodSpec(rev, append(BuildUserContainers(rev), *queueContainer), cfg)
+	podSpec := BuildPodSpec(rev, append(BuildServingContainers(rev), *queueContainer), cfg)
 	podSpec.Volumes = append(podSpec.Volumes, extraVolumes...)
 
 	if val := cfg.Deployment.PodRuntimeClassName(rev.ObjectMeta.Labels); podSpec.RuntimeClassName == nil {
@@ -236,8 +239,8 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 	return podSpec, nil
 }
 
-// BuildUserContainers makes an array of containers from the Revision template.
-func BuildUserContainers(rev *v1.Revision) []corev1.Container {
+// BuildServingContainers makes an array of containers from the Revision template.
+func BuildServingContainers(rev *v1.Revision) []corev1.Container {
 	containers := make([]corev1.Container, 0, len(rev.Spec.PodSpec.Containers))
 	for i := range rev.Spec.PodSpec.Containers {
 		var container corev1.Container
@@ -259,10 +262,17 @@ func BuildUserContainers(rev *v1.Revision) []corev1.Container {
 	return containers
 }
 
+// BuildUserContainers makes an array of containers from the Revision template.
+// Kept for compatibility with existing callers; new code should use
+// BuildServingContainers.
+func BuildUserContainers(rev *v1.Revision) []corev1.Container {
+	return BuildServingContainers(rev)
+}
+
 func makeContainer(container corev1.Container, rev *v1.Revision) corev1.Container {
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the fieldmasks / validations in pkg/apis/serving
-	container.Lifecycle = userLifecycle
+	container.Lifecycle = servingLifecycle
 	container.Env = append(container.Env, getKnativeEnvVar(rev)...)
 
 	// Explicitly disable stdin and tty allocation
@@ -290,7 +300,7 @@ func makeServingContainer(servingContainer corev1.Container, rev *v1.Revision) c
 	servingContainer.Ports = buildContainerPorts(userPort)
 	servingContainer.Env = append(servingContainer.Env, buildUserPortEnv(userPortStr))
 	container := makeContainer(servingContainer, rev)
-	// If the user provides a liveness probe, we should rewrite in the port on the user-container for them.
+	// If the user provides a liveness probe, we should rewrite in the port on the serving container for them.
 	rewriteUserLivenessProbe(container.LivenessProbe, int(userPort))
 	return container
 }

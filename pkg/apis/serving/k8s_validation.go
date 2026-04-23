@@ -422,7 +422,7 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 	case 0:
 		errs = errs.Also(apis.ErrMissingField("containers"))
 	case 1:
-		errs = errs.Also(ValidateUserContainer(ctx, ps.Containers[0], volumes, port).
+		errs = errs.Also(ValidateServingContainer(ctx, ps.Containers[0], volumes, port).
 			ViaFieldIndex("containers", 0))
 	default:
 		errs = errs.Also(validateContainers(ctx, ps.Containers, volumes, port))
@@ -479,7 +479,7 @@ func validateContainers(ctx context.Context, containers []corev1.Container, volu
 		if len(containers[i].Ports) == 0 {
 			errs = errs.Also(validateSidecarContainer(WithinSidecarContainer(ctx), containers[i], volumes).ViaFieldIndex("containers", i))
 		} else {
-			errs = errs.Also(ValidateUserContainer(WithinUserContainer(ctx), containers[i], volumes, port).ViaFieldIndex("containers", i))
+			errs = errs.Also(ValidateServingContainer(WithinServingContainer(ctx), containers[i], volumes, port).ViaFieldIndex("containers", i))
 		}
 	}
 	return errs
@@ -585,13 +585,20 @@ func validateInitContainer(ctx context.Context, container corev1.Container, volu
 	return errs.Also(validate(WithinInitContainer(ctx), container, volumes))
 }
 
-// ValidateUserContainer validate fields for serving containers
-func ValidateUserContainer(ctx context.Context, container corev1.Container, volumes map[string]corev1.Volume, port corev1.ContainerPort) (errs *apis.FieldError) {
+// ValidateServingContainer validates fields for containers that serve traffic.
+func ValidateServingContainer(ctx context.Context, container corev1.Container, volumes map[string]corev1.Volume, port corev1.ContainerPort) (errs *apis.FieldError) {
 	// Liveness Probes
 	errs = errs.Also(validateProbe(container.LivenessProbe, &port, true).ViaField("livenessProbe"))
 	// Readiness Probes
 	errs = errs.Also(validateReadinessProbe(container.ReadinessProbe, &port, true).ViaField("readinessProbe"))
 	return errs.Also(validate(ctx, container, volumes))
+}
+
+// ValidateUserContainer validate fields for serving containers
+// Kept for compatibility with existing callers; new code should use
+// ValidateServingContainer.
+func ValidateUserContainer(ctx context.Context, container corev1.Container, volumes map[string]corev1.Volume, port corev1.ContainerPort) (errs *apis.FieldError) {
+	return ValidateServingContainer(ctx, container, volumes, port)
 }
 
 func validate(ctx context.Context, container corev1.Container, volumes map[string]corev1.Volume) *apis.FieldError {
@@ -1035,14 +1042,22 @@ func warnDefaultContainerSecurityContext(ctx context.Context, psc *corev1.PodSec
 	return errs
 }
 
-// This is attached to contexts as they are passed down through a user container
+// This is attached to contexts as they are passed down through a serving container
 // being validated.
-type userContainer struct{}
+type servingContainer struct{}
+
+// WithinServingContainer notes on the context that further validation or defaulting
+// is within the context of a serving container in the revision.
+func WithinServingContainer(ctx context.Context) context.Context {
+	return context.WithValue(ctx, servingContainer{}, struct{}{})
+}
 
 // WithinUserContainer notes on the context that further validation or defaulting
 // is within the context of a user container in the revision.
+// Kept for compatibility with existing callers; new code should use
+// WithinServingContainer.
 func WithinUserContainer(ctx context.Context) context.Context {
-	return context.WithValue(ctx, userContainer{}, struct{}{})
+	return WithinServingContainer(ctx)
 }
 
 // This is attached to contexts as they are passed down through a sidecar container

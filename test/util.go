@@ -108,12 +108,19 @@ func AddTestAnnotation(t testing.TB, m metav1.ObjectMeta) {
 	})
 }
 
-// UserContainerRestarted checks if the container was restarted.
-func UserContainerRestarted(pod *corev1.Pod) bool {
+// ServingContainerRestarted checks if the serving container was restarted.
+func ServingContainerRestarted(pod *corev1.Pod) bool {
 	for _, status := range pod.Status.ContainerStatuses {
-		if status.Name == config.DefaultUserContainerName && status.RestartCount > 0 {
+		if status.Name == config.DefaultServingContainerName && status.RestartCount > 0 {
 			return true
 		}
 	}
 	return false
+}
+
+// UserContainerRestarted checks if the container was restarted.
+// Kept for compatibility with existing callers; new code should use
+// ServingContainerRestarted.
+func UserContainerRestarted(pod *corev1.Pod) bool {
+	return ServingContainerRestarted(pod)
 }

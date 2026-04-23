@@ -2146,10 +2146,10 @@ func TestUserContainerValidation(t *testing.T) {
 			}
 			port, err := validateContainersPorts([]corev1.Container{test.c})
 
-			got := err.Also(ValidateUserContainer(ctx, test.c, test.volumes, port))
+			got := err.Also(ValidateServingContainer(ctx, test.c, test.volumes, port))
 			got = got.Filter(apis.ErrorLevel)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("ValidateUserContainer (-want, +got): \n%s", diff)
+				t.Errorf("ValidateServingContainer (-want, +got): \n%s", diff)
 			}
 		})
 	}

@@ -238,7 +238,7 @@ func TestLivenessProbeAwareOfStartupProbe(t *testing.T) {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.HelloWorldText, err)
 	}
 
-	// Check that user-container hasn't been restarted.
+	// Check that the serving container hasn't been restarted.
 	deploymentName := resourcenames.Deployment(resources.Revision)
 	podList, err := clients.KubeClient.CoreV1().Pods(test.ServingFlags.TestNamespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
@@ -246,8 +246,8 @@ func TestLivenessProbeAwareOfStartupProbe(t *testing.T) {
 	}
 	for i := range podList.Items {
 		pod := &podList.Items[i]
-		if strings.Contains(pod.Name, deploymentName) && test.UserContainerRestarted(pod) {
-			t.Fatal("User container unexpectedly restarted")
+		if strings.Contains(pod.Name, deploymentName) && test.ServingContainerRestarted(pod) {
+			t.Fatal("Serving container unexpectedly restarted")
 		}
 	}
 }
