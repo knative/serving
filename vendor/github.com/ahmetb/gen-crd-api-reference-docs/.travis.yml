@@ -17,7 +17,7 @@ deploy:
     skip_cleanup: true
     on:
       tags: true
-    script: curl -sL https://git.io/goreleaser | bash
+    script: curl -sL https://raw.githubusercontent.com/goreleaser/goreleaser/main/scripts/get.sh | bash
   # use github release feature to upload dist/
   - provider: releases
     skip_cleanup: true
