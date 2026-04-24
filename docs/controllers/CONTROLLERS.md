@@ -331,9 +331,30 @@ The Labeler controller syncs routing metadata (labels/annotations) from Routes t
 - Configuration (tracked and labeled)
 - Revision (tracked and labeled)
 
+### 13. Service Scaler Controller
+
+**Location:** `pkg/reconciler/servicescaler/`
+
+**Watched Resource:** `serving.knative.dev/v1.Route`
+
+**Responsibility:**
+The Service Scaler controller service scaling (currently only service minscale) annotations from Routes to their referenced Revisions. This enables
+service scaling annotations to be propagated to the pod autoscaler for scaling decisions.
+
+**Key Functions:**
+- Adds/updates annotations on **Revisions** referenced by Route Status traffic:
+    - `serving.knative.dev/service-min-scale` - denotes minscale across route traffic
+    - `serving.knative.dev/service-min-scale-route` - denotes which route set the service min scale decision
+- Removes scaling annotations from revisions when Routes are deleted (via Finalizer)
+- Does NOT modify Route status (SkipStatusUpdates: true)
+
+**Informers Watched:**
+- Route (primary)
+- Revision (tracked and annotated)
+
 ---
 
-### 13. Garbage Collection (GC) Controller
+### 14. Garbage Collection (GC) Controller
 
 **Location:** `pkg/reconciler/gc/`
 
