@@ -331,6 +331,8 @@ The Labeler controller syncs routing metadata (labels/annotations) from Routes t
 - Configuration (tracked and labeled)
 - Revision (tracked and labeled)
 
+---
+
 ### 13. Service Scaler Controller
 
 **Location:** `pkg/reconciler/servicescaler/`
