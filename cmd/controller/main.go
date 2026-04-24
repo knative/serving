@@ -44,6 +44,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/route"
 	"knative.dev/serving/pkg/reconciler/serverlessservice"
 	"knative.dev/serving/pkg/reconciler/service"
+	"knative.dev/serving/pkg/reconciler/servicescaler"
 
 	versioned "github.com/cert-manager/cert-manager/pkg/client/clientset/versioned"
 	"knative.dev/serving/pkg/client/certmanager/injection/informers/acme/v1/challenge"
@@ -63,6 +64,7 @@ var ctors = []injection.ControllerConstructor{
 	gc.NewController,
 	nscert.NewController,
 	domainmapping.NewController,
+	servicescaler.NewController,
 }
 
 func main() {

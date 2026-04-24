@@ -36,6 +36,7 @@ import (
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/serving/pkg/activator"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	kparesources "knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
@@ -333,7 +334,7 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 	asConfig := config.FromContext(ctx).Autoscaler
 	logger := logging.FromContext(ctx)
 
-	if desiredScale < 0 && !pa.Status.IsActivating() {
+	if desiredScale < 0 && !hasServiceMinScale(pa) && !pa.Status.IsActivating() {
 		logger.Debug("Metrics are not yet being collected.")
 		return desiredScale, nil
 	}
@@ -378,4 +379,9 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
 	return desiredScale, ks.applyScale(ctx, pa, desiredScale, ps)
+}
+
+func hasServiceMinScale(pa *autoscalingv1alpha1.PodAutoscaler) bool {
+	_, _, ok := serving.ServiceMinscaleAnnotation.Get(pa.Annotations)
+	return ok
 }
