@@ -26,6 +26,7 @@ import (
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
+	"knative.dev/serving/pkg/deployment"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,13 +34,16 @@ import (
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 
 	corev1 "k8s.io/api/core/v1"
+	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	autoscalercfg "knative.dev/serving/pkg/autoscaler/config"
 
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
@@ -396,5 +400,37 @@ func patchAddFinalizerAction(namespace, name string) clientgotesting.PatchAction
 		Name:       name,
 		ActionImpl: clientgotesting.ActionImpl{Namespace: namespace},
 		Patch:      []byte(p),
+	}
+}
+
+func TestNew(t *testing.T) {
+	ctx, _ := SetupFakeContext(t)
+
+	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: system.Namespace(),
+			Name:      deployment.ConfigName,
+		},
+		Data: map[string]string{
+			deployment.QueueSidecarImageKey: "motorbike-sidecar",
+		},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: system.Namespace(),
+			Name:      netcfg.ConfigMapName,
+		},
+		Data: map[string]string{},
+	}, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      autoscalercfg.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{},
+	})
+
+	c := NewController(ctx, configMapWatcher)
+
+	if c == nil {
+		t.Fatal("Expected NewController to return a non-nil value")
 	}
 }
