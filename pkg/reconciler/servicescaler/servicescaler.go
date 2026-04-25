@@ -155,6 +155,12 @@ func (c *Reconciler) patchServiceScaleAnnotations(ctx context.Context, rev *v1.R
 		}
 	}
 
+	_, _, routeMinScaleOk := serving.ServiceMinscaleAnnotation.Get(route.GetAnnotations())
+	if !minScaleOk && !routeMinScaleOk {
+		// if minscale is not set on target AND current route, no need to patch
+		return nil
+	}
+
 	var serviceMinscalePatchVal *string
 	var serviceMinscaleRoutePatchVal *string
 	if serviceMinscale > 0 {

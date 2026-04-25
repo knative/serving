@@ -255,6 +255,13 @@ func TestReconcile(t *testing.T) {
 				patchAddServiceMinscaleAnnotationKey("default", rev("default", "test-service").Name, "2", "default/test-route"),
 			},
 			Key: "default/test-route",
+		}, {
+			Name: "steady-state no annotation",
+			Objects: []runtime.Object{
+				simpleRunLatest("default", "steady-state", "test-service", WithRouteFinalizer),
+				rev("default", "test-service"),
+			},
+			Key: "default/steady-state",
 		},
 	}
 
