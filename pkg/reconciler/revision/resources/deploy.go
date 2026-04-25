@@ -138,15 +138,19 @@ func certVolume(secret string) corev1.Volume {
 	}
 }
 
-func rewriteUserLivenessProbe(p *corev1.Probe, userPort int) {
+func rewriteUserLivenessProbe(p *corev1.Probe, userPort int, allowCustomPort bool) {
 	if p == nil {
 		return
 	}
 	switch {
 	case p.HTTPGet != nil:
-		p.HTTPGet.Port = intstr.FromInt(userPort)
+		if !allowCustomPort || p.HTTPGet.Port.IntValue() == 0 {
+			p.HTTPGet.Port = intstr.FromInt(userPort)
+		}
 	case p.TCPSocket != nil:
-		p.TCPSocket.Port = intstr.FromInt(userPort)
+		if !allowCustomPort || p.TCPSocket.Port.IntValue() == 0 {
+			p.TCPSocket.Port = intstr.FromInt(userPort)
+		}
 	}
 }
 
@@ -206,7 +210,7 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 		extraVolumes = append(extraVolumes, certVolume(networking.ServingCertName))
 	}
 
-	podSpec := BuildPodSpec(rev, append(BuildUserContainers(rev), *queueContainer), cfg)
+	podSpec := BuildPodSpec(rev, append(BuildUserContainers(rev, cfg.Features), *queueContainer), cfg)
 	podSpec.Volumes = append(podSpec.Volumes, extraVolumes...)
 
 	if val := cfg.Deployment.PodRuntimeClassName(rev.ObjectMeta.Labels); podSpec.RuntimeClassName == nil {
@@ -237,12 +241,14 @@ func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) 
 }
 
 // BuildUserContainers makes an array of containers from the Revision template.
-func BuildUserContainers(rev *v1.Revision) []corev1.Container {
+// features may be nil, in which case default behavior (strict port rewriting) is used.
+func BuildUserContainers(rev *v1.Revision, features *apiconfig.Features) []corev1.Container {
+	allowCustomPort := features != nil && features.MultiContainerProbing == apiconfig.Enabled
 	containers := make([]corev1.Container, 0, len(rev.Spec.PodSpec.Containers))
 	for i := range rev.Spec.PodSpec.Containers {
 		var container corev1.Container
 		if len(rev.Spec.PodSpec.Containers[i].Ports) != 0 || len(rev.Spec.PodSpec.Containers) == 1 {
-			container = makeServingContainer(*rev.Spec.PodSpec.Containers[i].DeepCopy(), rev)
+			container = makeServingContainer(*rev.Spec.PodSpec.Containers[i].DeepCopy(), rev, allowCustomPort)
 		} else {
 			container = makeContainer(*rev.Spec.PodSpec.Containers[i].DeepCopy(), rev)
 		}
@@ -283,7 +289,7 @@ func makeContainer(container corev1.Container, rev *v1.Revision) corev1.Containe
 	return container
 }
 
-func makeServingContainer(servingContainer corev1.Container, rev *v1.Revision) corev1.Container {
+func makeServingContainer(servingContainer corev1.Container, rev *v1.Revision, allowCustomPort bool) corev1.Container {
 	userPort := getUserPort(rev)
 	userPortStr := strconv.Itoa(int(userPort))
 	// Replacement is safe as only up to a single port is allowed on the Revision
@@ -291,7 +297,7 @@ func makeServingContainer(servingContainer corev1.Container, rev *v1.Revision) c
 	servingContainer.Env = append(servingContainer.Env, buildUserPortEnv(userPortStr))
 	container := makeContainer(servingContainer, rev)
 	// If the user provides a liveness probe, we should rewrite in the port on the user-container for them.
-	rewriteUserLivenessProbe(container.LivenessProbe, int(userPort))
+	rewriteUserLivenessProbe(container.LivenessProbe, int(userPort), allowCustomPort)
 	return container
 }
 

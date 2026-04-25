@@ -1078,6 +1078,161 @@ func TestMakePodSpec(t *testing.T) {
 				queueContainer(),
 			}),
 	}, {
+		name: "with HTTP liveness probe on custom port and multi-container-probing enabled",
+		fc: apicfg.Features{
+			MultiContainerProbing: apicfg.Enabled,
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+				LivenessProbe: &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/health",
+							Port: intstr.FromInt32(8081),
+						},
+					},
+				},
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(
+					func(container *corev1.Container) {
+						container.Image = "busybox@sha256:deadbeef"
+					},
+					withLivenessProbe(corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/health",
+							Port: intstr.FromInt32(8081),
+						},
+					}),
+				),
+				queueContainer(
+					withEnvVar("ENABLE_MULTI_CONTAINER_PROBES", "true"),
+					withEnvVar("SERVING_READINESS_PROBE", `[{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}]`),
+				),
+			}),
+	}, {
+		name: "with TCP liveness probe on custom port and multi-container-probing enabled",
+		fc: apicfg.Features{
+			MultiContainerProbing: apicfg.Enabled,
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+				LivenessProbe: &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						TCPSocket: &corev1.TCPSocketAction{
+							Port: intstr.FromInt32(8081),
+						},
+					},
+				},
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(
+					func(container *corev1.Container) {
+						container.Image = "busybox@sha256:deadbeef"
+					},
+					withLivenessProbe(corev1.ProbeHandler{
+						TCPSocket: &corev1.TCPSocketAction{
+							Port: intstr.FromInt32(8081),
+						},
+					}),
+				),
+				queueContainer(
+					withEnvVar("ENABLE_MULTI_CONTAINER_PROBES", "true"),
+					withEnvVar("SERVING_READINESS_PROBE", `[{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}]`),
+				),
+			}),
+	}, {
+		name: "with HTTP liveness probe without port and multi-container-probing enabled",
+		fc: apicfg.Features{
+			MultiContainerProbing: apicfg.Enabled,
+		},
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+				LivenessProbe: &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+						},
+					},
+				},
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(
+					func(container *corev1.Container) {
+						container.Image = "busybox@sha256:deadbeef"
+					},
+					withLivenessProbe(corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+							Port: intstr.FromInt32(v1.DefaultUserPort),
+						},
+					}),
+				),
+				queueContainer(
+					withEnvVar("ENABLE_MULTI_CONTAINER_PROBES", "true"),
+					withEnvVar("SERVING_READINESS_PROBE", `[{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}]`),
+				),
+			}),
+	}, {
+		name: "with HTTP liveness probe on custom port and multi-container-probing disabled",
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:           servingContainerName,
+				Image:          "busybox",
+				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
+				LivenessProbe: &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/health",
+							Port: intstr.FromInt32(8081),
+						},
+					},
+				},
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(
+					func(container *corev1.Container) {
+						container.Image = "busybox@sha256:deadbeef"
+					},
+					withLivenessProbe(corev1.ProbeHandler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/health",
+							Port: intstr.FromInt32(v1.DefaultUserPort),
+						},
+					}),
+				),
+				queueContainer(),
+			}),
+	}, {
 		name: "with HTTP startup probe",
 		rev: revision("bar", "foo",
 			withContainers([]corev1.Container{{
