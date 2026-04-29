@@ -92,6 +92,14 @@ const (
 	// which Service they are created.
 	ServiceLabelKey = GroupName + "/service"
 
+	// ServiceMinscaleAnnotationKey is the annotation key attached to a Route and Service indicating
+	// the minScale across all revisions
+	ServiceMinscaleAnnotationKey = GroupName + "/service-min-scale"
+
+	// ServiceMinscaleAnnotationKey is the annotation key attached to a revision indicating
+	// which route attached the service min scale, used in the case of multiple routes having /service-min-scale
+	ServiceMinscaleRouteAnnotationKey = GroupName + "/service-min-scale-route"
+
 	// DomainMappingUIDLabelKey is the label key attached to Ingress resources to indicate
 	// which DomainMapping triggered their creation.
 	// This uses a uid rather than a name because domain mapping names can exceed
@@ -181,6 +189,12 @@ var (
 	RolloutDurationAnnotation = kmap.KeyPriority{
 		RolloutDurationKey,
 		GroupName + "/rolloutDuration",
+	}
+	ServiceMinscaleAnnotation = kmap.KeyPriority{
+		ServiceMinscaleAnnotationKey,
+	}
+	ServiceMinscaleRouteAnnotation = kmap.KeyPriority{
+		ServiceMinscaleRouteAnnotationKey,
 	}
 	QueueSidecarResourcePercentageAnnotation = kmap.KeyPriority{
 		QueueSidecarResourcePercentageAnnotationKey,

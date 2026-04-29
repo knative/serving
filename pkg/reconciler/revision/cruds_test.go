@@ -59,6 +59,12 @@ func TestMergeMetadata(t *testing.T) {
 			current: map[string]string{"autoscaling.knative.dev/target-burst-capacity": "0", "deployment.kubernetes.io/revision": "2", "kubectl.kubernetes.io/restartedAt": "2025-11-27T12:14:41+01:00"},
 			want:    map[string]string{"autoscaling.knative.dev/min-scale": "1", "app": "my-revision", "deployment.kubernetes.io/revision": "2", "kubectl.kubernetes.io/restartedAt": "2025-11-27T12:14:41+01:00"},
 		},
+		{
+			name:    "mixed knative and external service min scale",
+			desired: map[string]string{"serving.knative.dev/serving-min-scale": "1", "app": "my-revision"},
+			current: map[string]string{"autoscaling.knative.dev/target-burst-capacity": "0", "deployment.kubernetes.io/revision": "2", "kubectl.kubernetes.io/restartedAt": "2025-11-27T12:14:41+01:00"},
+			want:    map[string]string{"serving.knative.dev/serving-min-scale": "1", "app": "my-revision", "deployment.kubernetes.io/revision": "2", "kubectl.kubernetes.io/restartedAt": "2025-11-27T12:14:41+01:00"},
+		},
 	}
 
 	for _, tt := range tests {
