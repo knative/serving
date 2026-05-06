@@ -22,7 +22,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.43.0
 	go.opentelemetry.io/otel/trace v1.43.0
 	go.uber.org/automaxprocs v1.6.0
-	go.uber.org/zap v1.27.1
+	go.uber.org/zap v1.28.0
 	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/sync v0.20.0
 	golang.org/x/sys v0.43.0
@@ -36,10 +36,10 @@ require (
 	k8s.io/code-generator v0.35.4
 	k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4
-	knative.dev/caching v0.0.0-20260422140616-453ad996bbe2
-	knative.dev/hack v0.0.0-20260421155212-aeb7b4a9bf96
-	knative.dev/networking v0.0.0-20260422140718-e9578ef11562
-	knative.dev/pkg v0.0.0-20260422015212-ec452872dcc1
+	knative.dev/caching v0.0.0-20260428014314-876a68073e1b
+	knative.dev/hack v0.0.0-20260428014158-b2a37f1b6e7b
+	knative.dev/networking v0.0.0-20260428014950-5876dec269ce
+	knative.dev/pkg v0.0.0-20260505204821-021ad709ec68
 	sigs.k8s.io/randfill v1.0.0
 	sigs.k8s.io/yaml v1.6.0
 )
