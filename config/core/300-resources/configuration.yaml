@@ -1180,6 +1180,11 @@ spec:
                                   This is accessible behind a feature flag - kubernetes.podspec-volumes-emptydir
                                 type: object
                                 x-kubernetes-preserve-unknown-fields: true
+                              ephemeral:
+                                description: |-
+                                  This is accessible behind a feature flag - kubernetes.podspec-volumes-ephemeral
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
                               hostPath:
                                 description: |-
                                   This is accessible behind a feature flag - kubernetes.podspec-volumes-hostpath

@@ -157,6 +157,13 @@ func withPodSpecVolumesCSIEnabled() configOption {
 	}
 }
 
+func withPodSpecVolumesEphemeralEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.PodSpecVolumesEphemeral = config.Enabled
+		return cfg
+	}
+}
+
 func withPodSpecVolumesImageEnabled() configOption {
 	return func(cfg *config.Config) *config.Config {
 		cfg.Features.PodSpecVolumesImage = config.Enabled
@@ -3492,6 +3499,45 @@ func TestVolumeValidation(t *testing.T) {
 		},
 		cfgOpts: []configOption{withPodSpecVolumesImageEnabled()},
 		want:    apis.ErrMissingOneOf("secret", "configMap", "projected", "emptyDir", "image"),
+	}, {
+		name: "valid ephemeral volume with feature enabled",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				Ephemeral: &corev1.EphemeralVolumeSource{
+					VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{
+						Spec: corev1.PersistentVolumeClaimSpec{
+							AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						},
+					},
+				},
+			},
+		},
+		cfgOpts: []configOption{withPodSpecVolumesEphemeralEnabled()},
+	}, {
+		name: "ephemeral volume with feature disabled",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				Ephemeral: &corev1.EphemeralVolumeSource{
+					VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{
+						Spec: corev1.PersistentVolumeClaimSpec{
+							AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						},
+					},
+				},
+			},
+		},
+		want: (&apis.FieldError{
+			Message: `Ephemeral volume support is disabled, but found Ephemeral volume foo`,
+		}).Also(&apis.FieldError{Message: "must not set the field(s)", Paths: []string{"ephemeral"}}),
+	}, {
+		name: "missing ephemeral volume when required",
+		v: corev1.Volume{
+			Name: "foo",
+		},
+		cfgOpts: []configOption{withPodSpecVolumesEphemeralEnabled()},
+		want:    apis.ErrMissingOneOf("secret", "configMap", "projected", "emptyDir", "ephemeral"),
 	}}
 
 	for _, test := range tests {

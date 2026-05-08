@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "bee75b26"
+    knative.dev/example-checksum: "424df6ce"
 data:
   _example: |-
     ################################
@@ -206,6 +206,12 @@ data:
     # 1. Enabled: enabling HostPath volume support
     # 2. Disabled: disabling HostPath volume support
     kubernetes.podspec-volumes-hostpath: "disabled"
+
+    # Controls whether volume support for generic ephemeral volumes is enabled or not.
+    # See https://kubernetes.io/docs/concepts/storage/ephemeral-volumes/#generic-ephemeral-volumes
+    # 1. Enabled: enabling generic ephemeral volume support
+    # 2. Disabled: disabling generic ephemeral volume support
+    kubernetes.podspec-volumes-ephemeral: "disabled"
 
     # Controls whether volume support for CSI is enabled or not.
     # 1. Enabled: enabling CSI volume support

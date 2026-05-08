@@ -481,6 +481,24 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"kubernetes.podspec-volumes-csi": "Enabled",
 		},
 	}, {
+		name:    "kubernetes.podspec-volumes-ephemeral Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecVolumesEphemeral: Disabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-volumes-ephemeral": "Disabled",
+		},
+	}, {
+		name:    "kubernetes.podspec-volumes-ephemeral Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			PodSpecVolumesEphemeral: Enabled,
+		}),
+		data: map[string]string{
+			"kubernetes.podspec-volumes-ephemeral": "Enabled",
+		},
+	}, {
 		name:    "kubernetes.podspec-persistent-volume-claim Disabled",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{

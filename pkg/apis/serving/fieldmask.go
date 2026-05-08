@@ -76,6 +76,10 @@ func VolumeSourceMask(ctx context.Context, in *corev1.VolumeSource) *corev1.Volu
 		out.CSI = in.CSI
 	}
 
+	if cfg.Features.PodSpecVolumesEphemeral != config.Disabled {
+		out.Ephemeral = in.Ephemeral
+	}
+
 	if cfg.Features.PodSpecVolumesImage != config.Disabled {
 		out.Image = in.Image
 	}

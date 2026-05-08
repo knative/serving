@@ -254,6 +254,9 @@ func revSpecOverrides(prefixPath string) []entry {
 		}, {
 			name: "image",
 			flag: config.FeaturePodSpecVolumesImage,
+		}, {
+			name: "ephemeral",
+			flag: config.FeaturePodSpecVolumesEphemeral,
 		}},
 	}, {
 		path: "volumes.secret",
