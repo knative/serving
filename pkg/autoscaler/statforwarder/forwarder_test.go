@@ -509,3 +509,28 @@ func TestIsBucketOwner(t *testing.T) {
 		t.Errorf("IsBktOwner(not-in-record) = %v, want true", got)
 	}
 }
+
+func TestAddressTypeForIP(t *testing.T) {
+	tests := map[string]struct {
+		ip   string
+		want discoveryv1.AddressType
+	}{
+		"ipv4": {
+			ip:   "10.0.0.1",
+			want: discoveryv1.AddressTypeIPv4,
+		},
+		"ipv6": {
+			ip:   "2001:db8::1",
+			want: discoveryv1.AddressTypeIPv6,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			got := addressTypeForIP(tc.ip)
+			if got != tc.want {
+				t.Errorf("addressTypeForIP(%q) = %v, want %v", tc.ip, got, tc.want)
+			}
+		})
+	}
+}

@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"strconv"
@@ -184,8 +185,11 @@ func (a *activationHandler) proxyRequest(revID types.NamespacedName, w http.Resp
 // TODO: endpointsToDests() should support HTTPS instead of this overwrite but it needs metadata request to be encrypted.
 // This code should be removed when https://github.com/knative/serving/issues/12821 was solved.
 func useSecurePort(target string, port int) string {
-	target = strings.Split(target, ":")[0]
-	return target + ":" + strconv.Itoa(port)
+	host, _, err := net.SplitHostPort(target)
+	if err != nil {
+		host = target
+	}
+	return net.JoinHostPort(host, strconv.Itoa(port))
 }
 
 func WrapActivatorHandlerWithFullDuplex(h http.Handler, logger *zap.SugaredLogger) http.HandlerFunc {

@@ -290,6 +290,34 @@ func setupConfigStore(t testing.TB, logger *zap.SugaredLogger) *activatorconfig.
 	return configStore
 }
 
+func TestUseSecurePort(t *testing.T) {
+	tests := map[string]struct {
+		target string
+		port   int
+		want   string
+	}{
+		"ipv4": {
+			target: "10.0.0.1:8012",
+			port:   8112,
+			want:   "10.0.0.1:8112",
+		},
+		"ipv6": {
+			target: "[2001:db8::1]:8012",
+			port:   8112,
+			want:   "[2001:db8::1]:8112",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			got := useSecurePort(tc.target, tc.port)
+			if got != tc.want {
+				t.Errorf("useSecurePort(%q, %d) = %q, want %q", tc.target, tc.port, got, tc.want)
+			}
+		})
+	}
+}
+
 func BenchmarkHandler(b *testing.B) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(b)
 	b.Cleanup(cancel)

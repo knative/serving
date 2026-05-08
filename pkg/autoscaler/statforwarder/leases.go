@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"strconv"
 
 	"go.uber.org/zap"
@@ -245,7 +246,7 @@ func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n string
 				discoveryv1.LabelServiceName: n,
 			},
 		},
-		AddressType: discoveryv1.AddressTypeIPv4,
+		AddressType: addressTypeForIP(f.selfIP),
 		Endpoints: []discoveryv1.Endpoint{{
 			Addresses: []string{f.selfIP},
 			Conditions: discoveryv1.EndpointConditions{
@@ -306,4 +307,12 @@ func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n string
 	}
 
 	return nil
+}
+
+func addressTypeForIP(ip string) discoveryv1.AddressType {
+	addr, err := netip.ParseAddr(ip)
+	if err == nil && addr.Is6() {
+		return discoveryv1.AddressTypeIPv6
+	}
+	return discoveryv1.AddressTypeIPv4
 }
