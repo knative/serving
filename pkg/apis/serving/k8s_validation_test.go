@@ -2190,7 +2190,8 @@ func TestSidecarContainerValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrDisallowedFields("livenessProbe", "readinessProbe", "readinessProbe.failureThreshold", "readinessProbe.periodSeconds", "readinessProbe.successThreshold", "readinessProbe.timeoutSeconds",
-			"startupProbe", "startupProbe.failureThreshold", "startupProbe.periodSeconds", "startupProbe.successThreshold", "startupProbe.terminationGracePeriodSeconds", "startupProbe.timeoutSeconds")}, {
+			"startupProbe", "startupProbe.failureThreshold", "startupProbe.periodSeconds", "startupProbe.successThreshold", "startupProbe.terminationGracePeriodSeconds", "startupProbe.timeoutSeconds"),
+	}, {
 		name: "invalid probes (no port defined)",
 		c: corev1.Container{
 			Image: "foo",
