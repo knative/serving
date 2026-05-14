@@ -52,7 +52,7 @@ rules:
     resources: ["leases"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
   - apiGroups: ["serving.knative.dev", "autoscaling.internal.knative.dev", "networking.internal.knative.dev"]
-    resources: ["*", "*/status", "*/finalizers"]
+    resources: ["configurations", "configurations/status", "configurations/finalizers", "revisions", "revisions/status", "revisions/finalizers", "routes", "routes/status", "routes/finalizers", "services", "services/status", "services/finalizers", "domainmappings", "domainmappings/status", "domainmappings/finalizers", "metrics", "metrics/status", "metrics/finalizers", "podautoscalers", "podautoscalers/status", "podautoscalers/finalizers", "certificates", "certificates/status", "certificates/finalizers", "ingresses", "ingresses/status", "ingresses/finalizers", "serverlessservices", "serverlessservices/status", "serverlessservices/finalizers", "clusterdomainclaims", "clusterdomainclaims/status", "clusterdomainclaims/finalizers"]
     verbs: ["get", "list", "create", "update", "delete", "deletecollection", "patch", "watch"]
   - apiGroups: ["caching.internal.knative.dev"]
     resources: ["images"]
