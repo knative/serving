@@ -28,7 +28,7 @@ const (
 	// InternalGroupName is the internal autoscaling group name. This is used for CRDs.
 	InternalGroupName = "autoscaling.internal.knative.dev"
 
-	// GroupName is the the public autoscaling group name. This is used for annotations, labels, etc.
+	// GroupName is the public autoscaling group name. This is used for annotations, labels, etc.
 	GroupName = "autoscaling.knative.dev"
 
 	// ClassAnnotationKey is the annotation for the explicit class of autoscaler
