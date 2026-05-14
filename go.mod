@@ -13,6 +13,7 @@ require (
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
 	github.com/influxdata/influxdb-client-go/v2 v2.14.0
 	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/tsenart/vegeta/v12 v12.13.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.68.0
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.68.0

@@ -77,3 +77,14 @@ data:
     loglevel.net-contour-controller: "info"
     loglevel.net-kourier-controller: "info"
     loglevel.net-gateway-api-controller: "info"
+
+    # Log file rotation settings (used when LOG_ENABLE_FILE=true)
+    # Uncomment and set values to enable file-based logging with rotation
+    # log-dir: "/logs"
+    # log-file-name: "wefunction.log"
+    # log-max-size-mb: "100"
+    # log-max-age-hours: "24"
+    # log-max-backups: "720"
+    # log-compress: "true"
+    # log-timezone: "Asia/Shanghai"
+    # log-enable-file: "false"
