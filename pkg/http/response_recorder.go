@@ -67,7 +67,7 @@ func (rr *ResponseRecorder) Flush() {
 // to handle connection upgrade/switching protocol.  Otherwise returns an error.
 func (rr *ResponseRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	c, rw, err := websocket.HijackIfPossible(rr.writer)
-	if err != nil {
+	if err == nil {
 		rr.hijacked.Store(true)
 	}
 	return c, rw, err

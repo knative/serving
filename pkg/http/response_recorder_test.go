@@ -17,6 +17,8 @@ limitations under the License.
 package http
 
 import (
+	"bufio"
+	"net"
 	"net/http"
 	"testing"
 
@@ -30,6 +32,17 @@ func (w *fakeResponseWriter) Write(p []byte) (int, error) { return len(p), nil }
 func (w *fakeResponseWriter) WriteHeader(code int)        {}
 func (w *fakeResponseWriter) Flush()                      {}
 
+type fakeHijackResponseWriter struct {
+	fakeResponseWriter
+	conn net.Conn
+}
+
+func (w *fakeHijackResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	client, server := net.Pipe()
+	w.conn = client
+	return server, bufio.NewReadWriter(bufio.NewReader(server), bufio.NewWriter(server)), nil
+}
+
 var defaultHeader = http.Header{"item1": {"value1"}}
 
 func TestResponseRecorder(t *testing.T) {
@@ -37,6 +50,7 @@ func TestResponseRecorder(t *testing.T) {
 		name          string
 		initialStatus int
 		finalStatus   int
+		writer        http.ResponseWriter
 		hijack        bool
 		writeSize     int
 		wantStatus    int
@@ -45,14 +59,24 @@ func TestResponseRecorder(t *testing.T) {
 		name:          "no hijack",
 		initialStatus: http.StatusAccepted,
 		finalStatus:   http.StatusBadGateway,
-		hijack:        false,
+		writer:        &fakeResponseWriter{},
 		writeSize:     12,
 		wantStatus:    http.StatusBadGateway,
 		wantSize:      12,
 	}, {
-		name:          "hijack",
+		name:          "failed hijack",
 		initialStatus: http.StatusAccepted,
 		finalStatus:   http.StatusBadGateway,
+		writer:        &fakeResponseWriter{},
+		hijack:        true,
+		writeSize:     12,
+		wantStatus:    http.StatusBadGateway,
+		wantSize:      12,
+	}, {
+		name:          "successful hijack",
+		initialStatus: http.StatusAccepted,
+		finalStatus:   http.StatusBadGateway,
+		writer:        &fakeHijackResponseWriter{},
 		hijack:        true,
 		writeSize:     12,
 		wantStatus:    http.StatusAccepted,
@@ -61,9 +85,15 @@ func TestResponseRecorder(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			rr := NewResponseRecorder(&fakeResponseWriter{}, test.initialStatus)
+			rr := NewResponseRecorder(test.writer, test.initialStatus)
 			if test.hijack {
-				rr.Hijack()
+				conn, _, _ := rr.Hijack()
+				if conn != nil {
+					defer conn.Close()
+				}
+				if writer, ok := test.writer.(*fakeHijackResponseWriter); ok && writer.conn != nil {
+					defer writer.conn.Close()
+				}
 			}
 
 			b := make([]byte, test.writeSize)
