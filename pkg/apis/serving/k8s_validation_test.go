@@ -2582,6 +2582,38 @@ func TestInitContainerValidation(t *testing.T) {
 			Paths:   []string{"livenessProbe"},
 		},
 	}, {
+		name: "has readiness probe",
+		c: corev1.Container{
+			Image: "foo",
+			ReadinessProbe: &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					TCPSocket: &corev1.TCPSocketAction{
+						Port: intstr.FromString("http"),
+					},
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "field not allowed in an init container",
+			Paths:   []string{"readinessProbe"},
+		},
+	}, {
+		name: "has startup probe",
+		c: corev1.Container{
+			Image: "foo",
+			StartupProbe: &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					TCPSocket: &corev1.TCPSocketAction{
+						Port: intstr.FromString("http"),
+					},
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "field not allowed in an init container",
+			Paths:   []string{"startupProbe"},
+		},
+	}, {
 		name: "disallowed container fields",
 		c: corev1.Container{
 			Image:     "foo",
