@@ -1541,7 +1541,7 @@ knative.dev/networking/pkg/http/proxy
 knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20260526162440-71f6ad65d251
+# knative.dev/pkg v0.0.0-20260526162440-71f6ad65d251 => github.com/dprotaso/pkg v0.0.0-20260529162312-9de160b97a48
 ## explicit; go 1.25.0
 knative.dev/pkg/apiextensions/storageversion
 knative.dev/pkg/apiextensions/storageversion/cmd/migrate
@@ -1691,3 +1691,4 @@ sigs.k8s.io/structured-merge-diff/v6/value
 # sigs.k8s.io/yaml v1.6.0
 ## explicit; go 1.22
 sigs.k8s.io/yaml
+# knative.dev/pkg => github.com/dprotaso/pkg v0.0.0-20260529162312-9de160b97a48

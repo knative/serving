@@ -168,3 +168,5 @@ require (
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 )
+
+replace knative.dev/pkg => github.com/dprotaso/pkg v0.0.0-20260529162312-9de160b97a48
