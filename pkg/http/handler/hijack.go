@@ -17,11 +17,15 @@ limitations under the License.
 package handler
 
 import (
+	"bufio"
 	"cmp"
 	"context"
+	"net"
 	"net/http"
 	"sync/atomic"
 	"time"
+
+	"knative.dev/pkg/websocket"
 )
 
 // HijackTracker is used to track Websocket Connections
@@ -37,6 +41,17 @@ type HijackTracker struct {
 	PollInterval time.Duration
 
 	inflight atomic.Int64
+}
+
+type hijackTrackerResponseWriter struct {
+	http.ResponseWriter
+	tracker *HijackTracker
+}
+
+type trackedConn struct {
+	net.Conn
+	tracker *HijackTracker
+	closed  atomic.Bool
 }
 
 // Drain should be called after http.Server:Shutdown returns
@@ -62,5 +77,37 @@ func (s *HijackTracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.inflight.Add(1)
 	defer s.inflight.Add(-1)
 
-	s.Handler.ServeHTTP(w, r)
+	s.Handler.ServeHTTP(&hijackTrackerResponseWriter{
+		ResponseWriter: w,
+		tracker:        s,
+	}, r)
+}
+
+func (w *hijackTrackerResponseWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
+}
+
+func (w *hijackTrackerResponseWriter) Flush() {
+	w.ResponseWriter.(http.Flusher).Flush()
+}
+
+func (w *hijackTrackerResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	conn, rw, err := websocket.HijackIfPossible(w.ResponseWriter)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	w.tracker.inflight.Add(1)
+	return &trackedConn{
+		Conn:    conn,
+		tracker: w.tracker,
+	}, rw, nil
+}
+
+func (c *trackedConn) Close() error {
+	err := c.Conn.Close()
+	if c.closed.CompareAndSwap(false, true) {
+		c.tracker.inflight.Add(-1)
+	}
+	return err
 }
