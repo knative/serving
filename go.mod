@@ -40,9 +40,9 @@ require (
 	k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
 	knative.dev/caching v0.0.0-20260120130310-f1fc03b7f5ee
-	knative.dev/hack v0.0.0-20260120115810-bf6758cba446
-	knative.dev/networking v0.0.0-20260120131110-a7cdca238a0d
-	knative.dev/pkg v0.0.0-20260319144603-18c5d580ae64
+	knative.dev/hack v0.0.0-20260420222011-c985ed3cefe8
+	knative.dev/networking v0.0.0-20260529110107-ea8c79287af0
+	knative.dev/pkg v0.0.0-20260531000007-011b23bf6dfe
 	sigs.k8s.io/randfill v1.0.0
 	sigs.k8s.io/yaml v1.6.0
 )
