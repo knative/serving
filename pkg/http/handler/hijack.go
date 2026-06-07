@@ -20,12 +20,11 @@ import (
 	"bufio"
 	"cmp"
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"sync/atomic"
 	"time"
-
-	"knative.dev/pkg/websocket"
 )
 
 // HijackTracker is used to track Websocket Connections
@@ -92,7 +91,11 @@ func (w *hijackTrackerResponseWriter) Flush() {
 }
 
 func (w *hijackTrackerResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	conn, rw, err := websocket.HijackIfPossible(w.ResponseWriter)
+	hj, ok := w.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, fmt.Errorf("wrapped writer of type %T can't be hijacked", w.ResponseWriter)
+	}
+	conn, rw, err := hj.Hijack()
 	if err != nil {
 		return nil, nil, err
 	}
