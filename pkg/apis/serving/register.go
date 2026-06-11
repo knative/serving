@@ -149,6 +149,10 @@ const (
 
 	// ProgressDeadlineAnnotationKey is the label key for the per revision progress deadline to set for the deployment
 	ProgressDeadlineAnnotationKey = GroupName + "/progress-deadline"
+
+	// LoadBalancingPolicyKey is the annotation key for specifying the load balancing algorithm
+	// used by the activator to route requests to application pods.
+	LoadBalancingPolicyKey = GroupName + "/load-balancing-policy"
 )
 
 var (
@@ -206,5 +210,8 @@ var (
 	}
 	ProgressDeadlineAnnotation = kmap.KeyPriority{
 		ProgressDeadlineAnnotationKey,
+	}
+	LoadBalancingPolicyAnnotation = kmap.KeyPriority{
+		LoadBalancingPolicyKey,
 	}
 )
