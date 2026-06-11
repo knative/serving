@@ -491,3 +491,32 @@ func TestValidateRolloutDurationAnnotation(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateServiceMinscaleAnnotationKey(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  string
+	}{{
+		name: "empty",
+		want: "invalid value: : serving.knative.dev/service-min-scale",
+	}, {
+		name:  "valid",
+		value: "3",
+	}, {
+		name:  "invalid",
+		value: "-1",
+		want:  "expected 0 <= -1 <= 2147483647: serving.knative.dev/service-min-scale",
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateServiceMinscaleAnnotationKey(map[string]string{
+				ServiceMinscaleAnnotationKey: tc.value,
+			})
+			if got, want := err.Error(), tc.want; got != want {
+				t.Errorf("APIErr mismatch, diff(-want,+got):\n%s", cmp.Diff(want, got))
+			}
+		})
+	}
+}

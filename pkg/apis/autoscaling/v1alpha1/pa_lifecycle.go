@@ -92,6 +92,9 @@ func (pa *PodAutoscaler) ScaleBounds(asConfig *autoscalerconfig.Config) (int32, 
 		if paMin, ok := pa.annotationInt32(autoscaling.MinScaleAnnotation); ok {
 			min = paMin
 		}
+		if serviceMin, ok := pa.annotationInt32(serving.ServiceMinscaleAnnotation); ok {
+			min = intMax(min, serviceMin)
+		}
 	}
 
 	max := asConfig.MaxScale
@@ -306,4 +309,11 @@ func (pas *PodAutoscalerStatus) GetActualScale() int32 {
 		return *pas.ActualScale
 	}
 	return -1
+}
+
+func intMax(a, b int32) int32 {
+	if a < b {
+		return b
+	}
+	return a
 }

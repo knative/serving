@@ -18,7 +18,10 @@ package serving
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/apis"
+	"knative.dev/pkg/kmap"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
 )
@@ -73,6 +77,11 @@ func ValidateRolloutDurationAnnotation(annos map[string]string) (errs *apis.Fiel
 		}
 	}
 	return errs
+}
+
+// ValidateServiceMinscaleAnnotationKey validates the service minscale annotation.
+func ValidateServiceMinscaleAnnotationKey(annos map[string]string) *apis.FieldError {
+	return getIntGE0(annos, ServiceMinscaleAnnotation)
 }
 
 // ValidateHasNoAutoscalingAnnotation validates that the respective entity does not have
@@ -129,4 +138,24 @@ func SetUserInfo(ctx context.Context, oldSpec, newSpec, resource interface{}) {
 			ans[UpdaterAnnotation] = ui.Username
 		}
 	}
+}
+
+func getIntGE0(m map[string]string, key kmap.KeyPriority) *apis.FieldError {
+	k, v, ok := key.Get(m)
+	if !ok {
+		return nil
+	}
+	// Parsing as uint gives a bad format error, rather than invalid range, unfortunately.
+	i, err := strconv.ParseInt(v, 10, 32)
+	if err != nil {
+		if errors.Is(err, strconv.ErrRange) {
+			return apis.ErrOutOfBoundsValue(v, 0, math.MaxInt32, k)
+		}
+		return apis.ErrInvalidValue(v, k)
+	}
+	if i < 0 {
+		return apis.ErrOutOfBoundsValue(v, 0, math.MaxInt32, k)
+	}
+
+	return nil
 }
