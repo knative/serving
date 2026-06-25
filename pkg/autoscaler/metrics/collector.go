@@ -71,6 +71,10 @@ type Collector interface {
 	// Watch registers a singleton function to call when a specific collector's status changes.
 	// The passed name is the namespace/name of the metric owned by the respective collector.
 	Watch(func(types.NamespacedName))
+	// Pause metric collection
+	Pause(metric *autoscalingv1alpha1.Metric)
+	// Resume metric collection
+	Resume(metric *autoscalingv1alpha1.Metric)
 }
 
 // MetricClient surfaces the metrics that can be obtained via the collector.
@@ -166,6 +170,28 @@ func (c *MetricCollector) Record(key types.NamespacedName, now time.Time, stat S
 	}
 }
 
+func (c *MetricCollector) Pause(metric *autoscalingv1alpha1.Metric) {
+	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
+
+	c.collectionsMutex.RLock()
+	defer c.collectionsMutex.RUnlock()
+
+	if collection, exists := c.collections[key]; exists {
+		collection.setPause(true)
+	}
+}
+
+func (c *MetricCollector) Resume(metric *autoscalingv1alpha1.Metric) {
+	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
+
+	c.collectionsMutex.RLock()
+	defer c.collectionsMutex.RUnlock()
+
+	if collection, exists := c.collections[key]; exists {
+		collection.setPause(false)
+	}
+}
+
 // Watch registers a singleton function to call when collector status changes.
 func (c *MetricCollector) Watch(fn func(types.NamespacedName)) {
 	c.watcherMutex.Lock()
@@ -251,6 +277,7 @@ type (
 		scraper StatsScraper
 		lastErr error
 		grp     sync.WaitGroup
+		paused  bool
 		stopCh  chan struct{}
 	}
 )
@@ -297,6 +324,7 @@ func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clo
 		scraper: scraper,
 
 		stopCh: make(chan struct{}),
+		paused: false,
 	}
 
 	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
@@ -322,6 +350,13 @@ func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clo
 					continue
 				}
 
+				// do not scrape if paused
+				if c.getPaused() {
+					// send an empty stat to allow scale to zero due to activator behavior and would get zeroed out anyway
+					c.record(clock.Now(), emptyStat)
+					continue
+				}
+
 				stat, err := scraper.Scrape(c.currentMetric().Spec.StableWindow)
 				if err != nil {
 					logger.Errorw("Failed to scrape metrics", zap.Error(err))
@@ -343,6 +378,24 @@ func newCollection(metric *autoscalingv1alpha1.Metric, scraper StatsScraper, clo
 func (c *collection) close() {
 	close(c.stopCh)
 	c.grp.Wait()
+}
+
+// pause the scraper, happens when activator in path
+func (c *collection) setPause(pause bool) {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+
+	if c.paused != pause {
+		c.paused = pause
+	}
+}
+
+// function to get if scraper is paused or not
+func (c *collection) getPaused() bool {
+	c.mux.RLock()
+	defer c.mux.RUnlock()
+
+	return c.paused
 }
 
 // updateMetric safely updates the metric stored in the collection.
