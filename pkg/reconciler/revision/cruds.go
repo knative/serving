@@ -64,8 +64,22 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 		return have, nil
 	}
 
-	// Preserve the current scale of the Deployment.
-	deployment.Spec.Replicas = have.Spec.Replicas
+	// Preserve the current scale of the Deployment, but respect the autoscaler's decision if available.
+	// This ensures that scaled-to-zero services remain at zero even when the deployment spec is updated.
+	replicaCount := have.Spec.Replicas
+
+	// Try to get the PodAutoscaler's desired scale to respect autoscaler decisions during node disruptions
+	pa, err := c.podAutoscalerLister.PodAutoscalers(rev.Namespace).Get(rev.Name)
+	if err == nil && pa != nil && pa.Status.DesiredScale != nil {
+		// Use the autoscaler's desired scale instead of preserving the potentially stale deployment replica count
+		desiredScale := *pa.Status.DesiredScale
+		replicaCount = &desiredScale
+		if have.Spec.Replicas != nil && *replicaCount != *have.Spec.Replicas {
+			logger.Debugf("Using PodAutoscaler's desired scale %d instead of deployment's %d", desiredScale, *have.Spec.Replicas)
+		}
+	}
+
+	deployment.Spec.Replicas = replicaCount
 
 	// Preserve the label selector since it's immutable.
 	// TODO(dprotaso): determine other immutable properties.
