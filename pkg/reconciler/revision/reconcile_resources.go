@@ -41,6 +41,7 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/reconciler/revision/config"
@@ -233,7 +234,7 @@ func syncAnnotationsForKPA(dst, src map[string]string) {
 			// Exclude defaulted annotation
 			continue
 		}
-		if strings.HasPrefix(k, autoscaling.GroupName) {
+		if isScalingAnnotation(k) {
 			delete(dst, k)
 		}
 	}
@@ -249,7 +250,7 @@ func syncAnnotationsForKPA(dst, src map[string]string) {
 func annotationsNeedReconcilingForKPA(dst, src map[string]string) bool {
 	// Check for extra autoscaling annotations that don't exist in src
 	for k := range dst {
-		if !strings.HasPrefix(k, autoscaling.GroupName) {
+		if !isScalingAnnotation(k) {
 			continue
 		}
 		// Exclude defaulted annotation
@@ -259,7 +260,7 @@ func annotationsNeedReconcilingForKPA(dst, src map[string]string) bool {
 
 		if _, ok := src[k]; !ok {
 			// Scaling annotation is in dst but not src
-			// return false to trigger reconciliation
+			// return true to trigger reconciliation
 			return true
 		}
 	}
@@ -280,6 +281,17 @@ func annotationsNeedReconcilingForKPA(dst, src map[string]string) bool {
 		}
 	}
 	return false
+}
+
+func isScalingAnnotation(key string) bool {
+	// On top of autoscaler annotations, we need to propagate service scaling annotations
+	additionalAnnotations := sets.NewString(
+		slices.Concat[[]string](
+			serving.ServiceMinscaleAnnotation,
+			serving.ServiceMinscaleRouteAnnotation,
+		)...)
+
+	return strings.HasPrefix(key, autoscaling.GroupName) || additionalAnnotations.Has(key)
 }
 
 func hasDeploymentTimedOut(deployment *appsv1.Deployment) bool {
