@@ -338,11 +338,11 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 		return desiredScale, nil
 	}
 
-	min, max := pa.ScaleBounds(asConfig)
+	min, maxScale := pa.ScaleBounds(asConfig)
 	initialScale := kparesources.GetInitialScale(asConfig, pa)
 	// Log reachability as quoted string, since default value is "".
 	logger.Debugf("MinScale = %d, MaxScale = %d, InitialScale = %d, DesiredScale = %d Reachable = %q",
-		min, max, initialScale, desiredScale, pa.Spec.Reachability)
+		min, maxScale, initialScale, desiredScale, pa.Spec.Reachability)
 	// If initial scale has been attained, ignore the initialScale altogether.
 	// Also ignore initialScale if the revision is unreachable (routingState = "reserve"),
 	// allowing it to scale down to 0 immediately.
@@ -351,9 +351,9 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 		if min < initialScale {
 			logger.Debugf("Adjusting min to meet the initial scale: %d -> %d", min, initialScale)
 		}
-		min = intMax(initialScale, min)
+		min = max(initialScale, min)
 	}
-	if newScale := applyBounds(min, max, desiredScale); newScale != desiredScale {
+	if newScale := applyBounds(min, maxScale, desiredScale); newScale != desiredScale {
 		logger.Debugf("Adjusting desiredScale to meet the min and max bounds before applying: %d -> %d", desiredScale, newScale)
 		desiredScale = newScale
 	}

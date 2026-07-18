@@ -118,9 +118,9 @@ func activeThreshold(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler)
 	min, _ := pa.ScaleBounds(asConfig)
 	if !pa.Status.IsScaleTargetInitialized() {
 		initialScale := getInitialScale(asConfig, pa)
-		return intMax(min, initialScale)
+		return max(min, initialScale)
 	}
-	return intMax(min, 1)
+	return max(min, 1)
 }
 
 // getInitialScale returns the calculated initial scale based on the autoscaler
@@ -132,11 +132,4 @@ func getInitialScale(asConfig *autoscalerconfig.Config, pa *autoscalingv1alpha1.
 		return initialScale
 	}
 	return revisionInitialScale
-}
-
-func intMax(a, b int32) int32 {
-	if a < b {
-		return b
-	}
-	return a
 }

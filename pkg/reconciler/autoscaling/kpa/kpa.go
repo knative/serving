@@ -327,9 +327,9 @@ func activeThreshold(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler)
 	min, _ := pa.ScaleBounds(asConfig)
 	if !pa.Status.IsScaleTargetInitialized() {
 		initialScale := resources.GetInitialScale(asConfig, pa)
-		return int(intMax(min, initialScale))
+		return int(max(min, initialScale))
 	}
-	return int(intMax(min, 1))
+	return int(max(min, 1))
 }
 
 // resolveScrapeTarget returns metric service name to be scraped based on TBC configuration
@@ -349,13 +349,6 @@ func resolveTBC(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler) floa
 	}
 
 	return config.FromContext(ctx).Autoscaler.TargetBurstCapacity
-}
-
-func intMax(a, b int32) int32 {
-	if a < b {
-		return b
-	}
-	return a
 }
 
 func computeNumActivators(readyPods int, decider *scaling.Decider) int32 {
