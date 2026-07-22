@@ -418,6 +418,14 @@ func TestMinScaleAnnotationChange(t *testing.T) {
 	serviceName := PrivateServiceName(t, clients, revName)
 	revClient := clients.ServingClient.Revisions
 
+	// Wait for the KPA to reconcile and scale to converge before
+	// asserting stability. The Service can report Ready before the
+	// deployment has reached the desired replica count.
+	// See: https://github.com/knative/serving/issues/16653
+	if lr, err := waitForDesiredScale(clients, serviceName, eq(minScale[0])); err != nil {
+		t.Fatalf("The revision %q never reached scale %d: last observed %d", revName, minScale[0], lr)
+	}
+
 	t.Log("Holding revision at minScale after becoming ready")
 	if lr, ok := ensureDesiredScale(clients, t, serviceName, eq(minScale[0])); !ok {
 		t.Fatalf("The revision %q observed scale %d < %d after becoming ready", revName, lr, minScale)
