@@ -12,13 +12,13 @@ defaults:
     shell: bash
 
 env:
-  # https://github.com/google/go-containerregistry/pull/125 allows insecure registry for
-  # '*.local' hostnames. This works both for `ko` and our own tag-to-digest resolution logic,
-  # thus allowing us to test without bypassing tag-to-digest resolution.
+  # go-containerregistry treats '*.localhost' hostnames as insecure (plain HTTP),
+  # which lets both `ko` and our own tag-to-digest resolution logic work against
+  # the local registry without TLS.
   CLUSTER_DOMAIN: c${{ github.run_id }}.local
-  REGISTRY_NAME: registry.local
+  REGISTRY_NAME: registry.localhost
   REGISTRY_PORT: 5000
-  KO_DOCKER_REPO: registry.local:5000/knative
+  KO_DOCKER_REPO: registry.localhost:5000/knative
   GOTESTSUM_VERSION: 1.12.0
   KO_FLAGS: --platform=linux/amd64
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -182,6 +182,7 @@ jobs:
         k8s-version: ${{ matrix.k8s-version }}
         kind-worker-count: 4
         cluster-suffix: c${{ github.run_id }}.local
+        registry-authority: registry.localhost:5000
         registry-volume: $HOME/artifacts/registry
 
     - name: Install Dependencies
