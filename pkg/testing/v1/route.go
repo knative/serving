@@ -28,6 +28,7 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 )
@@ -53,6 +54,16 @@ func WithRouteUID(uid types.UID) RouteOption {
 func WithRouteGeneration(generation int64) RouteOption {
 	return func(r *v1.Route) {
 		r.Generation = generation
+	}
+}
+
+// WithServiceMinScale sets the route's service minscale
+func WithServiceMinScale(serviceMinScale string) RouteOption {
+	return func(r *v1.Route) {
+		if r.Annotations == nil {
+			r.Annotations = map[string]string{}
+		}
+		r.Annotations[serving.ServiceMinscaleAnnotation.Key()] = serviceMinScale
 	}
 }
 

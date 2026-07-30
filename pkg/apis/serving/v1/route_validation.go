@@ -32,6 +32,7 @@ func (r *Route) Validate(ctx context.Context) *apis.FieldError {
 	errs = errs.Also(serving.ValidateRolloutDurationAnnotation(r.GetAnnotations()).ViaField("annotations"))
 	errs = errs.ViaField("metadata")
 	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+	errs = errs.Also(serving.ValidateServiceMinscaleAnnotationKey(r.GetAnnotations()).ViaField("annotations"))
 
 	if apis.IsInUpdate(ctx) {
 		original := apis.GetBaseline(ctx).(*Route)
