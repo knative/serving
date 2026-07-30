@@ -8,7 +8,7 @@ metadata:
     networking.knative.dev/ingress-provider: contour
     app.kubernetes.io/component: net-contour
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20260624-d69a49ae"
+    app.kubernetes.io/version: "20260730-4b7988fa"
     serving.knative.dev/controller: "true"
 rules:
   - apiGroups: ["projectcontour.io"]
@@ -38,7 +38,7 @@ metadata:
     networking.knative.dev/ingress-provider: contour
     app.kubernetes.io/component: net-contour
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20260624-d69a49ae"
+    app.kubernetes.io/version: "20260730-4b7988fa"
 data:
   _example: |
     ################################
@@ -111,7 +111,7 @@ metadata:
     networking.knative.dev/ingress-provider: contour
     app.kubernetes.io/component: net-contour
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20260624-d69a49ae"
+    app.kubernetes.io/version: "20260730-4b7988fa"
 spec:
   replicas: 1
   selector:
@@ -123,14 +123,14 @@ spec:
         app: net-contour-controller
         app.kubernetes.io/component: net-contour
         app.kubernetes.io/name: knative-serving
-        app.kubernetes.io/version: "20260624-d69a49ae"
+        app.kubernetes.io/version: "20260730-4b7988fa"
     spec:
       serviceAccountName: controller
       containers:
         - name: controller
           # This is the Go import path for the binary that is containerized
           # and substituted here.
-          image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:198c88ab9bac02d15dc4b8dc3ddba5773865abc22aeae42ec679516061b1bc2d
+          image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:4d1f3bade9ef5a43d0b608bf56e171840d79586fc94040de83510bc58640e80d
           resources:
             requests:
               cpu: 40m
@@ -174,7 +174,7 @@ metadata:
     networking.knative.dev/ingress-provider: contour
     app.kubernetes.io/component: net-contour
     app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: "20260624-d69a49ae"
+    app.kubernetes.io/version: "20260730-4b7988fa"
 spec:
   delegations:
     - secretName: routing-serving-certs
