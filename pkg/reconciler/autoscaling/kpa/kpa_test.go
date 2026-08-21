@@ -1152,6 +1152,22 @@ func TestReconcile(t *testing.T) {
 				WithPAMetricsService(privateSvc), WithObservedGeneration(1),
 			),
 		}},
+	}, {
+		Name: "kpa does not become ready without service min scale endpoints when reachable",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, withServiceMinScale(4), withScales(1, defaultScale),
+				WithReachabilityReachable, WithPAMetricsService(privateSvc)),
+			defaultSKS,
+			metric(testNamespace, testRevision),
+			defaultDeployment, defaultReady,
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, WithPASKSReady,
+				WithBufferedTraffic, withServiceMinScale(4), WithPAMetricsService(privateSvc),
+				withScales(1, defaultScale), WithPAStatusService(testRevision), WithReachabilityReachable,
+				WithObservedGeneration(1)),
+		}},
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -1790,6 +1806,15 @@ func withMinScale(minScale int) PodAutoscalerOption {
 		pa.Annotations = kmeta.UnionMaps(
 			pa.Annotations,
 			map[string]string{autoscaling.MinScaleAnnotationKey: strconv.Itoa(minScale)},
+		)
+	}
+}
+
+func withServiceMinScale(serviceMinScale int) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		pa.Annotations = kmeta.UnionMaps(
+			pa.Annotations,
+			map[string]string{serving.ServiceMinscaleAnnotationKey: strconv.Itoa(serviceMinScale)},
 		)
 	}
 }

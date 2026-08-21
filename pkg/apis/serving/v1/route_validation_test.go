@@ -791,6 +791,19 @@ func TestRouteAnnotationUpdate(t *testing.T) {
 			},
 			Spec: getRouteSpec("old"),
 		},
+	}, {
+		name: "service min scale validation, fail",
+		this: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.ServiceMinscaleAnnotationKey: "-1",
+				},
+			},
+			Spec: getRouteSpec("new"),
+		},
+		wantErr: apis.ErrGeneric("expected 0 <= -1 <= 2147483647",
+			serving.ServiceMinscaleAnnotationKey).ViaField("annotations"),
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
