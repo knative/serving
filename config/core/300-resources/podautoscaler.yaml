@@ -181,6 +181,9 @@ spec:
                   description: DesiredScale shows the current desired number of replicas for the revision.
                   type: integer
                   format: int32
+                metricsPaused:
+                  description: MetricsPaused to determine whether metric scraping should be paused
+                  type: boolean
                 metricsServiceName:
                   description: |-
                     MetricsServiceName is the K8s Service name that provides revision metrics.

@@ -19,12 +19,15 @@ package metric
 import (
 	"context"
 
-	"knative.dev/serving/pkg/autoscaler/metrics"
-	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
-	metricreconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/metric"
-
+	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	pkgreconciler "knative.dev/pkg/reconciler"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/autoscaler/metrics"
+	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
+	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
+	metricreconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/metric"
 )
 
 // NewController initializes the controller and is called by the generated code.
@@ -35,14 +38,23 @@ func NewController(
 	collector metrics.Collector,
 ) *controller.Impl {
 	metricInformer := metricinformer.Get(ctx)
-
+	paInformer := painformer.Get(ctx)
 	c := &reconciler{
 		collector: collector,
+		paLister:  paInformer.Lister(),
 	}
 	impl := metricreconciler.NewImpl(ctx, c)
 
 	// Watch all the Metric objects.
 	metricInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
+
+	// watch pod autoscaler for updates incase of pausing
+	onlyKPAClass := pkgreconciler.AnnotationFilterFunc(
+		autoscaling.ClassAnnotationKey, autoscaling.KPA, false /*allowUnset*/)
+	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: onlyKPAClass,
+		Handler:    controller.HandleAll(impl.Enqueue),
+	})
 
 	collector.Watch(impl.EnqueueKey)
 
