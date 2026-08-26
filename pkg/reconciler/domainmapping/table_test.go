@@ -51,6 +51,9 @@ import (
 	domainmappingreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1beta1/domainmapping"
 	"knative.dev/serving/pkg/reconciler/domainmapping/config"
 	"knative.dev/serving/pkg/reconciler/domainmapping/resources"
+	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
+	servicenames "knative.dev/serving/pkg/reconciler/service/resources/names"
+	testingv1 "knative.dev/serving/pkg/testing/v1"
 
 	"knative.dev/pkg/client/injection/ducks/duck/v1/addressable"
 	. "knative.dev/pkg/reconciler/testing"
@@ -65,6 +68,7 @@ const externalSchemeKey key = iota
 
 func TestReconcile(t *testing.T) {
 	now := metav1.Now()
+	const longDomainMappingName = "this-is-a-very-long-domain-mapping-name.for-a-subdomain.example.com"
 
 	table := TableTest{{
 		Name: "bad workqueue key",
@@ -78,7 +82,7 @@ func TestReconcile(t *testing.T) {
 		Name: "first reconcile",
 		Key:  "default/first-reconcile.com",
 		Objects: []runtime.Object{
-			ksvc("default", "target", "the-target-svc.default.svc.cluster.local", ""),
+			addressableMapping("default", "target", "the-target-svc.default.svc.cluster.local", ""),
 			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -104,6 +108,195 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first-reconcile.com"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "first-reconcile.com"),
+		},
+	}, {
+		Name: "Knative Service uses HTTP paths from its Route Ingress",
+		Key:  "default/service.example.com",
+		Objects: func() []runtime.Object {
+			svc := knativeService("default", "website")
+			route := serviceRoute(svc)
+			return []runtime.Object{
+				svc,
+				route,
+				routeIngress(route),
+				domainMapping("default", "service.example.com", withRef("default", "website", asKnativeServiceRef)),
+			}
+		}(),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "service.example.com",
+				withRef("default", "website", asKnativeServiceRef),
+				withURL("http", "service.example.com"),
+				withAddress("http", "service.example.com"),
+				withInitDomainMappingConditions,
+				withTLSNotEnabled,
+				withDomainClaimed,
+				withIngressNotConfigured,
+				withReferenceResolved,
+			),
+		}},
+		SkipNamespaceValidation: true,
+		WantCreates: []runtime.Object{
+			resources.MakeDomainClaim(domainMapping("default", "service.example.com")),
+			resources.MakeIngressWithHTTPPaths(
+				domainMapping("default", "service.example.com", withRef("default", "website", asKnativeServiceRef)),
+				routeIngressHTTPPaths(), "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "service.example.com"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "service.example.com"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "service.example.com"),
+		},
+		PostConditions: []func(*testing.T, *TableRow){
+			AssertTrackingObject(servingv1.SchemeGroupVersion.WithKind("Route"), "default", "website"),
+			AssertTrackingObject(netv1alpha1.SchemeGroupVersion.WithKind("Ingress"), "default", "website"),
+		},
+	}, {
+		Name: "Knative Route uses HTTP paths from its Ingress",
+		Key:  "default/route.example.com",
+		Objects: func() []runtime.Object {
+			route := standaloneRoute("default", "website")
+			return []runtime.Object{
+				route,
+				routeIngress(route),
+				domainMapping("default", "route.example.com", withRef("default", "website", asKnativeRouteRef)),
+			}
+		}(),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "route.example.com",
+				withRef("default", "website", asKnativeRouteRef),
+				withURL("http", "route.example.com"),
+				withAddress("http", "route.example.com"),
+				withInitDomainMappingConditions,
+				withTLSNotEnabled,
+				withDomainClaimed,
+				withIngressNotConfigured,
+				withReferenceResolved,
+			),
+		}},
+		SkipNamespaceValidation: true,
+		WantCreates: []runtime.Object{
+			resources.MakeDomainClaim(domainMapping("default", "route.example.com")),
+			resources.MakeIngressWithHTTPPaths(
+				domainMapping("default", "route.example.com", withRef("default", "website", asKnativeRouteRef)),
+				routeIngressHTTPPaths(), "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "route.example.com"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "route.example.com"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "route.example.com"),
+		},
+	}, {
+		Name: "Knative Service waits for Route Ingress",
+		Key:  "default/waiting.example.com",
+		Objects: func() []runtime.Object {
+			svc := knativeService("default", "website")
+			dm := domainMapping("default", "waiting.example.com", withRef("default", "website", asKnativeServiceRef))
+			return []runtime.Object{
+				svc,
+				serviceRoute(svc),
+				resources.MakeIngress(dm, "old-revision", "website.default.svc.cluster.local", "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil),
+				dm,
+			}
+		}(),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "waiting.example.com",
+				withRef("default", "website", asKnativeServiceRef),
+				withURL("http", "waiting.example.com"),
+				withAddress("http", "waiting.example.com"),
+				withInitDomainMappingConditions,
+				withTLSNotEnabled,
+				withDomainClaimed,
+				withReferenceResolved,
+				withTargetIngressNotConfigured("Waiting for target Route default/website to configure Ingress default/website."),
+			),
+		}},
+		SkipNamespaceValidation: true,
+		WantCreates: []runtime.Object{
+			resources.MakeDomainClaim(domainMapping("default", "waiting.example.com")),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "waiting.example.com"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "waiting.example.com"),
+		},
+		PostConditions: []func(*testing.T, *TableRow){
+			AssertTrackingObject(netv1alpha1.SchemeGroupVersion.WithKind("Ingress"), "default", "website"),
+		},
+	}, {
+		Name: "Knative Route rejects an Ingress owned by another Route",
+		Key:  "default/not-routable.example.com",
+		Objects: func() []runtime.Object {
+			route := standaloneRoute("default", "website")
+			targetIngress := routeIngress(route)
+			targetIngress.OwnerReferences = []metav1.OwnerReference{*kmeta.NewControllerRef(standaloneRoute("default", "another-route"))}
+			dm := domainMapping("default", "not-routable.example.com", withRef("default", "website", asKnativeRouteRef))
+			return []runtime.Object{
+				route,
+				targetIngress,
+				resources.MakeIngress(dm, "old-revision", "website.default.svc.cluster.local", "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil),
+				dm,
+			}
+		}(),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "not-routable.example.com",
+				withRef("default", "website", asKnativeRouteRef),
+				withURL("http", "not-routable.example.com"),
+				withAddress("http", "not-routable.example.com"),
+				withInitDomainMappingConditions,
+				withTLSNotEnabled,
+				withDomainClaimed,
+				withReferenceResolved,
+				withTargetNotOwned("Route default/website does not own Ingress default/website."),
+			),
+		}},
+		SkipNamespaceValidation: true,
+		WantCreates: []runtime.Object{
+			resources.MakeDomainClaim(domainMapping("default", "not-routable.example.com")),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "not-routable.example.com"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "not-routable.example.com"),
+		},
+	}, {
+		Name:    "Knative Service resolution failure preserves an existing Ingress with a long mapping name",
+		Key:     "default/" + longDomainMappingName,
+		WantErr: true,
+		Objects: func() []runtime.Object {
+			dm := domainMapping("default", longDomainMappingName, withRef("default", "missing", asKnativeServiceRef))
+			return []runtime.Object{
+				resources.MakeIngress(dm, "old-revision", "missing.default.svc.cluster.local", "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil),
+				dm,
+			}
+		}(),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", longDomainMappingName,
+				withRef("default", "missing", asKnativeServiceRef),
+				withURL("http", longDomainMappingName),
+				withAddress("http", longDomainMappingName),
+				withInitDomainMappingConditions,
+				withTLSNotEnabled,
+				withDomainClaimed,
+				withReferenceNotResolved(`failed to get object default/missing: services.serving.knative.dev "missing" not found`),
+				withIngressNotConfigured,
+			),
+		}},
+		SkipNamespaceValidation: true,
+		WantCreates: []runtime.Object{
+			resources.MakeDomainClaim(domainMapping("default", longDomainMappingName)),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", longDomainMappingName),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", longDomainMappingName),
+			Eventf(corev1.EventTypeWarning, "InternalError", `resolving reference: failed to get object default/missing: services.serving.knative.dev "missing" not found`),
 		},
 	}, {
 		Name: "finalize cleans up claim",
@@ -220,7 +413,7 @@ func TestReconcile(t *testing.T) {
 				withInitDomainMappingConditions,
 				withTLSNotEnabled,
 				withDomainClaimed,
-				withReferenceNotResolved(`failed to get object default/target: services.serving.knative.dev "target" not found`),
+				withReferenceNotResolved(`failed to get object default/target: domainmappings.serving.knative.dev "target" not found`),
 			),
 		}},
 		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
@@ -232,13 +425,13 @@ func TestReconcile(t *testing.T) {
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "first-reconcile.com"),
-			Eventf(corev1.EventTypeWarning, "InternalError", `resolving reference: failed to get object default/target: services.serving.knative.dev "target" not found`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `resolving reference: failed to get object default/target: domainmappings.serving.knative.dev "target" not found`),
 		},
 	}, {
 		Name: "first reconcile, ref has a path",
 		Key:  "default/first-reconcile.com",
 		Objects: []runtime.Object{
-			ksvc("default", "target", "the-target-svc.svc.cluster.local", "path"),
+			addressableMapping("default", "target", "the-target-svc.svc.cluster.local", "path"),
 			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
 		},
 		WantErr: true,
@@ -268,7 +461,7 @@ func TestReconcile(t *testing.T) {
 		Name: "first reconcile, ref doesn't end in cluster suffix",
 		Key:  "default/first-reconcile.com",
 		Objects: []runtime.Object{
-			ksvc("default", "target", "notasvc.cluster.local", ""),
+			addressableMapping("default", "target", "notasvc.cluster.local", ""),
 			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
 		},
 		WantErr: true,
@@ -298,7 +491,7 @@ func TestReconcile(t *testing.T) {
 		Name: "first reconcile, resolved URL in wrong namespace",
 		Key:  "default/first-reconcile.com",
 		Objects: []runtime.Object{
-			ksvc("default", "target", "name.anothernamespace.svc.cluster.local", ""),
+			addressableMapping("default", "target", "name.anothernamespace.svc.cluster.local", ""),
 			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
 		},
 		WantErr: true,
@@ -328,7 +521,7 @@ func TestReconcile(t *testing.T) {
 		Name: "first reconcile, pre-owned domain claim",
 		Key:  "default/first-reconcile.com",
 		Objects: []runtime.Object{
-			ksvc("default", "target", "the-target-svc.default.svc.cluster.local", ""),
+			addressableMapping("default", "target", "the-target-svc.default.svc.cluster.local", ""),
 			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
 			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
 		},
@@ -416,7 +609,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile with ingressClass annotation",
 		Key:  "default/ingressclass.first-reconcile.com",
 		Objects: []runtime.Object{
-			ksvc("default", "target", "the-target-svc.default.svc.cluster.local", ""),
+			addressableMapping("default", "target", "the-target-svc.default.svc.cluster.local", ""),
 			domainMapping("default", "ingressclass.first-reconcile.com", withRef("default", "target"),
 				withAnnotations(map[string]string{
 					netapi.IngressClassAnnotationKey: "overridden-ingress-class",
@@ -455,7 +648,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile with new label",
 		Key:  "default/ingressclass.first-reconcile.com",
 		Objects: []runtime.Object{
-			ksvc("default", "target", "the-target-svc.default.svc.cluster.local", ""),
+			addressableMapping("default", "target", "the-target-svc.default.svc.cluster.local", ""),
 			domainMapping("default", "ingressclass.first-reconcile.com", withRef("default", "target"),
 				withLabels(map[string]string{
 					netapi.IngressLabelKey: "new-label",
@@ -494,7 +687,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile changed ref",
 		Key:  "default/ingress-exists.org",
 		Objects: []runtime.Object{
-			ksvc("default", "changed", "changed.default.svc.cluster.local", ""),
+			addressableMapping("default", "changed", "changed.default.svc.cluster.local", ""),
 			domainMapping("default", "ingress-exists.org", withRef("default", "changed")),
 			resources.MakeIngress(domainMapping("default", "ingress-exists.org", withRef("default", "changed")), "previous", "previous.default.svc.cluster.local", "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil /* tls */),
 			resources.MakeDomainClaim(domainMapping("default", "ingress-exists.org", withRef("default", "changed"))),
@@ -524,7 +717,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile failed ingress",
 		Key:  "default/ingress-failed.me",
 		Objects: []runtime.Object{
-			ksvc("default", "failed", "failed.default.svc.cluster.local", ""),
+			addressableMapping("default", "failed", "failed.default.svc.cluster.local", ""),
 			domainMapping("default", "ingress-failed.me",
 				withRef("default", "failed"),
 				withURL("http", "ingress-failed.me"),
@@ -557,7 +750,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile unknown ingress",
 		Key:  "default/ingress-unknown.me",
 		Objects: []runtime.Object{
-			ksvc("default", "unknown", "unknown.default.svc.cluster.local", ""),
+			addressableMapping("default", "unknown", "unknown.default.svc.cluster.local", ""),
 			domainMapping("default", "ingress-unknown.me", withRef("default", "unknown"),
 				withRef("default", "unknown"),
 				withURL("http", "ingress-unknown.me"),
@@ -590,7 +783,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile ready ingress",
 		Key:  "default/ingress-ready.me",
 		Objects: []runtime.Object{
-			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
+			addressableMapping("default", "ready", "ready.default.svc.cluster.local", ""),
 			domainMapping("default", "ingress-ready.me",
 				withRef("default", "ready"),
 				withURL("http", "ingress-ready.me"),
@@ -626,7 +819,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "ingresses"),
 		},
 		Objects: []runtime.Object{
-			ksvc("default", "cantcreate", "cantcreate.default.svc.cluster.local", ""),
+			addressableMapping("default", "cantcreate", "cantcreate.default.svc.cluster.local", ""),
 			domainMapping("default", "cantcreate.this",
 				withRef("default", "cantcreate"),
 				withURL("http", "cantcreate.this"),
@@ -673,7 +866,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "ingresses"),
 		},
 		Objects: []runtime.Object{
-			ksvc("default", "cantupdate", "cantupdate.default.svc.cluster.local", ""),
+			addressableMapping("default", "cantupdate", "cantupdate.default.svc.cluster.local", ""),
 			domainMapping("default", "cantupdate.this",
 				withRef("default", "cantupdate"),
 				withURL("http", "cantupdate.this"),
@@ -718,7 +911,7 @@ func TestReconcile(t *testing.T) {
 		Key:  "default/ingress-ready.me",
 		Ctx:  context.WithValue(context.Background(), externalSchemeKey, "ws"),
 		Objects: []runtime.Object{
-			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
+			addressableMapping("default", "ready", "ready.default.svc.cluster.local", ""),
 			domainMapping("default", "ingress-ready.me",
 				withRef("default", "ready"),
 				withURL("ws", "ingress-ready.me"),
@@ -742,15 +935,11 @@ func TestReconcile(t *testing.T) {
 		},
 	}}
 
+	table = append(table, routeIngressEdgeCaseRows()...)
+
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		ctx = addressable.WithDuck(ctx)
-		r := &Reconciler{
-			certificateLister: listers.GetCertificateLister(),
-			ingressLister:     listers.GetIngressLister(),
-			netclient:         networkingclient.Get(ctx),
-			resolver:          resolver.NewURIResolverFromTracker(ctx, tracker.New(func(types.NamespacedName) {}, 0)),
-			domainClaimLister: listers.GetDomainClaimLister(),
-		}
+		r := makeTestReconciler(ctx, listers)
 
 		cfg := &config.Config{
 			Network: &netcfg.Config{
@@ -780,7 +969,7 @@ func TestReconcileAutocreateClaimsDisabled(t *testing.T) {
 		Name: "first reconcile, no existing claim",
 		Key:  "default/first-reconcile.com",
 		Objects: []runtime.Object{
-			ksvc("default", "target", "the-target-svc.default.svc.cluster.local", ""),
+			addressableMapping("default", "target", "the-target-svc.default.svc.cluster.local", ""),
 			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -805,7 +994,7 @@ func TestReconcileAutocreateClaimsDisabled(t *testing.T) {
 		Name: "first reconcile, claim exists and is owned",
 		Key:  "default/first-reconcile.com",
 		Objects: []runtime.Object{
-			ksvc("default", "target", "the-target-svc.default.svc.cluster.local", ""),
+			addressableMapping("default", "target", "the-target-svc.default.svc.cluster.local", ""),
 			domainMapping("default", "first-reconcile.com", withRef("default", "target")),
 			resources.MakeDomainClaim(domainMapping("default", "first-reconcile.com", withRef("default", "target"))),
 		},
@@ -877,13 +1066,7 @@ func TestReconcileAutocreateClaimsDisabled(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		ctx = addressable.WithDuck(ctx)
-		r := &Reconciler{
-			certificateLister: listers.GetCertificateLister(),
-			ingressLister:     listers.GetIngressLister(),
-			netclient:         networkingclient.Get(ctx),
-			resolver:          resolver.NewURIResolverFromTracker(ctx, tracker.New(func(types.NamespacedName) {}, 0)),
-			domainClaimLister: listers.GetDomainClaimLister(),
-		}
+		r := makeTestReconciler(ctx, listers)
 
 		return domainmappingreconciler.NewReconciler(ctx, logging.FromContext(ctx),
 			servingclient.Get(ctx), listers.GetDomainMappingLister(), controller.GetEventRecorder(ctx), r,
@@ -906,7 +1089,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 		Name: "first reconcile",
 		Key:  "default/first.reconcile.io",
 		Objects: []runtime.Object{
-			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
+			addressableMapping("default", "ready", "ready.default.svc.cluster.local", ""),
 			domainMapping("default", "first.reconcile.io",
 				withRef("default", "ready"),
 				withURL("http", "first.reconcile.io"),
@@ -946,7 +1129,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 		Name: "becomes ready",
 		Key:  "default/becomes.ready.run",
 		Objects: []runtime.Object{
-			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
+			addressableMapping("default", "ready", "ready.default.svc.cluster.local", ""),
 			domainMapping("default", "becomes.ready.run",
 				withRef("default", "ready"),
 				withURL("http", "becomes.ready.run"),
@@ -1011,7 +1194,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 		WantErr: true,
 		Key:     "default/cert.not.owned.ru",
 		Objects: []runtime.Object{
-			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
+			addressableMapping("default", "ready", "ready.default.svc.cluster.local", ""),
 			domainMapping("default", "cert.not.owned.ru",
 				withRef("default", "ready"),
 				withURL("http", "cert.not.owned.ru"),
@@ -1061,7 +1244,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 			), "the-cert-class"),
 		},
 		Objects: []runtime.Object{
-			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
+			addressableMapping("default", "ready", "ready.default.svc.cluster.local", ""),
 			domainMapping("default", "cert.creation.failed.ly",
 				withRef("default", "ready"),
 				withURL("http", "cert.creation.failed.ly"),
@@ -1092,7 +1275,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 		Name: "with challenges",
 		Key:  "default/challenged.com",
 		Objects: []runtime.Object{
-			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
+			addressableMapping("default", "ready", "ready.default.svc.cluster.local", ""),
 			domainMapping("default", "challenged.com",
 				withRef("default", "ready"),
 				withURL("http", "challenged.com"),
@@ -1195,7 +1378,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 		Name: "TLS secret provided",
 		Key:  "default/certificateless.com",
 		Objects: []runtime.Object{
-			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
+			addressableMapping("default", "ready", "ready.default.svc.cluster.local", ""),
 			domainMapping("default", "certificateless.com",
 				withTLSSecret("tls-secret"),
 				withRef("default", "ready"),
@@ -1238,13 +1421,7 @@ func TestReconcileTLSEnabled(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		ctx = addressable.WithDuck(ctx)
-		r := &Reconciler{
-			certificateLister: listers.GetCertificateLister(),
-			ingressLister:     listers.GetIngressLister(),
-			domainClaimLister: listers.GetDomainClaimLister(),
-			netclient:         networkingclient.Get(ctx),
-			resolver:          resolver.NewURIResolverFromTracker(ctx, tracker.New(func(types.NamespacedName) {}, 0)),
-		}
+		r := makeTestReconciler(ctx, listers)
 
 		return domainmappingreconciler.NewReconciler(ctx, logging.FromContext(ctx),
 			servingclient.Get(ctx), listers.GetDomainMappingLister(), controller.GetEventRecorder(ctx), r,
@@ -1268,7 +1445,7 @@ func TestReconcileTLSEnabledButDowngraded(t *testing.T) {
 		Name: "ingress ready, cert not ready, downgraded to HTTP",
 		Key:  "default/http.downgraded.com",
 		Objects: []runtime.Object{
-			ksvc("default", "ready", "ready.default.svc.cluster.local", ""),
+			addressableMapping("default", "ready", "ready.default.svc.cluster.local", ""),
 			domainMapping("default", "http.downgraded.com",
 				withRef("default", "ready"),
 				withURL("http", "http.downgraded.com"),
@@ -1305,13 +1482,7 @@ func TestReconcileTLSEnabledButDowngraded(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		ctx = addressable.WithDuck(ctx)
-		r := &Reconciler{
-			certificateLister: listers.GetCertificateLister(),
-			domainClaimLister: listers.GetDomainClaimLister(),
-			ingressLister:     listers.GetIngressLister(),
-			netclient:         networkingclient.Get(ctx),
-			resolver:          resolver.NewURIResolverFromTracker(ctx, tracker.New(func(types.NamespacedName) {}, 0)),
-		}
+		r := makeTestReconciler(ctx, listers)
 
 		return domainmappingreconciler.NewReconciler(ctx, logging.FromContext(ctx),
 			servingclient.Get(ctx), listers.GetDomainMappingLister(), controller.GetEventRecorder(ctx), r,
@@ -1369,8 +1540,8 @@ func withRef(namespace, name string, opt ...refOption) domainMappingOption {
 	return func(dm *v1beta1.DomainMapping) {
 		dm.Spec.Ref.Namespace = namespace
 		dm.Spec.Ref.Name = name
-		dm.Spec.Ref.APIVersion = "serving.knative.dev/v1"
-		dm.Spec.Ref.Kind = "Service"
+		dm.Spec.Ref.APIVersion = v1beta1.SchemeGroupVersion.String()
+		dm.Spec.Ref.Kind = "DomainMapping"
 
 		for _, o := range opt {
 			o(&dm.Spec.Ref)
@@ -1384,6 +1555,11 @@ func withAPIVersionKind(apiVersion, kind string) refOption {
 		ref.Kind = kind
 	}
 }
+
+var (
+	asKnativeServiceRef = withAPIVersionKind(servingv1.SchemeGroupVersion.String(), "Service")
+	asKnativeRouteRef   = withAPIVersionKind(servingv1.SchemeGroupVersion.String(), "Route")
+)
 
 func withURL(scheme, host string) domainMappingOption {
 	return func(dm *v1beta1.DomainMapping) {
@@ -1402,6 +1578,18 @@ func withAddress(scheme, host string) domainMappingOption {
 
 func withIngressNotConfigured(dm *v1beta1.DomainMapping) {
 	dm.Status.MarkIngressNotConfigured()
+}
+
+func withTargetIngressNotConfigured(message string) domainMappingOption {
+	return func(dm *v1beta1.DomainMapping) {
+		dm.Status.MarkTargetIngressNotConfigured(message)
+	}
+}
+
+func withTargetNotOwned(message string) domainMappingOption {
+	return func(dm *v1beta1.DomainMapping) {
+		dm.Status.MarkTargetNotOwned(message)
+	}
 }
 
 func withPropagatedStatus(status netv1alpha1.IngressStatus) domainMappingOption {
@@ -1523,24 +1711,240 @@ func withIngressHTTPOption(httpOpt netv1alpha1.HTTPOption) IngressOption {
 	}
 }
 
-func ksvc(ns, name, host, path string) *servingv1.Service {
-	return &servingv1.Service{
+func addressableMapping(ns, name, host, path string) *v1beta1.DomainMapping {
+	return &v1beta1.DomainMapping{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: ns,
 		},
-		Status: servingv1.ServiceStatus{
-			RouteStatusFields: servingv1.RouteStatusFields{
-				Address: &duckv1.Addressable{
-					URL: &apis.URL{
-						Scheme: "http",
-						Host:   host,
-						Path:   path,
-					},
-				},
-			},
+		Status: v1beta1.DomainMappingStatus{
+			URL:     &apis.URL{Scheme: "http", Host: host, Path: path},
+			Address: &duckv1.Addressable{URL: &apis.URL{Scheme: "http", Host: host, Path: path}},
 		},
 	}
+}
+
+func knativeService(ns, name string) *servingv1.Service {
+	return testingv1.Service(name, ns, testingv1.WithSvcStatusAddress)
+}
+
+func serviceRoute(service *servingv1.Service) *servingv1.Route {
+	route := standaloneRoute(service.Namespace, servicenames.Route(service))
+	route.OwnerReferences = []metav1.OwnerReference{*kmeta.NewControllerRef(service)}
+	return route
+}
+
+func standaloneRoute(ns, name string) *servingv1.Route {
+	return testingv1.Route(ns, name, testingv1.WithRouteUID(types.UID(name+"-route-uid")), testingv1.WithAddress)
+}
+
+func routeIngress(route *servingv1.Route) *netv1alpha1.Ingress {
+	return &netv1alpha1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            routenames.Ingress(route),
+			Namespace:       route.Namespace,
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
+		},
+		Spec: netv1alpha1.IngressSpec{
+			Rules: []netv1alpha1.IngressRule{{
+				Hosts:      []string{routenames.K8sServiceFullname(route)},
+				Visibility: netv1alpha1.IngressVisibilityClusterLocal,
+				HTTP:       &netv1alpha1.HTTPIngressRuleValue{Paths: routeIngressHTTPPaths()},
+			}},
+		},
+	}
+}
+
+func routeIngressHTTPPaths() []netv1alpha1.HTTPIngressPath {
+	return []netv1alpha1.HTTPIngressPath{{
+		RewriteHost: "source-host.example",
+		AppendHeaders: map[string]string{
+			"Knative-Serving-Default-Route": "true",
+		},
+		Splits: []netv1alpha1.IngressBackendSplit{{
+			IngressBackend: netv1alpha1.IngressBackend{
+				ServiceNamespace: "default",
+				ServiceName:      "website-00001",
+				ServicePort:      intstr.FromInt(80),
+			},
+			Percent: 80,
+			AppendHeaders: map[string]string{
+				"Knative-Serving-Namespace": "default",
+				"Knative-Serving-Revision":  "website-00001",
+			},
+		}, {
+			IngressBackend: netv1alpha1.IngressBackend{
+				ServiceNamespace: "default",
+				ServiceName:      "website-00002",
+				ServicePort:      intstr.FromInt(80),
+			},
+			Percent: 20,
+			AppendHeaders: map[string]string{
+				"Knative-Serving-Namespace": "default",
+				"Knative-Serving-Revision":  "website-00002",
+			},
+		}},
+	}}
+}
+
+func routeIngressEdgeCaseRows() TableTest {
+	const targetHost = "website.default.svc.cluster.local"
+
+	service := knativeService("default", "website")
+	service.UID = types.UID("website-service-uid")
+	route := serviceRoute(service)
+	anotherService := knativeService("default", "another-service")
+	anotherService.UID = types.UID("another-service-uid")
+	route.OwnerReferences = []metav1.OwnerReference{*kmeta.NewControllerRef(anotherService)}
+	dm := domainMapping("default", "route-not-owned.example.com", withRef("default", "website", asKnativeServiceRef))
+	rows := TableTest{{
+		Name: "Knative Service rejects a Route owned by another Service",
+		Key:  "default/route-not-owned.example.com",
+		Objects: []runtime.Object{
+			service,
+			route,
+			resources.MakeIngress(dm, "old-revision", targetHost, "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil),
+			dm,
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "route-not-owned.example.com",
+				withRef("default", "website", asKnativeServiceRef),
+				withURL("http", "route-not-owned.example.com"),
+				withAddress("http", "route-not-owned.example.com"),
+				withInitDomainMappingConditions,
+				withTLSNotEnabled,
+				withDomainClaimed,
+				withReferenceResolved,
+				withTargetNotOwned("Service default/website does not own Route default/website."),
+			),
+		}},
+		SkipNamespaceValidation: true,
+		WantCreates: []runtime.Object{
+			resources.MakeDomainClaim(domainMapping("default", "route-not-owned.example.com")),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "route-not-owned.example.com"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "route-not-owned.example.com"),
+		},
+	}, {
+		Name: "Knative Route uses the first matching cluster-local rule",
+		Key:  "default/multiple-matching-rules.example.com",
+		Objects: func() []runtime.Object {
+			route := standaloneRoute("default", "website")
+			targetIngress := routeIngress(route)
+			second := targetIngress.Spec.Rules[0].DeepCopy()
+			second.HTTP.Paths[0].Splits[0].ServiceName = "unexpected-revision"
+			targetIngress.Spec.Rules = append(targetIngress.Spec.Rules, *second)
+			return []runtime.Object{
+				route,
+				targetIngress,
+				domainMapping("default", "multiple-matching-rules.example.com", withRef("default", "website", asKnativeRouteRef)),
+			}
+		}(),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "multiple-matching-rules.example.com",
+				withRef("default", "website", asKnativeRouteRef),
+				withURL("http", "multiple-matching-rules.example.com"),
+				withAddress("http", "multiple-matching-rules.example.com"),
+				withInitDomainMappingConditions,
+				withTLSNotEnabled,
+				withDomainClaimed,
+				withIngressNotConfigured,
+				withReferenceResolved,
+			),
+		}},
+		SkipNamespaceValidation: true,
+		WantCreates: []runtime.Object{
+			resources.MakeDomainClaim(domainMapping("default", "multiple-matching-rules.example.com")),
+			resources.MakeIngressWithHTTPPaths(
+				domainMapping("default", "multiple-matching-rules.example.com", withRef("default", "website", asKnativeRouteRef)),
+				routeIngressHTTPPaths(), "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "multiple-matching-rules.example.com"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "multiple-matching-rules.example.com"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "multiple-matching-rules.example.com"),
+		},
+	}, {
+		Name:    "Knative Route reports a matching cluster-local rule without HTTP",
+		Key:     "default/missing-http.example.com",
+		WantErr: true,
+		Objects: func() []runtime.Object {
+			route := standaloneRoute("default", "website")
+			targetIngress := routeIngress(route)
+			targetIngress.Spec.Rules[0].HTTP = nil
+			return []runtime.Object{
+				route,
+				targetIngress,
+				domainMapping("default", "missing-http.example.com", withRef("default", "website", asKnativeRouteRef)),
+			}
+		}(),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "missing-http.example.com",
+				withRef("default", "website", asKnativeRouteRef),
+				withURL("http", "missing-http.example.com"),
+				withAddress("http", "missing-http.example.com"),
+				withInitDomainMappingConditions,
+				withTLSNotEnabled,
+				withDomainClaimed,
+				withReferenceResolved,
+			),
+		}},
+		SkipNamespaceValidation: true,
+		WantCreates: []runtime.Object{
+			resources.MakeDomainClaim(domainMapping("default", "missing-http.example.com")),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "missing-http.example.com"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "missing-http.example.com"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "target Ingress default/website has a matching cluster-local rule without HTTP"),
+		},
+	}, {
+		Name: "target Ingress has no matching cluster-local rule",
+		Key:  "default/no-matching-rule.example.com",
+		Objects: func() []runtime.Object {
+			route := standaloneRoute("default", "website")
+			targetIngress := routeIngress(route)
+			targetIngress.Spec.Rules[0].Hosts = []string{"another.default.svc.cluster.local"}
+			dm := domainMapping("default", "no-matching-rule.example.com", withRef("default", "website", asKnativeRouteRef))
+			return []runtime.Object{
+				route,
+				targetIngress,
+				resources.MakeIngress(dm, "old-revision", targetHost, "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil),
+				dm,
+			}
+		}(),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "no-matching-rule.example.com",
+				withRef("default", "website", asKnativeRouteRef),
+				withURL("http", "no-matching-rule.example.com"),
+				withAddress("http", "no-matching-rule.example.com"),
+				withInitDomainMappingConditions,
+				withTLSNotEnabled,
+				withDomainClaimed,
+				withReferenceResolved,
+				withTargetIngressNotConfigured(`Ingress default/website has no cluster-local rule for host "website.default.svc.cluster.local".`),
+			),
+		}},
+		SkipNamespaceValidation: true,
+		WantCreates: []runtime.Object{
+			resources.MakeDomainClaim(domainMapping("default", "no-matching-rule.example.com")),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "no-matching-rule.example.com"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "no-matching-rule.example.com"),
+		},
+	}}
+
+	return rows
 }
 
 func readyCertStatus() netv1alpha1.CertificateStatus {
@@ -1582,6 +1986,20 @@ func patchRemoveFinalizerAction(namespace, name string) clientgotesting.PatchAct
 		Name:       name,
 		ActionImpl: clientgotesting.ActionImpl{Namespace: namespace},
 		Patch:      []byte(`{"metadata":{"finalizers":[],"resourceVersion":""}}`),
+	}
+}
+
+func makeTestReconciler(ctx context.Context, listers *Listers) *Reconciler {
+	testTracker := ctx.Value(TrackerKey).(tracker.Interface)
+	return &Reconciler{
+		certificateLister: listers.GetCertificateLister(),
+		ingressLister:     listers.GetIngressLister(),
+		serviceLister:     listers.GetServiceLister(),
+		routeLister:       listers.GetRouteLister(),
+		domainClaimLister: listers.GetDomainClaimLister(),
+		netclient:         networkingclient.Get(ctx),
+		resolver:          resolver.NewURIResolverFromTracker(ctx, testTracker),
+		tracker:           testTracker,
 	}
 }
 

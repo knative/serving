@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"k8s.io/client-go/tools/cache"
+	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	netclient "knative.dev/networking/pkg/client/injection/client"
 	certificateinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/certificate"
 	domainclaiminformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/clusterdomainclaim"
@@ -29,7 +30,10 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/resolver"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route"
+	serviceinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/service"
 	"knative.dev/serving/pkg/client/injection/informers/serving/v1beta1/domainmapping"
 	kindreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1beta1/domainmapping"
 	"knative.dev/serving/pkg/reconciler/domainmapping/config"
@@ -42,11 +46,15 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	domainmappingInformer := domainmapping.Get(ctx)
 	ingressInformer := ingressinformer.Get(ctx)
 	domainClaimInformer := domainclaiminformer.Get(ctx)
+	routeInformer := routeinformer.Get(ctx)
+	serviceInformer := serviceinformer.Get(ctx)
 
 	r := &Reconciler{
 		certificateLister: certificateInformer.Lister(),
 		ingressLister:     ingressInformer.Lister(),
 		domainClaimLister: domainClaimInformer.Lister(),
+		routeLister:       routeInformer.Lister(),
+		serviceLister:     serviceInformer.Lister(),
 		netclient:         netclient.Get(ctx),
 	}
 
@@ -71,7 +79,24 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	certificateInformer.Informer().AddEventHandler(handleControllerOf)
 	ingressInformer.Informer().AddEventHandler(handleControllerOf)
 
-	r.resolver = resolver.NewURIResolverFromTracker(ctx, impl.Tracker)
+	r.tracker = impl.Tracker
+	r.resolver = resolver.NewURIResolverFromTracker(ctx, r.tracker)
+
+	// Track Route and Ingress changes because their HTTP paths are copied into
+	// DomainMapping Ingresses. The resolver already tracks referenced Services.
+	// Informer events may omit TypeMeta, so populate it before notifying the tracker.
+	routeInformer.Informer().AddEventHandler(controller.HandleAll(
+		controller.EnsureTypeMeta(r.tracker.OnChanged, servingv1.SchemeGroupVersion.WithKind("Route")),
+	))
+	ingressInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.FilterController(&servingv1.Route{}),
+		Handler: controller.HandleAll(
+			controller.EnsureTypeMeta(r.tracker.OnChanged, netv1alpha1.SchemeGroupVersion.WithKind("Ingress")),
+		),
+	})
+	domainmappingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: r.tracker.OnDeletedObserver,
+	})
 
 	return impl
 }

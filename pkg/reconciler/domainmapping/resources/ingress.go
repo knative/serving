@@ -35,25 +35,46 @@ import (
 // KIngress).  The created ingress will contain a RewriteHost rule to cause the
 // given hostName to be used as the host.
 func MakeIngress(dm *servingv1beta1.DomainMapping, backendServiceName, hostName, ingressClass string, httpOption netv1alpha1.HTTPOption, tls []netv1alpha1.IngressTLS, acmeChallenges ...netv1alpha1.HTTP01Challenge) *netv1alpha1.Ingress {
-	// Traffic rule
+	paths := []netv1alpha1.HTTPIngressPath{{
+		RewriteHost: hostName,
+		Splits: []netv1alpha1.IngressBackendSplit{{
+			Percent: 100,
+			AppendHeaders: map[string]string{
+				netheader.OriginalHostKey: dm.Name,
+			},
+			IngressBackend: netv1alpha1.IngressBackend{
+				ServiceNamespace: dm.Namespace,
+				ServiceName:      backendServiceName,
+				ServicePort:      intstr.FromInt(80),
+			},
+		}},
+	}}
+	return makeIngress(dm, paths, ingressClass, httpOption, tls, acmeChallenges...)
+}
+
+// MakeIngressWithHTTPPaths creates an Ingress for a DomainMapping using HTTP
+// paths from its target Route without modifying sourcePaths.
+func MakeIngressWithHTTPPaths(dm *servingv1beta1.DomainMapping, sourcePaths []netv1alpha1.HTTPIngressPath, ingressClass string, httpOption netv1alpha1.HTTPOption, tls []netv1alpha1.IngressTLS, acmeChallenges ...netv1alpha1.HTTP01Challenge) *netv1alpha1.Ingress {
+	paths := make([]netv1alpha1.HTTPIngressPath, len(sourcePaths))
+	for i := range sourcePaths {
+		sourcePaths[i].DeepCopyInto(&paths[i])
+		paths[i].RewriteHost = ""
+		for j := range paths[i].Splits {
+			if paths[i].Splits[j].AppendHeaders == nil {
+				paths[i].Splits[j].AppendHeaders = make(map[string]string, 1)
+			}
+			paths[i].Splits[j].AppendHeaders[netheader.OriginalHostKey] = dm.Name
+		}
+	}
+	return makeIngress(dm, paths, ingressClass, httpOption, tls, acmeChallenges...)
+}
+
+func makeIngress(dm *servingv1beta1.DomainMapping, paths []netv1alpha1.HTTPIngressPath, ingressClass string, httpOption netv1alpha1.HTTPOption, tls []netv1alpha1.IngressTLS, acmeChallenges ...netv1alpha1.HTTP01Challenge) *netv1alpha1.Ingress {
 	rules := []netv1alpha1.IngressRule{{
 		Hosts:      []string{dm.Name},
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		HTTP: &netv1alpha1.HTTPIngressRuleValue{
-			Paths: []netv1alpha1.HTTPIngressPath{{
-				RewriteHost: hostName,
-				Splits: []netv1alpha1.IngressBackendSplit{{
-					Percent: 100,
-					AppendHeaders: map[string]string{
-						netheader.OriginalHostKey: dm.Name,
-					},
-					IngressBackend: netv1alpha1.IngressBackend{
-						ServiceNamespace: dm.Namespace,
-						ServiceName:      backendServiceName,
-						ServicePort:      intstr.FromInt(80),
-					},
-				}},
-			}},
+			Paths: paths,
 		},
 	}}
 

@@ -315,3 +315,61 @@ func TestMakeIngress(t *testing.T) {
 		})
 	}
 }
+
+func TestMakeIngressWithHTTPPaths(t *testing.T) {
+	dm := &v1beta1.DomainMapping{ObjectMeta: metav1.ObjectMeta{
+		Name:      "mapping.com",
+		Namespace: "default",
+	}}
+	source := []netv1alpha1.HTTPIngressPath{{
+		RewriteHost: "old.internal.example",
+		AppendHeaders: map[string]string{
+			"path-header": "preserved",
+		},
+		Splits: []netv1alpha1.IngressBackendSplit{{
+			IngressBackend: netv1alpha1.IngressBackend{
+				ServiceNamespace: "default",
+				ServiceName:      "app-00001",
+				ServicePort:      intstr.FromInt(443),
+			},
+			Percent: 75,
+			AppendHeaders: map[string]string{
+				"Knative-Serving-Revision": "app-00001",
+				netheader.OriginalHostKey:  "stale.example",
+			},
+		}, {
+			IngressBackend: netv1alpha1.IngressBackend{
+				ServiceNamespace: "default",
+				ServiceName:      "app-00002",
+				ServicePort:      intstr.FromInt(80),
+			},
+			Percent: 25,
+		}},
+	}}
+
+	got := MakeIngressWithHTTPPaths(dm, source, "example.net/ingress", netv1alpha1.HTTPOptionEnabled, nil)
+	paths := got.Spec.Rules[0].HTTP.Paths
+	if got, want := paths[0].RewriteHost, ""; got != want {
+		t.Errorf("RewriteHost = %q, want %q", got, want)
+	}
+	if got, want := paths[0].Splits[0].ServicePort, intstr.FromInt(443); got != want {
+		t.Errorf("TLS backend port = %v, want %v", got, want)
+	}
+	if got, want := paths[0].Splits[0].AppendHeaders["Knative-Serving-Revision"], "app-00001"; got != want {
+		t.Errorf("revision header = %q, want %q", got, want)
+	}
+	for i := range paths[0].Splits {
+		if got, want := paths[0].Splits[i].AppendHeaders[netheader.OriginalHostKey], dm.Name; got != want {
+			t.Errorf("split %d original host = %q, want %q", i, got, want)
+		}
+	}
+
+	paths[0].AppendHeaders["path-header"] = "changed"
+	paths[0].Splits[0].AppendHeaders["Knative-Serving-Revision"] = "changed"
+	if got, want := source[0].AppendHeaders["path-header"], "preserved"; got != want {
+		t.Errorf("source path header was mutated: got %q, want %q", got, want)
+	}
+	if got, want := source[0].Splits[0].AppendHeaders["Knative-Serving-Revision"], "app-00001"; got != want {
+		t.Errorf("source split header was mutated: got %q, want %q", got, want)
+	}
+}
