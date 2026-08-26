@@ -18,6 +18,7 @@ package domainmapping
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"sort"
@@ -31,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	netapi "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -44,13 +46,18 @@ import (
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/resolver"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/pkg/tracker"
+	"knative.dev/serving/pkg/apis/serving"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	domainmappingreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1beta1/domainmapping"
+	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 	servingnetworking "knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/reconciler/domainmapping/config"
 	"knative.dev/serving/pkg/reconciler/domainmapping/resources"
 	routeresources "knative.dev/serving/pkg/reconciler/route/resources"
+	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
+	servicenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 )
 
 // Reconciler implements controller.Reconciler for DomainMapping resources.
@@ -58,8 +65,11 @@ type Reconciler struct {
 	certificateLister networkinglisters.CertificateLister
 	ingressLister     networkinglisters.IngressLister
 	domainClaimLister networkinglisters.ClusterDomainClaimLister
+	serviceLister     servinglisters.ServiceLister
+	routeLister       servinglisters.RouteLister
 	netclient         netclientset.Interface
 	resolver          *resolver.URIResolver
+	tracker           tracker.Interface
 }
 
 // Check that our Reconciler implements Interface
@@ -116,10 +126,30 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1beta1.DomainMappin
 		return err
 	}
 
+	// For Knative targets, preserve Route traffic instead of sending everything
+	// to the Service resolved from the Addressable URL.
+	targetKind, preserveRouteTraffic := servingReferenceKind(dm.Spec.Ref)
+
 	// Resolve the spec.Ref to a URI following the Addressable contract.
 	targetHost, targetBackendSvc, err := r.resolveRef(ctx, dm)
 	if err != nil {
+		if !preserveRouteTraffic {
+			return err
+		}
+		dm.Status.MarkIngressNotConfigured()
 		return err
+	}
+
+	var routePaths []netv1alpha1.HTTPIngressPath
+	if preserveRouteTraffic {
+		var found bool
+		routePaths, found, err = r.routeHTTPPaths(dm, targetKind, targetHost)
+		if err != nil {
+			return err
+		}
+		if !found {
+			return nil
+		}
 	}
 
 	// HTTPOption can be set via annotations or in the config map.
@@ -130,7 +160,12 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1beta1.DomainMappin
 
 	// Reconcile the Ingress resource corresponding to the requested Mapping.
 	logger.Debugf("Mapping %s to ref %s/%s (host: %q, svc: %q)", url, dm.Spec.Ref.Namespace, dm.Spec.Ref.Name, targetHost, targetBackendSvc)
-	desired := resources.MakeIngress(dm, targetBackendSvc, targetHost, ingressClass, httpOption, tls, acmeChallenges...)
+	var desired *netv1alpha1.Ingress
+	if preserveRouteTraffic {
+		desired = resources.MakeIngressWithHTTPPaths(dm, routePaths, ingressClass, httpOption, tls, acmeChallenges...)
+	} else {
+		desired = resources.MakeIngress(dm, targetBackendSvc, targetHost, ingressClass, httpOption, tls, acmeChallenges...)
+	}
 	ingress, err := r.reconcileIngress(ctx, dm, desired)
 	if err != nil {
 		return err
@@ -205,7 +240,7 @@ func (r *Reconciler) tls(ctx context.Context, dm *v1beta1.DomainMapping) ([]netv
 	}
 
 	if !externalDomainTLSEnabled(ctx, dm) {
-		dm.Status.MarkTLSNotEnabled(v1.ExternalDomainTLSNotEnabledMessage)
+		dm.Status.MarkTLSNotEnabled(servingv1.ExternalDomainTLSNotEnabledMessage)
 		return nil, nil, nil
 	}
 
@@ -315,6 +350,107 @@ func (r *Reconciler) resolveRef(ctx context.Context, dm *v1beta1.DomainMapping) 
 
 	dm.Status.MarkReferenceResolved()
 	return resolved.Host, parts[0], nil
+}
+
+// routeHTTPPaths gets the first matching cluster-local paths for a Service or
+// Route target. If no expected source can be found, it updates IngressReady and
+// returns found=false. The source Ingress is responsible for validating paths.
+// The returned paths belong to the informer cache and must not be mutated.
+func (r *Reconciler) routeHTTPPaths(dm *v1beta1.DomainMapping, kind, targetHost string) (paths []netv1alpha1.HTTPIngressPath, found bool, err error) {
+	ref := dm.Spec.Ref
+
+	if r.tracker == nil {
+		return nil, false, errors.New("DomainMapping target tracker is not configured")
+	}
+
+	routeName := ref.Name
+	var service *servingv1.Service
+	if kind == "Service" {
+		service, err = r.serviceLister.Services(ref.Namespace).Get(ref.Name)
+		if apierrs.IsNotFound(err) {
+			dm.Status.MarkTargetIngressNotConfigured(fmt.Sprintf("Waiting for target Service %s/%s to be observed.", ref.Namespace, ref.Name))
+			return nil, false, nil
+		} else if err != nil {
+			return nil, false, fmt.Errorf("getting target Service %s/%s: %w", ref.Namespace, ref.Name, err)
+		}
+		routeName = servicenames.Route(service)
+	}
+
+	if err := r.tracker.TrackReference(tracker.Reference{
+		APIVersion: servingv1.SchemeGroupVersion.String(),
+		Kind:       "Route",
+		Namespace:  ref.Namespace,
+		Name:       routeName,
+	}, dm); err != nil {
+		return nil, false, fmt.Errorf("tracking target Route: %w", err)
+	}
+
+	route, err := r.routeLister.Routes(ref.Namespace).Get(routeName)
+	if apierrs.IsNotFound(err) {
+		dm.Status.MarkTargetIngressNotConfigured(fmt.Sprintf("Waiting for target Route %s/%s to be created.", ref.Namespace, routeName))
+		return nil, false, nil
+	} else if err != nil {
+		return nil, false, fmt.Errorf("getting target Route %s/%s: %w", ref.Namespace, routeName, err)
+	}
+
+	if service != nil && !metav1.IsControlledBy(route, service) {
+		dm.Status.MarkTargetNotOwned(fmt.Sprintf("Service %s/%s does not own Route %s/%s.", service.Namespace, service.Name, route.Namespace, route.Name))
+		return nil, false, nil
+	}
+
+	ingressName := routenames.Ingress(route)
+	if err := r.tracker.TrackReference(tracker.Reference{
+		APIVersion: netv1alpha1.SchemeGroupVersion.String(),
+		Kind:       "Ingress",
+		Namespace:  route.Namespace,
+		Name:       ingressName,
+	}, dm); err != nil {
+		return nil, false, fmt.Errorf("tracking target Ingress: %w", err)
+	}
+
+	ingress, err := r.ingressLister.Ingresses(route.Namespace).Get(ingressName)
+	if apierrs.IsNotFound(err) {
+		dm.Status.MarkTargetIngressNotConfigured(fmt.Sprintf("Waiting for target Route %s/%s to configure Ingress %s/%s.", route.Namespace, route.Name, route.Namespace, ingressName))
+		return nil, false, nil
+	} else if err != nil {
+		return nil, false, fmt.Errorf("getting target Ingress %s/%s: %w", route.Namespace, ingressName, err)
+	}
+	if !metav1.IsControlledBy(ingress, route) {
+		dm.Status.MarkTargetNotOwned(fmt.Sprintf("Route %s/%s does not own Ingress %s/%s.", route.Namespace, route.Name, ingress.Namespace, ingress.Name))
+		return nil, false, nil
+	}
+
+	for i := range ingress.Spec.Rules {
+		rule := &ingress.Spec.Rules[i]
+		if rule.Visibility == netv1alpha1.IngressVisibilityClusterLocal && slices.Contains(rule.Hosts, targetHost) {
+			if rule.HTTP == nil {
+				return nil, false, fmt.Errorf("target Ingress %s/%s has a matching cluster-local rule without HTTP", ingress.Namespace, ingress.Name)
+			}
+			return rule.HTTP.Paths, true, nil
+		}
+	}
+
+	dm.Status.MarkTargetIngressNotConfigured(fmt.Sprintf("Ingress %s/%s has no cluster-local rule for host %q.", ingress.Namespace, ingress.Name, targetHost))
+	return nil, false, nil
+}
+
+func servingReferenceKind(ref duckv1.KReference) (string, bool) {
+	group := ref.Group
+	if ref.APIVersion != "" {
+		gv, err := schema.ParseGroupVersion(ref.APIVersion)
+		if err != nil {
+			return "", false
+		}
+		group = gv.Group
+	}
+	if group != serving.GroupName {
+		return "", false
+	}
+	switch ref.Kind {
+	case "Service", "Route":
+		return ref.Kind, true
+	}
+	return "", false
 }
 
 func (r *Reconciler) reconcileDomainClaim(ctx context.Context, dm *v1beta1.DomainMapping) error {
