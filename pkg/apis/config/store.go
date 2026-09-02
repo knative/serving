@@ -19,6 +19,8 @@ package config
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/configmap"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
@@ -76,22 +78,42 @@ type Store struct {
 	*configmap.UntypedStore
 }
 
+var configConstructors = configmap.Constructors{
+	DefaultsConfigName:  NewDefaultsConfigFromConfigMap,
+	FeaturesConfigName:  NewFeaturesConfigFromConfigMap,
+	asconfig.ConfigName: asconfig.NewConfigFromConfigMap,
+}
+
 // NewStore creates a new store of Configs and optionally calls functions when ConfigMaps are updated.
 func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
 	store := &Store{
 		UntypedStore: configmap.NewUntypedStore(
 			"apis",
 			logger,
-			configmap.Constructors{
-				DefaultsConfigName:  NewDefaultsConfigFromConfigMap,
-				FeaturesConfigName:  NewFeaturesConfigFromConfigMap,
-				asconfig.ConfigName: asconfig.NewConfigFromConfigMap,
-			},
+			configConstructors,
 			onAfterStore...,
 		),
 	}
 
 	return store
+}
+
+// WatchConfigs registers watches for all ConfigMaps in the Store using WatchWithDefault
+// to ensure the watcher doesn't fail if ConfigMaps are missing during startup.
+func (s *Store) WatchConfigs(w configmap.Watcher) {
+	// Check if the watcher supports defaults (DefaultingWatcher interface)
+	if dw, ok := w.(configmap.DefaultingWatcher); ok {
+		// Use WatchWithDefault to register defaults with the watcher
+		// This prevents Start() from failing if ConfigMaps don't exist
+		for name := range configConstructors {
+			dw.WatchWithDefault(corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: name},
+			}, s.UntypedStore.OnConfigChanged)
+		}
+	} else {
+		// Fallback to regular Watch if DefaultingWatcher not supported
+		s.UntypedStore.WatchConfigs(w)
+	}
 }
 
 // ToContext attaches the current Config state to the provided context.
