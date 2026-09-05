@@ -98,16 +98,24 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 	return store
 }
 
-// WatchConfigs registers watches for all ConfigMaps in the Store using WatchWithDefault
-// to ensure the watcher doesn't fail if ConfigMaps are missing during startup.
-func (s *Store) WatchConfigs(w configmap.Watcher) {
-	// Check if the watcher supports defaults (DefaultingWatcher interface)
+// WatchConfigsWithDefaults is like WatchConfigs but uses WatchWithDefault to register
+// default ConfigMaps when the watcher supports it. This allows the watcher to tolerate
+// missing ConfigMaps at startup time, preventing the circular dependency where:
+//   - the webhook cannot start without ConfigMaps present, but
+//   - ConfigMaps cannot be created/validated while the webhook is down.
+//
+// This method should only be used by the webhook. Other controllers (like revision
+// controller) may intentionally want to fail-fast if required ConfigMaps are missing.
+func (s *Store) WatchConfigsWithDefaults(w configmap.Watcher, namespace string) {
 	if dw, ok := w.(configmap.DefaultingWatcher); ok {
-		// Use WatchWithDefault to register defaults with the watcher
-		// This prevents Start() from failing if ConfigMaps don't exist
+		// Use WatchWithDefault to register defaults with the watcher.
+		// This prevents Start() from failing if ConfigMaps don't exist yet.
 		for name := range configConstructors {
 			dw.WatchWithDefault(corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{Name: name},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: namespace,
+				},
 			}, s.UntypedStore.OnConfigChanged)
 		}
 	} else {
