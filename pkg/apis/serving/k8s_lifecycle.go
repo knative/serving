@@ -67,18 +67,18 @@ func TransformDeploymentStatus(ds *appsv1.DeploymentStatus) *duckv1.Status {
 			case appsv1.DeploymentProgressing:
 				switch cond.Status {
 				case corev1.ConditionUnknown:
-					depCondSet.Manage(s).MarkUnknown(DeploymentConditionProgressing, cond.Reason, cond.Message)
+					depCondSet.Manage(s).MarkUnknown(DeploymentConditionProgressing, cond.Reason, "%s", cond.Message)
 				case corev1.ConditionTrue:
 					depCondSet.Manage(s).MarkTrue(DeploymentConditionProgressing)
 				case corev1.ConditionFalse:
-					depCondSet.Manage(s).MarkFalse(DeploymentConditionProgressing, cond.Reason, cond.Message)
+					depCondSet.Manage(s).MarkFalse(DeploymentConditionProgressing, cond.Reason, "%s", cond.Message)
 				}
 			case appsv1.DeploymentReplicaFailure:
 				switch cond.Status {
 				case corev1.ConditionUnknown:
-					depCondSet.Manage(s).MarkUnknown(DeploymentConditionReplicaSetReady, cond.Reason, cond.Message)
+					depCondSet.Manage(s).MarkUnknown(DeploymentConditionReplicaSetReady, cond.Reason, "%s", cond.Message)
 				case corev1.ConditionTrue:
-					depCondSet.Manage(s).MarkFalse(DeploymentConditionReplicaSetReady, cond.Reason, cond.Message)
+					depCondSet.Manage(s).MarkFalse(DeploymentConditionReplicaSetReady, cond.Reason, "%s", cond.Message)
 				case corev1.ConditionFalse:
 					depCondSet.Manage(s).MarkTrue(DeploymentConditionReplicaSetReady)
 				}

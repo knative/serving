@@ -72,12 +72,12 @@ const (
 // certificate provisioning was skipped because TLS was not enabled.
 func (dms *DomainMappingStatus) MarkTLSNotEnabled(msg string) {
 	domainMappingCondSet.Manage(dms).MarkTrueWithReason(DomainMappingConditionCertificateProvisioned,
-		"TLSNotEnabled", msg)
+		"TLSNotEnabled", "%s", msg)
 }
 
 func (dms *DomainMappingStatus) MarkCertificateNotRequired(msg string) {
 	domainMappingCondSet.Manage(dms).MarkTrueWithReason(DomainMappingConditionCertificateProvisioned,
-		"CertificateExternallyProvided", msg)
+		"CertificateExternallyProvided", "%s", msg)
 }
 
 // MarkCertificateReady marks the DomainMappingConditionCertificateProvisioned
@@ -124,7 +124,7 @@ func (dms *DomainMappingStatus) MarkHTTPDowngrade(name string) {
 // that the Ingress does not yet have a Status.
 func (dms *DomainMappingStatus) MarkIngressNotConfigured() {
 	domainMappingCondSet.Manage(dms).MarkUnknown(DomainMappingConditionIngressReady,
-		"IngressNotConfigured", "Ingress has not yet been reconciled.")
+		"IngressNotConfigured", "%s", "Ingress has not yet been reconciled.")
 }
 
 // MarkDomainClaimed updates the DomainMappingConditionDomainClaimed condition
@@ -137,14 +137,14 @@ func (dms *DomainMappingStatus) MarkDomainClaimed() {
 // condition to indicate that the domain is already in use by another
 // DomainMapping.
 func (dms *DomainMappingStatus) MarkDomainClaimNotOwned() {
-	domainMappingCondSet.Manage(dms).MarkFalse(DomainMappingConditionDomainClaimed, "DomainAlreadyClaimed",
+	domainMappingCondSet.Manage(dms).MarkFalse(DomainMappingConditionDomainClaimed, "DomainAlreadyClaimed", "%s",
 		"The domain name is already in use by another DomainMapping")
 }
 
 // MarkDomainClaimFailed updates the DomainMappingConditionDomainClaimed
 // condition to indicate that creating the ClusterDomainClaim failed.
 func (dms *DomainMappingStatus) MarkDomainClaimFailed(reason string) {
-	domainMappingCondSet.Manage(dms).MarkFalse(DomainMappingConditionDomainClaimed, "DomainClaimFailed", reason)
+	domainMappingCondSet.Manage(dms).MarkFalse(DomainMappingConditionDomainClaimed, "DomainClaimFailed", "%s", reason)
 }
 
 // MarkReferenceResolved sets the DomainMappingConditionReferenceResolved
@@ -156,7 +156,7 @@ func (dms *DomainMappingStatus) MarkReferenceResolved() {
 // MarkReferenceNotResolved sets the DomainMappingConditionReferenceResolved
 // condition to false.
 func (dms *DomainMappingStatus) MarkReferenceNotResolved(reason string) {
-	domainMappingCondSet.Manage(dms).MarkFalse(DomainMappingConditionReferenceResolved, "ResolveFailed", reason)
+	domainMappingCondSet.Manage(dms).MarkFalse(DomainMappingConditionReferenceResolved, "ResolveFailed", "%s", reason)
 }
 
 // PropagateIngressStatus updates the DomainMappingConditionIngressReady
@@ -173,8 +173,8 @@ func (dms *DomainMappingStatus) PropagateIngressStatus(cs netv1alpha1.IngressSta
 	case corev1.ConditionTrue:
 		m.MarkTrue(DomainMappingConditionIngressReady)
 	case corev1.ConditionFalse:
-		m.MarkFalse(DomainMappingConditionIngressReady, cc.Reason, cc.Message)
+		m.MarkFalse(DomainMappingConditionIngressReady, cc.Reason, "%s", cc.Message)
 	case corev1.ConditionUnknown:
-		m.MarkUnknown(DomainMappingConditionIngressReady, cc.Reason, cc.Message)
+		m.MarkUnknown(DomainMappingConditionIngressReady, cc.Reason, "%s", cc.Message)
 	}
 }

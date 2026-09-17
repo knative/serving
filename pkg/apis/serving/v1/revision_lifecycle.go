@@ -109,12 +109,12 @@ func (rs *RevisionStatus) MarkActiveTrue() {
 
 // MarkActiveFalse marks Active status on revision as False
 func (rs *RevisionStatus) MarkActiveFalse(reason, message string) {
-	revisionCondSet.Manage(rs).MarkFalse(RevisionConditionActive, reason, message)
+	revisionCondSet.Manage(rs).MarkFalse(RevisionConditionActive, reason, "%s", message)
 }
 
 // MarkActiveUnknown marks Active status on revision as Unknown
 func (rs *RevisionStatus) MarkActiveUnknown(reason, message string) {
-	revisionCondSet.Manage(rs).MarkUnknown(RevisionConditionActive, reason, message)
+	revisionCondSet.Manage(rs).MarkUnknown(RevisionConditionActive, reason, "%s", message)
 }
 
 // MarkContainerHealthyTrue marks ContainerHealthy status on revision as True
@@ -143,12 +143,12 @@ func (rs *RevisionStatus) MarkResourcesAvailableTrue() {
 
 // MarkResourcesAvailableFalse marks ResourcesAvailable status on revision as False
 func (rs *RevisionStatus) MarkResourcesAvailableFalse(reason, message string) {
-	revisionCondSet.Manage(rs).MarkFalse(RevisionConditionResourcesAvailable, reason, message)
+	revisionCondSet.Manage(rs).MarkFalse(RevisionConditionResourcesAvailable, reason, "%s", message)
 }
 
 // MarkResourcesAvailableUnknown marks ResourcesAvailable status on revision as Unknown
 func (rs *RevisionStatus) MarkResourcesAvailableUnknown(reason, message string) {
-	revisionCondSet.Manage(rs).MarkUnknown(RevisionConditionResourcesAvailable, reason, message)
+	revisionCondSet.Manage(rs).MarkUnknown(RevisionConditionResourcesAvailable, reason, "%s", message)
 }
 
 // PropagateDeploymentStatus takes the Deployment status and applies its values
@@ -162,9 +162,9 @@ func (rs *RevisionStatus) PropagateDeploymentStatus(original *appsv1.DeploymentS
 	case corev1.ConditionTrue:
 		m.MarkTrue(RevisionConditionResourcesAvailable)
 	case corev1.ConditionFalse:
-		m.MarkFalse(RevisionConditionResourcesAvailable, cond.Reason, cond.Message)
+		m.MarkFalse(RevisionConditionResourcesAvailable, cond.Reason, "%s", cond.Message)
 	case corev1.ConditionUnknown:
-		m.MarkUnknown(RevisionConditionResourcesAvailable, cond.Reason, cond.Message)
+		m.MarkUnknown(RevisionConditionResourcesAvailable, cond.Reason, "%s", cond.Message)
 	}
 }
 

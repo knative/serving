@@ -17,7 +17,6 @@ limitations under the License.
 package v1
 
 import (
-	"fmt"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -82,21 +81,21 @@ func (rs *RouteStatus) InitializeConditions() {
 // there is a pre-existing placeholder service with the name we wanted to use.
 func (rs *RouteStatus) MarkServiceNotOwned(name string) {
 	routeCondSet.Manage(rs).MarkFalse(RouteConditionIngressReady, "NotOwned",
-		fmt.Sprintf("There is an existing placeholder Service %q that we do not own.", name))
+		"There is an existing placeholder Service %q that we do not own.", name)
 }
 
 // MarkEndpointNotOwned changes the IngressReady status to be false with the reason being that
 // there is a pre-existing placeholder endpoint with the name we wanted to use.
 func (rs *RouteStatus) MarkEndpointNotOwned(name string) {
 	routeCondSet.Manage(rs).MarkFalse(RouteConditionIngressReady, "NotOwned",
-		fmt.Sprintf("There is an existing placeholder Endpoint %q that we do not own.", name))
+		"There is an existing placeholder Endpoint %q that we do not own.", name)
 }
 
 // MarkIngressRolloutInProgress changes the IngressReady condition to be unknown to reflect
 // that a gradual rollout of the latest new revision (or stacked revisions) is in progress.
 func (rs *RouteStatus) MarkIngressRolloutInProgress() {
-	routeCondSet.Manage(rs).MarkUnknown(RouteConditionIngressReady,
-		"RolloutInProgress", "A gradual rollout of the latest revision(s) is in progress.")
+	routeCondSet.Manage(rs).MarkUnknown(RouteConditionIngressReady, "RolloutInProgress",
+		"%s", "A gradual rollout of the latest revision(s) is in progress.")
 }
 
 // MarkIngressNotConfigured changes the IngressReady condition to be unknown to reflect
@@ -114,13 +113,13 @@ func (rs *RouteStatus) MarkTrafficAssigned() {
 // MarkUnknownTrafficError marks the RouteConditionAllTrafficAssigned condition
 // to indicate an error has occurred.
 func (rs *RouteStatus) MarkUnknownTrafficError(msg string) {
-	routeCondSet.Manage(rs).MarkUnknown(RouteConditionAllTrafficAssigned, "Unknown", msg)
+	routeCondSet.Manage(rs).MarkUnknown(RouteConditionAllTrafficAssigned, "Unknown", "%s", msg)
 }
 
 // MarkRevisionTargetTrafficError marks the RouteConditionAllTrafficAssigned condition
 // to indicate an error has occurred wrt a revision target.
 func (rs *RouteStatus) MarkRevisionTargetTrafficError(reason, msg string) {
-	routeCondSet.Manage(rs).MarkFalse(RouteConditionAllTrafficAssigned, reason, msg)
+	routeCondSet.Manage(rs).MarkFalse(RouteConditionAllTrafficAssigned, reason, "%s", msg)
 }
 
 // MarkConfigurationNotReady marks the RouteConditionAllTrafficAssigned
@@ -230,7 +229,7 @@ const (
 // certificate config such as external-domain-tls is not enabled or private cluster-local service.
 func (rs *RouteStatus) MarkTLSNotEnabled(msg string) {
 	routeCondSet.Manage(rs).MarkTrueWithReason(RouteConditionCertificateProvisioned,
-		"TLSNotEnabled", msg)
+		"TLSNotEnabled", "%s", msg)
 }
 
 // MarkHTTPDowngrade sets RouteConditionCertificateProvisioned to true when plain
@@ -255,8 +254,8 @@ func (rs *RouteStatus) PropagateIngressStatus(cs v1alpha1.IngressStatus) {
 	case corev1.ConditionTrue:
 		m.MarkTrue(RouteConditionIngressReady)
 	case corev1.ConditionFalse:
-		m.MarkFalse(RouteConditionIngressReady, cc.Reason, cc.Message)
+		m.MarkFalse(RouteConditionIngressReady, cc.Reason, "%s", cc.Message)
 	case corev1.ConditionUnknown:
-		m.MarkUnknown(RouteConditionIngressReady, cc.Reason, cc.Message)
+		m.MarkUnknown(RouteConditionIngressReady, cc.Reason, "%s", cc.Message)
 	}
 }

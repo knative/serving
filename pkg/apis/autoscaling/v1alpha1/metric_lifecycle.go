@@ -60,12 +60,12 @@ func (ms *MetricStatus) MarkMetricReady() {
 
 // MarkMetricNotReady marks the metric status as ready == Unknown
 func (ms *MetricStatus) MarkMetricNotReady(reason, message string) {
-	condSet.Manage(ms).MarkUnknown(MetricConditionReady, reason, message)
+	condSet.Manage(ms).MarkUnknown(MetricConditionReady, reason, "%s", message)
 }
 
 // MarkMetricFailed marks the metric status as failed
 func (ms *MetricStatus) MarkMetricFailed(reason, message string) {
-	condSet.Manage(ms).MarkFalse(MetricConditionReady, reason, message)
+	condSet.Manage(ms).MarkFalse(MetricConditionReady, reason, "%s", message)
 }
 
 // IsReady returns true if the Status condition MetricConditionReady

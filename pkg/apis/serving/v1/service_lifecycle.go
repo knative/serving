@@ -17,8 +17,6 @@ limitations under the License.
 package v1
 
 import (
-	"fmt"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -70,14 +68,14 @@ func (ss *ServiceStatus) InitializeConditions() {
 // been created and we do not own it.
 func (ss *ServiceStatus) MarkConfigurationNotOwned(name string) {
 	serviceCondSet.Manage(ss).MarkFalse(ServiceConditionConfigurationsReady, "NotOwned",
-		fmt.Sprintf("There is an existing Configuration %q that we do not own.", name))
+		"There is an existing Configuration %q that we do not own.", name)
 }
 
 // MarkRouteNotOwned surfaces a failure via the RoutesReady status noting that the Route
 // with the name we want has already been created and we do not own it.
 func (ss *ServiceStatus) MarkRouteNotOwned(name string) {
 	serviceCondSet.Manage(ss).MarkFalse(ServiceConditionRoutesReady, "NotOwned",
-		fmt.Sprintf("There is an existing Route %q that we do not own.", name))
+		"There is an existing Route %q that we do not own.", name)
 }
 
 // MarkConfigurationNotReconciled notes that the Configuration controller has not yet
@@ -98,11 +96,11 @@ func (ss *ServiceStatus) PropagateConfigurationStatus(cs *ConfigurationStatus) {
 	}
 	switch cc.Status {
 	case corev1.ConditionUnknown:
-		serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
+		serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionConfigurationsReady, cc.Reason, "%s", cc.Message)
 	case corev1.ConditionTrue:
 		serviceCondSet.Manage(ss).MarkTrue(ServiceConditionConfigurationsReady)
 	case corev1.ConditionFalse:
-		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionConfigurationsReady, cc.Reason, cc.Message)
+		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionConfigurationsReady, cc.Reason, "%s", cc.Message)
 	}
 }
 
@@ -140,8 +138,8 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs *RouteStatus) {
 	case corev1.ConditionTrue:
 		m.MarkTrue(ServiceConditionRoutesReady)
 	case corev1.ConditionFalse:
-		m.MarkFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
+		m.MarkFalse(ServiceConditionRoutesReady, rc.Reason, "%s", rc.Message)
 	case corev1.ConditionUnknown:
-		m.MarkUnknown(ServiceConditionRoutesReady, rc.Reason, rc.Message)
+		m.MarkUnknown(ServiceConditionRoutesReady, rc.Reason, "%s", rc.Message)
 	}
 }

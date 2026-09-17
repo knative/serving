@@ -222,7 +222,7 @@ func (pas *PodAutoscalerStatus) MarkSKSReady() {
 
 // MarkSKSNotReady marks the PA condition that denotes SKS is not yet ready.
 func (pas *PodAutoscalerStatus) MarkSKSNotReady(mes string) {
-	podCondSet.Manage(pas).MarkUnknown(PodAutoscalerConditionSKSReady, "NotReady", mes)
+	podCondSet.Manage(pas).MarkUnknown(PodAutoscalerConditionSKSReady, "NotReady", "%s", mes)
 }
 
 // GetCondition gets the condition `t`.
@@ -242,12 +242,12 @@ func (pas *PodAutoscalerStatus) MarkActive() {
 
 // MarkActivating marks the PA as activating.
 func (pas *PodAutoscalerStatus) MarkActivating(reason, message string) {
-	podCondSet.Manage(pas).MarkUnknown(PodAutoscalerConditionActive, reason, message)
+	podCondSet.Manage(pas).MarkUnknown(PodAutoscalerConditionActive, reason, "%s", message)
 }
 
 // MarkInactive marks the PA as inactive.
 func (pas *PodAutoscalerStatus) MarkInactive(reason, message string) {
-	podCondSet.Manage(pas).MarkFalse(PodAutoscalerConditionActive, reason, message)
+	podCondSet.Manage(pas).MarkFalse(PodAutoscalerConditionActive, reason, "%s", message)
 }
 
 // MarkResourceNotOwned changes the "Active" condition to false to reflect that the
