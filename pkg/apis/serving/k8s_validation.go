@@ -925,6 +925,17 @@ func validateProbe(p *corev1.Probe, port *corev1.ContainerPort, isUserContainer 
 	} else if len(handlers) > 1 {
 		errs = errs.Also(apis.ErrMultipleOneOf(handlers...))
 	}
+
+	// Validate TerminationGracePeriodSeconds if set
+	if p.TerminationGracePeriodSeconds != nil {
+		if *p.TerminationGracePeriodSeconds < 0 {
+			errs = errs.Also(&apis.FieldError{
+				Message: "terminationGracePeriodSeconds must be non-negative",
+				Paths:   []string{"terminationGracePeriodSeconds"},
+			})
+		}
+	}
+
 	return errs
 }
 
