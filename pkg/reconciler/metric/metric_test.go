@@ -19,6 +19,7 @@ package metric
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -36,21 +37,38 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	metricreconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/metric"
 
-	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
-
+	filteredinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
+	_ "knative.dev/pkg/client/injection/kube/informers/factory/filtered/fake"
 	. "knative.dev/pkg/reconciler/testing"
+	revisionresources "knative.dev/serving/pkg/reconciler/revision/resources"
+
+	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
+	autoscalerinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
 )
 
 type collectorKey struct{}
 
 func TestNewController(t *testing.T) {
-	ctx, _ := SetupFakeContext(t)
+	ctx, cancel, infs := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
+		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+	})
+	waitInformers, err := RunAndSyncInformers(ctx, infs...)
+	if err != nil {
+		t.Fatal("Error starting up informers:", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
 	c := NewController(ctx, configmap.NewStaticWatcher(), &testCollector{})
 	if c == nil {
 		t.Fatal("Expected NewController to return a non-nil value")
@@ -172,8 +190,10 @@ func TestReconcile(t *testing.T) {
 		if c := ctx.Value(collectorKey{}); c != nil {
 			col = c.(*testCollector)
 		}
+
 		r := &reconciler{
 			collector: col,
+			paLister:  listers.GetPodAutoscalerLister(),
 		}
 
 		return metricreconciler.NewReconciler(ctx, logging.FromContext(ctx),
@@ -183,7 +203,9 @@ func TestReconcile(t *testing.T) {
 }
 
 func TestReconcileWithCollector(t *testing.T) {
-	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	ctx, cancel, informers := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
+		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+	})
 
 	collector := &testCollector{}
 
@@ -206,8 +228,11 @@ func TestReconcileWithCollector(t *testing.T) {
 	})
 
 	m := metric("a-new", "test-metric")
+	a := kpa(m.Namespace, m.Name)
+
 	scs := servingclient.Get(ctx)
 
+	scs.AutoscalingV1alpha1().PodAutoscalers(a.Namespace).Create(ctx, a, metav1.CreateOptions{})
 	scs.AutoscalingV1alpha1().Metrics(m.Namespace).Create(ctx, m, metav1.CreateOptions{})
 
 	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
@@ -221,6 +246,68 @@ func TestReconcileWithCollector(t *testing.T) {
 		return collector.deleteCalls.Load() > 0, nil
 	}); err != nil {
 		t.Fatal("Delete() called 0 times, want non-zero times")
+	}
+}
+
+func TestReconcilePaused(t *testing.T) {
+	ctx, cancel, informers := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
+		return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
+	})
+
+	collector := &testCollector{}
+
+	ctl := NewController(ctx, configmap.NewStaticWatcher(), collector)
+	wf, err := RunAndSyncInformers(ctx, informers...)
+	if err != nil {
+		cancel()
+		t.Fatal("RunAndSyncInformers() =", err)
+	}
+
+	var eg errgroup.Group
+	defer func() {
+		cancel()
+		wf()
+		eg.Wait()
+	}()
+
+	eg.Go(func() error {
+		return ctl.RunContext(ctx, 1)
+	})
+
+	m := metric("a-new", "test-metric")
+	a := kpa(m.Namespace, m.Name)
+	scs := servingclient.Get(ctx)
+
+	scs.AutoscalingV1alpha1().Metrics(m.Namespace).Create(ctx, m, metav1.CreateOptions{})
+	metricinformer.Get(ctx).Informer().GetIndexer().Add(m)
+
+	scs.AutoscalingV1alpha1().PodAutoscalers(a.Namespace).Create(ctx, a, metav1.CreateOptions{})
+	autoscalerinformer.Get(ctx).Informer().GetIndexer().Add(a)
+
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 1*time.Second, false, func(context.Context) (bool, error) {
+		return !collector.paused.Load(), nil
+	}); err != nil {
+		t.Fatal("collector is paused, should not be paused")
+	}
+
+	// pause metrics
+	a.Status.MetricsPaused = true
+	updatePodAutoscaler(t, ctx, a)
+
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 1*time.Second, false, func(context.Context) (bool, error) {
+		return collector.paused.Load(), nil
+	}); err != nil {
+		t.Fatal("collector is not paused, should be paused")
+	}
+
+	// test when empty revision label found
+	m.Labels[serving.RevisionLabelKey] = ""
+	updateMetric(t, ctx, m)
+
+	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 1*time.Second, false, func(context.Context) (bool, error) {
+		return !collector.paused.Load(), nil
+	}); err != nil {
+		t.Fatal("collector is paused, should not be paused")
 	}
 }
 
@@ -242,11 +329,24 @@ func ready(m *autoscalingv1alpha1.Metric) {
 	m.Status.MarkMetricReady()
 }
 
+func updateMetric(
+	t *testing.T,
+	ctx context.Context,
+	m *autoscalingv1alpha1.Metric,
+) {
+	t.Helper()
+	servingclient.Get(ctx).AutoscalingV1alpha1().Metrics(m.Namespace).Update(ctx, m, metav1.UpdateOptions{})
+	metricinformer.Get(ctx).Informer().GetIndexer().Update(m)
+}
+
 func metric(namespace, name string, opts ...metricOption) *autoscalingv1alpha1.Metric {
 	m := &autoscalingv1alpha1.Metric{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,
+			Labels: map[string]string{
+				serving.RevisionLabelKey: name,
+			},
 		},
 		Spec: autoscalingv1alpha1.MetricSpec{
 			// Doesn't really matter what is by default, but we need something, so that
@@ -260,12 +360,52 @@ func metric(namespace, name string, opts ...metricOption) *autoscalingv1alpha1.M
 	return m
 }
 
+func newTestRevision(namespace, name string) *v1.Revision {
+	return &v1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			SelfLink:  fmt.Sprintf("/apis/ela/v1/namespaces/%s/revisions/%s", namespace, name),
+			Name:      name,
+			Namespace: namespace,
+			Annotations: map[string]string{
+				autoscaling.ClassAnnotationKey: autoscaling.KPA,
+			},
+			Labels: map[string]string{
+				serving.ServiceLabelKey:       "test-service",
+				serving.ConfigurationLabelKey: "test-service",
+			},
+		},
+		Spec: v1.RevisionSpec{},
+	}
+}
+
+func updatePodAutoscaler(
+	t *testing.T,
+	ctx context.Context,
+	pa *autoscalingv1alpha1.PodAutoscaler,
+) {
+	t.Helper()
+	servingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Update(ctx, pa, metav1.UpdateOptions{})
+	autoscalerinformer.Get(ctx).Informer().GetIndexer().Update(pa)
+}
+
+func kpa(ns, n string) *autoscalingv1alpha1.PodAutoscaler {
+	rev := newTestRevision(ns, n)
+	kpa := revisionresources.MakePA(rev, nil)
+	kpa.Generation = 1
+	kpa.Annotations[autoscaling.ClassAnnotationKey] = "kpa.autoscaling.knative.dev"
+	kpa.Annotations[autoscaling.MetricAnnotationKey] = "concurrency"
+	kpa.Status.MetricsPaused = false
+	kpa.Status.InitializeConditions()
+	return kpa
+}
+
 type testCollector struct {
 	metrics.Collector
 	createOrUpdateCalls atomic.Int32
 	createOrUpdateError error
 
 	deleteCalls atomic.Int32
+	paused      atomic.Bool
 }
 
 func (c *testCollector) CreateOrUpdate(metric *autoscalingv1alpha1.Metric) error {
@@ -278,3 +418,11 @@ func (c *testCollector) Delete(namespace, name string) {
 }
 
 func (c *testCollector) Watch(func(types.NamespacedName)) {}
+
+func (c *testCollector) Pause(metric *autoscalingv1alpha1.Metric) {
+	c.paused.Store(true)
+}
+
+func (c *testCollector) Resume(metric *autoscalingv1alpha1.Metric) {
+	c.paused.Store(false)
+}

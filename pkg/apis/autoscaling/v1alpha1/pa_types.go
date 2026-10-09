@@ -127,6 +127,9 @@ type PodAutoscalerStatus struct {
 
 	// ActualScale shows the actual number of replicas for the revision.
 	ActualScale *int32 `json:"actualScale,omitempty"`
+
+	// MetricsPaused to determine whether metric scraping should be paused
+	MetricsPaused bool `json:"metricsPaused,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
