@@ -364,6 +364,9 @@ func (cb *configBuilder) addConfigurationTarget(tt *v1.TrafficTarget) error {
 		return err
 	}
 	if !rev.IsReady() {
+		if config.Status.LatestCreatedRevisionName != config.Status.LatestReadyRevisionName {
+			return errUnreadyConfiguration(config)
+		}
 		return errUnreadyRevision(rev)
 	}
 	ntt := tt.DeepCopy()
