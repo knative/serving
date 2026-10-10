@@ -127,6 +127,18 @@ func (dms *DomainMappingStatus) MarkIngressNotConfigured() {
 		"IngressNotConfigured", "%s", "Ingress has not yet been reconciled.")
 }
 
+// MarkTargetIngressNotConfigured marks DomainMappingConditionIngressReady unknown.
+func (dms *DomainMappingStatus) MarkTargetIngressNotConfigured(message string) {
+	domainMappingCondSet.Manage(dms).MarkUnknown(DomainMappingConditionIngressReady,
+		"IngressNotConfigured", message)
+}
+
+// MarkTargetNotOwned marks DomainMappingConditionIngressReady false.
+func (dms *DomainMappingStatus) MarkTargetNotOwned(message string) {
+	domainMappingCondSet.Manage(dms).MarkFalse(DomainMappingConditionIngressReady,
+		"NotOwned", message)
+}
+
 // MarkDomainClaimed updates the DomainMappingConditionDomainClaimed condition
 // to indicate that the domain was successfully claimed.
 func (dms *DomainMappingStatus) MarkDomainClaimed() {
