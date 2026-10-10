@@ -17,6 +17,7 @@ limitations under the License.
 package certificate
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -72,6 +73,24 @@ func TestReconcile(t *testing.T) {
 		secret:       secret,
 		configMap:    invalidConfigmap,
 		expectedPool: getPoolWithCerts(secretCA),
+	}, {
+		name: "Multiple CAs in secret",
+		secret: func() *corev1.Secret {
+			s := secret.DeepCopy()
+			s.Data[certificates.CaCertName] = bytes.Join([][]byte{secretCA, newCA}, []byte("\n"))
+			return s
+		}(),
+		configMap:    nil,
+		expectedPool: getPoolWithCerts(secretCA, newCA),
+	}, {
+		name: "Invalid CA in secret",
+		secret: func() *corev1.Secret {
+			s := secret.DeepCopy()
+			s.Data[certificates.CaCertName] = []byte("not a CA")
+			return s
+		}(),
+		configMap:    validConfigmap,
+		expectedPool: getPoolWithCerts(configmapCA),
 	}}
 
 	for _, test := range tests {

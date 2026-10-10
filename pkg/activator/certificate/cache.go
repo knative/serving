@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"sync"
 
@@ -141,14 +140,12 @@ func (cr *CertCache) addSecretCAIfPresent(pool *x509.CertPool) {
 		cr.logger.Warnf("Failed to get secret %s/%s: %v", system.Namespace(), netcfg.ServingRoutingCertName, zap.Error(err))
 		return
 	}
-	if len(secret.Data[certificates.CaCertName]) > 0 {
-		block, _ := pem.Decode(secret.Data[certificates.CaCertName])
-		ca, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			cr.logger.Warnf("CA from Secret %s/%s[%s] is invalid and will be ignored: %v",
-				system.Namespace(), netcfg.ServingRoutingCertName, certificates.CaCertName, err)
-		} else {
-			pool.AddCert(ca)
+	// The CA data can hold more than one PEM-encoded certificate, for example
+	// while a CA is being rotated, so all of them have to be trusted.
+	if ca := secret.Data[certificates.CaCertName]; len(ca) > 0 {
+		if ok := pool.AppendCertsFromPEM(ca); !ok {
+			cr.logger.Warnf("CA from Secret %s/%s[%s] does not contain any valid PEM-encoded certificate and will be ignored",
+				system.Namespace(), netcfg.ServingRoutingCertName, certificates.CaCertName)
 		}
 	}
 }
