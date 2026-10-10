@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "c727b3e8"
+    knative.dev/example-checksum: "5671401b"
 data:
   _example: |
     ################################
@@ -171,8 +171,15 @@ data:
     # The capacity of a single activator task.
     # The `unit` is one concurrent request proxied by the activator.
     # activator-capacity must be at least 1.
-    # This value is used for computation of the Activator subset size.
-    # See the algorithm here: https://bit.ly/38XiCZ3.
+    # This value is used for computation of the Activator subset size, i.e.
+    # the number of activators that the requests of a revision are spread
+    # across:
+    #   ceil((ready pods * per-pod target + target-burst-capacity) / activator-capacity)
+    # where the per-pod target is the scaling target of the revision before
+    # the target utilization (e.g. container-concurrency-target-percentage)
+    # is applied. A negative target-burst-capacity is not added. The subset
+    # size is never less than 2, and is exactly 2 when target-burst-capacity
+    # is 0.
     # TODO(vagababov): tune after actual benchmarking.
     activator-capacity: "100.0"
 
