@@ -1,8 +1,8 @@
 # The OWNERS file is used by prow to automatically merge approved PRs.
 
 approvers:
+- steering-committee
 - knative-release-leads
-- technical-oversight-committee
 - serving-wg-leads
 - serving-writers
 
