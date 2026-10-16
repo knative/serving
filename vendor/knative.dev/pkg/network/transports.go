@@ -72,6 +72,10 @@ func NewBackoffDialer(backoffConfig wait.Backoff) func(context.Context, string, 
 }
 
 // DialTLSWithBackOff is same with DialWithBackOff but takes tls config.
+//
+// ALPN contract: when tlsConf.NextProtos is empty, the dialer applies the
+// protocols requested via the dial context (see withH2ALPN), so the h2
+// transport negotiates h2. A caller that sets NextProtos itself is untouched.
 var DialTLSWithBackOff = NewTLSBackoffDialer(backOffTemplate)
 
 // NewTLSBackoffDialer is same with NewBackoffDialer but takes tls config.
@@ -81,11 +85,31 @@ func NewTLSBackoffDialer(backoffConfig wait.Backoff) func(context.Context, strin
 	}
 }
 
+// alpnContextKey carries requested ALPN protocols from the transport to the
+// dialer. ALPN intent (h2 vs HTTP/1.1) is known at the transport, but the
+// tls.Config is built by the caller and reaches only the shared dialer, and
+// net/http's custom DialTLSContext hook carries no *tls.Config. So the protocols
+// are passed out-of-band through the dial context, keeping DialTLSContextFunc
+// unchanged (the alternative is a breaking API change to pass them explicitly).
+type alpnContextKey struct{}
+
+// withH2ALPN requests h2 ALPN for dials on ctx.
+func withH2ALPN(ctx context.Context) context.Context {
+	return context.WithValue(ctx, alpnContextKey{}, []string{"h2"})
+}
+
 func dialBackOffHelper(ctx context.Context, network, address string, bo wait.Backoff, tlsConf *tls.Config) (net.Conn, error) {
+	// net/http sets no ALPN for custom TLS dialers; apply requested protocols
+	// when the caller set none.
+	if tlsConf != nil && len(tlsConf.NextProtos) == 0 {
+		if protos, ok := ctx.Value(alpnContextKey{}).([]string); ok {
+			tlsConf = tlsConf.Clone()
+			tlsConf.NextProtos = protos
+		}
+	}
 	dialer := &net.Dialer{
 		Timeout:   bo.Duration, // Initial duration.
 		KeepAlive: 5 * time.Second,
-		DualStack: true,
 	}
 	start := time.Now()
 	for {

@@ -116,7 +116,7 @@ func getPrefixedNamedFieldValues(prefix string, obj interface{}) (map[string]ref
 // getInterface returns the interface value of the reflected object.
 func getInterface(a reflect.Value) interface{} {
 	switch a.Kind() {
-	case reflect.Ptr:
+	case reflect.Pointer:
 		if a.IsNil() {
 			return nil
 		}
@@ -137,7 +137,7 @@ func getInterface(a reflect.Value) interface{} {
 // nonZero returns true if a is nil or reflect.Zero.
 func nonZero(a reflect.Value) bool {
 	switch a.Kind() {
-	case reflect.Ptr:
+	case reflect.Pointer:
 		if a.IsNil() {
 			return false
 		}
@@ -168,7 +168,7 @@ func differ(a, b reflect.Value) bool {
 	}
 
 	switch a.Kind() {
-	case reflect.Ptr:
+	case reflect.Pointer:
 		if a.IsNil() || b.IsNil() {
 			return a.IsNil() != b.IsNil()
 		}
