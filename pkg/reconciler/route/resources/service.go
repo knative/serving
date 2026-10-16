@@ -26,6 +26,7 @@ import (
 
 	netapi "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
+	"knative.dev/pkg/kmap"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -172,7 +173,7 @@ func makeServiceObjectMeta(hostname string, route *v1.Route) metav1.ObjectMeta {
 			// This service is owned by the Route.
 			*kmeta.NewControllerRef(route),
 		},
-		Labels: kmeta.UnionMaps(kmeta.FilterMap(route.GetLabels(), func(key string) bool {
+		Labels: kmap.Union(kmap.Filter(route.GetLabels(), func(key string) bool {
 			// Do not propagate the visibility label from Route as users may want to set the label
 			// in the specific k8s svc for subroute. see https://github.com/knative/serving/pull/4560.
 			return key == netapi.VisibilityLabelKey

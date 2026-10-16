@@ -20,6 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"knative.dev/pkg/kmap"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -35,10 +36,10 @@ func MakeRoute(service *v1.Service) *v1.Route {
 			OwnerReferences: []metav1.OwnerReference{
 				*kmeta.NewControllerRef(service),
 			},
-			Annotations: kmeta.FilterMap(service.GetAnnotations(), func(key string) bool {
+			Annotations: kmap.Filter(service.GetAnnotations(), func(key string) bool {
 				return key == corev1.LastAppliedConfigAnnotation
 			}),
-			Labels: kmeta.UnionMaps(service.GetLabels(), map[string]string{
+			Labels: kmap.Union(service.GetLabels(), map[string]string{
 				// Add this service's name to the route annotations.
 				serving.ServiceLabelKey: service.Name,
 			}),

@@ -23,9 +23,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/kmap"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -139,7 +140,7 @@ func WithResourceRequirements(resourceRequirements corev1.ResourceRequirements) 
 // WithServiceAnnotation adds the given annotation to the service.
 func WithServiceAnnotation(k, v string) ServiceOption {
 	return func(svc *v1.Service) {
-		svc.Annotations = kmeta.UnionMaps(svc.Annotations, map[string]string{
+		svc.Annotations = kmap.Union(svc.Annotations, map[string]string{
 			k: v,
 		})
 	}
@@ -148,7 +149,7 @@ func WithServiceAnnotation(k, v string) ServiceOption {
 // WithServiceAnnotationRemoved removes the given annotation from the service.
 func WithServiceAnnotationRemoved(k string) ServiceOption {
 	return func(svc *v1.Service) {
-		svc.Annotations = kmeta.FilterMap(svc.Annotations, func(s string) bool {
+		svc.Annotations = kmap.Filter(svc.Annotations, func(s string) bool {
 			return k == s
 		})
 	}
@@ -157,7 +158,7 @@ func WithServiceAnnotationRemoved(k string) ServiceOption {
 // WithServiceLabelRemoved removes the given label from the service.
 func WithServiceLabelRemoved(k string) ServiceOption {
 	return func(svc *v1.Service) {
-		svc.Labels = kmeta.FilterMap(svc.Labels, func(s string) bool {
+		svc.Labels = kmap.Filter(svc.Labels, func(s string) bool {
 			return k == s
 		})
 	}
@@ -268,14 +269,14 @@ func WithWorkingDir(wd string) ServiceOption {
 // WithServiceAnnotations adds the supplied annotations to the Service
 func WithServiceAnnotations(annotations map[string]string) ServiceOption {
 	return func(service *v1.Service) {
-		service.Annotations = kmeta.UnionMaps(service.Annotations, annotations)
+		service.Annotations = kmap.Union(service.Annotations, annotations)
 	}
 }
 
 // WithConfigAnnotations assigns config annotations to a service
 func WithConfigAnnotations(annotations map[string]string) ServiceOption {
 	return func(service *v1.Service) {
-		service.Spec.Template.Annotations = kmeta.UnionMaps(
+		service.Spec.Template.Annotations = kmap.Union(
 			service.Spec.Template.Annotations, annotations)
 	}
 }

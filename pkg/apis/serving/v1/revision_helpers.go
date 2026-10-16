@@ -20,8 +20,9 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+
 	net "knative.dev/networking/pkg/apis/networking"
-	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/kmap"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
@@ -114,10 +115,10 @@ func (r *Revision) SetRoutingState(state RoutingState, tm time.Time) {
 		return // Don't update timestamp if no change.
 	}
 
-	r.Labels = kmeta.UnionMaps(r.Labels,
+	r.Labels = kmap.Union(r.Labels,
 		map[string]string{serving.RoutingStateLabelKey: stateStr})
 
-	r.Annotations = kmeta.UnionMaps(r.Annotations,
+	r.Annotations = kmap.Union(r.Annotations,
 		map[string]string{
 			serving.RoutingStateModifiedAnnotationKey: RoutingStateModifiedString(tm),
 		},

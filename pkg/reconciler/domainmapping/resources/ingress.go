@@ -23,6 +23,7 @@ import (
 	netapi "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	netheader "knative.dev/networking/pkg/http/header"
+	"knative.dev/pkg/kmap"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
@@ -80,10 +81,10 @@ func MakeIngress(dm *servingv1beta1.DomainMapping, backendServiceName, hostName,
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kmeta.ChildName(dm.GetName(), ""),
 			Namespace: dm.Namespace,
-			Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
+			Annotations: kmap.Filter(kmap.Union(map[string]string{
 				netapi.IngressClassAnnotationKey: ingressClass,
 			}, dm.GetAnnotations()), routeresources.ExcludedAnnotations.Has),
-			Labels: kmeta.UnionMaps(dm.Labels, map[string]string{
+			Labels: kmap.Union(dm.Labels, map[string]string{
 				serving.DomainMappingUIDLabelKey:       string(dm.UID),
 				serving.DomainMappingNamespaceLabelKey: dm.Namespace,
 			}),
