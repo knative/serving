@@ -142,6 +142,7 @@ func GetObservabilityConfig(ctx context.Context) (*observability.Config, error) 
 
 // EnableInjectionOrDie enables Knative Injection and starts the informers.
 // Both Context and Config are optional.
+//
 // Deprecated: use injection.EnableInjectionOrDie
 func EnableInjectionOrDie(ctx context.Context, cfg *rest.Config) context.Context {
 	ctx, startInformers := injection.EnableInjectionOrDie(ctx, cfg)

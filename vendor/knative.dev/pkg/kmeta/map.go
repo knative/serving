@@ -19,16 +19,19 @@ package kmeta
 import "knative.dev/pkg/kmap"
 
 // CopyMap makes a copy of the map.
+//
 // Deprecated: use kmap.Copy
 var CopyMap = kmap.Copy
 
 // UnionMaps returns a map constructed from the union of input maps.
 // where values from latter maps win.
+//
 // Deprecated: use kmap.Union
 var UnionMaps = kmap.Union
 
 // FilterMap creates a copy of the provided map, filtering out the elements
 // that match `filter`.
 // nil `filter` is accepted.
+//
 // Deprecated: use kmap.Filter
 var FilterMap = kmap.Filter

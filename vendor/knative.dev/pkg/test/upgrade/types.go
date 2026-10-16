@@ -111,6 +111,7 @@ type Configuration struct {
 // logger configuration options.
 type LogConfig struct {
 	// Config from which the zap.Logger be created.
+	//
 	// Deprecated: This config doesn't have effect. Use Options instead.
 	Config zap.Config
 	// Options holds options for the zap.Logger.

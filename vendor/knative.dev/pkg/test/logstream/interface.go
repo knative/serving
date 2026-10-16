@@ -66,6 +66,7 @@ func Start(t ti) Canceler {
 }
 
 func initStream(namespaces []string) (streamer, error) {
+	//nolint:staticcheck // test.Flags is the intended entry point for this legacy test helper.
 	config, err := test.Flags.GetRESTConfig()
 	if err != nil {
 		return &null{}, fmt.Errorf("error loading client config: %w", err)
