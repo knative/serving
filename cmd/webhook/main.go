@@ -26,6 +26,7 @@ import (
 	"knative.dev/pkg/leaderelection"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/signals"
+	"knative.dev/pkg/system"
 	"knative.dev/pkg/webhook"
 	"knative.dev/pkg/webhook/certificates"
 	"knative.dev/pkg/webhook/configmaps"
@@ -81,7 +82,7 @@ var callbacks = map[schema.GroupVersionKind]validation.Callback{
 func newDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	// Decorate contexts with the current state of the config.
 	store := apisconfig.NewStore(logging.FromContext(ctx).Named("config-store"))
-	store.WatchConfigs(cmw)
+	store.WatchConfigsWithDefaults(cmw, system.Namespace())
 
 	return defaulting.NewAdmissionController(ctx,
 
@@ -106,7 +107,7 @@ func newDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher
 func newValidationAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	// Decorate contexts with the current state of the config.
 	store := apisconfig.NewStore(logging.FromContext(ctx).Named("config-store"))
-	store.WatchConfigs(cmw)
+	store.WatchConfigsWithDefaults(cmw, system.Namespace())
 
 	return validation.NewAdmissionController(ctx,
 
