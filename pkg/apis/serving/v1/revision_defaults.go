@@ -138,6 +138,7 @@ func (rs *RevisionSpec) applyDefault(ctx context.Context, container *corev1.Cont
 	}
 	rs.applyReadinessProbeDefaults(container)
 	rs.applyGRPCProbeDefaults(container)
+	rs.applyLivenessProbeDefaults(container)
 
 	if rs.PodSpec.EnableServiceLinks == nil && apis.IsInCreate(ctx) {
 		rs.PodSpec.EnableServiceLinks = cfg.Defaults.EnableServiceLinks
@@ -200,6 +201,14 @@ func (*RevisionSpec) applyGRPCProbeDefaults(container *corev1.Container) {
 	}
 	if container.StartupProbe != nil && container.StartupProbe.GRPC != nil && container.StartupProbe.GRPC.Service == nil {
 		container.StartupProbe.GRPC.Service = ptr.String("")
+	}
+}
+
+// applyLivenessProbeDefaults applies default TerminationGracePeriodSeconds to liveness probe
+func (*RevisionSpec) applyLivenessProbeDefaults(container *corev1.Container) {
+	if container.LivenessProbe != nil && container.LivenessProbe.TerminationGracePeriodSeconds == nil {
+		// Default to 1 second for liveness probe termination grace period
+		container.LivenessProbe.TerminationGracePeriodSeconds = ptr.Int64(1)
 	}
 }
 
