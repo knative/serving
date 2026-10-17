@@ -35,7 +35,7 @@ import (
 	netapi "knative.dev/networking/pkg/apis/networking"
 	netcfg "knative.dev/networking/pkg/config"
 	netheader "knative.dev/networking/pkg/http/header"
-	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/kmap"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
@@ -1152,7 +1152,7 @@ func probeJSON(container *corev1.Container) string {
 }
 
 func env(overrides map[string]string) []corev1.EnvVar {
-	values := kmeta.UnionMaps(defaultEnv, overrides)
+	values := kmap.Union(defaultEnv, overrides)
 
 	env := make([]corev1.EnvVar, 0, len(values)+2)
 	for key, value := range values {

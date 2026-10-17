@@ -24,11 +24,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
 	netapi "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/pkg/kmap"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
@@ -300,7 +302,7 @@ func TestMakeIngress(t *testing.T) {
 		},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
-			tc.want.Labels = kmeta.UnionMaps(tc.dm.Labels, map[string]string{
+			tc.want.Labels = kmap.Union(tc.dm.Labels, map[string]string{
 				serving.DomainMappingUIDLabelKey:       "the-uid",
 				serving.DomainMappingNamespaceLabelKey: "the-namespace",
 			})

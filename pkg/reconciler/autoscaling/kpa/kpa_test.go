@@ -33,6 +33,7 @@ import (
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakefilteredpodsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
+	"knative.dev/pkg/kmap"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakemetricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
@@ -66,7 +67,6 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/observability/metrics/metricstest"
 	"knative.dev/pkg/ptr"
@@ -1787,7 +1787,7 @@ func makeReadyPods(num int, ns, n string) []runtime.Object {
 
 func withMinScale(minScale int) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
-		pa.Annotations = kmeta.UnionMaps(
+		pa.Annotations = kmap.Union(
 			pa.Annotations,
 			map[string]string{autoscaling.MinScaleAnnotationKey: strconv.Itoa(minScale)},
 		)
@@ -2005,7 +2005,7 @@ func TestResolveScrapeTarget(t *testing.T) {
 
 func withInitialScale(initScale int) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
-		pa.Annotations = kmeta.UnionMaps(
+		pa.Annotations = kmap.Union(
 			pa.Annotations,
 			map[string]string{autoscaling.InitialScaleAnnotationKey: strconv.Itoa(initScale)},
 		)

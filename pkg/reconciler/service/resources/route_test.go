@@ -22,7 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 
-	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/kmap"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -31,7 +31,7 @@ import (
 
 func TestRouteSpec(t *testing.T) {
 	s := createService()
-	s.Annotations = kmeta.UnionMaps(s.Annotations,
+	s.Annotations = kmap.Union(s.Annotations,
 		map[string]string{
 			serving.RolloutDurationKey: "2021s",
 		},

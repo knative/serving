@@ -26,11 +26,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
+
 	"knative.dev/serving/pkg/reconciler/route/domains"
 
 	"knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	netheader "knative.dev/networking/pkg/http/header"
+	"knative.dev/pkg/kmap"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/activator"
@@ -88,11 +90,11 @@ func MakeIngressWithRollout(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.Ingress(r),
 			Namespace: r.Namespace,
-			Labels: kmeta.UnionMaps(r.Labels, map[string]string{
+			Labels: kmap.Union(r.Labels, map[string]string{
 				serving.RouteLabelKey:          r.Name,
 				serving.RouteNamespaceLabelKey: r.Namespace,
 			}),
-			Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
+			Annotations: kmap.Filter(kmap.Union(map[string]string{
 				networking.IngressClassAnnotationKey: ingressClass,
 				networking.RolloutAnnotationKey:      serializeRollout(ctx, ro),
 			}, r.GetAnnotations()), ExcludedAnnotations.Has),

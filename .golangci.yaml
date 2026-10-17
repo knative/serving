@@ -195,6 +195,9 @@ linters:
           - staticcheck
         text: NewSimpleClientset is deprecated
       - linters:
+          - staticcheck
+        text: (pkgTest|ptest).Flags is deprecated
+      - linters:
           - gosec
           - noctx
           - protogetter
