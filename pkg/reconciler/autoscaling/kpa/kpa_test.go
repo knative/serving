@@ -809,6 +809,38 @@ func TestReconcile(t *testing.T) {
 			Patch: []byte(`[{"op":"add","path":"/spec/replicas","value":0}]`),
 		}},
 	}, {
+		Name: "activation failure is preserved after scaling to zero",
+		Key:  key,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
+			decider(testNamespace, testRevision, 0 /* desiredScale */, 0 /* ebc */)),
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, withScales(0, 0),
+				WithNoTraffic(autoscalingv1alpha1.ReasonTimedOut, "The target could not be activated."),
+				WithPASKSReady, markOld, WithPAStatusService(testRevision),
+				WithPAMetricsService(privateSvc), WithObservedGeneration(1)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
+			metric(testNamespace, testRevision),
+			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
+				d.Spec.Replicas = ptr.Int32(0)
+			}),
+		},
+	}, {
+		Name: "activation failure is preserved with unknown desired scale",
+		Key:  key,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
+			decider(testNamespace, testRevision, unknownScale, 0 /* ebc */)),
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, withScales(0, 0),
+				WithNoTraffic(autoscalingv1alpha1.ReasonTimedOut, "The target could not be activated."),
+				WithPASKSReady, markOld, WithPAStatusService(testRevision),
+				WithPAMetricsService(privateSvc), WithObservedGeneration(1)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
+			metric(testNamespace, testRevision),
+			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
+				d.Spec.Replicas = ptr.Int32(0)
+			}),
+		},
+	}, {
 		Name: "want=-1, underscaled, PA inactive",
 		// No-op
 		Key: key,
