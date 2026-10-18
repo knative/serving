@@ -2067,7 +2067,7 @@ func withInitialScale(initScale int) PodAutoscalerOption {
 
 func withMaxScale(maxScale int) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
-		pa.Annotations = kmeta.UnionMaps(
+		pa.Annotations = kmap.Union(
 			pa.Annotations,
 			map[string]string{autoscaling.MaxScaleAnnotationKey: strconv.Itoa(maxScale)},
 		)
