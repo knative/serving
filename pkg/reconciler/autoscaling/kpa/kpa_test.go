@@ -1061,6 +1061,59 @@ func TestReconcile(t *testing.T) {
 			Patch:      fmt.Appendf(nil, `[{"op":"add","path":"/spec/replicas","value":%d}]`, 20),
 		}},
 	}, {
+		Name: "initial scale > maxScale, have not reached maxScale ready pods, PA still activating",
+		Key:  key,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
+			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
+				-42 /* ebc */)),
+		Objects: append([]runtime.Object{
+			kpa(testNamespace, testRevision, WithPASKSReady, WithBufferedTraffic,
+				withScales(1, 1), WithReachabilityReachable,
+				withInitialScale(20), withMaxScale(2), WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady, WithNumActivators(3)),
+			defaultMetric, defaultDeployment,
+		}, makeReadyPods(1, testNamespace, testRevision)...),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, WithPASKSReady, WithBufferedTraffic,
+				withScales(1, 2), WithReachabilityReachable,
+				withInitialScale(20), withMaxScale(2), WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
+				WithObservedGeneration(1),
+			),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{Namespace: testNamespace},
+			Name:       deployName,
+			Patch:      fmt.Appendf(nil, `[{"op":"add","path":"/spec/replicas","value":%d}]`, 2),
+		}},
+	}, {
+		Name: "initial scale > maxScale, reaching maxScale ready pods marks PA as active",
+		Key:  key,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
+			decider(testNamespace, testRevision, defaultScale, /* desiredScale */
+				-42 /* ebc */)),
+		Objects: append([]runtime.Object{
+			kpa(testNamespace, testRevision, WithPASKSReady, WithBufferedTraffic,
+				withScales(2, 2), withInitialScale(20), withMaxScale(2), WithReachabilityReachable,
+				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
+			),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady, WithNumActivators(3)),
+			defaultMetric,
+			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
+				d.Spec.Replicas = ptr.Int32(defaultScale)
+			}),
+		}, makeReadyPods(2, testNamespace, testRevision)...),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic,
+				markScaleTargetInitialized, withScales(2, 2), withInitialScale(20), withMaxScale(2), WithReachabilityReachable,
+				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc), WithObservedGeneration(1),
+			),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{Namespace: testNamespace},
+			Name:       deployName,
+			Patch:      fmt.Appendf(nil, `[{"op":"add","path":"/spec/replicas","value":%d}]`, 2),
+		}},
+	}, {
 		Name: "initial scale zero: scale to zero",
 		Key:  key,
 		Ctx: context.WithValue(context.WithValue(context.Background(), asConfigKey{}, initialScaleZeroASConfig()), deciderKey{},
@@ -2008,6 +2061,15 @@ func withInitialScale(initScale int) PodAutoscalerOption {
 		pa.Annotations = kmap.Union(
 			pa.Annotations,
 			map[string]string{autoscaling.InitialScaleAnnotationKey: strconv.Itoa(initScale)},
+		)
+	}
+}
+
+func withMaxScale(maxScale int) PodAutoscalerOption {
+	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
+		pa.Annotations = kmeta.UnionMaps(
+			pa.Annotations,
+			map[string]string{autoscaling.MaxScaleAnnotationKey: strconv.Itoa(maxScale)},
 		)
 	}
 }
