@@ -18,13 +18,18 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"go.uber.org/zap/zaptest"
 	"k8s.io/utils/clock"
 	clocktest "k8s.io/utils/clock/testing"
@@ -629,5 +634,168 @@ func BenchmarkTimeoutHandler(b *testing.B) {
 func StaticTimeoutFunc(timeout time.Duration, requestStart time.Duration, idle time.Duration) TimeoutFunc {
 	return func(req *http.Request) (time.Duration, time.Duration, time.Duration) {
 		return timeout, requestStart, idle
+	}
+}
+
+// TestTimeoutHandlerWebSocket verifies that the response start and idle
+// timeouts observe traffic on websockets proxied through the timeout handler.
+// The 101 response and all frames are written to the hijacked connection
+// rather than the ResponseWriter.
+// See https://github.com/knative/serving/issues/16169.
+func TestTimeoutHandlerWebSocket(t *testing.T) {
+	const (
+		timeout      = 1 * time.Second
+		testDuration = 3 * timeout
+		msgInterval  = 100 * time.Millisecond
+	)
+
+	upgrader := websocket.Upgrader{}
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		delay, _ := time.ParseDuration(r.URL.Query().Get("delay"))
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		for {
+			mt, msg, err := conn.ReadMessage()
+			if err != nil {
+				return
+			}
+			time.Sleep(delay)
+			if err := conn.WriteMessage(mt, msg); err != nil {
+				return
+			}
+		}
+	}))
+	t.Cleanup(backend.Close)
+	backendURL, err := url.Parse(backend.URL)
+	if err != nil {
+		t.Fatal("Failed to parse backend URL:", err)
+	}
+
+	tests := []struct {
+		name                 string
+		responseStartTimeout time.Duration
+		idleTimeout          time.Duration
+		// echoDelay is how long the backend waits before echoing each message.
+		echoDelay time.Duration
+		wantCut   bool
+	}{{
+		name:                 "active connection outlives response start timeout",
+		responseStartTimeout: timeout,
+	}, {
+		name:        "active connection outlives idle timeout",
+		idleTimeout: timeout,
+	}, {
+		name:                 "response start timeout is satisfied by the upgrade",
+		responseStartTimeout: timeout,
+		echoDelay:            2 * timeout,
+	}, {
+		name:        "silent connection exceeds idle timeout",
+		idleTimeout: timeout,
+		echoDelay:   2 * timeout,
+		wantCut:     true,
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			proxy := httputil.NewSingleHostReverseProxy(backendURL)
+			front := httptest.NewServer(NewTimeoutHandler(proxy, "timeout",
+				StaticTimeoutFunc(time.Minute, tc.responseStartTimeout, tc.idleTimeout),
+				zaptest.NewLogger(t).Sugar()))
+			t.Cleanup(front.Close)
+
+			u := "ws" + strings.TrimPrefix(front.URL, "http") + "?delay=" + tc.echoDelay.String()
+			//nolint:bodyclose
+			conn, _, err := websocket.DefaultDialer.Dial(u, nil)
+			if err != nil {
+				t.Fatal("Failed to dial websocket:", err)
+			}
+			defer conn.Close()
+
+			start := time.Now()
+			for i := 0; time.Since(start) < testDuration; i++ {
+				want := fmt.Sprint("message ", i)
+				if err := conn.WriteMessage(websocket.TextMessage, []byte(want)); err != nil {
+					if tc.wantCut {
+						return
+					}
+					t.Fatalf("Write failed after %v: %v", time.Since(start), err)
+				}
+				_, got, err := conn.ReadMessage()
+				if err != nil {
+					if tc.wantCut {
+						return
+					}
+					t.Fatalf("Read failed after %v: %v", time.Since(start), err)
+				}
+				if string(got) != want {
+					t.Fatalf("Echo = %q, want %q", got, want)
+				}
+				time.Sleep(msgInterval)
+			}
+			if tc.wantCut {
+				t.Errorf("Connection stayed open for %v, want it closed by the timeout", time.Since(start))
+			}
+		})
+	}
+}
+
+func TestTimeoutHandlerHijackedResponseStartTimeout(t *testing.T) {
+	const timeout = 500 * time.Millisecond
+
+	tests := []struct {
+		name        string
+		write       bool
+		wantTimeout bool
+	}{{
+		name:        "nothing written after hijack",
+		wantTimeout: true,
+	}, {
+		name:  "response written after hijack",
+		write: true,
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cancelled := make(chan struct{})
+			h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				conn, brw, err := http.NewResponseController(w).Hijack()
+				if err != nil {
+					t.Error("Hijack() =", err)
+					return
+				}
+				defer conn.Close()
+				if tc.write {
+					io.WriteString(brw, "HTTP/1.1 101 Switching Protocols\r\n\r\n")
+					brw.Flush()
+				}
+				select {
+				case <-r.Context().Done():
+					close(cancelled)
+				case <-time.After(4 * timeout):
+				}
+			})
+			server := httptest.NewServer(NewTimeoutHandler(h, "timeout",
+				StaticTimeoutFunc(time.Minute, timeout, 0), zaptest.NewLogger(t).Sugar()))
+			t.Cleanup(server.Close)
+
+			resp, err := http.Get(server.URL)
+			if err == nil {
+				resp.Body.Close()
+			}
+
+			select {
+			case <-cancelled:
+				if !tc.wantTimeout {
+					t.Error("Request was cancelled by the response start timeout, want it to continue")
+				}
+			case <-time.After(3 * timeout):
+				if tc.wantTimeout {
+					t.Error("Request was not cancelled by the response start timeout")
+				}
+			}
+		})
 	}
 }

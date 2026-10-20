@@ -168,6 +168,7 @@ type timeoutWriter struct {
 
 	mu            sync.Mutex
 	timedOut      bool
+	hijacked      bool
 	lastWriteTime time.Time
 }
 
@@ -197,8 +198,42 @@ func (tw *timeoutWriter) Flush() {
 // Hijack calls Hijack() on the wrapped http.ResponseWriter if it implements
 // http.Hijacker interface, which is required for net/http/httputil/reverseproxy
 // to handle connection upgrade/switching protocol.  Otherwise returns an error.
+//
+// After a hijack the response (e.g. a 101 Switching Protocols) and all
+// subsequent bytes are written directly to the connection rather than through
+// the timeoutWriter. The returned connection and buffered writer are wrapped so
+// that those writes still count towards the response start and idle timeouts.
 func (tw *timeoutWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	return websocket.HijackIfPossible(tw.w)
+	tw.mu.Lock()
+	defer tw.mu.Unlock()
+	if tw.timedOut {
+		return nil, nil, http.ErrHandlerTimeout
+	}
+
+	conn, rw, err := websocket.HijackIfPossible(tw.w)
+	if err != nil {
+		return nil, nil, err
+	}
+	tw.hijacked = true
+
+	hc := &hijackedConn{Conn: conn, tw: tw}
+	if rw != nil {
+		rw.Writer.Reset(hc)
+	}
+	return hc, rw, nil
+}
+
+// hijackedConn records writes to a hijacked connection on its timeoutWriter.
+type hijackedConn struct {
+	net.Conn
+	tw *timeoutWriter
+}
+
+func (c *hijackedConn) Write(p []byte) (int, error) {
+	c.tw.mu.Lock()
+	c.tw.lastWriteTime = c.tw.clock.Now()
+	c.tw.mu.Unlock()
+	return c.Conn.Write(p)
 }
 
 func (tw *timeoutWriter) Header() http.Header { return tw.w.Header() }
@@ -279,8 +314,13 @@ func (tw *timeoutWriter) tryIdleTimeoutAndWriteError(curTime time.Time, idleTime
 }
 
 func (tw *timeoutWriter) timeoutAndWriteError(msg string) {
-	tw.w.WriteHeader(http.StatusGatewayTimeout)
-	io.WriteString(tw.w, msg)
+	// A hijacked connection is no longer managed by the ResponseWriter, so an
+	// error response can't be written. The connection is closed once the
+	// handler's context is cancelled.
+	if !tw.hijacked {
+		tw.w.WriteHeader(http.StatusGatewayTimeout)
+		io.WriteString(tw.w, msg)
+	}
 
 	tw.timedOut = true
 }

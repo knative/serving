@@ -390,10 +390,12 @@ func TestWebSocketWithTimeout(t *testing.T) {
 		delay:                       "2",
 		expectError:                 false,
 	}, {
-		name:                        "exceeds response start timeout seconds",
+		// The upgrade response starts the response, so a delay after the
+		// connection is established isn't subject to the response start timeout.
+		name:                        "delay after upgrade exceeds response start timeout seconds",
 		responseStartTimeoutSeconds: 10,
 		delay:                       "20",
-		expectError:                 true,
+		expectError:                 false,
 	}, {
 		name:               "does not exceed idle timeout seconds",
 		idleTimeoutSeconds: 10,
@@ -436,4 +438,70 @@ func abs(a int) int {
 		return -a
 	}
 	return a
+}
+
+// TestWebSocketActiveConnectionOutlivesTimeouts verifies that a websocket
+// that keeps exchanging messages is not torn down when the revision's
+// responseStartTimeoutSeconds or idleTimeoutSeconds elapse.
+// See https://github.com/knative/serving/issues/16169.
+func TestWebSocketActiveConnectionOutlivesTimeouts(t *testing.T) {
+	clients := Setup(t)
+
+	const (
+		timeoutSeconds = 10
+		testDuration   = 3 * timeoutSeconds * time.Second
+		msgInterval    = 1 * time.Second
+	)
+
+	testCases := []struct {
+		name                        string
+		responseStartTimeoutSeconds int64
+		idleTimeoutSeconds          int64
+	}{{
+		name:                        "response start timeout",
+		responseStartTimeoutSeconds: timeoutSeconds,
+	}, {
+		name:               "idle timeout",
+		idleTimeoutSeconds: timeoutSeconds,
+	}}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			names := test.ResourceNames{
+				Service: test.ObjectNameForTest(t),
+				Image:   wsServerTestImageName,
+			}
+
+			// Clean up in both abnormal and normal exits.
+			test.EnsureTearDown(t, clients, &names)
+
+			if _, err := v1test.CreateServiceReady(t, clients, &names,
+				rtesting.WithRevisionResponseStartTimeoutSeconds(tc.responseStartTimeoutSeconds),
+				rtesting.WithRevisionIdleTimeoutSeconds(tc.idleTimeoutSeconds)); err != nil {
+				t.Fatal("Failed to create WebSocket server:", err)
+			}
+
+			conn, err := connect(t, clients, names.URL.Hostname(), NoDelay)
+			if err != nil {
+				t.Fatal("Failed to connect:", err)
+			}
+			defer conn.Close()
+
+			start := time.Now()
+			for i := 0; time.Since(start) < testDuration; i++ {
+				want := fmt.Sprint(message, " ", i)
+				if err := conn.WriteMessage(websocket.TextMessage, []byte(want)); err != nil {
+					t.Fatalf("Write failed after %v of continuous traffic: %v", time.Since(start), err)
+				}
+				_, got, err := conn.ReadMessage()
+				if err != nil {
+					t.Fatalf("Read failed after %v of continuous traffic: %v", time.Since(start), err)
+				}
+				if string(got) != want {
+					t.Fatalf("Echo = %q, want %q", got, want)
+				}
+				time.Sleep(msgInterval)
+			}
+			t.Logf("WebSocket stayed open for %v of continuous traffic", time.Since(start))
+		})
+	}
 }
