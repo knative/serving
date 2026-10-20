@@ -183,7 +183,7 @@ jobs:
         kind-worker-count: 4
         cluster-suffix: c${{ github.run_id }}.local
         registry-authority: registry.localhost:5000
-        registry-volume: $HOME/artifacts/registry
+        registry-volume: /home/runner/artifacts/registry
 
     - name: Install Dependencies
       run: |
