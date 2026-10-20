@@ -390,12 +390,10 @@ func TestWebSocketWithTimeout(t *testing.T) {
 		delay:                       "2",
 		expectError:                 false,
 	}, {
-		// The upgrade response starts the response, so a delay after the
-		// connection is established isn't subject to the response start timeout.
-		name:                        "delay after upgrade exceeds response start timeout seconds",
+		name:                        "exceeds response start timeout seconds",
 		responseStartTimeoutSeconds: 10,
 		delay:                       "20",
-		expectError:                 false,
+		expectError:                 true,
 	}, {
 		name:               "does not exceed idle timeout seconds",
 		idleTimeoutSeconds: 10,

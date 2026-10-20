@@ -199,10 +199,13 @@ func (tw *timeoutWriter) Flush() {
 // http.Hijacker interface, which is required for net/http/httputil/reverseproxy
 // to handle connection upgrade/switching protocol.  Otherwise returns an error.
 //
-// After a hijack the response (e.g. a 101 Switching Protocols) and all
-// subsequent bytes are written directly to the connection rather than through
-// the timeoutWriter. The returned connection and buffered writer are wrapped so
-// that those writes still count towards the response start and idle timeouts.
+// After a hijack, bytes are written directly to the connection rather than
+// through the timeoutWriter. The returned connection is wrapped so that those
+// writes still count towards the response start and idle timeouts.
+//
+// The buffered writer is intentionally not wrapped. ReverseProxy uses it to
+// write the 101 Switching Protocols response, so the response start timeout
+// measures the time until the first bytes after the upgrade.
 func (tw *timeoutWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
@@ -216,11 +219,7 @@ func (tw *timeoutWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	}
 	tw.hijacked = true
 
-	hc := &hijackedConn{Conn: conn, tw: tw}
-	if rw != nil {
-		rw.Writer.Reset(hc)
-	}
-	return hc, rw, nil
+	return &hijackedConn{Conn: conn, tw: tw}, rw, nil
 }
 
 // hijackedConn records writes to a hijacked connection on its timeoutWriter.

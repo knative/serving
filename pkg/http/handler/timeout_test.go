@@ -17,9 +17,11 @@ limitations under the License.
 package handler
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -639,8 +641,7 @@ func StaticTimeoutFunc(timeout time.Duration, requestStart time.Duration, idle t
 
 // TestTimeoutHandlerWebSocket verifies that the response start and idle
 // timeouts observe traffic on websockets proxied through the timeout handler.
-// The 101 response and all frames are written to the hijacked connection
-// rather than the ResponseWriter.
+// Frames are written to the hijacked connection rather than the ResponseWriter.
 // See https://github.com/knative/serving/issues/16169.
 func TestTimeoutHandlerWebSocket(t *testing.T) {
 	const (
@@ -688,9 +689,10 @@ func TestTimeoutHandlerWebSocket(t *testing.T) {
 		name:        "active connection outlives idle timeout",
 		idleTimeout: timeout,
 	}, {
-		name:                 "response start timeout is satisfied by the upgrade",
+		name:                 "silent connection exceeds response start timeout",
 		responseStartTimeout: timeout,
 		echoDelay:            2 * timeout,
+		wantCut:              true,
 	}, {
 		name:        "silent connection exceeds idle timeout",
 		idleTimeout: timeout,
@@ -700,6 +702,8 @@ func TestTimeoutHandlerWebSocket(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			// Other tests leave fake clock timers in the pool.
+			clearTimerPool()
 			proxy := httputil.NewSingleHostReverseProxy(backendURL)
 			front := httptest.NewServer(NewTimeoutHandler(proxy, "timeout",
 				StaticTimeoutFunc(time.Minute, tc.responseStartTimeout, tc.idleTimeout),
@@ -747,18 +751,32 @@ func TestTimeoutHandlerHijackedResponseStartTimeout(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		write       bool
+		write       func(net.Conn, *bufio.ReadWriter)
 		wantTimeout bool
 	}{{
 		name:        "nothing written after hijack",
+		write:       func(net.Conn, *bufio.ReadWriter) {},
 		wantTimeout: true,
 	}, {
-		name:  "response written after hijack",
-		write: true,
+		name: "written to the hijacked connection",
+		write: func(conn net.Conn, _ *bufio.ReadWriter) {
+			io.WriteString(conn, "HTTP/1.1 101 Switching Protocols\r\n\r\n")
+		},
+	}, {
+		// ReverseProxy writes the 101 response to the buffered writer, which
+		// doesn't count as the response starting.
+		name: "written to the hijacked buffered writer",
+		write: func(_ net.Conn, brw *bufio.ReadWriter) {
+			io.WriteString(brw, "HTTP/1.1 101 Switching Protocols\r\n\r\n")
+			brw.Flush()
+		},
+		wantTimeout: true,
 	}}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			// Other tests leave fake clock timers in the pool.
+			clearTimerPool()
 			cancelled := make(chan struct{})
 			h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				conn, brw, err := http.NewResponseController(w).Hijack()
@@ -767,10 +785,7 @@ func TestTimeoutHandlerHijackedResponseStartTimeout(t *testing.T) {
 					return
 				}
 				defer conn.Close()
-				if tc.write {
-					io.WriteString(brw, "HTTP/1.1 101 Switching Protocols\r\n\r\n")
-					brw.Flush()
-				}
+				tc.write(conn, brw)
 				select {
 				case <-r.Context().Done():
 					close(cancelled)
