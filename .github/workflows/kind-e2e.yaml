@@ -85,8 +85,8 @@ jobs:
       fail-fast: false # Keep running if one leg fails.
       matrix:
         k8s-version:
-        - v1.34.x
         - v1.35.x
+        - v1.36.x
 
         ingress:
         - kourier
@@ -177,13 +177,13 @@ jobs:
         path: ~/artifacts
 
     - name: setup kind
-      uses: chainguard-dev/actions/setup-kind@127740c4cc23cb47120860698b0fd91a803bab32 # main
+      uses: chainguard-dev/actions/setup-kind@53668650c25af6e8864f1d1ddaa69ed4db4cdf09 # v1.6.42
       with:
         k8s-version: ${{ matrix.k8s-version }}
         kind-worker-count: 4
         cluster-suffix: c${{ github.run_id }}.local
         registry-authority: registry.localhost:5000
-        registry-volume: $HOME/artifacts/registry
+        registry-volume: /home/runner/artifacts/registry
 
     - name: Install Dependencies
       run: |
@@ -224,7 +224,7 @@ jobs:
           --ingress-class=${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev \
           ${{ matrix.test-flags }}
 
-    - uses: chainguard-dev/actions/kind-diag@3e8a2a226fad9e1ecbf2d359b8a7697554a4ac6d # main
+    - uses: chainguard-dev/actions/kind-diag@53668650c25af6e8864f1d1ddaa69ed4db4cdf09 # v1.6.42
       # Only upload logs on failure.
       if: ${{ failure() }}
       with:
