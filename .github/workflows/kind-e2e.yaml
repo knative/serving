@@ -87,7 +87,6 @@ jobs:
         k8s-version:
         - v1.35.x
         - v1.36.x
-        - v1.37.x
 
         ingress:
         - kourier
