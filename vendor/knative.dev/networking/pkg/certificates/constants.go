@@ -25,8 +25,9 @@ const (
 	LegacyFakeDnsName = "data-plane." + Organization
 
 	//nolint:staticcheck
-	// Deprecated: FakeDnsName is deprecated.
-	// Please use the DataPlaneRoutingSAN for calls to the Activator
+	// FakeDnsName is the legacy data-plane DNS name.
+	//
+	// Deprecated: use DataPlaneRoutingSAN for calls to the Activator
 	// and the DataPlaneUserSAN function for calls to a Knative-Service via Queue-Proxy.
 	FakeDnsName = LegacyFakeDnsName
 

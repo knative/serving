@@ -81,6 +81,7 @@ const (
 
 	// AutoTLSKey is the name of the configuration entry
 	// that specifies enabling auto-TLS or not.
+	//
 	// Deprecated: please use ExternalDomainTLSKey.
 	AutoTLSKey = "auto-tls"
 
@@ -134,6 +135,7 @@ const (
 
 	// InternalEncryptionKey is the name of the configuration whether
 	// internal traffic is encrypted or not.
+	//
 	// Deprecated: please use SystemInternalTLSKey.
 	InternalEncryptionKey = "internal-encryption"
 
@@ -243,6 +245,7 @@ type Config struct {
 	TagTemplate string
 
 	// AutoTLS specifies if auto-TLS is enabled or not.
+	//
 	// Deprecated: please use ExternalDomainTLS instead.
 	AutoTLS bool
 
@@ -297,6 +300,7 @@ type Config struct {
 	DefaultExternalScheme string
 
 	// InternalEncryption specifies whether internal traffic is encrypted or not.
+	//
 	// Deprecated: please use SystemInternalTLSKey instead.
 	InternalEncryption bool
 
@@ -459,6 +463,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 }
 
 // InternalTLSEnabled returns whether InternalEncryption is enabled or not.
+//
 // Deprecated: please use SystemInternalTLSEnabled()
 func (c *Config) InternalTLSEnabled() bool {
 	return tlsEnabled(c.SystemInternalTLS)
