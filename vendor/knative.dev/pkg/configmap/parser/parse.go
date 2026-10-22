@@ -92,7 +92,7 @@ func parse[T parseable](s string) (T, error) {
 	case float64:
 		val, err = strconv.ParseFloat(s, 64)
 	case float32:
-		val, err = strconv.ParseFloat(s, 64)
+		val, err = strconv.ParseFloat(s, 32)
 		val = float32(val.(float64))
 	case bool:
 		val, err = strconv.ParseBool(s)
