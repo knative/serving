@@ -331,6 +331,38 @@ func TestReconcile(t *testing.T) {
 			Key: "foo/pa-ready",
 		},
 		{
+			Name: "image cache failure still reconciles pod autoscaler",
+			// When image cache reconciliation fails, the PodAutoscaler must still
+			// be reconciled so a Revision cannot remain Ready below its initial
+			// scale.
+			WantErr: true,
+			WithReactors: []clientgotesting.ReactionFunc{
+				InduceFailure("create", "images"),
+			},
+			Objects: []runtime.Object{
+				Revision("foo", "image-cache-failure",
+					WithLogURL, MarkRevisionReady, WithRevisionObservedGeneration(1)),
+				pa("foo", "image-cache-failure",
+					WithPAStatusService("image-cache-failure")),
+				readyDeploy(deploy(t, "foo", "image-cache-failure")),
+			},
+			WantCreates: []runtime.Object{
+				image("foo", "image-cache-failure"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "image-cache-failure",
+					WithLogURL, MarkRevisionReady, withDefaultContainerStatuses(), WithRevisionObservedGeneration(1),
+					func(r *v1.Revision) {
+						r.Status.MarkResourcesAvailableUnknown(v1.ReasonDeploying, "")
+					},
+					MarkActivating(v1.ReasonDeploying, "")),
+			}},
+			WantEvents: []string{
+				Eventf(corev1.EventTypeWarning, "InternalError", `failed to create image cache "image-cache-failure-cache-image-cache-failure": inducing failure for create images`),
+			},
+			Key: "foo/image-cache-failure",
+		},
+		{
 			Name: "pa not ready",
 			// Test propagating the pa not ready status to the Revision.
 			Objects: []runtime.Object{
