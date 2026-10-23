@@ -23,6 +23,7 @@ import (
 	netcfg "knative.dev/networking/pkg/config"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	logtesting "knative.dev/pkg/logging/testing"
+	apisconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/reconciler/domainmapping/config"
 )
 
@@ -61,6 +62,36 @@ func TestServingReferenceKind(t *testing.T) {
 			gotKind, gotOK := servingReferenceKind(tc.ref)
 			if gotKind != tc.wantKind || gotOK != tc.wantOK {
 				t.Errorf("servingReferenceKind() = (%q, %t), want (%q, %t)", gotKind, gotOK, tc.wantKind, tc.wantOK)
+			}
+		})
+	}
+}
+
+func TestDirectRouteTrafficEnabled(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		features *apisconfig.Features
+		want     bool
+	}{{
+		name:     "Enabled",
+		features: &apisconfig.Features{DomainMappingDirectRouteTraffic: apisconfig.Enabled},
+		want:     true,
+	}, {
+		name:     "Disabled",
+		features: &apisconfig.Features{DomainMappingDirectRouteTraffic: apisconfig.Disabled},
+	}, {
+		name:     "Allowed",
+		features: &apisconfig.Features{DomainMappingDirectRouteTraffic: apisconfig.Allowed},
+	}, {
+		name:     "features not loaded",
+		features: nil,
+	}} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := config.ToContext(logtesting.TestContextWithLogger(t), &config.Config{
+				Features: tc.features,
+			})
+			if got := directRouteTrafficEnabled(ctx); got != tc.want {
+				t.Errorf("directRouteTrafficEnabled() = %t, want %t", got, tc.want)
 			}
 		})
 	}

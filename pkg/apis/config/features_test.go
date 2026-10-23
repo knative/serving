@@ -79,6 +79,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 			SecurePodDefaults:                Enabled,
 			QueueProxyResourceDefaults:       Enabled,
 			TagHeaderBasedRouting:            Enabled,
+			DomainMappingDirectRouteTraffic:  Enabled,
 		}),
 		data: map[string]string{
 			"multi-container":                              "Enabled",
@@ -101,6 +102,7 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"secure-pod-defaults":                          "Enabled",
 			"queueproxy.resource-defaults":                 "Enabled",
 			"tag-header-based-routing":                     "Enabled",
+			"domainmapping-direct-route-traffic":           "Enabled",
 		},
 	}, {
 		name:    "multi-container Allowed",
@@ -407,6 +409,15 @@ func TestFeaturesConfiguration(t *testing.T) {
 		}),
 		data: map[string]string{
 			"tag-header-based-routing": "Enabled",
+		},
+	}, {
+		name:    "domainmapping-direct-route-traffic Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			DomainMappingDirectRouteTraffic: Enabled,
+		}),
+		data: map[string]string{
+			"domainmapping-direct-route-traffic": "Enabled",
 		},
 	}, {
 		name:    "kubernetes.podspec-volumes-emptyDir Disabled",
@@ -776,6 +787,15 @@ func TestFeaturesConfiguration(t *testing.T) {
 		}),
 		data: map[string]string{
 			"tag-header-based-routing": "Restricted",
+		},
+	}, {
+		name:    "domainmapping-direct-route-traffic cannot be set to Restricted",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			DomainMappingDirectRouteTraffic: Disabled, // Should remain default since Restricted is not valid
+		}),
+		data: map[string]string{
+			"domainmapping-direct-route-traffic": "Restricted",
 		},
 	}}
 

@@ -30,6 +30,7 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/resolver"
+	apisconfig "knative.dev/serving/pkg/apis/config"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route"
@@ -61,6 +62,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	impl := kindreconciler.NewImpl(ctx, r, func(impl *controller.Impl) controller.Options {
 		configsToResync := []interface{}{
 			&netcfg.Config{},
+			&apisconfig.Features{},
 		}
 		resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 			impl.GlobalResync(domainmappingInformer.Informer())

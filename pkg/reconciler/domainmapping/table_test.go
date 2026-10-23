@@ -43,6 +43,7 @@ import (
 	"knative.dev/pkg/resolver"
 	"knative.dev/pkg/tracker"
 
+	apisconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -948,6 +949,9 @@ func TestReconcile(t *testing.T) {
 				HTTPProtocol:                  netcfg.HTTPEnabled,
 				DefaultExternalScheme:         "http",
 			},
+			Features: &apisconfig.Features{
+				DomainMappingDirectRouteTraffic: apisconfig.Enabled,
+			},
 		}
 		if v := ctx.Value(externalSchemeKey); v != nil {
 			cfg.Network.DefaultExternalScheme = v.(string)
@@ -957,6 +961,92 @@ func TestReconcile(t *testing.T) {
 			servingclient.Get(ctx), listers.GetDomainMappingLister(), controller.GetEventRecorder(ctx), r,
 			controller.Options{ConfigStore: &testConfigStore{
 				config: cfg,
+			}},
+		)
+	}))
+}
+
+func TestReconcileDirectRouteTrafficDisabled(t *testing.T) {
+	table := TableTest{{
+		Name: "Knative Service keeps the single backend Ingress",
+		Key:  "default/service.example.com",
+		Objects: []runtime.Object{
+			knativeService("default", "website"),
+			domainMapping("default", "service.example.com", withRef("default", "website", asKnativeServiceRef)),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "service.example.com",
+				withRef("default", "website", asKnativeServiceRef),
+				withURL("http", "service.example.com"),
+				withAddress("http", "service.example.com"),
+				withInitDomainMappingConditions,
+				withTLSNotEnabled,
+				withDomainClaimed,
+				withIngressNotConfigured,
+				withReferenceResolved,
+			),
+		}},
+		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
+		WantCreates: []runtime.Object{
+			resources.MakeDomainClaim(domainMapping("default", "service.example.com")),
+			resources.MakeIngress(
+				domainMapping("default", "service.example.com", withRef("default", "website", asKnativeServiceRef)),
+				"website", "website.default.svc.cluster.local", "the-ingress-class", netv1alpha1.HTTPOptionEnabled, nil /* tls */),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "service.example.com"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "service.example.com"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "service.example.com"),
+		},
+	}, {
+		Name:    "Knative Service resolution failure does not touch IngressReady",
+		Key:     "default/missing.example.com",
+		WantErr: true,
+		Objects: []runtime.Object{
+			domainMapping("default", "missing.example.com", withRef("default", "missing", asKnativeServiceRef)),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: domainMapping("default", "missing.example.com",
+				withRef("default", "missing", asKnativeServiceRef),
+				withURL("http", "missing.example.com"),
+				withAddress("http", "missing.example.com"),
+				withInitDomainMappingConditions,
+				withTLSNotEnabled,
+				withDomainClaimed,
+				withReferenceNotResolved(`failed to get object default/missing: services.serving.knative.dev "missing" not found`),
+			),
+		}},
+		SkipNamespaceValidation: true, // allow creation of ClusterDomainClaim.
+		WantCreates: []runtime.Object{
+			resources.MakeDomainClaim(domainMapping("default", "missing.example.com")),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "missing.example.com"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "missing.example.com"),
+			Eventf(corev1.EventTypeWarning, "InternalError", `resolving reference: failed to get object default/missing: services.serving.knative.dev "missing" not found`),
+		},
+	}}
+
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		ctx = addressable.WithDuck(ctx)
+		r := makeTestReconciler(ctx, listers)
+
+		return domainmappingreconciler.NewReconciler(ctx, logging.FromContext(ctx),
+			servingclient.Get(ctx), listers.GetDomainMappingLister(), controller.GetEventRecorder(ctx), r,
+			controller.Options{ConfigStore: &testConfigStore{
+				config: &config.Config{
+					Network: &netcfg.Config{
+						DefaultIngressClass:           "the-ingress-class",
+						AutocreateClusterDomainClaims: true,
+						HTTPProtocol:                  netcfg.HTTPEnabled,
+						DefaultExternalScheme:         "http",
+					},
+					Features: &apisconfig.Features{DomainMappingDirectRouteTraffic: apisconfig.Disabled},
+				},
 			}},
 		)
 	}))

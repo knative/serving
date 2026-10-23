@@ -47,6 +47,7 @@ import (
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/resolver"
 	"knative.dev/pkg/tracker"
+	apisconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
@@ -126,22 +127,22 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1beta1.DomainMappin
 		return err
 	}
 
-	// For Knative targets, preserve Route traffic instead of sending everything
-	// to the Service resolved from the Addressable URL.
-	targetKind, preserveRouteTraffic := servingReferenceKind(dm.Spec.Ref)
+	// For Knative targets, optionally use the Route's HTTP paths instead of
+	// sending everything to the Service resolved from the Addressable URL.
+	targetKind, isKnativeTarget := servingReferenceKind(dm.Spec.Ref)
+	useDirectRouteTraffic := isKnativeTarget && directRouteTrafficEnabled(ctx)
 
 	// Resolve the spec.Ref to a URI following the Addressable contract.
 	targetHost, targetBackendSvc, err := r.resolveRef(ctx, dm)
 	if err != nil {
-		if !preserveRouteTraffic {
-			return err
+		if useDirectRouteTraffic {
+			dm.Status.MarkIngressNotConfigured()
 		}
-		dm.Status.MarkIngressNotConfigured()
 		return err
 	}
 
 	var routePaths []netv1alpha1.HTTPIngressPath
-	if preserveRouteTraffic {
+	if useDirectRouteTraffic {
 		var found bool
 		routePaths, found, err = r.routeHTTPPaths(dm, targetKind, targetHost)
 		if err != nil {
@@ -161,7 +162,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, dm *v1beta1.DomainMappin
 	// Reconcile the Ingress resource corresponding to the requested Mapping.
 	logger.Debugf("Mapping %s to ref %s/%s (host: %q, svc: %q)", url, dm.Spec.Ref.Namespace, dm.Spec.Ref.Name, targetHost, targetBackendSvc)
 	var desired *netv1alpha1.Ingress
-	if preserveRouteTraffic {
+	if useDirectRouteTraffic {
 		desired = resources.MakeIngressWithHTTPPaths(dm, routePaths, ingressClass, httpOption, tls, acmeChallenges...)
 	} else {
 		desired = resources.MakeIngress(dm, targetBackendSvc, targetHost, ingressClass, httpOption, tls, acmeChallenges...)
@@ -432,6 +433,10 @@ func (r *Reconciler) routeHTTPPaths(dm *v1beta1.DomainMapping, kind, targetHost 
 
 	dm.Status.MarkTargetIngressNotConfigured(fmt.Sprintf("Ingress %s/%s has no cluster-local rule for host %q.", ingress.Namespace, ingress.Name, targetHost))
 	return nil, false, nil
+}
+
+func directRouteTrafficEnabled(ctx context.Context) bool {
+	return config.FromContextOrDefaults(ctx).Features.DomainMappingDirectRouteTraffic == apisconfig.Enabled
 }
 
 func servingReferenceKind(ref duckv1.KReference) (string, bool) {
