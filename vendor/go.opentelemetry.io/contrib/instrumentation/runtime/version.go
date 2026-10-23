@@ -4,4 +4,4 @@
 package runtime
 
 // Version is the current release version of the runtime instrumentation.
-const Version = "0.70.0"
+const Version = "0.72.0"
