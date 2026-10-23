@@ -86,7 +86,7 @@ func newConfig(opts ...Option) config {
 	return c
 }
 
-// newConfig computes a config from the supplied ProducerOptions.
+// newProducerConfig computes a config from the supplied ProducerOptions.
 func newProducerConfig(opts ...ProducerOption) config {
 	c := config{}
 	for _, opt := range opts {
