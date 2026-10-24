@@ -675,6 +675,7 @@ func TestPropagateAutoscalerStatusNoProgress(t *testing.T) {
 			Conditions: duckv1.Conditions{{
 				Type:   autoscalingv1alpha1.PodAutoscalerConditionReady,
 				Status: corev1.ConditionFalse,
+				Reason: autoscalingv1alpha1.ReasonTimedOut,
 			}, {
 				Type:   autoscalingv1alpha1.PodAutoscalerConditionScaleTargetInitialized,
 				Status: corev1.ConditionUnknown,
@@ -697,6 +698,7 @@ func TestPropagateAutoscalerStatusNoProgress(t *testing.T) {
 			Conditions: duckv1.Conditions{{
 				Type:   autoscalingv1alpha1.PodAutoscalerConditionReady,
 				Status: corev1.ConditionFalse,
+				Reason: autoscalingv1alpha1.ReasonTimedOut,
 			}, {
 				Type:   autoscalingv1alpha1.PodAutoscalerConditionScaleTargetInitialized,
 				Status: corev1.ConditionUnknown,
@@ -707,6 +709,75 @@ func TestPropagateAutoscalerStatusNoProgress(t *testing.T) {
 	cond = r.GetCondition(RevisionConditionResourcesAvailable)
 	if got, want := cond.Reason, ReasonProgressDeadlineExceeded; got == want {
 		t.Errorf("Reason = %q should have not overridden a different status", got)
+	}
+}
+
+func TestPropagateAutoscalerStatusNoTrafficIsNotProgressDeadline(t *testing.T) {
+	r := &RevisionStatus{}
+	r.InitializeConditions()
+	apistest.CheckConditionOngoing(r, RevisionConditionReady, t)
+
+	// PodAutoscaler is inactive because it has no traffic, not because it timed out.
+	r.PropagateAutoscalerStatus(&autoscalingv1alpha1.PodAutoscalerStatus{
+		ServiceName: "testRevision",
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
+				Type:   autoscalingv1alpha1.PodAutoscalerConditionReady,
+				Status: corev1.ConditionFalse,
+				Reason: autoscalingv1alpha1.ReasonNoTraffic,
+			}, {
+				Type:   autoscalingv1alpha1.PodAutoscalerConditionScaleTargetInitialized,
+				Status: corev1.ConditionUnknown,
+			}},
+		},
+	})
+	apistest.CheckConditionFailed(r, RevisionConditionActive, t)
+
+	cond := r.GetCondition(RevisionConditionResourcesAvailable)
+	if cond.IsFalse() {
+		t.Errorf("ResourcesAvailable = False, want not-False; reason = %q", cond.Reason)
+	}
+	if got, notWant := cond.Reason, ReasonProgressDeadlineExceeded; got == notWant {
+		t.Error("NoTraffic PA status was mistaken for ProgressDeadlineExceeded")
+	}
+}
+
+func TestPropagateAutoscalerStatusTimedOutAcrossReconciles(t *testing.T) {
+	r := &RevisionStatus{}
+	r.InitializeConditions()
+
+	ds := &appsv1.DeploymentStatus{
+		Conditions: []appsv1.DeploymentCondition{{
+			Type:   appsv1.DeploymentProgressing,
+			Status: corev1.ConditionTrue,
+		}, {
+			Type:   appsv1.DeploymentAvailable,
+			Status: corev1.ConditionTrue,
+		}},
+	}
+	ps := &autoscalingv1alpha1.PodAutoscalerStatus{
+		ServiceName: "testRevision",
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
+				Type:   autoscalingv1alpha1.PodAutoscalerConditionReady,
+				Status: corev1.ConditionFalse,
+				Reason: autoscalingv1alpha1.ReasonTimedOut,
+			}, {
+				Type:   autoscalingv1alpha1.PodAutoscalerConditionScaleTargetInitialized,
+				Status: corev1.ConditionUnknown,
+			}},
+		},
+	}
+
+	for i := range 3 {
+		r.PropagateDeploymentStatus(ds)
+		r.PropagateAutoscalerStatus(ps)
+
+		cond := r.GetCondition(RevisionConditionResourcesAvailable)
+		if !cond.IsFalse() || cond.Reason != ReasonProgressDeadlineExceeded {
+			t.Errorf("reconcile %d: ResourcesAvailable = %s/%s, want False/%s",
+				i, cond.Status, cond.Reason, ReasonProgressDeadlineExceeded)
+		}
 	}
 }
 
