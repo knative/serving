@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "424df6ce"
+    knative.dev/example-checksum: "e32b69e5"
 data:
   _example: |-
     ################################
@@ -188,6 +188,13 @@ data:
     # 1. Enabled: http2 connection will be attempted via upgrade.
     # 2. Disabled: http2 connection will only be attempted when port name is set to "h2c".
     autodetect-http2: "disabled"
+
+    # Controls whether a DomainMapping targeting a Knative Service or Route reuses the traffic configuration of the Route or not.
+    # 1. Enabled: the DomainMapping's Ingress reuses the HTTP paths of the Route's Ingress
+    # 2. Disabled: the DomainMapping's Ingress sends requests to the target's Kubernetes Service
+    #
+    # WARNING: When enabled, the Host is no longer rewritten to the cluster-local host.
+    domainmapping-direct-route-traffic: "disabled"
 
     # Controls whether volume support for EmptyDir is enabled or not.
     # 1. Enabled: enabling EmptyDir volume support

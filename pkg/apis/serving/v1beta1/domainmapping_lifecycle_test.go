@@ -131,6 +131,57 @@ func TestReferenceResolvedCondition(t *testing.T) {
 	apistest.CheckConditionFailed(dms, DomainMappingConditionReady, t)
 }
 
+func TestTargetIngressConditions(t *testing.T) {
+	tests := []struct {
+		name       string
+		mark       func(*DomainMappingStatus)
+		wantStatus corev1.ConditionStatus
+		wantReason string
+		wantMsg    string
+	}{
+		{
+			name: "target ingress not configured",
+			mark: func(dms *DomainMappingStatus) {
+				dms.MarkTargetIngressNotConfigured("Waiting for target Ingress.")
+			},
+			wantStatus: corev1.ConditionUnknown,
+			wantReason: "IngressNotConfigured",
+			wantMsg:    "Waiting for target Ingress.",
+		},
+		{
+			name: "target resource not owned",
+			mark: func(dms *DomainMappingStatus) {
+				dms.MarkTargetNotOwned("Route does not own Ingress.")
+			},
+			wantStatus: corev1.ConditionFalse,
+			wantReason: "NotOwned",
+			wantMsg:    "Route does not own Ingress.",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			dms := &DomainMappingStatus{}
+			dms.InitializeConditions()
+			test.mark(dms)
+
+			got := dms.GetCondition(DomainMappingConditionIngressReady)
+			if got == nil {
+				t.Fatal("IngressReady condition is nil")
+			}
+			if got.Status != test.wantStatus {
+				t.Errorf("Status = %q, want %q", got.Status, test.wantStatus)
+			}
+			if got.Reason != test.wantReason {
+				t.Errorf("Reason = %q, want %q", got.Reason, test.wantReason)
+			}
+			if got.Message != test.wantMsg {
+				t.Errorf("Message = %q, want %q", got.Message, test.wantMsg)
+			}
+		})
+	}
+}
+
 func TestCertificateNotReady(t *testing.T) {
 	dms := &DomainMappingStatus{}
 
