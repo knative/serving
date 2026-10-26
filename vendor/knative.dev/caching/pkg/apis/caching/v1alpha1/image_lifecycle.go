@@ -71,5 +71,5 @@ func (is *ImageStatus) MarkReadyTrue() {
 
 // MarkImageFailed marks the "ImageConditionReady" condition to false.
 func (is *ImageStatus) MarkReadyFalse(reason, message string) {
-	condSet.Manage(is).MarkFalse(ImageConditionReady, reason, message)
+	condSet.Manage(is).MarkFalse(ImageConditionReady, reason, "%s", message)
 }
