@@ -347,6 +347,9 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 	// Also ignore initialScale if the revision is unreachable (routingState = "reserve"),
 	// allowing it to scale down to 0 immediately.
 	if initialScale > 1 && !pa.Status.IsScaleTargetInitialized() && pa.Spec.Reachability != autoscalingv1alpha1.ReachabilityUnreachable {
+		if maxScale > 0 && initialScale > maxScale {
+			initialScale = maxScale
+		}
 		// Ignore initial scale if minScale >= initialScale.
 		if minScale < initialScale {
 			logger.Debugf("Adjusting minScale to meet the initial scale: %d -> %d", minScale, initialScale)
