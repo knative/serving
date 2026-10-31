@@ -21,16 +21,18 @@ import (
 	"errors"
 
 	"k8s.io/apimachinery/pkg/types"
-	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	"knative.dev/serving/pkg/autoscaler/metrics"
-
 	pkgreconciler "knative.dev/pkg/reconciler"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/autoscaler/metrics"
 	metricreconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/metric"
+	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
 )
 
 // reconciler implements controller.Reconciler for Metric resources.
 type reconciler struct {
 	collector metrics.Collector
+	paLister  palisters.PodAutoscalerLister
 }
 
 // Check that our Reconciler implements the necessary interfaces.
@@ -40,7 +42,22 @@ var (
 )
 
 // ReconcileKind implements Interface.ReconcileKind.
-func (r *reconciler) ReconcileKind(_ context.Context, metric *autoscalingv1alpha1.Metric) pkgreconciler.Event {
+func (r *reconciler) ReconcileKind(ctx context.Context, metric *autoscalingv1alpha1.Metric) pkgreconciler.Event {
+	// Check if autoscaler in proxy or serving mode, if so pause or resume if needed
+	revisionName := metric.Labels[serving.RevisionLabelKey]
+	if revisionName != "" {
+		paName := revisionName
+		pa, err := r.paLister.PodAutoscalers(metric.Namespace).Get(paName)
+		if err == nil && pa.Status.MetricsPaused {
+			r.collector.Pause(metric)
+		} else {
+			r.collector.Resume(metric)
+		}
+	} else {
+		// unpause metrics to be safe
+		r.collector.Resume(metric)
+	}
+
 	if err := r.collector.CreateOrUpdate(metric); err != nil {
 		switch {
 		case errors.Is(err, metrics.ErrFailedGetEndpoints):
