@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -111,5 +112,32 @@ func TestResponseRecorder(t *testing.T) {
 				t.Error("Headers are different (-want, +got) =", diff)
 			}
 		})
+	}
+}
+
+func TestResponseRecorderInformationalResponse(t *testing.T) {
+	var rr *ResponseRecorder
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		rr = NewResponseRecorder(w, http.StatusOK)
+		rr.Header().Set("Link", "</style.css>; rel=preload; as=style")
+		rr.WriteHeader(http.StatusEarlyHints)
+		rr.WriteHeader(http.StatusNotFound)
+		rr.Write([]byte("not found"))
+	}))
+
+	resp, err := server.Client().Get(server.URL)
+	if err != nil {
+		server.Close()
+		t.Fatal("Error making request:", err)
+	}
+	resp.Body.Close()
+	// Close waits for the handler to return before rr is read.
+	server.Close()
+
+	if got, want := resp.StatusCode, http.StatusNotFound; got != want {
+		t.Errorf("Client status code = %d, want %d", got, want)
+	}
+	if got, want := rr.ResponseCode, http.StatusNotFound; got != want {
+		t.Errorf("Recorded status code = %d, want %d", got, want)
 	}
 }

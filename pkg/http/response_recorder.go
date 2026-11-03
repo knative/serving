@@ -91,6 +91,11 @@ func (rr *ResponseRecorder) WriteHeader(code int) {
 	}
 
 	rr.writer.WriteHeader(code)
+	// Informational (1xx) responses other than 101 Switching Protocols
+	// are followed by the final response, so do not latch them.
+	if code >= 100 && code <= 199 && code != http.StatusSwitchingProtocols {
+		return
+	}
 	rr.wroteHeader = true
 	rr.ResponseCode = code
 }
