@@ -19,6 +19,7 @@ package route
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"testing"
@@ -1212,7 +1213,7 @@ func TestReconcile(t *testing.T) {
 			if action.Matches("update", "ingresses") {
 				return true, nil, apierrs.NewConflict(schema.GroupResource{
 					Group: "networking.internal.knative.dev", Resource: "ingresses",
-				}, "config-update-conflict", fmt.Errorf("resource version changed"))
+				}, "config-update-conflict", errors.New("resource version changed"))
 			}
 			return false, nil, nil
 		}},
