@@ -8,7 +8,6 @@ aliases:
   client-writers:
   - dsimansk
   docs-reviewers:
-  - nainaz
   - skonto
   docs-writers:
   - skonto
@@ -18,14 +17,12 @@ aliases:
   - creydr
   eventing-wg-leads:
   - creydr
-  - pierDipi
   eventing-writers:
   - Leo6Leo
   - aliok
   - cali0707
   - creydr
   - matzew
-  - pierDipi
   func-reviewers:
   - jrangelramos
   func-writers:
@@ -95,8 +92,6 @@ aliases:
   - skonto
   serving-reviewers:
   - skonto
-  serving-triage:
-  - skonto
   serving-wg-leads:
   - dprotaso
   serving-writers:
@@ -114,11 +109,7 @@ aliases:
   ux-wg-leads:
   - Leo6Leo
   - cali0707
-  - mmejia02
-  - zainabhusain227
   ux-writers:
   - Leo6Leo
   - cali0707
-  - mmejia02
   - prajjwalyd
-  - zainabhusain227
