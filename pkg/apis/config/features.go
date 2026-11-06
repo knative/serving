@@ -54,6 +54,7 @@ const (
 // Feature config map keys that are used in schema-tweak
 const (
 	FeatureContainerSpecAddCapabilities     = "kubernetes.containerspec-addcapabilities"
+	FeatureContainerSpecRestartPolicy       = "kubernetes.containerspec-restartpolicy"
 	FeaturePodSpecAffinity                  = "kubernetes.podspec-affinity"
 	FeaturePodSpecDNSConfig                 = "kubernetes.podspec-dnsconfig"
 	FeaturePodSpecDNSPolicy                 = "kubernetes.podspec-dnspolicy"
@@ -98,6 +99,7 @@ func defaultFeaturesConfig() *Features {
 		PodSpecPriorityClassName:         Disabled,
 		PodSpecSchedulerName:             Disabled,
 		ContainerSpecAddCapabilities:     Disabled,
+		ContainerSpecRestartPolicy:       Disabled,
 		PodSpecTolerations:               Disabled,
 		PodSpecVolumesEmptyDir:           Enabled,
 		PodSpecVolumesHostPath:           Disabled,
@@ -134,6 +136,7 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asSecurePodDefaultsFlag("secure-pod-defaults", &nc.SecurePodDefaults),
 		asFlag("tag-header-based-routing", &nc.TagHeaderBasedRouting),
 		asFlag(FeatureContainerSpecAddCapabilities, &nc.ContainerSpecAddCapabilities),
+		asFlag(FeatureContainerSpecRestartPolicy, &nc.ContainerSpecRestartPolicy),
 		asFlag(FeaturePodSpecAffinity, &nc.PodSpecAffinity),
 		asFlag(FeaturePodSpecDNSConfig, &nc.PodSpecDNSConfig),
 		asFlag(FeaturePodSpecDNSPolicy, &nc.PodSpecDNSPolicy),
@@ -187,6 +190,7 @@ type Features struct {
 	PodSpecPriorityClassName         Flag
 	PodSpecSchedulerName             Flag
 	ContainerSpecAddCapabilities     Flag
+	ContainerSpecRestartPolicy       Flag
 	PodSpecTolerations               Flag
 	PodSpecVolumesEmptyDir           Flag
 	PodSpecVolumesHostPath           Flag

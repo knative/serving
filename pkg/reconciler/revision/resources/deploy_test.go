@@ -561,6 +561,14 @@ func updateContainer() containerOption {
 }
 
 func TestMakePodSpec(t *testing.T) {
+	restartNever := corev1.ContainerRestartPolicyNever
+	restartRules := []corev1.ContainerRestartRule{{
+		Action: corev1.ContainerRestartRuleActionRestart,
+		ExitCodes: &corev1.ContainerRestartRuleOnExitCodes{
+			Operator: corev1.ContainerRestartRuleOnExitCodesOpNotIn,
+			Values:   []int32{0},
+		},
+	}}
 	tests := []struct {
 		name     string
 		rev      *v1.Revision
@@ -590,6 +598,39 @@ func TestMakePodSpec(t *testing.T) {
 					func(container *corev1.Container) {
 						container.Ports[0].ContainerPort = 8888
 						container.Image = "busybox@sha256:deadbeef"
+					},
+					withEnvVar("PORT", "8888"),
+				),
+				queueContainer(
+					withEnvVar("USER_PORT", "8888"),
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8888,"host":"127.0.0.1"}}`),
+				),
+			}),
+	}, {
+		name: "restart policy and rules passed through",
+		rev: revision("bar", "foo",
+			withContainers([]corev1.Container{{
+				Name:  servingContainerName,
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}},
+				ReadinessProbe:     withTCPReadinessProbe(8888),
+				RestartPolicy:      &restartNever,
+				RestartPolicyRules: restartRules,
+			}}),
+			WithContainerStatuses([]v1.ContainerStatus{{
+				ImageDigest: "busybox@sha256:deadbeef",
+			}}),
+		),
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(
+					func(container *corev1.Container) {
+						container.Ports[0].ContainerPort = 8888
+						container.Image = "busybox@sha256:deadbeef"
+						container.RestartPolicy = &restartNever
+						container.RestartPolicyRules = restartRules
 					},
 					withEnvVar("PORT", "8888"),
 				),

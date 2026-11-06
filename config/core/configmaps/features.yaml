@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "e32b69e5"
+    knative.dev/example-checksum: "a57d4cbe"
 data:
   _example: |-
     ################################
@@ -176,6 +176,15 @@ data:
     # When set to "enabled" or "allowed" it allows capabilities to be added to the container.
     # For a list of possible capabilities, see https://man7.org/linux/man-pages/man7/capabilities.7.html
     kubernetes.containerspec-addcapabilities: "disabled"
+
+    # This feature flag allows the serving container to set restartPolicy and
+    # restartPolicyRules. It needs Kubernetes ContainerRestartRules, beta and on by
+    # default since Kubernetes 1.35.
+    #
+    # With restartPolicy Never, or OnFailure and exit code 0, a container exit that
+    # no rule restarts leaves the serving container stopped.
+    # See: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-restart-rules
+    kubernetes.containerspec-restartpolicy: "disabled"
 
 
     # Controls whether tag header based routing feature are enabled or not.
