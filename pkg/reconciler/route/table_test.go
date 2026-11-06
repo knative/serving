@@ -25,8 +25,10 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
 	clocktest "k8s.io/utils/clock/testing"
@@ -1192,7 +1194,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: Route("default", "update-ci-failure", WithConfigTarget("config"),
 				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled, WithRouteGeneration(1),
-				MarkTrafficAssigned, MarkIngressReady, WithRouteObservedGeneration, WithRouteFinalizer, WithStatusTraffic(
+				MarkTrafficAssigned, MarkIngressNotConfigured, WithRouteObservedGeneration, WithRouteFinalizer, WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00002",
 						Percent:        ptr.Int64(100),
@@ -1203,6 +1205,82 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeWarning, "InternalError", "failed to update Ingress: inducing failure for update ingresses"),
 		},
 		Key: "default/update-ci-failure",
+	}, {
+		Name:    "conflict updating ingress after configuration update",
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{func(action clientgotesting.Action) (bool, runtime.Object, error) {
+			if action.Matches("update", "ingresses") {
+				return true, nil, apierrs.NewConflict(schema.GroupResource{
+					Group: "networking.internal.knative.dev", Resource: "ingresses",
+				}, "config-update-conflict", fmt.Errorf("resource version changed"))
+			}
+			return false, nil, nil
+		}},
+		Objects: []runtime.Object{
+			// The Route is already ready for revision 1. Its spec and generation
+			// do not change when the Configuration's latest ready revision changes.
+			Route("default", "config-update-conflict", WithConfigTarget("config"),
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled,
+				WithRouteGeneration(1), WithRouteObservedGeneration, WithRouteFinalizer,
+				MarkTrafficAssigned, MarkIngressReady, WithStatusTraffic(v1.TrafficTarget{
+					RevisionName:   "config-00001",
+					Percent:        ptr.Int64(100),
+					LatestRevision: ptr.Bool(true),
+				})),
+			cfg("default", "config", WithConfigGeneration(2),
+				WithLatestCreated("config-00002"), WithLatestReady("config-00002"),
+				WithConfigLabel("serving.knative.dev/route", "config-update-conflict")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
+			rev("default", "config", 2, MarkRevisionReady, WithRevName("config-00002")),
+			// The cached Ingress is ready, but only for the old revision.
+			simpleIngress(
+				Route("default", "config-update-conflict", WithConfigTarget("config"), WithURL),
+				&traffic.Config{Targets: map[string]traffic.RevisionTargets{
+					traffic.DefaultTarget: {{TrafficTarget: v1.TrafficTarget{
+						ConfigurationName: "config",
+						RevisionName:      "config-00001",
+						LatestRevision:    ptr.Bool(true),
+						Percent:           ptr.Int64(100),
+					}}},
+				}},
+				withReadyIngress,
+				func(i *netv1alpha1.Ingress) {
+					i.Generation = 1
+					i.Status.ObservedGeneration = 1
+				}),
+			simpleK8sService(Route("default", "config-update-conflict", WithConfigTarget("config"))),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: simpleIngress(
+				Route("default", "config-update-conflict", WithConfigTarget("config"), WithURL),
+				&traffic.Config{Targets: map[string]traffic.RevisionTargets{
+					traffic.DefaultTarget: {{TrafficTarget: v1.TrafficTarget{
+						ConfigurationName: "config",
+						RevisionName:      "config-00002",
+						LatestRevision:    ptr.Bool(true),
+						Percent:           ptr.Int64(100),
+					}}},
+				}},
+				withReadyIngress,
+				func(i *netv1alpha1.Ingress) {
+					i.Generation = 1
+					i.Status.ObservedGeneration = 1
+				}),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			// Even though the Ingress update conflicts, the new traffic target
+			// must not inherit the previous revision's readiness.
+			Object: Route("default", "config-update-conflict", WithConfigTarget("config"),
+				WithURL, WithAddress, WithRouteConditionsExternalDomainTLSDisabled,
+				WithRouteGeneration(1), WithRouteObservedGeneration, WithRouteFinalizer,
+				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(v1.TrafficTarget{
+					RevisionName:   "config-00002",
+					Percent:        ptr.Int64(100),
+					LatestRevision: ptr.Bool(true),
+				})),
+		}},
+		// Expected conflicts do not emit warning events.
+		Key: "default/config-update-conflict",
 	}, {
 		Name: "reconcile service mutation",
 		Objects: []runtime.Object{
