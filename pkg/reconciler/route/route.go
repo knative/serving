@@ -26,6 +26,7 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubelabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -483,11 +484,18 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1.Route) (*traffi
 	logger.Info("All referred targets are routable, marking AllTrafficAssigned with traffic information.")
 
 	// Pass empty rollout here. We'll recompute this if there is a rollout in progress.
-	r.Status.Traffic, err = t.GetRevisionTrafficTargets(ctx, r, &traffic.Rollout{})
+	targets, err := t.GetRevisionTrafficTargets(ctx, r, &traffic.Rollout{})
 	if err != nil {
 		return nil, err
 	}
 
+	// A Configuration can resolve to a new revision without changing the Route's
+	// generation. Invalidate the previous ingress readiness before publishing the
+	// new targets, including when reconciliation fails before updating the Ingress.
+	if !equality.Semantic.DeepEqual(r.Status.Traffic, targets) {
+		r.Status.MarkIngressNotConfigured()
+	}
+	r.Status.Traffic = targets
 	r.Status.MarkTrafficAssigned()
 
 	return t, nil
