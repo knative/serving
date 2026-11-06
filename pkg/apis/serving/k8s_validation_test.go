@@ -108,6 +108,13 @@ func withPodSpecSecurityContextEnabled() configOption {
 	}
 }
 
+func withContainerSpecRestartPolicyEnabled() configOption {
+	return func(cfg *config.Config) *config.Config {
+		cfg.Features.ContainerSpecRestartPolicy = config.Enabled
+		return cfg
+	}
+}
+
 func withSecurePodDefaultsEnabled() configOption {
 	return func(cfg *config.Config) *config.Config {
 		cfg.Features.SecurePodDefaults = config.Enabled
@@ -926,6 +933,7 @@ func TestPodSpecValidation(t *testing.T) {
 }
 
 func TestPodSpecMultiContainerValidation(t *testing.T) {
+	never := corev1.ContainerRestartPolicyNever
 	tests := []struct {
 		name    string
 		ps      corev1.PodSpec
@@ -984,6 +992,40 @@ func TestPodSpecMultiContainerValidation(t *testing.T) {
 			Message: "must not set the field(s)",
 			Paths:   []string{"containers[1].livenessProbe.timeoutSeconds", "containers[1].readinessProbe.timeoutSeconds"},
 		},
+	}, {
+		name: "restart policy flag enabled: serving container sets restartPolicy",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:          "container-a",
+				Image:         "busybox",
+				RestartPolicy: &never,
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}},
+			}, {
+				Name:  "container-b",
+				Image: "helloworld",
+			}},
+		},
+		cfgOpts: []configOption{withContainerSpecRestartPolicyEnabled()},
+		want:    nil,
+	}, {
+		name: "restart policy flag enabled: restartPolicy is not allowed for non serving containers",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:  "container-a",
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}},
+			}, {
+				Name:          "container-b",
+				Image:         "helloworld",
+				RestartPolicy: &never,
+			}},
+		},
+		cfgOpts: []configOption{withContainerSpecRestartPolicyEnabled()},
+		want:    apis.ErrDisallowedFields("containers[1].restartPolicy"),
 	}, {
 		name: "flag enabled: multiple containers with no port",
 		ps: corev1.PodSpec{
@@ -1667,7 +1709,53 @@ func TestPodSpecFieldRefValidation(t *testing.T) {
 }
 
 func TestUserContainerValidation(t *testing.T) {
+	never := corev1.ContainerRestartPolicyNever
+	onFailure := corev1.ContainerRestartPolicyOnFailure
 	tests := []containerValidationTestCase{{
+		name: "restartPolicy without the restart policy flag",
+		c: corev1.Container{
+			Image:         "foo",
+			RestartPolicy: &never,
+		},
+		want: apis.ErrDisallowedFields("restartPolicy"),
+	}, {
+		name: "restartPolicyRules without the restart policy flag",
+		c: corev1.Container{
+			Image:         "foo",
+			RestartPolicy: &never,
+			RestartPolicyRules: []corev1.ContainerRestartRule{{
+				Action: corev1.ContainerRestartRuleActionRestart,
+				ExitCodes: &corev1.ContainerRestartRuleOnExitCodes{
+					Operator: corev1.ContainerRestartRuleOnExitCodesOpNotIn,
+					Values:   []int32{0},
+				},
+			}},
+		},
+		want: apis.ErrDisallowedFields("restartPolicy", "restartPolicyRules"),
+	}, {
+		name: "restartPolicy OnFailure with the restart policy flag",
+		c: corev1.Container{
+			Image:         "foo",
+			RestartPolicy: &onFailure,
+		},
+		cfgOpts: []configOption{withContainerSpecRestartPolicyEnabled()},
+		want:    nil,
+	}, {
+		name: "restartPolicy Never and rules with the restart policy flag",
+		c: corev1.Container{
+			Image:         "foo",
+			RestartPolicy: &never,
+			RestartPolicyRules: []corev1.ContainerRestartRule{{
+				Action: corev1.ContainerRestartRuleActionRestart,
+				ExitCodes: &corev1.ContainerRestartRuleOnExitCodes{
+					Operator: corev1.ContainerRestartRuleOnExitCodesOpNotIn,
+					Values:   []int32{0},
+				},
+			}},
+		},
+		cfgOpts: []configOption{withContainerSpecRestartPolicyEnabled()},
+		want:    nil,
+	}, {
 		name: "has a lifecycle",
 		c: corev1.Container{
 			Name:      "foo",
@@ -2543,7 +2631,16 @@ func TestSidecarContainerValidation(t *testing.T) {
 }
 
 func TestInitContainerValidation(t *testing.T) {
+	always := corev1.ContainerRestartPolicyAlways
 	tests := []containerValidationTestCase{{
+		name: "restartPolicy with the restart policy flag",
+		c: corev1.Container{
+			Image:         "foo",
+			RestartPolicy: &always,
+		},
+		want:    apis.ErrDisallowedFields("restartPolicy"),
+		cfgOpts: []configOption{withPodSpecInitContainersEnabled(), withContainerSpecRestartPolicyEnabled()},
+	}, {
 		name: "has a lifecycle",
 		c: corev1.Container{
 			Name:      "foo",

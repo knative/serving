@@ -122,6 +122,10 @@ func revSpecOverrides(prefixPath string) []entry {
 			"volumeMounts",
 			"workingDir",
 		),
+		featureFlagFields: []flagField{
+			{name: "restartPolicy", flag: config.FeatureContainerSpecRestartPolicy},
+			{name: "restartPolicyRules", flag: config.FeatureContainerSpecRestartPolicy},
+		},
 	}, {
 		path:         "containers.ports",
 		dropListType: true,

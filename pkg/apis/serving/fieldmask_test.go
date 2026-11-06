@@ -258,6 +258,7 @@ func TestPodSpecMask(t *testing.T) {
 }
 
 func TestContainerMask(t *testing.T) {
+	never := corev1.ContainerRestartPolicyNever
 	want := &corev1.Container{
 		Name:                     "foo",
 		Args:                     []string{"hello"},
@@ -296,9 +297,14 @@ func TestContainerMask(t *testing.T) {
 		Stdin:                    true,
 		StdinOnce:                true,
 		TTY:                      true,
+		RestartPolicy:            &never,
+		RestartPolicyRules: []corev1.ContainerRestartRule{{
+			Action: corev1.ContainerRestartRuleActionRestart,
+		}},
 	}
 
-	got := ContainerMask(in)
+	ctx := context.Background()
+	got := ContainerMask(ctx, in)
 
 	if &want == &got {
 		t.Error("Input and output share addresses. Want different addresses")
@@ -310,8 +316,82 @@ func TestContainerMask(t *testing.T) {
 		t.Error("ContainerMask (-want, +got):", diff)
 	}
 
-	if got = ContainerMask(nil); got != nil {
+	if got = ContainerMask(ctx, nil); got != nil {
 		t.Errorf("ContainerMask(nil) = %v, want: nil", got)
+	}
+}
+
+func TestContainerMaskRestartPolicy(t *testing.T) {
+	never := corev1.ContainerRestartPolicyNever
+	rules := []corev1.ContainerRestartRule{{
+		Action: corev1.ContainerRestartRuleActionRestart,
+		ExitCodes: &corev1.ContainerRestartRuleOnExitCodes{
+			Operator: corev1.ContainerRestartRuleOnExitCodesOpNotIn,
+			Values:   []int32{0},
+		},
+	}}
+	in := &corev1.Container{
+		Image:              "busybox",
+		RestartPolicy:      &never,
+		RestartPolicyRules: rules,
+	}
+	kept := &corev1.Container{
+		Image:              "busybox",
+		RestartPolicy:      &never,
+		RestartPolicyRules: rules,
+	}
+	dropped := &corev1.Container{
+		Image: "busybox",
+	}
+
+	tests := []struct {
+		name   string
+		flag   config.Flag
+		within func(context.Context) context.Context
+		want   *corev1.Container
+	}{{
+		name: "flag disabled",
+		flag: config.Disabled,
+		want: dropped,
+	}, {
+		name: "flag enabled",
+		flag: config.Enabled,
+		want: kept,
+	}, {
+		name: "flag allowed",
+		flag: config.Allowed,
+		want: kept,
+	}, {
+		name:   "flag enabled, init container",
+		flag:   config.Enabled,
+		within: WithinInitContainer,
+		want:   dropped,
+	}, {
+		name:   "flag enabled, sidecar container",
+		flag:   config.Enabled,
+		within: WithinSidecarContainer,
+		want:   dropped,
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := config.ToContext(context.Background(), &config.Config{
+				Features: &config.Features{
+					ContainerSpecRestartPolicy: test.flag,
+				},
+			})
+			if test.within != nil {
+				ctx = test.within(ctx)
+			}
+
+			got := ContainerMask(ctx, in)
+
+			if diff, err := kmp.SafeDiff(test.want, got); err != nil {
+				t.Error("Got error comparing output, err =", err)
+			} else if diff != "" {
+				t.Error("ContainerMask (-want, +got):", diff)
+			}
+		})
 	}
 }
 

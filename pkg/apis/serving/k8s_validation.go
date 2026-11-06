@@ -618,7 +618,7 @@ func validate(ctx context.Context, container corev1.Container, volumes map[strin
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 
-	errs := apis.CheckDisallowedFields(container, *ContainerMask(&container))
+	errs := apis.CheckDisallowedFields(container, *ContainerMask(ctx, &container))
 
 	if reservedContainerNames.Has(container.Name) {
 		errs = errs.Also(&apis.FieldError{
