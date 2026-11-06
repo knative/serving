@@ -1181,6 +1181,55 @@ func TestBuildTraffic_LatestReadyRevisionFailed(t *testing.T) {
 	}
 }
 
+// TestBuildTraffic_LatestReadyRevisionFailed_NewRevisionPending tests that when
+// the LatestReadyRevision has failed but there is a newer LatestCreatedRevision
+// (i.e., user has redeployed), the route is NOT marked as permanently failed —
+// it should be treated as a transient unknown state so it keeps retrying.
+// This covers the scenario in https://github.com/knative/serving/issues/16698
+func TestBuildTraffic_LatestReadyRevisionFailed_NewRevisionPending(t *testing.T) {
+	// Build a config where:
+	//   LRR = "failed-rev" (the one in LatestReadyRevisionName — it has now failed)
+	//   LCR = "newer-rev"  (a new revision is being deployed but not yet ready)
+	config := testConfig("my-config")
+	failedRev := testRevForConfig(config, "my-config-failed-rev")
+	failedRev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing, "image pull error")
+
+	newerRev := testRevForConfig(config, "my-config-newer-rev")
+	// newerRev is still Unknown (not yet ready, not yet failed)
+
+	config.Status.SetLatestReadyRevisionName(failedRev.Name)   // LRR = failed rev
+	config.Status.SetLatestCreatedRevisionName(newerRev.Name)  // LCR = new (pending) rev
+	// At this point, Config.Ready is Unknown (LRR != LCR)
+
+	// Register both in the informer
+	servingClient := fakeclientset.NewSimpleClientset()
+	servingInformer := informers.NewSharedInformerFactory(servingClient, 0)
+	configInformer := servingInformer.Serving().V1().Configurations()
+	revInformer := servingInformer.Serving().V1().Revisions()
+	configInformer.Informer().GetIndexer().Add(config)
+	revInformer.Informer().GetIndexer().Add(failedRev)
+	revInformer.Informer().GetIndexer().Add(newerRev)
+	cl := configInformer.Lister()
+	rl := revInformer.Lister()
+
+	_, err := BuildTrafficConfiguration(cl, rl,
+		testRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{
+			ConfigurationName: config.Name,
+			Percent:           ptr.Int64(100),
+		})))
+
+	// CRITICAL: The error should NOT be IsFailure() = true
+	// It should be a transient "not ready" error, allowing the Route to retry.
+	var targetErr TargetError
+	if !errors.As(err, &targetErr) {
+		t.Fatalf("Expected a TargetError, got %v", err)
+	}
+	if targetErr.IsFailure() {
+		t.Errorf("Expected IsFailure()=false (transient), got IsFailure()=true (permanent). "+
+			"This would cause the Route to get permanently stuck. See https://github.com/knative/serving/issues/16698")
+	}
+}
+
 func TestBuildTrafficConfigurationReadyNotReadyConfig(t *testing.T) {
 	expected := &Config{
 		Targets: map[string]RevisionTargets{
