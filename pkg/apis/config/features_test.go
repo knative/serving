@@ -393,6 +393,33 @@ func TestFeaturesConfiguration(t *testing.T) {
 			"kubernetes.containerspec-addcapabilities": "Allowed",
 		},
 	}, {
+		name:    "kubernetes.containerspec-restartpolicy Disabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			ContainerSpecRestartPolicy: Disabled,
+		}),
+		data: map[string]string{
+			"kubernetes.containerspec-restartpolicy": "Disabled",
+		},
+	}, {
+		name:    "kubernetes.containerspec-restartpolicy Enabled",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			ContainerSpecRestartPolicy: Enabled,
+		}),
+		data: map[string]string{
+			"kubernetes.containerspec-restartpolicy": "Enabled",
+		},
+	}, {
+		name:    "kubernetes.containerspec-restartpolicy Allowed",
+		wantErr: false,
+		wantFeatures: defaultWith(&Features{
+			ContainerSpecRestartPolicy: Allowed,
+		}),
+		data: map[string]string{
+			"kubernetes.containerspec-restartpolicy": "Allowed",
+		},
+	}, {
 		name:    "tag-header-based-routing Allowed",
 		wantErr: false,
 		wantFeatures: defaultWith(&Features{

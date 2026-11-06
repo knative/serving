@@ -307,11 +307,12 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 // ContainerMask performs a _shallow_ copy of the Kubernetes Container object to a new
 // Kubernetes Container object bringing over only the fields allowed in the Knative API. This
 // does not validate the contents or the bounds of the provided fields.
-func ContainerMask(in *corev1.Container) *corev1.Container {
+func ContainerMask(ctx context.Context, in *corev1.Container) *corev1.Container {
 	if in == nil {
 		return nil
 	}
 
+	cfg := config.FromContextOrDefaults(ctx)
 	out := new(corev1.Container)
 
 	// Allowed fields
@@ -332,6 +333,14 @@ func ContainerMask(in *corev1.Container) *corev1.Container {
 	out.TerminationMessagePath = in.TerminationMessagePath
 	out.TerminationMessagePolicy = in.TerminationMessagePolicy
 	out.VolumeMounts = in.VolumeMounts
+
+	// Only the serving container may set its restart policy. On an init
+	// container, restartPolicy Always makes it a native sidecar, and a sidecar
+	// that stopped would leave its pod not ready.
+	if cfg.Features.ContainerSpecRestartPolicy != config.Disabled && !IsInitContainer(ctx) && !IsInSidecarContainer(ctx) {
+		out.RestartPolicy = in.RestartPolicy
+		out.RestartPolicyRules = in.RestartPolicyRules
+	}
 
 	// Disallowed fields
 	// This list is unnecessary, but added here for clarity
