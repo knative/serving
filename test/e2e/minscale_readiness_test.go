@@ -29,6 +29,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -121,8 +122,11 @@ func TestMinScaleTransition(t *testing.T) {
 		t.Fatal("Failed to create Configuration:", err)
 	}
 
-	// This will wait for the revision to be created
-	firstRevisionService := PrivateServiceName(t, clients, firstRevision)
+	// Wait for the deployment to be created and ready replicas to converge before
+	// checking revision readiness and asserting that minScale is maintained.
+	if lr, err := waitForDesiredScale(clients, firstRevision, gte(minScale)); err != nil {
+		t.Fatalf("Revision %q did not reach %d ready replicas: got %d: %v", firstRevision, minScale, lr, err)
+	}
 
 	t.Log("Waiting for first revision to become ready")
 	err = v1test.WaitForRevisionState(clients.ServingClient, firstRevision, v1test.IsRevisionReady, "RevisionIsReady")
@@ -131,7 +135,7 @@ func TestMinScaleTransition(t *testing.T) {
 	}
 
 	t.Log("Holding revision at minScale after becoming ready")
-	if lr, ok := ensureDesiredScale(clients, t, firstRevisionService, gte(minScale)); !ok {
+	if lr, ok := ensureDesiredScale(clients, t, firstRevision, gte(minScale)); !ok {
 		t.Fatalf("The revision %q observed scale %d < %d after becoming ready", firstRevision, lr, minScale)
 	}
 
@@ -176,8 +180,6 @@ func TestMinScaleTransition(t *testing.T) {
 		t.Fatal("Failed waiting for pods to be running", err)
 	}
 
-	secondRevisionService := PrivateServiceName(t, clients, secondRevision)
-
 	// Go over all the new pods and start marking each one ready
 	// except the last one
 	for i, pod := range podList.Items {
@@ -200,18 +202,18 @@ func TestMinScaleTransition(t *testing.T) {
 		}
 
 		t.Log("Check original revision holding at min scale", minScale)
-		if _, ok := ensureDesiredScale(clients, t, firstRevisionService, gte(minScale)); !ok {
+		if _, ok := ensureDesiredScale(clients, t, firstRevision, gte(minScale)); !ok {
 			t.Fatalf("Revision %q was scaled down prematurely", firstRevision)
 		}
 	}
 
 	t.Log("Check new revision holding at min scale", minScale)
-	if _, ok := ensureDesiredScale(clients, t, secondRevisionService, gte(minScale)); !ok {
+	if _, ok := ensureDesiredScale(clients, t, secondRevision, gte(minScale)); !ok {
 		t.Fatalf("Revision %q was scaled down prematurely", secondRevision)
 	}
 
 	t.Log("Check old revision is scaled down")
-	if _, err := waitForDesiredScale(clients, firstRevisionService, eq(0)); err != nil {
+	if _, err := waitForDesiredScale(clients, firstRevision, eq(0)); err != nil {
 		t.Fatalf("Revision %q was not scaled down: %s", firstRevision, err)
 	}
 }
@@ -290,10 +292,9 @@ func TestMinScale(t *testing.T) {
 	}
 
 	revName := latestRevisionName(t, clients, names.Config, "")
-	serviceName := PrivateServiceName(t, clients, revName)
 
 	t.Log("Waiting for revision to scale to minScale before becoming ready")
-	if lr, err := waitForDesiredScale(clients, serviceName, gte(minScale)); err != nil {
+	if lr, err := waitForDesiredScale(clients, revName, gte(minScale)); err != nil {
 		t.Fatalf("The revision %q scaled to %d < %d before becoming ready: %v", revName, lr, minScale, err)
 	}
 
@@ -305,7 +306,7 @@ func TestMinScale(t *testing.T) {
 	}
 
 	t.Log("Holding revision at minScale after becoming ready")
-	if lr, ok := ensureDesiredScale(clients, t, serviceName, gte(minScale)); !ok {
+	if lr, ok := ensureDesiredScale(clients, t, revName, gte(minScale)); !ok {
 		t.Fatalf("The revision %q observed scale %d < %d after becoming ready", revName, lr, minScale)
 	}
 
@@ -323,10 +324,9 @@ func TestMinScale(t *testing.T) {
 	}
 
 	newRevName := latestRevisionName(t, clients, names.Config, revName)
-	newServiceName := PrivateServiceName(t, clients, newRevName)
 
 	t.Log("Waiting for new revision to scale to minScale after update")
-	if lr, err := waitForDesiredScale(clients, newServiceName, gte(minScale)); err != nil {
+	if lr, err := waitForDesiredScale(clients, newRevName, gte(minScale)); err != nil {
 		t.Fatalf("The revision %q scaled to %d < %d after creating route: %v", newRevName, lr, minScale, err)
 	}
 
@@ -338,7 +338,7 @@ func TestMinScale(t *testing.T) {
 	}
 
 	t.Log("Holding new revision at minScale after becoming ready")
-	if lr, ok := ensureDesiredScale(clients, t, newServiceName, gte(minScale)); !ok {
+	if lr, ok := ensureDesiredScale(clients, t, newRevName, gte(minScale)); !ok {
 		t.Fatalf("The revision %q observed scale %d < %d after becoming ready", newRevName, lr, minScale)
 	}
 
@@ -351,7 +351,7 @@ func TestMinScale(t *testing.T) {
 	}
 
 	t.Log("Waiting for old revision to scale below minScale after being replaced")
-	if lr, err := waitForDesiredScale(clients, serviceName, lt(minScale)); err != nil {
+	if lr, err := waitForDesiredScale(clients, revName, lt(minScale)); err != nil {
 		t.Fatalf("The revision %q scaled to %d > %d after not being routable anymore: %v", revName, lr, minScale, err)
 	}
 
@@ -361,7 +361,7 @@ func TestMinScale(t *testing.T) {
 	}
 
 	t.Log("Waiting for new revision to scale below minScale when there is no route")
-	if lr, err := waitForDesiredScale(clients, newServiceName, lt(minScale)); err != nil {
+	if lr, err := waitForDesiredScale(clients, newRevName, lt(minScale)); err != nil {
 		t.Fatalf("The revision %q scaled to %d > %d after not being routable anymore: %v", newRevName, lr, minScale, err)
 	}
 }
@@ -415,19 +415,18 @@ func TestMinScaleAnnotationChange(t *testing.T) {
 	}
 
 	revName := latestRevisionName(t, clients, names.Config, "")
-	serviceName := PrivateServiceName(t, clients, revName)
 	revClient := clients.ServingClient.Revisions
 
 	// Wait for the KPA to reconcile and scale to converge before
 	// asserting stability. The Service can report Ready before the
 	// deployment has reached the desired replica count.
 	// See: https://github.com/knative/serving/issues/16653
-	if lr, err := waitForDesiredScale(clients, serviceName, eq(minScale[0])); err != nil {
+	if lr, err := waitForDesiredScale(clients, revName, eq(minScale[0])); err != nil {
 		t.Fatalf("The revision %q never reached scale %d: last observed %d", revName, minScale[0], lr)
 	}
 
 	t.Log("Holding revision at minScale after becoming ready")
-	if lr, ok := ensureDesiredScale(clients, t, serviceName, eq(minScale[0])); !ok {
+	if lr, ok := ensureDesiredScale(clients, t, revName, eq(minScale[0])); !ok {
 		t.Fatalf("The revision %q observed scale %d < %d after becoming ready", revName, lr, minScale)
 	}
 
@@ -448,7 +447,7 @@ func TestMinScaleAnnotationChange(t *testing.T) {
 			t.Fatalf("An error occurred updating revision %v, %v", revName, err)
 		}
 
-		if lr, err := waitForDesiredScale(clients, serviceName, eq(minScale[i])); err != nil {
+		if lr, err := waitForDesiredScale(clients, revName, eq(minScale[i])); err != nil {
 			t.Fatalf("The revision %q observed scale %d < %d after becoming ready", revName, lr, minScale[i])
 		}
 	}
@@ -509,29 +508,37 @@ func latestRevisionName(t *testing.T, clients *test.Clients, configName, oldRevN
 	return config.Status.LatestCreatedRevisionName
 }
 
-// waitForDesiredScale returns the last observed number of pods and/or error if the cond
-// callback is never satisfied.
-func waitForDesiredScale(clients *test.Clients, serviceName string, cond func(int) bool) (latestReady int, err error) {
+// waitForDesiredScale waits for the revision's deployment ready replica count to
+// satisfy cond, returning the last observed count even if the wait fails.
+func waitForDesiredScale(clients *test.Clients, revisionName string, cond func(int) bool) (latestReady int, err error) {
+	deploymentName := kmeta.ChildName(revisionName, "-deployment")
 	// See https://github.com/knative/serving/issues/7727#issuecomment-706772507 for context.
-	return latestReady, wait.PollUntilContextTimeout(context.Background(), time.Second, 3*time.Minute, true, func(context.Context) (bool, error) {
-		endpoints, err := test.EndpointSlicesForService(clients.KubeClient, test.ServingFlags.TestNamespace, serviceName)
-		if err != nil {
-			return false, nil //nolint:nilerr
+	err = wait.PollUntilContextTimeout(context.Background(), time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
+		deployment, err := clients.KubeClient.AppsV1().Deployments(test.ServingFlags.TestNamespace).Get(ctx, deploymentName, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return false, nil
 		}
-		latestReady = test.ReadyAddressCount(endpoints)
+		if err != nil {
+			return false, err
+		}
+		latestReady = int(deployment.Status.ReadyReplicas)
 		return cond(latestReady), nil
 	})
+	return latestReady, err
 }
 
-func ensureDesiredScale(clients *test.Clients, t *testing.T, serviceName string, cond func(int) bool) (latestReady int, observed bool) {
+// ensureDesiredScale verifies the revision's deployment holds its ready replica count for 30 seconds.
+// KPA counts ready pods, so use ready replicas rather than asynchronously published service endpoints.
+func ensureDesiredScale(clients *test.Clients, t *testing.T, revisionName string, cond func(int) bool) (latestReady int, observed bool) {
+	deploymentName := kmeta.ChildName(revisionName, "-deployment")
 	err := wait.PollUntilContextTimeout(context.Background(), time.Second, 30*time.Second, true, func(context.Context) (bool, error) {
-		endpoints, err := test.EndpointSlicesForService(clients.KubeClient, test.ServingFlags.TestNamespace, serviceName)
+		deployment, err := clients.KubeClient.AppsV1().Deployments(test.ServingFlags.TestNamespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil //nolint:nilerr
 		}
 
-		if latestReady = test.ReadyAddressCount(endpoints); !cond(latestReady) {
-			return false, fmt.Errorf("scale %d didn't meet condition", latestReady)
+		if latestReady = int(deployment.Status.ReadyReplicas); !cond(latestReady) {
+			return false, fmt.Errorf("ready replica count %d didn't meet condition", latestReady)
 		}
 
 		return false, nil
