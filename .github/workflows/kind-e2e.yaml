@@ -187,7 +187,6 @@ jobs:
 
     - name: Install Dependencies
       run: |
-        set -x
         echo "::group:: install gotestsum ${GOTESTSUM_VERSION}"
         curl -L https://github.com/gotestyourself/gotestsum/releases/download/v${GOTESTSUM_VERSION}/gotestsum_${GOTESTSUM_VERSION}_linux_amd64.tar.gz | tar xzf - gotestsum
         chmod +x ./gotestsum
@@ -195,8 +194,10 @@ jobs:
         echo "::endgroup::"
 
     - name: Install Serving & Ingress
+      env:
+        # The kind-diag step below already collects diagnostics on failure.
+        SKIP_DUMP_ON_FAILURE: "1"
       run: |
-        set -x
         # Remove chaosduck since we don't use it and it'll skip the build
         rm ./test/config/chaosduck/chaosduck.yaml
 
