@@ -71,7 +71,7 @@ jobs:
       run: |
         ./test/upload-test-images.sh
 
-    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: artifacts
         path: ~/artifacts
@@ -85,8 +85,8 @@ jobs:
       fail-fast: false # Keep running if one leg fails.
       matrix:
         k8s-version:
-        - v1.34.x
         - v1.35.x
+        - v1.36.x
 
         ingress:
         - kourier
@@ -171,23 +171,22 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
 
-    - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
       with:
         name: artifacts
         path: ~/artifacts
 
     - name: setup kind
-      uses: chainguard-dev/actions/setup-kind@127740c4cc23cb47120860698b0fd91a803bab32 # main
+      uses: chainguard-dev/actions/setup-kind@53668650c25af6e8864f1d1ddaa69ed4db4cdf09 # v1.6.42
       with:
         k8s-version: ${{ matrix.k8s-version }}
         kind-worker-count: 4
         cluster-suffix: c${{ github.run_id }}.local
         registry-authority: registry.localhost:5000
-        registry-volume: $HOME/artifacts/registry
+        registry-volume: /home/runner/artifacts/registry
 
     - name: Install Dependencies
       run: |
-        set -x
         echo "::group:: install gotestsum ${GOTESTSUM_VERSION}"
         curl -L https://github.com/gotestyourself/gotestsum/releases/download/v${GOTESTSUM_VERSION}/gotestsum_${GOTESTSUM_VERSION}_linux_amd64.tar.gz | tar xzf - gotestsum
         chmod +x ./gotestsum
@@ -195,8 +194,10 @@ jobs:
         echo "::endgroup::"
 
     - name: Install Serving & Ingress
+      env:
+        # The kind-diag step below already collects diagnostics on failure.
+        SKIP_DUMP_ON_FAILURE: "1"
       run: |
-        set -x
         # Remove chaosduck since we don't use it and it'll skip the build
         rm ./test/config/chaosduck/chaosduck.yaml
 
@@ -224,7 +225,7 @@ jobs:
           --ingress-class=${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev \
           ${{ matrix.test-flags }}
 
-    - uses: chainguard-dev/actions/kind-diag@3e8a2a226fad9e1ecbf2d359b8a7697554a4ac6d # main
+    - uses: chainguard-dev/actions/kind-diag@53668650c25af6e8864f1d1ddaa69ed4db4cdf09 # v1.6.42
       # Only upload logs on failure.
       if: ${{ failure() }}
       with:

@@ -25,7 +25,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/kmeta"
+
+	"knative.dev/pkg/kmap"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
@@ -106,7 +107,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 		"label-y": "def",
 	}
 	// Copy over new labels.
-	cfg.Labels = kmeta.UnionMaps(cfg.Labels, newLabels)
+	cfg.Labels = kmap.Union(cfg.Labels, newLabels)
 	cfg, err := clients.ServingClient.Configs.Update(context.Background(), cfg, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatalf("Failed to update labels for Configuration %s: %v", names.Config, err)
@@ -138,7 +139,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 		"annotation-a": "123",
 		"annotation-b": "456",
 	}
-	cfg.Annotations = kmeta.UnionMaps(cfg.Annotations, newAnnotations)
+	cfg.Annotations = kmap.Union(cfg.Annotations, newAnnotations)
 	cfg, err = clients.ServingClient.Configs.Update(context.Background(), cfg, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatalf("Failed to update annotations for Configuration %s: %v", names.Config, err)

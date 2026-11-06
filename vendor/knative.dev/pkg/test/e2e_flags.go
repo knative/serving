@@ -31,11 +31,15 @@ import (
 
 // Flags holds the command line flags or defaults for settings in the user's environment.
 // See EnvironmentFlags for a list of supported fields.
-// Deprecated: use test/flags.Flags()
+//
+// Deprecated: embed environment.ClientConfig (knative.dev/pkg/environment) and
+// test/environment.TestClientConfig directly instead.
 var Flags = initializeFlags()
 
 // EnvironmentFlags define the flags that are needed to run the e2e tests.
-// Deprecated: use test/flags.Flags() or injection.Flags()
+//
+// Deprecated: embed environment.ClientConfig (knative.dev/pkg/environment) and
+// test/environment.TestClientConfig directly instead.
 type EnvironmentFlags struct {
 	env.ClientConfig
 	testenv.TestClientConfig

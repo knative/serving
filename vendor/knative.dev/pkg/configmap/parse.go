@@ -55,8 +55,8 @@ var AsUint16 = parser.As[uint16]
 // AsUint32 parses the value at key as an uint32 into the target, if it exists.
 var AsUint32 = parser.As[uint32]
 
-// AsUint64 parses the value at key as an uint32 into the target, if it exists.
-var AsUint64 = parser.As[uint32]
+// AsUint64 parses the value at key as an uint64 into the target, if it exists.
+var AsUint64 = parser.As[uint64]
 
 // AsFloat64 parses the value at key as a float64 into the target, if it exists.
 var AsFloat64 = parser.As[float64]

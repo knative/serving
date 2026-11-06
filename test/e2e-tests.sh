@@ -84,6 +84,10 @@ toggle_feature allow-zero-initial-scale false config-autoscaler || fail_test
 
 go_test_e2e -timeout=2m ./test/e2e/domainmapping "${E2E_TEST_FLAGS[@]}" || failed=1
 
+toggle_feature domainmapping-direct-route-traffic Enabled
+go_test_e2e -timeout=2m ./test/e2e/domainmapping "${E2E_TEST_FLAGS[@]}" || failed=1
+toggle_feature domainmapping-direct-route-traffic Disabled
+
 toggle_feature cluster-local-domain-tls enabled config-network || fail_test
 go_test_e2e -timeout=2m ./test/e2e/clusterlocaldomaintls "${E2E_TEST_FLAGS[@]}" || failed=1
 toggle_feature cluster-local-domain-tls disabled config-network || fail_test

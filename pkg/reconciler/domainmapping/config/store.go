@@ -22,18 +22,35 @@ import (
 	netcfg "knative.dev/networking/pkg/config"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
+	apisconfig "knative.dev/serving/pkg/apis/config"
 )
 
 type cfgKey struct{}
 
 // Config holds the collection of configurations that we attach to contexts.
 type Config struct {
-	Network *netcfg.Config
+	Network  *netcfg.Config
+	Features *apisconfig.Features
 }
 
 // FromContext extracts a Config from the provided context.
 func FromContext(ctx context.Context) *Config {
 	return ctx.Value(cfgKey{}).(*Config)
+}
+
+// FromContextOrDefaults is like FromContext, but when no Config is attached it
+// returns a Config populated with the defaults for each of the Config fields.
+func FromContextOrDefaults(ctx context.Context) *Config {
+	cfg, _ := ctx.Value(cfgKey{}).(*Config)
+	if cfg == nil {
+		cfg = &Config{}
+	}
+
+	if cfg.Features == nil {
+		cfg.Features, _ = apisconfig.NewFeaturesConfigFromMap(map[string]string{})
+	}
+
+	return cfg
 }
 
 // ToContext attaches the provided Config to the provided context, returning the
@@ -54,9 +71,13 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 
 // Load creates a Config from the current config state of the Store.
 func (s *Store) Load() *Config {
-	return &Config{
+	cfg := &Config{
 		Network: s.UntypedLoad(netcfg.ConfigMapName).(*netcfg.Config).DeepCopy(),
 	}
+	if feat, ok := s.UntypedLoad(apisconfig.FeaturesConfigName).(*apisconfig.Features); ok {
+		cfg.Features = feat.DeepCopy()
+	}
+	return cfg
 }
 
 // NewStore creates a new store of Configs and optionally calls functions when ConfigMaps are updated.
@@ -66,7 +87,8 @@ func NewStore(ctx context.Context, onAfterStore ...func(name string, value inter
 			"domainmapping",
 			logging.FromContext(ctx),
 			configmap.Constructors{
-				netcfg.ConfigMapName: netcfg.NewConfigFromConfigMap,
+				netcfg.ConfigMapName:          netcfg.NewConfigFromConfigMap,
+				apisconfig.FeaturesConfigName: apisconfig.NewFeaturesConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),

@@ -40,6 +40,7 @@ func ParseAndGetRESTConfigOrDie() *rest.Config {
 }
 
 // GetRESTConfig returns a rest.Config to be used for kubernetes client creation.
+//
 // Deprecated: use environment.ClientConfig package
 func GetRESTConfig(serverURL, kubeconfig string) (*rest.Config, error) {
 	env := environment.ClientConfig{

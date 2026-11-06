@@ -78,10 +78,12 @@ const (
 
 	// DisableAutoTLSAnnotationKey is the annotation key attached to a Knative Service/DomainMapping
 	// to indicate that AutoTLS should not be enabled for it.
+	//
 	// Deprecated: use DisableExternalDomainTLSAnnotationKey instead.
 	DisableAutoTLSAnnotationKey = PublicGroupName + "/disableAutoTLS"
 
 	// DisableAutoTLSAnnotationAltKey is an alternative casing to DisableAutoTLSAnnotationKey
+	//
 	// Deprecated: use DisableExternalDomainTLSAnnotationKey instead.
 	DisableAutoTLSAnnotationAltKey = PublicGroupName + "/disable-auto-tls"
 

@@ -648,7 +648,15 @@ function set_latest_to_highest_semver() {
     abort "cannot list releases"
   fi
 
-  gh_tool release edit "knative-${last_version}" --latest > /dev/null || abort "error setting $last_version to 'latest'"
+  # Reconstruct the github release tag the same way publish_to_github creates it:
+  # v1+ releases are tagged "knative-vX.Y.Z", while pre-1.0 releases keep the
+  # plain "vX.Y.Z" tag (the version is already a valid go-module tag, so no
+  # "knative-" prefix is added). Mirror that here so this does not look up a
+  # non-existent "knative-v0.Y.Z" tag and fail on every pre-1.0 release.
+  local release_tag="${last_version}"
+  [[ "${last_version}" == "v1"* ]] && release_tag="knative-${last_version}"
+
+  gh_tool release edit "${release_tag}" --latest > /dev/null || abort "error setting $last_version to 'latest'"
   echo "Github release ${last_version} set as 'latest'"
 }
 

@@ -20,6 +20,8 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"knative.dev/pkg/kmap"
 	"knative.dev/pkg/kmeta"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
@@ -54,8 +56,8 @@ func MakeMetric(pa *autoscalingv1alpha1.PodAutoscaler, metricSvc string, config 
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       pa.Namespace,
 			Name:            pa.Name,
-			Annotations:     kmeta.CopyMap(pa.Annotations),
-			Labels:          kmeta.CopyMap(pa.Labels),
+			Annotations:     kmap.Copy(pa.Annotations),
+			Labels:          kmap.Copy(pa.Labels),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(pa)},
 		},
 		Spec: autoscalingv1alpha1.MetricSpec{

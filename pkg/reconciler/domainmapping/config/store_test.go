@@ -24,6 +24,7 @@ import (
 
 	netcfg "knative.dev/networking/pkg/config"
 	logtesting "knative.dev/pkg/logging/testing"
+	apisconfig "knative.dev/serving/pkg/apis/config"
 
 	. "knative.dev/pkg/configmap/testing"
 )
@@ -33,7 +34,9 @@ func TestStoreLoadWithContext(t *testing.T) {
 	store := NewStore(ctx)
 
 	networkConfig := ConfigMapFromTestFile(t, netcfg.ConfigMapName)
+	featuresConfig := ConfigMapFromTestFile(t, apisconfig.FeaturesConfigName)
 	store.OnConfigChanged(networkConfig)
+	store.OnConfigChanged(featuresConfig)
 
 	config := FromContext(store.ToContext(context.Background()))
 
@@ -43,4 +46,34 @@ func TestStoreLoadWithContext(t *testing.T) {
 			t.Errorf("Unexpected network config (-want, +got):\n%v", diff)
 		}
 	})
+
+	t.Run("features", func(t *testing.T) {
+		expected, _ := apisconfig.NewFeaturesConfigFromConfigMap(featuresConfig)
+		if diff := cmp.Diff(expected, config.Features); diff != "" {
+			t.Errorf("Unexpected features config (-want, +got):\n%v", diff)
+		}
+	})
+}
+
+func TestStoreLoadWithContextOrDefaults(t *testing.T) {
+	store := NewStore(logtesting.TestContextWithLogger(t))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, netcfg.ConfigMapName))
+
+	config := FromContextOrDefaults(store.ToContext(context.Background()))
+
+	t.Run("features", func(t *testing.T) {
+		expected, _ := apisconfig.NewFeaturesConfigFromMap(map[string]string{})
+		if diff := cmp.Diff(expected, config.Features); diff != "" {
+			t.Errorf("Unexpected features config (-want, +got):\n%v", diff)
+		}
+	})
+}
+
+func TestFromContextOrDefaultsWithoutConfig(t *testing.T) {
+	config := FromContextOrDefaults(context.Background())
+
+	expected, _ := apisconfig.NewFeaturesConfigFromMap(map[string]string{})
+	if diff := cmp.Diff(expected, config.Features); diff != "" {
+		t.Errorf("Unexpected features config (-want, +got):\n%v", diff)
+	}
 }

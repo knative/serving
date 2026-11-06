@@ -18,22 +18,25 @@ package network
 
 import (
 	"context"
-	"crypto/tls"
 	"net"
 	"net/http"
 	"time"
-
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 )
 
 // NewServer returns a new HTTP Server with HTTP2 handler.
 func NewServer(addr string, h http.Handler) *http.Server {
 	h1s := &http.Server{
 		Addr:              addr,
-		Handler:           h2c.NewHandler(h, &http2.Server{}),
+		Handler:           h,
 		ReadHeaderTimeout: time.Minute, // https://medium.com/a-journey-with-go/go-understand-and-mitigate-slowloris-attack-711c1b1403f6
+		Protocols:         new(http.Protocols),
 	}
+	// Serve HTTP/1.1 and both cleartext (h2c) and TLS (h2) HTTP/2. Setting
+	// Protocols explicitly disables net/http's automatic ALPN, so SetHTTP2 is
+	// required for a TLS listener to advertise "h2"; it is harmless for h2c.
+	h1s.Protocols.SetHTTP1(true)
+	h1s.Protocols.SetUnencryptedHTTP2(true)
+	h1s.Protocols.SetHTTP2(true)
 
 	return h1s
 }
@@ -47,23 +50,30 @@ func NewH2CTransport() http.RoundTripper {
 }
 
 func newH2CTransport(disableCompression bool) http.RoundTripper {
-	return &http2.Transport{
-		AllowHTTP:          true,
+	t := &http.Transport{
 		DisableCompression: disableCompression,
-		DialTLS: func(netw, addr string, _ *tls.Config) (net.Conn, error) {
-			return DialWithBackOff(context.Background(),
-				netw, addr)
+		DialContext: func(ctx context.Context, netw, addr string) (net.Conn, error) {
+			return DialWithBackOff(ctx, netw, addr)
 		},
+		Protocols: new(http.Protocols),
 	}
+	// Serve unencrypted HTTP/2 (h2c)
+	t.Protocols.SetUnencryptedHTTP2(true)
+	return t
 }
 
 // newH2Transport constructs a neew H2 transport. That transport will handles HTTPS traffic
 // with TLS config.
 func newH2Transport(disableCompression bool, tlsContext DialTLSContextFunc) http.RoundTripper {
-	return &http2.Transport{
+	t := &http.Transport{
 		DisableCompression: disableCompression,
-		DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
-			return tlsContext(ctx, network, addr)
+		// Request h2 ALPN; dialer applies it when NextProtos is unset.
+		DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return tlsContext(withH2ALPN(ctx), network, addr)
 		},
+		Protocols: new(http.Protocols),
 	}
+	// Serve encrypted HTTP/2 (h2)
+	t.Protocols.SetHTTP2(true)
+	return t
 }

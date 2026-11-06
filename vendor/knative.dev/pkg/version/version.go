@@ -36,8 +36,8 @@ const (
 
 	// DefaultKubernetesMinVersion is the default minimum Kubernetes version
 	// Knative is built and tested against. The value has a leading "v"
-	// (e.g. "v1.34.0").
-	DefaultKubernetesMinVersion = "v1.34.0"
+	// (e.g. "v1.35.0").
+	DefaultKubernetesMinVersion = "v1.35.0"
 )
 
 // KubernetesMinimumVersion returns the minimum Kubernetes version required by

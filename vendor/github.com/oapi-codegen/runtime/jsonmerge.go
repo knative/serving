@@ -8,7 +8,15 @@ import (
 
 // JsonMerge merges two JSON representation into a single object. `data` is the
 // existing representation and `patch` is the new data to be merged in
+//
+// Deprecated: Use JSONMerge instead.
 func JsonMerge(data, patch json.RawMessage) (json.RawMessage, error) {
+	return JSONMerge(data, patch)
+}
+
+// JSONMerge merges two JSON representation into a single object. `data` is the
+// existing representation and `patch` is the new data to be merged in
+func JSONMerge(data, patch json.RawMessage) (json.RawMessage, error) {
 	merger := jsonmerge.Merger{
 		CopyNonexistent: true,
 	}

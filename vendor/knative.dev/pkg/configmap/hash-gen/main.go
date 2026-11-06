@@ -38,6 +38,7 @@ func main() {
 // processFile reads the ConfigMap manifest from a file and adds or updates the label
 // containing the checksum of it's _example data if present.
 func processFile(fileName string) error {
+	//nolint:gosec // This build-time tool reads ConfigMap manifests passed as CLI args; path traversal is not a concern.
 	in, err := os.ReadFile(fileName)
 	if err != nil {
 		return fmt.Errorf("failed to read file: %w", err)

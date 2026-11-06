@@ -293,6 +293,7 @@ The DomainMapping controller enables mapping custom domains to Knative Services 
 - **Domain Claim:** Creates/validates ClusterDomainClaim to prevent hostname collisions across namespaces
 - **Reference Resolution:** Resolves the target reference (typically a Knative Service) to get the backend service name
 - **Ingress Creation:** Creates a Knative Ingress to route the custom domain to the target
+- **Route Traffic:** Reuses the HTTP paths of the target Route's Ingress when `domainmapping-direct-route-traffic` is enabled
 - **TLS Management:**
     - Supports externally provided TLS secrets (`spec.tls`)
     - Auto-provisions certificates when external-domain-tls is enabled

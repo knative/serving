@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+
 	"knative.dev/pkg/kmap"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -33,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	netheader "knative.dev/networking/pkg/http/header"
-	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -472,7 +472,7 @@ func revision(name, ns string, opts ...RevisionOption) *v1.Revision {
 // WithRevisionAnnotations adds the supplied annotations to the revision
 func WithRevisionAnnotations(annotations map[string]string) RevisionOption {
 	return func(revision *v1.Revision) {
-		revision.Annotations = kmeta.UnionMaps(revision.Annotations, annotations)
+		revision.Annotations = kmap.Union(revision.Annotations, annotations)
 	}
 }
 

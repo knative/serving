@@ -46,6 +46,7 @@ func Load(p string) (map[string]string, error) {
 		if info.IsDir() {
 			return nil
 		}
+		//nolint:gosec // Reading files from a trusted mounted ConfigMap volume; symlink traversal is not a concern.
 		b, err := os.ReadFile(p)
 		if err != nil {
 			return err

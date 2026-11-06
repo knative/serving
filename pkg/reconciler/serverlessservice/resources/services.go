@@ -19,6 +19,7 @@ package resources
 import (
 	pkgnet "knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/apis/networking/v1alpha1"
+	"knative.dev/pkg/kmap"
 	"knative.dev/pkg/kmeta"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/networking"
@@ -44,12 +45,12 @@ func MakePublicService(sks *v1alpha1.ServerlessService) *corev1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sks.Name,
 			Namespace: sks.Namespace,
-			Labels: kmeta.UnionMaps(sks.GetLabels(), map[string]string{
+			Labels: kmap.Union(sks.GetLabels(), map[string]string{
 				// Add our own special key.
 				networking.SKSLabelKey:    sks.Name,
 				networking.ServiceTypeKey: string(networking.ServiceTypePublic),
 			}),
-			Annotations:     kmeta.CopyMap(sks.GetAnnotations()),
+			Annotations:     kmap.Copy(sks.GetAnnotations()),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(sks)},
 		},
 		Spec: corev1.ServiceSpec{
@@ -85,12 +86,12 @@ func MakePublicEndpoints(sks *v1alpha1.ServerlessService, src *corev1.Endpoints)
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sks.Name, // Name of Endpoints must match that of Service.
 			Namespace: sks.Namespace,
-			Labels: kmeta.UnionMaps(sks.GetLabels(), map[string]string{
+			Labels: kmap.Union(sks.GetLabels(), map[string]string{
 				// Add our own special key.
 				networking.SKSLabelKey:    sks.Name,
 				networking.ServiceTypeKey: string(networking.ServiceTypePublic),
 			}),
-			Annotations:     kmeta.CopyMap(sks.GetAnnotations()),
+			Annotations:     kmap.Copy(sks.GetAnnotations()),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(sks)},
 		},
 		Subsets: FilterSubsetPorts(sks, src.Subsets),
@@ -136,12 +137,12 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.PrivateService(sks.Name),
 			Namespace: sks.Namespace,
-			Labels: kmeta.UnionMaps(sks.GetLabels(), map[string]string{
+			Labels: kmap.Union(sks.GetLabels(), map[string]string{
 				// Add our own special key.
 				networking.SKSLabelKey:    sks.Name,
 				networking.ServiceTypeKey: string(networking.ServiceTypePrivate),
 			}),
-			Annotations:     kmeta.CopyMap(sks.GetAnnotations()),
+			Annotations:     kmap.Copy(sks.GetAnnotations()),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(sks)},
 		},
 		Spec: corev1.ServiceSpec{

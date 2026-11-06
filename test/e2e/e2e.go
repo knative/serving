@@ -36,7 +36,8 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	appsv1 "k8s.io/api/apps/v1"
-	"knative.dev/pkg/kmeta"
+
+	"knative.dev/pkg/kmap"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -160,7 +161,7 @@ func waitForActivatorEndpoints(ctx *TestContext) error {
 func CreateAndVerifyInitialScaleConfiguration(t *testing.T, clients *test.Clients, names test.ResourceNames, wantPods int) {
 	t.Log("Creating a new Configuration.", "configuration", names.Config)
 	_, err := v1test.CreateConfiguration(t, clients, names, func(configuration *v1.Configuration) {
-		configuration.Spec.Template.Annotations = kmeta.UnionMaps(
+		configuration.Spec.Template.Annotations = kmap.Union(
 			configuration.Spec.Template.Annotations, map[string]string{
 				autoscaling.InitialScaleAnnotationKey: strconv.Itoa(wantPods),
 			})

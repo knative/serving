@@ -115,6 +115,7 @@ func defaultFeaturesConfig() *Features {
 		SecurePodDefaults:                Disabled,
 		TagHeaderBasedRouting:            Disabled,
 		AutoDetectHTTP2:                  Disabled,
+		DomainMappingDirectRouteTraffic:  Disabled,
 	}
 }
 
@@ -124,6 +125,7 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 
 	if err := cm.Parse(data,
 		asFlag("autodetect-http2", &nc.AutoDetectHTTP2),
+		asFlag("domainmapping-direct-route-traffic", &nc.DomainMappingDirectRouteTraffic),
 		asFlag("kubernetes.podspec-persistent-volume-write", &nc.PodSpecPersistentVolumeWrite),
 		asFlag("multi-container", &nc.MultiContainer),
 		asFlag("multi-container-probing", &nc.MultiContainerProbing),
@@ -202,6 +204,7 @@ type Features struct {
 	SecurePodDefaults                Flag
 	TagHeaderBasedRouting            Flag
 	AutoDetectHTTP2                  Flag
+	DomainMappingDirectRouteTraffic  Flag
 }
 
 // asFlag parses the value at key as a Flag into the target, if it exists.

@@ -8,7 +8,6 @@ aliases:
   client-writers:
   - dsimansk
   docs-reviewers:
-  - nainaz
   - skonto
   docs-writers:
   - skonto
@@ -18,14 +17,12 @@ aliases:
   - creydr
   eventing-wg-leads:
   - creydr
-  - pierDipi
   eventing-writers:
   - Leo6Leo
   - aliok
   - cali0707
   - creydr
   - matzew
-  - pierDipi
   func-reviewers:
   - jrangelramos
   func-writers:
@@ -43,6 +40,7 @@ aliases:
   - dprotaso
   - dsimansk
   - evankanderson
+  - gauron99
   - knative-automation
   - knative-prow-releaser-robot
   - knative-prow-robot
@@ -53,6 +51,7 @@ aliases:
   knative-release-leads:
   - dprotaso
   - dsimansk
+  - gauron99
   knative-robots:
   - knative-automation
   - knative-prow-releaser-robot
@@ -69,6 +68,7 @@ aliases:
   operations-writers:
   - aliok
   - houshengbo
+  - kahirokunn
   - matzew
   productivity-leads:
   - cardil
@@ -92,8 +92,6 @@ aliases:
   - skonto
   serving-reviewers:
   - skonto
-  serving-triage:
-  - skonto
   serving-wg-leads:
   - dprotaso
   serving-writers:
@@ -111,11 +109,7 @@ aliases:
   ux-wg-leads:
   - Leo6Leo
   - cali0707
-  - mmejia02
-  - zainabhusain227
   ux-writers:
   - Leo6Leo
   - cali0707
-  - mmejia02
   - prajjwalyd
-  - zainabhusain227

@@ -22,6 +22,7 @@ import (
 	"sort"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+
 	"knative.dev/networking/pkg/apis/networking"
 	"knative.dev/networking/pkg/config"
 	"knative.dev/pkg/kmap"
@@ -29,6 +30,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	networkingv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/kmeta"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -49,7 +51,7 @@ func MakeCertificate(owner kmeta.OwnerRefableAccessor, ownerLabelKey string, dns
 			Name:            certName,
 			Namespace:       owner.GetNamespace(),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(owner)},
-			Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
+			Annotations: kmap.Filter(kmap.Union(map[string]string{
 				networking.CertificateClassAnnotationKey: certClass,
 			}, owner.GetAnnotations()), ExcludedAnnotations.Has),
 			Labels: map[string]string{

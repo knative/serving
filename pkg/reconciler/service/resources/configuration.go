@@ -60,7 +60,7 @@ func MakeConfigurationFromExisting(service *v1.Service, existing *v1.Configurati
 			OwnerReferences: []metav1.OwnerReference{
 				*kmeta.NewControllerRef(service),
 			},
-			Labels:      kmeta.UnionMaps(service.GetLabels(), labels),
+			Labels:      kmap.Union(service.GetLabels(), labels),
 			Annotations: anns,
 		},
 		Spec: service.Spec.ConfigurationSpec,

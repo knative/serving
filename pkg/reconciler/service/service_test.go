@@ -31,7 +31,7 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/kmap"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
@@ -236,7 +236,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			DefaultService("update-annos", "foo", WithRunLatestRollout, WithInitSvcConditions,
 				func(s *v1.Service) {
-					s.Annotations = kmeta.UnionMaps(s.Annotations,
+					s.Annotations = kmap.Union(s.Annotations,
 						map[string]string{"new-key": "new-value"})
 				}),
 			config("update-annos", "foo", WithRunLatestRollout),
@@ -246,13 +246,13 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: config("update-annos", "foo", WithRunLatestRollout,
 				func(s *v1.Configuration) {
-					s.Annotations = kmeta.UnionMaps(s.Annotations,
+					s.Annotations = kmap.Union(s.Annotations,
 						map[string]string{"new-key": "new-value"})
 				}),
 		}, {
 			Object: route("update-annos", "foo", WithRunLatestRollout,
 				func(s *v1.Route) {
-					s.Annotations = kmeta.UnionMaps(s.Annotations,
+					s.Annotations = kmap.Union(s.Annotations,
 						map[string]string{"new-key": "new-value"})
 				}),
 		}},
@@ -262,12 +262,12 @@ func TestReconcile(t *testing.T) {
 			DefaultService("update-annos", "foo", WithRunLatestRollout, WithInitSvcConditions),
 			config("update-annos", "foo", WithRunLatestRollout,
 				func(s *v1.Configuration) {
-					s.Annotations = kmeta.UnionMaps(s.Annotations,
+					s.Annotations = kmap.Union(s.Annotations,
 						map[string]string{"new-key": "new-value"})
 				}),
 			route("update-annos", "foo", WithRunLatestRollout,
 				func(s *v1.Route) {
-					s.Annotations = kmeta.UnionMaps(s.Annotations,
+					s.Annotations = kmap.Union(s.Annotations,
 						map[string]string{"new-key": "new-value"})
 				}),
 		},
