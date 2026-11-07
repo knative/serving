@@ -497,6 +497,17 @@ int32
 <p>ActualScale shows the actual number of replicas for the revision.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>metricsPaused</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>MetricsPaused to determine whether metric scraping should be paused</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="autoscaling.internal.knative.dev/v1alpha1.PodScalable">PodScalable
