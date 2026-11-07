@@ -220,6 +220,13 @@ func TestGetInitialScale(t *testing.T) {
 			c.AllowZeroInitialScale = false
 		},
 		want: 1,
+	}, {
+		name: "initial scale capped by max-scale",
+		paMutation: func(pa *autoscalingv1alpha1.PodAutoscaler) {
+			pa.Annotations[autoscaling.InitialScaleAnnotationKey] = "5"
+			pa.Annotations[autoscaling.MaxScaleAnnotationKey] = "2"
+		},
+		want: 2,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
