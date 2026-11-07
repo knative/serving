@@ -75,6 +75,113 @@ func TestRevisionValidation(t *testing.T) {
 		want: apis.ErrOutOfBoundsValue(
 			-10, 0, config.DefaultMaxRevisionContainerConcurrency,
 			"spec.containerConcurrency"),
+	}, {
+		name: "valid load balancing policy - round-robin",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid-lb-policy",
+				Annotations: map[string]string{
+					"serving.knative.dev/load-balancing-policy": "round-robin",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "valid load balancing policy - random-choice-2",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid-lb-policy",
+				Annotations: map[string]string{
+					"serving.knative.dev/load-balancing-policy": "random-choice-2",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "valid load balancing policy - least-connections",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid-lb-policy",
+				Annotations: map[string]string{
+					"serving.knative.dev/load-balancing-policy": "least-connections",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "valid load balancing policy - first-available",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid-lb-policy",
+				Annotations: map[string]string{
+					"serving.knative.dev/load-balancing-policy": "first-available",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "invalid load balancing policy",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "invalid-lb-policy",
+				Annotations: map[string]string{
+					"serving.knative.dev/load-balancing-policy": "random",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
+				},
+			},
+		},
+		want: apis.ErrInvalidValue(
+			"random", "metadata.annotations.serving.knative.dev/load-balancing-policy",
+			"load balancing policy should be one of `random-choice-2`, `round-robin`, `least-connections` or `first-available`"),
+	}, {
+		name: "nil load balancing policy is valid",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "nil-lb-policy",
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
+				},
+			},
+		},
+		want: nil,
 	}}
 
 	// TODO(dangerd): PodSpec validation failures.
