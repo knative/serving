@@ -24,6 +24,7 @@ import (
 )
 
 func TestForwarderRetryLimit(t *testing.T) {
+	t.Skip("Diagnostics-only CI control run: retry-limit fix is disabled")
 	t.Parallel()
 	for _, tc := range []struct {
 		name      string

@@ -156,7 +156,8 @@ func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat) {
 		logger.Warnw("Exceeding max retries. Dropping the stat.",
 			zap.Int("retry", s.retry), zap.Int("max_retries", maxProcessingRetry),
 			zap.Int("queued_stats", len(f.statCh)))
-		return
+		// Disabled for the diagnostics-only CI control run.
+		// return
 	}
 
 	s.retry++

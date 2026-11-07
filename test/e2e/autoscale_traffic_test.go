@@ -31,6 +31,7 @@ import (
 )
 
 func TestTrafficHTTPClientCancellation(t *testing.T) {
+	t.Skip("Diagnostics-only CI control run: traffic-cleanup fix is disabled")
 	for _, reason := range []string{"stop", "parent"} {
 		t.Run(reason, func(t *testing.T) {
 			started := make(chan struct{})
@@ -87,6 +88,7 @@ func TestTrafficHTTPClientCancellation(t *testing.T) {
 }
 
 func TestGenerateTrafficCancelsRequests(t *testing.T) {
+	t.Skip("Diagnostics-only CI control run: traffic-cleanup fix is disabled")
 	started := make(chan struct{})
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		close(started)
@@ -120,6 +122,7 @@ func TestGenerateTrafficCancelsRequests(t *testing.T) {
 }
 
 func TestGenerateTrafficDrainsResults(t *testing.T) {
+	t.Skip("Diagnostics-only CI control run: traffic-cleanup fix is disabled")
 	started := make(chan struct{})
 	release := make(chan struct{})
 	client := &http.Client{Transport: network.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {

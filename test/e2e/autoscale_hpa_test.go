@@ -179,7 +179,7 @@ func assertMemoryHPAAutoscaleUpToNumPods(ctx *TestContext, targetPods float64, d
 func generateTrafficAtFixedConcurrencyWithLoad(ctx *TestContext, concurrency int, vegetaParam string, vegetaValue int, stopChan chan struct{}) error {
 	pacer := vegeta.ConstantPacer{} // Sends requests as quickly as possible, capped by MaxWorkers below.
 	attacker := vegeta.NewAttacker(
-		vegeta.Timeout(0), // Outstanding requests are canceled when stopChan closes.
+		vegeta.Timeout(0), // No request timeout during the diagnostics-only control run.
 		vegeta.Workers(uint64(concurrency)),
 		vegeta.MaxWorkers(uint64(concurrency)),
 		vegeta.Client(newVegetaHTTPClient(ctx, ctx.resources.Route.Status.URL.URL(), stopChan)),

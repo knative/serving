@@ -129,11 +129,10 @@ func generateTraffic(
 		select {
 		case <-stopChan:
 			ctx.t.Logf("Stopping generateTraffic")
-			attacker.Stop()
-			// Stop prevents new requests, but workers still send their final results.
-			// Drain them so workers can exit instead of leaking into later tests.
-			for range results {
-			}
+			// Disabled for the diagnostics-only CI control run:
+			// attacker.Stop()
+			// for range results {
+			// }
 			successRate := float64(1)
 			if totalRequests > 0 {
 				successRate = float64(successfulRequests) / float64(totalRequests)
@@ -144,13 +143,12 @@ func generateTraffic(
 			}
 			return nil
 		case res := <-results:
-			// Cancellation and a result can race with the stop signal. Do not
-			// count requests canceled during shutdown against the traffic SLO.
-			select {
-			case <-stopChan:
-				continue
-			default:
-			}
+			// Shutdown cancellation handling is disabled for the control run:
+			// select {
+			// case <-stopChan:
+			// 	continue
+			// default:
+			// }
 			totalRequests++
 			if res.Code != http.StatusOK {
 				ctx.t.Logf("Status = %d, want: 200", res.Code)
@@ -182,10 +180,14 @@ func newVegetaHTTPClient(ctx *TestContext, url *url.URL, stopChan <-chan struct{
 	if err != nil {
 		ctx.t.Fatal("Error creating spoofing client:", err)
 	}
-	return newTrafficHTTPClient(ctx.t.Context(), spoof.Client, stopChan)
+	// Disabled for the diagnostics-only CI control run:
+	// return newTrafficHTTPClient(ctx.t.Context(), spoof.Client, stopChan)
+	return spoof.Client
 }
 
-// newTrafficHTTPClient cancels outstanding requests when traffic stops. An
+// newTrafficHTTPClient is retained for re-enabling the fix after the control
+// run; no callers use it while the fix-dependent regression tests are skipped.
+// It cancels outstanding requests when traffic stops. An
 // unlimited request timeout is useful while generating load, but must not leave
 // requests running after their test has finished.
 func newTrafficHTTPClient(parent context.Context, client *http.Client, stopChan <-chan struct{}) *http.Client {
@@ -213,7 +215,7 @@ func generateTrafficAtFixedConcurrency(ctx *TestContext, concurrency int, stopCh
 	pacer := vegeta.ConstantPacer{} // Sends requests as quickly as possible, capped by MaxWorkers below.
 
 	attacker := vegeta.NewAttacker(
-		vegeta.Timeout(0), // Outstanding requests are canceled when stopChan closes.
+		vegeta.Timeout(0), // No request timeout during the diagnostics-only control run.
 		vegeta.Workers(uint64(concurrency)),
 		vegeta.MaxWorkers(uint64(concurrency)),
 		vegeta.Client(newVegetaHTTPClient(ctx, ctx.resources.Route.Status.URL.URL(), stopChan)),

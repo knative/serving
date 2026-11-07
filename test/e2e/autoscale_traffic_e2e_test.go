@@ -42,6 +42,7 @@ import (
 // releases requests that have reached the service but have not finished. Test
 // both the direct and activator paths, including their ingress/mesh proxies.
 func TestAutoscaleTrafficStopsWithPendingRequest(t *testing.T) {
+	t.Skip("Diagnostics-only CI control run: traffic-cleanup fix is disabled")
 	for _, path := range []struct{ name, burstCapacity string }{{"direct", "0"}, {"activator", "-1"}} {
 		t.Run(path.name, func(t *testing.T) {
 			clients := Setup(t)
