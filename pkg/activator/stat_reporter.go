@@ -65,8 +65,12 @@ func ReportStats(logger *zap.SugaredLogger, sink RawSender, source <-chan []asme
 			}
 
 			if err := sink.SendRaw(websocket.BinaryMessage, b); err != nil {
+				revisions := make([]string, 0, len(sms))
+				for _, sm := range sms {
+					revisions = append(revisions, sm.Key.String())
+				}
 				logger.Errorw("Autoscaler is not reachable from activator. Stats were not sent.",
-					zap.Error(err),
+					zap.Error(err), zap.Strings("revisions", revisions),
 					zap.Int("stat_message_count", len(sms)))
 			}
 		}(sms)

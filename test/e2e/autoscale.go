@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"knative.dev/pkg/network"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -128,6 +129,11 @@ func generateTraffic(
 		select {
 		case <-stopChan:
 			ctx.t.Logf("Stopping generateTraffic")
+			attacker.Stop()
+			// Stop prevents new requests, but workers still send their final results.
+			// Drain them so workers can exit instead of leaking into later tests.
+			for range results {
+			}
 			successRate := float64(1)
 			if totalRequests > 0 {
 				successRate = float64(successfulRequests) / float64(totalRequests)
@@ -138,6 +144,13 @@ func generateTraffic(
 			}
 			return nil
 		case res := <-results:
+			// Cancellation and a result can race with the stop signal. Do not
+			// count requests canceled during shutdown against the traffic SLO.
+			select {
+			case <-stopChan:
+				continue
+			default:
+			}
 			totalRequests++
 			if res.Code != http.StatusOK {
 				ctx.t.Logf("Status = %d, want: 200", res.Code)
@@ -150,7 +163,7 @@ func generateTraffic(
 	}
 }
 
-func newVegetaHTTPClient(ctx *TestContext, url *url.URL) *http.Client {
+func newVegetaHTTPClient(ctx *TestContext, url *url.URL, stopChan <-chan struct{}) *http.Client {
 	vegetaTransportDefaults := func(transport *http.Transport) *http.Transport {
 		transport.MaxIdleConnsPerHost = vegeta.DefaultConnections
 		transport.MaxConnsPerHost = vegeta.DefaultMaxConnections
@@ -169,17 +182,41 @@ func newVegetaHTTPClient(ctx *TestContext, url *url.URL) *http.Client {
 	if err != nil {
 		ctx.t.Fatal("Error creating spoofing client:", err)
 	}
-	return spoof.Client
+	return newTrafficHTTPClient(ctx.t.Context(), spoof.Client, stopChan)
+}
+
+// newTrafficHTTPClient cancels outstanding requests when traffic stops. An
+// unlimited request timeout is useful while generating load, but must not leave
+// requests running after their test has finished.
+func newTrafficHTTPClient(parent context.Context, client *http.Client, stopChan <-chan struct{}) *http.Client {
+	trafficCtx, cancel := context.WithCancel(parent)
+	go func() {
+		defer cancel()
+		select {
+		case <-stopChan:
+		case <-trafficCtx.Done():
+		}
+	}()
+
+	transport := client.Transport
+	if transport == nil {
+		transport = http.DefaultTransport
+	}
+	copy := *client
+	copy.Transport = network.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		return transport.RoundTrip(r.WithContext(trafficCtx))
+	})
+	return &copy
 }
 
 func generateTrafficAtFixedConcurrency(ctx *TestContext, concurrency int, stopChan chan struct{}) error {
 	pacer := vegeta.ConstantPacer{} // Sends requests as quickly as possible, capped by MaxWorkers below.
 
 	attacker := vegeta.NewAttacker(
-		vegeta.Timeout(0), // No timeout is enforced at all.
+		vegeta.Timeout(0), // Outstanding requests are canceled when stopChan closes.
 		vegeta.Workers(uint64(concurrency)),
 		vegeta.MaxWorkers(uint64(concurrency)),
-		vegeta.Client(newVegetaHTTPClient(ctx, ctx.resources.Route.Status.URL.URL())),
+		vegeta.Client(newVegetaHTTPClient(ctx, ctx.resources.Route.Status.URL.URL(), stopChan)),
 	)
 
 	target := getVegetaTarget(ctx.resources.Route.Status.URL.URL().Hostname(), "sleep", autoscaleSleep, test.ServingFlags.HTTPS)
@@ -192,7 +229,7 @@ func generateTrafficAtFixedRPS(ctx *TestContext, rps int, stopChan chan struct{}
 	pacer := vegeta.ConstantPacer{Freq: rps, Per: time.Second}
 	attacker := vegeta.NewAttacker(
 		vegeta.Timeout(0),
-		vegeta.Client(newVegetaHTTPClient(ctx, ctx.resources.Route.Status.URL.URL())),
+		vegeta.Client(newVegetaHTTPClient(ctx, ctx.resources.Route.Status.URL.URL(), stopChan)),
 	)
 
 	target := getVegetaTarget(ctx.resources.Route.Status.URL.URL().Hostname(), "sleep", autoscaleSleep, test.ServingFlags.HTTPS)

@@ -35,6 +35,16 @@ header "Running tests"
 
 failed=0
 
+# Preserve mesh connection logs and proxy state before later tests restart pods
+# or toggle configuration. Diagnostic failures must not hide the test failure.
+function record_mesh_failure() {
+  failed=1
+  if (( MESH )); then
+    bash "${REPO_ROOT_DIR}/test/dump-mesh-diagnostics.sh" "$1" \
+      || echo "Unable to collect mesh diagnostics for $1" >&2
+  fi
+}
+
 # Run tests serially in the mesh and https scenarios.
 GO_TEST_FLAGS=()
 E2E_TEST_FLAGS=()
@@ -72,7 +82,7 @@ go_test_e2e -timeout=50m \
   ./test/conformance/api/... \
   ./test/conformance/runtime/... \
   ./test/e2e \
-  "${E2E_TEST_FLAGS[@]}" || failed=1
+  "${E2E_TEST_FLAGS[@]}" || record_mesh_failure e2e
 
 toggle_feature tag-header-based-routing Enabled
 go_test_e2e -timeout=2m ./test/e2e/tagheader "${E2E_TEST_FLAGS[@]}" || failed=1
@@ -162,7 +172,7 @@ go_test_e2e -timeout=30m -failfast -parallel=1 ./test/ha \
   "${E2E_TEST_FLAGS[@]}" \
   -replicas="${REPLICAS:-1}" \
   -buckets="${BUCKETS:-1}" \
-  -spoofinterval="10ms" || failed=1
+  -spoofinterval="10ms" || record_mesh_failure ha
 
 if (( HTTPS )); then
   kubectl delete -f "${E2E_YAML_DIR}"/test/config/externaldomaintls/certmanager/caissuer/ --ignore-not-found
