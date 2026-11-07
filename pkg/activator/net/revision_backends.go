@@ -150,6 +150,10 @@ func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol 
 	logger *zap.SugaredLogger,
 ) *revisionWatcher {
 	ctx, cancel := context.WithCancel(ctx)
+	logger = logger.With(zap.String(logkey.Key, rev.String()))
+	logger.Debugw("Starting revision backend watcher", zap.String("mesh_mode", string(meshMode)),
+		zap.Duration("probe_timeout", probeTimeout), zap.Bool("passthrough_lb", usePassthroughLb),
+		zap.Bool("probe_optimisation", enableProbeOptimisation))
 	return &revisionWatcher{
 		stopCh:                  ctx.Done(),
 		cancel:                  cancel,
@@ -164,7 +168,7 @@ func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol 
 		usePassthroughLb:        usePassthroughLb,
 		meshMode:                meshMode,
 		enableProbeOptimisation: enableProbeOptimisation,
-		logger:                  logger.With(zap.String(logkey.Key, rev.String())),
+		logger:                  logger,
 	}
 }
 
@@ -405,12 +409,16 @@ func (rw *revisionWatcher) checkDests(curDests, prevDests dests) {
 
 	// If clusterIP is healthy send this update and we are done.
 	if ok, err := rw.probeClusterIP(dest); err != nil {
-		rw.logger.Errorw("Failed to probe clusterIP "+dest, zap.Error(err))
+		rw.logger.Errorw("Failed to probe clusterIP "+dest, zap.Error(err),
+			zap.String("destination", dest), zap.Duration("probe_timeout", probeTimeout),
+			zap.String("mesh_mode", string(rw.meshMode)), zap.Bool("pods_addressable", rw.podsAddressable),
+			zap.Int("ready_backends", len(curDests.ready)), zap.Int("not_ready_backends", len(curDests.notReady)))
 	} else if ok {
 		// We can reach here only iff pods are not successfully individually probed
 		// but ClusterIP conversely has been successfully probed.
 		rw.podsAddressable = false
-		rw.logger.Debugf("ClusterIP is successfully probed: %s (ready backends: %d)", dest, len(curDests.ready))
+		rw.logger.Infow("Using ClusterIP for revision backends", zap.String("destination", dest),
+			zap.Int("ready_backends", len(curDests.ready)), zap.String("mesh_mode", string(rw.meshMode)))
 		rw.clusterIPHealthy = true
 		rw.healthyPods = nil
 		rw.sendUpdate(dest, curDests.ready)

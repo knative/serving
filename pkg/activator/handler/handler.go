@@ -25,6 +25,7 @@ import (
 	"net/http/httputil"
 	"strconv"
 	"strings"
+	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
@@ -116,8 +117,14 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	metrics := a.metrics.NewForRequest(revID)
 	metrics.OnRequestQueued()
+	queuedAt := time.Now()
 
 	if err := a.throttler.Try(tryContext, revID, func(dest string, isClusterIP bool) error {
+		if queueWait := time.Since(queuedAt); queueWait >= time.Second {
+			a.logger.Debugw("Request acquired capacity after waiting", zap.String(logkey.Key, revID.String()),
+				zap.Duration("queue_wait", queueWait), zap.String("destination", dest),
+				zap.Bool("cluster_ip", isClusterIP))
+		}
 		// Request got capacity - decrement queued, increment active
 		metrics.OnRequestDequeued()
 		metrics.OnRequestProcessing()
@@ -138,7 +145,8 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		trySpan.SetStatus(codes.Error, err.Error())
 		trySpan.End()
 
-		a.logger.Errorw("Throttler try error", zap.String(logkey.Key, revID.String()), zap.Error(err))
+		a.logger.Errorw("Throttler try error", zap.String(logkey.Key, revID.String()), zap.Error(err),
+			zap.Duration("queue_wait", time.Since(queuedAt)))
 
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, queue.ErrRequestQueueFull) {
 			http.Error(w, err.Error(), http.StatusServiceUnavailable)

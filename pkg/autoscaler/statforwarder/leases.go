@@ -159,6 +159,10 @@ func (f *leaseTracker) leaseUpdated(obj interface{}) {
 		return
 	}
 
+	f.logger.Infow("Autoscaler bucket lease observed", zap.String("namespace", ns),
+		zap.String("bucket", n), zap.String("holder", *l.Spec.HolderIdentity),
+		zap.String("self_ip", f.selfIP), zap.String("resource_version", l.ResourceVersion))
+
 	// Close existing connection if there's one. The target address won't
 	// be the same as the IP has changed.
 	if p := f.fwd.getProcessor(n); p != nil {
@@ -281,6 +285,9 @@ func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n string
 			return true, nil
 		}
 
+		f.logger.Debugw("Updating bucket EndpointSlice", zap.String("namespace", ns),
+			zap.String("bucket", n), zap.Any("previous_endpoints", got.Endpoints),
+			zap.Any("desired_endpoints", want.Endpoints), zap.String("resource_version", got.ResourceVersion))
 		e := got.DeepCopy()
 		e.Endpoints = want.Endpoints
 		if _, lastErr = f.kc.DiscoveryV1().EndpointSlices(ns).Update(ctx, e, metav1.UpdateOptions{}); lastErr != nil {
@@ -288,7 +295,8 @@ func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n string
 			return false, nil //nolint:nilerr
 		}
 
-		f.logger.Infof("Bucket Endpoints %s updated with IP %s", n, f.selfIP)
+		f.logger.Infow("Bucket EndpointSlice updated", zap.String("namespace", ns),
+			zap.String("bucket", n), zap.String("ip", f.selfIP))
 		return true, nil
 	}); err != nil {
 		return lastErr
@@ -306,6 +314,8 @@ func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n string
 		return lastErr
 	}
 
+	f.logger.Infow("Bucket EndpointSlice created", zap.String("namespace", ns),
+		zap.String("bucket", n), zap.String("ip", f.selfIP))
 	return nil
 }
 

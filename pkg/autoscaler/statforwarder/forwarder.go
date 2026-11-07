@@ -129,8 +129,12 @@ func (f *Forwarder) process() {
 			return
 		case s := <-f.statCh:
 			rev := s.sm.Key.String()
-			l := f.logger.With(zap.String(logkey.Key, rev))
 			bkt := f.bs.Owner(rev)
+			l := f.logger.With(zap.String(logkey.Key, rev), zap.String("bucket", bkt),
+				zap.Int("retry", s.retry), zap.Int("queued_stats", len(f.statCh)))
+			if s.sm.Stat.Timestamp > 0 {
+				l = l.With(zap.Duration("stat_age", time.Since(time.Unix(s.sm.Stat.Timestamp, 0))))
+			}
 
 			p := f.getProcessor(bkt)
 			if p == nil {
@@ -149,7 +153,11 @@ func (f *Forwarder) process() {
 
 func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat) {
 	if s.retry > maxProcessingRetry {
-		logger.Warn("Exceeding max retries. Dropping the stat.")
+		logger.Warnw("Exceeding max retries. Dropping the stat.",
+			zap.Int("retry", s.retry), zap.Int("max_retries", maxProcessingRetry),
+			zap.Int("queued_stats", len(f.statCh)))
+		// Disabled for the diagnostics-only CI control run.
+		// return
 	}
 
 	s.retry++
@@ -158,7 +166,8 @@ func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat) {
 		defer f.retryWg.Done()
 		// TODO(yanweiguo): Use RateLimitingInterface and NewItemFastSlowRateLimiter.
 		time.Sleep(retryProcessingInterval)
-		logger.Debug("Enqueuing stat for retry.")
+		logger.Debugw("Enqueuing stat for retry.", zap.Int("next_retry", s.retry),
+			zap.Int("queued_stats", len(f.statCh)))
 		f.statCh <- s
 	}()
 }
