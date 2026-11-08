@@ -86,7 +86,9 @@ The full-suite baseline passed at `c30f08250` / Prow build
 
 - Run only `TestAutoscaleSustaining` twice in a background Go test invocation.
 - Wait for at least seven ready workload replicas to establish that load is
-  active, then run `TestActivatorHAGraceful` alongside it.
+  active, then run `TestActivatorHAGraceful` alongside it. Match the stable
+  `serving.knative.dev/service` label, not hashed/truncated Deployment names,
+  and exclude Deployments already being deleted.
 - Wait for both invocations to finish normally; pass only if both pass. Do not
   kill the load test or run global feature-toggle suites concurrently.
 - Preserve the original 50-minute load-package and 30-minute HA-package timeouts,
@@ -94,6 +96,12 @@ The full-suite baseline passed at `c30f08250` / Prow build
 - Record mode, readiness and start/finish markers, load output, and both results
   under `mesh-ha-load/`. A missing load prerequisite is identified separately
   by `ha_started=0`; it is not evidence of an HA-test failure.
+
+The first attempt (`83f24ceee`, build `2119253490520821760`) passed both load
+repetitions but never started HA because the name-based readiness filter missed
+the hashed Deployments. The corrected predicate is tested against an actual CI
+snapshot with 11 ready replicas and has a regression test:
+`bash test/mesh-ha-load-readiness_test.sh`.
 
 This is a focused, fresh-cluster experiment, not the original periodic workload:
 it skips the full-suite warmup and repeats the load. Passing does not rule out

@@ -14,6 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Serving can hash/truncate Deployment names. Match the service label instead,
+# and do not use readiness from a Deployment already being torn down.
+function mesh_load_is_ready() {
+  jq -e '.items | any(
+    (.metadata.deletionTimestamp == null) and
+    ((.metadata.labels["serving.knative.dev/service"] // "") | startswith("autoscale-sustaining-")) and
+    ((.status.readyReplicas // 0) >= 7)
+  )' "$1" > /dev/null
+}
+
 # Focused experiment, not the original periodic workload. Only the sustained
 # autoscaling test runs beside HA; no global feature-toggle suites run here.
 function run_mesh_ha_load_experiment() {
@@ -49,8 +59,7 @@ function run_mesh_ha_load_experiment() {
       fi
       if timeout 10s kubectl --request-timeout=5s get deployments -n "${TEST_NAMESPACE:-serving-tests}" -o json \
         > "${dir}/load-deployments.json" 2> "${dir}/load-deployments.stderr"; then
-        if jq -e '.items | any((.metadata.name | startswith("autoscale-sustaining-")) and (.status.readyReplicas // 0) >= 7)' \
-          "${dir}/load-deployments.json" > /dev/null; then
+        if mesh_load_is_ready "${dir}/load-deployments.json"; then
           ready=1
           date -u +%Y-%m-%dT%H:%M:%SZ > "${dir}/load-ready-at.txt"
           echo "Sustained load has at least seven ready replicas; starting graceful HA"
