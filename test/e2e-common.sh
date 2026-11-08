@@ -315,6 +315,9 @@ function install() {
 
   if (( MESH )); then
     YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/mesh")
+    if [[ "${MESH_OBSERVABILITY:-}" == true ]]; then
+      YTT_FILES+=("${REPO_ROOT_DIR}/test/config/ytt/mesh-observability")
+    fi
   fi
 
   if ((AMBIENT)); then
@@ -425,7 +428,15 @@ function knative_teardown() {
 function test_setup() {
   echo ">> Uploading test images..."
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
+  start_logging
+}
 
+function start_logging() {
+  # The mesh observation hook starts this before installation. Keep image
+  # uploads in their original test_setup phase and do not duplicate the stream.
+  if [[ "${TEST_LOGGING_STARTED:-0}" == 1 ]]; then
+    return 0
+  fi
   echo ">> Setting up logging..."
 
   # Install stern if needed.
@@ -437,7 +448,8 @@ function test_setup() {
 
   # Capture all logs.
   # We use stdbuf so that when we pipe logs to awk it flushes to the file
-  stdbuf -oL stern . --all-namespaces --timestamps --max-log-requests 2000 2> "$(log_dir)/stern.stderr.log" | \
+  stdbuf -oL stern . --all-namespaces --timestamps --timezone UTC --color never --since=1h \
+    --init-containers --ephemeral-containers --container-state all --max-log-requests 2000 2> "$(log_dir)/stern.stderr.log" | \
   stdbuf -oL awk -v logdir="$(log_dir)" '
   {
     ns=$1;
@@ -463,6 +475,7 @@ function test_setup() {
 
   # Clean up stern so it doesn't interfere with job shutting down
   add_trap "stop_logging" EXIT SIGTERM
+  TEST_LOGGING_STARTED=1
 }
 
 function stop_logging() {

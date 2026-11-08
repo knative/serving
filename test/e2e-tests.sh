@@ -27,6 +27,11 @@
 
 source $(dirname "$0")/e2e-common.sh
 
+# Observation-only experiment in this draft PR; the vendored cluster creation
+# hook enables GKE telemetry before --up, only when --mesh is selected.
+export MESH_OBSERVABILITY="${MESH_OBSERVABILITY:-true}"
+source "${REPO_ROOT_DIR}/test/mesh-observability.sh"
+
 # Script entry point.
 initialize --num-nodes=4 --enable-ha "$@"
 

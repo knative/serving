@@ -94,6 +94,12 @@ function setup_test_cluster() {
   set +o errexit
   set +o pipefail
 
+  # One-off observation hook: capture installation/sidecar startup as well as
+  # tests. Register it after resource teardown so it runs first on EXIT.
+  if function_exists start_test_observability; then
+    start_test_observability || echo "Unable to start test observability" >&2
+  fi
+
   if function_exists knative_setup; then
     knative_setup || fail_test "Knative setup failed"
   fi
