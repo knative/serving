@@ -75,13 +75,43 @@ bash -n test/mesh-observability.sh test/e2e-tests.sh test/e2e-common.sh \
 ```
 
 Use `MESH_OBSERVABILITY=false` to opt out or `MESH_OBSERVABILITY_INTERVAL=30` to
-set the sampling interval. Automatic failure-trigger snapshots and injected
-network/resource faults are not added yet.
+set the sampling interval. No network/resource faults are injected.
+
+## Error-triggered snapshots and original-order runs
+
+The default is now `MESH_HA_LOAD_MODE=full`: run the original main/conformance,
+feature-toggle, HPA and HA sequence. The two actual focused overlap runs passed
+at `c6f7769a4` (builds `2119262045986623488` and `2119273311182524416`), so this
+experiment returns to the longer original workload instead of adding more load.
+
+An independent monitor reads the existing unfiltered autoscaler/activator logs
+while periodic sampling continues. It triggers after at least three repeated
+errors spanning ten seconds, resetting after a five-second gap or a recovery:
+
+- Stat-forwarding processing failures or bucket-Service DNS connection failures.
+  Expected direct Pod-IP handshake failures are ignored.
+- Activator stat-send failures.
+- ClusterIP probe failures when Kubernetes reports ready backends.
+
+The monitor ignores stale log records. Captures are limited to five per run,
+one active collector, a two-minute global cooldown and a five-minute cooldown
+for the same pod/cause/bucket. A trigger does not fail or interrupt any test.
+
+`triggers/<phase>/event.json` records the source, revision/bucket, timing, retry
+and queue context. `mesh-diagnostics-trigger-*.tar.gz` contains the existing
+secret-safe Kubernetes/proxy capture, prioritizing the affected pod and
+all autoscalers before other pods. Each collector is bounded to 90 seconds;
+partial results are archived on termination rather than discarded.
+
+This observes forwarding/probe failures; it does not add in-flight request
+queue timers or change request handling. Existing queue-wait diagnostics remain
+available. The goal is to get proxy state before Go test cleanup removes the
+failed revision, not to infer a cause from a trigger alone.
 
 ## Focused HA/load experiment
 
 The full-suite baseline passed at `c30f08250` / Prow build
-`2119221083113525248`, with the fixes disabled. The next draft-PR revision defaults
+`2119221083113525248`, with the fixes disabled. The focused experiment used
 `MESH_HA_LOAD_MODE=overlap` for full mesh runs:
 
 - Run only `TestAutoscaleSustaining` twice in a background Go test invocation.

@@ -32,7 +32,7 @@ function start_test_observability() {
   python3 "${REPO_ROOT_DIR}/test/mesh-observability.py" observe \
     --output "${MESH_OBSERVABILITY_DIR}" --namespace "${SYSTEM_NAMESPACE}" \
     --project "${E2E_PROJECT_ID}" --provider "${CLOUD_PROVIDER}" \
-    --interval "${MESH_OBSERVABILITY_INTERVAL:-30}" \
+    --interval "${MESH_OBSERVABILITY_INTERVAL:-30}" --logs "$(log_dir)" \
     > "${MESH_OBSERVABILITY_DIR}/observer.log" 2>&1 &
   MESH_OBSERVABILITY_PID=$!
   export MESH_OBSERVABILITY_PID
@@ -44,7 +44,7 @@ function start_test_observability() {
 function stop_test_observability() {
   [[ -n "${MESH_OBSERVABILITY_DIR:-}" ]] || return 0
   touch "${MESH_OBSERVABILITY_DIR}/stop"
-  for ((i=0; i<30; i++)); do
+  for ((i=0; i<60; i++)); do
     [[ -f "${MESH_OBSERVABILITY_DIR}/stopped" ]] && break
     kill -0 "${MESH_OBSERVABILITY_PID}" 2>/dev/null || break
     sleep 1

@@ -24,8 +24,19 @@ set -u
 
 phase="${1:-failure}"
 workdir="$(mktemp -d)" || exit 1
-trap 'rm -rf "${workdir}"' EXIT
 mkdir -p "${ARTIFACTS}"
+archive="${ARTIFACTS}/mesh-diagnostics-${phase}.tar.gz"
+function finish_capture() {
+  # Preserve partial captures on TERM as well as normal completion.
+  if tar -czf "${archive}" -C "${workdir}" .; then
+    rm -rf "${workdir}"
+    echo "Mesh diagnostics written to ${archive}"
+  else
+    echo "Unable to archive mesh diagnostics from ${workdir}" >&2
+  fi
+}
+trap finish_capture EXIT
+trap 'exit 143' TERM
 kubectl_cmd=(kubectl --request-timeout=10s)
 
 function capture() {
@@ -72,7 +83,7 @@ for namespace in "${SYSTEM_NAMESPACE}" istio-system "${TEST_NAMESPACE:-serving-t
       capture "${namespace}-${pod}-envoy-stats.txt" "${kubectl_cmd[@]}" exec -n "${namespace}" "${pod}" \
         -c istio-proxy -- pilot-agent request GET stats
     fi
-  done < <(jq -r '.items[] | [.metadata.name, (.metadata.labels.app // "unknown"), ([.spec.containers[]?.name, .spec.initContainers[]?.name] | join(" ")), ([.status.containerStatuses[]?.restartCount, .status.initContainerStatuses[]?.restartCount] | add // 0)] | @tsv' \
+  done < <(jq -r --arg target "${MESH_DIAGNOSTIC_TARGET_POD:-}" '.items | sort_by(if .metadata.name == $target then 0 elif .metadata.labels.app == "autoscaler" then 1 elif .metadata.labels.app == "activator" then 2 else 3 end) | .[] | [.metadata.name, (.metadata.labels.app // "unknown"), ([.spec.containers[]?.name, .spec.initContainers[]?.name] | join(" ")), ([.status.containerStatuses[]?.restartCount, .status.initContainerStatuses[]?.restartCount] | add // 0)] | @tsv' \
     "${workdir}/${namespace}-pods.json")
 done
 
@@ -80,6 +91,4 @@ capture serving-config.yaml "${kubectl_cmd[@]}" get configmaps -n "${SYSTEM_NAME
   config-autoscaler config-leader-election config-network config-istio config-logging -o yaml
 capture istio-config.yaml "${kubectl_cmd[@]}" get configmap istio -n istio-system -o yaml
 
-archive="${ARTIFACTS}/mesh-diagnostics-${phase}.tar.gz"
-tar -czf "${archive}" -C "${workdir}" . || exit 1
-echo "Mesh diagnostics written to ${archive}"
+# finish_capture archives complete or interrupted results on EXIT.

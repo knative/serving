@@ -30,8 +30,9 @@ source $(dirname "$0")/e2e-common.sh
 # Observation-only experiment in this draft PR; the vendored cluster creation
 # hook enables GKE telemetry before --up, only when --mesh is selected.
 export MESH_OBSERVABILITY="${MESH_OBSERVABILITY:-true}"
-# Focused overlap experiment; set full to restore the original suite/order.
-export MESH_HA_LOAD_MODE="${MESH_HA_LOAD_MODE:-overlap}"
+# Return to the original suite/order with failure-triggered diagnostics.
+# overlap/load-only/ha-only remain available for later controlled experiments.
+export MESH_HA_LOAD_MODE="${MESH_HA_LOAD_MODE:-full}"
 source "${REPO_ROOT_DIR}/test/mesh-observability.sh"
 
 # Script entry point.

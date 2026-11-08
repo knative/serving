@@ -24,10 +24,13 @@ import os
 from pathlib import Path
 import signal
 import subprocess
+import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+
+import mesh_log_triggers
 
 # Cloud Logging entries.list has a small read-request quota. Share the pacing
 # budget across all log exports in this process, not separately per namespace.
@@ -219,14 +222,27 @@ def observe(args):
     signal.signal(signal.SIGTERM, on_signal)
     signal.signal(signal.SIGINT, on_signal)
     stop = lambda: stopping or (args.output / "stop").exists()
+    watcher = None
     try:
         discover(args)
+        if args.logs:
+            def watch_logs():
+                try:
+                    mesh_log_triggers.monitor(args, stop)
+                except Exception as exc:
+                    write_json(args.output / "trigger-error.json", {"error": str(exc)})
+                    print("Mesh trigger monitor failed:", str(exc), flush=True)
+            watcher = threading.Thread(target=watch_logs, daemon=True)
+            watcher.start()
         while not stop():
             sample(args, stop)
             deadline = time.monotonic() + args.interval
             while not stop() and time.monotonic() < deadline:
                 time.sleep(0.25)
     finally:
+        stopping = True
+        if watcher:
+            watcher.join(timeout=35)
         write_json(args.output / "stopped", {"stopped_at": utc_now()})
 
 
@@ -270,6 +286,7 @@ def export_logs(metadata, token, output, name, query, deadline, limit=100000):
                 }, timeout=max(0.1, min(10, deadline - time.monotonic())))
             except urllib.error.HTTPError as exc:
                 if exc.code != 429:
+                    exc.close()
                     raise
                 rate_limited += 1
                 last_error = str(exc)
@@ -278,6 +295,7 @@ def export_logs(metadata, token, output, name, query, deadline, limit=100000):
                 except (AttributeError, ValueError):
                     delay = 5
                 _next_log_request_at = time.monotonic() + max(5, delay)
+                exc.close()
                 continue
             for entry in response.get("entries", []):
                 stream.write(json.dumps(entry) + "\n")
@@ -375,6 +393,7 @@ def main():
     parser.add_argument("action", choices=["observe", "export"])
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--namespace", required=True)
+    parser.add_argument("--logs", type=Path, help="Existing unfiltered Stern log directory; enables error-triggered snapshots")
     parser.add_argument("--project", default="")
     parser.add_argument("--provider", choices=["gke", "kind"], required=True)
     parser.add_argument("--interval", type=float, default=30)
