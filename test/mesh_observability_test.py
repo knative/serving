@@ -20,6 +20,7 @@ from pathlib import Path
 import tempfile
 import time
 import unittest
+import urllib.error
 from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location("mesh_observability", Path(__file__).with_name("mesh-observability.py"))
@@ -29,6 +30,7 @@ spec.loader.exec_module(observer)
 
 class ObservabilityTests(unittest.TestCase):
     def setUp(self):
+        observer._next_log_request_at = 0
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.output = Path(self.directory.name)
@@ -98,6 +100,30 @@ class ObservabilityTests(unittest.TestCase):
             result = observer.export_logs(self.metadata, "token", self.output, "logs", "filter", time.monotonic() + 10, limit=1)
         self.assertFalse(result["query_completed"])
         self.assertEqual(result["entries"], 1)
+
+    def test_logging_429_backs_off_and_retries(self):
+        now = [0.0]
+        error = urllib.error.HTTPError("https://logging.googleapis.com", 429, "rate limited", {"Retry-After": "6"}, None)
+        with patch.object(observer.time, "monotonic", side_effect=lambda: now[0]), \
+                patch.object(observer.time, "sleep", side_effect=lambda delay: now.__setitem__(0, now[0] + delay)), \
+                patch.object(observer, "api", side_effect=[error, {"entries": [{"textPayload": "entry"}]}]) as api:
+            result = observer.export_logs(self.metadata, "token", self.output, "logs", "filter", deadline=10)
+        self.assertEqual(result["rate_limited_requests"], 1)
+        self.assertEqual(result["entries"], 1)
+        self.assertTrue(result["query_completed"])
+        self.assertGreaterEqual(now[0], 6)
+        self.assertEqual(api.call_args.args[2]["orderBy"], "timestamp desc")
+
+    def test_logging_429_respects_export_deadline(self):
+        now = [0.0]
+        error = urllib.error.HTTPError("https://logging.googleapis.com", 429, "rate limited", {}, None)
+        with patch.object(observer.time, "monotonic", side_effect=lambda: now[0]), \
+                patch.object(observer.time, "sleep", side_effect=lambda delay: now.__setitem__(0, now[0] + delay)), \
+                patch.object(observer, "api", side_effect=error) as api:
+            result = observer.export_logs(self.metadata, "token", self.output, "logs", "filter", deadline=3)
+        self.assertEqual(api.call_count, 1)
+        self.assertFalse(result["query_completed"])
+        self.assertEqual(result["rate_limited_requests"], 1)
 
     def test_metrics_are_paginated(self):
         responses = [{"timeSeries": [{"metric": {"type": "cpu"}}], "nextPageToken": "next"},

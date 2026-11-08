@@ -25,8 +25,13 @@ from pathlib import Path
 import signal
 import subprocess
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
+
+# Cloud Logging entries.list has a small read-request quota. Share the pacing
+# budget across all log exports in this process, not separately per namespace.
+_next_log_request_at = 0.0
 
 
 def utc_now():
@@ -66,6 +71,7 @@ def discover(args):
         "system_namespace": args.namespace,
         "test_namespace": os.environ.get("TEST_NAMESPACE", "serving-tests"),
         "snapshot_interval_seconds": args.interval,
+        "experiment_mode": "full" if os.environ.get("SHORT") == "1" else os.environ.get("MESH_HA_LOAD_MODE", "full"),
         "prow": {k: os.environ.get(k) for k in ("JOB_NAME", "JOB_TYPE", "BUILD_ID", "PULL_PULL_SHA", "PULL_BASE_SHA")},
     }
     repository = str(Path(__file__).resolve().parent.parent)
@@ -247,13 +253,32 @@ def api(url, token, body=None, timeout=10):
 
 
 def export_logs(metadata, token, output, name, query, deadline, limit=100000):
+    global _next_log_request_at
     count, page_token, complete = 0, "", False
+    rate_limited, last_error = 0, None
     with gzip.open(output / (name + ".jsonl.gz"), "wt") as stream:
         while time.monotonic() < deadline and count < limit:
-            response = api("https://logging.googleapis.com/v2/entries:list", token, {
-                "resourceNames": ["projects/" + metadata["project"]], "filter": query,
-                "orderBy": "timestamp asc", "pageSize": min(1000, limit - count), "pageToken": page_token,
-            }, timeout=max(0.1, min(10, deadline - time.monotonic())))
+            wait = max(0, _next_log_request_at - time.monotonic())
+            if time.monotonic() + wait >= deadline:
+                break
+            time.sleep(wait)
+            _next_log_request_at = time.monotonic() + 1.6
+            try:
+                response = api("https://logging.googleapis.com/v2/entries:list", token, {
+                    "resourceNames": ["projects/" + metadata["project"]], "filter": query,
+                    "orderBy": "timestamp desc", "pageSize": min(1000, limit - count), "pageToken": page_token,
+                }, timeout=max(0.1, min(10, deadline - time.monotonic())))
+            except urllib.error.HTTPError as exc:
+                if exc.code != 429:
+                    raise
+                rate_limited += 1
+                last_error = str(exc)
+                try:
+                    delay = float(exc.headers.get("Retry-After", "5"))
+                except (AttributeError, ValueError):
+                    delay = 5
+                _next_log_request_at = time.monotonic() + max(5, delay)
+                continue
             for entry in response.get("entries", []):
                 stream.write(json.dumps(entry) + "\n")
                 count += 1
@@ -262,7 +287,8 @@ def export_logs(metadata, token, output, name, query, deadline, limit=100000):
                 complete = True
                 break
     return {"entries": count, "query_completed": complete, "filter": query,
-            "note": "Cloud ingestion may lag; continuous Stern logs are retained separately."}
+            "rate_limited_requests": rate_limited, "last_error": last_error,
+            "note": "Recent entries first; Cloud ingestion may lag. Stern logs are retained separately."}
 
 
 def export_metrics(metadata, token, output, deadline):
@@ -324,7 +350,10 @@ def export(args):
     output.mkdir(exist_ok=True)
     status = {}
     deadline = time.monotonic() + 180
-    queries = {"system": cloud_filter(metadata)}
+    critical = "(Error while processing stat|Exceeding max retries|[Ss]tat forwarding connection|Websocket connection|Autoscaler connection (lost|established)|Stats were not sent|Throttler try error|Request acquired capacity)"
+    queries = {"forwarding-activation": cloud_filter(metadata, args.namespace) +
+               f" AND (jsonPayload.message =~ {json.dumps(critical)} OR textPayload =~ {json.dumps(critical)})",
+               "system": cloud_filter(metadata)}
     for namespace in dict.fromkeys([args.namespace, "istio-system", metadata["test_namespace"]]):
         queries["workload-" + namespace] = cloud_filter(metadata, namespace)
     # Reserve time for each export so a noisy workload cannot consume the budget.
