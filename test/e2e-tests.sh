@@ -30,6 +30,8 @@ source $(dirname "$0")/e2e-common.sh
 # Observation-only experiment in this draft PR; the vendored cluster creation
 # hook enables GKE telemetry before --up, only when --mesh is selected.
 export MESH_OBSERVABILITY="${MESH_OBSERVABILITY:-true}"
+# Focused overlap experiment; set full to restore the original suite/order.
+export MESH_HA_LOAD_MODE="${MESH_HA_LOAD_MODE:-overlap}"
 source "${REPO_ROOT_DIR}/test/mesh-observability.sh"
 
 # Script entry point.
@@ -80,6 +82,13 @@ fi
 
 if (( SHORT )); then
   GO_TEST_FLAGS+=("-short")
+fi
+
+if (( MESH && ! SHORT )) && [[ "${MESH_HA_LOAD_MODE}" != full ]]; then
+  source "${REPO_ROOT_DIR}/test/mesh-ha-load-experiment.sh"
+  run_mesh_ha_load_experiment || record_mesh_failure ha-load
+  (( failed )) && fail_test
+  success
 fi
 
 go_test_e2e -timeout=50m \

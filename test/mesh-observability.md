@@ -53,6 +53,9 @@ Under `${ARTIFACTS}`:
   100,000 Cloud entries; Stern logs are retained independently without that cap.
 - `observer.log`, `export.log`, and error JSON files: collector health.
 
+Cloud Logging reads are paced across namespaces, retry HTTP 429 with backoff,
+and prioritize a small forwarding/activation query before bulk logs. Entries are
+exported newest-first so a bounded export does not retain only startup logs.
 Cloud Logging ingestion can lag. Query completion does not imply every final
 entry has already been ingested. Run metadata preserves the filter coordinates
 for later queries. GCP logging/monitoring read permissions are required; denied
@@ -72,5 +75,32 @@ bash -n test/mesh-observability.sh test/e2e-tests.sh test/e2e-common.sh \
 ```
 
 Use `MESH_OBSERVABILITY=false` to opt out or `MESH_OBSERVABILITY_INTERVAL=30` to
-set the sampling interval. This is step 1 only: automatic failure triggers,
-focused reproductions, and controlled stress experiments are not added yet.
+set the sampling interval. Automatic failure-trigger snapshots and injected
+network/resource faults are not added yet.
+
+## Focused HA/load experiment
+
+The full-suite baseline passed at `c30f08250` / Prow build
+`2119221083113525248`, with the fixes disabled. The next draft-PR revision defaults
+`MESH_HA_LOAD_MODE=overlap` for full mesh runs:
+
+- Run only `TestAutoscaleSustaining` twice in a background Go test invocation.
+- Wait for at least seven ready workload replicas to establish that load is
+  active, then run `TestActivatorHAGraceful` alongside it.
+- Wait for both invocations to finish normally; pass only if both pass. Do not
+  kill the load test or run global feature-toggle suites concurrently.
+- Preserve the original 50-minute load-package and 30-minute HA-package timeouts,
+  cluster/resources, telemetry, mesh configuration, and disabled fixes.
+- Record mode, readiness and start/finish markers, load output, and both results
+  under `mesh-ha-load/`. A missing load prerequisite is identified separately
+  by `ha_started=0`; it is not evidence of an HA-test failure.
+
+This is a focused, fresh-cluster experiment, not the original periodic workload:
+it skips the full-suite warmup and repeats the load. Passing does not rule out
+aging/earlier-test effects; a generic SLO failure under load does not establish
+the original CI cause. Inspect the trace for the same persistent forwarding or
+activation failure. The load has normal gaps between its aggregation variants.
+
+Use `MESH_HA_LOAD_MODE=full` to restore the full original suite/order, `load-only`
+for a matched load control, or `ha-only` for a fresh-cluster HA control. These
+modes use the same PR and the ordinary `/test istio-latest-mesh` trigger.
