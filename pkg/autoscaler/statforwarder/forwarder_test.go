@@ -137,9 +137,6 @@ func TestForwarderReconcile(t *testing.T) {
 		AddressType: discoveryv1.AddressTypeIPv4,
 		Endpoints: []discoveryv1.Endpoint{{
 			Addresses: []string{testIP1},
-			TargetRef: &corev1.ObjectReference{
-				APIVersion: "v1", Kind: "Pod", Namespace: testNs, Name: "autoscaler-1",
-			},
 			Conditions: discoveryv1.EndpointConditions{
 				Ready:       ptr.To(true),
 				Serving:     ptr.To(true),
@@ -179,7 +176,6 @@ func TestForwarderReconcile(t *testing.T) {
 
 	// Check that the endpoints got updated.
 	want.Endpoints[0].Addresses[0] = testIP2
-	want.Endpoints[0].TargetRef.Name = "autoscaler-2"
 	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 10*time.Second, true, func(context.Context) (bool, error) {
 		// Check the endpoints get updated.
 		got, err := el.Get(bucket1)

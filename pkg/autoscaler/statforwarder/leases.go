@@ -239,9 +239,9 @@ func (f *leaseTracker) createService(ctx context.Context, ns, n string) error {
 }
 
 // createOrUpdateEndpoints creates an EndpointSlice object with the given namespace and
-// name, the Forwarder.selfIP, and a Pod reference to the lease holder. The
-// reference lets mesh controllers defer endpoint metadata until their Pod cache
-// catches up, rather than caching an endpoint with an unknown TLS identity.
+// name and the Forwarder.selfIP. This negative-control branch deliberately
+// omits the lease-holder Pod reference; all diagnostics and other settings are
+// unchanged from the Pod-reference candidate.
 func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n, holder string) error {
 	podName, _, err := bucket.ExtractPodNameAndIP(holder)
 	if err != nil {
@@ -261,12 +261,8 @@ func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n, holde
 		AddressType: addressTypeForIP(f.selfIP),
 		Endpoints: []discoveryv1.Endpoint{{
 			Addresses: []string{f.selfIP},
-			TargetRef: &corev1.ObjectReference{
-				APIVersion: "v1",
-				Kind:       "Pod",
-				Namespace:  ns,
-				Name:       podName,
-			},
+			// Negative control: omit TargetRef to test whether the missing
+			// Pod association reproduces the persistent mesh failure.
 			Conditions: discoveryv1.EndpointConditions{
 				Ready:       ptr.To(true),
 				Serving:     ptr.To(true),
