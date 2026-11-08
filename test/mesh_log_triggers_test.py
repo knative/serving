@@ -15,7 +15,7 @@
 import datetime
 import unittest
 
-from mesh_log_triggers import Detector, recent
+from mesh_log_triggers import Detector, recent, capture_allowed
 
 
 class TriggerTests(unittest.TestCase):
@@ -66,6 +66,30 @@ class TriggerTests(unittest.TestCase):
         self.detector.record("activator", row, 20)
         self.detector.record("activator", row, 25)
         self.assertEqual(self.detector.record("activator", row, 30)["cause"], "backend-probe")
+
+    def test_san_failure_triggers_immediately(self):
+        row = {"upstream_transport_failure_reason": "TLS_error:CERTIFICATE_VERIFY_FAILED:SAN matcher",
+               "upstream_cluster": "outbound|80||revision.serving-tests.svc.cluster.local",
+               "upstream_host": "10.0.0.1:8012", "response_code": 503}
+        event = self.detector.record("istio-ingressgateway", row, 0)
+        self.assertEqual(event["cause"], "tls-identity")
+        self.assertEqual(event["revision"], "serving-tests/revision")
+        self.assertEqual(event["count"], 1)
+        self.assertEqual(event["last_record"]["upstream_host"], "10.0.0.1:8012")
+
+    def test_plaintext_pod_ip_reset_is_not_a_san_trigger(self):
+        self.assertIsNone(self.detector.record("gateway", {"response_code": 503,
+                          "upstream_transport_failure_reason": None}, 0))
+
+    def test_tls_capacity_is_reserved(self):
+        counts = {"normal": 5, "tls": 0}
+        self.assertFalse(capture_allowed("normal", counts, {}, 130, 0))
+        self.assertTrue(capture_allowed("tls", counts, {"normal": object()}, 1, 0))
+        self.assertFalse(capture_allowed("tls", {"normal": 0, "tls": 3}, {}, 130, 0))
+        self.assertFalse(capture_allowed("tls", counts, {"tls": object()}, 130, 0))
+
+    def test_envoy_start_time_is_supported(self):
+        self.assertTrue(recent({"start_time": datetime.datetime.now(datetime.timezone.utc).isoformat()}))
 
     def test_stale_logs_are_not_live_failure_evidence(self):
         now = datetime.datetime.now(datetime.timezone.utc)

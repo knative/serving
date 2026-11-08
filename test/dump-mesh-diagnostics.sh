@@ -49,7 +49,10 @@ function capture() {
 date -u > "${workdir}/collected-at.txt"
 capture nodes.yaml "${kubectl_cmd[@]}" get nodes -o yaml
 
-for namespace in "${SYSTEM_NAMESPACE}" istio-system "${TEST_NAMESPACE:-serving-tests}"; do
+declare -A captured_namespaces=()
+for namespace in "${MESH_DIAGNOSTIC_TARGET_NAMESPACE:-${SYSTEM_NAMESPACE}}" "${SYSTEM_NAMESPACE}" istio-system "${TEST_NAMESPACE:-serving-tests}"; do
+  [[ -z "${captured_namespaces[${namespace}]:-}" ]] || continue
+  captured_namespaces["${namespace}"]=1
   capture "${namespace}-resources.yaml" "${kubectl_cmd[@]}" get \
     pods,services,endpointslices,leases -n "${namespace}" -o yaml
   capture "${namespace}-events.yaml" "${kubectl_cmd[@]}" get events -n "${namespace}" -o yaml
@@ -69,7 +72,7 @@ for namespace in "${SYSTEM_NAMESPACE}" istio-system "${TEST_NAMESPACE:-serving-t
 
     # Include native sidecars, which are represented as init containers.
     if [[ " ${containers} " == *" istio-proxy "* ]] && \
-      [[ "${app}" == autoscaler || "${app}" == activator || "${app}" == istio-ingressgateway ]]; then
+      [[ "${pod}" == "${MESH_DIAGNOSTIC_TARGET_POD:-}" || "${app}" == autoscaler || "${app}" == activator || "${app}" == istio-ingressgateway ]]; then
       # EDS, CDS and RDS identify stale endpoints, missing tlsMode metadata and
       # incorrect routing. Omitting SDS avoids publishing workload certificates.
       capture "${namespace}-${pod}-envoy-config.json" "${kubectl_cmd[@]}" exec -n "${namespace}" "${pod}" \

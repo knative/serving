@@ -44,7 +44,7 @@ function start_test_observability() {
 function stop_test_observability() {
   [[ -n "${MESH_OBSERVABILITY_DIR:-}" ]] || return 0
   touch "${MESH_OBSERVABILITY_DIR}/stop"
-  for ((i=0; i<60; i++)); do
+  for ((i=0; i<90; i++)); do
     [[ -f "${MESH_OBSERVABILITY_DIR}/stopped" ]] && break
     kill -0 "${MESH_OBSERVABILITY_PID}" 2>/dev/null || break
     sleep 1

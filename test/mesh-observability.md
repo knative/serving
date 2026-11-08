@@ -1,7 +1,9 @@
 # Temporary mesh CI observability
 
-This draft-PR experiment is observation only. The stat retry-return and traffic
-cleanup fixes remain disabled. It does not inject faults or change routing,
+This draft-PR investigation now tests a single candidate fix: explicit Pod
+references on bucket EndpointSlices. The stat retry-return and traffic cleanup
+fixes remain disabled. See `istio-targetref-repro.md` for the ordering reproduction
+and the limits of what this candidate has established. It does not inject faults or change routing,
 mTLS policy, test timeouts, connection/probe timeouts, node counts, machine types,
 or Serving/Istio resource limits. Enabling GKE agents and additional counters has
 observation overhead; compare the recorded resource usage when interpreting
@@ -93,14 +95,19 @@ errors spanning ten seconds, resetting after a five-second gap or a recovery:
 - Activator stat-send failures.
 - ClusterIP probe failures when Kubernetes reports ready backends.
 
-The monitor ignores stale log records. Captures are limited to five per run,
-one active collector, a two-minute global cooldown and a five-minute cooldown
-for the same pod/cause/bucket. A trigger does not fail or interrupt any test.
+The monitor also reads gateway and workload-sidecar logs. Certificate/SAN
+verification errors trigger immediately, without waiting for repeated failures.
+The monitor ignores stale log records. It reserves three TLS-identity captures
+in addition to five ordinary captures; earlier forwarding failures cannot consume
+that budget. At most one collector of each category can run, so a TLS snapshot
+is not delayed behind an ordinary capture. Ordinary captures keep their two-minute
+global cooldown; all identities retain a five-minute cooldown. A trigger does not
+fail or interrupt any test.
 
 `triggers/<phase>/event.json` records the source, revision/bucket, timing, retry
 and queue context. `mesh-diagnostics-trigger-*.tar.gz` contains the existing
-secret-safe Kubernetes/proxy capture, prioritizing the affected pod and
-all autoscalers before other pods. Each collector is bounded to 90 seconds;
+secret-safe Kubernetes/proxy capture, prioritizing the affected namespace/pod
+(including gateways or workload sidecars) and all autoscalers before other pods. Each collector is bounded to 90 seconds;
 partial results are archived on termination rather than discarded.
 
 This observes forwarding/probe failures; it does not add in-flight request

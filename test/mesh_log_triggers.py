@@ -29,6 +29,19 @@ class Detector:
         self.failures = {}
 
     def record(self, pod, row, now):
+        failure = row.get("upstream_transport_failure_reason") or ""
+        if "CERTIFICATE_VERIFY_FAILED" in failure or "SAN matcher" in failure:
+            cluster = row.get("upstream_cluster", "")
+            host = cluster.split("||")[-1].split(".")
+            revision = host[1] + "/" + host[0] if len(host) >= 5 and host[2] == "svc" else cluster
+            return {
+                "cause": "tls-identity", "pod": pod, "revision": revision, "bucket": "",
+                "duration_seconds": 0, "count": 1,
+                "last_record": {k: row.get(k) for k in (
+                    "start_time", "authority", "response_code", "response_flags", "upstream_cluster",
+                    "upstream_host", "upstream_transport_failure_reason",
+                )},
+            }
         message = row.get("message", "")
         revision = row.get("knative.dev/key", "")
         bucket = row.get("bucket", "")
@@ -77,7 +90,7 @@ class Detector:
 
 
 def recent(row):
-    timestamp = row.get("timestamp")
+    timestamp = row.get("timestamp") or row.get("start_time")
     if timestamp is None:
         return False
     try:
@@ -90,25 +103,36 @@ def recent(row):
         return False
 
 
+def capture_allowed(category, captures, children, now, last_capture):
+    if category in children or captures[category] >= (3 if category == "tls" else 5):
+        return False
+    return category == "tls" or now - last_capture >= 120
+
+
 def monitor(args, stop):
     detector = Detector()
     positions = {}
     captured = {}
     count, last_capture = 0, -120.0
-    child, log = None, None
+    children = {}
+    captures = {"normal": 0, "tls": 0}
     needles = ("Error while processing stat", "stat forwarding connection", "Stat forwarding connection",
                "Connected to ws://", "Autoscaler connection established", "Autoscaler is not reachable",
-               "Failed to probe clusterIP", "Using ClusterIP for revision backends")
+               "Failed to probe clusterIP", "Using ClusterIP for revision backends",
+               "CERTIFICATE_VERIFY_FAILED", "SAN matcher")
     directory = args.logs / args.namespace
     try:
         while not stop():
-            if child and child.poll() is not None:
-                log.close()
-                child, log = None, None
-            for file in directory.glob("*.log"):
+            for category, (child, log) in list(children.items()):
+                if child.poll() is not None:
+                    log.close()
+                    del children[category]
+            test_logs = args.logs / os.environ.get("TEST_NAMESPACE", "serving-tests")
+            files = list(directory.glob("*.log")) + list((args.logs / "istio-system").glob("*.log")) + list(test_logs.glob("*.log"))
+            for file in dict.fromkeys(files):
                 if stop():
                     break
-                if not file.name.startswith(("autoscaler-", "activator-")) or file.name.startswith("autoscaler-hpa-"):
+                if file.parent != test_logs and (not file.name.startswith(("autoscaler-", "activator-", "istio-ingressgateway-")) or file.name.startswith("autoscaler-hpa-")):
                     continue
                 try:
                     offset, pending = positions.get(file, (0, b""))
@@ -134,34 +158,43 @@ def monitor(args, stop):
                         continue
                     event = detector.record(file.stem, row, time.monotonic())
                     now = time.monotonic()
-                    if not event or child or count >= 5 or now - last_capture < 120:
+                    if not event:
+                        continue
+                    category = "tls" if event["cause"] == "tls-identity" else "normal"
+                    # Reserve three captures for TLS identity failures. Earlier
+                    # forwarding failures must not consume that capacity.
+                    if not capture_allowed(category, captures, children, now, last_capture):
                         continue
                     identity = (event["pod"], event["cause"], event["bucket"] or event["revision"])
                     if now - captured.get(identity, -300.0) < 300:
                         continue
                     captured[identity] = now
                     count += 1
-                    last_capture = now
+                    captures[category] += 1
+                    if category == "normal":
+                        last_capture = now
                     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
                     phase = f"trigger-{event['cause']}-{stamp}-{count}"
-                    event.update(namespace=args.namespace, collected_at=stamp, phase=phase)
+                    event.update(namespace=file.parent.name, collected_at=stamp, phase=phase)
                     path = args.output / "triggers" / phase
                     path.mkdir(parents=True, exist_ok=True)
                     (path / "event.json").write_text(json.dumps(event, indent=2) + "\n")
                     env = dict(os.environ, SYSTEM_NAMESPACE=args.namespace,
                                ARTIFACTS=os.environ.get("ARTIFACTS", str(args.output.parent)),
-                               MESH_DIAGNOSTIC_TARGET_POD=event["pod"])
+                               MESH_DIAGNOSTIC_TARGET_POD=event["pod"],
+                               MESH_DIAGNOSTIC_TARGET_NAMESPACE=event["namespace"])
                     script = Path(__file__).with_name("dump-mesh-diagnostics.sh")
                     log = (path / "collector.log").open("w")
                     child = subprocess.Popen(["timeout", "--kill-after=10s", "90s", "bash", str(script), phase],
                                              env=env, stdout=log, stderr=log)
+                    children[category] = (child, log)
                     print("Mesh snapshot triggered:", json.dumps(event), flush=True)
             for _ in range(4):
                 if stop():
                     break
                 time.sleep(0.25)
     finally:
-        if child:
+        for child, log in children.values():
             try:
                 child.wait(timeout=20)
             except subprocess.TimeoutExpired:
@@ -171,5 +204,4 @@ def monitor(args, stop):
                 except subprocess.TimeoutExpired:
                     child.kill()
                     child.wait()
-        if log:
             log.close()

@@ -242,7 +242,7 @@ def observe(args):
     finally:
         stopping = True
         if watcher:
-            watcher.join(timeout=35)
+            watcher.join(timeout=65)
         write_json(args.output / "stopped", {"stopped_at": utc_now()})
 
 
