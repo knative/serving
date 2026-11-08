@@ -32,7 +32,6 @@ import (
 )
 
 func TestBucketEndpointPodReference(t *testing.T) {
-	t.Skip("Negative-control experiment: Pod-reference fix is intentionally disabled")
 	const namespace, name, ip = "serving-system", "autoscaler-bucket-00-of-10", "10.0.0.1"
 	for _, tc := range []struct {
 		name     string
