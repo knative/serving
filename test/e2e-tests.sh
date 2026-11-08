@@ -30,9 +30,9 @@ source $(dirname "$0")/e2e-common.sh
 # Observation-only experiment in this draft PR; the vendored cluster creation
 # hook enables GKE telemetry before --up, only when --mesh is selected.
 export MESH_OBSERVABILITY="${MESH_OBSERVABILITY:-true}"
-# Return to the original suite/order with failure-triggered diagnostics.
-# overlap/load-only/ha-only remain available for later controlled experiments.
-export MESH_HA_LOAD_MODE="${MESH_HA_LOAD_MODE:-full}"
+# Focused owner-handoff follow-up. Set full to rerun the original suite/order.
+# The sibling workload-SAN experiment uses the same setup and Pod-reference fix.
+export MESH_HA_LOAD_MODE="${MESH_HA_LOAD_MODE:-owner-handoff}"
 source "${REPO_ROOT_DIR}/test/mesh-observability.sh"
 
 # Script entry point.
@@ -86,8 +86,16 @@ if (( SHORT )); then
 fi
 
 if (( MESH && ! SHORT )) && [[ "${MESH_HA_LOAD_MODE}" != full ]]; then
-  source "${REPO_ROOT_DIR}/test/mesh-ha-load-experiment.sh"
-  run_mesh_ha_load_experiment || record_mesh_failure ha-load
+  case "${MESH_HA_LOAD_MODE}" in
+    owner-handoff|workload-san)
+      source "${REPO_ROOT_DIR}/test/mesh-focused-experiment.sh"
+      run_mesh_focused_experiment || record_mesh_failure "${MESH_HA_LOAD_MODE}"
+      ;;
+    *)
+      source "${REPO_ROOT_DIR}/test/mesh-ha-load-experiment.sh"
+      run_mesh_ha_load_experiment || record_mesh_failure ha-load
+      ;;
+  esac
   (( failed )) && fail_test
   success
 fi
