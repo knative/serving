@@ -30,9 +30,9 @@ source $(dirname "$0")/e2e-common.sh
 # Observation-only experiment in this draft PR; the vendored cluster creation
 # hook enables GKE telemetry before --up, only when --mesh is selected.
 export MESH_OBSERVABILITY="${MESH_OBSERVABILITY:-true}"
-# Focused owner-handoff follow-up. Set full to rerun the original suite/order.
-# The sibling workload-SAN experiment uses the same setup and Pod-reference fix.
-export MESH_HA_LOAD_MODE="${MESH_HA_LOAD_MODE:-owner-handoff}"
+# Focused workload certificate/SAN follow-up. The former no-reference control
+# is preserved at ab66b7493; Pod references are enabled again on this branch.
+export MESH_HA_LOAD_MODE="${MESH_HA_LOAD_MODE:-workload-san}"
 source "${REPO_ROOT_DIR}/test/mesh-observability.sh"
 
 # Script entry point.
