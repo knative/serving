@@ -49,8 +49,10 @@ func TestBucketEndpointPodReference(t *testing.T) {
 				slice := &discoveryv1.EndpointSlice{
 					ObjectMeta:  metav1.ObjectMeta{Name: name, Namespace: namespace},
 					AddressType: discoveryv1.AddressTypeIPv4,
-					Endpoints: []discoveryv1.Endpoint{{Addresses: []string{ip}, TargetRef: tc.ref,
-						Conditions: discoveryv1.EndpointConditions{Ready: ptr.To(true), Serving: ptr.To(true), Terminating: ptr.To(false)}}},
+					Endpoints: []discoveryv1.Endpoint{{
+						Addresses: []string{ip}, TargetRef: tc.ref,
+						Conditions: discoveryv1.EndpointConditions{Ready: ptr.To(true), Serving: ptr.To(true), Terminating: ptr.To(false)},
+					}},
 				}
 				if _, err := client.DiscoveryV1().EndpointSlices(namespace).Create(t.Context(), slice, metav1.CreateOptions{}); err != nil {
 					t.Fatal(err)
@@ -59,8 +61,10 @@ func TestBucketEndpointPodReference(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			tracker := &leaseTracker{logger: logtesting.TestLogger(t), selfIP: ip, kc: client,
-				endpointsLister: discoverylisters.NewEndpointSliceLister(indexer)}
+			tracker := &leaseTracker{
+				logger: logtesting.TestLogger(t), selfIP: ip, kc: client,
+				endpointsLister: discoverylisters.NewEndpointSliceLister(indexer),
+			}
 			if err := tracker.createOrUpdateEndpoints(context.Background(), namespace, name, "new-holder_"+ip); err != nil {
 				t.Fatal(err)
 			}
