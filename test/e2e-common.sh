@@ -66,24 +66,31 @@ function latest_net_istio_version() {
   local serving_version=$1
   local major_minor=$(echo "$serving_version" | cut -d '.' -f 1,2)
 
-  local url="https://api.github.com/repos/knative/net-istio/releases"
-  local curl_output=$(mktemp)
-  local -a curl_flags=(-L --show-error --silent)
+  local url="https://api.github.com/repos/knative-extensions/net-istio/releases?per_page=100"
+  local -a curl_flags=(
+    --fail-with-body --location --show-error --silent
+    --retry 3 --retry-delay 2
+  )
 
   if [ -n "${GITHUB_TOKEN-}" ]; then
-    curl "${curl_flags[@]}" -H "Authorization: Bearer $GITHUB_TOKEN" "$url" > "$curl_output"
-  else
-    curl "${curl_flags[@]}" "$url" > "$curl_output"
+    curl_flags+=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
   fi
 
-  jq --arg major_minor "$major_minor" -r \
-    '[.[].tag_name] |
-    map(select(. | startswith($major_minor))) |
+  local curl_output
+  curl_output=$(curl "${curl_flags[@]}" "$url") || {
+    echo "Failed to fetch net-istio releases" >&2
+    printf '%s\n' "$curl_output" >&2
+    return 1
+  }
+
+  jq --arg major_minor "$major_minor" -er \
+    '[.[] | select(.draft == false and .prerelease == false) | .tag_name] |
+    map(select(. | startswith($major_minor + "."))) |
     sort_by( sub("knative-";"") |
     sub("v";"") |
     split(".") |
     map(tonumber) ) |
-    reverse[0]' "$curl_output"
+    reverse[0]' <<< "$curl_output"
 }
 
 # Latest serving release. If user does not supply this as a flag, the latest
@@ -91,7 +98,9 @@ function latest_net_istio_version() {
 LATEST_SERVING_RELEASE_VERSION=$(latest_version)
 
 # Latest net-istio release.
-LATEST_NET_ISTIO_RELEASE_VERSION=$(latest_net_istio_version "$LATEST_SERVING_RELEASE_VERSION")
+LATEST_NET_ISTIO_RELEASE_VERSION=$(
+  latest_net_istio_version "$LATEST_SERVING_RELEASE_VERSION"
+) || abort "Unable to determine net-istio release for ${LATEST_SERVING_RELEASE_VERSION}"
 
 
 # Parse our custom flags.
