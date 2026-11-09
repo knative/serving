@@ -1,0 +1,101 @@
+diff --git a/pilot/pkg/serviceregistry/kube/controller/bucket_pod_ordering_repro_test.go b/pilot/pkg/serviceregistry/kube/controller/bucket_pod_ordering_repro_test.go
+new file mode 100644
+--- /dev/null
++++ b/pilot/pkg/serviceregistry/kube/controller/bucket_pod_ordering_repro_test.go
+@@ -0,0 +1,96 @@
++// Copyright 2026 The Istio Authors
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package controller
++
++import (
++	"testing"
++	"time"
++
++	"istio.io/istio/pilot/pkg/serviceregistry/kube"
++	"istio.io/istio/pkg/kube/kclient/clienttest"
++	"istio.io/istio/pkg/test/util/assert"
++	corev1 "k8s.io/api/core/v1"
++	discovery "k8s.io/api/discovery/v1"
++	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
++	"k8s.io/apimachinery/pkg/types"
++)
++
++// Reproduce the CI ordering: the manual slice arrives before Pod metadata.
++func TestBucketSlicePodOrderingRepro(t *testing.T) {
++	for _, withRef := range []bool{false, true} {
++		name := "without_target_ref"
++		if withRef {
++			name = "with_target_ref"
++		}
++		t.Run(name, func(t *testing.T) {
++			const ns, svcName, podName, ip = "nsa", "autoscaler-bucket-00-of-10", "autoscaler-owner", "128.0.0.1"
++			c, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
++			createServiceWait(c, svcName, ns, []string{"10.0.0.1"}, nil, nil, []int32{8080}, nil, t)
++			hostname := kube.ServiceHostname(svcName, ns, c.opts.DomainSuffix)
++			portName := "tcp-port"
++			port := int32(8080)
++			endpoint := discovery.Endpoint{Addresses: []string{ip}}
++			if withRef {
++				endpoint.TargetRef = &corev1.ObjectReference{APIVersion: "v1", Kind: "Pod", Namespace: ns, Name: podName}
++			}
++			slice := &discovery.EndpointSlice{ObjectMeta: metav1.ObjectMeta{Name: svcName, Namespace: ns, Labels: map[string]string{discovery.LabelServiceName: svcName}}, AddressType: discovery.AddressTypeIPv4, Endpoints: []discovery.Endpoint{endpoint}, Ports: []discovery.EndpointPort{{Name: &portName, Port: &port}}}
++			clienttest.NewWriter[*discovery.EndpointSlice](t, c.client).CreateOrUpdate(slice)
++			if withRef {
++				assert.EventuallyEqual(t, func() bool {
++					c.pods.RLock()
++					defer c.pods.RUnlock()
++					return c.pods.needResync[ip].Contains(types.NamespacedName{Namespace: ns, Name: svcName})
++				}, true)
++				if got := c.endpoints.endpointCache.Get(hostname); len(got) != 0 {
++					t.Fatalf("published endpoint before its Pod arrived: %+v", got)
++				}
++			} else {
++				assert.EventuallyEqual(t, func() int { return len(c.endpoints.endpointCache.Get(hostname)) }, 1)
++				ep := c.endpoints.endpointCache.Get(hostname)[0]
++				if ep.TLSMode == "istio" || ep.Namespace != "" {
++					t.Fatalf("expected unknown Pod metadata before arrival: %+v", ep)
++				}
++			}
++			pod := generatePod([]string{ip}, podName, ns, "controller", "node1", map[string]string{"app": "autoscaler", "security.istio.io/tlsMode": "istio"}, nil)
++			addPods(t, c, fx, pod)
++			if withRef {
++				assert.EventuallyEqual(t, func() string {
++					eps := c.endpoints.endpointCache.Get(hostname)
++					if len(eps) != 1 {
++						return "missing"
++					}
++					return eps[0].TLSMode
++				}, "istio")
++				ep := c.endpoints.endpointCache.Get(hostname)[0]
++				assert.Equal(t, ep.Namespace, ns)
++				assert.Equal(t, ep.ServiceAccount, "spiffe://cluster.local/ns/nsa/sa/controller")
++				t.Log("Pod arrival resynced the slice and repaired mTLS metadata")
++			} else {
++				// No pending Pod-arrival resync exists, so the cached unknown endpoint stays.
++				time.Sleep(100 * time.Millisecond)
++				ep := c.endpoints.endpointCache.Get(hostname)[0]
++				if ep.TLSMode == "istio" || ep.Namespace != "" {
++					t.Fatalf("unexpected repair without a registered resync: %+v", ep)
++				}
++				t.Log("Reproduced cached endpoint without workload/tlsMode after Pod arrival")
++				// A later endpoint refresh sees the Pod and repairs the metadata.
++				// The missing reference prevented that refresh from happening automatically.
++				c.endpoints.updateEndpointCacheForSlice(hostname, slice)
++				assert.Equal(t, c.endpoints.endpointCache.Get(hostname)[0].TLSMode, "istio")
++				t.Log("Explicit endpoint refresh repaired the no-reference case")
++			}
++		})
++	}
++}

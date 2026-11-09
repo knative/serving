@@ -27,6 +27,14 @@
 
 source $(dirname "$0")/e2e-common.sh
 
+# Observation-only experiment in this draft PR; the vendored cluster creation
+# hook enables GKE telemetry before --up, only when --mesh is selected.
+export MESH_OBSERVABILITY="${MESH_OBSERVABILITY:-true}"
+# Recreate the full original sequence for the late workload certificate/SAN
+# failure. Pod references and diagnostics remain enabled; focused runs passed.
+export MESH_HA_LOAD_MODE="${MESH_HA_LOAD_MODE:-full}"
+source "${REPO_ROOT_DIR}/test/mesh-observability.sh"
+
 # Script entry point.
 initialize --num-nodes=4 --enable-ha "$@"
 
@@ -34,6 +42,16 @@ initialize --num-nodes=4 --enable-ha "$@"
 header "Running tests"
 
 failed=0
+
+# Preserve mesh connection logs and proxy state before later tests restart pods
+# or toggle configuration. Diagnostic failures must not hide the test failure.
+function record_mesh_failure() {
+  failed=1
+  if (( MESH )); then
+    bash "${REPO_ROOT_DIR}/test/dump-mesh-diagnostics.sh" "$1" \
+      || echo "Unable to collect mesh diagnostics for $1" >&2
+  fi
+}
 
 # Run tests serially in the mesh and https scenarios.
 GO_TEST_FLAGS=()
@@ -67,12 +85,27 @@ if (( SHORT )); then
   GO_TEST_FLAGS+=("-short")
 fi
 
+if (( MESH && ! SHORT )) && [[ "${MESH_HA_LOAD_MODE}" != full ]]; then
+  case "${MESH_HA_LOAD_MODE}" in
+    owner-handoff|workload-san)
+      source "${REPO_ROOT_DIR}/test/mesh-focused-experiment.sh"
+      run_mesh_focused_experiment || record_mesh_failure "${MESH_HA_LOAD_MODE}"
+      ;;
+    *)
+      source "${REPO_ROOT_DIR}/test/mesh-ha-load-experiment.sh"
+      run_mesh_ha_load_experiment || record_mesh_failure ha-load
+      ;;
+  esac
+  (( failed )) && fail_test
+  success
+fi
+
 go_test_e2e -timeout=50m \
   "${GO_TEST_FLAGS[@]}" \
   ./test/conformance/api/... \
   ./test/conformance/runtime/... \
   ./test/e2e \
-  "${E2E_TEST_FLAGS[@]}" || failed=1
+  "${E2E_TEST_FLAGS[@]}" || record_mesh_failure e2e
 
 toggle_feature tag-header-based-routing Enabled
 go_test_e2e -timeout=2m ./test/e2e/tagheader "${E2E_TEST_FLAGS[@]}" || failed=1
@@ -162,7 +195,7 @@ go_test_e2e -timeout=30m -failfast -parallel=1 ./test/ha \
   "${E2E_TEST_FLAGS[@]}" \
   -replicas="${REPLICAS:-1}" \
   -buckets="${BUCKETS:-1}" \
-  -spoofinterval="10ms" || failed=1
+  -spoofinterval="10ms" || record_mesh_failure ha
 
 if (( HTTPS )); then
   kubectl delete -f "${E2E_YAML_DIR}"/test/config/externaldomaintls/certmanager/caissuer/ --ignore-not-found
