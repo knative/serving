@@ -68,12 +68,12 @@ function latest_net_istio_version() {
 
   local url="https://api.github.com/repos/knative/net-istio/releases"
   local curl_output=$(mktemp)
-  local curl_flags='-L --show-error --silent'
+  local -a curl_flags=(-L --show-error --silent)
 
   if [ -n "${GITHUB_TOKEN-}" ]; then
-    curl $curl_flags -H "Authorization: Bearer $GITHUB_TOKEN" $url > $curl_output
+    curl "${curl_flags[@]}" -H "Authorization: Bearer $GITHUB_TOKEN" "$url" > "$curl_output"
   else
-    curl $curl_flags $url > $curl_output
+    curl "${curl_flags[@]}" "$url" > "$curl_output"
   fi
 
   jq --arg major_minor "$major_minor" -r \
@@ -83,7 +83,7 @@ function latest_net_istio_version() {
     sub("v";"") |
     split(".") |
     map(tonumber) ) |
-    reverse[0]' $curl_output
+    reverse[0]' "$curl_output"
 }
 
 # Latest serving release. If user does not supply this as a flag, the latest
@@ -340,18 +340,18 @@ function install() {
 
   local ytt_result=$(mktemp)
   local ytt_post_install_result=$(mktemp)
-  local ytt_flags=""
+  local -a ytt_flags=()
 
   for file in "${YTT_FILES[@]}"; do
     if [[ -f "${file}" ]] || [[ -d "${file}" ]]; then
       echo "including ${file}"
-      ytt_flags+=" -f ${file}"
+      ytt_flags+=(-f "${file}")
     fi
   done
 
   # use ytt to wrangle the yaml & kapp to apply the resources
   # to the cluster and wait
-  run_ytt ${ytt_flags} \
+  run_ytt "${ytt_flags[@]}" \
     --data-value serving.namespaces.system="${SYSTEM_NAMESPACE}" \
     --data-value k8s.cluster.domain="${CLUSTER_DOMAIN}" \
     > "${ytt_result}" \
@@ -400,11 +400,11 @@ function install() {
     fi
 
     echo "Restart controller to enable the certificate reconciler"
-    restart_pod ${SYSTEM_NAMESPACE} "app=controller"
+    restart_pod "${SYSTEM_NAMESPACE}" "app=controller"
     echo "Restart activator to mount the certificates"
-    restart_pod ${SYSTEM_NAMESPACE} "app=activator"
-    kubectl wait --timeout=60s --for=condition=Available deployment -n ${SYSTEM_NAMESPACE} activator
-    kubectl wait --timeout=60s --for=condition=Available deployment -n ${SYSTEM_NAMESPACE} controller
+    restart_pod "${SYSTEM_NAMESPACE}" "app=activator"
+    kubectl wait --timeout=60s --for=condition=Available deployment -n "${SYSTEM_NAMESPACE}" activator
+    kubectl wait --timeout=60s --for=condition=Available deployment -n "${SYSTEM_NAMESPACE}" controller
   fi
 }
 
@@ -424,7 +424,7 @@ function knative_teardown() {
 # Create test resources and images
 function test_setup() {
   echo ">> Uploading test images..."
-  ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
+  "${REPO_ROOT_DIR}/test/upload-test-images.sh" || return 1
 
   echo ">> Setting up logging..."
 
@@ -433,7 +433,7 @@ function test_setup() {
     go install github.com/stern/stern@v1.33.0
   fi
 
-  mkdir -p $(log_dir)
+  mkdir -p "$(log_dir)"
 
   # Capture all logs.
   # We use stdbuf so that when we pipe logs to awk it flushes to the file
@@ -459,19 +459,19 @@ function test_setup() {
     fflush(logdir "/" ns "/" pod ".log");
   }' &
 
-  echo $! > ${STERN_PID_FILE}
+  echo $! > "${STERN_PID_FILE}"
 
   # Clean up stern so it doesn't interfere with job shutting down
   add_trap "stop_logging" EXIT SIGTERM
 }
 
 function stop_logging() {
-  kill $(cat ${STERN_PID_FILE})
+  kill "$(cat "${STERN_PID_FILE}")"
 
-  pushd "$(dirname $(log_dir))"
-    tar -czf "$(basename $(log_dir)).tar.gz" "$(basename $(log_dir))"
-    rm -rf "$(basename $(log_dir))"
-  popd
+  pushd "$(dirname "$(log_dir)")" || return 1
+    tar -czf "$(basename "$(log_dir)").tar.gz" "$(basename "$(log_dir)")"
+    rm -rf "$(basename "$(log_dir)")"
+  popd || return 1
 }
 
 function log_dir() {
@@ -512,7 +512,7 @@ function restart_pod() {
   local namespace="$1"
   local label="$2"
   echo -n "Deleting pod in ${namespace} with label ${label}"
-  kubectl -n ${namespace} delete pod -l ${label}
+  kubectl -n "${namespace}" delete pod -l "${label}"
 }
 
 function toggle_feature() {
@@ -630,10 +630,10 @@ function stage_test_resources() {
       continue
     fi
     target="${file/${source_dir}/$target_dir}"
-    mkdir -p $(dirname $target)
+    mkdir -p "$(dirname "$target")"
 
     if grep -Fq "ko://" "${file}"; then
-      local ko_target="$(mktemp -d)/$(basename $file)"
+      local ko_target="$(mktemp -d)/$(basename "$file")"
       echo building "${file/$REPO_ROOT_DIR/}"
       ko resolve $(ko_flags) -f "${file}" > "${ko_target}" || fail_test "failed to build test resource"
       file="${ko_target}"

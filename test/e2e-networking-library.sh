@@ -34,9 +34,9 @@ function stage_contour_gateway_api_resources() {
     "examples/gateway-provisioner/02-rolebindings.yaml"
     "examples/gateway-provisioner/03-gateway-provisioner.yaml"
   )
-  for file in ${CONTOUR_FILES[@]}; do
-  curl -s \
-    "https://raw.githubusercontent.com/projectcontour/contour/${CONTOUR_VERSION}/${file}" > "${gateway_dir}/$(basename ${file})"
+  for file in "${CONTOUR_FILES[@]}"; do
+    curl -s \
+      "https://raw.githubusercontent.com/projectcontour/contour/${CONTOUR_VERSION}/${file}" > "${gateway_dir}/$(basename "${file}")"
   done
 }
 
@@ -50,7 +50,7 @@ function stage_istio_gateway_api_resources() {
   # TODO: if we switch to istio 1.12 we can reuse stage_istio_head
   curl -sL https://istio.io/downloadIstioctl | ISTIO_VERSION=1.28.0 sh -
 
-  local params="--set values.global.proxy.clusterDomain=${CLUSTER_DOMAIN}"
+  local -a params=(--set "values.global.proxy.clusterDomain=${CLUSTER_DOMAIN}")
 
   cat <<EOF > "${gateway_dir}/istio.yaml"
 apiVersion: v1
@@ -60,7 +60,7 @@ metadata:
 ---
 EOF
 
-  $HOME/.istioctl/bin/istioctl manifest generate $params >> "${gateway_dir}/istio.yaml"
+  "${HOME}/.istioctl/bin/istioctl" manifest generate "${params[@]}" >> "${gateway_dir}/istio.yaml"
 }
 
 function stage_istio_head() {
@@ -94,7 +94,7 @@ function download_net_istio_yamls() {
   # Point to our local copy
   net_istio_yaml="${target_dir}/$(basename "${net_istio_yaml}")"
 
-  local sha=$(head -n 1 ${net_istio_yaml} | grep "# Generated when HEAD was" | sed 's/^.* //')
+  local sha=$(head -n 1 "${net_istio_yaml}" | grep "# Generated when HEAD was" | sed 's/^.* //')
   if [[ -z "${sha:-}" ]]; then
     sha="191bc5fe5a4b35b64f70577c3e44e44fb699cc5f"
     echo "Hard coded NET_ISTIO_COMMIT: ${sha}"
