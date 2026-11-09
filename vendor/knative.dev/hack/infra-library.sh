@@ -130,21 +130,10 @@ function create_gke_test_cluster() {
   local -n _extra_gcloud_flags=$2
   local -n _test_command=$3
 
-  # One-off mesh investigation: enable telemetry here, after flags have been
-  # parsed but before cluster creation. The inner --run-tests invocation is too
-  # late to change GKE logging/monitoring settings.
-  if [[ "${MESH_OBSERVABILITY:-}" == "true" ]] && (( ${MESH:-0} )); then
-    export ENABLE_GKE_TELEMETRY=true
-    export MESH_OBSERVABILITY_STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  fi
-
   # We are disabling logs and metrics on Boskos Clusters by default as they are not used. Manually set ENABLE_GKE_TELEMETRY to true to enable telemetry
   # and ENABLE_PREEMPTIBLE_NODES to true to create preemptible/spot VMs. VM Preemption is a rare event and shouldn't be distruptive given the fault tolerant nature of our tests.
   if [[ "${ENABLE_GKE_TELEMETRY:-}" != "true" ]]; then
     _extra_gcloud_flags+=("--logging=NONE --monitoring=NONE")
-  elif [[ "${MESH_OBSERVABILITY:-}" == "true" ]] && (( ${MESH:-0} )); then
-    echo "Mesh observation: enabling GKE system/workload logging and system monitoring"
-    _extra_gcloud_flags+=("--logging=SYSTEM,WORKLOAD --monitoring=SYSTEM")
   fi
 
   if [[ "${CLOUD_PROVIDER}" == "gke" ]]; then

@@ -28,7 +28,6 @@ import (
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 	netheader "knative.dev/networking/pkg/http/header"
-	"knative.dev/pkg/logging/logkey"
 	"knative.dev/serving/pkg/autoscaler/bucket"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 )
@@ -138,8 +137,7 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 	var upgrader websocket.Upgrader
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		s.logger.Errorw("error upgrading websocket", zap.Error(err),
-			zap.String("host", r.Host), zap.String("remote_address", r.RemoteAddr))
+		s.logger.Errorw("error upgrading websocket", zap.Error(err))
 		return
 	}
 
@@ -193,8 +191,7 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 				}
 
 				sm := wsm.ToStatMessage()
-				s.logger.Debugw("Received stat message", zap.String(logkey.Key, sm.Key.String()),
-					zap.String("host", r.Host), zap.String("remote_address", r.RemoteAddr), zap.Any("stat", sm.Stat))
+				s.logger.Debugf("Received stat message: %+v", sm)
 				s.statsCh <- sm
 			}
 		default:

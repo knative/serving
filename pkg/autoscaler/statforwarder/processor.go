@@ -126,20 +126,10 @@ func (p *remoteProcessor) process(sm asmetrics.StatMessage) error {
 	c := p.getConn()
 	if c == nil {
 		for _, addr := range p.addrs {
-			started := time.Now()
-			connectionLogger := l.With(zap.String("address", addr), zap.String("holder", p.holder),
-				zap.String("initiating_revision", sm.Key.String()))
-			connectionLogger.Debugw("Establishing stat forwarding connection", zap.Duration("timeout", establishTimeout))
-			// Include the revision key so handshake and reconnect failures are
-			// visible in revision-filtered e2e logs, not just the pod logs. The
-			// connection is shared by the bucket; this key identifies its initiator.
-			c, err = websocket.NewDurableSendingConnectionGuaranteed(addr, establishTimeout, connectionLogger)
+			c, err = websocket.NewDurableSendingConnectionGuaranteed(addr, establishTimeout, p.logger)
 			if err != nil {
-				connectionLogger.Warnw("Failed to establish stat forwarding connection",
-					zap.Duration("elapsed", time.Since(started)), zap.Error(err))
 				continue
 			}
-			connectionLogger.Infow("Stat forwarding connection established", zap.Duration("elapsed", time.Since(started)))
 			p.setConn(c)
 			break
 		}
