@@ -71,7 +71,7 @@ func (d *detector) record(namespace, pod string, row map[string]any, now time.Ti
 	bucket, _ := row["bucket"].(string)
 	identity := namespace + "/" + pod + "/" + bucket + "/" + revision
 	failure, _ := row["upstream_transport_failure_reason"].(string)
-	cause := ""
+	var cause string
 	switch {
 	case strings.Contains(failure, "CERTIFICATE_VERIFY_FAILED") || strings.Contains(failure, "SAN matcher"):
 		cause = "tls-identity"

@@ -21,11 +21,13 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -38,7 +40,7 @@ func TestDetector(t *testing.T) {
 	}
 	t.Run("persistent-forwarding", func(t *testing.T) {
 		d := detector{}
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			at := now.Add(time.Duration(i) * 5 * time.Second)
 			e := d.record("system", "autoscaler", row("Error while processing stat", at), at)
 			if (e != nil) != (i == 2) {
@@ -82,7 +84,7 @@ func TestDetector(t *testing.T) {
 				t.Fatal(e)
 			}
 		}
-		for i := 0; i < 20; i++ {
+		for i := range 20 {
 			at := now.Add(time.Duration(i) * time.Second)
 			if e := d.record("system", "pod", row("Websocket connection could not be established", at), at); e != nil {
 				t.Fatal(e)
@@ -94,8 +96,8 @@ func TestDetector(t *testing.T) {
 func TestCaptureBudgets(t *testing.T) {
 	now := time.Now()
 	b := budget{}
-	for i := 0; i < 5; i++ {
-		e := event{Cause: "forwarding", Namespace: "system", Pod: fmt.Sprint(i), At: now.Add(time.Duration(i) * 3 * time.Minute)}
+	for i := range 5 {
+		e := event{Cause: "forwarding", Namespace: "system", Pod: strconv.Itoa(i), At: now.Add(time.Duration(i) * 3 * time.Minute)}
 		if !b.reserve(e) {
 			t.Fatal("ordinary capture rejected")
 		}
@@ -107,8 +109,8 @@ func TestCaptureBudgets(t *testing.T) {
 	if b.reserve(event{Cause: "forwarding", Pod: "extra", At: now.Add(time.Hour)}) {
 		t.Fatal("ordinary budget exceeded")
 	}
-	for i := 0; i < 3; i++ {
-		e := event{Cause: "tls-identity", Namespace: "istio-system", Pod: fmt.Sprint(i), At: now}
+	for i := range 3 {
+		e := event{Cause: "tls-identity", Namespace: "istio-system", Pod: strconv.Itoa(i), At: now}
 		if !b.reserve(e) {
 			t.Fatal("ordinary captures consumed TLS budget")
 		}
@@ -143,7 +145,7 @@ func archiveFiles(t *testing.T, path string) map[string][]byte {
 	files := map[string][]byte{}
 	for {
 		header, err := reader.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -228,7 +230,7 @@ func TestPartialCaptureIsArchived(t *testing.T) {
 func TestBoundedLogsAndCommands(t *testing.T) {
 	dir := t.TempDir()
 	r := &rotatingLog{directory: dir, limit: 8}
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		if _, err := r.Write([]byte("12345678")); err != nil {
 			t.Fatal(err)
 		}
