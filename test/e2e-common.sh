@@ -220,6 +220,10 @@ function parse_flags() {
 #   them in the correct
 #
 function knative_setup() {
+  if [[ "${MESH_DIAGNOSTICS:-false}" == true ]] && (( MESH )); then
+    source "${REPO_ROOT_DIR}/test/mesh-diagnostics.sh"
+    start_mesh_diagnostics || echo "Unable to start optional mesh diagnostics" >&2
+  fi
   local need_latest_version=0
 
   if [[ "${INSTALL_SERVING_VERSION}" == "latest-release" ]]; then
@@ -425,6 +429,13 @@ function knative_teardown() {
 function test_setup() {
   echo ">> Uploading test images..."
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
+
+  # The opt-in Go collector started before installation and already streams
+  # unfiltered component/native-sidecar logs. Avoid duplicate API log streams.
+  if [[ -n "${MESH_DIAGNOSTICS_PID:-}" ]] && kill -0 "${MESH_DIAGNOSTICS_PID}" 2>/dev/null; then
+    echo ">> Mesh diagnostics are collecting logs"
+    return 0
+  fi
 
   echo ">> Setting up logging..."
 

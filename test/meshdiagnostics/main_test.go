@@ -1,0 +1,331 @@
+/*
+Copyright 2026 The Knative Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package main
+
+import (
+	"archive/tar"
+	"compress/gzip"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestDetector(t *testing.T) {
+	now := time.Now().UTC()
+	row := func(message string, at time.Time) map[string]any {
+		return map[string]any{"timestamp": at.Format(time.RFC3339Nano), "message": message, "knative.dev/key": "tests/revision"}
+	}
+	t.Run("persistent-forwarding", func(t *testing.T) {
+		d := detector{}
+		for i := 0; i < 3; i++ {
+			at := now.Add(time.Duration(i) * 5 * time.Second)
+			e := d.record("system", "autoscaler", row("Error while processing stat", at), at)
+			if (e != nil) != (i == 2) {
+				t.Fatalf("trigger %d: %+v", i, e)
+			}
+		}
+	})
+	for _, reset := range []string{"recovery", "gap"} {
+		t.Run(reset, func(t *testing.T) {
+			d := detector{}
+			d.record("system", "autoscaler", row("Error while processing stat", now), now)
+			later := now.Add(5 * time.Second)
+			if reset == "recovery" {
+				d.record("system", "autoscaler", row("Connected to ws://bucket", later), later)
+			} else {
+				later = now.Add(20 * time.Second)
+			}
+			if e := d.record("system", "autoscaler", row("Error while processing stat", later), later); e != nil {
+				t.Fatal(e)
+			}
+		})
+	}
+	t.Run("immediate-tls-and-safe-fields", func(t *testing.T) {
+		d := detector{}
+		r := map[string]any{"start_time": now.Format(time.RFC3339Nano), "upstream_transport_failure_reason": "TLS_error:CERTIFICATE_VERIFY_FAILED:SAN matcher", "authorization": "do-not-save", "body": "do-not-save"}
+		e := d.record("istio-system", "gateway", r, now)
+		if e == nil || e.Cause != "tls-identity" || e.Namespace != "istio-system" {
+			t.Fatal(e)
+		}
+		if _, ok := e.Record["authorization"]; ok {
+			t.Fatal("saved authorization")
+		}
+		if _, ok := e.Record["body"]; ok {
+			t.Fatal("saved body")
+		}
+	})
+	t.Run("ignore-old-and-expected-handshakes", func(t *testing.T) {
+		d := detector{}
+		for _, at := range []time.Time{now.Add(-2 * time.Minute), now.Add(time.Minute)} {
+			if e := d.record("system", "pod", row("Error while processing stat", at), now); e != nil {
+				t.Fatal(e)
+			}
+		}
+		for i := 0; i < 20; i++ {
+			at := now.Add(time.Duration(i) * time.Second)
+			if e := d.record("system", "pod", row("Websocket connection could not be established", at), at); e != nil {
+				t.Fatal(e)
+			}
+		}
+	})
+}
+
+func TestCaptureBudgets(t *testing.T) {
+	now := time.Now()
+	b := budget{}
+	for i := 0; i < 5; i++ {
+		e := event{Cause: "forwarding", Namespace: "system", Pod: fmt.Sprint(i), At: now.Add(time.Duration(i) * 3 * time.Minute)}
+		if !b.reserve(e) {
+			t.Fatal("ordinary capture rejected")
+		}
+		if b.reserve(event{Cause: "forwarding", Pod: "other", At: e.At}) {
+			t.Fatal("overlapping ordinary collector")
+		}
+		b.release(e)
+	}
+	if b.reserve(event{Cause: "forwarding", Pod: "extra", At: now.Add(time.Hour)}) {
+		t.Fatal("ordinary budget exceeded")
+	}
+	for i := 0; i < 3; i++ {
+		e := event{Cause: "tls-identity", Namespace: "istio-system", Pod: fmt.Sprint(i), At: now}
+		if !b.reserve(e) {
+			t.Fatal("ordinary captures consumed TLS budget")
+		}
+		b.release(e)
+		if b.reserve(e) {
+			t.Fatal("identity cooldown bypassed")
+		}
+	}
+	if b.reserve(event{Cause: "tls-identity", Pod: "extra", At: now.Add(time.Hour)}) {
+		t.Fatal("TLS budget exceeded")
+	}
+	b = budget{}
+	ordinary := event{Cause: "forwarding", Pod: "a", At: now}
+	if !b.reserve(ordinary) || !b.reserve(event{Cause: "tls-identity", Pod: "b", At: now}) {
+		t.Fatal("TLS waited for ordinary capture/cooldown")
+	}
+}
+
+func archiveFiles(t *testing.T, path string) map[string][]byte {
+	t.Helper()
+	file, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	zipped, err := gzip.NewReader(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer zipped.Close()
+	reader := tar.NewReader(zipped)
+	files := map[string][]byte{}
+	for {
+		header, err := reader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := io.ReadAll(reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		files[header.Name] = data
+	}
+	return files
+}
+
+func TestCollectPrioritizesTargetAndExcludesSecrets(t *testing.T) {
+	output := t.TempDir()
+	var commands []string
+	run := func(_ context.Context, args ...string) ([]byte, error) {
+		command := strings.Join(args, " ")
+		commands = append(commands, command)
+		for _, forbidden := range []string{" get secrets", "dynamic_active_secrets", "/certs", "token", "clusters describe", "dynamic_listeners", "dynamic_route_configs", " logs "} {
+			if strings.Contains(command, forbidden) {
+				t.Fatalf("unsafe command: %s", command)
+			}
+		}
+		if strings.Contains(command, " get pods -n ") {
+			name, app := "autoscaler-owner", "autoscaler"
+			if strings.Contains(command, "-n tests ") {
+				name, app = "workload", ""
+			}
+			return []byte(fmt.Sprintf(`{"items":[{"metadata":{"name":%q,"labels":{"app":%q}},"spec":{"initContainers":[{"name":"istio-proxy"}]}}]}`, name, app)), nil
+		}
+		return []byte(`{}`), nil
+	}
+	e := event{Cause: "tls-identity", Namespace: "tests", Pod: "workload", At: time.Now()}
+	if err := collect(context.Background(), run, output, "system", "tests", e); err != nil {
+		t.Fatal(err)
+	}
+	firstExec := ""
+	for _, command := range commands {
+		if strings.Contains(command, " exec ") {
+			firstExec = command
+			break
+		}
+	}
+	if !strings.Contains(firstExec, "-n tests workload -c istio-proxy") {
+		t.Fatal("target not first:", firstExec)
+	}
+	paths, _ := filepath.Glob(filepath.Join(output, "*.tar.gz"))
+	if len(paths) != 1 {
+		t.Fatal(paths)
+	}
+	files := archiveFiles(t, paths[0])
+	if _, ok := files["tests-workload-dynamic_endpoint_configs.json"]; !ok {
+		t.Fatal("native sidecar EDS missing")
+	}
+	if _, ok := files["event.json"]; !ok {
+		t.Fatal("missing trigger record")
+	}
+}
+
+func TestPartialCaptureIsArchived(t *testing.T) {
+	output := t.TempDir()
+	run := func(context.Context, ...string) ([]byte, error) { return nil, context.DeadlineExceeded }
+	e := event{Cause: "forwarding", Namespace: "system", Pod: "autoscaler", At: time.Now()}
+	if err := collect(context.Background(), run, output, "system", "tests", e); err != nil {
+		t.Fatal(err)
+	}
+	paths, _ := filepath.Glob(filepath.Join(output, "*.tar.gz"))
+	if len(paths) != 1 {
+		t.Fatal(paths)
+	}
+	files := archiveFiles(t, paths[0])
+	if len(files) < 2 {
+		t.Fatal("partial evidence lost")
+	}
+	if _, ok := files["system-resources.json.error"]; !ok {
+		t.Fatal("command error not recorded")
+	}
+}
+
+func TestBoundedLogsAndCommands(t *testing.T) {
+	dir := t.TempDir()
+	r := &rotatingLog{directory: dir, limit: 8}
+	for i := 0; i < 10; i++ {
+		if _, err := r.Write([]byte("12345678")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := r.Close(); err != nil {
+		t.Fatal(err)
+	}
+	files, _ := filepath.Glob(filepath.Join(dir, "stream-*.log"))
+	if len(files) != 4 {
+		t.Fatal(files)
+	}
+	for _, file := range files {
+		info, err := os.Stat(file)
+		if err != nil || info.Size() > 8 {
+			t.Fatal(info, err)
+		}
+	}
+	b := &boundedBuffer{remaining: 4}
+	n, err := b.Write([]byte("12345678"))
+	if n != 8 || err != nil || b.String() != "1234" {
+		t.Fatal(n, err, b.String())
+	}
+}
+
+func TestObserveRetainsMetadataAndFiltersNamespaces(t *testing.T) {
+	output := t.TempDir()
+	t.Setenv("E2E_PROJECT_ID", "boskos-project")
+	t.Setenv("JOB_NAME", "istio-latest-mesh_serving_main_periodic")
+	run := func(context.Context, ...string) ([]byte, error) {
+		return []byte("gke_boskos-project_us-east1_cluster"), nil
+	}
+	input := strings.NewReader("unrelated pod app ignored\nsystem autoscaler app plain log\ntests workload istio-proxy plain log\n")
+	if err := observe(context.Background(), run, input, options{output: output, namespace: "system", testNamespace: "tests", script: "e2e-tests.sh"}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(output, "run.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var metadata map[string]any
+	if err := json.Unmarshal(data, &metadata); err != nil {
+		t.Fatal(err)
+	}
+	for key, want := range map[string]string{"project": "boskos-project", "location": "us-east1", "cluster": "cluster", "JOB_NAME": "istio-latest-mesh_serving_main_periodic"} {
+		if metadata[key] != want {
+			t.Fatal(key, metadata[key])
+		}
+	}
+	if metadata["ended_at"] == nil {
+		t.Fatal("missing end time")
+	}
+	data, err = os.ReadFile(filepath.Join(output, "stream-0.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "ignored") || !strings.Contains(string(data), "istio-proxy") {
+		t.Fatal(string(data))
+	}
+}
+
+// Set MESH_DIAGNOSTICS_LIVE=true and KUBECONFIG for an isolated test cluster.
+func TestLiveCapture(t *testing.T) {
+	if os.Getenv("MESH_DIAGNOSTICS_LIVE") != "true" {
+		t.Skip("opt-in cluster validation")
+	}
+	data, err := command(t.Context(), "kubectl", "get", "pods", "-n", "istio-system", "-l", "app=istio-ingressgateway", "-o", "json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pods struct{ Items []pod }
+	if err := json.Unmarshal(data, &pods); err != nil || len(pods.Items) == 0 {
+		t.Fatal("no gateway", err)
+	}
+	target := pods.Items[0].Metadata.Name
+	output := t.TempDir()
+	e := event{Cause: "tls-identity", Namespace: "istio-system", Pod: target, At: time.Now(), Record: map[string]any{"synthetic_validation": true}}
+	if err := collect(t.Context(), command, output, "knative-serving", "serving-tests", e); err != nil {
+		t.Fatal(err)
+	}
+	paths, _ := filepath.Glob(filepath.Join(output, "*.tar.gz"))
+	if len(paths) != 1 {
+		t.Fatal(paths)
+	}
+	files := archiveFiles(t, paths[0])
+	key := "istio-system-" + target + "-dynamic_endpoint_configs.json"
+	if !json.Valid(files[key]) {
+		t.Fatal("target gateway EDS was not captured")
+	}
+	t.Logf("Captured %d files, including gateway EDS, without any real TLS failure", len(files))
+}
+
+func TestShellHookDisabledByDefault(t *testing.T) {
+	for _, env := range [][]string{{"MESH=1"}, {"MESH=0", "MESH_DIAGNOSTICS=true"}} {
+		command := exec.Command("bash", "-c", `source ../mesh-diagnostics.sh; function go(){ echo 'unexpected go invocation' >&2; return 1; }; start_mesh_diagnostics; [[ -z "${MESH_DIAGNOSTICS_PID:-}" ]]`)
+		command.Env = append([]string{"PATH=" + os.Getenv("PATH")}, env...)
+		if data, err := command.CombinedOutput(); err != nil || len(data) > 0 {
+			t.Fatal(string(data), err)
+		}
+	}
+}
