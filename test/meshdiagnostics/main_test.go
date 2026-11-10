@@ -184,15 +184,24 @@ func TestCollectPrioritizesTargetAndExcludesSecrets(t *testing.T) {
 	if err := collect(context.Background(), run, output, "system", "tests", e); err != nil {
 		t.Fatal(err)
 	}
-	firstExec := ""
-	for _, command := range commands {
-		if strings.Contains(command, " exec ") {
-			firstExec = command
-			break
+	// The failing proxy's EDS and CDS must be captured before any Kubernetes
+	// query, and exactly once.
+	for i, resource := range []string{"dynamic_endpoint_configs", "dynamic_active_clusters"} {
+		if len(commands) <= i || !strings.Contains(commands[i], "exec -n tests workload -c istio-proxy") || !strings.Contains(commands[i], resource) {
+			t.Fatalf("command %d = %q, want target proxy %s first", i, commands[i], resource)
 		}
 	}
-	if !strings.Contains(firstExec, "-n tests workload -c istio-proxy") {
-		t.Fatal("target not first:", firstExec)
+	targetCaptures := 0
+	for _, command := range commands {
+		if strings.Contains(command, "exec -n tests workload ") {
+			targetCaptures++
+		}
+	}
+	if targetCaptures != 2 {
+		t.Fatalf("target proxy captured %d times, want 2 (EDS and CDS once)", targetCaptures)
+	}
+	if !strings.Contains(strings.Join(commands, "\n"), "exec -n system autoscaler-owner -c istio-proxy") {
+		t.Fatal("other priority proxies were not captured after the target")
 	}
 	paths, _ := filepath.Glob(filepath.Join(output, "*.tar.gz"))
 	if len(paths) != 1 {
