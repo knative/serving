@@ -71,6 +71,10 @@ function stage_istio_head() {
 }
 
 function stage_istio_latest() {
+  [[ -n "${LATEST_NET_ISTIO_RELEASE_VERSION}" &&
+     "${LATEST_NET_ISTIO_RELEASE_VERSION}" != "null" ]] \
+    || fail_test "Cannot stage net-istio: release version is missing"
+
   header "Staging Istio YAML (${LATEST_NET_ISTIO_RELEASE_VERSION})"
   local istio_latest_dir="${E2E_YAML_DIR}/istio/latest-release/install"
   mkdir -p "${istio_latest_dir}"
