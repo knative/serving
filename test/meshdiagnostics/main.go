@@ -297,6 +297,20 @@ func collect(parent context.Context, run runner, output, systemNamespace, testNa
 		}
 		return data
 	}
+	proxyConfig := func(namespace, name string) {
+		base := namespace + "-" + name
+		// Existing proxy logging is streamed and persisted in GKE. Only collect
+		// destination/TLS state that cannot be reconstructed from those logs.
+		for _, resource := range []string{"dynamic_endpoint_configs", "dynamic_active_clusters"} {
+			capture(base+"-"+resource+".json", "exec", "-n", namespace, name, "-c", "istio-proxy", "--", "pilot-agent", "request", "GET", "config_dump?include_eds&resource="+resource)
+		}
+	}
+	// Envoy state changes within seconds; a TLS identity error can disappear after
+	// the next endpoint update. Snapshot the failing proxy before slower
+	// Kubernetes queries so its endpoints and allowed SANs match the error.
+	if e.Namespace != "" && e.Pod != "" {
+		proxyConfig(e.Namespace, e.Pod)
+	}
 	candidates := []candidate{}
 	seen := map[string]bool{}
 	for _, ns := range []string{e.Namespace, systemNamespace, "istio-system", testNamespace} {
@@ -316,7 +330,8 @@ func collect(parent context.Context, run runner, output, systemNamespace, testNa
 			priority := 4
 			switch {
 			case ns == e.Namespace && p.Metadata.Name == e.Pod:
-				priority = 0
+				// Already captured first.
+				continue
 			case app == "autoscaler":
 				priority = 1
 			case app == "istio-ingressgateway":
@@ -331,15 +346,11 @@ func collect(parent context.Context, run runner, output, systemNamespace, testNa
 	}
 	sort.SliceStable(candidates, func(i, j int) bool { return candidates[i].priority < candidates[j].priority })
 	for i, p := range candidates {
-		if i >= 8 || ctx.Err() != nil {
+		// The target proxy was captured first and counts toward the limit.
+		if i >= 7 || ctx.Err() != nil {
 			break
 		}
-		base := p.namespace + "-" + p.pod.Metadata.Name
-		// Existing proxy logging is streamed and persisted in GKE. Only collect
-		// destination/TLS state that cannot be reconstructed from those logs.
-		for _, resource := range []string{"dynamic_endpoint_configs", "dynamic_active_clusters"} {
-			capture(base+"-"+resource+".json", "exec", "-n", p.namespace, p.pod.Metadata.Name, "-c", "istio-proxy", "--", "pilot-agent", "request", "GET", "config_dump?include_eds&resource="+resource)
-		}
+		proxyConfig(p.namespace, p.pod.Metadata.Name)
 	}
 	capture("serving-config.json", "get", "configmaps", "config-autoscaler", "config-leader-election", "config-network", "config-istio", "config-logging", "-n", systemNamespace, "-o", "json")
 	return ctx.Err()
