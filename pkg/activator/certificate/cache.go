@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"sync"
 
@@ -140,13 +141,38 @@ func (cr *CertCache) addSecretCAIfPresent(pool *x509.CertPool) {
 		cr.logger.Warnf("Failed to get secret %s/%s: %v", system.Namespace(), netcfg.ServingRoutingCertName, zap.Error(err))
 		return
 	}
-	if len(secret.Data[certificates.CaCertName]) > 0 {
-		// The CA field may contain more than one PEM encoded certificate,
-		// e.g. during a CA rotation, so add all of them to the pool.
-		if ok := pool.AppendCertsFromPEM(secret.Data[certificates.CaCertName]); !ok {
-			cr.logger.Warnf("CA from Secret %s/%s[%s] is invalid and will be ignored",
-				system.Namespace(), netcfg.ServingRoutingCertName, certificates.CaCertName)
+	if len(secret.Data[certificates.CaCertName]) == 0 {
+		return
+	}
+	// The CA field may contain more than one PEM encoded certificate, e.g.
+	// during a CA rotation, so add all of them to the pool. Each one is parsed
+	// on its own, rather than with AppendCertsFromPEM, so that an invalid
+	// certificate next to a valid one is reported instead of silently skipped.
+	rest := secret.Data[certificates.CaCertName]
+	added := 0
+	for i := 1; ; i++ {
+		var block *pem.Block
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			break
 		}
+		if block.Type != "CERTIFICATE" {
+			cr.logger.Warnf("Block %d of the CA from Secret %s/%s[%s] is a %q, not a certificate, and will be ignored",
+				i, system.Namespace(), netcfg.ServingRoutingCertName, certificates.CaCertName, block.Type)
+			continue
+		}
+		ca, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			cr.logger.Warnf("Certificate %d of the CA from Secret %s/%s[%s] is invalid and will be ignored: %v",
+				i, system.Namespace(), netcfg.ServingRoutingCertName, certificates.CaCertName, err)
+			continue
+		}
+		pool.AddCert(ca)
+		added++
+	}
+	if added == 0 {
+		cr.logger.Warnf("CA from Secret %s/%s[%s] contains no valid certificate and will be ignored",
+			system.Namespace(), netcfg.ServingRoutingCertName, certificates.CaCertName)
 	}
 }
 
