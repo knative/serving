@@ -36,10 +36,10 @@ require (
 	k8s.io/code-generator v0.36.5
 	k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
-	knative.dev/caching v0.0.0-20261026125628-55ac0b20852e
-	knative.dev/hack v0.0.0-20261023132104-4a15c76c8f70
-	knative.dev/networking v0.0.0-20261026130131-cfc431598730
-	knative.dev/pkg v0.0.0-20261026113028-cfa0ac991c5a
+	knative.dev/caching v0.0.0-20261106011804-51e0e9511e1e
+	knative.dev/hack v0.0.0-20261106011541-9aee2b079953
+	knative.dev/networking v0.0.0-20261106012327-9f5722280cfd
+	knative.dev/pkg v0.0.0-20261110182720-ae1437a8b141
 	sigs.k8s.io/randfill v1.0.0
 	sigs.k8s.io/yaml v1.6.0
 )
@@ -140,7 +140,7 @@ require (
 	github.com/rs/dnscache v0.0.0-20230804202142-fc85eb664529 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/spf13/pflag v1.0.10 // indirect
+	github.com/spf13/pflag v1.1.0 // indirect
 	github.com/tsenart/go-tsz v0.0.0-20180814235614-0bd30b3df1c3 // indirect
 	github.com/vbatts/tar-split v0.11.6 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
