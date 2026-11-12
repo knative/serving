@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -236,31 +237,57 @@ func TestPartialCaptureIsArchived(t *testing.T) {
 	}
 }
 
-func TestBoundedLogsAndCommands(t *testing.T) {
-	dir := t.TempDir()
-	r := &rotatingLog{directory: dir, limit: 8}
-	for range 10 {
-		if _, err := r.Write([]byte("12345678")); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := r.Close(); err != nil {
-		t.Fatal(err)
-	}
-	files, _ := filepath.Glob(filepath.Join(dir, "stream-*.log"))
-	if len(files) != 4 {
-		t.Fatal(files)
-	}
-	for _, file := range files {
-		info, err := os.Stat(file)
-		if err != nil || info.Size() > 8 {
-			t.Fatal(info, err)
-		}
-	}
+func TestBoundedCommands(t *testing.T) {
 	b := &boundedBuffer{remaining: 4}
 	n, err := b.Write([]byte("12345678"))
 	if n != 8 || err != nil || b.String() != "1234" {
 		t.Fatal(n, err, b.String())
+	}
+}
+
+func TestSternArgs(t *testing.T) {
+	got := sternArgs(options{namespace: "system", testNamespace: "tests"})
+	want := []string{".", "--namespace=system,istio-system,tests", "--container=^(autoscaler|istio-proxy)$",
+		"--init-containers=true", "--color=never", "--timestamps", "--since=1m", "--max-log-requests=2000",
+		"--template", `{{.Namespace}} {{.PodName}} {{.ContainerName}} {{.Message}}{{"\n"}}`}
+	if !slices.Equal(got, want) {
+		t.Fatalf("stern args = %q, want %q", got, want)
+	}
+}
+
+func TestObserveCapturesWithoutRetainingLogs(t *testing.T) {
+	output := t.TempDir()
+	run := func(context.Context, ...string) ([]byte, error) { return []byte(`{}`), nil }
+	row := fmt.Sprintf(`{"start_time":%q,"upstream_transport_failure_reason":"CERTIFICATE_VERIFY_FAILED:SAN matcher","authorization":"do-not-save"}`, time.Now().UTC().Format(time.RFC3339Nano))
+	input := "system autoscaler autoscaler ordinary log\ntests workload istio-proxy " + row + "\n"
+	if err := observe(t.Context(), run, strings.NewReader(input), options{output: output, namespace: "system", testNamespace: "tests"}); err != nil {
+		t.Fatal(err)
+	}
+	streams, err := filepath.Glob(filepath.Join(output, "stream-*.log"))
+	if err != nil || len(streams) != 0 {
+		t.Fatalf("duplicate local logs: %v, %v", streams, err)
+	}
+	data, err := os.ReadFile(filepath.Join(output, "run.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var metadata map[string]any
+	if err := json.Unmarshal(data, &metadata); err != nil {
+		t.Fatal(err)
+	}
+	if metadata["log_source"] != "cloud-logging" || metadata["ended_at"] == nil {
+		t.Fatalf("missing Cloud Logging mode/end time: %s", data)
+	}
+	paths, err := filepath.Glob(filepath.Join(output, "*.tar.gz"))
+	if err != nil || len(paths) != 1 {
+		t.Fatalf("missing TLS snapshot: %v, %v", paths, err)
+	}
+	files := archiveFiles(t, paths[0])
+	if _, ok := files["tests-workload-dynamic_endpoint_configs.json"]; !ok {
+		t.Fatal("target proxy EDS missing")
+	}
+	if data := files["event.json"]; !json.Valid(data) || strings.Contains(string(data), "do-not-save") {
+		t.Fatalf("unsafe or missing trigger: %s", data)
 	}
 }
 
@@ -271,7 +298,7 @@ func TestObserveRetainsMetadataAndFiltersNamespaces(t *testing.T) {
 	run := func(context.Context, ...string) ([]byte, error) {
 		return []byte("gke_boskos-project_us-east1_cluster"), nil
 	}
-	input := strings.NewReader("unrelated pod app ignored\nsystem autoscaler app plain log\ntests workload istio-proxy plain log\n")
+	input := strings.NewReader(fmt.Sprintf("unrelated pod istio-proxy {\"start_time\":%q,\"upstream_transport_failure_reason\":\"CERTIFICATE_VERIFY_FAILED\"}\nsystem autoscaler app plain log\ntests workload istio-proxy plain log\n", time.Now().UTC().Format(time.RFC3339Nano)))
 	if err := observe(context.Background(), run, input, options{output: output, namespace: "system", testNamespace: "tests", script: "e2e-tests.sh"}); err != nil {
 		t.Fatal(err)
 	}
@@ -291,12 +318,11 @@ func TestObserveRetainsMetadataAndFiltersNamespaces(t *testing.T) {
 	if metadata["ended_at"] == nil {
 		t.Fatal("missing end time")
 	}
-	data, err = os.ReadFile(filepath.Join(output, "stream-0.log"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(string(data), "ignored") || !strings.Contains(string(data), "istio-proxy") {
-		t.Fatal(string(data))
+	for _, pattern := range []string{"stream-*.log", "*.tar.gz"} {
+		paths, err := filepath.Glob(filepath.Join(output, pattern))
+		if err != nil || len(paths) != 0 {
+			t.Fatalf("unexpected artifacts for %s: %v, %v", pattern, paths, err)
+		}
 	}
 }
 

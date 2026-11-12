@@ -11,10 +11,17 @@ audit records into public artifacts.
 
 Without the flag, or without `--mesh`, the test setup/logger is unchanged. With
 the flag, `test/mesh-diagnostics.sh` builds this Go command and starts it before
-Serving installation. It uses the existing pinned Stern version and retains
-unfiltered application and Envoy logs, including native sidecars, for the system,
-Istio and test namespaces. It replaces the later ordinary logger to avoid
-duplicate log streams. A failed collector startup falls back to ordinary logging.
+Serving installation. Cloud Logging must already be enabled when debugging;
+the collector assumes it provides complete, durable application and Envoy logs.
+There is no alternate local log-retention mode.
+
+The existing pinned Stern version streams only `autoscaler` and `istio-proxy`
+containers in the Serving system, Istio and test namespaces, including native
+sidecars. These live streams provide low-latency forwarding/recovery and TLS
+failure triggers, not log storage: Cloud Logging ingestion can lag a transient
+SAN mismatch, and historical logs cannot reconstruct failure-time CDS/EDS state.
+The collector replaces the later ordinary logger to avoid duplicate broad log
+streams. A failed collector startup falls back to ordinary logging.
 
 The collector does not change tests, routing, policies, resource limits or test
 timeouts. It runs for both e2e scripts in the periodic job, using separate artifact
@@ -32,8 +39,8 @@ directories for their separate clusters.
   and each identity has a five-minute cooldown.
 - Each capture has a 90-second deadline, with ten-second subprocess deadlines and
   eight-MiB command-output caps. Partial results are archived on errors/deadline.
-- Recent logs use four rotating 64-MiB files. Complete persisted logs remain in
-  Cloud Logging; the local files are a bounded diagnostic tail.
+- Live container logs are not copied into artifacts. Complete logs remain in
+  Cloud Logging; snapshots retain only the allowlisted trigger record.
 
 Snapshots prioritize the affected Pod/namespace, then autoscalers, gateways and
 activators (up to eight proxies). They include Pod/Service/EndpointSlice/Lease/
@@ -46,11 +53,12 @@ full GKE cluster-describe responses.
 
 ## Artifacts and persisted logs
 
-`mesh-diagnostics-<script>/` contains `run.json`, rotating `stream-*.log`,
-`observer.log` and trigger `.tar.gz` files. Each archive contains an allowlisted
-`event.json`, resource/proxy captures and per-command errors. `run.json` records
-project, cluster, location, start/end timestamps and Prow SHA/build identifiers so
-Cloud Logging queries can be scoped to the matching cluster and run.
+`mesh-diagnostics-<script>/` contains `run.json`, `observer.log` (collector
+status/errors, not container logs) and trigger `.tar.gz` files. Each archive
+contains an allowlisted `event.json`, resource/proxy captures and per-command
+errors. `run.json` records `log_source: cloud-logging`, project, cluster, location,
+start/end timestamps and Prow SHA/build identifiers so Cloud Logging queries can
+be scoped to the matching cluster and run.
 
 ## Validation
 
@@ -63,6 +71,7 @@ KUBECONFIG=/tmp/mesh-kind/kubeconfig MESH_DIAGNOSTICS_LIVE=true \
 
 Tests cover detection/recovery, timestamp filtering, independent budgets,
 credential-field exclusion, native-sidecar/target priority, partial archives,
-bounded output/log rotation, run metadata and default-off/non-mesh hooks. The
-optional live test uses namespaces `knative-serving`, `istio-system` and
-`serving-tests`; never run it against a shared or production cluster.
+bounded command output, targeted streams, snapshot capture without local log
+copies, run metadata and default-off/non-mesh hooks. The optional live test uses
+namespaces `knative-serving`, `istio-system` and `serving-tests`; never run it
+against a shared or production cluster.

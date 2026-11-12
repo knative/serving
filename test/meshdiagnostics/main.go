@@ -356,51 +356,26 @@ func collect(parent context.Context, run runner, output, systemNamespace, testNa
 	return ctx.Err()
 }
 
-// Four rotating files retain recent logs without unbounded artifact growth.
-// Complete workload/system logging remains available in GKE Cloud Logging.
-type rotatingLog struct {
-	directory string
-	limit     int64
-	size      int64
-	index     int
-	file      *os.File
-}
-
-func (r *rotatingLog) Write(p []byte) (int, error) {
-	if r.file == nil || r.size+int64(len(p)) > r.limit {
-		if err := r.Close(); err != nil {
-			return 0, err
-		}
-		file, err := os.OpenFile(filepath.Join(r.directory, fmt.Sprintf("stream-%d.log", r.index)), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
-		if err != nil {
-			return 0, err
-		}
-		r.file = file
-		r.index = (r.index + 1) % 4
-		r.size = 0
-	}
-	n, err := r.file.Write(p)
-	r.size += int64(n)
-	return n, err
-}
-
-func (r *rotatingLog) Close() error {
-	if r.file == nil {
-		return nil
-	}
-	err := r.file.Close()
-	r.file = nil
-	return err
-}
-
 type options struct{ output, namespace, testNamespace, script string }
+
+func sternArgs(o options) []string {
+	// Watch only namespaces whose logs the observer can use. Keep native
+	// sidecars: istio-proxy can be an init container with restartPolicy Always.
+	// Cloud Logging retains complete logs. Only subscribe to containers
+	// needed for forwarding/recovery and TLS-identity triggers locally.
+	args := []string{".", "--namespace=" + strings.Join([]string{o.namespace, "istio-system", o.testNamespace}, ","),
+		"--container=^(autoscaler|istio-proxy)$", "--init-containers=true",
+		"--color=never", "--timestamps", "--since=1m", "--max-log-requests=2000"}
+	// Explicit template retains JSON from application and Envoy logs unchanged.
+	return append(args, "--template", `{{.Namespace}} {{.PodName}} {{.ContainerName}} {{.Message}}{{"\n"}}`)
+}
 
 func observe(ctx context.Context, run runner, reader io.Reader, o options) error {
 	if err := os.MkdirAll(o.output, 0o755); err != nil {
 		return err
 	}
 	started := time.Now().UTC()
-	metadata := map[string]any{"started_at": started, "system_namespace": o.namespace, "test_namespace": o.testNamespace, "script": o.script}
+	metadata := map[string]any{"started_at": started, "system_namespace": o.namespace, "test_namespace": o.testNamespace, "script": o.script, "log_source": "cloud-logging"}
 	for _, key := range []string{"JOB_NAME", "JOB_TYPE", "BUILD_ID", "PULL_BASE_SHA", "PULL_PULL_SHA", "E2E_PROJECT_ID", "CLOUD_PROVIDER", "ENABLE_GKE_TELEMETRY"} {
 		metadata[key] = os.Getenv(key)
 	}
@@ -424,8 +399,6 @@ func observe(ctx context.Context, run runner, reader io.Reader, o options) error
 		metadata["ended_at"] = time.Now().UTC()
 		_ = writeJSON(filepath.Join(o.output, "run.json"), metadata)
 	}()
-	raw := &rotatingLog{directory: o.output, limit: 64 << 20}
-	defer raw.Close()
 	d := detector{}
 	b := budget{}
 	var mu sync.Mutex
@@ -443,7 +416,6 @@ func observe(ctx context.Context, run runner, reader io.Reader, o options) error
 		if ns != o.namespace && ns != "istio-system" && ns != o.testNamespace {
 			continue
 		}
-		_, _ = fmt.Fprintln(raw, line)
 		pos := strings.IndexByte(fields[3], '{')
 		if pos < 0 {
 			continue
@@ -486,8 +458,7 @@ func main() {
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	// Explicit template retains JSON from application and Envoy logs unchanged.
-	cmd := exec.CommandContext(ctx, "stern", ".", "--all-namespaces", "--color=never", "--timestamps", "--since=1m", "--max-log-requests=2000", "--template", `{{.Namespace}} {{.PodName}} {{.ContainerName}} {{.Message}}{{"\n"}}`)
+	cmd := exec.CommandContext(ctx, "stern", sternArgs(o)...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Fatal(err)
