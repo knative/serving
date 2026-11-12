@@ -87,7 +87,7 @@ func TestReconcile(t *testing.T) {
 		secret: func() *corev1.Secret {
 			s := secret.DeepCopy()
 			invalid := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: []byte("not a certificate")})
-			s.Data[certificates.CaCertName] = append(append([]byte{}, secretCA...), invalid...)
+			s.Data[certificates.CaCertName] = append(append(append([]byte{}, secretCA...), '\n'), invalid...)
 			return s
 		}(),
 		configMap:    nil,
