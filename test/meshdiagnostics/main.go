@@ -370,11 +370,13 @@ func sternArgs(o options) []string {
 	// sidecars: istio-proxy can be an init container with restartPolicy Always.
 	// Cloud Logging retains complete logs. Only subscribe to containers
 	// needed for forwarding/recovery and TLS-identity triggers locally.
-	args := []string{".", "--namespace=" + strings.Join(o.namespaces(), ","),
-		"--container=^(autoscaler|istio-proxy)$", "--init-containers=true",
-		"--color=never", "--timestamps", "--since=1m", "--max-log-requests=2000"}
 	// Explicit template retains JSON from application and Envoy logs unchanged.
-	return append(args, "--template", `{{.Namespace}} {{.PodName}} {{.ContainerName}} {{.Message}}{{"\n"}}`)
+	return []string{
+		".", "--namespace=" + strings.Join(o.namespaces(), ","),
+		"--container=^(autoscaler|istio-proxy)$", "--init-containers=true",
+		"--color=never", "--timestamps", "--since=1m", "--max-log-requests=2000",
+		"--template", `{{.Namespace}} {{.PodName}} {{.ContainerName}} {{.Message}}{{"\n"}}`,
+	}
 }
 
 func observe(ctx context.Context, run runner, reader io.Reader, o options) error {

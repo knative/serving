@@ -247,9 +247,11 @@ func TestBoundedCommands(t *testing.T) {
 
 func TestSternArgs(t *testing.T) {
 	got := sternArgs(options{namespace: "5c15d03a-a25b-4388-afd0-9dad3fac0e17", testNamespace: "tests"})
-	want := []string{".", "--namespace=5c15d03a-a25b-4388-afd0-9dad3fac0e17,istio-system,tests,serving-tests-alt,tls,rq-test", "--container=^(autoscaler|istio-proxy)$",
+	want := []string{
+		".", "--namespace=5c15d03a-a25b-4388-afd0-9dad3fac0e17,istio-system,tests,serving-tests-alt,tls,rq-test", "--container=^(autoscaler|istio-proxy)$",
 		"--init-containers=true", "--color=never", "--timestamps", "--since=1m", "--max-log-requests=2000",
-		"--template", `{{.Namespace}} {{.PodName}} {{.ContainerName}} {{.Message}}{{"\n"}}`}
+		"--template", `{{.Namespace}} {{.PodName}} {{.ContainerName}} {{.Message}}{{"\n"}}`,
+	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("stern args = %q, want %q", got, want)
 	}
