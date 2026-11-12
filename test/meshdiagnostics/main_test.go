@@ -246,8 +246,8 @@ func TestBoundedCommands(t *testing.T) {
 }
 
 func TestSternArgs(t *testing.T) {
-	got := sternArgs(options{namespace: "system", testNamespace: "tests"})
-	want := []string{".", "--namespace=system,istio-system,tests", "--container=^(autoscaler|istio-proxy)$",
+	got := sternArgs(options{namespace: "5c15d03a-a25b-4388-afd0-9dad3fac0e17", testNamespace: "tests"})
+	want := []string{".", "--namespace=5c15d03a-a25b-4388-afd0-9dad3fac0e17,istio-system,tests,serving-tests-alt,tls,rq-test", "--container=^(autoscaler|istio-proxy)$",
 		"--init-containers=true", "--color=never", "--timestamps", "--since=1m", "--max-log-requests=2000",
 		"--template", `{{.Namespace}} {{.PodName}} {{.ContainerName}} {{.Message}}{{"\n"}}`}
 	if !slices.Equal(got, want) {
@@ -256,38 +256,47 @@ func TestSternArgs(t *testing.T) {
 }
 
 func TestObserveCapturesWithoutRetainingLogs(t *testing.T) {
-	output := t.TempDir()
-	run := func(context.Context, ...string) ([]byte, error) { return []byte(`{}`), nil }
-	row := fmt.Sprintf(`{"start_time":%q,"upstream_transport_failure_reason":"CERTIFICATE_VERIFY_FAILED:SAN matcher","authorization":"do-not-save"}`, time.Now().UTC().Format(time.RFC3339Nano))
-	input := "system autoscaler autoscaler ordinary log\ntests workload istio-proxy " + row + "\n"
-	if err := observe(t.Context(), run, strings.NewReader(input), options{output: output, namespace: "system", testNamespace: "tests"}); err != nil {
-		t.Fatal(err)
-	}
-	streams, err := filepath.Glob(filepath.Join(output, "stream-*.log"))
-	if err != nil || len(streams) != 0 {
-		t.Fatalf("duplicate local logs: %v, %v", streams, err)
-	}
-	data, err := os.ReadFile(filepath.Join(output, "run.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var metadata map[string]any
-	if err := json.Unmarshal(data, &metadata); err != nil {
-		t.Fatal(err)
-	}
-	if metadata["log_source"] != "cloud-logging" || metadata["ended_at"] == nil {
-		t.Fatalf("missing Cloud Logging mode/end time: %s", data)
-	}
-	paths, err := filepath.Glob(filepath.Join(output, "*.tar.gz"))
-	if err != nil || len(paths) != 1 {
-		t.Fatalf("missing TLS snapshot: %v, %v", paths, err)
-	}
-	files := archiveFiles(t, paths[0])
-	if _, ok := files["tests-workload-dynamic_endpoint_configs.json"]; !ok {
-		t.Fatal("target proxy EDS missing")
-	}
-	if data := files["event.json"]; !json.Valid(data) || strings.Contains(string(data), "do-not-save") {
-		t.Fatalf("unsafe or missing trigger: %s", data)
+	// Use explicit expectations rather than the implementation's namespace list
+	// so omissions (including the randomized system namespace) fail this test.
+	for _, namespace := range []string{"5c15d03a-a25b-4388-afd0-9dad3fac0e17", "istio-system", "serving-tests", "serving-tests-alt", "tls", "rq-test"} {
+		t.Run(namespace, func(t *testing.T) {
+			output := t.TempDir()
+			run := func(context.Context, ...string) ([]byte, error) { return []byte(`{}`), nil }
+			row := fmt.Sprintf(`{"start_time":%q,"upstream_transport_failure_reason":"CERTIFICATE_VERIFY_FAILED:SAN matcher","authorization":"do-not-save"}`, time.Now().UTC().Format(time.RFC3339Nano))
+			input := namespace + " workload istio-proxy " + row + "\n"
+			if err := observe(t.Context(), run, strings.NewReader(input), options{output: output, namespace: "5c15d03a-a25b-4388-afd0-9dad3fac0e17", testNamespace: "serving-tests"}); err != nil {
+				t.Fatal(err)
+			}
+			streams, err := filepath.Glob(filepath.Join(output, "stream-*.log"))
+			if err != nil || len(streams) != 0 {
+				t.Fatalf("duplicate local logs: %v, %v", streams, err)
+			}
+			data, err := os.ReadFile(filepath.Join(output, "run.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var metadata map[string]any
+			if err := json.Unmarshal(data, &metadata); err != nil {
+				t.Fatal(err)
+			}
+			if metadata["log_source"] != "cloud-logging" || metadata["ended_at"] == nil {
+				t.Fatalf("missing Cloud Logging source/end time: %s", data)
+			}
+			paths, err := filepath.Glob(filepath.Join(output, "*.tar.gz"))
+			if err != nil || len(paths) != 1 {
+				t.Fatalf("missing TLS snapshot: %v, %v", paths, err)
+			}
+			files := archiveFiles(t, paths[0])
+			if _, ok := files[namespace+"-workload-dynamic_endpoint_configs.json"]; !ok {
+				t.Fatal("target proxy EDS missing")
+			}
+			if _, ok := files[namespace+"-resources.json"]; !ok {
+				t.Fatal("triggering namespace resources missing")
+			}
+			if data := files["event.json"]; !json.Valid(data) || strings.Contains(string(data), "do-not-save") {
+				t.Fatalf("unsafe or missing trigger: %s", data)
+			}
+		})
 	}
 }
 

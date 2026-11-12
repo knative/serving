@@ -16,8 +16,10 @@ the collector assumes it provides complete, durable application and Envoy logs.
 There is no alternate local log-retention mode.
 
 The existing pinned Stern version streams only `autoscaler` and `istio-proxy`
-containers in the Serving system, Istio and test namespaces, including native
-sidecars. These live streams provide low-latency forwarding/recovery and TLS
+containers, including native sidecars, in the randomized Serving system namespace
+(passed by `e2e-common.sh`), `istio-system`, the primary test namespace, and the
+other namespaces declared in `test/config/cluster-resources.yaml`:
+`serving-tests-alt`, `tls`, and `rq-test`. These live streams provide low-latency forwarding/recovery and TLS
 failure triggers, not log storage: Cloud Logging ingestion can lag a transient
 SAN mismatch, and historical logs cannot reconstruct failure-time CDS/EDS state.
 The collector replaces the later ordinary logger to avoid duplicate broad log
@@ -56,8 +58,9 @@ full GKE cluster-describe responses.
 `mesh-diagnostics-<script>/` contains `run.json`, `observer.log` (collector
 status/errors, not container logs) and trigger `.tar.gz` files. Each archive
 contains an allowlisted `event.json`, resource/proxy captures and per-command
-errors. `run.json` records `log_source: cloud-logging`, project, cluster, location,
-start/end timestamps and Prow SHA/build identifiers so Cloud Logging queries can
+errors. `run.json` records `log_source: cloud-logging`, observed namespaces,
+project, cluster, location, start/end timestamps and Prow SHA/build identifiers so
+Cloud Logging queries can
 be scoped to the matching cluster and run.
 
 ## Validation

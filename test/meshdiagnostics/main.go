@@ -33,6 +33,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -358,12 +359,18 @@ func collect(parent context.Context, run runner, output, systemNamespace, testNa
 
 type options struct{ output, namespace, testNamespace, script string }
 
+func (o options) namespaces() []string {
+	// The system namespace is randomized by e2e-common.sh and passed through
+	// --namespace. Include all workload namespaces in config/cluster-resources.yaml.
+	return []string{o.namespace, "istio-system", o.testNamespace, "serving-tests-alt", "tls", "rq-test"}
+}
+
 func sternArgs(o options) []string {
 	// Watch only namespaces whose logs the observer can use. Keep native
 	// sidecars: istio-proxy can be an init container with restartPolicy Always.
 	// Cloud Logging retains complete logs. Only subscribe to containers
 	// needed for forwarding/recovery and TLS-identity triggers locally.
-	args := []string{".", "--namespace=" + strings.Join([]string{o.namespace, "istio-system", o.testNamespace}, ","),
+	args := []string{".", "--namespace=" + strings.Join(o.namespaces(), ","),
 		"--container=^(autoscaler|istio-proxy)$", "--init-containers=true",
 		"--color=never", "--timestamps", "--since=1m", "--max-log-requests=2000"}
 	// Explicit template retains JSON from application and Envoy logs unchanged.
@@ -375,7 +382,7 @@ func observe(ctx context.Context, run runner, reader io.Reader, o options) error
 		return err
 	}
 	started := time.Now().UTC()
-	metadata := map[string]any{"started_at": started, "system_namespace": o.namespace, "test_namespace": o.testNamespace, "script": o.script, "log_source": "cloud-logging"}
+	metadata := map[string]any{"started_at": started, "system_namespace": o.namespace, "test_namespace": o.testNamespace, "script": o.script, "log_source": "cloud-logging", "observed_namespaces": o.namespaces()}
 	for _, key := range []string{"JOB_NAME", "JOB_TYPE", "BUILD_ID", "PULL_BASE_SHA", "PULL_PULL_SHA", "E2E_PROJECT_ID", "CLOUD_PROVIDER", "ENABLE_GKE_TELEMETRY"} {
 		metadata[key] = os.Getenv(key)
 	}
@@ -404,6 +411,7 @@ func observe(ctx context.Context, run runner, reader io.Reader, o options) error
 	var mu sync.Mutex
 	var workers sync.WaitGroup
 	defer workers.Wait()
+	namespaces := o.namespaces()
 	scanner := bufio.NewScanner(reader)
 	scanner.Buffer(make([]byte, 64<<10), 1<<20)
 	for scanner.Scan() {
@@ -413,7 +421,7 @@ func observe(ctx context.Context, run runner, reader io.Reader, o options) error
 			continue
 		}
 		ns, name := fields[0], fields[1]
-		if ns != o.namespace && ns != "istio-system" && ns != o.testNamespace {
+		if !slices.Contains(namespaces, ns) {
 			continue
 		}
 		pos := strings.IndexByte(fields[3], '{')
