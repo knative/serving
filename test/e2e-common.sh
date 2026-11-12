@@ -439,10 +439,11 @@ function test_setup() {
   echo ">> Uploading test images..."
   "${REPO_ROOT_DIR}/test/upload-test-images.sh" || return 1
 
-  # The opt-in Go collector started before installation and already streams
-  # unfiltered component/native-sidecar logs. Avoid duplicate API log streams.
+  # The opt-in Go collector started before installation and streams live
+  # failure triggers. Complete logs persist in Cloud Logging; do not start
+  # a second, broad API log stream.
   if [[ -n "${MESH_DIAGNOSTICS_PID:-}" ]] && kill -0 "${MESH_DIAGNOSTICS_PID}" 2>/dev/null; then
-    echo ">> Mesh diagnostics are collecting logs"
+    echo ">> Mesh diagnostics are monitoring logs"
     return 0
   fi
 
