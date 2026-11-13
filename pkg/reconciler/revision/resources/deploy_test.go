@@ -2127,3 +2127,17 @@ func TestMakeDeployment(t *testing.T) {
 		})
 	}
 }
+
+func TestUserLivenessProbeTerminationGracePeriodSecondsPreserved(t *testing.T) {
+	tgp := ptr.Int64(12)
+	probe := &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{Path: "/"},
+		},
+		TerminationGracePeriodSeconds: tgp,
+	}
+	rewriteUserLivenessProbe(probe, 8080, false)
+	if probe.TerminationGracePeriodSeconds == nil || *probe.TerminationGracePeriodSeconds != 12 {
+		t.Fatalf("TerminationGracePeriodSeconds = %v, want 12", probe.TerminationGracePeriodSeconds)
+	}
+}
