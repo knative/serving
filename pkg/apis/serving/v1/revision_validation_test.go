@@ -949,6 +949,28 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			Paths: []string{fmt.Sprintf("[%s]", serving.QueueSidecarResourcePercentageAnnotationKey)},
 		}).ViaField("metadata.annotations"),
 	}, {
+		name: "NaN queue sidecar resource percentage annotation",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					//nolint
+					serving.QueueSidecarResourcePercentageAnnotationKey: "NaN",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: (&apis.FieldError{
+			Message: "invalid value: NaN",
+			//nolint
+			Paths: []string{fmt.Sprintf("[%s]", serving.QueueSidecarResourcePercentageAnnotationKey)},
+		}).ViaField("metadata.annotations"),
+	}, {
 		name: "Invalid queue sidecar resource annotations",
 		rts: &RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{

@@ -92,7 +92,7 @@ func validateAlgorithm(m map[string]string) *apis.FieldError {
 
 func validateFloats(m map[string]string) (errs *apis.FieldError) {
 	if k, v, ok := PanicWindowPercentageAnnotation.Get(m); ok {
-		if fv, err := strconv.ParseFloat(v, 64); err != nil {
+		if fv, err := strconv.ParseFloat(v, 64); err != nil || math.IsNaN(fv) {
 			errs = errs.Also(apis.ErrInvalidValue(v, k))
 		} else if fv < PanicWindowPercentageMin || fv > PanicWindowPercentageMax {
 			errs = apis.ErrOutOfBoundsValue(v, PanicWindowPercentageMin,
@@ -100,7 +100,7 @@ func validateFloats(m map[string]string) (errs *apis.FieldError) {
 		}
 	}
 	if k, v, ok := PanicThresholdPercentageAnnotation.Get(m); ok {
-		if fv, err := strconv.ParseFloat(v, 64); err != nil {
+		if fv, err := strconv.ParseFloat(v, 64); err != nil || math.IsNaN(fv) {
 			errs = errs.Also(apis.ErrInvalidValue(v, k))
 		} else if fv < PanicThresholdPercentageMin || fv > PanicThresholdPercentageMax {
 			errs = errs.Also(apis.ErrOutOfBoundsValue(v, PanicThresholdPercentageMin,
@@ -109,7 +109,7 @@ func validateFloats(m map[string]string) (errs *apis.FieldError) {
 	}
 
 	if k, v, ok := TargetAnnotation.Get(m); ok {
-		if fv, err := strconv.ParseFloat(v, 64); err != nil {
+		if fv, err := strconv.ParseFloat(v, 64); err != nil || math.IsNaN(fv) || math.IsInf(fv, 0) {
 			errs = errs.Also(apis.ErrInvalidValue(v, k))
 		} else if fv < TargetMin {
 			errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("target %s should be at least %g", v, TargetMin), k))
@@ -117,7 +117,7 @@ func validateFloats(m map[string]string) (errs *apis.FieldError) {
 	}
 
 	if k, v, ok := TargetUtilizationPercentageAnnotation.Get(m); ok {
-		if fv, err := strconv.ParseFloat(v, 64); err != nil {
+		if fv, err := strconv.ParseFloat(v, 64); err != nil || math.IsNaN(fv) {
 			errs = errs.Also(apis.ErrInvalidValue(v, k))
 		} else if fv < 1 || fv > 100 {
 			errs = errs.Also(apis.ErrOutOfBoundsValue(v, 1, 100, k))
@@ -125,7 +125,7 @@ func validateFloats(m map[string]string) (errs *apis.FieldError) {
 	}
 
 	if k, v, ok := TargetBurstCapacityAnnotation.Get(m); ok {
-		if fv, err := strconv.ParseFloat(v, 64); err != nil || fv < 0 && fv != -1 {
+		if fv, err := strconv.ParseFloat(v, 64); err != nil || math.IsNaN(fv) || math.IsInf(fv, 0) || fv < 0 && fv != -1 {
 			errs = errs.Also(apis.ErrInvalidValue(v, k))
 		}
 	}

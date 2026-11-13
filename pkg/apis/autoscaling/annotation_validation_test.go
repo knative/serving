@@ -221,6 +221,34 @@ func TestValidateAnnotations(t *testing.T) {
 		name:        "TBC -1",
 		annotations: map[string]string{TargetBurstCapacityKey: "-1"},
 	}, {
+		name:        "target NaN",
+		annotations: map[string]string{TargetAnnotationKey: "NaN"},
+		expectErr:   "invalid value: NaN: " + TargetAnnotationKey,
+	}, {
+		name:        "target Inf",
+		annotations: map[string]string{TargetAnnotationKey: "Inf"},
+		expectErr:   "invalid value: Inf: " + TargetAnnotationKey,
+	}, {
+		name:        "TU NaN",
+		annotations: map[string]string{TargetUtilizationPercentageKey: "NaN"},
+		expectErr:   "invalid value: NaN: " + TargetUtilizationPercentageKey,
+	}, {
+		name:        "TBC NaN",
+		annotations: map[string]string{TargetBurstCapacityKey: "NaN"},
+		expectErr:   "invalid value: NaN: " + TargetBurstCapacityKey,
+	}, {
+		name:        "TBC Inf",
+		annotations: map[string]string{TargetBurstCapacityKey: "Inf"},
+		expectErr:   "invalid value: Inf: " + TargetBurstCapacityKey,
+	}, {
+		name:        "panic window percentage NaN",
+		annotations: map[string]string{PanicWindowPercentageAnnotationKey: "NaN"},
+		expectErr:   "invalid value: NaN: " + PanicWindowPercentageAnnotationKey,
+	}, {
+		name:        "panic threshold percentage NaN",
+		annotations: map[string]string{PanicThresholdPercentageAnnotationKey: "NaN"},
+		expectErr:   "invalid value: NaN: " + PanicThresholdPercentageAnnotationKey,
+	}, {
 		name:        "TBC invalid",
 		annotations: map[string]string{TargetBurstCapacityKey: "qarashen"},
 		expectErr:   "invalid value: qarashen: " + TargetBurstCapacityKey,
