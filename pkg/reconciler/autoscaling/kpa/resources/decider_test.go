@@ -227,6 +227,15 @@ func TestGetInitialScale(t *testing.T) {
 			pa.Annotations[autoscaling.MaxScaleAnnotationKey] = "2"
 		},
 		want: 2,
+	}, {
+		name: "cluster initial scale capped by max-scale",
+		paMutation: func(pa *autoscalingv1alpha1.PodAutoscaler) {
+			pa.Annotations[autoscaling.MaxScaleAnnotationKey] = "2"
+		},
+		configMutator: func(c *autoscalerconfig.Config) {
+			c.InitialScale = 5
+		},
+		want: 2,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
