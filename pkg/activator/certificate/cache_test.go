@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"reflect"
 	"testing"
 	"time"
@@ -72,6 +73,34 @@ func TestReconcile(t *testing.T) {
 		secret:       secret,
 		configMap:    invalidConfigmap,
 		expectedPool: getPoolWithCerts(secretCA),
+	}, {
+		name: "Multiple CAs in secret",
+		secret: func() *corev1.Secret {
+			s := secret.DeepCopy()
+			s.Data[certificates.CaCertName] = append(append(append([]byte{}, secretCA...), '\n'), newCA...)
+			return s
+		}(),
+		configMap:    nil,
+		expectedPool: getPoolWithCerts(secretCA, newCA),
+	}, {
+		name: "Valid and invalid CA in secret",
+		secret: func() *corev1.Secret {
+			s := secret.DeepCopy()
+			invalid := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: []byte("not a certificate")})
+			s.Data[certificates.CaCertName] = append(append(append([]byte{}, secretCA...), '\n'), invalid...)
+			return s
+		}(),
+		configMap:    nil,
+		expectedPool: getPoolWithCerts(secretCA),
+	}, {
+		name: "Invalid CA in secret",
+		secret: func() *corev1.Secret {
+			s := secret.DeepCopy()
+			s.Data[certificates.CaCertName] = []byte("not a CA")
+			return s
+		}(),
+		configMap:    validConfigmap,
+		expectedPool: getPoolWithCerts(configmapCA),
 	}}
 
 	for _, test := range tests {
