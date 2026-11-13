@@ -399,16 +399,44 @@ func TestReconcile(t *testing.T) {
 				readyDeploy(deploy(t, "foo", "pa-inactive")),
 				image("foo", "pa-inactive"),
 			},
+			WantUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: pa("foo", "pa-inactive",
+					WithNoTraffic("NoTraffic", "This thing is inactive."),
+					WithPAStatusService("pa-inactive")),
+			}},
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 				Object: Revision("foo", "pa-inactive",
 					WithLogURL, withDefaultContainerStatuses(), MarkDeploying(""),
+					markResourcesAvailableUnknown(v1.ReasonDeploying),
 					// When we reconcile an "all ready" revision when the PA
 					// is inactive, we should see the following change.
 					MarkInactive("NoTraffic", "This thing is inactive."),
+					WithRevisionObservedGeneration(1)),
+			}},
+			Key: "foo/pa-inactive",
+		},
+		{
+			Name: "pa timed out while activating",
+			// The PA timed out activating, so resources are marked unavailable.
+			Objects: []runtime.Object{
+				Revision("foo", "pa-timed-out",
+					WithLogURL,
+					WithRevisionObservedGeneration(1)),
+				pa("foo", "pa-timed-out",
+					WithReachability(autoscalingv1alpha1.ReachabilityUnreachable),
+					WithNoTraffic(autoscalingv1alpha1.ReasonTimedOut, "The target could not be activated."),
+					WithPAStatusService("pa-timed-out")),
+				readyDeploy(deploy(t, "foo", "pa-timed-out")),
+				image("foo", "pa-timed-out"),
+			},
+			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+				Object: Revision("foo", "pa-timed-out",
+					WithLogURL, withDefaultContainerStatuses(), MarkDeploying(""),
+					MarkInactive(autoscalingv1alpha1.ReasonTimedOut, "The target could not be activated."),
 					WithRevisionObservedGeneration(1),
 					MarkResourcesUnavailable(v1.ReasonProgressDeadlineExceeded, "Initial scale was never achieved")),
 			}},
-			Key: "foo/pa-inactive",
+			Key: "foo/pa-timed-out",
 		},
 		{
 			Name: "pa is not ready with initial scale zero, but ServiceName still empty, so not marking resources available false",
@@ -1074,6 +1102,12 @@ func withDefaultContainerStatuses() RevisionOption {
 			Name:        r.Name,
 			ImageDigest: "",
 		}}
+	}
+}
+
+func markResourcesAvailableUnknown(reason string) RevisionOption {
+	return func(r *v1.Revision) {
+		r.Status.MarkResourcesAvailableUnknown(reason, "")
 	}
 }
 

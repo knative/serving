@@ -37,6 +37,12 @@ var podCondSet = apis.NewLivingConditionSet(
 	PodAutoscalerConditionSKSReady,
 )
 
+// ReasonTimedOut is set when the target failed to activate within the progress deadline.
+const ReasonTimedOut = "TimedOut"
+
+// ReasonNoTraffic is set when the target is inactive because it is not receiving traffic.
+const ReasonNoTraffic = "NoTraffic"
+
 // GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
 func (*PodAutoscaler) GetConditionSet() apis.ConditionSet {
 	return podCondSet
