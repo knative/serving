@@ -90,20 +90,15 @@ ko resolve ${KO_YAML_FLAGS} -R -f config/core/ | "${LABEL_YAML_CMD[@]}" > "${SER
 
 ko resolve ${KO_YAML_FLAGS} -f config/post-install/default-domain.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_DEFAULT_DOMAIN_YAML}"
 
-# Keep local publishing modes unchanged; registry builds get a Serving-specific image.
-MIGRATION_DOCKER_REPO="${KO_DOCKER_REPO}"
-MIGRATION_KO_FLAGS=()
-case "${KO_DOCKER_REPO}" in
-  ko.local|kind.local) ;;
-  *)
-    # Standalone invocations can infer the repository name from the Go module.
-    REPO_NAME="${REPO_NAME:-$(basename "$(go list -m)")}"
-    MIGRATION_DOCKER_REPO="${KO_DOCKER_REPO}/knative.dev/${REPO_NAME}/storage-version-migration"
-    # Naming flags from KO_YAML_FLAGS must not take precedence over --bare.
-    MIGRATION_KO_FLAGS=(--preserve-import-paths=false --base-import-paths=false --bare)
-    ;;
-esac
-KO_DOCKER_REPO="${MIGRATION_DOCKER_REPO}" ko resolve ${KO_YAML_FLAGS} "${MIGRATION_KO_FLAGS[@]}" -f config/post-install/storage-version-migration.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_STORAGE_VERSION_MIGRATE_YAML}"
+# Give registry builds their own migrator image; keep local publishing unchanged.
+if [[ "${KO_DOCKER_REPO}" == ko.local || "${KO_DOCKER_REPO}" == kind.local ]]; then
+  ko resolve ${KO_YAML_FLAGS} -f config/post-install/storage-version-migration.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_STORAGE_VERSION_MIGRATE_YAML}"
+else
+  REPO_NAME="${REPO_NAME:-$(basename "$(go list -m)")}"
+  KO_DOCKER_REPO="${KO_DOCKER_REPO}/knative.dev/${REPO_NAME}/storage-version-migration" \
+    ko resolve ${KO_YAML_FLAGS} --preserve-import-paths=false --base-import-paths=false --bare \
+    -f config/post-install/storage-version-migration.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_STORAGE_VERSION_MIGRATE_YAML}"
+fi
 
 ko resolve ${KO_YAML_FLAGS} -f config/post-install/cleanup.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_CLEAN_UP_YAML}"
 
