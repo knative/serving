@@ -31,9 +31,6 @@ import (
 	_ "github.com/ahmetb/gen-crd-api-reference-docs"
 	_ "github.com/ahmetb/gen-crd-api-reference-docs/template"
 
-	// Migration job.
-	_ "knative.dev/pkg/apiextensions/storageversion/cmd/migrate"
-
 	_ "k8s.io/code-generator/cmd/client-gen"
 	_ "k8s.io/code-generator/cmd/deepcopy-gen"
 	_ "k8s.io/code-generator/cmd/defaulter-gen"
