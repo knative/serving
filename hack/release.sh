@@ -23,7 +23,7 @@ function build_release() {
   # Run `generate-yamls.sh`, which should be versioned with the
   # branch since the detail of building may change over time.
   local YAML_LIST="$(mktemp)"
-  export TAG
+  export TAG REPO_NAME
   $(dirname $0)/generate-yamls.sh "${REPO_ROOT_DIR}" "${YAML_LIST}"
   ARTIFACTS_TO_PUBLISH=$(cat "${YAML_LIST}" | tr '\n' ' ')
   if (( ! PUBLISH_RELEASE )); then

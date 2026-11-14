@@ -96,7 +96,9 @@ MIGRATION_KO_FLAGS=()
 case "${KO_DOCKER_REPO}" in
   ko.local|kind.local) ;;
   *)
-    MIGRATION_DOCKER_REPO="${KO_DOCKER_REPO}/knative.dev/serving/storage-version-migration"
+    # Standalone invocations can infer the repository name from the Go module.
+    REPO_NAME="${REPO_NAME:-$(basename "$(go list -m)")}"
+    MIGRATION_DOCKER_REPO="${KO_DOCKER_REPO}/knative.dev/${REPO_NAME}/storage-version-migration"
     # Naming flags from KO_YAML_FLAGS must not take precedence over --bare.
     MIGRATION_KO_FLAGS=(--preserve-import-paths=false --base-import-paths=false --bare)
     ;;
