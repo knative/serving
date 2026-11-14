@@ -90,7 +90,18 @@ ko resolve ${KO_YAML_FLAGS} -R -f config/core/ | "${LABEL_YAML_CMD[@]}" > "${SER
 
 ko resolve ${KO_YAML_FLAGS} -f config/post-install/default-domain.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_DEFAULT_DOMAIN_YAML}"
 
-ko resolve ${KO_YAML_FLAGS} -f config/post-install/storage-version-migration.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_STORAGE_VERSION_MIGRATE_YAML}"
+# Keep local publishing modes unchanged; registry builds get a Serving-specific image.
+MIGRATION_DOCKER_REPO="${KO_DOCKER_REPO}"
+MIGRATION_KO_FLAGS=()
+case "${KO_DOCKER_REPO}" in
+  ko.local|kind.local) ;;
+  *)
+    MIGRATION_DOCKER_REPO="${KO_DOCKER_REPO}/knative.dev/serving/storage-version-migration"
+    # Naming flags from KO_YAML_FLAGS must not take precedence over --bare.
+    MIGRATION_KO_FLAGS=(--preserve-import-paths=false --base-import-paths=false --bare)
+    ;;
+esac
+KO_DOCKER_REPO="${MIGRATION_DOCKER_REPO}" ko resolve ${KO_YAML_FLAGS} "${MIGRATION_KO_FLAGS[@]}" -f config/post-install/storage-version-migration.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_STORAGE_VERSION_MIGRATE_YAML}"
 
 ko resolve ${KO_YAML_FLAGS} -f config/post-install/cleanup.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_CLEAN_UP_YAML}"
 
