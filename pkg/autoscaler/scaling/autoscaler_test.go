@@ -19,6 +19,7 @@ package scaling
 import (
 	"errors"
 	"math"
+	"sync"
 	"testing"
 	"time"
 
@@ -1003,4 +1004,34 @@ func concurrencyDataPoints(attrs attribute.Set, isPanic bool, pods int64, ebc, s
 			},
 		},
 	}
+}
+
+func TestAutoscalerUpdateScaleRace(t *testing.T) {
+	metrics := &metricClient{StableConcurrency: 100, PanicConcurrency: 101}
+	a, _, _ := newTestAutoscaler(10, 77, metrics)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for range 200 {
+			a.Update(&DeciderSpec{
+				TargetValue:      10,
+				TotalValue:       13,
+				PanicThreshold:   2,
+				MaxScaleUpRate:   10,
+				MaxScaleDownRate: 10,
+				StableWindow:     stableWindow,
+				Reachable:        true,
+				ActivationScale:  2,
+			})
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for range 200 {
+			a.Scale(logtesting.TestLogger(t), time.Now())
+		}
+	}()
+	wg.Wait()
 }
