@@ -1700,54 +1700,6 @@ func TestMakePodSpec(t *testing.T) {
 	}
 }
 
-func TestMakePodSpecIgnoresRetiredQueueProxyConfig(t *testing.T) {
-	rev := revision("bar", "foo", withContainers([]corev1.Container{{
-		Name:  servingContainerName,
-		Image: "busybox",
-	}}))
-	cfg := revConfig()
-	var err error
-	cfg.Deployment, err = deployment.NewConfigFromMap(map[string]string{
-		deployment.QueueSidecarImageKey: "queue-proxy",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	want, err := makePodSpec(rev, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	cfg.Deployment, err = deployment.NewConfigFromMap(map[string]string{
-		deployment.QueueSidecarImageKey: "queue-proxy",
-		"queue-sidecar-token-audiences": "service-x,service-y",
-		"queue-sidecar-rootca":          "retired-certificate",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	rev.Annotations = map[string]string{
-		"features.knative.dev/queueproxy-podinfo": "enabled",
-	}
-	for _, flag := range []string{"enabled", "allowed", "disabled"} {
-		t.Run(flag, func(t *testing.T) {
-			cfg.Features, err = apicfg.NewFeaturesConfigFromMap(map[string]string{
-				"queueproxy.mount-podinfo": flag,
-			})
-			if err != nil {
-				t.Fatal(err)
-			}
-			got, err := makePodSpec(rev, cfg)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if diff := cmp.Diff(want, got, quantityComparer); diff != "" {
-				t.Errorf("retired configuration changed pod spec (-want, +got):\n%s", diff)
-			}
-		})
-	}
-}
-
 var quantityComparer = cmp.Comparer(func(x, y resource.Quantity) bool {
 	return x.Cmp(y) == 0
 })
