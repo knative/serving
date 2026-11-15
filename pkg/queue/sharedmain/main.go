@@ -99,6 +99,11 @@ type config struct {
 	// Metrics, Tracing and Profiling
 	Observability observability.Config `ignored:"true"`
 
+	Env
+}
+
+// Env contains the parsed queue-proxy environment variables identifying the workload.
+type Env struct {
 	// ServingNamespace is the namespace in which the service is defined
 	ServingNamespace string `split_words:"true" required:"true"`
 
@@ -118,12 +123,32 @@ type config struct {
 	ServingPodIP string `split_words:"true" required:"true"`
 }
 
+// Defaults contains the initialized queue-proxy runtime dependencies.
+type Defaults struct {
+	// Logger is the pre-configured queue-proxy logger.
+	Logger *zap.SugaredLogger
+
+	// Env contains the parsed workload environment variables.
+	Env Env
+
+	// Ctx is the queue-proxy context.
+	Ctx context.Context
+
+	// Transport is the queue-proxy RoundTripper.
+	Transport http.RoundTripper
+
+	// ProxyHandler is the queue-proxy reverse proxy.
+	ProxyHandler http.Handler
+}
+
 func init() {
 	maxprocs.Set()
 }
 
 func Main() error {
-	ctx := signals.NewContext()
+	d := Defaults{
+		Ctx: signals.NewContext(),
+	}
 
 	// Parse the environment.
 	env := config{
@@ -134,6 +159,8 @@ func Main() error {
 		fmt.Fprintln(os.Stderr, err)
 		return err
 	}
+
+	d.Env = env.Env
 
 	// Setup the Logger.
 	logger, _ := pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
@@ -153,7 +180,9 @@ func Main() error {
 		}.String()),
 		zap.String(logkey.Pod, env.ServingPod))
 
-	mp, tp := SetupObservabilityOrDie(ctx, &env, logger)
+	d.Logger = logger
+
+	mp, tp := SetupObservabilityOrDie(d.Ctx, &env, logger)
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -166,8 +195,8 @@ func Main() error {
 		}
 	}()
 
-	transport := buildTransport(env, tp, mp)
-	proxyHandler := buildProxyHandler(logger, env, transport)
+	d.Transport = buildTransport(env, tp, mp)
+	d.ProxyHandler = buildProxyHandler(logger, env, d.Transport)
 
 	protoStatReporter := queue.NewProtobufStatsReporter(env.ServingPod, reportingPeriod)
 
@@ -191,8 +220,8 @@ func Main() error {
 	// Enable TLS when certificate is mounted.
 	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
-	mainHandler, drainers := mainHandler(env, proxyHandler, probe, stats, logger, mp, tp)
-	adminHandler := adminHandler(ctx, logger, drainers.StandardDrainer)
+	mainHandler, drainers := mainHandler(env, d, probe, stats, logger, mp, tp)
+	adminHandler := adminHandler(d.Ctx, logger, drainers.StandardDrainer)
 
 	// Enable TLS server when activator server certs are mounted.
 	// At this moment activator with TLS does not disable HTTP.
@@ -259,7 +288,7 @@ func Main() error {
 	case err := <-errCh:
 		logger.Errorw("Failed to bring up queue-proxy, shutting down.", zap.Error(err))
 		return err
-	case <-ctx.Done():
+	case <-d.Ctx.Done():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 		logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
 		drainers.StandardDrainer.Drain()
