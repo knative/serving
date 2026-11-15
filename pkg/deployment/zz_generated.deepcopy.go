@@ -65,13 +65,6 @@ func (in *Config) DeepCopyInto(out *Config) {
 		x := (*in).DeepCopy()
 		*out = &x
 	}
-	if in.QueueSidecarTokenAudiences != nil {
-		in, out := &in.QueueSidecarTokenAudiences, &out.QueueSidecarTokenAudiences
-		*out = make(sets.Set[string], len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
-		}
-	}
 	if in.RuntimeClassNames != nil {
 		in, out := &in.RuntimeClassNames, &out.RuntimeClassNames
 		*out = make(map[string]RuntimeClassNameLabelSelector, len(*in))

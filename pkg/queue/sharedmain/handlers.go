@@ -41,7 +41,7 @@ type drainers struct {
 
 func mainHandler(
 	env config,
-	d Defaults,
+	proxyHandler http.Handler,
 	prober func() bool,
 	stats *netstats.RequestStats,
 	logger *zap.SugaredLogger,
@@ -63,7 +63,7 @@ func mainHandler(
 	}
 	// Create queue handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
-	composedHandler := d.ProxyHandler
+	composedHandler := proxyHandler
 
 	composedHandler = requestAppMetricsHandler(logger, composedHandler, breaker, mp)
 	composedHandler = queue.ProxyHandler(tracer, breaker, stats, composedHandler)

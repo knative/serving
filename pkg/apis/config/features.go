@@ -44,9 +44,6 @@ const (
 
 // service annotations under features.knative.dev/*
 const (
-	// QueueProxyPodInfoFeatureKey gates mounting of podinfo with the value 'enabled'
-	QueueProxyPodInfoFeatureKey = "features.knative.dev/queueproxy-podinfo"
-
 	// AllowHTTPFullDuplexFeatureKey gates the use of http1 full duplex per workload
 	AllowHTTPFullDuplexFeatureKey = "features.knative.dev/http-full-duplex"
 )
@@ -107,7 +104,6 @@ func defaultFeaturesConfig() *Features {
 		PodSpecVolumesImage:              Disabled,
 		PodSpecPersistentVolumeClaim:     Disabled,
 		PodSpecPersistentVolumeWrite:     Disabled,
-		QueueProxyMountPodInfo:           Disabled,
 		QueueProxyResourceDefaults:       Disabled,
 		PodSpecInitContainers:            Disabled,
 		PodSpecDNSPolicy:                 Disabled,
@@ -129,7 +125,6 @@ func NewFeaturesConfigFromMap(data map[string]string) (*Features, error) {
 		asFlag("kubernetes.podspec-persistent-volume-write", &nc.PodSpecPersistentVolumeWrite),
 		asFlag("multi-container", &nc.MultiContainer),
 		asFlag("multi-container-probing", &nc.MultiContainerProbing),
-		asFlag("queueproxy.mount-podinfo", &nc.QueueProxyMountPodInfo),
 		asFlag("queueproxy.resource-defaults", &nc.QueueProxyResourceDefaults),
 		asSecurePodDefaultsFlag("secure-pod-defaults", &nc.SecurePodDefaults),
 		asFlag("tag-header-based-routing", &nc.TagHeaderBasedRouting),
@@ -197,7 +192,6 @@ type Features struct {
 	PodSpecInitContainers            Flag
 	PodSpecPersistentVolumeClaim     Flag
 	PodSpecPersistentVolumeWrite     Flag
-	QueueProxyMountPodInfo           Flag
 	QueueProxyResourceDefaults       Flag
 	PodSpecDNSPolicy                 Flag
 	PodSpecDNSConfig                 Flag

@@ -426,9 +426,6 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			Name:  "ENABLE_HTTP_FULL_DUPLEX",
 			Value: strconv.FormatBool(fullDuplexExists && strings.EqualFold(fullDuplexFeature, string(apicfg.Enabled))),
 		}, {
-			Name:  "ROOT_CA",
-			Value: cfg.Deployment.QueueSidecarRootCA,
-		}, {
 			Name:  "QUEUE_PROXY_TLS_MIN_VERSION",
 			Value: cfg.Deployment.QueueSidecarTLSMinVersion,
 		}, {

@@ -75,14 +75,6 @@ const (
 
 	// keyPath is the path for the server certificate key mounted by queue-proxy.
 	keyPath = queue.CertDirectory + "/" + certificates.PrivateKeyName
-
-	// PodInfoAnnotationsPath is an exported path for the annotations file
-	// This path is used by QP Options (Extensions).
-	PodInfoAnnotationsPath = queue.PodInfoDirectory + "/" + queue.PodInfoAnnotationsFilename
-
-	// QPOptionTokenDirPath is a directory for per audience tokens
-	// This path is used by QP Options (Extensions) as <QPOptionTokenDirPath>/<Audience>
-	QPOptionTokenDirPath = queue.TokenDirectory
 )
 
 type config struct {
@@ -107,11 +99,6 @@ type config struct {
 	// Metrics, Tracing and Profiling
 	Observability observability.Config `ignored:"true"`
 
-	Env
-}
-
-// Env exposes parsed QP environment variables for use by Options (QP Extensions)
-type Env struct {
 	// ServingNamespace is the namespace in which the service is defined
 	ServingNamespace string `split_words:"true" required:"true"`
 
@@ -131,48 +118,12 @@ type Env struct {
 	ServingPodIP string `split_words:"true" required:"true"`
 }
 
-// Defaults provides Options (QP Extensions) with the default behaviour of QP
-// Some attributes of Defaults may be modified by Options
-// Modifying Defaults mutates the behavior of QP
-type Defaults struct {
-	// Logger enables Options to use the QP pre-configured logger
-	// It is expected that Options will use the provided Logger when logging
-	// Options should not modify the provided Default Logger
-	Logger *zap.SugaredLogger
-
-	// Env exposes parsed QP environment variables for use by Options
-	// Options should not modify the provided environment parameters
-	Env Env
-
-	// Ctx provides Options with the QP context
-	// An Option may derive a new context from Ctx. If a new context is derived,
-	// the derived context should replace the value of Ctx.
-	// The new Ctx will then be used by other Options (called next) and by QP.
-	Ctx context.Context
-
-	// Transport provides Options with the QP RoundTripper
-	// An Option may wrap the provided Transport to add a Roundtripper.
-	// If Transport is wrapped, the new RoundTripper should replace the value of Transport.
-	// The new Transport will then be used by other Options (called next) and by QP.
-	Transport http.RoundTripper
-
-	// ProxyHandler provides Options with the QP's main ReverseProxy
-	// The default value is of type *httputil.ReverseProxy
-	// An Option may type assert to *httutil.ReverseProxy and adjust attributes of the ReverseProxy,
-	// or replace the handler entirely, typically to insert additional handler(s) into the chain.
-	ProxyHandler http.Handler
-}
-
-type Option func(*Defaults)
-
 func init() {
 	maxprocs.Set()
 }
 
-func Main(opts ...Option) error {
-	d := Defaults{
-		Ctx: signals.NewContext(),
-	}
+func Main() error {
+	ctx := signals.NewContext()
 
 	// Parse the environment.
 	env := config{
@@ -183,8 +134,6 @@ func Main(opts ...Option) error {
 		fmt.Fprintln(os.Stderr, err)
 		return err
 	}
-
-	d.Env = env.Env
 
 	// Setup the Logger.
 	logger, _ := pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
@@ -204,9 +153,7 @@ func Main(opts ...Option) error {
 		}.String()),
 		zap.String(logkey.Pod, env.ServingPod))
 
-	d.Logger = logger
-
-	mp, tp := SetupObservabilityOrDie(d.Ctx, &env, logger)
+	mp, tp := SetupObservabilityOrDie(ctx, &env, logger)
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -219,10 +166,8 @@ func Main(opts ...Option) error {
 		}
 	}()
 
-	d.Transport = buildTransport(env, tp, mp)
-	proxyHandler := buildProxyHandler(logger, env, d.Transport)
-
-	applyOptions(&d, proxyHandler, opts...)
+	transport := buildTransport(env, tp, mp)
+	proxyHandler := buildProxyHandler(logger, env, transport)
 
 	protoStatReporter := queue.NewProtobufStatsReporter(env.ServingPod, reportingPeriod)
 
@@ -246,8 +191,8 @@ func Main(opts ...Option) error {
 	// Enable TLS when certificate is mounted.
 	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
-	mainHandler, drainers := mainHandler(env, d, probe, stats, logger, mp, tp)
-	adminHandler := adminHandler(d.Ctx, logger, drainers.StandardDrainer)
+	mainHandler, drainers := mainHandler(env, proxyHandler, probe, stats, logger, mp, tp)
+	adminHandler := adminHandler(ctx, logger, drainers.StandardDrainer)
 
 	// Enable TLS server when activator server certs are mounted.
 	// At this moment activator with TLS does not disable HTTP.
@@ -314,7 +259,7 @@ func Main(opts ...Option) error {
 	case err := <-errCh:
 		logger.Errorw("Failed to bring up queue-proxy, shutting down.", zap.Error(err))
 		return err
-	case <-d.Ctx.Done():
+	case <-ctx.Done():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 		logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
 		drainers.StandardDrainer.Drain()
@@ -345,17 +290,6 @@ func Main(opts ...Option) error {
 		logger.Info("Shutdown complete, exiting...")
 	}
 	return nil
-}
-
-func applyOptions(d *Defaults, proxyHandler *httputil.ReverseProxy, opts ...Option) {
-	d.ProxyHandler = proxyHandler
-
-	// allow extensions to read d and return modified context, transport, and proxy handler.
-	for _, opts := range opts {
-		opts(d)
-	}
-
-	proxyHandler.Transport = d.Transport
 }
 
 func exists(logger *zap.SugaredLogger, filename string) bool {
