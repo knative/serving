@@ -102,7 +102,7 @@ type config struct {
 	Env
 }
 
-// Env contains the parsed queue-proxy environment variables identifying the workload.
+// Env exposes parsed QP environment variables for use by Options (QP Extensions)
 type Env struct {
 	// ServingNamespace is the namespace in which the service is defined
 	ServingNamespace string `split_words:"true" required:"true"`
@@ -123,29 +123,45 @@ type Env struct {
 	ServingPodIP string `split_words:"true" required:"true"`
 }
 
-// Defaults contains the initialized queue-proxy runtime dependencies.
+// Defaults provides Options (QP Extensions) with the default behaviour of QP
+// Some attributes of Defaults may be modified by Options
+// Modifying Defaults mutates the behavior of QP
 type Defaults struct {
-	// Logger is the pre-configured queue-proxy logger.
+	// Logger enables Options to use the QP pre-configured logger
+	// It is expected that Options will use the provided Logger when logging
+	// Options should not modify the provided Default Logger
 	Logger *zap.SugaredLogger
 
-	// Env contains the parsed workload environment variables.
+	// Env exposes parsed QP environment variables for use by Options
+	// Options should not modify the provided environment parameters
 	Env Env
 
-	// Ctx is the queue-proxy context.
+	// Ctx provides Options with the QP context
+	// An Option may derive a new context from Ctx. If a new context is derived,
+	// the derived context should replace the value of Ctx.
+	// The new Ctx will then be used by other Options (called next) and by QP.
 	Ctx context.Context
 
-	// Transport is the queue-proxy RoundTripper.
+	// Transport provides Options with the QP RoundTripper
+	// An Option may wrap the provided Transport to add a Roundtripper.
+	// If Transport is wrapped, the new RoundTripper should replace the value of Transport.
+	// The new Transport will then be used by other Options (called next) and by QP.
 	Transport http.RoundTripper
 
-	// ProxyHandler is the queue-proxy reverse proxy.
+	// ProxyHandler provides Options with the QP's main ReverseProxy
+	// The default value is of type *httputil.ReverseProxy
+	// An Option may type assert to *httutil.ReverseProxy and adjust attributes of the ReverseProxy,
+	// or replace the handler entirely, typically to insert additional handler(s) into the chain.
 	ProxyHandler http.Handler
 }
+
+type Option func(*Defaults)
 
 func init() {
 	maxprocs.Set()
 }
 
-func Main() error {
+func Main(opts ...Option) error {
 	d := Defaults{
 		Ctx: signals.NewContext(),
 	}
@@ -196,7 +212,9 @@ func Main() error {
 	}()
 
 	d.Transport = buildTransport(env, tp, mp)
-	d.ProxyHandler = buildProxyHandler(logger, env, d.Transport)
+	proxyHandler := buildProxyHandler(logger, env, d.Transport)
+
+	applyOptions(&d, proxyHandler, opts...)
 
 	protoStatReporter := queue.NewProtobufStatsReporter(env.ServingPod, reportingPeriod)
 
@@ -319,6 +337,17 @@ func Main() error {
 		logger.Info("Shutdown complete, exiting...")
 	}
 	return nil
+}
+
+func applyOptions(d *Defaults, proxyHandler *httputil.ReverseProxy, opts ...Option) {
+	d.ProxyHandler = proxyHandler
+
+	// allow extensions to read d and return modified context, transport, and proxy handler.
+	for _, opts := range opts {
+		opts(d)
+	}
+
+	proxyHandler.Transport = d.Transport
 }
 
 func exists(logger *zap.SugaredLogger, filename string) bool {
