@@ -151,15 +151,19 @@ func CollectMapEntriesWithPrefix(prefix string, target *map[string]string) Parse
 		panic("target cannot be nil")
 	}
 
+	dotted := prefix + "."
+
 	return func(data map[string]string) error {
 		for k, v := range data {
-			if strings.HasPrefix(k, prefix) && len(k) > len(prefix)+1 {
-				if *target == nil {
-					m := make(map[string]string, 2)
-					*target = m
-				}
-				(*target)[k[len(prefix)+1: /* remove dot `.` */]] = v
+			name, ok := strings.CutPrefix(k, dotted)
+			if !ok || name == "" {
+				continue
 			}
+			if *target == nil {
+				m := make(map[string]string, 2)
+				*target = m
+			}
+			(*target)[name] = v
 		}
 		return nil
 	}
