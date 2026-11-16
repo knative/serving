@@ -18,8 +18,14 @@ package storageversion
 
 import (
 	"context"
+	"errors"
+	"flag"
 	"fmt"
+	"log"
+	"os"
+	"strconv"
 
+	"go.uber.org/zap"
 	apix "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apixclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -29,6 +35,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/pager"
+	"knative.dev/pkg/environment"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/signals"
 )
 
 // Migrator will read custom resource definitions and upgrade
@@ -123,4 +132,83 @@ func storageVersion(crd *apix.CustomResourceDefinition) string {
 	}
 
 	return version
+}
+
+const (
+	IgnoreNotFoundEnvKey = "IGNORE_NOT_FOUND"
+)
+
+// Run runs the storage-version migration command using the provided flag set
+// and arguments. It exits the process if migration fails.
+func Run(flags *flag.FlagSet, args []string) {
+	logger := setupLogger()
+	defer logger.Sync()
+
+	env := environment.ClientConfig{}
+	env.InitFlags(flags)
+
+	if err := flags.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return
+		}
+		logger.Fatal(err)
+	}
+
+	config, err := env.GetRESTConfig()
+	if err != nil {
+		logger.Fatalf("failed to get kubeconfig %s", err)
+	}
+
+	grs, err := parseResources(flags.Args())
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	ignoreNotFound, _ := strconv.ParseBool(os.Getenv(IgnoreNotFoundEnvKey))
+
+	migrator := NewMigrator(
+		dynamic.NewForConfigOrDie(config),
+		apixclient.NewForConfigOrDie(config),
+	)
+
+	ctx := signals.NewContext()
+
+	logger.Infof("Migrating %d group resources", len(grs))
+
+	for _, gr := range grs {
+		logger.Info("Migrating group resource ", gr)
+		if err := migrator.Migrate(ctx, gr); err != nil {
+			if ignoreNotFound && apierrs.IsNotFound(err) {
+				logger.Infof("Ignoring resource migration - unable to fetch crd %s - %s", gr, err)
+				continue
+			}
+			logger.Fatal("Failed to migrate: ", err)
+		}
+	}
+
+	logger.Info("Migration complete")
+}
+
+func parseResources(args []string) ([]schema.GroupResource, error) {
+	grs := make([]schema.GroupResource, 0, len(args))
+	for _, arg := range args {
+		gr := schema.ParseGroupResource(arg)
+		if gr.Empty() {
+			return nil, fmt.Errorf("unable to parse group version: %s", arg)
+		}
+		grs = append(grs, gr)
+	}
+	return grs, nil
+}
+
+func setupLogger() *zap.SugaredLogger {
+	const component = "storage-migrator"
+
+	config, err := logging.NewConfigFromMap(nil)
+	if err != nil {
+		log.Fatal("Failed to create logging config: ", err)
+	}
+
+	logger, _ := logging.NewLoggerFromConfig(config, component)
+	return logger
 }
