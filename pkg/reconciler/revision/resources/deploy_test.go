@@ -31,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	netheader "knative.dev/networking/pkg/http/header"
 	"knative.dev/pkg/ptr"
@@ -156,9 +155,6 @@ var (
 		}, {
 			Name:  "ENABLE_HTTP_FULL_DUPLEX",
 			Value: "false",
-		}, {
-			Name:  "ROOT_CA",
-			Value: "",
 		}, {
 			Name:  "QUEUE_PROXY_TLS_MIN_VERSION",
 			Value: "",
@@ -333,12 +329,6 @@ func withEnvVar(name, value string) containerOption {
 	}
 }
 
-func withPodInfoVolumeMount() containerOption {
-	return func(container *corev1.Container) {
-		container.VolumeMounts = append(container.VolumeMounts, varPodInfoVolumeMount)
-	}
-}
-
 func withTCPReadinessProbe(port int) *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
@@ -414,29 +404,6 @@ func podSpec(containers []corev1.Container, opts ...podSpecOption) *corev1.PodSp
 	}
 
 	return podSpec
-}
-
-type appendTokenVolume struct {
-	filename string
-	audience string
-	expires  int64
-}
-
-func withAppendedTokenVolumes(appended []appendTokenVolume) podSpecOption {
-	return func(ps *corev1.PodSpec) {
-		tokenVolume := varTokenVolume.DeepCopy()
-		for _, a := range appended {
-			token := &corev1.VolumeProjection{
-				ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
-					ExpirationSeconds: ptr.Int64(a.expires),
-					Path:              a.filename,
-					Audience:          a.audience,
-				},
-			}
-			tokenVolume.VolumeSource.Projected.Sources = append(tokenVolume.VolumeSource.Projected.Sources, *token)
-		}
-		ps.Volumes = append(ps.Volumes, *tokenVolume)
-	}
 }
 
 func withAppendedVolumes(volumes ...corev1.Volume) podSpecOption {
@@ -755,130 +722,6 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("OBSERVABILITY_CONFIG", `{"tracing":{},"metrics":{},"runtime":{},"requestMetrics":{"protocol":"http/protobuf","endpoint":"otel:55678"}}`),
 				),
 			}),
-	}, {
-		name: "podInfoFeature Enabled",
-		fc: apicfg.Features{
-			QueueProxyMountPodInfo: apicfg.Enabled,
-		},
-		rev: revision("bar", "foo",
-			withContainers([]corev1.Container{{
-				Name:           servingContainerName,
-				Image:          "busybox",
-				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
-			}}),
-			WithContainerStatuses([]v1.ContainerStatus{{
-				ImageDigest: "busybox@sha256:deadbeef",
-			}}),
-		),
-		want: podSpec(
-			[]corev1.Container{
-				servingContainer(func(container *corev1.Container) {
-					container.Image = "busybox@sha256:deadbeef"
-				}),
-				queueContainer(
-					withPodInfoVolumeMount(),
-				),
-			},
-			withAppendedVolumes(varPodInfoVolume),
-		),
-	}, {
-		name: "podInfoFeature Disabled and enabled using annotation ",
-		fc: apicfg.Features{
-			QueueProxyMountPodInfo: apicfg.Disabled,
-		},
-		rev: revision("bar", "foo",
-			withContainers([]corev1.Container{{
-				Name:           servingContainerName,
-				Image:          "busybox",
-				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
-			}}),
-			WithContainerStatuses([]v1.ContainerStatus{{
-				ImageDigest: "busybox@sha256:deadbeef",
-			}}),
-			WithRevisionAnnotations(map[string]string{apicfg.QueueProxyPodInfoFeatureKey: string(apicfg.Enabled)}),
-		),
-		want: podSpec(
-			[]corev1.Container{
-				servingContainer(func(container *corev1.Container) {
-					container.Image = "busybox@sha256:deadbeef"
-				}),
-				queueContainer(),
-			},
-		),
-	}, {
-		name: "podInfoFeature Allowed and enabled using annotation",
-		fc: apicfg.Features{
-			QueueProxyMountPodInfo: apicfg.Allowed,
-		},
-		rev: revision("bar", "foo",
-			withContainers([]corev1.Container{{
-				Name:           servingContainerName,
-				Image:          "busybox",
-				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
-			}}),
-			WithContainerStatuses([]v1.ContainerStatus{{
-				ImageDigest: "busybox@sha256:deadbeef",
-			}}),
-			WithRevisionAnnotations(map[string]string{apicfg.QueueProxyPodInfoFeatureKey: string(apicfg.Enabled)}),
-		),
-		want: podSpec(
-			[]corev1.Container{
-				servingContainer(func(container *corev1.Container) {
-					container.Image = "busybox@sha256:deadbeef"
-				}),
-				queueContainer(
-					withPodInfoVolumeMount(),
-				),
-			},
-			withAppendedVolumes(varPodInfoVolume),
-		),
-	}, {
-		name: "podInfoFeature Allowed and Disabled using annotation",
-		fc: apicfg.Features{
-			QueueProxyMountPodInfo: apicfg.Allowed,
-		},
-		rev: revision("bar", "foo",
-			withContainers([]corev1.Container{{
-				Name:           servingContainerName,
-				Image:          "busybox",
-				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
-			}}),
-			WithContainerStatuses([]v1.ContainerStatus{{
-				ImageDigest: "busybox@sha256:deadbeef",
-			}}),
-			WithRevisionAnnotations(map[string]string{apicfg.QueueProxyPodInfoFeatureKey: string(apicfg.Disabled)}),
-		),
-		want: podSpec(
-			[]corev1.Container{
-				servingContainer(func(container *corev1.Container) {
-					container.Image = "busybox@sha256:deadbeef"
-				}),
-				queueContainer(),
-			},
-		),
-	}, {
-		name: "podInfoFeature Allowed without annotation",
-		fc: apicfg.Features{
-			QueueProxyMountPodInfo: apicfg.Allowed,
-		},
-		rev: revision("bar", "foo",
-			withContainers([]corev1.Container{{
-				Name:           servingContainerName,
-				Image:          "busybox",
-				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
-			}}),
-			WithContainerStatuses([]v1.ContainerStatus{{
-				ImageDigest: "busybox@sha256:deadbeef",
-			}}),
-		),
-		want: podSpec(
-			[]corev1.Container{
-				servingContainer(func(container *corev1.Container) {
-					container.Image = "busybox@sha256:deadbeef"
-				}),
-				queueContainer(),
-			},
-		),
 	}, {
 		name: "concurrency=121 no owner digest resolved",
 		rev: revision("bar", "foo",
@@ -1560,66 +1403,6 @@ func TestMakePodSpec(t *testing.T) {
 						container.ReadinessProbe = nil
 					}),
 			}),
-	}, {
-		name: "qpoption tokens",
-		dc: deployment.Config{
-			QueueSidecarTokenAudiences: sets.New("boo-srv"),
-		},
-		rev: revision("bar", "foo",
-			withContainers([]corev1.Container{{
-				Name:           servingContainerName,
-				Image:          "busybox",
-				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
-				Ports:          buildContainerPorts(v1.DefaultUserPort),
-			}}),
-			WithContainerStatuses([]v1.ContainerStatus{{
-				ImageDigest: "busybox@sha256:deadbeef",
-			}, {
-				ImageDigest: "ubuntu@sha256:deadbeef",
-			}}),
-		),
-		want: podSpec(
-			[]corev1.Container{
-				servingContainer(func(container *corev1.Container) {
-					container.Image = "busybox@sha256:deadbeef"
-				}),
-				queueContainer(func(container *corev1.Container) {
-					container.VolumeMounts = []corev1.VolumeMount{{
-						Name:      varTokenVolume.Name,
-						MountPath: "/var/run/secrets/tokens",
-					}}
-				}),
-			},
-			withAppendedTokenVolumes([]appendTokenVolume{{filename: "boo-srv", audience: "boo-srv", expires: 3600}}),
-		),
-	}, {
-		name: "qpoption rootca",
-		dc: deployment.Config{
-			QueueSidecarRootCA: "myCertificate",
-		},
-		rev: revision("bar", "foo",
-			withContainers([]corev1.Container{{
-				Name:           servingContainerName,
-				Image:          "busybox",
-				ReadinessProbe: withTCPReadinessProbe(v1.DefaultUserPort),
-				Ports:          buildContainerPorts(v1.DefaultUserPort),
-			}}),
-			WithContainerStatuses([]v1.ContainerStatus{{
-				ImageDigest: "busybox@sha256:deadbeef",
-			}, {
-				ImageDigest: "ubuntu@sha256:deadbeef",
-			}}),
-		),
-		want: podSpec(
-			[]corev1.Container{
-				servingContainer(func(container *corev1.Container) {
-					container.Image = "busybox@sha256:deadbeef"
-				}),
-				queueContainer(
-					withEnvVar("ROOT_CA", `myCertificate`),
-				),
-			},
-		),
 	}, {
 		name: "with multiple containers with readiness probes",
 		rev: revision("bar", "foo",

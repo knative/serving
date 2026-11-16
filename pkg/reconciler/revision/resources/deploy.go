@@ -19,9 +19,7 @@ package resources
 import (
 	"fmt"
 	"maps"
-	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"knative.dev/pkg/kmeta"
@@ -59,43 +57,9 @@ var (
 		SubPathExpr: "$(K_INTERNAL_POD_NAMESPACE)_$(K_INTERNAL_POD_NAME)_",
 	}
 
-	varTokenVolume = corev1.Volume{
-		Name: "knative-token-volume",
-		VolumeSource: corev1.VolumeSource{
-			Projected: &corev1.ProjectedVolumeSource{
-				Sources: []corev1.VolumeProjection{},
-			},
-		},
-	}
-
 	varCertVolumeMount = corev1.VolumeMount{
 		MountPath: queue.CertDirectory,
 		Name:      certVolumeName,
-		ReadOnly:  true,
-	}
-
-	varTokenVolumeMount = corev1.VolumeMount{
-		Name:      varTokenVolume.Name,
-		MountPath: queue.TokenDirectory,
-	}
-
-	varPodInfoVolume = corev1.Volume{
-		Name: "pod-info",
-		VolumeSource: corev1.VolumeSource{
-			DownwardAPI: &corev1.DownwardAPIVolumeSource{
-				Items: []corev1.DownwardAPIVolumeFile{{
-					Path: queue.PodInfoAnnotationsFilename,
-					FieldRef: &corev1.ObjectFieldSelector{
-						FieldPath: "metadata.annotations",
-					},
-				}},
-			},
-		},
-	}
-
-	varPodInfoVolumeMount = corev1.VolumeMount{
-		Name:      varPodInfoVolume.Name,
-		MountPath: queue.PodInfoDirectory,
 		ReadOnly:  true,
 	}
 
@@ -112,20 +76,6 @@ var (
 		},
 	}
 )
-
-func addToken(tokenVolume *corev1.Volume, filename string, audience string, expiry *int64) {
-	if filename == "" || audience == "" {
-		return
-	}
-	volumeProjection := &corev1.VolumeProjection{
-		ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
-			ExpirationSeconds: expiry,
-			Path:              filename,
-			Audience:          audience,
-		},
-	}
-	tokenVolume.VolumeSource.Projected.Sources = append(tokenVolume.VolumeSource.Projected.Sources, *volumeProjection)
-}
 
 func certVolume(secret string) corev1.Volume {
 	return corev1.Volume{
@@ -172,38 +122,12 @@ func makePreferSpreadRevisionOverNodes(revisionLabelValue string) *corev1.PodAnt
 
 func makePodSpec(rev *v1.Revision, cfg *config.Config) (*corev1.PodSpec, error) {
 	queueContainer, err := makeQueueContainer(rev, cfg)
-	tokenVolume := varTokenVolume.DeepCopy()
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create queue-proxy container: %w", err)
 	}
 
 	var extraVolumes []corev1.Volume
-
-	podInfoFeature, podInfoExists := rev.Annotations[apiconfig.QueueProxyPodInfoFeatureKey]
-
-	if cfg.Features.QueueProxyMountPodInfo == apiconfig.Enabled ||
-		(cfg.Features.QueueProxyMountPodInfo == apiconfig.Allowed &&
-			podInfoExists &&
-			strings.EqualFold(podInfoFeature, string(apiconfig.Enabled))) {
-		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varPodInfoVolumeMount)
-		extraVolumes = append(extraVolumes, varPodInfoVolume)
-	}
-
-	audiences := make([]string, 0, len(cfg.Deployment.QueueSidecarTokenAudiences))
-	for k := range cfg.Deployment.QueueSidecarTokenAudiences {
-		audiences = append(audiences, k)
-	}
-	sort.Strings(audiences)
-	for _, aud := range audiences {
-		// add token for audience <aud> under filename <aud>
-		addToken(tokenVolume, aud, aud, ptr.Int64(3600))
-	}
-
-	if len(tokenVolume.VolumeSource.Projected.Sources) > 0 {
-		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varTokenVolumeMount)
-		extraVolumes = append(extraVolumes, *tokenVolume)
-	}
 
 	if cfg.Network.SystemInternalTLSEnabled() {
 		queueContainer.VolumeMounts = append(queueContainer.VolumeMounts, varCertVolumeMount)

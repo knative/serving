@@ -405,18 +405,6 @@ func TestMakeQueueContainer(t *testing.T) {
 			})
 		}),
 	}, {
-		name: "set root ca",
-		rev: revision("bar", "foo",
-			withContainers(containers)),
-		dc: deployment.Config{
-			QueueSidecarRootCA: "xyz",
-		},
-		want: queueContainer(func(c *corev1.Container) {
-			c.Env = env(map[string]string{
-				"ROOT_CA": "xyz",
-			})
-		}),
-	}, {
 		name: "HTTP2 autodetection disabled",
 		rev: revision("bar", "foo",
 			withContainers(containers)),
@@ -1126,7 +1114,6 @@ var defaultEnv = map[string]string{
 	"SERVING_SERVICE":                         "",
 	"SYSTEM_NAMESPACE":                        system.Namespace(),
 	"USER_PORT":                               strconv.Itoa(v1.DefaultUserPort),
-	"ROOT_CA":                                 "",
 	"QUEUE_PROXY_TLS_MIN_VERSION":             "",
 	"QUEUE_PROXY_TLS_MAX_VERSION":             "",
 	"QUEUE_PROXY_TLS_CIPHER_SUITES":           "",

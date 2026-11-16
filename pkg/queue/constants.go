@@ -30,13 +30,4 @@ const (
 
 	// CertDirectory is the name of the directory path where certificates are stored.
 	CertDirectory = "/var/lib/knative/certs"
-
-	// PodInfoDirectory is the name of the directory path where podinfo are stored.
-	PodInfoDirectory = "/etc/podinfo"
-
-	// TokenDirectory is the name of the directory path where tokens are stored.
-	TokenDirectory = "/var/run/secrets/tokens"
-
-	// PodInfoAnnotationsFilename is the file name of the annotations in PodInfoDirectory.
-	PodInfoAnnotationsFilename = "annotations"
 )

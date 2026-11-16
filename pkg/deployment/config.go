@@ -70,10 +70,6 @@ const (
 	queueSidecarMemoryLimitKey           = "queue-sidecar-memory-limit"
 	queueSidecarEphemeralStorageLimitKey = "queue-sidecar-ephemeral-storage-limit"
 
-	// qpoptions
-	queueSidecarTokenAudiencesKey = "queue-sidecar-token-audiences"
-	queueSidecarRooCAKey          = "queue-sidecar-rootca"
-
 	// queueSidecar TLS configuration keys.
 	queueSidecarTLSMinVersionKey       = "queue-sidecar-tls-min-version"
 	queueSidecarTLSMaxVersionKey       = "queue-sidecar-tls-max-version"
@@ -117,20 +113,13 @@ var (
 )
 
 func defaultConfig() *Config {
-	cfg := &Config{
+	return &Config{
 		ProgressDeadline:               ProgressDeadlineDefault,
 		DigestResolutionTimeout:        digestResolutionTimeoutDefault,
 		RegistriesSkippingTagResolving: sets.New("kind.local", "ko.local", "dev.local"),
 		QueueSidecarCPURequest:         &QueueSidecarCPURequestDefault,
 		DefaultAffinityType:            defaultAffinityTypeValue,
 	}
-	// The following code is needed for ConfigMap testing.
-	// defaultConfig must match the example in deployment.yaml which includes: `queue-sidecar-token-audiences: ""`
-	if cfg.QueueSidecarTokenAudiences == nil {
-		cfg.QueueSidecarTokenAudiences = sets.New("")
-	}
-
-	return cfg
 }
 
 func (d Config) PodRuntimeClassName(lbs map[string]string) *string {
@@ -204,9 +193,6 @@ func NewConfigFromMap(configMap map[string]string) (*Config, error) {
 		cm.AsQuantity(queueSidecarCPULimitKey, &nc.QueueSidecarCPULimit),
 		cm.AsQuantity(queueSidecarMemoryLimitKey, &nc.QueueSidecarMemoryLimit),
 		cm.AsQuantity(queueSidecarEphemeralStorageLimitKey, &nc.QueueSidecarEphemeralStorageLimit),
-
-		cm.AsStringSet(queueSidecarTokenAudiencesKey, &nc.QueueSidecarTokenAudiences),
-		cm.AsString(queueSidecarRooCAKey, &nc.QueueSidecarRootCA),
 
 		cm.AsString(queueSidecarTLSMinVersionKey, &nc.QueueSidecarTLSMinVersion),
 		cm.AsString(queueSidecarTLSMaxVersionKey, &nc.QueueSidecarTLSMaxVersion),
@@ -311,13 +297,6 @@ type Config struct {
 	// QueueSidecarEphemeralStorageLimit is the Ephemeral Storage Limit to set
 	// for the queue proxy sidecar container.
 	QueueSidecarEphemeralStorageLimit *resource.Quantity
-
-	// QueueSidecarTokenAudiences is a set of strings defining required tokens  - each string represent the token audience
-	// used by the queue proxy sidecar container to create tokens for qpoptions.
-	QueueSidecarTokenAudiences sets.Set[string]
-
-	// QueueSidecarRootCA is a root certificate to be trusted by the queue proxy sidecar  qpoptions.
-	QueueSidecarRootCA string
 
 	// QueueSidecarTLSMinVersion is the minimum TLS version for the queue proxy sidecar (e.g. "1.2", "1.3").
 	QueueSidecarTLSMinVersion string
