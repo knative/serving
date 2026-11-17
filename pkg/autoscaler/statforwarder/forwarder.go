@@ -75,6 +75,8 @@ type Forwarder struct {
 
 	statCh chan stat
 	stopCh chan struct{}
+
+	cancelOnce sync.Once
 }
 
 // New creates a new Forwarder.
@@ -113,8 +115,24 @@ func (f *Forwarder) setProcessor(bkt string, p bucketProcessor) {
 // It calls Forwarder.accept if the pod where this Forwarder is running is the owner
 // of the given StatMessage. Otherwise it forwards the given StatMessage to the right
 // owner pod. It will retry if any error happens during the processing.
+// Stats may be dropped during shutdown.
 func (f *Forwarder) Process(sm asmetrics.StatMessage) {
-	f.statCh <- stat{sm: sm, retry: 0}
+	f.enqueue(stat{sm: sm, retry: 0})
+}
+
+func (f *Forwarder) enqueue(s stat) {
+	// Return immediately if shutdown has already started.
+	select {
+	case <-f.stopCh:
+		return
+	default:
+	}
+
+	// Release a sender blocked on a full queue when shutdown starts.
+	select {
+	case <-f.stopCh:
+	case f.statCh <- s:
+	}
 }
 
 func (f *Forwarder) process() {
@@ -159,25 +177,29 @@ func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat) {
 		// TODO(yanweiguo): Use RateLimitingInterface and NewItemFastSlowRateLimiter.
 		time.Sleep(retryProcessingInterval)
 		logger.Debug("Enqueuing stat for retry.")
-		f.statCh <- s
+		f.enqueue(s)
 	}()
 }
 
-// Cancel is the function to call when terminating a Forwarder.
+// Cancel stops the Forwarder and waits for processing and retries to finish.
+// It is safe to call concurrently. Pending stats may be dropped.
 func (f *Forwarder) Cancel() {
-	// Tell process go-runtine to stop.
-	close(f.stopCh)
+	f.cancelOnce.Do(func() {
+		close(f.stopCh)
 
-	f.processorsLock.RLock()
-	defer f.processorsLock.RUnlock()
-	for _, p := range f.processors {
-		if p != nil {
-			p.shutdown()
+		f.processorsLock.RLock()
+		for _, p := range f.processors {
+			if p != nil {
+				p.shutdown()
+			}
 		}
-	}
+		f.processorsLock.RUnlock()
 
-	f.processingWg.Wait()
-	close(f.statCh)
+		f.processingWg.Wait()
+
+		// Leave statCh open: concurrent Process callers may still send.
+		// stopCh controls shutdown.
+	})
 }
 
 // IsBucketOwner returns true if this Autoscaler pod is the owner of the given bucket.
