@@ -168,6 +168,7 @@ func (f *Forwarder) process() {
 func (f *Forwarder) maybeRetry(logger *zap.SugaredLogger, s stat) {
 	if s.retry > maxProcessingRetry {
 		logger.Warn("Exceeding max retries. Dropping the stat.")
+		return
 	}
 
 	s.retry++
