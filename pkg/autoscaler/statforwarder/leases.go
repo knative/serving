@@ -197,7 +197,7 @@ func (f *leaseTracker) leaseUpdated(obj interface{}) {
 	}
 	f.logger.Infof("Created Service for Lease %s/%s", ns, n)
 
-	if err := f.createOrUpdateEndpoints(ctx, ns, n); err != nil {
+	if err := f.createOrUpdateEndpoints(ctx, ns, n, holder); err != nil {
 		f.logger.Fatalf("Failed to create Endpoints for Lease %s/%s: %v", ns, n, err)
 		return
 	}
@@ -235,9 +235,17 @@ func (f *leaseTracker) createService(ctx context.Context, ns, n string) error {
 }
 
 // createOrUpdateEndpoints creates an EndpointSlice object with the given namespace and
-// name, and the Forwarder.selfIP. If the EndpointSlice object already
-// exists, it will update the Endpoints with the Forwarder.selfIP.
-func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n string) error {
+// name, the Forwarder.selfIP, and a Pod reference to the lease holder. The
+// reference lets mesh controllers defer endpoint metadata until their Pod cache
+// catches up, rather than caching an endpoint with an unknown TLS identity.
+func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n, holder string) error {
+	podName, _, err := bucket.ExtractPodNameAndIP(holder)
+	if err != nil {
+		return err
+	}
+	if podName == "" {
+		return fmt.Errorf("empty Pod name in lease holder %q", holder)
+	}
 	want := &discoveryv1.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      n,
@@ -249,6 +257,12 @@ func (f *leaseTracker) createOrUpdateEndpoints(ctx context.Context, ns, n string
 		AddressType: addressTypeForIP(f.selfIP),
 		Endpoints: []discoveryv1.Endpoint{{
 			Addresses: []string{f.selfIP},
+			TargetRef: &corev1.ObjectReference{
+				APIVersion: "v1",
+				Kind:       "Pod",
+				Namespace:  ns,
+				Name:       podName,
+			},
 			Conditions: discoveryv1.EndpointConditions{
 				Ready:       ptr.To(true),
 				Serving:     ptr.To(true),
