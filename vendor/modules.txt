@@ -1568,7 +1568,6 @@ knative.dev/networking/pkg/prober
 # knative.dev/pkg v0.0.0-20261116144155-e02e9574667d
 ## explicit; go 1.26.0
 knative.dev/pkg/apiextensions/storageversion
-knative.dev/pkg/apiextensions/storageversion/cmd/migrate
 knative.dev/pkg/apis
 knative.dev/pkg/apis/duck
 knative.dev/pkg/apis/duck/ducktypes
