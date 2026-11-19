@@ -1097,6 +1097,29 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			Paths:   []string{serving.ProgressDeadlineAnnotationKey},
 		}).ViaField("metadata.annotations"),
 	}, {
+		// The Deployment is created with this value as progressDeadlineSeconds,
+		// and Kubernetes rejects anything that is not greater than minReadySeconds (0).
+		name: "zero progress-deadline",
+		ctx:  autoscalerConfigCtx(true, 1),
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					serving.ProgressDeadlineAnnotationKey: "0s",
+				},
+			},
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+		},
+		want: (&apis.FieldError{
+			Message: "progress-deadline=0s must be positive",
+			Paths:   []string{serving.ProgressDeadlineAnnotationKey},
+		}).ViaField("metadata.annotations"),
+	}, {
 		name: "invalid networking.knative.dev/visibility annotation",
 		rts: &RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
