@@ -132,6 +132,56 @@ func TestHTTPProbeSuccess(t *testing.T) {
 	}
 }
 
+func TestHTTPProbeHostHeader(t *testing.T) {
+	var gotHost string
+	server := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		gotHost = r.Host
+		w.WriteHeader(http.StatusOK)
+	})
+
+	action := newHTTPGetAction(t, server.URL)
+	// The kubelet uses a "Host" header from httpHeaders as the Host of the request.
+	action.HTTPHeaders = []corev1.HTTPHeader{{Name: "Host", Value: "app.example.com"}}
+	config := HTTPProbeConfigOptions{
+		Timeout:       time.Second,
+		HTTPGetAction: action,
+		MaxProtoMajor: 1,
+	}
+
+	if err := HTTPProbe(config); err != nil {
+		t.Fatal("Expected probe to succeed but it failed with", err)
+	}
+	if want := "app.example.com"; gotHost != want {
+		t.Errorf("Host = %q, want: %q", gotHost, want)
+	}
+}
+
+func TestHTTPProbeHeadersWithProtocolDetection(t *testing.T) {
+	// The server is only ready for requests that carry the headers of the probe.
+	server := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Host != "app.example.com" || r.Header.Get("Testkey") != "Testval" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+
+	action := newHTTPGetAction(t, server.URL)
+	action.HTTPHeaders = []corev1.HTTPHeader{
+		{Name: "Host", Value: "app.example.com"},
+		{Name: "Testkey", Value: "Testval"},
+	}
+	// MaxProtoMajor is 0, so the probe has to detect the protocol first.
+	config := HTTPProbeConfigOptions{
+		Timeout:       time.Second,
+		HTTPGetAction: action,
+	}
+
+	if err := HTTPProbe(config); err != nil {
+		t.Error("Expected probe to succeed but it failed with", err)
+	}
+}
+
 func TestHTTPSchemeProbeSuccess(t *testing.T) {
 	server := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
