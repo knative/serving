@@ -20,7 +20,7 @@ metadata:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20261111-27ac990b6"
+    app.kubernetes.io/version: "20261119-0c1a45493"
 
 ---
 # Copyright 2020 The Knative Authors
@@ -45,7 +45,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20261111-27ac990b6"
+    app.kubernetes.io/version: "20261119-0c1a45493"
     app.kubernetes.io/name: knative-serving
 data:
   envoy-bootstrap.yaml: |
@@ -66,47 +66,8 @@ data:
       cluster: kourier-knative
       id: 3scale-kourier-gateway
     static_resources:
-      listeners:
-        - name: stats_listener
-          address:
-            socket_address:
-              address: "::"
-              port_value: 9000
-              ipv4_compat: true
-          filter_chains:
-            - filters:
-                - name: envoy.filters.network.http_connection_manager
-                  typed_config:
-                    "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
-                    stat_prefix: stats_server
-                    http_filters:
-                      - name: envoy.filters.http.router
-                        typed_config:
-                          "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
-                    route_config:
-                      virtual_hosts:
-                        - name: admin_interface
-                          domains:
-                            - "*"
-                          routes:
-                            - match:
-                                safe_regex:
-                                  regex: '/(certs|stats(/prometheus)?|server_info|clusters|listeners|ready)?'
-                                headers:
-                                  - name: ':method'
-                                    string_match:
-                                      exact: GET
-                              route:
-                                cluster: service_stats
-                            - match:
-                                safe_regex:
-                                  regex: '/drain_listeners'
-                                headers:
-                                  - name: ':method'
-                                    string_match:
-                                      exact: POST
-                              route:
-                                cluster: service_stats
+      # The stats listener is delivered through LDS so it can honor
+      # config-kourier's listen-ip-addresses without requiring kernel IPv6 support.
       clusters:
         - name: service_stats
           connect_timeout: 0.250s
@@ -175,7 +136,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20261111-27ac990b6"
+    app.kubernetes.io/version: "20261119-0c1a45493"
     app.kubernetes.io/name: knative-serving
 data:
   _example: |
@@ -193,6 +154,12 @@ data:
     # These sample configuration options may be copied out of
     # this example block and unindented to be in the data block
     # to actually change the configuration.
+
+    # Comma-separated IP addresses for gateway listeners, including the stats
+    # listener on port 9000. Defaults to IPv4; use "::" for IPv6 or
+    # "0.0.0.0,::" for dual-stack. IPv6 addresses require kernel IPv6 support.
+    # Stats become available after the gateway receives its LDS configuration.
+    listen-ip-addresses: "0.0.0.0"
 
     # Specifies whether requests reaching the Kourier gateway
     # in the context of services should be logged. Readiness
@@ -326,7 +293,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20261111-27ac990b6"
+    app.kubernetes.io/version: "20261119-0c1a45493"
     app.kubernetes.io/name: knative-serving
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -336,7 +303,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20261111-27ac990b6"
+    app.kubernetes.io/version: "20261119-0c1a45493"
     app.kubernetes.io/name: knative-serving
 rules:
   - apiGroups: [""]
@@ -368,7 +335,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20261111-27ac990b6"
+    app.kubernetes.io/version: "20261119-0c1a45493"
     app.kubernetes.io/name: knative-serving
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -402,7 +369,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20261111-27ac990b6"
+    app.kubernetes.io/version: "20261119-0c1a45493"
     app.kubernetes.io/name: knative-serving
 spec:
   strategy:
@@ -424,7 +391,7 @@ spec:
         app: net-kourier-controller
     spec:
       containers:
-        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:681fdad8a039959c9412d54770806ffaa1b2b8fc59c98811908305c3b28c67a3
+        - image: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier@sha256:414e5fb2d76166e12d02f1a8cac8d92e1b30a63e478c5da5a89a8fe3da639123
           name: controller
           env:
             # CERTS_SECRET_NAMESPACE and CERTS_SECRET_NAME can also be configured from a ConfigMap.
@@ -494,7 +461,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20261111-27ac990b6"
+    app.kubernetes.io/version: "20261119-0c1a45493"
     app.kubernetes.io/name: knative-serving
 spec:
   ports:
@@ -533,7 +500,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20261111-27ac990b6"
+    app.kubernetes.io/version: "20261119-0c1a45493"
     app.kubernetes.io/name: knative-serving
 spec:
   strategy:
@@ -566,6 +533,7 @@ spec:
           command:
             - /usr/local/bin/envoy
           env:
+            # Used by Envoy's drain timer and the preStop helper's deadline.
             - name: DRAIN_TIME_SECONDS
               value: "15"
           image: docker.io/envoyproxy/envoy:v1.37-latest
@@ -603,10 +571,13 @@ spec:
           volumeMounts:
             - name: config-volume
               mountPath: /tmp/config
+            - name: drain-helper
+              mountPath: /drain-helper
+              readOnly: true
           lifecycle:
             preStop:
               exec:
-                command: ["/bin/sh", "-c", "curl -X POST http://localhost:9901/drain_listeners?graceful; sleep $DRAIN_TIME_SECONDS"]
+                command: ["/drain-helper/ko-app/drain"]
           readinessProbe:
             httpGet:
               httpHeaders:
@@ -638,12 +609,18 @@ spec:
             limits:
               cpu: "1"
               memory: 800Mi
-      # to ensure a graceful drain, terminationGracePeriodSeconds must be greater than DRAIN_TIME_SECONDS environment variable
+      # The grace period includes preStop. Keep it longer than DRAIN_TIME_SECONDS
+      # to leave time for Envoy to handle SIGTERM after the hook finishes;
+      # kubelet eventually sends SIGKILL if the grace period expires.
       terminationGracePeriodSeconds: 30
       volumes:
         - name: config-volume
           configMap:
             name: kourier-bootstrap
+        - name: drain-helper
+          image:
+            reference: gcr.io/knative-nightly/knative.dev/net-kourier/cmd/drain@sha256:3981226a4f7006109b23ef52ee883cce12607f4cd114684f2bd835130b4d7256
+            pullPolicy: IfNotPresent
       restartPolicy: Always
 ---
 apiVersion: v1
@@ -654,7 +631,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20261111-27ac990b6"
+    app.kubernetes.io/version: "20261119-0c1a45493"
     app.kubernetes.io/name: knative-serving
 spec:
   ports:
@@ -678,7 +655,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20261111-27ac990b6"
+    app.kubernetes.io/version: "20261119-0c1a45493"
     app.kubernetes.io/name: knative-serving
 spec:
   ports:
@@ -702,7 +679,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20261111-27ac990b6"
+    app.kubernetes.io/version: "20261119-0c1a45493"
     app.kubernetes.io/name: knative-serving
 spec:
   minReplicas: 1
@@ -728,7 +705,7 @@ metadata:
   labels:
     networking.knative.dev/ingress-provider: kourier
     app.kubernetes.io/component: net-kourier
-    app.kubernetes.io/version: "20261111-27ac990b6"
+    app.kubernetes.io/version: "20261119-0c1a45493"
     app.kubernetes.io/name: knative-serving
 spec:
   minAvailable: 80%
