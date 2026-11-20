@@ -161,6 +161,58 @@ func TestPodDirectScrapeSuccess(t *testing.T) {
 	}
 }
 
+func TestPodDirectScrapeIPv6(t *testing.T) {
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	wf, err := RunAndSyncInformers(ctx, informers...)
+	if err != nil {
+		cancel()
+		t.Fatal("Failed to start informers:", err)
+	}
+	t.Cleanup(func() {
+		cancel()
+		wf()
+	})
+
+	podIPs := []string{"fd00::4", "fd00::5", "2001:db8::6"}
+	startTime := metav1.Now()
+	for i, ip := range podIPs {
+		p := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "ipv6-pod-" + strconv.Itoa(i),
+				Namespace: testNamespace,
+				Labels:    map[string]string{serving.RevisionLabelKey: testRevision},
+			},
+			Status: corev1.PodStatus{
+				StartTime: &startTime,
+				Phase:     corev1.PodRunning,
+				PodIP:     ip,
+				Conditions: []corev1.PodCondition{{
+					Type:   corev1.PodReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		}
+		fakekubeclient.Get(ctx).CoreV1().Pods(testNamespace).Create(ctx, p, metav1.CreateOptions{})
+		fakepodsinformer.Get(ctx).Informer().GetIndexer().Add(p)
+	}
+
+	client := newTestScrapeClient(testStats, []error{nil})
+	// In the disabled mode the pods are scraped directly, with no fallback to the service.
+	scraper := serviceScraperForTest(ctx, t, netcfg.MeshCompatibilityModeDisabled, client, nil /* mesh not used */, true /*podsAddressable*/, false /*passthroughLb*/)
+	if _, err := scraper.Scrape(defaultMetric.Spec.StableWindow); err != nil {
+		t.Fatal("Unexpected error from scraper.Scrape():", err)
+	}
+
+	want := sets.New(
+		"http://[fd00::4]:9090/metrics",
+		"http://[fd00::5]:9090/metrics",
+		"http://[2001:db8::6]:9090/metrics",
+	)
+	if !client.urls.Equal(want) {
+		t.Errorf("Scraped URLs = %v, want: %v", sets.List(client.urls), sets.List(want))
+	}
+}
+
 func TestPodDirectScrapeSomeFailButSuccess(t *testing.T) {
 	// For 5 pods, we need 4 successes.
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
