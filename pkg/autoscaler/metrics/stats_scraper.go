@@ -295,7 +295,10 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 	}
 	pods = append(pods, youngPods...)
 
-	grp, egCtx := errgroup.WithContext(context.Background())
+	// Let in-flight scrapes finish when another worker runs out of pods.
+	// Canceling them would turn mesh errors into non-mesh context errors
+	// and prevent falling back to service scraping.
+	var grp errgroup.Group
 	var idx atomic.Int32
 	idx.Store(-1)
 	var sawNonMeshError atomic.Bool
@@ -314,7 +317,7 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 
 				// Scrape!
 				target := "http://" + pods[myIdx] + ":" + portAndPath
-				req, err := http.NewRequestWithContext(egCtx, http.MethodGet, target, nil)
+				req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, target, nil)
 				if err != nil {
 					return err
 				}

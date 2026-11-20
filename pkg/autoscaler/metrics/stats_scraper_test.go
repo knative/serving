@@ -843,6 +843,10 @@ type fakeScrapeClient struct {
 func (c *fakeScrapeClient) Do(req *http.Request) (Stat, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
+	// Like the HTTP client, honor cancellation of in-flight scrapes.
+	if err := context.Cause(req.Context()); err != nil {
+		return emptyStat, err
+	}
 	ans := c.stats[c.curIdx%len(c.stats)]
 	err := c.errs[c.curIdx%len(c.errs)]
 	c.curIdx++
