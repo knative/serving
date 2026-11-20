@@ -176,6 +176,23 @@ jobs:
         name: artifacts
         path: ~/artifacts
 
+    - name: Configure inotify limits for kind
+      run: |
+        echo "Current host limits:"
+        sysctl fs.inotify.max_user_instances fs.inotify.max_user_watches
+        sysctl fs.file-max fs.nr_open
+        echo "Open-file limits (soft/hard):"
+        ulimit -Sn
+        ulimit -Hn
+
+        # All five kind nodes share the host's per-user inotify instance quota.
+        # Increase headroom without lowering an already higher limit or changing
+        # the watch limit. Containerd and kube-proxy can fail when it is exhausted.
+        current=$(sysctl -n fs.inotify.max_user_instances)
+        if [ "$current" -lt 8192 ]; then
+          sudo sysctl -w fs.inotify.max_user_instances=8192
+        fi
+
     - name: setup kind
       uses: chainguard-dev/actions/setup-kind@53668650c25af6e8864f1d1ddaa69ed4db4cdf09 # v1.6.42
       with:
