@@ -295,13 +295,10 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 	}
 	pods = append(pods, youngPods...)
 
-	// Let in-flight scrapes finish when another worker runs out of pods.
-	// Canceling them would turn mesh errors into non-mesh context errors
-	// and prevent falling back to service scraping.
-	var grp errgroup.Group
+	grp, egCtx := errgroup.WithContext(context.Background())
 	var idx atomic.Int32
 	idx.Store(-1)
-	var sawNonMeshError atomic.Bool
+	var sawMeshError, sawNonMeshError atomic.Bool
 	// Start |sampleSize| threads to scan in parallel.
 	for range sampleSize {
 		grp.Go(func() error {
@@ -317,7 +314,7 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 
 				// Scrape!
 				target := "http://" + pods[myIdx] + ":" + portAndPath
-				req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, target, nil)
+				req, err := http.NewRequestWithContext(egCtx, http.MethodGet, target, nil)
 				if err != nil {
 					return err
 				}
@@ -333,7 +330,14 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 					return nil
 				}
 
-				if !isPotentialMeshError(err) {
+				// Another worker exhausting the candidates cancels in-flight requests.
+				// That cancellation is not evidence of a non-mesh failure.
+				if errors.Is(context.Cause(egCtx), errPodsExhausted) && errors.Is(err, errPodsExhausted) {
+					return errPodsExhausted
+				}
+				if isPotentialMeshError(err) {
+					sawMeshError.Store(true)
+				} else {
 					sawNonMeshError.Store(true)
 				}
 
@@ -353,14 +357,14 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 			s.logger.Warn("Too many pods failed scraping for meaningful interpolation")
 			return emptyStat, errPodsExhausted
 		}
-		// We didn't get any pods, but we don't want to fall back to service
-		// scraping because we saw an error which was not mesh-related.
-		if sawNonMeshError.Load() {
-			s.logger.Warn("0 pods scraped, but did not see a mesh-related error")
+		// Try service scraping only if we observed a mesh-compatible error
+		// and no genuine non-mesh errors. Canceled requests have unknown outcomes.
+		if !sawMeshError.Load() || sawNonMeshError.Load() {
+			s.logger.Warn("0 pods scraped without sufficient evidence of a mesh")
 			return emptyStat, errPodsExhausted
 		}
-		// No pods, and we only saw mesh-related errors, so infer that mesh must be
-		// enabled and fall back to service scraping.
+		// A successful service scrape will confirm the fallback before we
+		// disable direct pod scraping.
 		s.logger.Warn("0 pods were successfully scraped out of ", strconv.Itoa(len(pods)))
 		return emptyStat, errDirectScrapingNotAvailable
 	}
