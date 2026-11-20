@@ -96,8 +96,12 @@ func MakeDecider(pa *autoscalingv1alpha1.PodAutoscaler, config *autoscalerconfig
 func GetInitialScale(asConfig *autoscalerconfig.Config, pa *autoscalingv1alpha1.PodAutoscaler) int32 {
 	initialScale := asConfig.InitialScale
 	revisionInitialScale, ok := pa.InitialScale()
-	if !ok || (revisionInitialScale == 0 && !asConfig.AllowZeroInitialScale) {
-		return initialScale
+	if ok && (revisionInitialScale != 0 || asConfig.AllowZeroInitialScale) {
+		initialScale = revisionInitialScale
 	}
-	return revisionInitialScale
+	_, maxScale := pa.ScaleBounds(asConfig)
+	if maxScale > 0 && initialScale > maxScale {
+		initialScale = maxScale
+	}
+	return initialScale
 }
