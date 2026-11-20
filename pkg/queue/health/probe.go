@@ -97,6 +97,34 @@ func getURL(config HTTPProbeConfigOptions) (*url.URL, error) {
 	return url.Parse(string(config.Scheme) + "://" + net.JoinHostPort(config.Host, config.Port.String()) + "/" + strings.TrimPrefix(config.Path, "/"))
 }
 
+// newProbeRequest builds the GET request of an HTTP probe the way the kubelet
+// does: the headers of the probe are sent as they are and, since Go ignores a
+// "Host" entry in Header, a "Host" header is used as the Host of the request.
+func newProbeRequest(config HTTPProbeConfigOptions) (*http.Request, error) {
+	url, err := getURL(config)
+	if err != nil {
+		return nil, fmt.Errorf("error constructing probe url %w", err)
+	}
+
+	// do a simple GET request as Kubernetes does, avoid non-standard methods like HEAD
+	//nolint:noctx // timeout is specified on the http.Client of the caller
+	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("error constructing probe request %w", err)
+	}
+
+	req.Header.Add(netheader.UserAgentKey, netheader.KubeProbeUAPrefix+config.KubeMajor+"/"+config.KubeMinor)
+
+	for _, header := range config.HTTPHeaders {
+		req.Header.Add(header.Name, header.Value)
+	}
+	if host := req.Header.Get("Host"); host != "" {
+		req.Host = host
+	}
+
+	return req, nil
+}
+
 // detectHTTPProtocolVersion detects the highest HTTP protocol version supported by the server.
 // Attempts H2C first, falls back to HTTP/1 if that fails or returns non-ready status.
 // Returns 2 (H2C ready), 1 (HTTP/1 ready), or 0 (not ready/error).
@@ -107,18 +135,10 @@ func detectHTTPProtocolVersion(config HTTPProbeConfigOptions) (int, error) {
 		Transport: cleartextProbeTransport(2),
 	}
 
-	url, err := getURL(config)
+	req, err := newProbeRequest(config)
 	if err != nil {
-		return 0, fmt.Errorf("error constructing probe url %w", err)
+		return 0, err
 	}
-
-	// do a simple GET request as Kubernetes does, avoid non-standard methods like HEAD
-	//nolint:noctx // timeout is specified on the http.Client above
-	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
-	if err != nil {
-		return 0, fmt.Errorf("error constructing probe request %w", err)
-	}
-	req.Header.Add(netheader.UserAgentKey, netheader.KubeProbeUAPrefix+config.KubeMajor+"/"+config.KubeMinor)
 
 	if res, err := httpClient.Do(req); err == nil {
 		defer res.Body.Close()
@@ -169,21 +189,9 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 		Transport: cleartextProbeTransport(config.MaxProtoMajor),
 		Timeout:   config.Timeout,
 	}
-	url, err := getURL(config)
+	req, err := newProbeRequest(config)
 	if err != nil {
-		return fmt.Errorf("error constructing probe url %w", err)
-	}
-
-	//nolint:noctx // timeout is specified on the http.Client above
-	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
-	if err != nil {
-		return fmt.Errorf("error constructing probe request %w", err)
-	}
-
-	req.Header.Add(netheader.UserAgentKey, netheader.KubeProbeUAPrefix+config.KubeMajor+"/"+config.KubeMinor)
-
-	for _, header := range config.HTTPHeaders {
-		req.Header.Add(header.Name, header.Value)
+		return err
 	}
 
 	res, err := httpClient.Do(req)
