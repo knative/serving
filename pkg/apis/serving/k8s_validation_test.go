@@ -3007,7 +3007,51 @@ func getCommonContainerValidationTestCases() []containerValidationTestCase {
 			Image:   "foo",
 			EnvFrom: []corev1.EnvFromSource{{}},
 		},
-		want: apis.ErrMissingOneOf("envFrom.configMapRef", "envFrom.secretRef"),
+		want: apis.ErrMissingOneOf("envFrom[0].configMapRef", "envFrom[0].secretRef"),
+	}, {
+		name: "envFrom - None of, in the second entry",
+		c: corev1.Container{
+			Image: "foo",
+			EnvFrom: []corev1.EnvFromSource{{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "SecretName",
+					},
+				},
+			}, {}},
+		},
+		want: apis.ErrMissingOneOf("envFrom[1].configMapRef", "envFrom[1].secretRef"),
+	}, {
+		name: "envFrom - errors in different entries",
+		c: corev1.Container{
+			Image: "foo",
+			EnvFrom: []corev1.EnvFromSource{{}, {
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "SecretName",
+					},
+				},
+			}, {
+				ConfigMapRef: &corev1.ConfigMapEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "ConfigMapName",
+					},
+				},
+			}, {
+				ConfigMapRef: &corev1.ConfigMapEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "ConfigMapName",
+					},
+				},
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "SecretName",
+					},
+				},
+			}},
+		},
+		want: apis.ErrMissingOneOf("envFrom[0].configMapRef", "envFrom[0].secretRef").
+			Also(apis.ErrMultipleOneOf("envFrom[3].configMapRef", "envFrom[3].secretRef")),
 	}, {
 		name: "envFrom - Multiple",
 		c: corev1.Container{
@@ -3025,7 +3069,7 @@ func getCommonContainerValidationTestCases() []containerValidationTestCase {
 				},
 			}},
 		},
-		want: apis.ErrMultipleOneOf("envFrom.configMapRef", "envFrom.secretRef"),
+		want: apis.ErrMultipleOneOf("envFrom[0].configMapRef", "envFrom[0].secretRef"),
 	}, {
 		name: "envFrom - Secret",
 		c: corev1.Container{
