@@ -173,5 +173,7 @@ func URL(scheme, fqdn string) *apis.URL {
 
 // IsClusterLocal checks if a domain is only visible with cluster.
 func IsClusterLocal(domain string) bool {
-	return strings.HasSuffix(domain, pkgnet.GetClusterDomainName())
+	clusterDomain := pkgnet.GetClusterDomainName()
+	// Only whole DNS labels count: "my-app.mycluster.local" is not a subdomain of "cluster.local".
+	return domain == clusterDomain || strings.HasSuffix(domain, "."+clusterDomain)
 }
