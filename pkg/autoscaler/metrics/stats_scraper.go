@@ -330,14 +330,13 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 					return nil
 				}
 
-				// Another worker exhausting the candidates cancels in-flight requests.
-				// That cancellation is not evidence of a non-mesh failure.
-				if errors.Is(context.Cause(egCtx), errPodsExhausted) && errors.Is(err, errPodsExhausted) {
+				switch {
+				case errors.Is(err, errPodsExhausted):
+					// Another worker exhausted the candidates and canceled this request.
 					return errPodsExhausted
-				}
-				if isPotentialMeshError(err) {
+				case isPotentialMeshError(err):
 					sawMeshError.Store(true)
-				} else {
+				default:
 					sawNonMeshError.Store(true)
 				}
 
