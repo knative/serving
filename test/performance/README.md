@@ -15,7 +15,6 @@ different rate, you can write your own pacer by implementing
 interface. Custom pacer implementations used in Knative tests are under
 [pacers](https://github.com/knative/pkg/tree/main/test/vegeta/pacers).
 
-
 ## Testing architecture
 
 The performance tests are based on Kubernetes Jobs running Golang code based on different [benchmarks](#benchmarks).
@@ -23,10 +22,10 @@ The script [performance-tests.sh](./performance-tests.sh) first creates a cluste
 for the performance tests. Then it installs the required Knative Services and runs the testing jobs.
 
 The results are written to:
-* Stdout
-* A logfile in a folder defined in env: `$ARTIFACTS`
-* To an InfluxDB hosted in the knative-community GKE project: https://github.com/knative/infra/tree/main/infra/k8s/shared
 
+- Stdout
+- A logfile in a folder defined in env: `$ARTIFACTS`
+- To an InfluxDB hosted in the knative-community GKE project: https://github.com/knative/infra/tree/main/infra/k8s/shared
 
 ## Grafana
 
@@ -34,18 +33,16 @@ To better visualize the test results, Grafana is used to show the results in a d
 The dashboard is defined in [grafana-dashboard.json](./visualization/grafana-dashboard.json) and
 hosted on [grafana.knative.dev](https://grafana.knative.dev/d/igHJ5-fdk/knative-serving-performance-tests?orgId=1)
 
-
 ## Benchmarks
 
 Knative Serving has different benchmarking scenarios:
 
-* [dataplane-probe](./benchmarks/dataplane-probe): Measures the overhead Knative has compared to a `Deployment`
-* [load-test](./benchmarks/load-test): Measures request metrics for Knative Services under load in different scenarios (Activator always in path, Activator only in path at zero, Activator moving out of path on high-load)
-* [real-traffic-test](./benchmarks/real-traffic-test): Simulates realistic traffic with random request latency, service startup latency and payload sizes.
-* [reconciliation-delay](./benchmarks/reconciliation-delay): Measures the time it takes to reconcile a `KnativeService` and its child CRs.
-* [rollout-probe](./benchmarks/rollout-probe): Measures request metrics for a rolling update of a scaled `KnativeService`.
-* [scale-from-zero](./benchmarks/scale-from-zero): Measures the latency of scaling 1, 5, 25 and 100 Knative Services from zero in parallel.
-
+- [dataplane-probe](./benchmarks/dataplane-probe): Measures the overhead Knative has compared to a `Deployment`
+- [load-test](./benchmarks/load-test): Measures request metrics for Knative Services under load in different scenarios (Activator always in path, Activator only in path at zero, Activator moving out of path on high-load)
+- [real-traffic-test](./benchmarks/real-traffic-test): Simulates realistic traffic with random request latency, service startup latency and payload sizes.
+- [reconciliation-delay](./benchmarks/reconciliation-delay): Measures the time it takes to reconcile a `KnativeService` and its child CRs.
+- [rollout-probe](./benchmarks/rollout-probe): Measures request metrics for a rolling update of a scaled `KnativeService`.
+- [scale-from-zero](./benchmarks/scale-from-zero): Measures the latency of scaling 1, 5, 25 and 100 Knative Services from zero in parallel.
 
 ## Running the benchmarks
 
@@ -81,14 +78,14 @@ export INFLUX_TOKEN=$(kubectl get secret local-influx-influxdb2-auth -o "jsonpat
 Use an existing grafana instance or create one on your cluster, [see docs](https://grafana.com/docs/grafana/latest/setup-grafana/installation/kubernetes/).
 
 To use our InfluxDB as a datasource for Grafana
-* Navigate to Grafana UI and log in using the user from the installation
-* Create a new datasource for InfluxDB
-* Select the flux query language
-* Server-URL: http://local-influx-influxdb2.influx:80  (Note: this could be different if your grafana instance is hosted outside the cluster)
-* Organization: Knativetest
-* Bucket: knative-serving
-* Token: <your influx-db token>
 
+- Navigate to Grafana UI and log in using the user from the installation
+- Create a new datasource for InfluxDB
+- Select the flux query language
+- Server-URL: http://local-influx-influxdb2.influx:80 (Note: this could be different if your grafana instance is hosted outside the cluster)
+- Organization: Knativetest
+- Bucket: knative-serving
+- Token: <your influx-db token>
 
 ### Local development
 
@@ -98,12 +95,12 @@ You can run all the benchmarks directly by calling the `main()` method in `main.
 
 The tests expect to be configured with certain environment variables:
 
-* KO_DOCKER_REPO = What you have set for `ko`
-* SYSTEM_NAMESPACE = Where knative-serving is installed, typically `knative-serving`
-* INFLUX_URL = http://local-influx-influxdb2.influx:80
-* INFLUX_TOKEN = as outputted from the command above
-* BUILD_ID=local
-* JOB_NAME=local
+- KO_DOCKER_REPO = What you have set for `ko`
+- SYSTEM_NAMESPACE = Where knative-serving is installed, typically `knative-serving`
+- INFLUX_URL = http://local-influx-influxdb2.influx:80
+- INFLUX_TOKEN = as outputted from the command above
+- BUILD_ID=local
+- JOB_NAME=local
 
 and a `Secret` in the `default` namespace with the following contents:
 

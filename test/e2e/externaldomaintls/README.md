@@ -4,10 +4,11 @@ feature, check out the [External Domain TLS](https://knative.dev/docs/serving/us
 feature documentation.
 
 # Prerequisites
-* Have `cert-manager` installed
-* Have the Knative certmanager integration enabled
-* Upload test images with `./test/upload-test-images.sh`
-* Enable `external-domain-tls` with `kubectl patch cm config-network -n knative-serving -p '{"data":{"external-domain-tls": "enabled"}}'`
+
+- Have `cert-manager` installed
+- Have the Knative certmanager integration enabled
+- Upload test images with `./test/upload-test-images.sh`
+- Enable `external-domain-tls` with `kubectl patch cm config-network -n knative-serving -p '{"data":{"external-domain-tls": "enabled"}}'`
 
 To run External Domain TLS E2E test locally, run the following commands:
 

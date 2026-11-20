@@ -72,23 +72,25 @@ It is possible to run the conformance tests by a user with reduced privileges, e
 The environment needs to meet similar requirements as in [running conformance tests](#running-conformance-tests)
 but the test resources can be limited to minimum and so the user can install them.
 Running the conformance tests then consists of these steps:
+
 1. The cluster admin creates the cluster scope resources
    ```bash
    kubectl apply -f test/config/cluster-resources.yaml
    ```
 1. The project admin installs minimum test resources:
-    ```bash
-    kubectl apply -f test/config/test-resources.yaml
-    ```
+   ```bash
+   kubectl apply -f test/config/test-resources.yaml
+   ```
 1. The project admin then runs the conformance test suite using the `--disable-logstream` flag:
-    ```bash
-    go test -v -tags=e2e -count=1 ./test/conformance/... \
-      -disable-logstream \
-      -kubeconfig=$PROJECT_ADMIN_KUBECONFIG
-    ```
+   ```bash
+   go test -v -tags=e2e -count=1 ./test/conformance/... \
+     -disable-logstream \
+     -kubeconfig=$PROJECT_ADMIN_KUBECONFIG
+   ```
 
 The tests can be run in arbitrary test namespaces. If you modify the namespaces of the
 resources above you must pass the updated values to the Golang test suite:
+
 ```bash
 go test -tags=e2e -count=1 ./test/conformance/... \
   -disable-logstream \

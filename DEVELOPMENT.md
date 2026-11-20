@@ -146,9 +146,9 @@ Kubernetes cluster in your designated environment, if necessary.
   locally, set `KO_DOCKER_REPO=ko.local` (or `KO_DOCKER_REPO=kind.local` respectively)
   to avoid needing to push your images to an off-machine registry.
 
-- By default, `ko` will build container images for the architecture of your local machine, 
-  but if you need to build images for a different platform (OS and architecture), 
-  you can provide `--platform` flag as follows: 
+- By default, `ko` will build container images for the architecture of your local machine,
+  but if you need to build images for a different platform (OS and architecture),
+  you can provide `--platform` flag as follows:
 
   ```shell
   # Synopsis
@@ -248,9 +248,9 @@ of:
 
     ```yaml
     additionalMarkers:
-    # Part of a feature flag - so we want to omit the schema and preserve unknown fields
-    - kubebuilder:validation:DropProperties
-    - kubebuilder:pruning:PreserveUnknownFields
+      # Part of a feature flag - so we want to omit the schema and preserve unknown fields
+      - kubebuilder:validation:DropProperties
+      - kubebuilder:pruning:PreserveUnknownFields
     ```
 
 These are all idempotent, and we expect that running these at `HEAD` to have no
