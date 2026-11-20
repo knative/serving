@@ -169,6 +169,7 @@ type timeoutWriter struct {
 	mu            sync.Mutex
 	timedOut      bool
 	lastWriteTime time.Time
+	discardHeader http.Header
 }
 
 var (
@@ -201,7 +202,23 @@ func (tw *timeoutWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return websocket.HijackIfPossible(tw.w)
 }
 
-func (tw *timeoutWriter) Header() http.Header { return tw.w.Header() }
+// Header returns the header map from the underlying writer, or an isolated
+// header map if the timeout has already expired. This prevents handlers running
+// after a timeout (e.g. ReverseProxy error handlers) from mutating the underlying
+// response headers while the outer HTTP server finalizes the response.
+func (tw *timeoutWriter) Header() http.Header {
+	tw.mu.Lock()
+	defer tw.mu.Unlock()
+
+	if tw.timedOut {
+		if tw.discardHeader == nil {
+			tw.discardHeader = make(http.Header)
+		}
+		return tw.discardHeader
+	}
+
+	return tw.w.Header()
+}
 
 func (tw *timeoutWriter) Write(p []byte) (int, error) {
 	tw.mu.Lock()
@@ -283,6 +300,9 @@ func (tw *timeoutWriter) timeoutAndWriteError(msg string) {
 	io.WriteString(tw.w, msg)
 
 	tw.timedOut = true
+	if tw.discardHeader == nil {
+		tw.discardHeader = make(http.Header)
+	}
 }
 
 var timerPool sync.Pool

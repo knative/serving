@@ -97,6 +97,92 @@ func TestTimeoutWriterErrorsWriteAfterTimeout(t *testing.T) {
 	}
 }
 
+func TestTimeoutWriterHeaderBeforeTimeout(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	handler := &timeoutWriter{w: recorder, clock: clock.RealClock{}}
+	handler.Header().Set("X-Test-Key", "test-value")
+
+	if got, want := recorder.Header().Get("X-Test-Key"), "test-value"; got != want {
+		t.Errorf("recorder.Header().Get(X-Test-Key) = %q, want %q", got, want)
+	}
+}
+
+func TestTimeoutWriterHeaderAfterTimeoutDoesNotMutateUnderlying(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	handler := &timeoutWriter{w: recorder, clock: clock.RealClock{}}
+	handler.timeoutAndWriteError("error")
+
+	// Mutating headers after timeout should be discarded and not affect the underlying writer.
+	handler.Header().Set("X-Post-Timeout", "discard-me")
+
+	if got := recorder.Header().Get("X-Post-Timeout"); got != "" {
+		t.Errorf("recorder.Header().Get(X-Post-Timeout) = %q, want empty", got)
+	}
+	if got, want := handler.Header().Get("X-Post-Timeout"), "discard-me"; got != want {
+		t.Errorf("handler.Header().Get(X-Post-Timeout) = %q, want %q", got, want)
+	}
+}
+
+func TestTimeoutWriterConcurrentHeaderAccessAfterTimeout(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	recorder.Header().Set("Initial-Header", "value")
+	handler := &timeoutWriter{w: recorder, clock: clock.RealClock{}}
+	handler.timeoutAndWriteError("error")
+
+	var wg sync.WaitGroup
+	// Simulate outer HTTP server iterating over the underlying headers during finalization.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 1000; i++ {
+			for k, v := range recorder.Header() {
+				_ = k
+				_ = v
+			}
+		}
+	}()
+
+	// Simulate inner handler / ReverseProxy error handler setting headers post-timeout.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 1000; i++ {
+			handler.Header().Set("X-Concurrent-Test", "value")
+			handler.Header().Del("X-Concurrent-Test")
+		}
+	}()
+
+	wg.Wait()
+}
+
+func TestTimeoutHandlerHeaderMutationAfterTimeout(t *testing.T) {
+	innerDone := make(chan struct{})
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Wait for context cancellation due to timeout
+		<-r.Context().Done()
+		// Attempt to set headers in error handler (simulating ReverseProxy.ErrorHandler / http.Error)
+		w.Header().Set("X-Inner-Error", "failed")
+		close(innerDone)
+	})
+
+	timeoutHandler := NewTimeoutHandler(handler, "timeout",
+		StaticTimeoutFunc(10*time.Millisecond, 0, 0), zaptest.NewLogger(t).Sugar())
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rr := httptest.NewRecorder()
+
+	timeoutHandler.ServeHTTP(rr, req)
+
+	<-innerDone
+
+	if got := rr.Header().Get("X-Inner-Error"); got != "" {
+		t.Errorf("rr.Header().Get(X-Inner-Error) = %q, want empty", got)
+	}
+	if got, want := rr.Code, http.StatusGatewayTimeout; got != want {
+		t.Errorf("rr.Code = %d, want %d", got, want)
+	}
+}
+
 func TestTryTimeoutAndWriteErrorBehavior(t *testing.T) {
 	tests := []struct {
 		name           string
