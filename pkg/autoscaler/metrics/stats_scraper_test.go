@@ -276,23 +276,33 @@ func TestPodDirectScrapeMeshErrorWithCancellation(t *testing.T) {
 		directMode    bool
 		passthroughLb bool
 		wantFallback  bool
-	}{
-		{
-			name: "MeshErrorAndCanceledRequests", statuses: []int{http.StatusServiceUnavailable}, wantFallback: true,
-		}, {
-			name: "NonMeshErrorAndCanceledRequests", statuses: []int{http.StatusInternalServerError},
-		}, {
-			name: "MeshErrorAndDirectSuccess", statuses: []int{http.StatusServiceUnavailable, http.StatusOK},
-		}, {
-			name: "MeshErrorAndObservedNonMeshError", statuses: []int{http.StatusServiceUnavailable, http.StatusInternalServerError},
-		}, {
-			name: "FailedServiceScrapeDoesNotSwitchModes", statuses: []int{http.StatusServiceUnavailable}, serviceFails: true, wantFallback: true,
-		}, {
-			name: "DirectModeDoesNotFallback", statuses: []int{http.StatusServiceUnavailable}, directMode: true,
-		}, {
-			name: "PassthroughDoesNotFallback", statuses: []int{http.StatusServiceUnavailable}, passthroughLb: true,
-		},
-	} {
+	}{{
+		name:         "MeshErrorAndCanceledRequests",
+		statuses:     []int{http.StatusServiceUnavailable},
+		wantFallback: true,
+	}, {
+		name:     "NonMeshErrorAndCanceledRequests",
+		statuses: []int{http.StatusInternalServerError},
+	}, {
+		name:     "MeshErrorAndDirectSuccess",
+		statuses: []int{http.StatusServiceUnavailable, http.StatusOK},
+	}, {
+		name:     "MeshErrorAndObservedNonMeshError",
+		statuses: []int{http.StatusServiceUnavailable, http.StatusInternalServerError},
+	}, {
+		name:         "FailedServiceScrapeDoesNotSwitchModes",
+		statuses:     []int{http.StatusServiceUnavailable},
+		serviceFails: true,
+		wantFallback: true,
+	}, {
+		name:       "DirectModeDoesNotFallback",
+		statuses:   []int{http.StatusServiceUnavailable},
+		directMode: true,
+	}, {
+		name:          "PassthroughDoesNotFallback",
+		statuses:      []int{http.StatusServiceUnavailable},
+		passthroughLb: true,
+	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel, _ := SetupFakeContextWithCancel(t)
 			t.Cleanup(cancel)
