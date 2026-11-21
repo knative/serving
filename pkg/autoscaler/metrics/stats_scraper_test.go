@@ -238,10 +238,34 @@ func TestPodDirectScrapeAllFailWithMeshError(t *testing.T) {
 	}
 }
 
-type scrapeRoundTripperFunc func(*http.Request) (*http.Response, error)
+type podScrapeRoundTripper struct {
+	statuses         []int
+	expectedRequests int32
+	allStarted       chan struct{}
+	started          atomic.Int32
+	canceled         atomic.Int32
+}
 
-func (f scrapeRoundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
-	return f(req)
+func (rt *podScrapeRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Assign every candidate before returning any responses. Once a worker
+	// exhausts the list, the remaining requests must be canceled promptly.
+	i := rt.started.Add(1) - 1
+	if i+1 == rt.expectedRequests {
+		close(rt.allStarted)
+	}
+	select {
+	case <-rt.allStarted:
+	case <-req.Context().Done():
+		return nil, context.Cause(req.Context())
+	}
+	if int(i) < len(rt.statuses) {
+		return makeProtoResponse(rt.statuses[i], testStats[0], netheader.ProtobufMIMEType), nil
+	}
+	<-req.Context().Done()
+	if errors.Is(context.Cause(req.Context()), errPodsExhausted) {
+		rt.canceled.Add(1)
+	}
+	return nil, context.Cause(req.Context())
 }
 
 func TestPodDirectScrapeMeshErrorWithCancellation(t *testing.T) {
@@ -275,31 +299,14 @@ func TestPodDirectScrapeMeshErrorWithCancellation(t *testing.T) {
 			// makePods seeds the informer indexer directly; no informers need to run.
 			makePods(ctx, "pods-", 3, metav1.Now())
 
-			// Assign every candidate before returning any responses. Once a worker
-			// exhausts the list, the remaining requests must be canceled promptly.
-			allStarted := make(chan struct{})
-			var started, canceled atomic.Int32
+			transport := &podScrapeRoundTripper{
+				statuses:         tc.statuses,
+				expectedRequests: 3,
+				allStarted:       make(chan struct{}),
+			}
 			direct := newHTTPScrapeClient(&http.Client{
-				Timeout: httpClientTimeout,
-				Transport: scrapeRoundTripperFunc(func(req *http.Request) (*http.Response, error) {
-					i := int(started.Add(1)) - 1
-					if i == 2 {
-						close(allStarted)
-					}
-					select {
-					case <-allStarted:
-					case <-req.Context().Done():
-						return nil, context.Cause(req.Context())
-					}
-					if i < len(tc.statuses) {
-						return makeProtoResponse(tc.statuses[i], testStats[0], netheader.ProtobufMIMEType), nil
-					}
-					<-req.Context().Done()
-					if errors.Is(context.Cause(req.Context()), errPodsExhausted) {
-						canceled.Add(1)
-					}
-					return nil, context.Cause(req.Context())
-				}),
+				Timeout:   httpClientTimeout,
+				Transport: transport,
 			})
 			var serviceErr error
 			if tc.serviceFails {
@@ -322,7 +329,7 @@ func TestPodDirectScrapeMeshErrorWithCancellation(t *testing.T) {
 			if scraper.podsAddressable == wantSuccess {
 				t.Errorf("podsAddressable = %v, want %v", scraper.podsAddressable, !wantSuccess)
 			}
-			if got, want := canceled.Load(), int32(3-len(tc.statuses)); got != want {
+			if got, want := transport.canceled.Load(), int32(3-len(tc.statuses)); got != want {
 				t.Errorf("Requests canceled by exhaustion = %d, want %d", got, want)
 			}
 		})
