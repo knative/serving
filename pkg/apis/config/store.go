@@ -19,6 +19,8 @@ package config
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/configmap"
 	asconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
@@ -76,22 +78,50 @@ type Store struct {
 	*configmap.UntypedStore
 }
 
+var configConstructors = configmap.Constructors{
+	DefaultsConfigName:  NewDefaultsConfigFromConfigMap,
+	FeaturesConfigName:  NewFeaturesConfigFromConfigMap,
+	asconfig.ConfigName: asconfig.NewConfigFromConfigMap,
+}
+
 // NewStore creates a new store of Configs and optionally calls functions when ConfigMaps are updated.
 func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
 	store := &Store{
 		UntypedStore: configmap.NewUntypedStore(
 			"apis",
 			logger,
-			configmap.Constructors{
-				DefaultsConfigName:  NewDefaultsConfigFromConfigMap,
-				FeaturesConfigName:  NewFeaturesConfigFromConfigMap,
-				asconfig.ConfigName: asconfig.NewConfigFromConfigMap,
-			},
+			configConstructors,
 			onAfterStore...,
 		),
 	}
 
 	return store
+}
+
+// WatchConfigsWithDefaults is like WatchConfigs but uses WatchWithDefault to register
+// default ConfigMaps when the watcher supports it. This allows the watcher to tolerate
+// missing ConfigMaps at startup time, preventing the circular dependency where:
+//   - the webhook cannot start without ConfigMaps present, but
+//   - ConfigMaps cannot be created/validated while the webhook is down.
+//
+// This method should only be used by the webhook. Other controllers (like revision
+// controller) may intentionally want to fail-fast if required ConfigMaps are missing.
+func (s *Store) WatchConfigsWithDefaults(w configmap.Watcher, namespace string) {
+	if dw, ok := w.(configmap.DefaultingWatcher); ok {
+		// Use WatchWithDefault to register defaults with the watcher.
+		// This prevents Start() from failing if ConfigMaps don't exist yet.
+		for name := range configConstructors {
+			dw.WatchWithDefault(corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: namespace,
+				},
+			}, s.UntypedStore.OnConfigChanged)
+		}
+	} else {
+		// Fallback to regular Watch if DefaultingWatcher not supported
+		s.UntypedStore.WatchConfigs(w)
+	}
 }
 
 // ToContext attaches the current Config state to the provided context.
