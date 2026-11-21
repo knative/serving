@@ -659,6 +659,18 @@ spec:
                                         - type: integer
                                         - type: string
                                       x-kubernetes-int-or-string: true
+                              restartPolicy:
+                                description: |-
+                                  This is accessible behind a feature flag - kubernetes.containerspec-restartpolicy
+                                type: string
+                              restartPolicyRules:
+                                description: |-
+                                  This is accessible behind a feature flag - kubernetes.containerspec-restartpolicy
+                                type: array
+                                items:
+                                  description: This is accessible behind a feature flag - kubernetes.containerspec-restartpolicy
+                                  type: object
+                                  x-kubernetes-preserve-unknown-fields: true
                               securityContext:
                                 description: |-
                                   SecurityContext defines the security options the container should be run with.
