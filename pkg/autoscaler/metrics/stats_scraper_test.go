@@ -270,16 +270,9 @@ func TestPodDirectScrapeMeshErrorWithCancellation(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx, cancel, informers := SetupFakeContextWithCancel(t)
-			wf, err := RunAndSyncInformers(ctx, informers...)
-			if err != nil {
-				cancel()
-				t.Fatal("Failed to start informers:", err)
-			}
-			t.Cleanup(func() {
-				cancel()
-				wf()
-			})
+			ctx, cancel, _ := SetupFakeContextWithCancel(t)
+			t.Cleanup(cancel)
+			// makePods seeds the informer indexer directly; no informers need to run.
 			makePods(ctx, "pods-", 3, metav1.Now())
 
 			// Assign every candidate before returning any responses. Once a worker
@@ -318,7 +311,7 @@ func TestPodDirectScrapeMeshErrorWithCancellation(t *testing.T) {
 				mode = netcfg.MeshCompatibilityModeDisabled
 			}
 			scraper := serviceScraperForTest(ctx, t, mode, direct, mesh, true /*podsAddressable*/, tc.passthroughLb)
-			_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
+			_, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 			wantSuccess := tc.wantFallback && !tc.serviceFails
 			if (err == nil) != wantSuccess {
 				t.Errorf("Scrape() error = %v, want success: %v", err, wantSuccess)
