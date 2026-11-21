@@ -18,6 +18,7 @@ package revision
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -152,14 +153,14 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 		}
 	}
 
-	for _, phase := range []func(context.Context, *v1.Revision) error{
-		c.reconcileDeployment,
-		c.reconcileImageCache,
-		c.reconcilePA,
-	} {
-		if err := phase(ctx, rev); err != nil {
-			return err
-		}
+	if err := c.reconcileDeployment(ctx, rev); err != nil {
+		return err
+	}
+
+	imageCacheErr := c.reconcileImageCache(ctx, rev)
+	paErr := c.reconcilePA(ctx, rev)
+	if err := errors.Join(imageCacheErr, paErr); err != nil {
+		return err
 	}
 	readyAfterReconcile := rev.Status.GetCondition(v1.RevisionConditionReady).IsTrue()
 	if !readyBeforeReconcile && readyAfterReconcile {
