@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -33,6 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	netcfg "knative.dev/networking/pkg/config"
+	netheader "knative.dev/networking/pkg/http/header"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakepodsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -233,6 +235,114 @@ func TestPodDirectScrapeAllFailWithMeshError(t *testing.T) {
 
 	if scraper.podsAddressable {
 		t.Error("PodAddressable didn't switch to false")
+	}
+}
+
+type podScrapeRoundTripper struct {
+	statuses         []int
+	expectedRequests int32
+	allStarted       chan struct{}
+	started          atomic.Int32
+	canceled         atomic.Int32
+}
+
+func (rt *podScrapeRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Assign every candidate before returning any responses. Once a worker
+	// exhausts the list, the remaining requests must be canceled promptly.
+	i := rt.started.Add(1) - 1
+	if i+1 == rt.expectedRequests {
+		close(rt.allStarted)
+	}
+	select {
+	case <-rt.allStarted:
+	case <-req.Context().Done():
+		return nil, context.Cause(req.Context())
+	}
+	if int(i) < len(rt.statuses) {
+		return makeProtoResponse(rt.statuses[i], testStats[0], netheader.ProtobufMIMEType), nil
+	}
+	<-req.Context().Done()
+	if errors.Is(context.Cause(req.Context()), errPodsExhausted) {
+		rt.canceled.Add(1)
+	}
+	return nil, context.Cause(req.Context())
+}
+
+func TestPodDirectScrapeMeshErrorWithCancellation(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		statuses      []int
+		serviceFails  bool
+		directMode    bool
+		passthroughLb bool
+		wantFallback  bool
+	}{{
+		name:         "MeshErrorAndCanceledRequests",
+		statuses:     []int{http.StatusServiceUnavailable},
+		wantFallback: true,
+	}, {
+		name:     "NonMeshErrorAndCanceledRequests",
+		statuses: []int{http.StatusInternalServerError},
+	}, {
+		name:     "MeshErrorAndDirectSuccess",
+		statuses: []int{http.StatusServiceUnavailable, http.StatusOK},
+	}, {
+		name:     "MeshErrorAndObservedNonMeshError",
+		statuses: []int{http.StatusServiceUnavailable, http.StatusInternalServerError},
+	}, {
+		name:         "FailedServiceScrapeDoesNotSwitchModes",
+		statuses:     []int{http.StatusServiceUnavailable},
+		serviceFails: true,
+		wantFallback: true,
+	}, {
+		name:       "DirectModeDoesNotFallback",
+		statuses:   []int{http.StatusServiceUnavailable},
+		directMode: true,
+	}, {
+		name:          "PassthroughDoesNotFallback",
+		statuses:      []int{http.StatusServiceUnavailable},
+		passthroughLb: true,
+	}} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel, _ := SetupFakeContextWithCancel(t)
+			t.Cleanup(cancel)
+			// makePods seeds the informer indexer directly; no informers need to run.
+			makePods(ctx, "pods-", 3, metav1.Now())
+
+			transport := &podScrapeRoundTripper{
+				statuses:         tc.statuses,
+				expectedRequests: 3,
+				allStarted:       make(chan struct{}),
+			}
+			direct := newHTTPScrapeClient(&http.Client{
+				Timeout:   httpClientTimeout,
+				Transport: transport,
+			})
+			var serviceErr error
+			if tc.serviceFails {
+				serviceErr = errors.New("service scrape failed")
+			}
+			mesh := newTestScrapeClient(testStatsWithTime(3, youngPodCutOffDuration.Seconds()), []error{serviceErr})
+			mode := netcfg.MeshCompatibilityModeAuto
+			if tc.directMode {
+				mode = netcfg.MeshCompatibilityModeDisabled
+			}
+			scraper := serviceScraperForTest(ctx, t, mode, direct, mesh, true /*podsAddressable*/, tc.passthroughLb)
+			_, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
+			wantSuccess := tc.wantFallback && !tc.serviceFails
+			if (err == nil) != wantSuccess {
+				t.Errorf("Scrape() error = %v, want success: %v", err, wantSuccess)
+			}
+			if got := mesh.curIdx > 0; got != tc.wantFallback {
+				t.Errorf("Service scraping attempted = %v, want %v", got, tc.wantFallback)
+			}
+			if scraper.podsAddressable == wantSuccess {
+				t.Errorf("podsAddressable = %v, want %v", scraper.podsAddressable, !wantSuccess)
+			}
+			if got, want := transport.canceled.Load(), int32(3-len(tc.statuses)); got != want {
+				t.Errorf("Requests canceled by exhaustion = %d, want %d", got, want)
+			}
+		})
 	}
 }
 
@@ -843,6 +953,10 @@ type fakeScrapeClient struct {
 func (c *fakeScrapeClient) Do(req *http.Request) (Stat, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
+	// Like the HTTP client, honor cancellation of in-flight scrapes.
+	if err := context.Cause(req.Context()); err != nil {
+		return emptyStat, err
+	}
 	ans := c.stats[c.curIdx%len(c.stats)]
 	err := c.errs[c.curIdx%len(c.errs)]
 	c.curIdx++
