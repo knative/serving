@@ -49,7 +49,7 @@ import (
 
 const (
 	noPrivateServiceName = "No Private Service Name"
-	noTrafficReason      = "NoTraffic"
+	noTrafficReason      = autoscalingv1alpha1.ReasonNoTraffic
 	minActivators        = 2
 )
 
@@ -292,9 +292,9 @@ func computeActiveCondition(ctx context.Context, pa *autoscalingv1alpha1.PodAuto
 	switch {
 	// Need to check for minReady = 0 because in the initialScale 0 case, pc.want will be -1.
 	case pc.want == 0 || minReady == 0:
-		if pa.Status.IsActivating() && minReady > 0 {
+		if (pa.Status.IsActivating() && minReady > 0) || hasTimedOut(pa) {
 			// We only ever scale to zero while activating if we fail to activate within the progress deadline.
-			pa.Status.MarkInactive("TimedOut", "The target could not be activated.")
+			pa.Status.MarkInactive(autoscalingv1alpha1.ReasonTimedOut, "The target could not be activated.")
 		} else {
 			pa.Status.MarkInactive(noTrafficReason, "The target is not receiving traffic.")
 		}
@@ -311,7 +311,11 @@ func computeActiveCondition(ctx context.Context, pa *autoscalingv1alpha1.PodAuto
 			// still need to set it again. Otherwise reconciliation will fail with NewObservedGenFailure
 			// because we cannot go through one iteration of reconciliation without setting
 			// some status.
-			pa.Status.MarkInactive(noTrafficReason, "The target is not receiving traffic.")
+			if hasTimedOut(pa) {
+				pa.Status.MarkInactive(autoscalingv1alpha1.ReasonTimedOut, "The target could not be activated.")
+			} else {
+				pa.Status.MarkInactive(noTrafficReason, "The target is not receiving traffic.")
+			}
 		}
 
 	case pc.ready >= minReady:
@@ -319,6 +323,12 @@ func computeActiveCondition(ctx context.Context, pa *autoscalingv1alpha1.PodAuto
 			pa.Status.MarkActive()
 		}
 	}
+}
+
+// hasTimedOut returns true if the PA previously failed to activate and has not reached initial scale since.
+func hasTimedOut(pa *autoscalingv1alpha1.PodAutoscaler) bool {
+	return pa.Status.IsInactive() && !pa.Status.IsScaleTargetInitialized() &&
+		pa.Status.GetCondition(autoscalingv1alpha1.PodAutoscalerConditionActive).GetReason() == autoscalingv1alpha1.ReasonTimedOut
 }
 
 // activeThreshold returns the scale required for the pa to be marked Active
