@@ -79,6 +79,21 @@ func TestStoreLoadWithContextOrDefaults(t *testing.T) {
 	})
 }
 
+func TestFromContextOrDefaultsNoConfig(t *testing.T) {
+	// FromContextOrDefaults is documented to return a Config populated with
+	// defaults when no Config is attached to the context. Passing a bare
+	// context must not panic.
+	cfg := FromContextOrDefaults(context.Background())
+	if cfg == nil {
+		t.Fatal("FromContextOrDefaults returned nil, want a defaulted Config")
+	}
+
+	expected, _ := cfgmap.NewFeaturesConfigFromMap(map[string]string{})
+	if diff := cmp.Diff(expected, cfg.Features); diff != "" {
+		t.Error("Unexpected default Features (-want, +got):", diff)
+	}
+}
+
 func TestStoreImmutableConfig(t *testing.T) {
 	store := NewStore(logtesting.TestContextWithLogger(t))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, DomainConfigName))
