@@ -406,7 +406,6 @@ impl := kindreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Op
 })
 ```
 
-
 ### Artifacts
 
 The artifacts are targeted to the configured `client/injection` directory:

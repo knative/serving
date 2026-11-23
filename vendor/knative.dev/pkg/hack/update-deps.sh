@@ -21,3 +21,24 @@ set -o pipefail
 source $(dirname "$0")/../vendor/knative.dev/hack/library.sh
 
 go_update_deps "$@"
+
+# Match the SDK's resource schema, not the newest available semconv package.
+log.step "Syncing semconv imports with the OTel SDK"
+SEMCONV_IMPORT=$(go list -mod=mod -f '{{join .Imports "\n"}}' \
+  go.opentelemetry.io/otel/sdk/resource | grep -F 'go.opentelemetry.io/otel/semconv/')
+
+OLD_IMPORT=$(go list -mod=mod -f '{{join .Imports "\n"}}' \
+  ./observability/semconv | grep -F 'go.opentelemetry.io/otel/semconv/')
+
+if [ "$OLD_IMPORT" != "$SEMCONV_IMPORT" ]; then
+  imports=$(go list -mod=mod -f '{{join .Imports "\n"}}' \
+    ./observability/... | grep -F "$OLD_IMPORT" | sort -u)
+
+  while IFS= read -r old_import; do
+    new_import="${old_import/"$OLD_IMPORT"/"$SEMCONV_IMPORT"}"
+    gofmt -w -r "\"${old_import}\" -> \"${new_import}\"" observability
+  done <<< "$imports"
+
+  # Refresh dependencies and vendoring after changing imports.
+  go_update_deps
+fi

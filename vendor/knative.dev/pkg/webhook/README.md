@@ -118,7 +118,7 @@ You can also configure the minimum TLS version via the `WEBHOOK_TLS_MIN_VERSION`
 ```yaml
 env:
   - name: WEBHOOK_TLS_MIN_VERSION
-    value: "1.3"  # or "1.2"
+    value: "1.3" # or "1.2"
 ```
 
 ### Usage Examples

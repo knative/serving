@@ -45,14 +45,20 @@ func GetServiceHostname(name, namespace string) string {
 // Closes issue: https://github.com/knative/eventing/issues/714
 func GetClusterDomainName() string {
 	once.Do(func() {
-		f, err := os.Open(resolverFileName)
-		if err != nil {
-			return
-		}
-		defer f.Close()
-		domainName = getClusterDomainName(f)
+		domainName = getClusterDomainNameFromFile(resolverFileName)
 	})
 	return domainName
+}
+
+func getClusterDomainNameFromFile(path string) string {
+	f, err := os.Open(path)
+	if err != nil {
+		// The CLUSTER_DOMAIN override still applies when there is no
+		// resolv.conf, for example when running outside the cluster.
+		return getClusterDomainName(strings.NewReader(""))
+	}
+	defer f.Close()
+	return getClusterDomainName(f)
 }
 
 func getClusterDomainName(r io.Reader) string {
