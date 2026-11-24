@@ -21,6 +21,9 @@ package e2e
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"net/url"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -59,17 +62,40 @@ func TestEgressTraffic(t *testing.T) {
 	}
 	t.Log("Service URL: " + service.Route.Status.URL.String())
 
-	url := service.Route.Status.URL.URL()
-	if _, err = pkgTest.CheckEndpointState(
-		context.Background(),
-		clients.KubeClient,
-		t.Logf,
-		url,
-		spoof.IsStatusOK,
-		"HTTPProxy",
-		test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS),
-	); err != nil {
+	ctx := context.Background()
+	serviceURL := service.Route.Status.URL.URL()
+	client, err := pkgTest.NewSpoofingClient(ctx, clients.KubeClient, t.Logf,
+		serviceURL.Hostname(), test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(ctx, t.Logf, clients, test.ServingFlags.HTTPS))
+	if err != nil {
+		t.Fatal("Failed to create spoofing client:", err)
+	}
+	client.Client.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+		// The external host may redirect (for example, to Google's anti-bot page).
+		// Following it would spoof the external host back to Knative's ingress.
+		return http.ErrUseLastResponse
+	}
+	if _, err = client.CheckEndpointState(ctx, serviceURL, isEgressResponse, "HTTPProxy"); err != nil {
 		t.Error("Failed to send request to httpproxy:", err)
 	}
+}
+
+// A redirect from the external host also demonstrates successful egress. Require
+// its destination to be the external host so an ingress redirect cannot pass.
+func isEgressResponse(resp *spoof.Response) (bool, error) {
+	if resp.StatusCode == http.StatusOK {
+		return true, nil
+	}
+	if _, err := spoof.IsOneOfStatusCodes(http.StatusMovedPermanently, http.StatusFound,
+		http.StatusSeeOther, http.StatusTemporaryRedirect, http.StatusPermanentRedirect)(resp); err != nil {
+		return true, err
+	}
+	location, err := url.Parse(resp.Header.Get("Location"))
+	if err != nil {
+		return true, fmt.Errorf("invalid egress redirect: %w", err)
+	}
+	if (location.Scheme != "http" && location.Scheme != "https") || location.Hostname() != targetHostDomain {
+		return true, fmt.Errorf("egress redirect location = %q, want HTTP(S) URL for %s", resp.Header.Get("Location"), targetHostDomain)
+	}
+	return true, nil
 }
