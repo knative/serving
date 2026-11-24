@@ -29,7 +29,11 @@ import (
 	"go.uber.org/zap"
 
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -73,6 +77,8 @@ type TableRow struct {
 	WantDeletes []clientgotesting.DeleteActionImpl
 
 	// WantDeleteCollections holds the ordered list of DeleteCollection calls we expect during reconciliation.
+	// With a zero ActionImpl, the expectation checks selectors and options in
+	// the row's namespace and leaves the resource and subresource unspecified.
 	WantDeleteCollections []clientgotesting.DeleteCollectionActionImpl
 
 	// WantPatches holds the ordered list of Patch calls we expect during reconciliation.
@@ -141,6 +147,14 @@ type Factory func(*testing.T, *TableRow) (controller.Reconciler, ActionRecorderL
 func (r *TableRow) Test(t *testing.T, factory Factory) {
 	t.Helper()
 	c, recorderList, eventList := factory(t, r)
+	r.run(t, c, recorderList, eventList)
+	for _, verify := range r.PostConditions {
+		verify(t, r)
+	}
+}
+
+func (r *TableRow) run(t testing.TB, c controller.Reconciler, recorderList ActionRecorderList, eventList EventList) {
+	t.Helper()
 
 	// Set the Reconciler for PostConditions to access it post-Reconcile()
 	r.Reconciler = c
@@ -316,6 +330,25 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 		}
 	}
 
+	if len(r.WantDeleteCollections) != 0 || len(actions.DeleteCollections) != 0 {
+		want := deleteCollectionCalls(r.WantDeleteCollections, r.SkipNamespaceValidation)
+		got := deleteCollectionCalls(actions.DeleteCollections, r.SkipNamespaceValidation)
+		for i := range min(len(want), len(got)) {
+			if r.WantDeleteCollections[i].ActionImpl == (clientgotesting.ActionImpl{}) {
+				// Selector-only expectations leave resource and subresource
+				// unspecified. Namespace validation still uses the row's namespace.
+				want[i].Resource = got[i].Resource
+				want[i].Subresource = got[i].Subresource
+				if !r.SkipNamespaceValidation {
+					want[i].Namespace = expectedNamespace
+				}
+			}
+		}
+		if diff := cmp.Diff(want, got, effectiveOpts...); diff != "" {
+			t.Errorf("Unexpected DeleteCollection calls (-want, +got):\n%s", diff)
+		}
+	}
+
 	for i, want := range r.WantPatches {
 		if i >= len(actions.Patches) {
 			t.Errorf("Missing patch: %#v; raw: %s", want, string(want.GetPatch()))
@@ -357,10 +390,64 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 			t.Error("Extra event:", extra)
 		}
 	}
+}
 
-	for _, verify := range r.PostConditions {
-		verify(t, r)
+type deleteCollectionCall struct {
+	Resource      schema.GroupVersionResource
+	Subresource   string
+	Namespace     string
+	ListOptions   metav1.ListOptions
+	DeleteOptions metav1.DeleteOptions
+}
+
+// deleteCollectionCalls normalizes recorded actions for comparison.
+// List and delete options are included when exposed by the action.
+func deleteCollectionCalls[T clientgotesting.DeleteCollectionAction](actions []T, skipNamespace bool) []deleteCollectionCall {
+	calls := make([]deleteCollectionCall, len(actions))
+	for i, action := range actions {
+		call := &calls[i]
+		call.Resource = action.GetResource()
+		call.Subresource = action.GetSubresource()
+		if !skipNamespace {
+			call.Namespace = action.GetNamespace()
+		}
+		if a, ok := any(action).(interface{ GetDeleteOptions() metav1.DeleteOptions }); ok {
+			call.DeleteOptions = a.GetDeleteOptions()
+		}
+		if a, ok := any(action).(interface{ GetListOptions() metav1.ListOptions }); ok {
+			call.ListOptions = a.GetListOptions()
+		}
+		restrictions := action.GetListRestrictions()
+		// Hand-built expectations can supply just ListOptions. Normalize those
+		// selectors the same way client-go does when it constructs an action.
+		if restrictions.Labels == nil && call.ListOptions.LabelSelector != "" {
+			restrictions.Labels, _ = labels.Parse(call.ListOptions.LabelSelector)
+		}
+		if restrictions.Fields == nil && call.ListOptions.FieldSelector != "" {
+			restrictions.Fields, _ = fields.ParseSelector(call.ListOptions.FieldSelector)
+		}
+		call.ListOptions.LabelSelector = selectorText(restrictions.Labels, call.ListOptions.LabelSelector)
+		call.ListOptions.FieldSelector = selectorText(restrictions.Fields, call.ListOptions.FieldSelector)
 	}
+	return calls
+}
+
+func selectorText(
+	selector interface {
+		String() string
+		Empty() bool
+	},
+	raw string,
+) string {
+	if selector == nil {
+		return raw
+	}
+	value := selector.String()
+	// Both Everything and Nothing stringify to an empty string.
+	if value == "" && !selector.Empty() {
+		return "<nothing>"
+	}
+	return value
 }
 
 func filterUpdatesWithSubresource(

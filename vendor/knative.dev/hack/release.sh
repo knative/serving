@@ -72,6 +72,7 @@ BUILD_TIMESTAMP=""
 BUILD_TAG=""
 RELEASE_VERSION=""
 RELEASE_NOTES=""
+RELEASE_NOTES_START_TAG=""
 RELEASE_BRANCH=""
 RELEASE_GCS_BUCKET="knative-nightly/${REPO_NAME}"
 RELEASE_DIR=""
@@ -93,7 +94,7 @@ readonly IMAGES_REFS_FILE="${IMAGES_REFS_FILE:-$(mktemp -d)/images_refs.txt}"
 # Convenience function to run the GitHub CLI tool `gh`.
 # Parameters: $1..$n - arguments to gh.
 function gh_tool() {
-  go_run github.com/cli/cli/v2/cmd/gh@v2.65.0 "$@"
+  go_run github.com/cli/cli/v2/cmd/gh@v2.105.0 "$@"
 }
 
 # Shortcut to "git push" that handles authentication.
@@ -239,12 +240,8 @@ function prepare_dot_release() {
   local last_build="$(patch_version "${last_version}")"
   RELEASE_VERSION="${major_minor_version}.$(( last_build + 1 ))"
   echo "Will create release ${RELEASE_VERSION} at commit ${release_branch_commit}"
-  # If --release-notes not used, copy from the latest release
-  if [[ -z "${RELEASE_NOTES}" ]]; then
-    RELEASE_NOTES="$(mktemp)"
-    gh_tool release view "${github_tag}" --json "body" --jq '.body' > "${RELEASE_NOTES}"
-    echo "Release notes from ${last_version} copied to ${RELEASE_NOTES}"
-  fi
+  # Generate notes since the previous release when publishing, unless overridden.
+  RELEASE_NOTES_START_TAG="${github_tag}"
 }
 
 # Setup source nightly image for a release.
@@ -761,6 +758,11 @@ function publish_to_github() {
     cat "${RELEASE_NOTES}" >> "${description}"
   fi
 
+  local notes_args=(--notes-file "${description}")
+  if [[ -z "${RELEASE_NOTES}" && -n "${RELEASE_NOTES_START_TAG}" ]]; then
+    notes_args=(--generate-notes --notes-start-tag "${RELEASE_NOTES_START_TAG}")
+  fi
+
   # Include a tag for the go module version
   #
   # v1.0.0 = v0.27.0
@@ -787,7 +789,7 @@ function publish_to_github() {
     gh_tool release create \
       "${github_tag}" \
       --title "${title}" \
-      --notes-file "${description}" \
+      "${notes_args[@]}" \
       "${target_branch}" \
       ${attachments[@]} && return 0
 
