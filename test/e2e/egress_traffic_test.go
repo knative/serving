@@ -27,6 +27,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	rtesting "knative.dev/serving/pkg/testing/v1"
@@ -64,9 +65,14 @@ func TestEgressTraffic(t *testing.T) {
 
 	ctx := context.Background()
 	serviceURL := service.Route.Status.URL.URL()
-	client, err := pkgTest.NewSpoofingClient(ctx, clients.KubeClient, t.Logf,
-		serviceURL.Hostname(), test.ServingFlags.ResolvableDomain,
-		test.AddRootCAtoTransport(ctx, t.Logf, clients, test.ServingFlags.HTTPS))
+	client, err := pkgTest.NewSpoofingClient(
+		ctx,
+		clients.KubeClient,
+		t.Logf,
+		serviceURL.Hostname(),
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(ctx, t.Logf, clients, test.ServingFlags.HTTPS),
+	)
 	if err != nil {
 		t.Fatal("Failed to create spoofing client:", err)
 	}
@@ -86,9 +92,15 @@ func isEgressResponse(resp *spoof.Response) (bool, error) {
 	if resp.StatusCode == http.StatusOK {
 		return true, nil
 	}
-	if _, err := spoof.IsOneOfStatusCodes(http.StatusMovedPermanently, http.StatusFound,
-		http.StatusSeeOther, http.StatusTemporaryRedirect, http.StatusPermanentRedirect)(resp); err != nil {
-		return true, err
+	redirectCodes := sets.New(
+		http.StatusMovedPermanently,
+		http.StatusFound,
+		http.StatusSeeOther,
+		http.StatusTemporaryRedirect,
+		http.StatusPermanentRedirect,
+	)
+	if !redirectCodes.Has(resp.StatusCode) {
+		return true, fmt.Errorf("egress response status = %d, want HTTP 200 or a redirect", resp.StatusCode)
 	}
 	location, err := url.Parse(resp.Header.Get("Location"))
 	if err != nil {
