@@ -19,6 +19,8 @@ package main
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -26,6 +28,7 @@ import (
 	"knative.dev/pkg/leaderelection"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/signals"
+	"knative.dev/pkg/system"
 	"knative.dev/pkg/webhook"
 	"knative.dev/pkg/webhook/certificates"
 	"knative.dev/pkg/webhook/configmaps"
@@ -131,7 +134,30 @@ func newValidationAdmissionController(ctx context.Context, cmw configmap.Watcher
 	)
 }
 
+// registerConfigDefaults registers empty fallback objects for configsWithDefaults so
+// the shared watcher tolerates them being absent at startup. All webhook constructors
+// share the same cmw and run before cmw.Start(), so it doesn't matter which
+// constructor registers the fallback objects, as long as it happens before Start().
+func registerConfigDefaults(cmw configmap.Watcher) {
+	if dw, ok := cmw.(configmap.DefaultingWatcher); ok {
+		for _, name := range []string{
+			apisconfig.DefaultsConfigName,
+			apisconfig.FeaturesConfigName,
+			autoscalerconfig.ConfigName,
+		} {
+			dw.WatchWithDefault(corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: system.Namespace(),
+				},
+			})
+		}
+	}
+}
+
 func newConfigValidationController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+	registerConfigDefaults(cmw)
+
 	return configmaps.NewAdmissionController(ctx,
 
 		// Name of the configmap webhook.
