@@ -540,9 +540,25 @@ function toggle_feature() {
   local FEATURE="$1"
   local STATE="$2"
   local CONFIG="${3:-config-features}"
-  echo -n "Setting feature ${FEATURE} to ${STATE}"
+  echo "Setting feature ${FEATURE} to ${STATE} in ${CONFIG}"
   local PATCH="{\"data\":{\"${FEATURE}\":\"${STATE}\"}}"
-  kubectl patch cm "${CONFIG}" -n "${SYSTEM_NAMESPACE}" -p "${PATCH}"
+  local attempt
+  local max_attempts=6
+  for ((attempt=1; attempt<=max_attempts; attempt++)); do
+    # Webhook connectivity failures can be transient. Bound each request as well
+    # as the number of retries so a broken API server cannot block setup forever.
+    if kubectl patch cm "${CONFIG}" -n "${SYSTEM_NAMESPACE}" -p "${PATCH}" --request-timeout=30s; then
+      break
+    fi
+    if (( attempt == max_attempts )); then
+      # Not all callers check our return status. Stop the job rather than run
+      # tests with a feature configuration that was never applied.
+      fail_test "Failed to set feature ${FEATURE} to ${STATE} in ${CONFIG} after ${max_attempts} attempts"
+      return 1
+    fi
+    echo "Failed to set feature ${FEATURE} (attempt ${attempt}/${max_attempts}); retrying in 5s."
+    sleep 5
+  done
   # We don't have a good mechanism for positive handoff so sleep :(
   echo "Waiting 30s for change to get picked up."
   sleep 30
