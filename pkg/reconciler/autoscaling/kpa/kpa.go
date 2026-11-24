@@ -285,7 +285,11 @@ func cast[T any](x any, ok bool) (T, bool) {
 //	| -1   | >= min | >0    | active     | active     |
 func computeActiveCondition(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, pc podCounts) {
 	minReady := activeThreshold(ctx, pa)
-	if pc.ready >= minReady && pa.Status.ServiceName != "" {
+	sksReady := pa.Status.GetCondition(autoscalingv1alpha1.PodAutoscalerConditionSKSReady).IsTrue()
+	// Revision readiness relies on initialization, so wait for the public
+	// endpoints as well as the pods before allowing traffic to a new revision.
+	// Initial scale zero intentionally initializes without ready pods or SKS.
+	if pc.ready >= minReady && pa.Status.ServiceName != "" && (minReady == 0 || sksReady) {
 		pa.Status.MarkScaleTargetInitialized()
 	}
 
