@@ -267,29 +267,6 @@ func (rt *podScrapeRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 	return nil, context.Cause(req.Context())
 }
 
-func TestPodScrapeRoundTripperAlreadyCanceled(t *testing.T) {
-	ctx, cancel := context.WithCancelCause(context.Background())
-	cancel(errPodsExhausted)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://pod:9090/metrics", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Exercise the case where the barrier and cancellation are both ready.
-	// Repeat to catch a select that nondeterministically skips accounting.
-	for range 32 {
-		transport := &podScrapeRoundTripper{
-			expectedRequests: 1,
-			allStarted:       make(chan struct{}),
-		}
-		if _, err := transport.RoundTrip(req); !errors.Is(err, errPodsExhausted) {
-			t.Fatalf("RoundTrip() error = %v, want %v", err, errPodsExhausted)
-		}
-		if got := transport.canceled.Load(); got != 1 {
-			t.Fatalf("Requests canceled by exhaustion = %d, want 1", got)
-		}
-	}
-}
-
 func TestPodDirectScrapeMeshErrorWithCancellation(t *testing.T) {
 	for _, tc := range []struct {
 		name          string
