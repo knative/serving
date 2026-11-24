@@ -256,14 +256,11 @@ func (rt *podScrapeRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 	select {
 	case <-rt.allStarted:
 	case <-req.Context().Done():
-		// Exhaustion can only cancel requests after the barrier opens.
-		// If both channels are ready, continue below rather than skipping
-		// a configured response or cancellation accounting. Still honor
-		// cancellation while waiting for requests that have not started.
-		select {
-		case <-rt.allStarted:
-		default:
-			return nil, context.Cause(req.Context())
+		// Exhaustion implies the barrier opened; continue to the configured
+		// response or cancellation accounting below. Other cancellation
+		// (such as a timeout) must still release requests waiting here.
+		if err := context.Cause(req.Context()); !errors.Is(err, errPodsExhausted) {
+			return nil, err
 		}
 	}
 	if int(i) < len(rt.statuses) {
