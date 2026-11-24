@@ -234,74 +234,6 @@ func markResourceNotOwned(rType, name string) PodAutoscalerOption {
 	}
 }
 
-func TestScaleTargetInitializationWaitsForSKS(t *testing.T) {
-	ctx := config.ToContext(context.Background(), defaultConfig())
-	pa := kpa(testNamespace, testRevision, WithPAStatusService(testRevision))
-	rev := &v1.RevisionStatus{}
-	rev.InitializeConditions()
-
-	for _, tc := range []struct {
-		name        string
-		sksReady    bool
-		readyPods   int
-		initialized bool
-	}{
-		{name: "pod ready before public endpoints", readyPods: 1},
-		{name: "public endpoints ready", sksReady: true, readyPods: 1, initialized: true},
-		{name: "initialized revision scales to zero", initialized: true},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			if tc.sksReady {
-				pa.Status.MarkSKSReady()
-			} else {
-				pa.Status.MarkSKSNotReady("K8s Service is not ready")
-			}
-			computeActiveCondition(ctx, pa, podCounts{ready: tc.readyPods, want: tc.readyPods})
-			if got := pa.Status.IsScaleTargetInitialized(); got != tc.initialized {
-				t.Errorf("IsScaleTargetInitialized() = %v, want %v", got, tc.initialized)
-			}
-
-			// Initialization is propagated to Revision readiness. A healthy pod
-			// alone must not make a new revision eligible for route traffic.
-			rev.PropagateAutoscalerStatus(&pa.Status)
-			if got := rev.GetCondition(v1.RevisionConditionReady).IsTrue(); got != tc.initialized {
-				t.Errorf("Revision Ready = %v, want %v", got, tc.initialized)
-			}
-		})
-	}
-}
-
-func TestScaleTargetInitializationPrerequisites(t *testing.T) {
-	for _, tc := range []struct {
-		name        string
-		initialZero bool
-		serviceName string
-		readyPods   int
-		initialized bool
-	}{
-		{name: "SKS ready but no ready pods", serviceName: testRevision},
-		{name: "SKS ready but service name missing", readyPods: 1},
-		{name: "initial scale zero without ready SKS", initialZero: true, serviceName: testRevision, initialized: true},
-		{name: "initial scale zero still needs service name", initialZero: true},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			cfg := defaultConfig()
-			pa := kpa(testNamespace, testRevision, WithPAStatusService(tc.serviceName))
-			if tc.initialZero {
-				cfg.Autoscaler = initialScaleZeroASConfig()
-				pa.Status.MarkSKSNotReady("K8s Service is not ready")
-			} else {
-				pa.Status.MarkSKSReady()
-			}
-			ctx := config.ToContext(context.Background(), cfg)
-			computeActiveCondition(ctx, pa, podCounts{ready: tc.readyPods, want: tc.readyPods})
-			if got := pa.Status.IsScaleTargetInitialized(); got != tc.initialized {
-				t.Errorf("IsScaleTargetInitialized() = %v, want %v", got, tc.initialized)
-			}
-		})
-	}
-}
-
 func TestReconcile(t *testing.T) {
 	const (
 		deployName   = testRevision + "-deployment"
@@ -554,7 +486,7 @@ func TestReconcile(t *testing.T) {
 				WithPAStatusService(testRevision), WithObservedGeneration(1)),
 		}},
 	}, {
-		Name: "sks is still not ready",
+		Name: "ready pods do not initialize scale target before sks is ready",
 		Key:  key,
 		Objects: append([]runtime.Object{
 			kpa(testNamespace, testRevision, WithTraffic, WithPAMetricsService(privateSvc),
@@ -568,6 +500,22 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, withScales(defaultScale, defaultScale),
 				WithPASKSNotReady(""), WithTraffic,
+				WithPAMetricsService(privateSvc), WithPAStatusService(testRevision), WithObservedGeneration(1)),
+		}},
+	}, {
+		Name: "ready pods initialize scale target when sks becomes ready",
+		Key:  key,
+		Objects: append([]runtime.Object{
+			kpa(testNamespace, testRevision, WithPASKSNotReady(""), WithTraffic,
+				WithPAMetricsService(privateSvc), withScales(defaultScale, defaultScale),
+				WithPAStatusService(testRevision), WithObservedGeneration(1)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady,
+				WithNumActivators(scaledAct)),
+			defaultMetric, defaultDeployment,
+		}, preciseReady...),
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic,
+				markScaleTargetInitialized, withScales(defaultScale, defaultScale),
 				WithPAMetricsService(privateSvc), WithPAStatusService(testRevision), WithObservedGeneration(1)),
 		}},
 	}, {
@@ -787,6 +735,23 @@ func TestReconcile(t *testing.T) {
 				WithPAMetricsService(privateSvc), WithObservedGeneration(1)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
 			metric(testNamespace, testRevision),
+			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
+				d.Spec.Replicas = ptr.Int32(0)
+			}),
+		},
+	}, {
+		Name: "initialized scale target stays initialized with no ready pods or sks",
+		Key:  key,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
+			decider(testNamespace, testRevision, 0 /* desiredScale */, 0 /* ebc */)),
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, WithScaleTargetInitialized, withScales(0, 0),
+				WithNoTraffic(noTrafficReason, "The target is not receiving traffic."),
+				WithPASKSNotReady(""), markOld, WithPAStatusService(testRevision),
+				WithPAMetricsService(privateSvc), WithObservedGeneration(1)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode,
+				WithPrivateService, WithPubService),
+			defaultMetric,
 			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 				d.Spec.Replicas = ptr.Int32(0)
 			}),
