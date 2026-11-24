@@ -540,6 +540,9 @@ func TestPodSpecValidation(t *testing.T) {
 			}, {
 				Name:  "same",
 				Image: "busybox",
+			}, {
+				Name:  "same",
+				Image: "busybox",
 			}},
 			Containers: []corev1.Container{{
 				Name:  "user-container",
@@ -549,8 +552,8 @@ func TestPodSpecValidation(t *testing.T) {
 		cfgOpts: []configOption{withPodSpecInitContainersEnabled()},
 		want: (&apis.FieldError{
 			Message: `duplicate container name "same"`,
-			Paths:   []string{"name"},
-		}).ViaFieldIndex("initContainers", 1),
+			Paths:   []string{"initContainers[1].name", "initContainers[2].name"},
+		}),
 	}, {
 		name: "container name collision",
 		ps: corev1.PodSpec{

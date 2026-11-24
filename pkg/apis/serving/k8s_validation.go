@@ -461,10 +461,10 @@ func validateInitContainers(ctx context.Context, containers, otherContainers []c
 	}
 	for i := range containers {
 		if allNames.Has(containers[i].Name) {
-			errs = errs.Also(&apis.FieldError{
+			errs = errs.Also((&apis.FieldError{
 				Message: fmt.Sprintf("duplicate container name %q", containers[i].Name),
 				Paths:   []string{"name"},
-			}).ViaFieldIndex("initContainers", i)
+			}).ViaFieldIndex("initContainers", i))
 		} else {
 			allNames.Insert(containers[i].Name)
 		}
