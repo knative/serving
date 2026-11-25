@@ -1914,6 +1914,46 @@ func TestUserContainerValidation(t *testing.T) {
 		},
 		want: apis.ErrMultipleOneOf("readinessProbe.exec", "readinessProbe.tcpSocket", "readinessProbe.httpGet"),
 	}, {
+		name: "invalid port in one of multiple handlers keeps its own path",
+		c: corev1.Container{
+			Image: "foo",
+			ReadinessProbe: &corev1.Probe{
+				PeriodSeconds:    1,
+				TimeoutSeconds:   1,
+				SuccessThreshold: 1,
+				FailureThreshold: 3,
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Port: intstr.FromString("imap"),
+					},
+					TCPSocket: &corev1.TCPSocketAction{},
+				},
+			},
+		},
+		want: apis.ErrMultipleOneOf("readinessProbe.httpGet", "readinessProbe.tcpSocket").Also(
+			apis.ErrInvalidValue("imap", "readinessProbe.httpGet.port", "Probe port must match container port")),
+	}, {
+		name: "invalid port with every handler set keeps its own path",
+		c: corev1.Container{
+			Image: "foo",
+			ReadinessProbe: &corev1.Probe{
+				PeriodSeconds:    1,
+				TimeoutSeconds:   1,
+				SuccessThreshold: 1,
+				FailureThreshold: 3,
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Port: intstr.FromString("imap"),
+					},
+					TCPSocket: &corev1.TCPSocketAction{},
+					Exec:      &corev1.ExecAction{},
+					GRPC:      &corev1.GRPCAction{},
+				},
+			},
+		},
+		want: apis.ErrMultipleOneOf("readinessProbe.exec", "readinessProbe.grpc", "readinessProbe.httpGet", "readinessProbe.tcpSocket").Also(
+			apis.ErrInvalidValue("imap", "readinessProbe.httpGet.port", "Probe port must match container port")),
+	}, {
 		name: "valid liveness http probe with a different container port",
 		c: corev1.Container{
 			Image: "foo",
