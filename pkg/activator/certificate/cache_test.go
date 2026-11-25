@@ -17,6 +17,7 @@ limitations under the License.
 package certificate
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -77,21 +78,21 @@ func TestReconcile(t *testing.T) {
 		name: "Multiple CAs in secret",
 		secret: func() *corev1.Secret {
 			s := secret.DeepCopy()
-			s.Data[certificates.CaCertName] = append(append(append([]byte{}, secretCA...), '\n'), newCA...)
+			s.Data[certificates.CaCertName] = bytes.Join([][]byte{secretCA, newCA}, []byte("\n"))
 			return s
 		}(),
 		configMap:    nil,
 		expectedPool: getPoolWithCerts(secretCA, newCA),
 	}, {
-		name: "Valid and invalid CA in secret",
+		name: "Valid CAs around invalid CA in secret",
 		secret: func() *corev1.Secret {
 			s := secret.DeepCopy()
 			invalid := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: []byte("not a certificate")})
-			s.Data[certificates.CaCertName] = append(append(append([]byte{}, secretCA...), '\n'), invalid...)
+			s.Data[certificates.CaCertName] = bytes.Join([][]byte{secretCA, invalid, newCA}, []byte("\n"))
 			return s
 		}(),
 		configMap:    nil,
-		expectedPool: getPoolWithCerts(secretCA),
+		expectedPool: getPoolWithCerts(secretCA, newCA),
 	}, {
 		name: "Invalid CA in secret",
 		secret: func() *corev1.Secret {
@@ -182,41 +183,6 @@ func TestReconcile(t *testing.T) {
 		return cr.TLSConf.RootCAs.Equal(expectedPool), nil
 	}); err != nil {
 		t.Fatalf("timeout to update the cert: %v", err)
-	}
-}
-
-func TestParseCAs(t *testing.T) {
-	truncated := secretCA[:len(secretCA)/2]
-	join := func(parts ...[]byte) []byte {
-		var out []byte
-		for _, p := range parts {
-			out = append(out, p...)
-			out = append(out, '\n')
-		}
-		return out
-	}
-	tests := []struct {
-		name         string
-		data         []byte
-		wantCerts    int
-		wantProblems int
-	}{
-		{"one valid certificate", secretCA, 1, 0},
-		{"two valid certificates", join(secretCA, newCA), 2, 0},
-		{"junk before a valid certificate", join([]byte("junk"), secretCA), 1, 1},
-		{"truncated block before a valid certificate", join(truncated, newCA), 1, 1},
-		{"valid certificate before a truncated block", join(secretCA, truncated), 1, 1},
-		{"valid certificate before junk", join(secretCA, []byte("junk")), 1, 1},
-		{"only junk", []byte("not a CA"), 0, 1},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			certs, problems := parseCAs(test.data)
-			if len(certs) != test.wantCerts || len(problems) != test.wantProblems {
-				t.Errorf("got %d certificates and problems %q, want %d and %d problems",
-					len(certs), problems, test.wantCerts, test.wantProblems)
-			}
-		})
 	}
 }
 
