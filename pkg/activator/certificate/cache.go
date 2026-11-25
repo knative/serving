@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"sync"
 
@@ -141,15 +140,14 @@ func (cr *CertCache) addSecretCAIfPresent(pool *x509.CertPool) {
 		cr.logger.Warnf("Failed to get secret %s/%s: %v", system.Namespace(), netcfg.ServingRoutingCertName, zap.Error(err))
 		return
 	}
-	if len(secret.Data[certificates.CaCertName]) > 0 {
-		block, _ := pem.Decode(secret.Data[certificates.CaCertName])
-		ca, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			cr.logger.Warnf("CA from Secret %s/%s[%s] is invalid and will be ignored: %v",
-				system.Namespace(), netcfg.ServingRoutingCertName, certificates.CaCertName, err)
-		} else {
-			pool.AddCert(ca)
-		}
+	data := secret.Data[certificates.CaCertName]
+	if len(data) == 0 {
+		return
+	}
+	// Trust all certificates in the bundle, including during CA rotation.
+	if !pool.AppendCertsFromPEM(data) {
+		cr.logger.Warnf("CA bundle from Secret %s/%s[%s] contains no valid certificates and will be ignored",
+			secret.Namespace, secret.Name, certificates.CaCertName)
 	}
 }
 
