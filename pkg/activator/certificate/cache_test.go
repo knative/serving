@@ -185,6 +185,41 @@ func TestReconcile(t *testing.T) {
 	}
 }
 
+func TestParseCAs(t *testing.T) {
+	truncated := secretCA[:len(secretCA)/2]
+	join := func(parts ...[]byte) []byte {
+		var out []byte
+		for _, p := range parts {
+			out = append(out, p...)
+			out = append(out, '\n')
+		}
+		return out
+	}
+	tests := []struct {
+		name         string
+		data         []byte
+		wantCerts    int
+		wantProblems int
+	}{
+		{"one valid certificate", secretCA, 1, 0},
+		{"two valid certificates", join(secretCA, newCA), 2, 0},
+		{"junk before a valid certificate", join([]byte("junk"), secretCA), 1, 1},
+		{"truncated block before a valid certificate", join(truncated, newCA), 1, 1},
+		{"valid certificate before a truncated block", join(secretCA, truncated), 1, 1},
+		{"valid certificate before junk", join(secretCA, []byte("junk")), 1, 1},
+		{"only junk", []byte("not a CA"), 0, 1},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			certs, problems := parseCAs(test.data)
+			if len(certs) != test.wantCerts || len(problems) != test.wantProblems {
+				t.Errorf("got %d certificates and problems %q, want %d and %d problems",
+					len(certs), problems, test.wantCerts, test.wantProblems)
+			}
+		})
+	}
+}
+
 func fakeCertCache(ctx context.Context) *CertCache {
 	secretInformer := fakesecretinformer.Get(ctx)
 	configmapInformer := fakeconfigmapinformer.Get(ctx)

@@ -17,11 +17,13 @@ limitations under the License.
 package certificate
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"strconv"
 	"sync"
 
 	"go.uber.org/zap"
@@ -148,32 +150,55 @@ func (cr *CertCache) addSecretCAIfPresent(pool *x509.CertPool) {
 	// during a CA rotation, so add all of them to the pool. Each one is parsed
 	// on its own, rather than with AppendCertsFromPEM, so that an invalid
 	// certificate next to a valid one is reported instead of silently skipped.
-	rest := secret.Data[certificates.CaCertName]
-	added := 0
-	for i := 1; ; i++ {
+	certs, problems := parseCAs(secret.Data[certificates.CaCertName])
+	for _, problem := range problems {
+		cr.logger.Warnf("The CA from Secret %s/%s[%s] has %s", system.Namespace(),
+			netcfg.ServingRoutingCertName, certificates.CaCertName, problem)
+	}
+	for _, ca := range certs {
+		pool.AddCert(ca)
+	}
+	if len(certs) == 0 {
+		cr.logger.Warnf("CA from Secret %s/%s[%s] contains no valid certificate and will be ignored",
+			system.Namespace(), netcfg.ServingRoutingCertName, certificates.CaCertName)
+	}
+}
+
+// parseCAs returns the valid certificates in data, and a description of each
+// part of data that is not one and was skipped. pem.Decode skips text that is
+// not a PEM block without telling, so the text before each block, and what is
+// left after the last one, is checked here.
+func parseCAs(data []byte) ([]*x509.Certificate, []string) {
+	const begin = "-----BEGIN "
+	var (
+		certs    []*x509.Certificate
+		problems []string
+	)
+	rest := data
+	for i := 1; len(bytes.TrimSpace(rest)) > 0; i++ {
+		before := rest
 		var block *pem.Block
 		block, rest = pem.Decode(rest)
 		if block == nil {
+			problems = append(problems, "data after certificate "+strconv.Itoa(i-1)+" that is not a PEM block (malformed or truncated), which will be ignored")
 			break
 		}
+		consumed := before[:len(before)-len(rest)]
+		if !bytes.HasPrefix(bytes.TrimSpace(consumed), []byte(begin)) || bytes.Count(consumed, []byte(begin)) != 1 {
+			problems = append(problems, "data before block "+strconv.Itoa(i)+" that is not a PEM block (malformed or truncated), which will be ignored")
+		}
 		if block.Type != "CERTIFICATE" {
-			cr.logger.Warnf("Block %d of the CA from Secret %s/%s[%s] is a %q, not a certificate, and will be ignored",
-				i, system.Namespace(), netcfg.ServingRoutingCertName, certificates.CaCertName, block.Type)
+			problems = append(problems, "block "+strconv.Itoa(i)+" that is a "+strconv.Quote(block.Type)+", not a certificate, which will be ignored")
 			continue
 		}
 		ca, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
-			cr.logger.Warnf("Certificate %d of the CA from Secret %s/%s[%s] is invalid and will be ignored: %v",
-				i, system.Namespace(), netcfg.ServingRoutingCertName, certificates.CaCertName, err)
+			problems = append(problems, "certificate "+strconv.Itoa(i)+" that is invalid and will be ignored: "+err.Error())
 			continue
 		}
-		pool.AddCert(ca)
-		added++
+		certs = append(certs, ca)
 	}
-	if added == 0 {
-		cr.logger.Warnf("CA from Secret %s/%s[%s] contains no valid certificate and will be ignored",
-			system.Namespace(), netcfg.ServingRoutingCertName, certificates.CaCertName)
-	}
+	return certs, problems
 }
 
 func (cr *CertCache) addTrustBundles(pool *x509.CertPool) {
