@@ -216,7 +216,7 @@ jobs:
     - name: Test ${{ matrix.test-suite }}
       run: |
         gotestsum --format testname -- \
-          -race -count=1 -tags=e2e \
+          -race -count=1 -parallel=1 -tags=e2e \
           -timeout=35m \
           ${{ matrix.test-path }} \
           -skip-cleanup-on-fail \
