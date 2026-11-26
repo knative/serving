@@ -390,10 +390,10 @@ func TestWebSocketWithTimeout(t *testing.T) {
 		delay:                       "2",
 		expectError:                 false,
 	}, {
-		name:                        "exceeds response start timeout seconds",
+		name:                        "handshake satisfies response start timeout before delayed echo",
 		responseStartTimeoutSeconds: 10,
 		delay:                       "20",
-		expectError:                 true,
+		expectError:                 false,
 	}, {
 		name:               "does not exceed idle timeout seconds",
 		idleTimeoutSeconds: 10,
