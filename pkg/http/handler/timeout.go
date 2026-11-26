@@ -155,18 +155,15 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// timeoutWriter is a wrapper around an http.ResponseWriter. It guards
-// writing an error response to whether or not the underlying writer has
-// already been written to.
-//
-// If the underlying writer has not been written to, an error response is
-// returned. If it has already been written to, the error is ignored and
-// the response is allowed to continue.
+// timeoutWriter coordinates response writes, hijacking, and timeout handling.
+// The mutex guards response activity, timeout state, and operations on the
+// underlying ResponseWriter, including the transition to hijacking.
 type timeoutWriter struct {
 	w     http.ResponseWriter
 	clock clock.PassiveClock
 
 	mu            sync.Mutex
+	hijacked      bool
 	timedOut      bool
 	lastWriteTime time.Time
 }
@@ -198,7 +195,39 @@ func (tw *timeoutWriter) Flush() {
 // http.Hijacker interface, which is required for net/http/httputil/reverseproxy
 // to handle connection upgrade/switching protocol.  Otherwise returns an error.
 func (tw *timeoutWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	return websocket.HijackIfPossible(tw.w)
+	tw.mu.Lock()
+	defer tw.mu.Unlock()
+	if tw.timedOut {
+		return nil, nil, http.ErrHandlerTimeout
+	}
+
+	conn, rw, err := websocket.HijackIfPossible(tw.w)
+	if err != nil {
+		return nil, nil, err
+	}
+	tw.hijacked = true
+
+	// Both the upgrade response and subsequent protocol traffic bypass the
+	// ResponseWriter. Track both write paths so the handshake satisfies the
+	// response-start timeout and later writes reset the idle timeout.
+	wrapped := &hijackedConn{Conn: conn, tw: tw}
+	rw.Writer.Reset(wrapped)
+	return wrapped, rw, nil
+}
+
+// hijackedConn records outbound write attempts after a connection is hijacked.
+// The timeoutWriter lock is not held during network I/O, so a blocked write
+// cannot prevent the timeout handler from cancelling the request.
+type hijackedConn struct {
+	net.Conn
+	tw *timeoutWriter
+}
+
+func (c *hijackedConn) Write(p []byte) (int, error) {
+	c.tw.mu.Lock()
+	c.tw.lastWriteTime = c.tw.clock.Now()
+	c.tw.mu.Unlock()
+	return c.Conn.Write(p)
 }
 
 func (tw *timeoutWriter) Header() http.Header { return tw.w.Header() }
@@ -224,11 +253,10 @@ func (tw *timeoutWriter) WriteHeader(code int) {
 	tw.w.WriteHeader(code)
 }
 
-// tryTimeoutAndWriteError writes an error to the responsewriter if it hasn't
-// been written to the writer before. Returns whether an error was written or not.
-//
-// If this writes an error, all subsequent calls to Write will
-// result in http.ErrHandlerTimeout.
+// tryTimeoutAndWriteError applies the overall timeout unless already timed out.
+// It writes an HTTP error unless the connection is hijacked, and returns whether
+// the timeout was applied. Subsequent ResponseWriter writes return
+// http.ErrHandlerTimeout.
 func (tw *timeoutWriter) tryTimeoutAndWriteError(msg string) bool {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
@@ -241,12 +269,9 @@ func (tw *timeoutWriter) tryTimeoutAndWriteError(msg string) bool {
 	return false
 }
 
-// tryResponseStartTimeoutAndWriteError writes an error to the responsewriter if
-// the response has not started responding before. Returns whether an error was
-// written or not.
-//
-// If this writes an error, all subsequent calls to Write will
-// result in http.ErrHandlerTimeout.
+// tryResponseStartTimeoutAndWriteError applies the response-start timeout if no
+// response activity has been recorded. It returns whether the timeout was applied
+// and writes an HTTP error unless the connection is hijacked.
 func (tw *timeoutWriter) tryResponseStartTimeoutAndWriteError(msg string) bool {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
@@ -259,12 +284,9 @@ func (tw *timeoutWriter) tryResponseStartTimeoutAndWriteError(msg string) bool {
 	return false
 }
 
-// tryIdleTimeoutAndWriteError writes an error to the responsewriter if
-// nothing has been written to the writer within the idleTimeout period. Returns whether
-// an error was written or not and time left to the next timeout
-//
-// If this writes an error, all subsequent calls to Write will
-// result in http.ErrHandlerTimeout.
+// tryIdleTimeoutAndWriteError applies the idle timeout if no response activity
+// has occurred within idleTimeout. It returns whether the timeout was applied and
+// the time remaining otherwise. It writes an HTTP error unless hijacked.
 func (tw *timeoutWriter) tryIdleTimeoutAndWriteError(curTime time.Time, idleTimeout time.Duration, msg string) (timedOut bool, timeToNextTimeout time.Duration) {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
@@ -279,8 +301,12 @@ func (tw *timeoutWriter) tryIdleTimeoutAndWriteError(curTime time.Time, idleTime
 }
 
 func (tw *timeoutWriter) timeoutAndWriteError(msg string) {
-	tw.w.WriteHeader(http.StatusGatewayTimeout)
-	io.WriteString(tw.w, msg)
+	// HTTP responses cannot be written after hijacking. ServeHTTP cancels the
+	// request context instead, causing ReverseProxy to close the connection.
+	if !tw.hijacked {
+		tw.w.WriteHeader(http.StatusGatewayTimeout)
+		io.WriteString(tw.w, msg)
+	}
 
 	tw.timedOut = true
 }
