@@ -35,7 +35,6 @@ header "Running tests"
 
 failed=0
 
-# Run tests serially in the mesh and https scenarios.
 GO_TEST_FLAGS=()
 E2E_TEST_FLAGS=()
 
@@ -57,10 +56,6 @@ if (( HTTPS )); then
   add_trap "kubectl delete -f ${E2E_YAML_DIR}/test/config/externaldomaintls/certmanager/caissuer/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
   # we need to restart the pod in order to start the net-certmanager-controller
   restart_pod "${SYSTEM_NAMESPACE}" "app=controller"
-fi
-
-if (( MESH )); then
-  GO_TEST_FLAGS+=("-parallel=1")
 fi
 
 if (( SHORT )); then
