@@ -431,6 +431,91 @@ func TestWebSocketWithTimeout(t *testing.T) {
 	}
 }
 
+// TestWebSocketMessagesPreventTimeout verifies that an initial response satisfies
+// the response-start timeout and that ongoing responses reset the idle timeout.
+// See https://github.com/knative/serving/issues/16169.
+func TestWebSocketMessagesPreventTimeout(t *testing.T) {
+	clients := Setup(t)
+
+	// Bound stalled client I/O independently of the revision timeouts under test.
+	const exchangeTimeout = 30 * time.Second
+
+	testCases := []struct {
+		name                        string
+		responseStartTimeoutSeconds int64
+		idleTimeoutSeconds          int64
+		duration                    time.Duration
+		messageInterval             time.Duration
+	}{{
+		name:                        "response_start",
+		responseStartTimeoutSeconds: 10,
+		duration:                    15 * time.Second,
+		messageInterval:             15 * time.Second,
+	}, {
+		name:               "idle",
+		idleTimeoutSeconds: 10,
+		duration:           30 * time.Second,
+		messageInterval:    time.Second,
+	}}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			names := test.ResourceNames{
+				Service: test.ObjectNameForTest(t),
+				Image:   wsServerTestImageName,
+			}
+			test.EnsureTearDown(t, clients, &names)
+
+			_, err := v1test.CreateServiceReady(t, clients, &names,
+				rtesting.WithRevisionTimeoutSeconds(120),
+				rtesting.WithRevisionResponseStartTimeoutSeconds(tc.responseStartTimeoutSeconds),
+				rtesting.WithRevisionIdleTimeoutSeconds(tc.idleTimeoutSeconds))
+			if err != nil {
+				t.Fatal("Failed to create WebSocket server:", err)
+			}
+			conn, err := connect(t, clients, names.URL.Hostname(), NoDelay)
+			if err != nil {
+				t.Fatal("Failed to connect to websocket:", err)
+			}
+			defer conn.Close()
+
+			start := time.Now()
+			echo := func() {
+				t.Helper()
+				deadline := time.Now().Add(exchangeTimeout)
+				err := conn.SetWriteDeadline(deadline)
+				if err != nil {
+					t.Fatal("Failed to set write deadline:", err)
+				}
+				err = conn.SetReadDeadline(deadline)
+				if err != nil {
+					t.Fatal("Failed to set read deadline:", err)
+				}
+				err = conn.WriteMessage(websocket.TextMessage, []byte(message))
+				if err != nil {
+					t.Fatalf("Write failed after %v: %v", time.Since(start), err)
+				}
+				kind, got, err := conn.ReadMessage()
+				if err != nil {
+					t.Fatalf("Read failed after %v: %v", time.Since(start), err)
+				}
+				if kind != websocket.TextMessage || string(got) != message {
+					t.Fatalf("Echo = (%d, %q), want (%d, %q)", kind, got, websocket.TextMessage, message)
+				}
+			}
+
+			echo()
+			t.Log("Initial echo succeeded; keeping the connection open beyond the timeout deadline")
+			until := time.Now().Add(tc.duration)
+			for time.Now().Before(until) {
+				time.Sleep(min(tc.messageInterval, time.Until(until)))
+				echo()
+			}
+			t.Logf("WebSocket survived for %v after its initial echo", tc.duration)
+		})
+	}
+}
+
 func abs(a int) int {
 	if a < 0 {
 		return -a
