@@ -104,7 +104,7 @@ function git_push() {
   local git_args=$@
   # Subshell (parentheses) used to prevent GITHUB_TOKEN from printing in log
   (set +x;
-   [[ -n "${GITHUB_TOKEN}}" ]] && repo_url="${repo_url/:\/\//:\/\/${GITHUB_TOKEN}@}";
+   [[ -n "${GITHUB_TOKEN}" ]] && repo_url="${repo_url/:\/\//:\/\/${GITHUB_TOKEN}@}";
    git push "${repo_url}" ${git_args} )
 }
 

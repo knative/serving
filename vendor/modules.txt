@@ -1525,10 +1525,10 @@ knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/injection/informers/factory/fake
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/hack v0.0.0-20261120142159-5e9b644b541f
+# knative.dev/hack v0.0.0-20261126142104-562bef61fc20
 ## explicit; go 1.24
 knative.dev/hack
-# knative.dev/networking v0.0.0-20261123011602-e5e5c8504b0d
+# knative.dev/networking v0.0.0-20261124022803-b89db3dbd9b2
 ## explicit; go 1.26.0
 knative.dev/networking/config
 knative.dev/networking/pkg/apis/networking
