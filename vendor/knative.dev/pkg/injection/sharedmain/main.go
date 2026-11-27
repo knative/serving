@@ -308,7 +308,26 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 	// So make sure that we have synchronized our configuration state before launching the
 	// webhooks, so that things are properly initialized.
 	logger.Info("Starting configmap watcher...")
-	if err := cmw.Start(ctx.Done()); err != nil {
+	if len(webhooks) > 0 {
+		var stopConfigWatch context.CancelFunc
+		stopConfigWatch, err = startConfigMapWatcherForDrain(ctx, cmw)
+		defer stopConfigWatch()
+	} else {
+		err = cmw.Start(ctx.Done())
+	}
+	// Register cleanup after stopConfigWatch so HTTP draining finishes before
+	// the ConfigMap watcher is stopped. This also cleans up startup cancellation.
+	defer func() {
+		pprof.Shutdown(context.Background())
+		// Don't forward ErrServerClosed as that indicates we're already shutting down.
+		if err := eg.Wait(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Errorw("Error while running server", zap.Error(err))
+		}
+	}()
+	if ctx.Err() != nil {
+		return
+	}
+	if err != nil {
 		logger.Fatalw("Failed to start configmap watcher", zap.Error(err))
 	}
 
@@ -347,13 +366,19 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 	// This will block until either a signal arrives or one of the grouped functions
 	// returns an error.
 	<-egCtx.Done()
+}
 
-	pprof.Shutdown(context.Background())
+// startConfigMapWatcherForDrain respects shutdown during initial sync,
+// then keeps watching until the caller stops it after HTTP draining.
+func startConfigMapWatcherForDrain(ctx context.Context, watcher configmap.Watcher) (context.CancelFunc, error) {
+	watchCtx := context.WithoutCancel(ctx)
+	watchCtx, stop := context.WithCancel(watchCtx)
 
-	// Don't forward ErrServerClosed as that indicates we're already shutting down.
-	if err := eg.Wait(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		logger.Errorw("Error while running server", zap.Error(err))
-	}
+	stopOnShutdown := context.AfterFunc(ctx, stop)
+	err := watcher.Start(watchCtx.Done())
+	stopOnShutdown()
+
+	return stop, err
 }
 
 type healthProbesDisabledKey struct{}
