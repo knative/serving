@@ -264,7 +264,9 @@ func validateMetric(c *autoscalerconfig.Config, m map[string]string) *apis.Field
 
 func validateInitialScale(config *autoscalerconfig.Config, m map[string]string) *apis.FieldError {
 	if k, v, ok := InitialScaleAnnotation.Get(m); ok {
-		initScaleInt, err := strconv.Atoi(v)
+		// Parse with the same int32 bound PodAutoscaler.InitialScale uses, so a
+		// value accepted here is never silently ignored by the autoscaler.
+		initScaleInt, err := strconv.ParseInt(v, 10, 32)
 		if err != nil {
 			return apis.ErrInvalidValue(v, k)
 		} else if initScaleInt < 0 {
