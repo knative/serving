@@ -18,67 +18,71 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-source $(dirname $0)/../vendor/knative.dev/hack/codegen-library.sh
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+MODULE_NAME="$(go list -m)"
+boilerplate="hack/boilerplate/boilerplate.go.txt"
 
-echo "=== Update Codegen for $MODULE_NAME"
+function injection() {
+  local output_dir=$1 client_pkg=$2
+  shift 2
+  go run knative.dev/pkg/codegen/cmd/injection-gen \
+    --versioned-clientset-package "${client_pkg}/clientset/versioned" \
+    --external-versions-informers-package "${client_pkg}/informers/externalversions" \
+    --listers-package "${client_pkg}/listers" \
+    --output-package "${MODULE_NAME}/${output_dir}" \
+    --output-dir "${output_dir}" \
+    --go-header-file "${boilerplate}" \
+    "$@"
+}
 
-group "Knative Codegen"
+echo "=== Update Codegen for ${MODULE_NAME}"
+echo "=== Knative Codegen"
+
+# Discover Kubernetes API packages, excluding unsupported groups and alpha APIs.
+K8S_TYPES=$(go list k8s.io/api/... |
+  grep -Ev '/(abac|admission|componentconfig|imagepolicy|resource|storagemigration)/|alpha' |
+  LC_ALL=C sort | paste -sd , -)
 
 # Knative Injection
-${REPO_ROOT_DIR}/hack/generate-knative.sh "injection" \
-  knative.dev/pkg/client knative.dev/pkg/apis \
-  "duck:v1alpha1,v1beta1,v1" \
-  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
+injection client/injection knative.dev/pkg/client \
+  --input-dirs=knative.dev/pkg/apis/duck/{v1alpha1,v1beta1,v1}
 
-# Based on: https://github.com/kubernetes/kubernetes/blob/8ddabd0da5cc54761f3216c08e99fa1a9f7ee2c5/hack/lib/init.sh#L116
-# The '-path' is a hack to workaround the lack of portable `-depth 2`.
-K8S_TYPES=$(find ./vendor/k8s.io/api -type d -path '*/*/*/*/*/*' | cut -d'/' -f 5-6 | sort | sed 's@/@:@g' |
-  grep -v "abac:" | \
-  grep -v "admission:" | \
-  grep -v "componentconfig:" | \
-  grep -v "imagepolicy:" | \
-  grep -v "resource:" | \
-  grep -v "storagemigration:" | \
-  grep -v "alpha" \
+# Kubernetes Injection
+kube_reconciler_kinds=(
+  Namespace
+  ConfigMap
+  Deployment
+  Secret
+  Service
+  Pod
+  CronJob
+  NetworkPolicy
+  Node
+  ValidatingWebhookConfiguration
+  MutatingWebhookConfiguration
+  ServiceAccount
 )
+injection client/injection/kube k8s.io/client-go \
+  --input-dirs "${K8S_TYPES}" \
+  --versioned-clientset-package k8s.io/client-go/kubernetes \
+  --external-versions-informers-package k8s.io/client-go/informers \
+  --force-genreconciler-kinds "$(IFS=,; echo "${kube_reconciler_kinds[*]}")"
 
-OUTPUT_PKG="knative.dev/pkg/client/injection/kube" \
-VERSIONED_CLIENTSET_PKG="k8s.io/client-go/kubernetes" \
-EXTERNAL_INFORMER_PKG="k8s.io/client-go/informers" \
-  ${REPO_ROOT_DIR}/hack/generate-knative.sh "injection" \
-    k8s.io/client-go \
-    k8s.io/api \
-    "${K8S_TYPES}" \
-    --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt \
-    --force-genreconciler-kinds "Namespace,ConfigMap,Deployment,Secret,Service,Pod,CronJob,NetworkPolicy,Node,ValidatingWebhookConfiguration,MutatingWebhookConfiguration,ServiceAccount"
+# API Extensions Injection
+injection client/injection/apiextensions k8s.io/apiextensions-apiserver/pkg/client \
+  --input-dirs=k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/{v1beta1,v1} \
+  --versioned-clientset-package k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset \
+  --force-genreconciler-kinds "CustomResourceDefinition"
 
-OUTPUT_PKG="knative.dev/pkg/client/injection/apiextensions" \
-VERSIONED_CLIENTSET_PKG="k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset" \
-  ${REPO_ROOT_DIR}/hack/generate-knative.sh "injection" \
-    k8s.io/apiextensions-apiserver/pkg/client \
-    k8s.io/apiextensions-apiserver/pkg/apis \
-    "apiextensions:v1beta1,v1" \
-    --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt \
-    --force-genreconciler-kinds "CustomResourceDefinition"
+echo "=== Kubernetes Codegen"
 
-
-group "Kubernetes Codegen"
-
-# Only deepcopy the Duck types, as they are not real resources.
+# Only generate deepcopy helpers; Duck types are not real resources.
 go run k8s.io/code-generator/cmd/deepcopy-gen \
   --output-file zz_generated.deepcopy.go \
-  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt \
-  knative.dev/pkg/apis \
-  knative.dev/pkg/apis/duck/v1alpha1 \
-  knative.dev/pkg/apis/duck/v1beta1 \
-  knative.dev/pkg/apis/duck/v1 \
-  knative.dev/pkg/tracker \
-  knative.dev/pkg/logging \
-  knative.dev/pkg/testing \
-  knative.dev/pkg/testing/duck \
-  knative.dev/pkg/webhook/resourcesemantics/conversion/internal
+  --go-header-file "${boilerplate}" \
+  ./...
 
-group "Update deps post-codegen"
+echo "=== Update deps post-codegen"
 
-# Make sure our dependencies are up-to-date
-${REPO_ROOT_DIR}/hack/update-deps.sh
+# Make sure our dependencies are up-to-date.
+./hack/update-deps.sh

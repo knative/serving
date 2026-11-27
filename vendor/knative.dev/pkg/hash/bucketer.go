@@ -80,8 +80,9 @@ func (b *Bucket) Has(nn types.NamespacedName) bool {
 // Buckets creates a new list of all possible Bucket based on this bucketset
 // ordered by bucket name.
 func (bs *BucketSet) Buckets() []reconciler.Bucket {
-	bkts := make([]reconciler.Bucket, len(bs.buckets))
-	for i, n := range bs.BucketList() {
+	list := bs.BucketList()
+	bkts := make([]reconciler.Bucket, len(list))
+	for i, n := range list {
 		bkts[i] = &Bucket{
 			name:    n,
 			buckets: bs,
@@ -116,6 +117,8 @@ func GetAny(s sets.Set[string]) (string, bool) {
 
 // HasBucket returns true if this BucketSet has the given bucket name.
 func (bs *BucketSet) HasBucket(bkt string) bool {
+	bs.mu.RLock()
+	defer bs.mu.RUnlock()
 	return bs.buckets.Has(bkt)
 }
 
