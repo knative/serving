@@ -307,7 +307,7 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 // ContainerMask performs a _shallow_ copy of the Kubernetes Container object to a new
 // Kubernetes Container object bringing over only the fields allowed in the Knative API. This
 // does not validate the contents or the bounds of the provided fields.
-func ContainerMask(in *corev1.Container) *corev1.Container {
+func ContainerMask(ctx context.Context, in *corev1.Container) *corev1.Container {
 	if in == nil {
 		return nil
 	}
@@ -329,6 +329,9 @@ func ContainerMask(in *corev1.Container) *corev1.Container {
 	out.Resources = in.Resources
 	out.SecurityContext = in.SecurityContext
 	out.StartupProbe = in.StartupProbe
+	if IsInitContainer(ctx) && config.FromContextOrDefaults(ctx).Features.PodSpecInitContainers == config.Enabled {
+		out.RestartPolicy = in.RestartPolicy
+	}
 	out.TerminationMessagePath = in.TerminationMessagePath
 	out.TerminationMessagePolicy = in.TerminationMessagePolicy
 	out.VolumeMounts = in.VolumeMounts

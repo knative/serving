@@ -30,6 +30,14 @@ import (
 
 func TestConfigurationSpec(t *testing.T) {
 	s := createService()
+	s.Spec.Template.Spec.InitContainers = []corev1.Container{{
+		Name: "helper", Image: "example.com/helper",
+		RestartPolicy: new(corev1.ContainerRestartPolicyAlways),
+		StartupProbe:  &corev1.Probe{ProbeHandler: corev1.ProbeHandler{Exec: &corev1.ExecAction{Command: []string{"true"}}}},
+	}, {
+		Name: "helper-without-probe", Image: "example.com/helper",
+		RestartPolicy: new(corev1.ContainerRestartPolicyAlways),
+	}}
 	s.Annotations = kmap.Union(s.Annotations,
 		map[string]string{
 			serving.RolloutDurationKey: "2021s",
@@ -37,6 +45,9 @@ func TestConfigurationSpec(t *testing.T) {
 	)
 
 	c := MakeConfiguration(s)
+	if diff := cmp.Diff(s.Spec.Template.Spec.InitContainers, c.Spec.Template.Spec.InitContainers); diff != "" {
+		t.Errorf("init containers (-want +got): %s", diff)
+	}
 	if got, want := c.Name, testServiceName; got != want {
 		t.Errorf("Service name = %q; want: %q", got, want)
 	}

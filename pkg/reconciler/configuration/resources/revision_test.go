@@ -32,6 +32,22 @@ import (
 
 var fakeCurTime = time.Unix(1e9, 20102021)
 
+func TestMakeRevisionPreservesNativeSidecars(t *testing.T) {
+	c := &v1.Configuration{}
+	c.Spec.Template.Spec.InitContainers = []corev1.Container{{
+		Name: "helper", Image: "example.com/helper",
+		RestartPolicy: new(corev1.ContainerRestartPolicyAlways),
+		StartupProbe:  &corev1.Probe{ProbeHandler: corev1.ProbeHandler{Exec: &corev1.ExecAction{Command: []string{"true"}}}},
+	}, {
+		Name: "helper-without-probe", Image: "example.com/helper",
+		RestartPolicy: new(corev1.ContainerRestartPolicyAlways),
+	}}
+	r := MakeRevision(t.Context(), c, fakeCurTime)
+	if diff := cmp.Diff(c.Spec.Template.Spec.InitContainers, r.Spec.InitContainers); diff != "" {
+		t.Errorf("init containers (-want +got): %s", diff)
+	}
+}
+
 func TestMakeRevisions(t *testing.T) {
 	tm := fakeCurTime
 

@@ -1511,6 +1511,27 @@ func TestRevisionDefaulting(t *testing.T) {
 	}
 }
 
+func TestDefaultingPreservesNativeSidecarProbe(t *testing.T) {
+	r := &Revision{}
+	r.Spec.InitContainers = []corev1.Container{{
+		Name: "helper", Image: "example.com/helper",
+		RestartPolicy: new(corev1.ContainerRestartPolicyAlways),
+		StartupProbe: &corev1.Probe{
+			ProbeHandler:        corev1.ProbeHandler{Exec: &corev1.ExecAction{Command: []string{"true"}}},
+			InitialDelaySeconds: 5, PeriodSeconds: 2, TimeoutSeconds: 1, FailureThreshold: 10,
+		},
+	}}
+	want := r.Spec.InitContainers[0].DeepCopy()
+	r.SetDefaults(t.Context())
+	got := r.Spec.InitContainers[0]
+	if diff := cmp.Diff(want.StartupProbe, got.StartupProbe); diff != "" {
+		t.Errorf("startup probe (-want +got): %s", diff)
+	}
+	if diff := cmp.Diff(want.RestartPolicy, got.RestartPolicy); diff != "" {
+		t.Errorf("restart policy (-want +got): %s", diff)
+	}
+}
+
 func TestRevisionDefaultingContainerName(t *testing.T) {
 	got := &Revision{
 		Spec: RevisionSpec{
