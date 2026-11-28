@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"net"
 	"net/http"
 	"strconv"
 	"sync"
@@ -212,10 +213,22 @@ func newServiceScraperWithClient(
 	}
 }
 
-var portAndPath = strconv.Itoa(networking.AutoscalingQueueMetricsPort) + "/metrics"
+const metricsPath = "/metrics"
+
+var (
+	metricsPort = strconv.Itoa(networking.AutoscalingQueueMetricsPort)
+	portAndPath = metricsPort + metricsPath
+)
 
 func urlFromTarget(t, ns string) string {
 	return fmt.Sprintf("http://%s.%s:", t, ns) + portAndPath
+}
+
+// urlFromPodIP returns the metrics URL of the pod with the given IP. The IP can
+// be an IPv6 address, so the host and port are joined with net.JoinHostPort,
+// which brackets it.
+func urlFromPodIP(ip string) string {
+	return "http://" + net.JoinHostPort(ip, metricsPort) + metricsPath
 }
 
 // Scrape calls the destination service then sends it
@@ -313,7 +326,7 @@ func (s *serviceScraper) scrapePods(window time.Duration) (Stat, error) {
 				}
 
 				// Scrape!
-				target := "http://" + pods[myIdx] + ":" + portAndPath
+				target := urlFromPodIP(pods[myIdx])
 				req, err := http.NewRequestWithContext(egCtx, http.MethodGet, target, nil)
 				if err != nil {
 					return err
