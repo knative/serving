@@ -373,6 +373,17 @@ func TestValidateAnnotations(t *testing.T) {
 		name:        "initial scale non-parseable",
 		annotations: map[string]string{InitialScaleAnnotationKey: "invalid"},
 		expectErr:   "invalid value: invalid: autoscaling.knative.dev/initial-scale",
+	}, {
+		name:        "initial scale is greater than int32 max",
+		annotations: map[string]string{InitialScaleAnnotationKey: "3000000000"},
+		expectErr:   "expected 0 <= 3000000000 <= 2147483647: " + InitialScaleAnnotationKey,
+	}, {
+		name:        "initial scale is int32 max plus one",
+		annotations: map[string]string{InitialScaleAnnotationKey: "2147483648"},
+		expectErr:   "expected 0 <= 2147483648 <= 2147483647: " + InitialScaleAnnotationKey,
+	}, {
+		name:        "initial scale is int32 max",
+		annotations: map[string]string{InitialScaleAnnotationKey: "2147483647"},
 	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

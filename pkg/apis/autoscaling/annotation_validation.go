@@ -264,8 +264,17 @@ func validateMetric(c *autoscalerconfig.Config, m map[string]string) *apis.Field
 
 func validateInitialScale(config *autoscalerconfig.Config, m map[string]string) *apis.FieldError {
 	if k, v, ok := InitialScaleAnnotation.Get(m); ok {
-		initScaleInt, err := strconv.Atoi(v)
+		// Parse the annotation with int32 width: every consumer of it
+		// (MakeDeployment, PodAutoscaler.annotationInt32) parses it as
+		// int32 and drops out-of-range values to 0. strconv.Atoi uses
+		// the platform's int, so on 64-bit platforms a value above
+		// math.MaxInt32 passed validation and was then silently turned
+		// into a zero-replica deployment.
+		initScaleInt, err := strconv.ParseInt(v, 10, 32)
 		if err != nil {
+			if errors.Is(err, strconv.ErrRange) {
+				return apis.ErrOutOfBoundsValue(v, 0, math.MaxInt32, k)
+			}
 			return apis.ErrInvalidValue(v, k)
 		} else if initScaleInt < 0 {
 			return apis.ErrInvalidValue(v, k+" must be greater than 0")
