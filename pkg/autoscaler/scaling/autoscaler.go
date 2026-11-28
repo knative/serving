@@ -208,12 +208,12 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 	desiredPanicPodCount := int32(math.Min(math.Max(dppc, maxScaleDown), maxScaleUp))
 
 	//	If ActivationScale > 1, then adjust the desired pod counts
-	if a.deciderSpec.ActivationScale > 1 {
-		if dspc > 0 && a.deciderSpec.ActivationScale > desiredStablePodCount {
-			desiredStablePodCount = a.deciderSpec.ActivationScale
+	if spec.ActivationScale > 1 {
+		if dspc > 0 && spec.ActivationScale > desiredStablePodCount {
+			desiredStablePodCount = spec.ActivationScale
 		}
-		if dppc > 0 && a.deciderSpec.ActivationScale > desiredPanicPodCount {
-			desiredPanicPodCount = a.deciderSpec.ActivationScale
+		if dppc > 0 && spec.ActivationScale > desiredPanicPodCount {
+			desiredPanicPodCount = spec.ActivationScale
 		}
 	}
 
@@ -262,7 +262,7 @@ func (a *autoscaler) Scale(logger *zap.SugaredLogger, now time.Time) ScaleResult
 	// not the same in the case where two Scale()s happen in the same time
 	// interval (because the largest will be picked rather than the most recent
 	// in that case).
-	if a.deciderSpec.Reachable && a.delayWindow != nil {
+	if spec.Reachable && a.delayWindow != nil {
 		a.delayWindow.Record(now, desiredPodCount)
 		delayedPodCount := a.delayWindow.Current()
 		if delayedPodCount != desiredPodCount {
