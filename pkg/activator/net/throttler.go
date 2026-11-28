@@ -18,7 +18,9 @@ package net
 
 import (
 	"context"
+	"math"
 	"net/http"
+	"slices"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -130,12 +132,12 @@ type breaker interface {
 // podTracker has available slots (when CC!=0).
 type revisionThrottler struct {
 	revID                types.NamespacedName
-	containerConcurrency int
-	lbPolicy             lbPolicy
+	containerConcurrency atomic.Uint32
+	lbPolicy             atomic.Value // Store lbPolicy function atomically
 
 	// These are used in slicing to infer which pods to assign
 	// to this activator.
-	numActivators atomic.Int32
+	numActivators atomic.Uint32
 	// If -1, it is presumed that this activator should not receive requests
 	// for the revision. But due to the system being distributed it might take
 	// time for everything to propagate. Thus when this is -1 we assign all the
@@ -168,7 +170,48 @@ type revisionThrottler struct {
 	logger *zap.SugaredLogger
 }
 
+// validateLoadBalancingPolicy checks if the given policy is valid
+func validateLoadBalancingPolicy(policy string) bool {
+	validPolicies := map[string]bool{
+		"random-choice-2":   true,
+		"round-robin":       true,
+		"least-connections": true,
+		"first-available":   true,
+	}
+	return validPolicies[policy]
+}
+
+func pickLBPolicy(loadBalancerPolicy *string, _ map[string]string, containerConcurrency int, logger *zap.SugaredLogger) (lbPolicy, string) {
+	// Honor explicit spec field first
+	if loadBalancerPolicy != nil && *loadBalancerPolicy != "" {
+		if !validateLoadBalancingPolicy(*loadBalancerPolicy) {
+			logger.Errorf("Invalid load balancing policy %q, using defaults", *loadBalancerPolicy)
+		} else {
+			switch *loadBalancerPolicy {
+			case "random-choice-2":
+				return randomChoice2Policy, "random-choice-2"
+			case "round-robin":
+				return newRoundRobinPolicy(), "round-robin"
+			case "least-connections":
+				return leastConnectionsPolicy, "least-connections"
+			case "first-available":
+				return firstAvailableLBPolicy, "first-available"
+			}
+		}
+	}
+	// Fall back to containerConcurrency-based defaults
+	switch {
+	case containerConcurrency == 0:
+		return randomChoice2Policy, "random-choice-2 (default for CC=0)"
+	case containerConcurrency <= 3:
+		return firstAvailableLBPolicy, "first-available (default for CC<=3)"
+	default:
+		return newRoundRobinPolicy(), "round-robin (default for CC>3)"
+	}
+}
+
 func newRevisionThrottler(revID types.NamespacedName,
+	loadBalancerPolicy *string,
 	containerConcurrency int, proto string,
 	breakerParams queue.BreakerParams,
 	logger *zap.SugaredLogger,
@@ -177,28 +220,37 @@ func newRevisionThrottler(revID types.NamespacedName,
 	var (
 		revBreaker breaker
 		lbp        lbPolicy
+		lbpName    string
 	)
-	switch {
-	case containerConcurrency == 0:
+
+	lbp, lbpName = pickLBPolicy(loadBalancerPolicy, nil, containerConcurrency, logger)
+	logger.Infof("Creating revision throttler with load balancing policy: %s, container concurrency: %d", lbpName, containerConcurrency)
+
+	if containerConcurrency == 0 {
 		revBreaker = newInfiniteBreaker(logger)
-		lbp = randomChoice2Policy
-	case containerConcurrency <= 3:
-		// For very low CC values use first available pod.
+	} else {
 		revBreaker = queue.NewBreaker(breakerParams)
-		lbp = firstAvailableLBPolicy
-	default:
-		// Otherwise RR.
-		revBreaker = queue.NewBreaker(breakerParams)
-		lbp = newRoundRobinPolicy()
 	}
 	t := &revisionThrottler{
-		revID:                revID,
-		containerConcurrency: containerConcurrency,
-		breaker:              revBreaker,
-		logger:               logger,
-		protocol:             proto,
-		lbPolicy:             lbp,
+		revID:       revID,
+		breaker:     revBreaker,
+		logger:      logger,
+		protocol:    proto,
+		podTrackers: []*podTracker{},
 	}
+	if containerConcurrency < 0 {
+		containerConcurrency = 0
+	}
+	// Safe conversion: containerConcurrency is guaranteed to be non-negative after the check above
+	var cc uint32
+	if containerConcurrency >= 0 && containerConcurrency <= math.MaxUint32 {
+		cc = uint32(containerConcurrency)
+	} else if containerConcurrency > math.MaxUint32 {
+		// Cap at max value if containerConcurrency exceeds uint32 range
+		cc = math.MaxUint32
+	}
+	t.containerConcurrency.Store(cc)
+	t.lbPolicy.Store(lbp)
 
 	// Start with unknown
 	t.activatorIndex.Store(-1)
@@ -216,7 +268,8 @@ func (rt *revisionThrottler) acquireDest(ctx context.Context) (func(), *podTrack
 	if rt.clusterIPTracker != nil {
 		return noop, rt.clusterIPTracker, true
 	}
-	f, lbTracker := rt.lbPolicy(ctx, rt.assignedTrackers)
+	lbPolicy := rt.lbPolicy.Load().(lbPolicy)
+	f, lbTracker := lbPolicy(ctx, rt.assignedTrackers)
 	return f, lbTracker, false
 }
 
@@ -254,17 +307,17 @@ func (rt *revisionThrottler) calculateCapacity(backendCount, numTrackers, activa
 		// when using pod direct routing.
 		// We use number of assignedTrackers (numTrackers) for calculation
 		// since assignedTrackers means activator's capacity
-		targetCapacity = rt.containerConcurrency * numTrackers
+		targetCapacity = int(rt.containerConcurrency.Load()) * numTrackers
 	} else {
 		// Capacity is computed off of number of ready backends,
 		// when we are using clusterIP routing.
-		targetCapacity = rt.containerConcurrency * backendCount
+		targetCapacity = int(rt.containerConcurrency.Load()) * backendCount
 		if targetCapacity > 0 {
 			targetCapacity = minOneOrValue(targetCapacity / minOneOrValue(activatorCount))
 		}
 	}
 
-	if (backendCount > 0) && (rt.containerConcurrency == 0 || targetCapacity > revisionMaxConcurrency) {
+	if (backendCount > 0) && (rt.containerConcurrency.Load() == 0 || targetCapacity > revisionMaxConcurrency) {
 		// If cc==0, we need to pick a number, but it does not matter, since
 		// infinite breaker will dole out as many tokens as it can.
 		// For cc>0 we clamp targetCapacity to maxConcurrency because the backing
@@ -279,12 +332,13 @@ func (rt *revisionThrottler) calculateCapacity(backendCount, numTrackers, activa
 // This makes sure we reset the capacity to the CC, since the pod
 // might be reassigned to be exclusively used.
 func (rt *revisionThrottler) resetTrackers() {
-	if rt.containerConcurrency <= 0 {
+	cc := int(rt.containerConcurrency.Load())
+	if cc <= 0 {
 		return
 	}
 	for _, t := range rt.podTrackers {
 		// Reset to default.
-		t.UpdateConcurrency(rt.containerConcurrency)
+		t.UpdateConcurrency(cc)
 	}
 }
 
@@ -312,7 +366,7 @@ func (rt *revisionThrottler) updateCapacity(backendCount int) {
 			return rt.podTrackers[i].dest < rt.podTrackers[j].dest
 		})
 		assigned := rt.podTrackers
-		if rt.containerConcurrency > 0 {
+		if rt.containerConcurrency.Load() > 0 {
 			rt.resetTrackers()
 			assigned = assignSlice(rt.podTrackers, ai, ac)
 		}
@@ -397,7 +451,7 @@ func assignSlice(trackers []*podTracker, selfIndex, numActivators int) []*podTra
 	// 1. we have 20 pods and 3 activators -> we'd get 2 remnants so activator with index 0,1 would each pick up a unique tracker
 	// 2. we have 24 pods and 5 activators -> we'd get 4 remnants so the activator 0,1,2,3 would each pick up a unique tracker
 	bi, ei, remnants := pickIndices(lt, selfIndex, numActivators)
-	x := append(trackers[:0:0], trackers[bi:ei]...)
+	x := slices.Clone(trackers)[bi:ei]
 	if remnants > 0 {
 		tail := trackers[len(trackers)-remnants:]
 		if len(tail) > selfIndex {
@@ -431,13 +485,14 @@ func (rt *revisionThrottler) handleUpdate(update revisionDestsUpdate) {
 		for newDest := range update.Dests {
 			tracker, ok := trackersMap[newDest]
 			if !ok {
-				if rt.containerConcurrency == 0 {
+				cc := int(rt.containerConcurrency.Load())
+				if cc == 0 {
 					tracker = newPodTracker(newDest, nil)
 				} else {
 					tracker = newPodTracker(newDest, queue.NewBreaker(queue.BreakerParams{
 						QueueDepth:      breakerQueueDepth,
-						MaxConcurrency:  rt.containerConcurrency,
-						InitialCapacity: rt.containerConcurrency, // Presume full unused capacity.
+						MaxConcurrency:  cc,
+						InitialCapacity: cc, // Presume full unused capacity.
 					}))
 				}
 			}
@@ -546,8 +601,14 @@ func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*r
 		if err != nil {
 			return nil, err
 		}
+		// Get load balancing policy from annotation
+		var lbPolicy *string
+		if _, v, ok := serving.LoadBalancingPolicyAnnotation.Get(rev.GetAnnotations()); ok && v != "" {
+			lbPolicy = &v
+		}
 		revThrottler = newRevisionThrottler(
 			revID,
+			lbPolicy,
 			int(rev.Spec.GetContainerConcurrency()),
 			pkgnet.ServicePortName(rev.GetProtocol()),
 			queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: revisionMaxConcurrency},
@@ -560,21 +621,45 @@ func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*r
 
 // revisionUpdated is used to ensure we have a backlog set up for a revision as soon as it is created
 // rather than erroring with revision not found until a networking probe succeeds
-func (t *Throttler) revisionUpdated(obj interface{}) {
+func (t *Throttler) revisionUpdated(obj any) {
 	rev := obj.(*v1.Revision)
 	revID := types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name}
 
 	t.logger.Debug("Revision update", zap.String(logkey.Key, revID.String()))
 
-	if _, err := t.getOrCreateRevisionThrottler(revID); err != nil {
+	if rt, err := t.getOrCreateRevisionThrottler(revID); err != nil {
 		t.logger.Errorw("Failed to get revision throttler for revision",
 			zap.Error(err), zap.String(logkey.Key, revID.String()))
+	} else if rt != nil {
+		// Update the lbPolicy dynamically if the revision's annotation policy changed
+		containerConcurrency := rev.Spec.GetContainerConcurrency()
+		if containerConcurrency < 0 {
+			containerConcurrency = 0
+		}
+		// Get load balancing policy from annotation
+		var lbPolicy *string
+		if _, v, ok := serving.LoadBalancingPolicyAnnotation.Get(rev.GetAnnotations()); ok && v != "" {
+			lbPolicy = &v
+		}
+		newPolicy, name := pickLBPolicy(lbPolicy, nil, int(containerConcurrency), t.logger)
+		// Use atomic store for lock-free access in the hot request path
+		rt.lbPolicy.Store(newPolicy)
+		// Safe conversion: containerConcurrency is guaranteed to be non-negative after the check above
+		var cc uint32
+		if containerConcurrency >= 0 && containerConcurrency <= math.MaxUint32 {
+			cc = uint32(containerConcurrency)
+		} else if containerConcurrency > math.MaxUint32 {
+			// Cap at max value if containerConcurrency exceeds uint32 range
+			cc = math.MaxUint32
+		}
+		rt.containerConcurrency.Store(cc)
+		t.logger.Infof("Updated revision throttler LB policy to: %s", name)
 	}
 }
 
 // revisionDeleted is to clean up revision throttlers after a revision is deleted to prevent unbounded
 // memory growth
-func (t *Throttler) revisionDeleted(obj interface{}) {
+func (t *Throttler) revisionDeleted(obj any) {
 	acc, err := kmeta.DeletionHandlingAccessor(obj)
 	if err != nil {
 		t.logger.Warnw("Revision delete failure to process", zap.Error(err))
@@ -641,12 +726,14 @@ func (rt *revisionThrottler) handlePubEpsUpdate(eps *corev1.Endpoints, selfIP st
 	}
 
 	na, ai := rt.numActivators.Load(), rt.activatorIndex.Load()
-	if na == newNA && ai == newAI {
+	if newNA >= 0 && na == uint32(newNA) && ai == newAI {
 		// The state didn't change, do nothing
 		return
 	}
 
-	rt.numActivators.Store(newNA)
+	if newNA >= 0 {
+		rt.numActivators.Store(uint32(newNA))
+	}
 	rt.activatorIndex.Store(newAI)
 	rt.logger.Infof("This activator index is %d/%d was %d/%d",
 		newAI, newNA, ai, na)
@@ -670,7 +757,7 @@ func inferIndex(eps []string, ipAddress string) int {
 	return idx
 }
 
-func (t *Throttler) publicEndpointsUpdated(newObj interface{}) {
+func (t *Throttler) publicEndpointsUpdated(newObj any) {
 	endpoints := newObj.(*corev1.Endpoints)
 	t.logger.Info("Updated public Endpoints: ", endpoints.Name)
 	t.epsUpdateCh <- endpoints

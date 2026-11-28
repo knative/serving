@@ -198,6 +198,8 @@ type Defaults struct {
 
 	ContainerConcurrency int64
 
+	LoadBalancingPolicy *string
+
 	// ContainerConcurrencyMaxLimit is the maximum permitted container concurrency
 	// or target value in the system.
 	ContainerConcurrencyMaxLimit int64
