@@ -491,6 +491,17 @@ func TestScaler(t *testing.T) {
 			k.Annotations[autoscaling.InitialScaleAnnotationKey] = "5"
 		},
 	}, {
+		label:         "initial scale does not exceed maxScale",
+		startReplicas: 0,
+		scaleTo:       1,
+		maxScale:      2,
+		wantReplicas:  2,
+		wantScaling:   true,
+		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
+			paMarkActivating(k, time.Now())
+			k.Annotations[autoscaling.InitialScaleAnnotationKey] = "5"
+		},
+	}, {
 		label:         "reaching initial scale zero",
 		startReplicas: 0,
 		scaleTo:       0,
@@ -505,6 +516,52 @@ func TestScaler(t *testing.T) {
 			c.Autoscaler.AllowZeroInitialScale = true
 		},
 	}, {
+		label:         "initial scale with maxScale = 0 (unlimited)",
+		startReplicas: 0,
+		scaleTo:       1,
+		maxScale:      0,
+		wantReplicas:  5,
+		wantScaling:   true,
+		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
+			paMarkActivating(k, time.Now())
+			k.Annotations[autoscaling.InitialScaleAnnotationKey] = "5"
+		},
+	}, {
+		label:         "initial scale <= 1 respects desired scale within maxScale",
+		startReplicas: 0,
+		scaleTo:       1,
+		maxScale:      2,
+		wantReplicas:  1,
+		wantScaling:   true,
+		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
+			paMarkActivating(k, time.Now())
+			k.Annotations[autoscaling.InitialScaleAnnotationKey] = "1"
+		},
+	}, {
+		label:         "minScale < maxScale < initialScale clamps to maxScale",
+		startReplicas: 0,
+		scaleTo:       1,
+		minScale:      2,
+		maxScale:      4,
+		wantReplicas:  4,
+		wantScaling:   true,
+		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
+			paMarkActivating(k, time.Now())
+			k.Annotations[autoscaling.InitialScaleAnnotationKey] = "6"
+		},
+	}, {
+		label:         "initialScale < minScale < maxScale respects minScale",
+		startReplicas: 0,
+		scaleTo:       1,
+		minScale:      3,
+		maxScale:      5,
+		wantReplicas:  3,
+		wantScaling:   true,
+		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
+			paMarkActivating(k, time.Now())
+			k.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
+		},
+	}, {
 		label:         "unreachable revision with initialScale > 1 can scale to 0",
 		startReplicas: 2,
 		scaleTo:       0,
@@ -516,6 +573,32 @@ func TestScaler(t *testing.T) {
 			k.Annotations[autoscaling.InitialScaleAnnotationKey] = "2"
 			// Mark as unreachable (routingState = "reserve")
 			k.Spec.Reachability = autoscalingv1alpha1.ReachabilityUnreachable
+		},
+	}, {
+		label:         "unreachable revision with initialScale > maxScale can scale to 0",
+		startReplicas: 2,
+		scaleTo:       0,
+		maxScale:      2,
+		wantReplicas:  1, // First we deactivate and scale to 1.
+		wantScaling:   true,
+		wantCBCount:   1,
+		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
+			paMarkActive(k, time.Now().Add(-2*time.Minute))
+			k.Annotations[autoscaling.InitialScaleAnnotationKey] = "5"
+			// Mark as unreachable (routingState = "reserve")
+			k.Spec.Reachability = autoscalingv1alpha1.ReachabilityUnreachable
+		},
+	}, {
+		label:         "already initialized scale target ignores initialScale exceeding maxScale",
+		startReplicas: 2,
+		scaleTo:       1,
+		maxScale:      2,
+		wantReplicas:  1,
+		wantScaling:   true,
+		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
+			paMarkActive(k, time.Now().Add(-2*time.Minute))
+			k.Status.MarkScaleTargetInitialized()
+			k.Annotations[autoscaling.InitialScaleAnnotationKey] = "5"
 		},
 	}}
 
