@@ -425,6 +425,16 @@ func TestIsClusterLocal(t *testing.T) {
 			domain: "my-app.cluster.local",
 			want:   true,
 		},
+		{
+			name:   "domain is the cluster domain itself",
+			domain: "cluster.local",
+			want:   true,
+		},
+		{
+			name:   "domain only ends with the same letters as the cluster domain",
+			domain: "my-app.mycluster.local",
+			want:   false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
