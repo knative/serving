@@ -236,7 +236,7 @@ func validateProgressDeadlineAnnotation(annos map[string]string) *apis.FieldErro
 			}
 		}
 		// And positive.
-		if d < 0 {
+		if d <= 0 {
 			return &apis.FieldError{
 				Message: fmt.Sprintf("progress-deadline=%s must be positive", v),
 				Paths:   []string{k},
