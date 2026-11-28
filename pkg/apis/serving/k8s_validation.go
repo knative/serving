@@ -381,18 +381,18 @@ func validateEnvFrom(envFromList []corev1.EnvFromSource) *apis.FieldError {
 		if sm != nil {
 			errs = errs.Also(apis.CheckDisallowedFields(*sm, *SecretEnvSourceMask(sm)).ViaIndex(i))
 			errs = errs.Also(apis.CheckDisallowedFields(
-				sm.LocalObjectReference, *LocalObjectReferenceMask(&sm.LocalObjectReference))).ViaIndex(i).ViaField("secretRef")
+				sm.LocalObjectReference, *LocalObjectReferenceMask(&sm.LocalObjectReference)).ViaField("secretRef").ViaIndex(i))
 		}
 
 		if cm != nil {
 			errs = errs.Also(apis.CheckDisallowedFields(*cm, *ConfigMapEnvSourceMask(cm)).ViaIndex(i))
 			errs = errs.Also(apis.CheckDisallowedFields(
-				cm.LocalObjectReference, *LocalObjectReferenceMask(&cm.LocalObjectReference))).ViaIndex(i).ViaField("configMapRef")
+				cm.LocalObjectReference, *LocalObjectReferenceMask(&cm.LocalObjectReference)).ViaField("configMapRef").ViaIndex(i))
 		}
 		if cm != nil && sm != nil {
-			errs = errs.Also(apis.ErrMultipleOneOf("configMapRef", "secretRef"))
+			errs = errs.Also(apis.ErrMultipleOneOf("configMapRef", "secretRef").ViaIndex(i))
 		} else if cm == nil && sm == nil {
-			errs = errs.Also(apis.ErrMissingOneOf("configMapRef", "secretRef"))
+			errs = errs.Also(apis.ErrMissingOneOf("configMapRef", "secretRef").ViaIndex(i))
 		}
 	}
 	return errs
