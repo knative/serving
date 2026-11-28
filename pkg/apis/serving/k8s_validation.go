@@ -887,7 +887,7 @@ func validateProbe(p *corev1.Probe, port *corev1.ContainerPort, isUserContainer 
 
 	if h.HTTPGet != nil {
 		handlers = append(handlers, "httpGet")
-		errs = errs.Also(apis.CheckDisallowedFields(*h.HTTPGet, *HTTPGetActionMask(h.HTTPGet))).ViaField("httpGet")
+		errs = errs.Also(apis.CheckDisallowedFields(*h.HTTPGet, *HTTPGetActionMask(h.HTTPGet)).ViaField("httpGet"))
 		getPort := h.HTTPGet.Port
 		if isUserContainer {
 			if getPort.StrVal != "" && getPort.StrVal != port.Name {
@@ -901,7 +901,7 @@ func validateProbe(p *corev1.Probe, port *corev1.ContainerPort, isUserContainer 
 	}
 	if h.TCPSocket != nil {
 		handlers = append(handlers, "tcpSocket")
-		errs = errs.Also(apis.CheckDisallowedFields(*h.TCPSocket, *TCPSocketActionMask(h.TCPSocket))).ViaField("tcpSocket")
+		errs = errs.Also(apis.CheckDisallowedFields(*h.TCPSocket, *TCPSocketActionMask(h.TCPSocket)).ViaField("tcpSocket"))
 		tcpPort := h.TCPSocket.Port
 		if isUserContainer {
 			if tcpPort.StrVal != "" && tcpPort.StrVal != port.Name {
@@ -915,11 +915,11 @@ func validateProbe(p *corev1.Probe, port *corev1.ContainerPort, isUserContainer 
 	}
 	if h.Exec != nil {
 		handlers = append(handlers, "exec")
-		errs = errs.Also(apis.CheckDisallowedFields(*h.Exec, *ExecActionMask(h.Exec))).ViaField("exec")
+		errs = errs.Also(apis.CheckDisallowedFields(*h.Exec, *ExecActionMask(h.Exec)).ViaField("exec"))
 	}
 	if h.GRPC != nil {
-		handlers = append(handlers, "gRPC")
-		errs = errs.Also(apis.CheckDisallowedFields(*h.GRPC, *GRPCActionMask(h.GRPC))).ViaField("grpc")
+		handlers = append(handlers, "grpc")
+		errs = errs.Also(apis.CheckDisallowedFields(*h.GRPC, *GRPCActionMask(h.GRPC)).ViaField("grpc"))
 	}
 
 	if len(handlers) == 0 {
