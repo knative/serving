@@ -39,7 +39,8 @@ type Config struct {
 
 // FromContext obtains a Config injected into the passed context.
 func FromContext(ctx context.Context) *Config {
-	return ctx.Value(cfgKey{}).(*Config)
+	cfg, _ := ctx.Value(cfgKey{}).(*Config)
+	return cfg
 }
 
 // FromContextOrDefaults is like FromContext, but when no Config is attached it
