@@ -19,6 +19,7 @@ package v1
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -193,7 +194,7 @@ func validateQueueSidecarResourceAnnotations(m map[string]string) *apis.FieldErr
 	if k, v, ok := serving.QueueSidecarResourcePercentageAnnotation.Get(m); ok {
 		errs = apis.ErrGeneric("Queue proxy resource percentage annotation is deprecated. Please use the available annotations to explicitly set resource values per service").ViaKey(k).At(apis.WarningLevel)
 		value, err := strconv.ParseFloat(v, 64)
-		if err != nil {
+		if err != nil || math.IsNaN(value) {
 			errs = errs.Also(apis.ErrInvalidValue(v, apis.CurrentField).ViaKey(k))
 		} else if value < 0.1 || value > 100 {
 			errs = errs.Also(apis.ErrOutOfBoundsValue(value, 0.1, 100.0, apis.CurrentField).ViaKey(k))
