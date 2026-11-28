@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/version: devel
   annotations:
-    knative.dev/example-checksum: "2ce43e90"
+    knative.dev/example-checksum: "810e2377"
 data:
   _example: |-
     ################################
@@ -225,7 +225,9 @@ data:
     # 2. Disabled: disabling CSI volume support
     kubernetes.podspec-volumes-csi: "disabled"
 
-    # Controls whether init containers support is enabled or not.
+    # Controls whether init containers support is enabled or not, including
+    # restartPolicy: Always with optional startup probes. Readiness/liveness
+    # probes and lifecycle hooks remain unsupported on init containers.
     # 1. Enabled: enabling init containers support
     # 2. Disabled: disabling init containers support
     kubernetes.podspec-init-containers: "disabled"

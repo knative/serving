@@ -298,7 +298,7 @@ func TestContainerMask(t *testing.T) {
 		TTY:                      true,
 	}
 
-	got := ContainerMask(in)
+	got := ContainerMask(t.Context(), in)
 
 	if &want == &got {
 		t.Error("Input and output share addresses. Want different addresses")
@@ -310,7 +310,7 @@ func TestContainerMask(t *testing.T) {
 		t.Error("ContainerMask (-want, +got):", diff)
 	}
 
-	if got = ContainerMask(nil); got != nil {
+	if got = ContainerMask(t.Context(), nil); got != nil {
 		t.Errorf("ContainerMask(nil) = %v, want: nil", got)
 	}
 }

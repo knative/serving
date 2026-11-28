@@ -47,21 +47,12 @@ func main() {
 	}
 
 	// HTTP/TCP Probe.
-	healthy = true
-	var mu sync.Mutex
-	if env := os.Getenv("READY_DELAY"); env != "" {
-		delay, err := time.ParseDuration(env)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		healthy = false
-		go func() {
-			time.Sleep(delay)
-			mu.Lock()
-			healthy = true
-			mu.Unlock()
-		}()
+	blocked := os.Getenv("STARTUP_BLOCKED") == "true"
+	if err := initializeHealth(blocked, os.Getenv("READY_DELAY")); err != nil {
+		log.Fatal(err)
+	}
+	if blocked {
+		log.Print("startup health is blocked until POST /start-succeeding")
 	}
 
 	if env := os.Getenv("LISTEN_DELAY"); env != "" {
@@ -76,6 +67,9 @@ func main() {
 	mainServer := http.NewServeMux()
 	mainServer.HandleFunc("/", handleMain)
 	mainServer.HandleFunc("/start-failing", handleStartFailing)
+	if blocked {
+		mainServer.HandleFunc("/start-succeeding", handleStartSucceeding)
+	}
 	// When the same image is used for a sidecar container, it is possible to give it
 	// a signal to start failing readiness. The request is sent to $FORWARD_PORT in the sidecar.
 	mainServer.HandleFunc("/start-failing-sidecar", handleStartFailingSidecar)
@@ -97,6 +91,45 @@ func main() {
 	mainServer.HandleFunc("/query", handleQuery)
 
 	http.ListenAndServe(":"+getServerPort(), mainServer)
+}
+
+func initializeHealth(blocked bool, readyDelay string) error {
+	if blocked && readyDelay != "" {
+		return fmt.Errorf("STARTUP_BLOCKED cannot be combined with READY_DELAY")
+	}
+	mu.Lock()
+	healthy = !blocked
+	mu.Unlock()
+	if readyDelay != "" {
+		delay, err := time.ParseDuration(readyDelay)
+		if err != nil {
+			return err
+		}
+
+		mu.Lock()
+		healthy = false
+		mu.Unlock()
+		go func() {
+			time.Sleep(delay)
+			mu.Lock()
+			healthy = true
+			mu.Unlock()
+		}()
+	}
+
+	return nil
+}
+
+func handleStartSucceeding(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		http.Error(w, "use POST to release startup health", http.StatusMethodNotAllowed)
+		return
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	healthy = true
+	fmt.Fprint(w, "will now pass startup health")
 }
 
 func execProbeMain() {

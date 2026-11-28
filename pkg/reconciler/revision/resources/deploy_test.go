@@ -1910,3 +1910,34 @@ func TestMakeDeployment(t *testing.T) {
 		})
 	}
 }
+
+func TestDeploymentPreservesNativeSidecars(t *testing.T) {
+	r := revision("bar", "foo", withContainers([]corev1.Container{{
+		Name: servingContainerName, Image: "example.com/application",
+		Ports: []corev1.ContainerPort{{ContainerPort: 8080}},
+	}}))
+	r.Spec.InitContainers = []corev1.Container{{
+		Name: "helper", Image: "example.com/helper",
+		RestartPolicy: new(corev1.ContainerRestartPolicyAlways),
+		StartupProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
+				Path: "/health", Port: intstr.FromInt(9000),
+			}},
+			PeriodSeconds: 2, TimeoutSeconds: 1, FailureThreshold: 10,
+		},
+	}, {
+		Name: "helper-without-probe", Image: "example.com/helper",
+		RestartPolicy: new(corev1.ContainerRestartPolicyAlways),
+	}}
+	want := r.Spec.DeepCopy().InitContainers
+	d, err := MakeDeployment(r, revConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff(want, d.Spec.Template.Spec.InitContainers); diff != "" {
+		t.Errorf("init containers (-want +got): %s", diff)
+	}
+	if diff := cmp.Diff(want, r.Spec.InitContainers); diff != "" {
+		t.Errorf("input init containers mutated (-want +got): %s", diff)
+	}
+}

@@ -575,8 +575,13 @@ func validateSidecarContainer(ctx context.Context, container corev1.Container, v
 }
 
 func validateInitContainer(ctx context.Context, container corev1.Container, volumes map[string]corev1.Volume) (errs *apis.FieldError) {
-	// This is checked at the K8s side for init containers so better validate early if possible
-	// ref: https://bit.ly/3tLZJV1
+	ctx = WithinInitContainer(ctx)
+	restartable := container.RestartPolicy != nil && *container.RestartPolicy == corev1.ContainerRestartPolicyAlways
+	if container.RestartPolicy != nil && !restartable {
+		errs = errs.Also(apis.ErrInvalidValue(*container.RestartPolicy, "restartPolicy", "Only Always is allowed for init containers"))
+	}
+	// Ordinary init containers cannot have probes. Native sidecars may use a
+	// startup probe to gate subsequent initialization and regular containers.
 	if container.LivenessProbe != nil {
 		errs = errs.Also(&apis.FieldError{
 			Message: "field not allowed in an init container",
@@ -590,10 +595,14 @@ func validateInitContainer(ctx context.Context, container corev1.Container, volu
 		})
 	}
 	if container.StartupProbe != nil {
-		errs = errs.Also(&apis.FieldError{
-			Message: "field not allowed in an init container",
-			Paths:   []string{"startupProbe"},
-		})
+		if restartable && config.FromContextOrDefaults(ctx).Features.PodSpecInitContainers == config.Enabled {
+			errs = errs.Also(validateProbe(container.StartupProbe, nil, false).ViaField("startupProbe"))
+		} else {
+			errs = errs.Also(&apis.FieldError{
+				Message: "field not allowed in an init container",
+				Paths:   []string{"startupProbe"},
+			})
+		}
 	}
 	if container.Lifecycle != nil {
 		errs = errs.Also(&apis.FieldError{
@@ -601,7 +610,7 @@ func validateInitContainer(ctx context.Context, container corev1.Container, volu
 			Paths:   []string{"lifecycle"},
 		})
 	}
-	return errs.Also(validate(WithinInitContainer(ctx), container, volumes))
+	return errs.Also(validate(ctx, container, volumes))
 }
 
 // ValidateUserContainer validate fields for serving containers
@@ -620,7 +629,7 @@ func validate(ctx context.Context, container corev1.Container, volumes map[strin
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 
-	errs := apis.CheckDisallowedFields(container, *ContainerMask(&container))
+	errs := apis.CheckDisallowedFields(container, *ContainerMask(ctx, &container))
 
 	if reservedContainerNames.Has(container.Name) {
 		errs = errs.Also(&apis.FieldError{
